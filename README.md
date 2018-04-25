@@ -1,4 +1,4 @@
-TERP
+C64-ZTERP
 =======
 Johan Berntsson, 2018
 

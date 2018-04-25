@@ -10,4 +10,4 @@ end .word   0
 
 sector_address = $2000  ; just an example
 
-#include "src/memory.s"
+#include "memory.s"
