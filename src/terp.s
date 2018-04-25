@@ -9,9 +9,10 @@ end     .word   0
         .)
 
 sector_address = $2000  ; just an example
-        ; open the channel file
 
-        LDA #cname_end-cname
+readsector
+        ; open the channel file
+        LDA #cname_len
         LDX #<cname
         LDY #>cname
         JSR $FFBD     ; call SETNAM
@@ -29,7 +30,7 @@ skip
 
         ; open the command channel
 
-        LDA #uname_end-uname
+        LDA #uname_len
         LDX #<uname
         LDY #>uname
         JSR $FFBD     ; call SETNAM
@@ -78,8 +79,11 @@ error
         inc $d021
         JMP close    ; even if OPEN failed, the file has to be closed
 
-cname:  .TEXT "#"
-cname_end:
+cname
+        .asc "#"
+cname_len = * - cname
 
-uname:  .TEXT "U1 2 0 1 0"
-uname_end:
+uname
+        .asc "U1 2 0 18 0"
+uname_len = * - uname
+
