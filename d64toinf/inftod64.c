@@ -1,8 +1,17 @@
+/* README!
+ * This program is an extended version of inftod64 (see below).
+ * If NEWFORMAT is defined, then the program will only store the
+ * Z-machine story code, and not the interpreter, and will also
+ * story it in a more packed format to use the floppy more efficiently
+ * The mode will also update BAM on 18/0 so that other programs can
+ * later be added.
+ * The additions were written by Johan Berntsson
+ */
+#define NEWFORMAT 1
+
 #define PRGNAME "InfToD64"
 #define PRGVERSION "3.02"
 #define PRGDATE "22.5.2001"
-
-#define NEWBAM 1
 
 /*
  *  inftod64.c
@@ -296,6 +305,34 @@ main (int argc, char **argv)
   if ((version == 4) || (version == 5))
     file_length = file_length * 2L;
 
+#ifdef NEWFORMAT
+    if (version != 3) ex ("NEWFORMAT only supports version 3");
+    transzero (1);
+    transinter (16, 1);	/* track 1 */
+    transzero (4);
+    transinter (16, 1);	/* track 2 */
+    transzero (47);
+    write (fdo1, databuf, 256);	/* track 5 */
+    transdata (16, 1);
+    transzero (4);
+    for (i = 6; i < 17; i++) {
+        transdata (17, 1);
+        transzero (4);
+    }
+    transinter (1, 1);	/* track 17 */
+    transzero (9);
+    transinter (1, 1);
+    transzero (9);
+    transinter (1, 1);
+    trans1801(); /* track 18 */
+    trans1802();
+    transdata (17, 1);
+    for (i = 19; i < 36; i++) {
+        transdata (17, 1);
+        if (i <= 30) transzero (1);
+        if (i <= 24) transzero (1);
+    }
+#else
   if (version == 3)
     {
       transzero (1);
@@ -316,12 +353,7 @@ main (int argc, char **argv)
       transinter (1, 1);
       transzero (9);
       transinter (1, 1);
-#ifdef NEWBAM
-      trans1801();
-      trans1802();
-#else
       transinter (2, 1);    /* track 18 */
-#endif
       transdata (17, 1);
       for (i = 19; i < 36; i++)
 	{
@@ -361,6 +393,7 @@ main (int argc, char **argv)
       transinter (50, 1);
       transzero (238);
     }
+#endif
 
   if ((version == 3) && (read (fdi2, databuf, 256) != 0))
     ex ("V3 datafile longer than 130560 bytes, create failed");
