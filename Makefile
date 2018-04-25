@@ -325,7 +325,8 @@ test: d64
 d64:
 	mkdir -p obj
 	xa -o obj/terp src/terp.s
-	c1541 -format ${D64NAME},00 d64 ${D64NAME}.d64
+	#c1541 -format ${D64NAME},00 d64 ${D64NAME}.d64
+	cp d64toinf/dejavu.d64 ${D64NAME}.d64
 	c1541 -attach ${D64NAME}.d64 -write obj/terp ${D64NAME}
 	c1541 -attach ${D64NAME}.d64 $(foreach dsc, $(wildcard ${D64FOLDER}/*), -write $(dsc))
 
