@@ -28,4 +28,4 @@ d64:
 	c1541 -attach ${D64NAME}.d64 $(foreach dsc, $(wildcard ${D64FOLDER}/*), -write $(dsc))
 
 clean:
-	rm -rf obj c64-zterp.d64
+	rm -rf obj ozmoo.d64
