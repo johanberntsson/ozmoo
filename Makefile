@@ -5,7 +5,8 @@ D64FOLDER := d64data
 # Command used to run the emulator.
 # Default: depending on target platform.
 # For default (c64) target: x64 -kernal kernal -VICIIdsize -autostart
-EMUCMD := x64 -kernal kernal -VICIIdsize -autostart
+#EMUCMD := x64 -kernal kernal -VICIIdsize -autostart
+EMUCMD := x64 -warp -kernal kernal -VICIIdsize -autostart
 # Optional commands used before and after the emulation process
 # Default: none
 PREEMUCMD :=
@@ -20,10 +21,10 @@ test: d64
 
 d64:
 	mkdir -p obj
-	xa -o obj/terp terp.s
+	xa -o obj/main main.s
 	#c1541 -format ${D64NAME},00 d64 ${D64NAME}.d64
 	cp d64toinf/dejavu.d64 ${D64NAME}.d64
-	c1541 -attach ${D64NAME}.d64 -write obj/terp ${D64NAME}
+	c1541 -attach ${D64NAME}.d64 -write obj/main ${D64NAME}
 	c1541 -attach ${D64NAME}.d64 $(foreach dsc, $(wildcard ${D64FOLDER}/*), -write $(dsc))
 
 clean:

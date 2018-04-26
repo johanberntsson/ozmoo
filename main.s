@@ -7,7 +7,13 @@ basicstub
     .byt    $9e,"2061",0
 end .word   0
     .)
+    jmp initialise
 
+err .byt 0
+
+#include "memory.s"
+
+initialise
     ; read the header
     lda #$20    ; start in $2000
     ldx #$00    ; first sector to read
@@ -21,7 +27,3 @@ end .word   0
     jsr readsectors
 
     rts
-
-err .byt 0
-
-#include "memory.s"
