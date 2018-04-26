@@ -320,8 +320,13 @@ main (int argc, char **argv)
     file_length = file_length * 2L;
 
 #ifdef NEWFORMAT
-    for (i = 1; i < 17; i++) {
-        // data in track 1-16, sector 1-16 only
+    // data in track 1-16, sector 1-16 only
+    // first track need to store header first
+    write (fdo1, databuf, 256);
+    transdata (15, 1);
+    transzero (5);
+    // rest of the story tracks
+    for (i = 2; i < 17; i++) {
         transdata (16, 1);
         transzero (5);
     }

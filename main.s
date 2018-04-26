@@ -13,6 +13,8 @@ err .byt 0
 
 #include "memory.s"
 
+#define GAME_LENGTH $1a
+
 initialise
     ; read the header
     lda #$20    ; start in $2000
@@ -20,10 +22,16 @@ initialise
     ldy #$01    ; read 1 sector
     jsr readblocks
 
+    ; check file length
+    lda $201A
+    ASL
+    STA err
+    INC err
+
     ; read the rest
     lda #$21    ; start in $2100
     ldx #$01    ; first block to read
-    ldy #$10    ; read 16 sectors
+    ldy err    ; read 16 sectors
     jsr readblocks
 
     rts
