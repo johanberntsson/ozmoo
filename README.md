@@ -1,8 +1,10 @@
 Ozmoo
 =======
-Johan Berntsson, 2018
+(Ozmoo (spell): survive unnatural death, from Enchanter by Infocom)
 
 A Z-machine interpreter for the Commodore 64 
+
+Written by Johan Berntsson and Fredrik Ramsberg, 2018
 
 Building and running
 -----
