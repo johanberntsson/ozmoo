@@ -1,9 +1,82 @@
+mempos
+    .word $0000
+sector
+    .byt 0
+
++readsectors
+    .(
+    ; read <n> sectors (each 256 bytes) from disc to memory
+    ; x=start sector [in]
+    ; y=number of sectors to read [in]
+    ; a=start memory position ($<y>00) [in]
+    ; $err = error code [out]
+    sty cnt
+    stx sector
+    sta mempos + 1 ; memory position to store data in
+
+loop
+    ;ldx cnt
+    ;LDA #$00
+    ;JSR $BDCD      ; write counter
+    jsr readsector ; read sector
+    inc mempos+1   ; update mempos,sector for next iteration
+    inc sector
+    dec cnt        ; loop
+    bne loop
+    rts
+
+cnt .byt 0
+    .)
+
 +readsector
-    ; Input
-    ; Output
+    .(
+    ; read 1 sector
+    ; $mempos (contains address to store in) [in]
+    ; $err = error code [out]
+
+    ; convert sector to track/sector
+    ; (assuming 16 tracks, each with 16 sectors)
+    LDA sector
+    AND #$0f
+    STA floppy_sector
+    LDA sector
+    LSR
+    LSR
+    LSR
+    LSR
+    STA floppy_track
+    INC floppy_track ; tracks are 1..
+    
+    ; convert track/sector to ascii and update drive command
+    LDA #$30
+    STA uname_track
+    STA uname_track + 1
+    STA uname_sector
+    STA uname_sector + 1
+
+    LDA floppy_track
+    CMP #10
+    BCC small_track
+    LDA #$31
+    STA uname_track
+small_track 
+    CLC
+    ADC #$30
+    STA uname_track+1
+
+    LDA floppy_sector
+    CMP #10
+    BCC small_sector
+    LDA #$31
+    STA uname_sector
+small_sector 
+    CLC
+    ADC #$30
+    STA uname_sector+1
+
+    rts
 
     ; open the channel file
-    .(
     LDA #cname_len
     LDX #<cname
     LDY #>cname
@@ -40,9 +113,9 @@ skip
     LDX #$02      ; filenumber 2
     JSR $FFC6     ; call CHKIN (file 2 now used as input)
 
-    LDA #<sector_address
+    LDA mempos
     STA $AE
-    LDA #>sector_address
+    LDA mempos+1
     STA $AF
 
     LDY #$00
@@ -62,13 +135,10 @@ close
     inc $d020
     RTS
 error
-    ; Akkumulator contains BASIC error code
-
+    ; ackumulator contains BASIC error code
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
-
-    ; ... error handling for open errors ...
-    inc $d021
+    sta err
     JMP close    ; even if OPEN failed, the file has to be closed
 
 cname
@@ -76,7 +146,13 @@ cname
 cname_len = * - cname
 
 uname
-    .asc "U1 2 0 18 0"
+    .asc "U1 2 0 "
+uname_track
+    .asc "18 "
+uname_sector
+    .asc "00"
 uname_len = * - uname
+floppy_track .byt 0
+floppy_sector .byt 0
     .)
 

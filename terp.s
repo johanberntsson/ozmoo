@@ -1,6 +1,6 @@
 ; C64 Program Header
     .word   basicstub
-    *=$801
+    * = $0801
 basicstub
     .(
     .word   end, 1
@@ -8,6 +8,20 @@ basicstub
 end .word   0
     .)
 
-sector_address = $2000  ; just an example
+    ; read the header
+    lda #$20    ; start in $2000
+    ldx #$00    ; first sector to read
+    ldy #$01    ; read 1 sector
+    jsr readsectors
+
+    ; read the rest
+    lda #$21    ; start in $2000
+    ldx #$01    ; first sector to read
+    ldy #$10    ; read 1 sector
+    jsr readsectors
+
+    rts
+
+err .byt 0
 
 #include "memory.s"
