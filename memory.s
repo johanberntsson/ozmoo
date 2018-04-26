@@ -74,8 +74,6 @@ small_sector
     ADC #$30
     STA uname_sector+1
 
-    rts
-
     ; open the channel file
     LDA #cname_len
     LDX #<cname
