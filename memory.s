@@ -1,26 +1,26 @@
 mempos
     .word $0000
-sector
+block
     .byt 0
 
-+readsectors
++readblocks
     .(
-    ; read <n> sectors (each 256 bytes) from disc to memory
-    ; x=start sector [in]
-    ; y=number of sectors to read [in]
+    ; read <n> blocks (each 256 bytes) from disc to memory
+    ; x=start block [in]
+    ; y=number of blocks to read [in]
     ; a=start memory position ($<y>00) [in]
     ; $err = error code [out]
     sty cnt
-    stx sector
+    stx block
     sta mempos + 1 ; memory position to store data in
 
 loop
     ;ldx cnt
     ;LDA #$00
     ;JSR $BDCD      ; write counter
-    jsr readsector ; read sector
-    inc mempos+1   ; update mempos,sector for next iteration
-    inc sector
+    jsr readblock ; read block
+    inc mempos+1   ; update mempos,block for next iteration
+    inc block
     dec cnt        ; loop
     bne loop
     rts
@@ -28,24 +28,24 @@ loop
 cnt .byt 0
     .)
 
-+readsector
++readblock
     .(
-    ; read 1 sector
+    ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
     ; $err = error code [out]
 
-    ; convert sector to track/sector
+    ; convert block to track/sector
     ; (assuming 16 tracks, each with 16 sectors)
-    LDA sector
+    LDA block
     AND #$0f
-    STA floppy_sector
-    LDA sector
+    STA sector
+    LDA block
     LSR
     LSR
     LSR
     LSR
-    STA floppy_track
-    INC floppy_track ; tracks are 1..
+    STA track
+    INC track ; tracks are 1..
     
     ; convert track/sector to ascii and update drive command
     LDA #$30
@@ -54,7 +54,7 @@ cnt .byt 0
     STA uname_sector
     STA uname_sector + 1
 
-    LDA floppy_track
+    LDA track
     CMP #10
     BCC small_track
     LDA #$31
@@ -64,7 +64,7 @@ small_track
     ADC #$30
     STA uname_track+1
 
-    LDA floppy_sector
+    LDA sector
     CMP #10
     BCC small_sector
     LDA #$31
@@ -150,7 +150,7 @@ uname_track
 uname_sector
     .asc "00"
 uname_len = * - uname
-floppy_track .byt 0
-floppy_sector .byt 0
+track .byt 0
+sector .byt 0
     .)
 

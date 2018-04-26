@@ -16,14 +16,14 @@ err .byt 0
 initialise
     ; read the header
     lda #$20    ; start in $2000
-    ldx #$00    ; first sector to read
+    ldx #$00    ; first block to read
     ldy #$01    ; read 1 sector
-    jsr readsectors
+    jsr readblocks
 
     ; read the rest
-    lda #$21    ; start in $2000
-    ldx #$01    ; first sector to read
-    ldy #$10    ; read 1 sector
-    jsr readsectors
+    lda #$21    ; start in $2100
+    ldx #$01    ; first block to read
+    ldy #$10    ; read 16 sectors
+    jsr readblocks
 
     rts
