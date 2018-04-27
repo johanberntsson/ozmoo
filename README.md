@@ -1,6 +1,6 @@
 Ozmoo
 =======
-(Ozmoo (spell): survive unnatural death, from Enchanter by Infocom)
+*Ozmoo (spell): survive unnatural death*
 
 A Z-machine interpreter for the Commodore 64 
 
@@ -9,10 +9,12 @@ Written by Johan Berntsson and Fredrik Ramsberg, 2018
 Building and running
 -----
 
-You need to install the xa65 assembler and the vice C64 emulator.
+You need to install the Acme cross-assembler and the Vice C64 emulator.
 
-On Debian/Ubuntu:
-> sudo apt-get install xa65 vice
+Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
+
+Vice is available on Debian/Ubuntu with:
+> sudo apt-get install vice
 
 First enter d64toinf and type "make" to create an floppy containing a
 Z-machine story file in the old Infocom floppy format (dejavu.d64).
