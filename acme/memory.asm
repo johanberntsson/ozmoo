@@ -1,8 +1,3 @@
-.mempos
-    !word $0000
-.block
-    !byte 0
-
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; x=start block [in]
@@ -12,15 +7,11 @@ readblocks
     sty .cnt
     stx .block
     sta .mempos + 1 ; memory position to store data in
-.loop
-    ;ldx cnt
-    ;LDA #$00
-    ;JSR $BDCD      ; write counter
-    jsr .readblock ; read block
+-   jsr .readblock ; read block
     inc .mempos+1   ; update mempos,block for next iteration
     inc .block
     dec .cnt        ; loop
-    bne .loop
+    bne -
     rts
 
 .cnt !byte 0
@@ -52,21 +43,19 @@ readblocks
 
     LDA .track
     CMP #10
-    BCC .small_track
+    BCC +
     LDA #$31
     STA .uname_track
-.small_track 
-    CLC
++   CLC
     ADC #$30
     STA .uname_track+1
 
     LDA .sector
     CMP #10
-    BCC .small_sector
+    BCC +
     LDA #$31
     STA .uname_sector
-.small_sector 
-    CLC
++   CLC
     ADC #$30
     STA .uname_sector+1
 
@@ -78,10 +67,9 @@ readblocks
 
     LDA #$02      ; file number 2
     LDX $BA       ; last used device number
-    BNE .skip
+    BNE +
     LDX #$08      ; default to device 8
-.skip    
-    LDY #$02      ; secondary address 2
++   LDY #$02      ; secondary address 2
     JSR $FFBA     ; call SETLFS
 
     JSR $FFC0     ; call OPEN
@@ -113,11 +101,10 @@ readblocks
     STA $AF
 
     LDY #$00
-.loop2   
-    JSR $FFCF     ; call CHRIN (get a byte from file)
+-   JSR $FFCF     ; call CHRIN (get a byte from file)
     STA ($AE),Y   ; write byte to memory
     INY
-    BNE .loop2    ; next byte, end when 256 bytes are read
+    BNE -         ; next byte, end when 256 bytes are read
 .close
     LDA #$0F      ; filenumber 15
     JSR $FFC3     ; call CLOSE
@@ -135,17 +122,15 @@ readblocks
     sta err
     JMP .close    ; even if OPEN failed, the file has to be closed
 
-.cname
-    !pet "#"
+.cname !text "#"
 cname_len = * - .cname
 
-.uname
-    !pet "U1 2 0 "
-.uname_track
-    !pet "18 "
-.uname_sector
-    !pet "00"
+.uname !text "U1 2 0 "
+.uname_track !text "18 "
+.uname_sector !text "00"
 uname_len = * - .uname
+
 .track !byte 0
 .sector !byte 0
-
+.mempos !word $0000
+.block !byte 0

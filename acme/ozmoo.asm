@@ -1,6 +1,6 @@
 !source "basic-boot.asm"
 
-+start_at $0900
++start_at $080d
 
     jmp .initialise
 
@@ -29,6 +29,6 @@ err !byte 0
     lda #$21    ; start in $2100
     ldx #$01    ; first block to read
     ldy err    ; read 16 sectors
-    ;jsr readblocks
+    jsr readblocks
 
     rts
