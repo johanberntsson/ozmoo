@@ -3,7 +3,7 @@
 .block
     !byte 0
 
-.readblocks
+readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; x=start block [in]
     ; y=number of blocks to read [in]
@@ -12,7 +12,6 @@
     sty .cnt
     stx .block
     sta .mempos + 1 ; memory position to store data in
-
 .loop
     ;ldx cnt
     ;LDA #$00

@@ -1,21 +1,17 @@
-TARGETS := ozmoo
 C1541 := /usr/bin/c1541
 X64 := /usr/bin/x64
 
-.PRECIOUS: %.d64
+all: test
 
-all: $(TARGETS)
+d64: 
+	mkdir -p obj
+	acme --cpu 6510 --format cbm --outfile obj/ozmoo ozmoo.asm
+	cp ../d64toinf/dejavu.d64 ozmoo.d64
+	$(C1541) -attach ozmoo.d64 -write obj/ozmoo ozmoo
 
-%.prg: %.asm
-	acme --cpu 6510 --format cbm --outfile $@ $<
-
-%.d64: %.prg
-	cp ../d64toinf/dejavu.d64 $@
-	$(C1541) -attach $@ -write $< $(TARGETS)
-
-%: %.d64
-	$(X64) $<
+test: d64
+	$(X64) ozmoo.d64
 
 clean:
-	rm -f $(TARGETS) *.prg *.d64
+	rm -f obj ozmoo.d64
 
