@@ -1,101 +1,85 @@
-mempos
-    .word $0000
-block
-    .byt 0
-
-+readblocks
-    .(
+readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; x=start block [in]
     ; y=number of blocks to read [in]
     ; a=start memory position ($<y>00) [in]
     ; $err = error code [out]
-    sty cnt
-    stx block
-    sta mempos + 1 ; memory position to store data in
-
-loop
-    ;ldx cnt
-    ;LDA #$00
-    ;JSR $BDCD      ; write counter
-    jsr readblock ; read block
-    inc mempos+1   ; update mempos,block for next iteration
-    inc block
-    dec cnt        ; loop
-    bne loop
+    sty .cnt
+    stx .block
+    sta .mempos + 1 ; memory position to store data in
+-   jsr .readblock ; read block
+    inc .mempos+1   ; update mempos,block for next iteration
+    inc .block
+    dec .cnt        ; loop
+    bne -
     rts
 
-cnt .byt 0
-    .)
+.cnt !byte 0
 
-+readblock
-    .(
+.readblock
     ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
     ; $err = error code [out]
 
     ; convert block to track/sector
     ; (assuming 16 tracks, each with 16 sectors)
-    LDA block
+    LDA .block
     AND #$0f
-    STA sector
-    LDA block
+    STA .sector
+    LDA .block
     LSR
     LSR
     LSR
     LSR
-    STA track
-    INC track ; tracks are 1..
+    STA .track
+    INC .track ; tracks are 1..
     
     ; convert track/sector to ascii and update drive command
     LDA #$30
-    STA uname_track
-    STA uname_track + 1
-    STA uname_sector
-    STA uname_sector + 1
+    STA .uname_track
+    STA .uname_track + 1
+    STA .uname_sector
+    STA .uname_sector + 1
 
-    LDA track
+    LDA .track
     CMP #10
-    BCC small_track
+    BCC +
     LDA #$31
-    STA uname_track
-small_track 
-    CLC
+    STA .uname_track
++   CLC
     ADC #$30
-    STA uname_track+1
+    STA .uname_track+1
 
-    LDA sector
+    LDA .sector
     CMP #10
-    BCC small_sector
+    BCC +
     LDA #$31
-    STA uname_sector
-small_sector 
-    CLC
+    STA .uname_sector
++   CLC
     ADC #$30
-    STA uname_sector+1
+    STA .uname_sector+1
 
     ; open the channel file
     LDA #cname_len
-    LDX #<cname
-    LDY #>cname
+    LDX #<.cname
+    LDY #>.cname
     JSR $FFBD     ; call SETNAM
 
     LDA #$02      ; file number 2
     LDX $BA       ; last used device number
-    BNE skip
+    BNE +
     LDX #$08      ; default to device 8
-skip    
-    LDY #$02      ; secondary address 2
++   LDY #$02      ; secondary address 2
     JSR $FFBA     ; call SETLFS
 
     JSR $FFC0     ; call OPEN
-    BCS error    ; if carry set, the file could not be opened
+    BCS .error    ; if carry set, the file could not be opened
 
     ; open the command channel
 
     LDA #uname_len
-    LDX #<uname
-    LDY #>uname
+    LDX #<.uname
+    LDY #>.uname
     JSR $FFBD     ; call SETNAM
     LDA #$0F      ; file number 15
     LDX $BA       ; last used device number
@@ -103,7 +87,7 @@ skip
     JSR $FFBA     ; call SETLFS
 
     JSR $FFC0     ; call OPEN (open command channel and send U1 command)
-    BCS error    ; if carry set, the file could not be opened
+    BCS .error    ; if carry set, the file could not be opened
 
     ; check drive error channel here to test for
     ; FILE NOT FOUND error etc.
@@ -111,18 +95,17 @@ skip
     LDX #$02      ; filenumber 2
     JSR $FFC6     ; call CHKIN (file 2 now used as input)
 
-    LDA mempos
+    LDA .mempos
     STA $AE
-    LDA mempos+1
+    LDA .mempos+1
     STA $AF
 
     LDY #$00
-loop   
-    JSR $FFCF     ; call CHRIN (get a byte from file)
+-   JSR $FFCF     ; call CHRIN (get a byte from file)
     STA ($AE),Y   ; write byte to memory
     INY
-    BNE loop     ; next byte, end when 256 bytes are read
-close
+    BNE -         ; next byte, end when 256 bytes are read
+.close
     LDA #$0F      ; filenumber 15
     JSR $FFC3     ; call CLOSE
 
@@ -132,25 +115,22 @@ close
     JSR $FFCC     ; call CLRCHN
     inc $d020
     RTS
-error
+.error
     ; ackumulator contains BASIC error code
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
     sta err
-    JMP close    ; even if OPEN failed, the file has to be closed
+    JMP .close    ; even if OPEN failed, the file has to be closed
 
-cname
-    .asc "#"
-cname_len = * - cname
+.cname !text "#"
+cname_len = * - .cname
 
-uname
-    .asc "U1 2 0 "
-uname_track
-    .asc "18 "
-uname_sector
-    .asc "00"
-uname_len = * - uname
-track .byt 0
-sector .byt 0
-    .)
+.uname !text "U1 2 0 "
+.uname_track !text "18 "
+.uname_sector !text "00"
+uname_len = * - .uname
 
+.track !byte 0
+.sector !byte 0
+.mempos !word $0000
+.block !byte 0

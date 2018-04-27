@@ -1,21 +1,14 @@
-; C64 Program Header
-    .word   basicstub
-    * = $0801
-basicstub
-    .(
-    .word   end, 1
-    .byt    $9e,"2061",0
-end .word   0
-    .)
-    jmp initialise
+!source "basic-boot.asm"
 
-err .byt 0
++start_at $080d
 
-#include "memory.s"
+    jmp .initialise
 
-#define GAME_LENGTH $1a
+err !byte 0
 
-initialise
+!source "memory.asm"
+
+.initialise
     ; read the header
     lda #$20    ; start in $2000
     ldx #$00    ; first block to read
@@ -27,6 +20,10 @@ initialise
     ASL
     STA err
     INC err
+
+    ldx err
+    LDA #$00
+    JSR $BDCD      ; write counter
 
     ; read the rest
     lda #$21    ; start in $2100
