@@ -19,7 +19,39 @@ err !byte 0
 !source "memory.asm"
 
 ; ---- to be moved into a debug or screen library later on ----
+.print2
+    ; trying message passing with implicit argument(s)
+    ; usage:
+    ;    jsr .print2
+    ;    !text "message",0
+    ; is supposed to use stack pointer to print the message until 0,
+    ; then update the stack so that RTS return to next instruction
+    ; after the text
+    ;
+    PLA     ; remove LO for return address
+    STA .return_address + 1;
+    PLA     ; remove HI for return address
+    STA .return_address;
+
+-   LDA .return_address
+    INC .return_address + 1
+    BNE +
+    INC .return_address
++   JSR print_char
+    BNE -
+
+    LDA .return_address
+    PHA 
+    LDA .return_address + 1
+    PHA
+    RTS
+
+.return_address !word $0000
+
 .printstring
+    ;jsr .print2
+    ;!pet "hello:",0
+
     ; subroutine: print string
     lda #<.msg
     ldy #>.msg
