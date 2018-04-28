@@ -118,7 +118,7 @@ readblocks
 }
     RTS
 .error
-    ; ackumulator contains BASIC error code
+    ; accumulator contains BASIC error code
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
     sta err
