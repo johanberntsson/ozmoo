@@ -63,16 +63,16 @@ readblocks
     LDA #cname_len
     LDX #<.cname
     LDY #>.cname
-    JSR $FFBD     ; call SETNAM
+    JSR kernel_setnam ; call SETNAM
 
     LDA #$02      ; file number 2
     LDX $BA       ; last used device number
     BNE +
     LDX #$08      ; default to device 8
 +   LDY #$02      ; secondary address 2
-    JSR $FFBA     ; call SETLFS
+    JSR kernel_setlfs ; call SETLFS
 
-    JSR $FFC0     ; call OPEN
+    JSR kernel_open     ; call OPEN
     BCS .error    ; if carry set, the file could not be opened
 
     ; open the command channel
@@ -80,20 +80,20 @@ readblocks
     LDA #uname_len
     LDX #<.uname
     LDY #>.uname
-    JSR $FFBD     ; call SETNAM
+    JSR kernel_setnam ; call SETNAM
     LDA #$0F      ; file number 15
     LDX $BA       ; last used device number
     LDY #$0F      ; secondary address 15
-    JSR $FFBA     ; call SETLFS
+    JSR kernel_setlfs ; call SETLFS
 
-    JSR $FFC0     ; call OPEN (open command channel and send U1 command)
+    JSR kernel_open ; call OPEN (open command channel and send U1 command)
     BCS .error    ; if carry set, the file could not be opened
 
     ; check drive error channel here to test for
     ; FILE NOT FOUND error etc.
 
     LDX #$02      ; filenumber 2
-    JSR $FFC6     ; call CHKIN (file 2 now used as input)
+    JSR kernel_chkin ; call CHKIN (file 2 now used as input)
 
     LDA .mempos
     STA $AE
@@ -101,19 +101,21 @@ readblocks
     STA $AF
 
     LDY #$00
--   JSR $FFCF     ; call CHRIN (get a byte from file)
+-   JSR kernel_readchar ; call CHRIN (get a byte from file)
     STA ($AE),Y   ; write byte to memory
     INY
     BNE -         ; next byte, end when 256 bytes are read
 .close
     LDA #$0F      ; filenumber 15
-    JSR $FFC3     ; call CLOSE
+    JSR kernel_close ; call CLOSE
 
     LDA #$02      ; filenumber 2
-    JSR $FFC3     ; call CLOSE
+    JSR kernel_close ; call CLOSE
 
-    JSR $FFCC     ; call CLRCHN
-    inc $d020
+    JSR kernel_clrchn ; call CLRCHN
+!ifdef DEBUG {
+    inc $d020 
+}
     RTS
 .error
     ; ackumulator contains BASIC error code

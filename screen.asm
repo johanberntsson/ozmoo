@@ -5,9 +5,9 @@
 printx
     ; subroutine: print value stored in x register
     LDA #$00
-    JSR print_integer
+    JSR basic_printinteger
     LDA #13
-    JMP print_char
+    JMP kernel_printchar
 
 printstring
     ; print text (implicit argument passing)
@@ -32,7 +32,7 @@ printstring
 .return_address
     LDA $0000 ; self-modifying code (aaarg! but oh, so efficent)
     BEQ +
-    JSR print_char
+    JSR kernel_printchar
     JMP -
 
     ; put updated return address on stack
