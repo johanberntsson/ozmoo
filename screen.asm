@@ -12,18 +12,18 @@ printx
 printstring
     ; print text (implicit argument passing)
     ; usage:
-    ;    jsr .print2
+    ;    jsr .printstring
     ;    !text "message",0
     ; uses stack pointer to find start of text, then
     ; updates the stack so that execution continues
     ; directly after the end of the text
 
     ; store the return address
-    ; return address start -1 before the first character
+    ; the address on stack is -1 before the first character
     PLA  ; remove LO for return address
-    STA .return_address + 1; 13
+    STA .return_address + 1
     PLA  ; remove HI for return address
-    STA .return_address + 2; 09
+    STA .return_address + 2
 
     ; print the string
 -   INC .return_address + 1
