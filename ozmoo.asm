@@ -52,6 +52,7 @@ fileblocks !byte 0, 0
 !source "screen.asm"
 !source "memory.asm"
 !source "utilities.asm"
+!source "zmachine.asm"
 
 .initialize
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
@@ -129,6 +130,20 @@ fileblocks !byte 0, 0
     dey ; skip the header
     jsr readblocks
 
+	jsr zmachine_init
+	
+	jsr print_following_string
+	!pet "read byte at pc: ",0
+	jsr read_byte_at_zmachine_pc_then_inc
+	tax
+	jsr printx
+	
+	jsr print_following_string
+	!pet "read byte at pc + 1: ",0
+	jsr read_byte_at_zmachine_pc_then_inc
+	tax
+	jsr printx
+	
 	; Back to normal memory banks
 	ldx #%00110111
 	stx 1
