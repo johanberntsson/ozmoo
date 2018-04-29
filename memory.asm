@@ -5,7 +5,7 @@ read_zmachine_address
 	stx .load + 1
 	tya
 	clc
-	adc #<mem_start
+	adc #<story_start
 	sta .load + 2
 .load
 	lda $8000

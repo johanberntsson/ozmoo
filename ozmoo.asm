@@ -1,12 +1,13 @@
 ; Which Z-machine to generate binary for
+; (usually defined on the acme command line instead)
+;Z3 = 1
 ;Z5 = 1
-Z5 = 1
 
 ; Define DEBUG for additional runtime printouts
 DEBUG = 1
 
 ; where to store story data
-mem_start = $2000
+story_start = $2000
 
 ; story file header constants
 header_version = $0
@@ -52,14 +53,14 @@ filelength !byte 0, 0, 0, 0
 
 .initialize
     ; read the header
-    lda #>mem_start ; first free memory block
+    lda #>story_start ; first free memory block
     ldx #$00    ; first block to read from floppy
     ldy #$01    ; read 1 block
     jsr readblocks
 
     ; check z machine version
-    lda mem_start + header_version
-!if Z5 {
+    lda story_start + header_version
+!ifdef Z5 {
     cmp #5
 }
     beq +  ; this version is supported by this binary
@@ -67,13 +68,13 @@ filelength !byte 0, 0, 0, 0
     !pet "unsupported story version", 0
 
 +   ; check file length
-!if Z5 {
+!ifdef Z5 {
     ; file length should be multiplied by 4 (for Z5)
 	lda #0
 	sta filelength
-    lda mem_start + header_filelength
+    lda story_start + header_filelength
 	sta filelength + 1
-    lda mem_start + header_filelength + 2
+    lda story_start + header_filelength + 2
 	asl
 	sta filelength + 2
 	rol filelength + 1
@@ -93,7 +94,7 @@ filelength !byte 0, 0, 0, 0
 }
 
     ; read the rest
-    ldx #>mem_start ; first free memory block
+    ldx #>story_start ; first free memory block
     inx        ; skip header
     txa
     ldx #$01    ; first block to read from floppy
