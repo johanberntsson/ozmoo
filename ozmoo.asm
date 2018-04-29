@@ -93,8 +93,15 @@ filelength !byte 0, 0, 0, 0
     ;jsr printx
 }
 
+    ; check that the file is not too big
+    lda filelength + 1
+    cmp #$c0 ; don't overwrite $d000, and assume start at $2000
+    bcc +
+    jsr fatalerror
+    !pet "Out of memory", 0
+
     ; read the rest
-    ldx #>story_start ; first free memory block
++   ldx #>story_start ; first free memory block
     inx        ; skip header
     txa
     ldx #$01    ; first block to read from floppy

@@ -1,14 +1,18 @@
-; I/O registers
-reg_backgroundcolor   = $d021 
-reg_bordercolor       = $d020
+; bank registers
+zero_datadirection    = $00
+zero_processorports   = $01
 
-; bASIc rom routines
-basic_printstring     = $ab1e ; write string in A/Y (LO <, HI >)
-basic_printinteger    = $bdcd ; write integer value in A/X
+; I/O registers
+reg_bordercolor       = $d020
+reg_backgroundcolor   = $d021 
+
+; BASIC rom routines
+basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
+basic_printinteger    = $bdcd ; write integer value in a/y
 
 ; Kernel routines
 kernel_setcursor      = $e50c ; set cursor to x/y (row/column)
-kernel_reset          = $fce2 ; reset the C64
+kernel_reset          = $fce2 ; cold reset of the C64
 kernel_setlfs         = $ffba ; set file parameters
 kernel_setnam         = $ffbd ; set file name
 kernel_open           = $ffc0 ; open a file

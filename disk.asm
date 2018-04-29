@@ -105,7 +105,7 @@ readblocks
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
     jsr .close    ; even if OPEN failed, the file has to be closed
-    jmp fatalerror
+    jsr fatalerror
     !pet "floppy read error", 0
 
 .cname !text "#"
