@@ -82,13 +82,13 @@ readblocks
     jsr kernel_chkin ; call CHKIN (file 2 now used as input)
 
     lda .mempos
-    sta $AE
+    sta zx1
     lda .mempos+1
-    sta $AF
+    sta zx2
 
     ldy #$00
 -   jsr kernel_readchar ; call CHRIN (get a byte from file)
-    sta ($AE),Y   ; write byte to memory
+    sta (zx1),Y   ; write byte to memory
     iny
     bne -         ; next byte, end when 256 bytes are read
 .close
