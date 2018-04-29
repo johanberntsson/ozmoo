@@ -61,10 +61,14 @@ filelength !byte 0, 0, 0
 
     ; check z machine version
     lda story_start + header_version
+;!ifdef Z3 {
+;    cmp #3
+;    beq +
+;}
 !ifdef Z5 {
     cmp #5
+    beq +
 }
-    beq +  ; this version is supported by this binary
     jsr fatalerror
     !pet "unsupported story version", 0
 
