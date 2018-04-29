@@ -1,3 +1,7 @@
+; Which Z-machine to generate binary for
+;Z5 = 1
+Z5 = 1
+
 ; Define DEBUG for additional runtime printouts
 DEBUG = 1
 
@@ -39,7 +43,8 @@ header_header_extension_table = $36
 
 ; global variables
 err !byte 0
-temp !byte 0, 0, 0, 0
+filelength !byte 0, 0, 0, 0
+
 ; include other assembly files
 !source "disk.asm"
 !source "screen.asm"
@@ -52,34 +57,47 @@ temp !byte 0, 0, 0, 0
     ldy #$01    ; read 1 block
     jsr readblocks
 
-    ; check file length (need to be multiplied by constant (4 for v5))
+    ; check z machine version
+    lda mem_start + header_version
+!if Z5 {
+    cmp #5
+}
+    beq +  ; this version is supported by this binary
+    jsr fatalerror
+    !pet "unsupported story version", 0
+
++   ; check file length
+!if Z5 {
+    ; file length should be multiplied by 4 (for Z5)
 	lda #0
-	sta temp
+	sta filelength
     lda mem_start + header_filelength
-	sta temp + 1
+	sta filelength + 1
     lda mem_start + header_filelength + 2
 	asl
-	sta temp + 2
-	rol temp + 1
-	rol temp
-	asl temp + 2
-	rol temp + 1
-	rol temp
-	lda temp + 1
-	sta err
+	sta filelength + 2
+	rol filelength + 1
+	rol filelength
+	asl filelength + 2
+	rol filelength + 1
+	rol filelength
+	lda filelength + 1
+}
 
 !ifdef DEBUG {
     ; show how many blocks to read (exluding header)
     jsr printstring
     !pet "total blocks: ",0
-    ldx err
+    ldx filelength + 1
     jsr printx
 }
+
     ; read the rest
     ldx #>mem_start ; first free memory block
     inx        ; skip header
     txa
     ldx #$01    ; first block to read from floppy
-    ldy err    ; read <header_filelength> blocks
+    ldy filelength + 1 ; read the rest of the blocks
+    dey ; skip the header
     jsr readblocks
     rts
