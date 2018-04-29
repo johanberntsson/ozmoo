@@ -135,7 +135,7 @@ usage (void)
 }
 
 #ifdef NEWFORMAT
-
+int block;
 unsigned char track1801[] = {
     0x12,0x01, // track/sector
     0x41, // DOS version
@@ -242,6 +242,11 @@ trans256 (int outfile)
     outfile = fdo2;
 
   length = read (fdi2, databuf, 256);
+#ifdef NEWFORMAT
+  if (endfile_reached == FALSE)
+      printf("block %02d: 0x%02x (%3d): %p (%5d)\n", block++, databuf[0], databuf[0], 8192+256*block, 8192+256*block);
+#endif
+
   if (endfile_reached == TRUE)
     length = 0;
   else if ((bytecount + length) >= file_length)
@@ -322,7 +327,9 @@ main (int argc, char **argv)
 #ifdef NEWFORMAT
     // data in track 1-16, sector 1-16 only
     // first track need to store header first
+    block = 0;
     write (fdo1, databuf, 256);
+    printf("block %02d: 0x%02x (%3d): %p (%5d)\n", block++, databuf[0], databuf[0], 8192+256*block, 8192+256*block);
     transdata (15, 1);
     transzero (5);
     // rest of the story tracks

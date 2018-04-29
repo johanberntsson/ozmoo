@@ -14,8 +14,6 @@ readblocks
     bne -
     rts
 
-.cnt !byte 0
-
 .readblock
     ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
@@ -23,106 +21,93 @@ readblocks
 
     ; convert block to track/sector
     ; (assuming 16 tracks, each with 16 sectors)
-    LDA .block
-    AND #$0f
-    STA .sector
-    LDA .block
-    LSR
-    LSR
-    LSR
-    LSR
-    STA .track
-    INC .track ; tracks are 1..
-    
+    lda .block
+    and #$0f
+    sta .sector
+    lda .block
+    lsr
+    lsr
+    lsr
+    lsr
+    sta .track
+    inc .track ; tracks are 1..
+
     ; convert track/sector to ascii and update drive command
-    LDA #$30
-    STA .uname_track
-    STA .uname_track + 1
-    STA .uname_sector
-    STA .uname_sector + 1
+    lda .track
+    jsr conv2dec
+    stx .uname_track
+    sta .uname_track + 1
+    lda .sector
+    jsr conv2dec
+    stx .uname_sector
+    sta .uname_sector + 1
 
-    LDA .track
-    CMP #10
-    BCC +
-    LDA #$31
-    STA .uname_track
-+   CLC
-    ADC #$30
-    STA .uname_track+1
-
-    LDA .sector
-    CMP #10
-    BCC +
-    LDA #$31
-    STA .uname_sector
-+   CLC
-    ADC #$30
-    STA .uname_sector+1
-
+!ifdef DEBUG {
+    lda #<.uname
+    ldy #>.uname
+    jsr basic_printstring
+}
     ; open the channel file
-    LDA #cname_len
-    LDX #<.cname
-    LDY #>.cname
-    JSR kernel_setnam ; call SETNAM
+    lda #cname_len
+    ldx #<.cname
+    ldy #>.cname
+    jsr kernel_setnam ; call SETNAM
 
-    LDA #$02      ; file number 2
-    LDX $BA       ; last used device number
-    BNE +
-    LDX #$08      ; default to device 8
-+   LDY #$02      ; secondary address 2
-    JSR kernel_setlfs ; call SETLFS
+    lda #$02      ; file number 2
+    ldx $BA       ; last used device number
+    bne +
+    ldx #$08      ; default to device 8
++   ldy #$02      ; secondary address 2
+    jsr kernel_setlfs ; call SETLFS
 
-    JSR kernel_open     ; call OPEN
-    BCS .error    ; if carry set, the file could not be opened
+    jsr kernel_open     ; call OPEN
+    bcs .error    ; if carry set, the file could not be opened
 
     ; open the command channel
 
-    LDA #uname_len
-    LDX #<.uname
-    LDY #>.uname
-    JSR kernel_setnam ; call SETNAM
-    LDA #$0F      ; file number 15
-    LDX $BA       ; last used device number
-    LDY #$0F      ; secondary address 15
-    JSR kernel_setlfs ; call SETLFS
+    lda #uname_len
+    ldx #<.uname
+    ldy #>.uname
+    jsr kernel_setnam ; call SETNAM
+    lda #$0F      ; file number 15
+    ldx $BA       ; last used device number
+    ldy #$0F      ; secondary address 15
+    jsr kernel_setlfs ; call SETLFS
 
-    JSR kernel_open ; call OPEN (open command channel and send U1 command)
-    BCS .error    ; if carry set, the file could not be opened
+    jsr kernel_open ; call OPEN (open command channel and send U1 command)
+    bcs .error    ; if carry set, the file could not be opened
 
     ; check drive error channel here to test for
     ; FILE NOT FOUND error etc.
 
-    LDX #$02      ; filenumber 2
-    JSR kernel_chkin ; call CHKIN (file 2 now used as input)
+    ldx #$02      ; filenumber 2
+    jsr kernel_chkin ; call CHKIN (file 2 now used as input)
 
-    LDA .mempos
-    STA $AE
-    LDA .mempos+1
-    STA $AF
+    lda .mempos
+    sta $AE
+    lda .mempos+1
+    sta $AF
 
-    LDY #$00
--   JSR kernel_readchar ; call CHRIN (get a byte from file)
-    STA ($AE),Y   ; write byte to memory
-    INY
-    BNE -         ; next byte, end when 256 bytes are read
+    ldy #$00
+-   jsr kernel_readchar ; call CHRIN (get a byte from file)
+    sta ($AE),Y   ; write byte to memory
+    iny
+    bne -         ; next byte, end when 256 bytes are read
 .close
-    LDA #$0F      ; filenumber 15
-    JSR kernel_close ; call CLOSE
+    lda #$0F      ; filenumber 15
+    jsr kernel_close ; call CLOSE
 
-    LDA #$02      ; filenumber 2
-    JSR kernel_close ; call CLOSE
+    lda #$02      ; filenumber 2
+    jsr kernel_close ; call CLOSE
 
-    JSR kernel_clrchn ; call CLRCHN
-!ifdef DEBUG {
-    inc $d020 
-}
-    RTS
+    jsr kernel_clrchn ; call CLRCHN
+    rts
 .error
     ; accumulator contains BASIC error code
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
     sta err
-    JMP .close    ; even if OPEN failed, the file has to be closed
+    jmp .close    ; even if OPEN failed, the file has to be closed
 
 .cname !text "#"
 cname_len = * - .cname
@@ -130,9 +115,13 @@ cname_len = * - .cname
 .uname !text "U1 2 0 "
 .uname_track !text "18 "
 .uname_sector !text "00"
+!ifdef DEBUG {
+    !byte 13, 0 ; end of string, so we can print debug messages
+}
 uname_len = * - .uname
 
-.track !byte 0
+.cnt    !byte 0
+.track  !byte 0
 .sector !byte 0
+.block  !byte 0
 .mempos !word $0000
-.block !byte 0

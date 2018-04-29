@@ -50,6 +50,7 @@ filelength !byte 0, 0, 0, 0
 !source "disk.asm"
 !source "screen.asm"
 !source "memory.asm"
+!source "utilities.asm"
 
 .initialize
     ; read the header
@@ -87,10 +88,10 @@ filelength !byte 0, 0, 0, 0
 
 !ifdef DEBUG {
     ; show how many blocks to read (exluding header)
-    jsr printstring
-    !pet "total blocks: ",0
-    ldx filelength + 1
-    jsr printx
+    ;jsr printstring
+    ;!pet "total blocks: ",0
+    ;ldx filelength + 1
+    ;jsr printx
 }
 
     ; read the rest
