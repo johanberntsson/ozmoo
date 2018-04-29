@@ -4,7 +4,8 @@
 ;Z5 = 1
 
 ; Define DEBUG for additional runtime printouts
-DEBUG = 1
+; (usually defined on the acme command line instead)
+;DEBUG = 1
 
 ; where to store story data
 story_start = $2000
@@ -43,7 +44,7 @@ header_header_extension_table = $36
     jmp .initialize
 
 ; global variables
-filelength !byte 0, 0, 0, 0
+filelength !byte 0, 0, 0
 
 ; include other assembly files
 !source "disk.asm"
@@ -95,7 +96,7 @@ filelength !byte 0, 0, 0, 0
 
     ; check that the file is not too big
     lda filelength + 1
-    cmp #$c0 ; don't overwrite $d000, and assume start at $2000
+    cmp #>($D000 - story_start) ; don't overwrite $d000
     bcc +
     jsr fatalerror
     !pet "Out of memory", 0
