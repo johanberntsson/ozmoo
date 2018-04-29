@@ -45,6 +45,7 @@ header_header_extension_table = $36
 
 ; global variables
 filelength !byte 0, 0, 0
+fileblocks !byte 0, 0
 
 ; include other assembly files
 !source "disk.asm"
@@ -79,7 +80,7 @@ filelength !byte 0, 0, 0
 	sta filelength
     lda story_start + header_filelength
 	sta filelength + 1
-    lda story_start + header_filelength + 2
+    lda story_start + header_filelength + 1
 	asl
 	sta filelength + 2
 	rol filelength + 1
@@ -87,30 +88,40 @@ filelength !byte 0, 0, 0
 	asl filelength + 2
 	rol filelength + 1
 	rol filelength
-	lda filelength + 1
 }
+	ldy filelength
+	ldx filelength + 1
+	lda filelength + 2
+	beq +
+	inx
+	bne +
+	iny
++	sty fileblocks
+	stx fileblocks + 1
 
 !ifdef DEBUG {
     ; show how many blocks to read (exluding header)
     ;jsr printstring
     ;!pet "total blocks: ",0
-    ;ldx filelength + 1
+    ;ldx fileblocks + 1
     ;jsr printx
 }
 
-    ; check that the file is not too big
-    lda filelength + 1
-    cmp #>($D000 - story_start) ; don't overwrite $d000
-    bcc +
-    jsr fatalerror
+	; check that the file is not too big
+	ldx fileblocks
+	bne +
+    ldx fileblocks + 1
+    cpx #>($D000 - story_start) ; don't overwrite $d000
+    bcc ++
++   jsr fatalerror
     !pet "Out of memory", 0
 
     ; read the rest
-+   ldx #>story_start ; first free memory block
+++  ldx #>story_start ; first free memory block
     inx        ; skip header
     txa
-    ldx #$01    ; first block to read from floppy
-    ldy filelength + 1 ; read the rest of the blocks
+    ldx #$01           ; first block to read from floppy
+    ldy fileblocks + 1 ; read the rest of the blocks
     dey ; skip the header
     jsr readblocks
     rts

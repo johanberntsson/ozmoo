@@ -21,9 +21,18 @@ param (
 [string] $diskImage;
 
 function BuildImage([string]$type) {
-    & $acmeExe ("-D"+$type+"=1") -DDEBUG=1 --cpu 6510 --format cbm --outfile ozmoo ozmoo.asm           
+    & $acmeExe ("-D"+$type+"=1") -DDEBUG=1 --cpu 6510 --format cbm --outfile ozmoo ozmoo.asm
+    if($lastExitCode -ne 0) {
+        exit
+    }           
     copy -Force d64toinf/$diskImage $diskImage
+    if($lastExitCode -ne 0) {
+        exit
+    }           
     & $c1541Exe -attach $diskImage -write ozmoo ozmoo
+    if($lastExitCode -ne 0) {
+        exit
+    }           
     Write-Output ("Successfully built disk image " + $diskImage)  
 }
 
