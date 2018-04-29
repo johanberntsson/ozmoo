@@ -43,7 +43,6 @@ header_header_extension_table = $36
     jmp .initialize
 
 ; global variables
-err !byte 0
 filelength !byte 0, 0, 0, 0
 
 ; include other assembly files

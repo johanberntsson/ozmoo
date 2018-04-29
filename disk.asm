@@ -3,7 +3,6 @@ readblocks
     ; x=start block [in]
     ; y=number of blocks to read [in]
     ; a=start memory position ($<y>00) [in]
-    ; $err = error code [out]
     sty .cnt
     stx .block
     sta .mempos + 1 ; memory position to store data in
@@ -17,7 +16,6 @@ readblocks
 .readblock
     ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
-    ; $err = error code [out]
 
     ; convert block to track/sector
     ; (assuming 16 tracks, each with 16 sectors)
@@ -106,8 +104,9 @@ readblocks
     ; accumulator contains BASIC error code
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
-    sta err
-    jmp .close    ; even if OPEN failed, the file has to be closed
+    jsr .close    ; even if OPEN failed, the file has to be closed
+    jmp fatalerror
+    !pet "floppy read error", 0
 
 .cname !text "#"
 cname_len = * - .cname
