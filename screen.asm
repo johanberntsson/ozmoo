@@ -4,10 +4,10 @@
 
 printx
     ; subroutine: print value stored in x register
-    LDA #$00
-    JSR basic_printinteger
-    LDA #13
-    JMP kernel_printchar
+    lda #$00
+    jsr basic_printinteger
+    lda #13
+    jmp kernel_printchar
 
 printstring
     ; print text (implicit argument passing)
@@ -20,26 +20,26 @@ printstring
 
     ; store the return address
     ; the address on stack is -1 before the first character
-    PLA  ; remove LO for return address
-    STA .return_address + 1
-    PLA  ; remove HI for return address
-    STA .return_address + 2
+    pla  ; remove LO for return address
+    sta .return_address + 1
+    pla  ; remove HI for return address
+    sta .return_address + 2
 
     ; print the string
--   INC .return_address + 1
-    BCC .return_address
-    INC .return_address + 2
+-   inc .return_address + 1
+    bcc .return_address
+    inc .return_address + 2
 .return_address
-    LDA $0000 ; self-modifying code (aaarg! but oh, so efficent)
-    BEQ +
-    JSR kernel_printchar
-    JMP -
+    lda $0000 ; self-modifying code (aaarg! but oh, so efficent)
+    beq +
+    jsr kernel_printchar
+    jmp -
 
     ; put updated return address on stack
-+   LDA .return_address + 2
-    PHA 
-    LDA .return_address + 1
-    PHA
-    RTS
++   lda .return_address + 2
+    pha 
+    lda .return_address + 1
+    pha
+    rts
 
 

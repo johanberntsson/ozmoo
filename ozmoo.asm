@@ -39,9 +39,11 @@ header_header_extension_table = $36
 
 ; global variables
 err !byte 0
+temp !byte 0, 0, 0, 0
 ; include other assembly files
 !source "disk.asm"
 !source "screen.asm"
+!source "memory.asm"
 
 .initialize
     ; read the header
@@ -50,10 +52,21 @@ err !byte 0
     ldy #$01    ; read 1 block
     jsr readblocks
 
-    ; check file length (need to be doubled)
+    ; check file length (need to be multiplied by constant (4 for v5))
+	lda #0
+	sta temp
     lda mem_start + header_filelength
-    ASL          ; *2
-    STA err      ; store length
+	sta temp + 1
+    lda mem_start + header_filelength + 2
+	asl
+	sta temp + 2
+	rol temp + 1
+	rol temp
+	asl temp + 2
+	rol temp + 1
+	rol temp
+	lda temp + 1
+	sta err
 
 !ifdef DEBUG {
     ; show how many blocks to read (exluding header)
