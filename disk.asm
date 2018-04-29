@@ -43,7 +43,7 @@ readblocks
 !ifdef DEBUG {
     lda #<.uname
     ldy #>.uname
-    jsr basic_printstring
+    jsr printstring
 }
     ; open the channel file
     lda #cname_len

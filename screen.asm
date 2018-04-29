@@ -3,20 +3,44 @@
 ; - printstring
 ; - fatalerror
 
+printinteger
+!zone {
+    pha
+	lda #%00110111
+	sta 1
+	pla
+    jsr basic_printinteger
+	lda #%00110110
+	sta 1
+	rts
+}
+
 printx
 !zone {
     ; subroutine: print value stored in x register
     lda #$00
-    jsr basic_printinteger
+    jsr printinteger
     lda #13
     jmp kernel_printchar
 }
 
 printstring
 !zone {
+    pha
+	lda #%00110111
+	sta 1
+	pla
+    jsr basic_printstring
+	lda #%00110110
+	sta 1
+	rts
+}
+
+print_following_string
+!zone {
     ; print text (implicit argument passing)
     ; usage:
-    ;    jsr printstring
+    ;    jsr print_following_string
     ;    !pet "message",0
     ; uses stack pointer to find start of text, then
     ; updates the stack so that execution continues
@@ -56,7 +80,7 @@ fatalerror
     ; uses stack pointer to find start of text, 
     ; prints the error, then resets the computer
 
-    jsr printstring
+    jsr print_following_string
     !pet "fatal error: ", 0
 
     ; store the return address
@@ -66,7 +90,7 @@ fatalerror
     pla  ; remove HI for return address
     tay
     txa
-    jsr basic_printstring ; print error
+    jsr printstring ; print error
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
 }

@@ -54,6 +54,10 @@ fileblocks !byte 0, 0
 !source "utilities.asm"
 
 .initialize
+	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
+	ldx #%00110110
+	stx 1
+
     ; read the header
     lda #>story_start ; first free memory block
     ldx #$00    ; first block to read from floppy
@@ -124,4 +128,9 @@ fileblocks !byte 0, 0
     ldy fileblocks + 1 ; read the rest of the blocks
     dey ; skip the header
     jsr readblocks
+
+	; Back to normal memory banks
+	ldx #%00110111
+	stx 1
+
     rts

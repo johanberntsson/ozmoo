@@ -7,6 +7,9 @@ zero_processorports   = $01
 zx1                   = $ae
 zx2                   = $af
 
+memory_buffer         =	$02a7
+memory_buffer_length  = 89
+
 ; --- BASIC rom routines ---
 basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
 basic_printinteger    = $bdcd ; write integer value in a/y
