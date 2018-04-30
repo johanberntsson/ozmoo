@@ -52,9 +52,7 @@ z_execute
 
 	; Top bits are 11. Form = Variable
 	and #%00100000
-	beq .var_opcount_2op
 	bne .get_4_ops
-.var_opcount_2op
 	ldy #2
 	bne .get_y_ops
 	
@@ -87,17 +85,15 @@ z_execute
 	; Form = Long
 	asl
 	sta zp_temp
+	lda #%10
 	bit zp_temp
-	bpl +
+	bmi +
 	lda #%10
-	bne ++
-+	lda #%01
-++	sta z_operand_type_arr
-	bvc +
++	sta z_operand_type_arr
 	lda #%10
-	bne ++
-+	lda #%01
-++	sta z_operand_type_arr + 1
+	bvs +
+	lda #%01
++	sta z_operand_type_arr + 1
 	ldx #1
 	jsr clear_remaining_types
 	jmp .read_operands
@@ -128,17 +124,19 @@ z_get_op_types
 	; x = index of first operand (0 or 4), y = number of operands (1-4) 
 !zone {
 	sty zp_temp
+	stx zp_temp + 1
 	jsr read_byte_at_z_pc_then_inc
+	ldx zp_temp + 1
 .get_next_op_type
 	asl
 	rol z_operand_type_arr,x
 	asl
 	rol z_operand_type_arr,x
-;	ldy z_operand_type,x
 	inx
 	dec zp_temp
 	bne .get_next_op_type
 	; Set remaining types to 11 (no operand) up to y = 3 or y = 7
+	dex
 clear_remaining_types	
 -	inx
 	txa
