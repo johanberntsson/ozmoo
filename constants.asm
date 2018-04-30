@@ -4,6 +4,9 @@
 zero_datadirection    = $00
 zero_processorports   = $01
 ; available zero page variables (pseudo registers)
+z_opcode              = $02
+z_opcode_number       = $07
+zp_temp               = $14 ; 2 bytes
 zx1                   = $ae
 zx2                   = $af
 

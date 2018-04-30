@@ -1,5 +1,5 @@
 ; Routines to handle memory
-read_byte_at_zmachine_address
+read_byte_at_z_address
 !zone {
 	; Subroutine: Read the contents of a byte address in the Z-machine
 	; a,x,y (high, mid, low) contains address
@@ -15,20 +15,20 @@ read_byte_at_zmachine_address
 	rts
 .too_high
 	jsr fatalerror
-	!pet "Tried to access Z-machine memory over 64KB", 0
+	!pet "tried to access z-machine memory over 64kb", 0
 	
 }
 	
-read_byte_at_zmachine_pc_then_inc
+read_byte_at_z_pc_then_inc
 !zone {
-	lda zmachine_pc
-	ldx zmachine_pc + 1
-	ldy zmachine_pc + 2
-	jsr read_byte_at_zmachine_address
-	inc zmachine_pc + 2
+	lda z_pc
+	ldx z_pc + 1
+	ldy z_pc + 2
+	jsr read_byte_at_z_address
+	inc z_pc + 2
 	bne +
-	inc zmachine_pc + 1
+	inc z_pc + 1
 	bne +
-	inc zmachine_pc
+	inc z_pc
 +	rts
 }

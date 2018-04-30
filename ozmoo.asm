@@ -3,6 +3,13 @@
 ;Z3 = 1
 ;Z5 = 1
 
+!ifdef Z5 {
+	Z5PLUS = 1
+}
+!ifdef Z8 {
+	Z5PLUS = 1
+}
+
 ; Define DEBUG for additional runtime printouts
 ; (usually defined on the acme command line instead)
 ;DEBUG = 1
@@ -57,7 +64,7 @@ fileblocks !byte 0, 0
 .initialize
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	ldx #%00110110
-	stx 1
+	stx zero_processorports
 
     ; read the header
     lda #>story_start ; first free memory block
@@ -130,22 +137,12 @@ fileblocks !byte 0, 0
     dey ; skip the header
     jsr readblocks
 
-	jsr zmachine_init
+	jsr z_init
 	
-	jsr print_following_string
-	!pet "read byte at pc: ",0
-	jsr read_byte_at_zmachine_pc_then_inc
-	tax
-	jsr printx
-	
-	jsr print_following_string
-	!pet "read byte at pc + 1: ",0
-	jsr read_byte_at_zmachine_pc_then_inc
-	tax
-	jsr printx
+	jsr z_execute
 	
 	; Back to normal memory banks
 	ldx #%00110111
-	stx 1
+	stx zero_processorports
 
     rts

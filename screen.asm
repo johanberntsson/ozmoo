@@ -7,11 +7,11 @@ printinteger
 !zone {
     pha
 	lda #%00110111
-	sta 1
+	sta zero_processorports
 	pla
     jsr basic_printinteger
 	lda #%00110110
-	sta 1
+	sta zero_processorports
 	rts
 }
 
@@ -28,11 +28,11 @@ printstring
 !zone {
     pha
 	lda #%00110111
-	sta 1
+	sta zero_processorports
 	pla
     jsr basic_printstring
 	lda #%00110110
-	sta 1
+	sta zero_processorports
 	rts
 }
 
@@ -55,7 +55,7 @@ print_following_string
 
     ; print the string
 -   inc .return_address + 1
-    bcc .return_address
+    bne .return_address
     inc .return_address + 2
 .return_address
     lda $0000 ; self-modifying code (aaarg! but oh, so efficent)
