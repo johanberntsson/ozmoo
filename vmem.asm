@@ -14,3 +14,8 @@
 ; will store in datasette_buffer
 
 ; swapping: bubble up latest used frame, remove from end of mapping array
+
+vm_read_byte_at_z_address
+    jsr fatalerror
+    !pet "no vm yet", 0
+

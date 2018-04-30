@@ -13,10 +13,18 @@ d64.z5:
 	cp d64toinf/dragontroll.d64 dragontroll.d64
 	$(C1541) -attach dragontroll.d64 -write ozmoo ozmoo
 
+vm.z5:
+	acme -DZ5=1 -DDEBUG=1 -DUSEVM=1 --cpu 6510 --format cbm --outfile ozmoo ozmoo.asm
+	cp d64toinf/dragontroll.d64 dragontroll.d64
+	$(C1541) -attach dragontroll.d64 -write ozmoo ozmoo
+
 z3: d64.z3
 	$(X64) dejavu.d64
 
 z5: d64.z5
+	$(X64) dragontroll.d64
+
+vm: vm.z5
 	$(X64) dragontroll.d64
 
 clean:
