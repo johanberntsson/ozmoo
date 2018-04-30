@@ -13,6 +13,9 @@ zx2                   = $af
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
 
+datasette_buffer_start= $033c
+datasette_buffer_end  = $03fb
+
 ; --- BASIC rom routines ---
 basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
 basic_printinteger    = $bdcd ; write integer value in a/y

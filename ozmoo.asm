@@ -60,6 +60,7 @@ fileblocks !byte 0, 0
 !source "memory.asm"
 !source "utilities.asm"
 !source "zmachine.asm"
+!source "vmem.asm"
 
 .initialize
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
