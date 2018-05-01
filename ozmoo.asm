@@ -3,10 +3,15 @@
 ;Z3 = 1
 ;Z5 = 1
 
+!ifdef Z4 {
+	Z4PLUS = 1
+}
 !ifdef Z5 {
+	Z4PLUS = 1
 	Z5PLUS = 1
 }
 !ifdef Z8 {
+	Z4PLUS = 1
 	Z5PLUS = 1
 }
 
