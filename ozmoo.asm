@@ -68,7 +68,7 @@ fileblocks !byte 0, 0
 	stx zero_processorports
 
 	jsr load_dynamic_memory
-	jsr prepare_static_dynamic_memory
+	jsr prepare_static_high_memory
 
 	jsr z_init
 	jsr z_execute
@@ -156,7 +156,7 @@ load_dynamic_memory
     dey ; skip the header
     jmp readblocks
 
-prepare_static_dynamic_memory
+prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)
     rts
 }

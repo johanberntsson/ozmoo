@@ -21,7 +21,7 @@ load_dynamic_memory
     !pet "no vm yet", 0
     rts
 
-prepare_static_dynamic_memory
+prepare_static_high_memory
     rts
 
 read_byte_at_z_address
