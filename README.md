@@ -1,4 +1,4 @@
-#Ozmoo
+# Ozmoo
 
 *Ozmoo (spell): survive unnatural death*
 

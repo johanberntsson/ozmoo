@@ -67,6 +67,18 @@ fileblocks !byte 0, 0
 	ldx #%00110110
 	stx zero_processorports
 
+	jsr load_dynamic_memory
+	jsr prepare_static_dynamic_memory
+
+	jsr z_init
+	jsr z_execute
+	; Back to normal memory banks
+	ldx #%00110111
+	stx zero_processorports
+
+    rts
+
+load_header
     ; read the header
     lda #>story_start ; first free memory block
     ldx #$00    ; first block to read from floppy
@@ -119,7 +131,13 @@ fileblocks !byte 0, 0
     ;ldx fileblocks + 1
     ;jsr printx
 }
+    rts
 
+!ifndef USEVM {
+load_dynamic_memory
+    ; the default case is to simply treat all as dynamic (r/w)
+
+    jsr load_header
 	; check that the file is not too big
 	ldx fileblocks
 	bne +
@@ -136,14 +154,9 @@ fileblocks !byte 0, 0
     ldx #$01           ; first block to read from floppy
     ldy fileblocks + 1 ; read the rest of the blocks
     dey ; skip the header
-    jsr readblocks
+    jmp readblocks
 
-	jsr z_init
-	
-	jsr z_execute
-	
-	; Back to normal memory banks
-	ldx #%00110111
-	stx zero_processorports
-
+prepare_static_dynamic_memory
+    ; the default case is to simply treat all as dynamic (r/w)
     rts
+}

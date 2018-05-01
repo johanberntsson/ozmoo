@@ -15,7 +15,15 @@
 
 ; swapping: bubble up latest used frame, remove from end of mapping array
 
-vm_read_byte_at_z_address
+!ifdef USEVM {
+load_dynamic_memory
     jsr fatalerror
     !pet "no vm yet", 0
+    rts
 
+prepare_static_dynamic_memory
+    rts
+
+read_byte_at_z_address
+    rts
+}

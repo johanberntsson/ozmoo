@@ -26,11 +26,7 @@ read_byte_at_z_pc_then_inc
 	lda z_pc
 	ldx z_pc + 1
 	ldy z_pc + 2
-!ifdef USEVM {
-	jsr vm_read_byte_at_z_address
-} else {
 	jsr read_byte_at_z_address
-}
 	inc z_pc + 2
 	bne +
 	inc z_pc + 1
