@@ -1,5 +1,6 @@
 z_pc				!byte 0, 0, 0
 z_extended_opcode 	!byte 0
+z_operand_count		!byte 0
 z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -26,7 +27,7 @@ z_init
 
 z_execute
 !zone {
-	; Set all operand type to 0, since this will be convenient when ROL:ing types into these bytes
+	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
 	lda #0
 	ldx #7
 -	sta z_operand_type_arr,x
@@ -108,32 +109,55 @@ z_execute
 	beq +
 	cmp #z_opcode_call_vn2
 	beq +
-	bne .read_operands
+	ldx #4
+	jsr clear_remaining_types_2
+	jmp .read_operands
 
 	; Get another byte of operand types
 +	ldy #4
-	ldx #0
+	ldx #4
 	jsr z_get_op_types
 
 .read_operands
-	; TODO: Read the operands!
+	ldy #0
+.read_next_operand
+	lda z_operand_type_arr,y
+	bne .op_is_not_large_constant
+	jsr read_word_at_z_pc_then_inc
+	sta z_operand_high_arr,y
+	txa
+	sta z_operand_low_arr,y
+	jmp .op_loaded
+.op_is_not_large_constant
+	cmp #%11
+	beq .op_is_omitted
+	lda #0
+	sta z_operand_high_arr,y
+	jsr read_byte_at_z_pc_then_inc
+	sta z_operand_low_arr,y
+.op_loaded
+	iny
+	cpy #8
+	bcc .read_next_operand
+.op_is_omitted
+	sty z_operand_count
+	
+.process_instruction
+	; TODO: Perform the instruction!
 	rts
 }
 
 z_get_op_types
 	; x = index of first operand (0 or 4), y = number of operands (1-4) 
 !zone {
-	sty zp_temp
-	stx zp_temp + 1
 	jsr read_byte_at_z_pc_then_inc
-	ldx zp_temp + 1
 .get_next_op_type
 	asl
 	rol z_operand_type_arr,x
 	asl
 	rol z_operand_type_arr,x
 	inx
-	dec zp_temp
+	dey
 	bne .get_next_op_type
 	; Set remaining types to 11 (no operand) up to y = 3 or y = 7
 	dex
@@ -142,6 +166,7 @@ clear_remaining_types
 	txa
 	and #%11
 	beq +
+clear_remaining_types_2
 	lda #%11
 	sta z_operand_type_arr,x
 	bne -

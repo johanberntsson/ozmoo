@@ -21,7 +21,7 @@ param (
 [string] $diskImage;
 
 function BuildImage([string]$type) {
-    & $acmeExe ("-D"+$type+"=1") -DDEBUG=1 --cpu 6510 --format cbm --outfile ozmoo ozmoo.asm
+    & $acmeExe ("-D"+$type+"=1") -DDEBUG=1 --cpu 6510 --format cbm --outfile ozmoo -l acme_labels.txt ozmoo.asm
     if($lastExitCode -ne 0) {
         exit
     }           

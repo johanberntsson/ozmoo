@@ -5,6 +5,8 @@ zero_datadirection    = $00
 zero_processorports   = $01
 ; available zero page variables (pseudo registers)
 z_opcode              = $02
+mempointer            = $03 ; 2 bytes
+mem_temp              = $05 ; 2 bytes
 z_opcode_number       = $07
 zp_temp               = $14 ; 2 bytes
 zx1                   = $ae
@@ -36,3 +38,33 @@ kernel_chkout         = $ffc9 ; define file as default output
 kernel_clrchn         = $ffcc ; close default input/output files
 kernel_readchar       = $ffcf ; read byte from default input into a
 kernel_printchar      = $ffd2 ; write char in a
+
+
+; story file header constants
+header_version = $0
+header_flags_1 = $1
+header_high_mem = $4
+header_initial_pc = $6
+header_dictionary = $8
+header_object_table = $a
+header_globals = $c
+header_static_mem = $e
+header_flags_2 = $10
+header_abbreviations = $18
+header_filelength = $1a
+header_checksum = $1c
+header_interpreter_number = $1e
+header_interpreter_version = $1f
+header_screen_height_lines = $20
+header_screen_width_chars = $21
+header_screen_width_units = $22
+header_screen_height_units = $24
+header_font_width_units = $26
+header_font_height_units = $27
+header_default_bg_color = $2c
+header_default_fg_color = $2d
+header_terminating_chars_table = $2e
+header_standard_revision_number = $32
+header_alphabet_table = $34
+header_header_extension_table = $36
+

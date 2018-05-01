@@ -1,5 +1,3 @@
-!source "constants.asm"
-
 !macro start_at .address {
   * = $0801
   !byte $0c,$08,$0a,$00,$9e
