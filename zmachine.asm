@@ -106,15 +106,16 @@ z_execute
 	jsr z_get_op_types
 	lda z_opcode
 	cmp #z_opcode_call_vs2
-	beq +
+	beq .get_4_more_ops
 	cmp #z_opcode_call_vn2
-	beq +
+	beq .get_4_more_ops
 	ldx #4
 	jsr clear_remaining_types_2
 	jmp .read_operands
 
 	; Get another byte of operand types
-+	ldy #4
+.get_4_more_ops
+	ldy #4
 	ldx #4
 	jsr z_get_op_types
 
@@ -165,7 +166,7 @@ clear_remaining_types
 -	inx
 	txa
 	and #%11
-	beq +
+	beq + ; if x mod 4 == 0
 clear_remaining_types_2
 	lda #%11
 	sta z_operand_type_arr,x

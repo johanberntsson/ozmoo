@@ -16,8 +16,12 @@
 
 !source "constants.asm"
 
+; where to store stack
+stack_start = $1c00
+stack_size = $0400;
+
 ; where to store story data
-story_start = $2000
+story_start = stack_start + stack_size
 
 ; basic program (10 SYS2061)
 !source "basic-boot.asm"
@@ -32,6 +36,7 @@ fileblocks !byte 0, 0
 !source "disk.asm"
 !source "screen.asm"
 !source "memory.asm"
+!source "stack.asm"
 !source "utilities.asm"
 !source "zmachine.asm"
 !source "vmem.asm"
@@ -44,6 +49,7 @@ fileblocks !byte 0, 0
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
 
+	jsr stack_init
 	jsr z_init
 	jsr z_execute
 	; Back to normal memory banks
