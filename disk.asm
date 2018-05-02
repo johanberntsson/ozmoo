@@ -41,6 +41,10 @@ readblocks
     sta .uname_sector + 1
 
 !ifdef DEBUG {
+    ldx .block
+    jsr printx
+    lda #$20
+    jsr kernel_printchar
     lda #<.uname
     ldy #>.uname
     jsr printstring

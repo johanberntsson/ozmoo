@@ -19,9 +19,9 @@ printx
 !zone {
     ; subroutine: print value stored in x register
     lda #$00
-    jsr printinteger
-    lda #13
-    jmp kernel_printchar
+    jmp printinteger
+    ;lda #13
+    ;jmp kernel_printchar
 }
 
 printstring
