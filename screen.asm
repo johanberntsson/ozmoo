@@ -18,10 +18,22 @@ printinteger
 printx
 !zone {
     ; subroutine: print value stored in x register
+    ; side effects: none (a, x, y saved)
+    pha
+    txa
+    pha
+    tya
+    pha
     lda #$00
-    jmp printinteger
+    jsr printinteger
     ;lda #13
     ;jmp kernel_printchar
+    pla
+    tay
+    pla
+    tax
+    pla
+    rts
 }
 
 printstring
