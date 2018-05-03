@@ -18,7 +18,8 @@ printinteger
 printx
 !zone {
     ; subroutine: print value stored in x register
-    ; side effects: none (a, x, y saved)
+    ; side effects: none (a, x, y, status saved)
+    php
     pha
     txa
     pha
@@ -33,6 +34,7 @@ printx
     pla
     tax
     pla
+    plp
     rts
 }
 
