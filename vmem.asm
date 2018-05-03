@@ -17,17 +17,19 @@
 ; will store in datasette_buffer
 ;
 ; Example: DragonTroll.z5 (assuming $2000 - $2a00 used for vm to force swap)
+;          vmap_max_length = 6
 ;  entry   zoffset   c64offset
 ;    0       $00        $20
 ;    1       $02        $22
-;    2       $04        $24  <- static_mem_start = $05f1 (init vmap_length)
-;    3       $06        $26
+;    2       $04        $24  <- static_mem_start = $05f1 
+;    3       $06        $26  <- vmap_length = 3 (loaded dynamic mem only)
 ;    4       $08        $28
-;    5       $0a        $2a  <- vmap_max_length (final vmap_length)
-;            $0c
-;            $0e             <- end of memory $0e8c
-;
-; first zbyte: 6 3
+;    5       $0a        $2a
+;            $0c             <- vmap_length = 6 (loaded all, max value)
+;            $0e             <- end of zmachine memory $0e8c
+; 
+; first zbyte read: $63 ($2063)
+; 
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
