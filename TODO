@@ -1,0 +1,2 @@
+- reuse index and skip tests if same block as previous call to read_z_*
+- the .block range in readblocks need to be increased

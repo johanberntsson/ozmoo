@@ -1,15 +1,13 @@
 ; virtual memory
 ;
-; TODO: reuse index and skip tests if same block as previous call to read_z_*
-;
 ; virtual memory address space
-; Z1-Z3: 128 kB
-; Z4-Z5: 256 kB
+; Z1-Z3: 128 kB (0 - $1ffff)
+; Z4-Z5: 256 kB (0 - $3ffff)
 ; Z6-Z8: 512 kB (0 - $7ffff)
 
 ; map structure: one entry for each kB of available virtual memory
 ; each map entry is:
-; 1 byte: ZMachine offset high byte (bitmask: $F0=used, $80=read-only)
+; 1 byte: ZMachine offset high byte (bitmask: $F0=used, $80=dynamic (rw))
 ; 1 byte: ZMachine offset low byte
 ; 1 byte: C64 offset ($20 - $cf for $2000-$D000)
 ;
@@ -133,7 +131,7 @@ prepare_static_high_memory
     bcs + ; a >= static_mem
     ; allocated 1kB entry
     sta vmap_z_l,y ; z offset ($00 -)
-    lda #$c0 ; used, read-only
+    lda #$c0 ; used, dynamic
     sta vmap_z_h,y 
     jmp ++
 +   ; non-allocated 1kB entry
@@ -204,11 +202,11 @@ testing
     txa
     tay
     dey ; y = index before x
-    ; check if map[y] is read-only
+    ; check if map[y] is dynamic
     lda vmap_z_h,y
     and #$80
     bne +
-    ; not read-only, let's bubble this index up (swap x and y)
+    ; not dynamic, let's bubble this index up (swap x and y)
     lda vmap_z_h,y
     pha
     lda vmap_z_l,y
