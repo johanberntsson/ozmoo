@@ -1,4 +1,5 @@
 z_pc				!byte 0, 0, 0
+; z_pc_instruction	!byte 0, 0, 0
 z_extended_opcode 	!byte 0
 z_operand_count		!byte 0
 z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -28,6 +29,12 @@ z_init
 z_execute
 !zone {
 	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
+;	lda z_pc
+;	sta z_pc_instruction
+;	lda z_pc + 1
+;	sta z_pc_instruction + 1
+;	lda z_pc + 2
+;	sta z_pc_instruction + 2
 	lda #0
 	ldx #7
 -	sta z_operand_type_arr,x

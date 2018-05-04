@@ -8,6 +8,7 @@
 
 param (
     [string]$Type = "z5",
+    [switch]$UseVmem = $false,
     [switch]$Run = $false
 )
 
@@ -20,8 +21,13 @@ param (
 [string] $upperType = $type.ToUpper();
 [string] $diskImage;
 
-function BuildImage([string]$type) {
-    & $acmeExe ("-D"+$type+"=1") -DDEBUG=1 --cpu 6510 --format cbm --outfile ozmoo -l acme_labels.txt ozmoo.asm
+function BuildImage([string]$type, [bool]$useVmem) {
+	
+	[string] $useVmemOption = ""
+	if($useVmem) {
+		$useVmemOption = "-DUSEVM=1"
+	}
+    & $acmeExe ("-D"+$type+"=1") $useVmemOption -DDEBUG=1 --cpu 6510 --format cbm --outfile ozmoo -l acme_labels.txt ozmoo.asm
     if($lastExitCode -ne 0) {
         exit
     }           
@@ -49,7 +55,7 @@ if($upperType -eq 'Z3') {
     exit
 }
 
-BuildImage -type $upperType
+BuildImage -type $upperType -useVmem $UseVmem
 
 if($Run) {
     Write-Output 'Launching Vice...'
