@@ -49,6 +49,7 @@ vmap_c64 = vmap_z_l + vmap_max_length    ; $0346 = 838 (838-842)
 !ifdef USEVM {
 !ifdef DEBUG {
 print_vm_map
+    rts
     ldy #0
 -   tya
     tax
