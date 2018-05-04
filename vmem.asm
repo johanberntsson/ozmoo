@@ -239,3 +239,21 @@ testing
     lda (mempointer),y
     rts
 }
+
+read_word_at_z_address
+    ; Subroutine: Read the contents of a two consequtive byte addresses in the Z-machine
+    ; a,x,y (high, mid, low) contains first address.
+    ; Returns: values in a,x  (first byte, second byte)
+    ;
+    ; WARNING: only call this is you are sure that the bytes are
+    ; in consequtive memory. This is not always true when using 
+    ; virtual memory
+    ; 
+    jsr read_byte_at_z_address
+    pha
+    ldy #1
+    lda (mempointer),y
+    tax
+    pha
+    rts
+
