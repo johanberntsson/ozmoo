@@ -41,13 +41,21 @@ readblocks
     sta .uname_sector + 1
 
 !ifdef DEBUG {
-    ldx .block
-    jsr printx
-    lda #$20
-    jsr kernel_printchar
-    lda #<.uname
-    ldy #>.uname
-    jsr printstring
+    ;ldx .mempos
+    ;jsr printx
+    ;lda #$20
+    ;jsr kernel_printchar
+    ;ldx .mempos + 1
+    ;jsr printx
+    ;lda #$20
+    ;jsr kernel_printchar
+    ;ldx .block
+    ;jsr printx
+    ;lda #$20
+    ;jsr kernel_printchar
+    ;lda #<.uname
+    ;ldy #>.uname
+    ;jsr printstring
 }
     ; open the channel file
     lda #cname_len
@@ -86,13 +94,13 @@ readblocks
     jsr kernel_chkin ; call CHKIN (file 2 now used as input)
 
     lda .mempos
-    sta zx1
+    sta zp_mempos
     lda .mempos+1
-    sta zx2
+    sta zp_mempos + 1
 
     ldy #$00
 -   jsr kernel_readchar ; call CHRIN (get a byte from file)
-    sta (zx1),Y   ; write byte to memory
+    sta (zp_mempos),Y   ; write byte to memory
     iny
     bne -         ; next byte, end when 256 bytes are read
 .close
@@ -127,4 +135,4 @@ uname_len = * - .uname
 .track  !byte 0
 .sector !byte 0
 .block  !byte 0
-.mempos !word $0000
+.mempos !byte 0,0

@@ -9,8 +9,9 @@ mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
 z_opcode_number       = $07
 stack_ptr             = $08 ; 2 bytes
-zx1                   = $ae
-zx2                   = $af
+zp_pc_h               = $0a
+zp_pc_l               = $0b
+zp_mempos             = $ae ; 2 bytes
 zp_temp               = $fb ; 4 bytes
 
 

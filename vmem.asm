@@ -1,47 +1,47 @@
 ; virtual memory
 ;
+; TODO: reuse index and skip tests if same block as previous call to read_z_*
+;
 ; virtual memory address space
 ; Z1-Z3: 128 kB
 ; Z4-Z5: 256 kB
 ; Z6-Z8: 512 kB (0 - $7ffff)
 
 ; map structure: one entry for each kB of available virtual memory
-; ZMachine PC: ??????ab cdefghij klmnopqr, but since 1 kB each
-; can skip LSB, and pack like abcdefgh (klmnopqr)
-; 
 ; each map entry is:
+; 1 byte: ZMachine offset high byte (bitmask: $F0=used, $80=read-only)
+; 1 byte: ZMachine offset low byte
 ; 1 byte: C64 offset ($20 - $cf for $2000-$D000)
-; 1 byte: ZMachine offset (abcdefgh, see above)
 ;
-; need 44*2=88 bytes for $2000-$D000, or 56*2 = 112 bytes for $2000-$FFFF
+; need 44*3=132 bytes for $2000-$D000
 ; will store in datasette_buffer
 ;
 ; Example: dejavu.z3
 ; initial PC: $1765
 ; high memory base: $1764
 ; static memory base: $0a4a
-; filelength: $57e4 -> 
-
+; filelength: $57e4 
+;
 ;  vmap_max_length = 5
 ;  initial vmap_length = 3
 ;  final   vmap_length = 5
 ;  entry   zoffset   c64offset
-;    0      $00 00     $20
-;    1      $00 04     $24
-;    2      $00 08     $28 <- static_mem_start = $0a4a, index 2
-;    3      $00 0b     $2b
-;    4      $00 10     $30
-;           $00 14     $34 <- pc $1765, index 5
-;           $00 18     $38
-;           $00 1b     $3b
-;           $00 20     $40
+;    0     $00 $00     $20
+;    1     $00 $04     $24
+;    2     $00 $08     $28 <- static_mem_start = $0a4a, index 2
+;    3     $00 $0b     $2b
+;    4     $00 $10     $30
+;          $00 $14     $34 <- pc $1765, index 5
+;          $00 $18     $38
+;          $00 $1b     $3b
+;          $00 $20     $40
 ; ...
-;           $00 57         <- filelength $57e4
+;          $00 $57         <- filelength $57e4
 ; 
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
-vmap_max_length  = 5
+vmap_max_length  = 44
 vmap_z_h = datasette_buffer_start        ; $033c = 828 (828-832)
 vmap_z_l = vmap_z_h + vmap_max_length    ; $0341 = 833 (823-837)
 vmap_c64 = vmap_z_l + vmap_max_length    ; $0346 = 838 (838-842)
@@ -49,8 +49,6 @@ vmap_c64 = vmap_z_l + vmap_max_length    ; $0346 = 838 (838-842)
 !ifdef USEVM {
 !ifdef DEBUG {
 print_vm_map
-    jsr print_following_string
-    !pet "vmap", 13, 0
     ldy #0
 -   tya
     tax
@@ -149,42 +147,10 @@ prepare_static_high_memory
 }
     rts
 
-print_z_pc
-!ifdef DEBUG {
-    pha
-    txa
-    pha
-    tya
-    pha
-    jsr print_following_string
-    !pet "zpc: ", 0
-    ldx z_pc
-    jsr printx
-    lda #$20
-    jsr kernel_printchar
-    ldx z_pc + 1
-    jsr printx
-    lda #$20
-    jsr kernel_printchar
-    ldx z_pc + 2
-    jsr printx
-    lda #$0d
-    jsr kernel_printchar
-    pla
-    tay
-    pla
-    tax
-    pla
-}
-    rts
-
 read_byte_at_z_address
     ; Subroutine: Read the contents of a byte address in the Z-machine
     ; a,x,y (high, mid, low) contains address.
     ; Returns: value in a
-!ifdef DEBUG {
-    jsr print_z_pc
-}
     sta zp_pc_h
     stx zp_pc_l
     sty mempointer ; low byte unchanged
@@ -230,15 +196,6 @@ testing
     clc
     adc vmap_c64,x
     sta mempointer + 1
-    ldy #0
-    lda (mempointer),y
-
-!ifdef DEBUG {
-    pha
-    jsr print_vm_map
-    pla
-}
-    rts
 
     ; update page rank
     cpx #$00
@@ -247,12 +204,37 @@ testing
     tay
     dey ; y = index before x
     ; check if map[y] is read-only
-    lda vmap_z_h,x
+    lda vmap_z_h,y
     and #$80
     bne +
     ; not read-only, let's bubble this index up (swap x and y)
+    lda vmap_z_h,y
+    pha
+    lda vmap_z_l,y
+    pha
+    lda vmap_c64,y
+    pha
+    lda vmap_z_h,x
+    sta vmap_z_h,y
+    lda vmap_z_l,x
+    sta vmap_z_l,y
+    lda vmap_c64,x
+    sta vmap_c64,y
+    pla
+    sta vmap_c64,x
+    pla
+    sta vmap_z_l,x
+    pla
+    sta vmap_z_h,x
++
+
+!ifdef DEBUG {
+    pha
+    jsr print_vm_map
+    pla
+}
+    ; return result
+    ldy #0
+    lda (mempointer),y
     rts
-    
-read_word_at_z_address
-    jmp read_byte_at_z_address
 }
