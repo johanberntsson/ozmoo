@@ -19,6 +19,7 @@ read_byte_at_z_address
 .too_high
 	jsr fatalerror
 	!pet "tried to access z-machine memory over 64kb", 0
+
 read_word_at_z_address
 	; Subroutine: Read the contents of a two consequtive byte addresses in the Z-machine
 	; a,x,y (high, mid, low) contains first address.
@@ -58,12 +59,41 @@ read_byte_at_z_pc_then_inc
 }
 
 read_word_at_z_pc_then_inc
+	; Returns: values in a,x  (first byte, second byte)
+!zone {
+	sty mem_temp  ; to be able to restore y when exiting
+	ldy #2 
+	sty mem_temp + 1 ; loop counter
+-   lda z_pc	
+    ldx z_pc + 1
+	ldy z_pc + 2
+	jsr read_byte_at_z_address
+	pha
+    inc z_pc + 2
+	bne +
+	inc z_pc + 1
+	bne +
+	inc z_pc
++   dec mem_temp + 1
+    lda mem_temp + 1
+    bne -
+    pla
+    tax
+    pla
+	ldy mem_temp ; restore y
+	rts
+}
+
+bad_read_word_at_z_pc_then_inc
+    ; this will not work with virtual memory
+    ; since it is possible that two bytes will
+    ; be in different pages in vmem
 !zone {
 	sty mem_temp
 	lda z_pc	
 	ldx z_pc + 1
 	ldy z_pc + 2
-	jsr read_word_at_z_address
+	;jsr read_word_at_z_address
 	ldy #2
 -	inc z_pc + 2
 	bne +
