@@ -51,15 +51,6 @@ vmap_c64 = vmap_z_l + vmap_max_length    ; $0346 = 838 (838-842)
 print_vm_map
     jsr print_following_string
     !pet "vmap", 13, 0
-    ;ldx static_mem_start
-    ;jsr printx
-    ;lda #$20
-    ;jsr kernel_printchar
-    ;ldx vmap_length
-    ;jsr printx
-    ;lda #$0d
-    ;jsr kernel_printchar
-
     ldy #0
 -   tya
     tax
@@ -83,6 +74,24 @@ print_vm_map
     bne -
     rts
 }
+
+load_blocks_from_index
+    ; x = index to load
+    ; side effects: a,y,status destroyed
+    txa
+    pha
+
+    ldy #4 ; number of blocks
+    lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
+    pha
+    lda vmap_z_l,x ; start block
+    tax
+    pla
+    jsr readblocks
+
+    pla
+    tax
+    rts
 
 load_dynamic_memory
     ; load header
@@ -140,11 +149,7 @@ prepare_static_high_memory
 }
     rts
 
-read_byte_at_z_address
-    ; Subroutine: Read the contents of a byte address in the Z-machine
-    ; a,x,y (high, mid, low) contains address.
-    ; Returns: value in a
-    rts
+print_z_pc
 !ifdef DEBUG {
     pha
     txa
@@ -171,55 +176,81 @@ read_byte_at_z_address
     tax
     pla
 }
+    rts
 
-    ; is there a block with this address in map
-    sty mempointer + 1 ; low byte unchanged
-    ; convert high byte to compact 512 byte address
-    ror
-    txa
-    ror
-    sta zx1
-
+read_byte_at_z_address
+    ; Subroutine: Read the contents of a byte address in the Z-machine
+    ; a,x,y (high, mid, low) contains address.
+    ; Returns: value in a
 !ifdef DEBUG {
-    jsr print_following_string
-    !pet "compact: ", 0
-    ldx zx1
-    jsr printx
-    lda #$0d
-    jsr kernel_printchar
+    jsr print_z_pc
 }
+    sta zp_pc_h
+    stx zp_pc_l
+    sty mempointer ; low byte unchanged
 
-    ; check if such a block already exists
+    ; is there a block with this address in map?
+    ldx #$ff ; this is the active block, if found
     ldy #0
-    ldx #0
--   iny
-    lda vmap_z_l,y ; zmachine mem offset ($0 - 
-    cmp zx1
-    beq +
-    iny
-    inx
-    ;cpx vmap_length
+-   ; is the block active?
+    lda vmap_z_h,y
+    and #80
+    bne +
+    ; compare with low byte
+    lda zp_pc_l
+    and #$fc ; skip bit 0,1 since kB blocks
+    cmp vmap_z_l,y ; zmachine mem offset ($0 - 
+    bne + 
+    ; is the high byte correct?
+    lda vmap_z_h,y
+    and #$7
+    bne +
+    tya
+    tax ; store block index in x
++   iny
+    cpy #vmap_max_length
     bne -
 
-    ; this block is not loaded 
-    ; add it last
-    ;lda vmap_length
-    clc 
-    adc #>story_start
-    sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
-    iny
-    ;lda vmap_length
+    cpx #$ff
+    bne +
+    ; no index found. add last
+    ldx #vmap_max_length
+    dex
+    lda zp_pc_h
+    ora #$f0 ; mark as used
+    sta vmap_z_h,x
+    lda zp_pc_l
+    and #$fc ; skip bit 0,1 since kB blocks
+    sta vmap_z_l,x
+    jsr load_blocks_from_index
++   ; index x found. get return value
+testing
+    lda zp_pc_l
+    and #$03 ; keep index into kB chunk
     clc
-    ror ; convert to compact 512 byte offset
-    sta vmap_z_l,y ; zmachine mem offset ($0 - 
-    ;inc vmap_length
-
-+   ; loaded, get the value
-    dey
-    sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
-    sta mempointer
+    adc vmap_c64,x
+    sta mempointer + 1
     ldy #0
     lda (mempointer),y
+
+!ifdef DEBUG {
+    pha
+    jsr print_vm_map
+    pla
+}
+    rts
+
+    ; update page rank
+    cpx #$00
+    beq +
+    txa
+    tay
+    dey ; y = index before x
+    ; check if map[y] is read-only
+    lda vmap_z_h,x
+    and #$80
+    bne +
+    ; not read-only, let's bubble this index up (swap x and y)
     rts
     
 read_word_at_z_address
