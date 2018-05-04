@@ -87,36 +87,30 @@ load_header
     !pet "unsupported story version", 0
 
 +   ; check file length
-!ifdef Z3 {
-    ; file length should be multiplied by 2 (for Z3)
+    ; Start by multiplying file length by 2
 	lda #0
 	sta filelength
     lda story_start + header_filelength
 	sta filelength + 1
     lda story_start + header_filelength + 1
 	asl
-	sta filelength + 2
 	rol filelength + 1
 	rol filelength
-}
-!ifdef Z5 {
-    ; file length should be multiplied by 4 (for Z5)
-	lda #0
-	sta filelength
-    lda story_start + header_filelength
-	sta filelength + 1
-    lda story_start + header_filelength + 1
+!ifdef Z4PLUS {
+    ; Multiply file length by 2 again (for Z4, Z5 and Z8)
 	asl
-	sta filelength + 2
 	rol filelength + 1
 	rol filelength
-	asl filelength + 2
+!ifdef Z8 {
+    ; Multiply file length by 2 again (for Z8)
+	asl
 	rol filelength + 1
 	rol filelength
 }
+}
+	sta filelength + 2
 	ldy filelength
 	ldx filelength + 1
-	lda filelength + 2
 	beq +
 	inx
 	bne +
