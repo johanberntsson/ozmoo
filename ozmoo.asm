@@ -44,7 +44,9 @@ fileblocks !byte 0, 0
 !source "stack.asm"
 !source "utilities.asm"
 !source "zmachine.asm"
+!ifdef USEVM {
 !source "vmem.asm"
+}
 
 .initialize
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
@@ -57,6 +59,7 @@ fileblocks !byte 0, 0
 	jsr stack_init
 	jsr z_init
 	jsr z_execute
+
 	; Back to normal memory banks
 	ldx #%00110111
 	stx zero_processorports
@@ -72,10 +75,10 @@ load_header
 
     ; check z machine version
     lda story_start + header_version
-;!ifdef Z3 {
-;    cmp #3
-;    beq +
-;}
+!ifdef Z3 {
+    cmp #3
+    beq +
+}
 !ifdef Z5 {
     cmp #5
     beq +
@@ -84,6 +87,18 @@ load_header
     !pet "unsupported story version", 0
 
 +   ; check file length
+!ifdef Z3 {
+    ; file length should be multiplied by 2 (for Z3)
+	lda #0
+	sta filelength
+    lda story_start + header_filelength
+	sta filelength + 1
+    lda story_start + header_filelength + 1
+	asl
+	sta filelength + 2
+	rol filelength + 1
+	rol filelength
+}
 !ifdef Z5 {
     ; file length should be multiplied by 4 (for Z5)
 	lda #0
@@ -111,10 +126,12 @@ load_header
 
 !ifdef DEBUG {
     ; show how many blocks to read (exluding header)
-    ;jsr printstring
+    ;jsr print_following_string
     ;!pet "total blocks: ",0
     ;ldx fileblocks + 1
     ;jsr printx
+    ;lda #$0d
+    ;jsr kernel_printchar
 }
     rts
 
