@@ -39,10 +39,11 @@
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
-vmap_max_length  = 44
-vmap_z_h = datasette_buffer_start        ; $033c = 828 (828-832)
-vmap_z_l = vmap_z_h + vmap_max_length    ; $0341 = 833 (823-837)
-vmap_c64 = vmap_z_l + vmap_max_length    ; $0346 = 838 (838-842)
+;vmap_max_length  = 5 ; tests
+vmap_max_length  = 44 ; $2000-$c000
+vmap_z_h = datasette_buffer_start
+vmap_z_l = vmap_z_h + vmap_max_length
+vmap_c64 = vmap_z_l + vmap_max_length
 
 !ifdef USEVM {
 !ifdef DEBUG {
@@ -97,7 +98,7 @@ load_dynamic_memory
     ; load dynamic memory
     ; read in chunks of 4 blocks (1 kB)
     lda story_start + header_static_mem
-    ror    ; x/4
+    lsr    ; x/4
     ror
     clc
     adc #1 ; x/4 + 1
@@ -154,6 +155,22 @@ read_byte_at_z_address
     stx zp_pc_l
     sty mempointer ; low byte unchanged
 
+!ifdef DEBUG {
+    ;jsr print_following_string
+    ;!pet "pc: ", 0
+    ;ldx zp_pc_h
+    ;jsr printx
+    ;lda #$20
+    ;jsr kernel_printchar
+    ;ldx zp_pc_l
+    ;jsr printx
+    ;lda #$20
+    ;jsr kernel_printchar
+    ;ldx mempointer
+    ;jsr printx
+    ;lda #$0d
+    ;jsr kernel_printchar
+}
     ; is there a block with this address in map?
     ldx #$ff ; this is the active block, if found
     ldy #0
@@ -176,20 +193,23 @@ read_byte_at_z_address
     cpy #vmap_max_length
     bne -
 
+
     cpx #$ff
     bne +
-    ; no index found. add last
+    ; no index found, add last
+    ;jsr print_following_string
+    ;!pet "notfound", 13, 0
+
     ldx #vmap_max_length
     dex
     lda zp_pc_h
-    ora #$f0 ; mark as used
+    ora #$80 ; mark as used
     sta vmap_z_h,x
     lda zp_pc_l
     and #$fc ; skip bit 0,1 since kB blocks
     sta vmap_z_l,x
     jsr load_blocks_from_index
 +   ; index x found. get return value
-testing
     lda zp_pc_l
     and #$03 ; keep index into kB chunk
     clc
@@ -197,16 +217,17 @@ testing
     sta mempointer + 1
 
     ; update page rank
-    cpx #$00
-    beq +
+    cpx #$00  ; x is index of accesses Z_PC
+    beq .return_result
     txa
     tay
     dey ; y = index before x
     ; check if map[y] is dynamic
     lda vmap_z_h,y
     and #$80
-    bne +
+    bne .return_result
     ; not dynamic, let's bubble this index up (swap x and y)
+    ; swap vmap entries at <x> and <y>
     lda vmap_z_h,y
     pha
     lda vmap_z_l,y
@@ -225,8 +246,8 @@ testing
     sta vmap_z_l,x
     pla
     sta vmap_z_h,x
-+
 
+.return_result
 !ifdef DEBUG {
     pha
     jsr print_vm_map
@@ -252,6 +273,6 @@ read_word_at_z_address
     ldy #1
     lda (mempointer),y
     tax
-    pha
+    pla
     rts
 

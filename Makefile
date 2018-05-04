@@ -29,8 +29,11 @@ z3: d64.z3
 z5: d64.z5
 	$(X64) dragontroll.d64
 
-vm: vm.z3
+vmz3: vm.z3
 	$(X64) dejavu.d64
+
+vmz5: vm.z5
+	$(X64) dragontroll.d64
 
 clean:
 	rm -f ozmoo *.d64
