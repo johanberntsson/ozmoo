@@ -49,6 +49,8 @@ z_execute
 	!pet "opcode: ",0
 	ldx z_opcode
 	jsr printx
+	lda #$0d
+	jsr kernel_printchar
 	lda z_opcode
 }
 	and #%00011111
