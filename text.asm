@@ -55,14 +55,39 @@ print_paddr
     ldx #2
 --  lda .zchars,x
     cmp #6
-    bcc +
-    ; normal char
+    bcc .l1
+    ; print zchar
     sec
     sbc #6
+    clc
+    adc .alphabet_offset
     tay
     lda .alphabet,y
     jsr kernel_printchar
-+   dex
+    ; change back to A0
+    lda #0
+    sta .alphabet_offset
+    jmp .next_zchar
+.l1 cmp #0
+    bne .l2
+    ; space
+    lda #$20
+    jsr kernel_printchar
+    jmp .next_zchar
+.l2 cmp #4
+    bne .l3
+    ; change to A1
+    lda #26
+    sta .alphabet_offset
+    jmp .next_zchar
+.l3 cmp #5
+    bne .l4
+    ; change to A2
+    lda #52
+    sta .alphabet_offset
+.l4
+.next_zchar
+    dex
     bpl --
 
     lda .packedtext + 1
@@ -70,19 +95,22 @@ print_paddr
     rts
 
 testtext
+    lda #0
+    sta .alphabet_offset
     lda #$03
     ldx #$1b
+    jsr convert_paddr
     ; $0c6c: 13 2d 28 04 26 e6
     ; $132d: 0 00100 11001 01101 = 4 25 13: (A1) Th
     ; $2804: 0 01010 00000 00100 =
-    jsr convert_paddr
     jsr print_paddr
     rts
 
 .addr !byte 0,0,0
 .zchars !byte 0,0,0
 .packedtext !byte 0,0
-.alphabet 
+.alphabet_offset !byte 0
+.alphabet
     !pet "abcdefghijklmnopqrstuvwxyz"
     !pet "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    !pet " ^0123456789.,!?_#'",34, "/\-:()"
+    !pet " ",13,"0123456789.,!?_#'",34, "/\-:()"
