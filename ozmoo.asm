@@ -1,7 +1,10 @@
 ; Which Z-machine to generate binary for
 ; (usually defined on the acme command line instead)
+; Z1, Z2, Z6 and Z7 will (probably) never be supported
 ;Z3 = 1
+;Z4 = 1
 ;Z5 = 1
+;Z8 = 1
 
 !ifdef Z4 {
 	Z4PLUS = 1
@@ -79,8 +82,16 @@ load_header
     cmp #3
     beq +
 }
+!ifdef Z4 {
+    cmp #4
+    beq +
+}
 !ifdef Z5 {
     cmp #5
+    beq +
+}
+!ifdef Z8 {
+    cmp #8
     beq +
 }
     jsr fatalerror
