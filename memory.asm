@@ -100,25 +100,3 @@ read_word_at_z_pc_then_inc
 	ldy mem_temp ; restore y
 	rts
 }
-
-bad_read_word_at_z_pc_then_inc
-    ; this will not work with virtual memory
-    ; since it is possible that two bytes will
-    ; be in different pages in vmem
-!zone {
-	sty mem_temp
-	lda z_pc	
-	ldx z_pc + 1
-	ldy z_pc + 2
-	;jsr read_word_at_z_address
-	ldy #2
--	inc z_pc + 2
-	bne +
-	inc z_pc + 1
-	bne +
-	inc z_pc
-+	dey
-	bne -
-	ldy mem_temp
-	rts
-}
