@@ -5,6 +5,8 @@ z_operand_count		!byte 0
 z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
+z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
+z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 
 ; These get zeropage addresses in constants.asm:
 ; z_opcode 
