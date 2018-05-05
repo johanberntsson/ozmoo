@@ -39,8 +39,8 @@
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
-;vmap_max_length  = 5 ; tests
-vmap_max_length  = 44 ; $2000-$c000
+vmap_max_length  = 5 ; tests
+;vmap_max_length  = 44 ; $2000-$c000
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
 vmap_c64 = vmap_z_l + vmap_max_length
@@ -114,9 +114,10 @@ load_dynamic_memory
     jmp readblocks
 
 prepare_static_high_memory
-    ; vmap is already set up
-    ; blocks will be loaded as needed by read_byte_at_z_address
-    ; prepare initial map structure
+    ; prepare initial map structure with already loaded
+    ; dynamic memory marked as rw (not swappable)
+    ; missing blocks will later be loaded as needed
+    ; by read_byte_at_z_address
     ldy #0
 -   tya ; calculate c64 offset
     asl
@@ -127,7 +128,7 @@ prepare_static_high_memory
     adc #>story_start
     sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
     pla
-    ; check if rw or ro (swap-able)
+    ; check if rw or ro (swappable)
     cmp story_start + header_static_mem
     bcs + ; a >= static_mem
     ; allocated 1kB entry
@@ -176,8 +177,8 @@ read_byte_at_z_address
     ldy #0
 -   ; is the block active?
     lda vmap_z_h,y
-    and #80
-    bne +
+    and #$80
+    beq +     ; next entry if used bit not set
     ; compare with low byte
     lda zp_pc_l
     and #$fc ; skip bit 0,1 since kB blocks
@@ -186,6 +187,7 @@ read_byte_at_z_address
     ; is the high byte correct?
     lda vmap_z_h,y
     and #$7
+    cmp zp_pc_h
     bne +
     tya
     tax ; store block index in x
