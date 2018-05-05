@@ -50,6 +50,7 @@ fileblocks !byte 0, 0
 !ifdef USEVM {
 !source "vmem.asm"
 }
+!source "text.asm"
 
 .initialize
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
@@ -62,6 +63,8 @@ fileblocks !byte 0, 0
 	jsr stack_init
 	jsr z_init
 	jsr z_execute
+
+	jsr testtext
 
 	; Back to normal memory banks
 	ldx #%00110111
