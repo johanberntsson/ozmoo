@@ -18,7 +18,55 @@ convert_paddr
     ; $031b -> $00, $0c, $6c
     rts
 
+read_text_byte
+    lda .addr
+    ldx .addr + 1
+    ldy .addr + 2
+    jsr read_byte_at_z_address
+    inc .addr + 2
+    bne +
+    inc .addr + 1
+    bne +
+    inc .addr
++   rts
+
 print_paddr
+-   jsr read_text_byte
+    sta .packedtext
+    jsr read_text_byte
+    sta .packedtext + 1
+
+    ; extract 3 zchars (5 bits each)
+    ldx #0
+--  lda .packedtext + 1
+    and #$1f
+    sta .zchars,x
+
+    ldy #5
+--- lsr .packedtext
+    ror .packedtext+1
+    dey
+    bne ---
+    inx
+    cpx #3
+    bne --
+
+    ; print the three chars
+    ldx #2
+--  lda .zchars,x
+    cmp #6
+    bcc +
+    ; normal char
+    sec
+    sbc #6
+    tay
+    lda .alphabet,y
+    jsr kernel_printchar
++   dex
+    bpl --
+
+    lda .packedtext + 1
+    beq -
     rts
 
 testtext
@@ -32,5 +80,9 @@ testtext
     rts
 
 .addr !byte 0,0,0
-
-
+.zchars !byte 0,0,0
+.packedtext !byte 0,0
+.alphabet 
+    !pet "abcdefghijklmnopqrstuvwxyz"
+    !pet "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    !pet " ^0123456789.,!?_#'",34, "/\-:()"
