@@ -53,6 +53,10 @@ fileblocks !byte 0, 0
 !source "text.asm"
 
 .initialize
+    ; enable lower case mode
+    lda #23
+    sta reg_screen_char_mode
+
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	ldx #%00110110
 	stx zero_processorports

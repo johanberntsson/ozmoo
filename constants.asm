@@ -26,6 +26,7 @@ basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
 basic_printinteger    = $bdcd ; write integer value in a/y
 
 ; --- I/O registers ---
+reg_screen_char_mode  = $d018 
 reg_bordercolor       = $d020
 reg_backgroundcolor   = $d021 
 
