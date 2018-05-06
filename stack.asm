@@ -68,19 +68,17 @@ stack_call_routine
 	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 2 ; Number of local vars
 	
-	inc zp_temp ; Increase by one to allow comparison (decrease after loop)
-	inc zp_temp  + 2; Increase by one to allow comparison (decrease after loop)
-		ldx #1 ; Index of first argument to be passed to routine
+	ldx #0 ; Index of first argument to be passed to routine - 1
 	ldy #2 ; Index of first byte to store local variables
 	
 -	cpx zp_temp + 2
 	bcs .setup_of_local_vars_complete
 	cpx zp_temp
 	bcs .store_zero_in_local_var
-	lda z_operand_value_high_arr,x
+	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
 	iny
-	lda z_operand_value_low_arr,x
+	lda z_operand_value_low_arr + 1,x
 	sta (stack_ptr),y
 	iny
 	inx
@@ -94,10 +92,8 @@ stack_call_routine
 	inx
 	bne -
 .setup_of_local_vars_complete
-	dec zp_temp
-	dec zp_temp + 2
 	
-	; TASK: Stor old Z_PC etc on stack
+	; TASK: Store old Z_PC, number of local vars, number of arguments and store-result-bit on stack
 	lda zp_temp
 	ldx zp_temp + 1
 	beq +
@@ -117,6 +113,8 @@ stack_call_routine
 	iny
 	lda .stack_tmp + 2
 	sta (stack_ptr),y
+
+	; TASK: Set number of pushed bytes to 0
 	iny
 	lda #0
 	sta (stack_ptr),y
