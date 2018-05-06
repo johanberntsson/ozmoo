@@ -11,8 +11,11 @@ z_opcode_number       = $07
 stack_ptr             = $08 ; 2 bytes
 zp_pc_h               = $0a
 zp_pc_l               = $0b
+z_opcode_opcount 	  = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
+
 zp_mempos             = $ae ; 2 bytes
 zp_temp               = $fb ; 4 bytes
+
 
 
 memory_buffer         =	$02a7
@@ -71,4 +74,5 @@ header_terminating_chars_table = $2e
 header_standard_revision_number = $32
 header_alphabet_table = $34
 header_header_extension_table = $36
+
 

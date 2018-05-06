@@ -11,11 +11,16 @@ z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 ; These get zeropage addresses in constants.asm:
 ; z_opcode 
 ; z_opcode_number
+; z_opcode_opcount ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 
 z_opcode_extended = 190
 z_opcode_call_vs2 = 236
 z_opcode_call_vn2 = 250
 
+z_opcode_opcount_op0 = 0
+z_opcode_opcount_op1 = 1
+z_opcode_opcount_op2 = 2
+z_opcode_opcount_var = 3
 
 z_init
 !zone {
@@ -57,6 +62,8 @@ z_execute
 }
 	and #%00011111
 	sta z_opcode_number ; This is correct for VAR and LONG forms. Fix others later.
+	lda #z_opcode_opcount_op2
+	sta z_opcode_opcount ; This is the most common case. Adjust value when other case is found.
 	lda z_opcode
 	bit z_opcode
 	bpl .top_bits_are_0x
@@ -64,9 +71,11 @@ z_execute
 
 	; Top bits are 11. Form = Variable
 	and #%00100000
-	bne .get_4_ops
-	ldy #2
-	bne .get_y_ops
+	beq +
+	inc z_opcode_opcount ; Set to VAR
+	bne .get_4_ops ; Always branch
++	ldy #2
+	bne .get_y_ops ; Always branch
 	
 .top_bits_are_10
 	; Form = Short
@@ -79,7 +88,12 @@ z_execute
 	rol z_operand_type_arr
 	asl
 	rol z_operand_type_arr
-	ldx #0
+	dec z_opcode_opcount ; Set to 1OP
+	lda z_operand_type_arr
+	cmp #%11
+	bne +
+	dec z_opcode_opcount ; Set to 0OP
++	ldx #0
 	jsr clear_remaining_types
 	jmp .read_operands
 	
@@ -88,6 +102,7 @@ z_execute
 	cmp #z_opcode_extended
 	bne .long_form
 	; Form = Extended
+	inc z_opcode_opcount ; Set to VAR
 	jsr read_byte_at_z_pc_then_inc
 	sta z_extended_opcode
 	jmp .get_4_ops
