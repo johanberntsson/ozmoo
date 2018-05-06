@@ -69,10 +69,7 @@ read_word_at_z_pc_then_inc
 	beq .read_across_page_boundary
 	jsr read_word_at_z_address
     inc z_pc + 2
-	inc z_pc + 1
-	bne +
-	inc z_pc
-+   inc z_pc + 2
+	inc z_pc + 2
 	bne +
 	inc z_pc + 1
 	bne +

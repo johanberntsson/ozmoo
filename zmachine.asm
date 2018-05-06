@@ -8,6 +8,21 @@ z_operand_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 
+z_opcount_var_jump_high_arr
+!ifdef Z4PLUS {
+	!byte >z_ins_call_vs
+} else {
+	!byte >z_ins_call
+}
+
+z_opcount_var_jump_low_arr
+!ifdef Z4PLUS {
+	!byte <z_ins_call_vs
+} else {
+	!byte <z_ins_call
+}
+
+z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
 ; These get zeropage addresses in constants.asm:
 ; z_opcode 
 ; z_opcode_number
@@ -35,6 +50,13 @@ z_init
 
 z_execute
 !zone {
+	jsr print_following_string
+	!pet "starting z_pc",0
+	ldx z_pc + 2
+	lda z_pc + 1
+	jsr printinteger
+	lda #$0d
+	jsr kernel_printchar
 	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
 ;	lda z_pc
 ;	sta z_pc_instruction
@@ -171,7 +193,30 @@ z_execute
 	
 .process_instruction
 	; TODO: Perform the instruction!
+	lda z_opcode_opcount
+	cmp #z_opcode_opcount_var
+	beq .perform_var
+	bne .not_implemented ; Always branch
+.perform_var
+	lda #z_last_implemented_var_opcode_number
+	cmp z_opcode_number
+	bcc .not_implemented
+	ldx z_opcode_number
+	lda z_opcount_var_jump_low_arr,x
+	sta .jsr_perform + 1
+	lda z_opcount_var_jump_high_arr,x
+	sta .jsr_perform + 2
+.jsr_perform
+	jsr $8000
 	rts
+	
+.not_implemented
+;	ldx z_opcode
+;	jsr printx
+;	lda #$0d
+;	jsr kernel_printchar
+	jsr fatalerror
+	!pet "opcode not implemented!",0
 }
 
 z_get_op_types
@@ -199,3 +244,22 @@ clear_remaining_types_2
 	bne -
 +	rts
 }
+
+!zone {
+z_ins_call
+z_ins_call_vs
+	lda #0
+	cmp z_operand_high_arr
+	bne +
+	cmp z_operand_low_arr
+	bne .routine_0
++	ldx z_operand_count
+	dex
+	ldy #1 ; Store result = 1
+	jmp stack_call_routine
+.routine_0
+	jsr read_byte_at_z_pc_then_inc
+	; TODO: Save result in variable in acc
+	rts
+}
+	

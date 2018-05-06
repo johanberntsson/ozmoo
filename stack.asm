@@ -26,6 +26,11 @@ stack_init
 	sta stack_ptr
 	lda #>(stack_start - 2)
 	sta stack_ptr + 1
+	ldx stack_ptr
+	lda stack_ptr + 1
+	jsr printinteger
+	lda #$0d
+	jsr kernel_printchar
 	rts
 
 stack_call_routine
@@ -34,6 +39,22 @@ stack_call_routine
 	stx zp_temp
 	sty zp_temp + 1
 
+	jsr print_following_string
+	!pet "incoming z_pc",0
+	ldx z_pc + 2
+	lda z_pc + 1
+	jsr printinteger
+	lda #$0d
+	jsr kernel_printchar
+
+	
+	ldx stack_ptr
+	lda stack_ptr + 1
+	jsr printinteger
+	lda #$0d
+	jsr kernel_printchar
+	
+	
 	; TODO: Check that there is room for this frame!
 	
 	; TASK: Save PC. Set new PC. Setup new stack frame.
@@ -61,19 +82,25 @@ stack_call_routine
 	lda z_operand_low_arr
 -	asl
 	rol z_pc + 1
-	rol z_pc + 2
+	rol z_pc
 	dey
 	bne -
-	sta z_pc + 3
+	sta z_pc + 2
 	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 2 ; Number of local vars
+	
+	tax
+	jsr printx
+	lda #$0d
+	jsr kernel_printchar
+	
 	
 	ldx #0 ; Index of first argument to be passed to routine - 1
 	ldy #2 ; Index of first byte to store local variables
 	
--	cpx zp_temp + 2
+-	cpx zp_temp + 2 ; Number of local vars
 	bcs .setup_of_local_vars_complete
-	cpx zp_temp
+	cpx zp_temp ; Number of args
 	bcs .store_zero_in_local_var
 	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
@@ -89,6 +116,7 @@ stack_call_routine
 	sta (stack_ptr),y
 	iny
 	sta (stack_ptr),y
+	iny
 	inx
 	bne -
 .setup_of_local_vars_complete
@@ -123,7 +151,6 @@ stack_call_routine
 	
 	; TASK: Set new (higher) value of stack pointer
 	dey
-	dey
 	tya
 	clc
 	adc stack_ptr
@@ -132,6 +159,15 @@ stack_call_routine
 	adc #0
 	sta stack_ptr + 1
 
+	jsr print_following_string
+	!pet "hello stack",0
+	ldx stack_ptr
+	lda stack_ptr + 1
+	jsr printinteger
+	lda #$0d
+	jsr kernel_printchar
+	
+	
 	rts
 
 stack_return_from_routine
@@ -147,7 +183,7 @@ stack_pop
 
 .push_byte_primitive
 	ldy #0
-	sta(stack_ptr),y
+	sta (stack_ptr),y
 	inc stack_ptr
 	bne +
 	inc stack_ptr + 1
