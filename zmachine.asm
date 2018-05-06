@@ -7,6 +7,8 @@ z_operand_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
+z_local_var_count	!byte 0
+z_global_vars_start	!byte 0, 0
 
 z_opcount_var_jump_high_arr
 !ifdef Z4PLUS {
@@ -45,11 +47,19 @@ z_init
 	sta z_pc + 1
 	lda story_start + header_initial_pc + 1
 	sta z_pc + 2
+	lda story_start + header_globals + 1
+	clc
+	adc #<(story_start - 32)
+	sta z_global_vars_start
+	lda story_start + header_globals
+	adc #>(story_start - 32)
+	sta z_global_vars_start + 1
 	rts
 }
 
 z_execute
 !zone {
+.main_loop
 	jsr print_following_string
 	!pet "starting z_pc",0
 	ldx z_pc + 2
@@ -208,7 +218,7 @@ z_execute
 	sta .jsr_perform + 2
 .jsr_perform
 	jsr $8000
-	rts
+	jmp .main_loop
 	
 .not_implemented
 ;	ldx z_opcode
@@ -246,20 +256,113 @@ clear_remaining_types_2
 }
 
 !zone {
+get_variable
+	; Variable in x
+	; Returns value in a,x
+	; TODO: Retrieve value
+	sty zp_temp + 3
+	cpx #0
+	beq .read_from_stack
+	txa
+	cmp #16
+	bcs .read_global_var
+	; Local variable
+	asl
+	tay
+	iny
+	lda (z_local_vars_ptr),y
+	tax
+	dey
+	lda (z_local_vars_ptr),y
+	ldy zp_temp + 3
+	rts
+.read_from_stack
+	jsr stack_pull
+	ldy zp_temp + 3
+	rts
+.read_global_var
+	ldx #0
+	stx zp_temp + 1
+	asl
+	rol zp_temp + 1
+	clc
+	adc z_global_vars_start
+	sta zp_temp
+	lda zp_temp + 1
+	adc z_global_vars_start + 1
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y
+	tax
+	dey
+	lda (zp_temp),y
+	ldy zp_temp + 3
+	rts
+set_variable
+	; Value in a,x
+	; Variable in y
+	; TODO: Store value
+	rts
+}
+
+!zone {
+evaluate_all_args
+	ldy #0
+-	cpy z_operand_count
+	bcs .done
+	lda z_operand_type_arr,y
+	cmp #%10
+	beq .is_var
+	lda z_operand_high_arr,y
+	sta z_operand_value_high_arr,y
+	lda z_operand_low_arr,y
+	sta z_operand_value_low_arr,y
+	iny
+	bne - ; Always branch
+.is_var
+	ldx z_operand_low_arr,y
+	jsr get_variable
+	sta z_operand_value_high_arr,y
+	txa
+	sta z_operand_value_low_arr,y
+	iny
+	bne - ; Always branch
+.done
+	rts
+}
+
+!zone {
+check_for_routine_0
+	; If value in argument 0 is 0, set status flag Z to 1 and return 
+	lda #0
+	cmp z_operand_value_high_arr
+	bne +
+	cmp z_operand_value_low_arr
++	rts
+check_for_routine_0_and_store
+	; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
+	jsr check_for_routine_0
+	bne .not_0
+	jsr read_byte_at_z_pc_then_inc
+	tay
+	lda #0
+	tax
+	jsr set_variable
+	lda #0
+.not_0
+	rts
+}
+
+!zone {
 z_ins_call
 z_ins_call_vs
-	lda #0
-	cmp z_operand_high_arr
+	jsr evaluate_all_args
+	jsr check_for_routine_0_and_store
 	bne +
-	cmp z_operand_low_arr
-	bne .routine_0
+	rts
 +	ldx z_operand_count
 	dex
 	ldy #1 ; Store result = 1
 	jmp stack_call_routine
-.routine_0
-	jsr read_byte_at_z_pc_then_inc
-	; TODO: Save result in variable in acc
-	rts
 }
 	

@@ -9,6 +9,7 @@ mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
 z_opcode_number       = $07
 stack_ptr             = $14 ; 2 bytes (08 was bad?)
+z_local_vars_ptr	  = $16 ; 2 bytes
 zp_pc_h               = $0a
 zp_pc_l               = $0b
 z_opcode_opcount 	  = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR

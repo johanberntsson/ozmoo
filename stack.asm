@@ -87,9 +87,18 @@ stack_call_routine
 	bne -
 	sta z_pc + 2
 	jsr read_byte_at_z_pc_then_inc
-	sta zp_temp + 2 ; Number of local vars
-	
-	tax
+	sta z_local_var_count
+	cmp #0
+	bne +
+	lda stack_ptr
+	clc
+	adc #2
+	sta z_local_vars_ptr
+	lda stack_ptr + 1
+	adc #0
+	sta z_local_vars_ptr + 1
++	
+	ldx z_local_var_count
 	jsr printx
 	lda #$0d
 	jsr kernel_printchar
@@ -98,7 +107,7 @@ stack_call_routine
 	ldx #0 ; Index of first argument to be passed to routine - 1
 	ldy #2 ; Index of first byte to store local variables
 	
--	cpx zp_temp + 2 ; Number of local vars
+-	cpx z_local_var_count
 	bcs .setup_of_local_vars_complete
 	cpx zp_temp ; Number of args
 	bcs .store_zero_in_local_var
@@ -177,21 +186,63 @@ stack_push
 	; Push a,x onto stack
 	rts
 
-stack_pop
-	; Pop top value from stack, return in a,x
-	rts
+stack_pull
+	; Pull top value from stack, return in a,x
 
-.push_byte_primitive
+	; Check that there are > 0 values on stack
+	ldy #1
+	lda (stack_ptr),y
+	bne .ok
+	dey
+	lda (stack_ptr),y
+	bne .ok
+	jsr fatalerror
+	!pet "stack empty",0
+
+	; Decrease stack pointer by two bytes	
+.ok	sec
+	lda stack_ptr
+	sbc #2
+	sta stack_ptr
+	bcs +
+	lda stack_ptr + 1
+	sbc #0
+	sta stack_ptr + 1
+	; Retrieve the top value on the stack 
++	ldy #0
+	lda (stack_ptr),y
+	pha
+	iny
+	lda (stack_ptr),y
+	pha
+	; Decrease the number of bytes on the stack by 2, and move the value 2 bytes down in memory
+	ldy #3
+	lda (stack_ptr),y
+	sec
+	sbc #2
+	ldy #1
+	sta (stack_ptr),y
+	iny
+	lda (stack_ptr),y
+	sbc #0
 	ldy #0
 	sta (stack_ptr),y
-	inc stack_ptr
-	bne +
-	inc stack_ptr + 1
-	ldy stack_ptr + 1
-	cpy #>(stack_start + stack_size)
-	bcs .overflow
-+	rts
-.overflow
-	jsr fatalerror
-	!pet "stack overflow"
+	pla
+	tax
+	pla
+	rts
+
+;.push_byte_primitive
+;	ldy #0
+;	sta (stack_ptr),y
+;	inc stack_ptr
+;	bne +
+;	inc stack_ptr + 1
+;	ldy stack_ptr + 1
+;	cpy #>(stack_start + stack_size)
+;	bcs .overflow
+;+	rts
+;.overflow
+;	jsr fatalerror
+;	!pet "stack overflow"
 }
