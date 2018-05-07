@@ -39,20 +39,20 @@ stack_call_routine
 	stx zp_temp
 	sty zp_temp + 1
 
-	jsr print_following_string
-	!pet "incoming z_pc",0
-	ldx z_pc + 2
-	lda z_pc + 1
-	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
+;	jsr print_following_string
+;	!pet "incoming z_pc",0
+;	ldx z_pc + 2
+;	lda z_pc + 1
+;	jsr printinteger
+;	lda #$0d
+;	jsr kernel_printchar
 
 	
-	ldx stack_ptr
-	lda stack_ptr + 1
-	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
+;	ldx stack_ptr
+;	lda stack_ptr + 1
+;	jsr printinteger
+;	lda #$0d
+;	jsr kernel_printchar
 	
 	
 	; TODO: Check that there is room for this frame!
@@ -89,7 +89,7 @@ stack_call_routine
 	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
 	cmp #0
-	bne +
+	beq +
 	lda stack_ptr
 	clc
 	adc #2
@@ -98,10 +98,10 @@ stack_call_routine
 	adc #0
 	sta z_local_vars_ptr + 1
 +	
-	ldx z_local_var_count
-	jsr printx
-	lda #$0d
-	jsr kernel_printchar
+;	ldx z_local_var_count
+;	jsr printx
+;	lda #$0d
+;	jsr kernel_printchar
 	
 	
 	ldx #0 ; Index of first argument to be passed to routine - 1
@@ -168,13 +168,13 @@ stack_call_routine
 	adc #0
 	sta stack_ptr + 1
 
-	jsr print_following_string
-	!pet "hello stack",0
-	ldx stack_ptr
-	lda stack_ptr + 1
-	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
+;	jsr print_following_string
+;	!pet "hello stack",0
+;	ldx stack_ptr
+;	lda stack_ptr + 1
+;	jsr printinteger
+;	lda #$0d
+;	jsr kernel_printchar
 	
 	
 	rts
@@ -184,8 +184,45 @@ stack_return_from_routine
 
 stack_push
 	; Push a,x onto stack
-	rts
-
+	sta zp_temp
+	stx zp_temp + 1
+	; Check that there is room
+	lda stack_ptr
+	cmp #<(stack_start + stack_size - 2)
+	bne .there_is_room
+	lda stack_ptr + 1
+	cmp #>(stack_start + stack_size - 2)
+	bne .there_is_room
+	jsr fatalerror
+	!pet "stack full",0
+.there_is_room
+	; Increase number of pushed values
+	ldy #1
+	lda (stack_ptr),y
+	clc
+	adc #2
+	ldy #3
+	sta (stack_ptr),y
+	ldy #0
+	lda (stack_ptr),y
+	clc
+	adc #0
+	ldy #2
+	sta (stack_ptr),y
+	; Store value
+	lda zp_temp
+	ldy #0
+	sta (stack_ptr),y
+	lda zp_temp + 1
+	iny
+	sta (stack_ptr),y
+	; Increase stack pointer
+	inc stack_ptr
+	inc stack_ptr
+	bne +
+	inc stack_ptr + 1
++	rts
+	
 stack_pull
 	; Pull top value from stack, return in a,x
 

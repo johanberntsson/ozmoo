@@ -44,6 +44,40 @@ z_opcount_1op_jump_low_arr
 	
 z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
 
+z_opcount_2op_jump_high_arr
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_store
+
+z_opcount_2op_jump_low_arr
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_store
+	
+z_last_implemented_2op_opcode_number = * - z_opcount_2op_jump_low_arr - 1
+
 z_opcount_var_jump_high_arr
 !ifdef Z4PLUS {
 	!byte >z_ins_call_vs
@@ -98,7 +132,7 @@ z_execute
 !zone {
 .main_loop
 	jsr print_following_string
-	!pet "starting z_pc",0
+	!pet "Parsing instruction at z_pc ",0
 	ldx z_pc + 2
 	lda z_pc + 1
 	jsr printinteger
@@ -243,6 +277,8 @@ z_execute
 	lda z_opcode_opcount
 	cmp #z_opcode_opcount_1op
 	beq .perform_1op
+	cmp #z_opcode_opcount_2op
+	beq .perform_2op
 	cmp #z_opcode_opcount_var
 	beq .perform_var
 	bne z_not_implemented ; Always branch
@@ -254,6 +290,16 @@ z_execute
 	lda z_opcount_1op_jump_low_arr,x
 	sta .jsr_perform + 1
 	lda z_opcount_1op_jump_high_arr,x
+	sta .jsr_perform + 2
+	bne .jsr_perform ; Always branch
+.perform_2op
+	lda #z_last_implemented_2op_opcode_number
+	cmp z_opcode_number
+	bcc z_not_implemented
+	ldx z_opcode_number
+	lda z_opcount_2op_jump_low_arr,x
+	sta .jsr_perform + 1
+	lda z_opcount_2op_jump_high_arr,x
 	sta .jsr_perform + 2
 	bne .jsr_perform ; Always branch
 .perform_var
@@ -308,7 +354,6 @@ clear_remaining_types_2
 get_variable
 	; Variable in x
 	; Returns value in a,x
-	; TODO: Retrieve value
 	sty zp_temp + 3
 	cpx #0
 	beq .read_from_stack
@@ -347,18 +392,60 @@ get_variable
 	lda (zp_temp),y
 	ldy zp_temp + 3
 	rts
+
 set_variable
 	; Value in a,x
 	; Variable in y
 	; TODO: Store value
+	cpy #0
+	beq .write_to_stack
+	sta zp_temp + 2
+	stx zp_temp + 3
+	tya
+	cmp #16
+	bcs .write_global_var
+	; Local variable
+	asl
+	tay
+	lda zp_temp + 2
+	sta (z_local_vars_ptr),y
+	iny
+	lda zp_temp + 3
+	sta (z_local_vars_ptr),y
+	rts
+.write_to_stack
+	jsr stack_push
+	rts
+.write_global_var
+	ldx #0
+	stx zp_temp + 1
+	asl
+	rol zp_temp + 1
+	clc
+	adc z_global_vars_start
+	sta zp_temp
+	lda zp_temp + 1
+	adc z_global_vars_start + 1
+	sta zp_temp + 1
+	ldy #0
+	lda zp_temp + 2
+	sta (zp_temp),y
+	iny
+	lda zp_temp + 3
+	sta (zp_temp),y
 	rts
 }
 
 !zone {
 evaluate_all_args
+	ldx #$ff
+evaluate_all_args_except_x
+	stx zp_temp + 2
 	ldy #0
 -	cpy z_operand_count
 	bcs .done
+	cpy zp_temp + 2
+	beq .not_this_one
 	lda z_operand_type_arr,y
 	cmp #%10
 	beq .is_var
@@ -366,6 +453,7 @@ evaluate_all_args
 	sta z_operand_value_high_arr,y
 	lda z_operand_low_arr,y
 	sta z_operand_value_low_arr,y
+.not_this_one
 	iny
 	bne - ; Always branch
 .is_var
@@ -403,6 +491,8 @@ check_for_routine_0_and_store
 }
 
 !zone {
+; 1OP instructions
+
 z_ins_print_paddr
 	jsr evaluate_all_args
 	; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
@@ -411,6 +501,18 @@ z_ins_print_paddr
 	jsr convert_from_paddr
 	jmp print_addr
 
+; 2OP instructions
+
+z_ins_store
+	ldx #0
+	jsr evaluate_all_args_except_x
+	ldy z_operand_low_arr
+	lda z_operand_value_high_arr + 1
+	ldx z_operand_value_low_arr + 1
+	jmp set_variable
+	
+; VAR instructions
+	
 z_ins_call
 z_ins_call_vs
 	jsr evaluate_all_args
