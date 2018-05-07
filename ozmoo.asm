@@ -81,6 +81,9 @@ load_header
     lda #>story_start ; first free memory block
     ldx #$00    ; first block to read from floppy
     ldy #$01    ; read 1 block
+    stx readblocks_currentblock
+    sty readblocks_numblocks
+    sta readblocks_mempos + 1
     jsr readblocks
 
     ; check z machine version
@@ -168,6 +171,9 @@ load_dynamic_memory
     ldx #$01           ; first block to read from floppy
     ldy fileblocks + 1 ; read the rest of the blocks
     dey ; skip the header
+    stx readblocks_currentblock
+    sty readblocks_numblocks
+    sta readblocks_mempos + 1
     jmp readblocks
 
 prepare_static_high_memory

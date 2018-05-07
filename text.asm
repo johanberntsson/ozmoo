@@ -9,9 +9,6 @@ convert_from_paddr
     lda #$0
     sta .addr
 
-!ifdef Z3 {
-    ldx #1
-}
 !ifdef Z4 {
     ldx #2
 }
@@ -21,12 +18,13 @@ convert_from_paddr
 !ifdef Z8 {
     ldx #3
 }
-
 -   asl .addr+2
     rol .addr+1
     rol .addr
+!ifndef Z3 {
     dex
     bne -
+}
 
     ; $031b -> $00, $0c, $6c
     rts

@@ -85,6 +85,9 @@ load_blocks_from_index
     lda vmap_z_l,x ; start block
     tax
     pla
+    stx readblocks_currentblock
+    sty readblocks_numblocks
+    sta readblocks_mempos + 1
     jsr readblocks
 
     pla
@@ -111,6 +114,9 @@ load_dynamic_memory
     clc
     adc #1 ; skip header
     ldx #$01
+    stx readblocks_currentblock
+    sty readblocks_numblocks
+    sta readblocks_mempos + 1
     jmp readblocks
 
 prepare_static_high_memory

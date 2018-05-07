@@ -1,3 +1,6 @@
+TODO:
 - reuse index and skip tests if same block as previous call to read_z_*
-- the .block range in readblocks need to be increased
 - support custom alphabets in Z5 onwards
+
+DONE:
+- the .block range in readblocks need to be increased

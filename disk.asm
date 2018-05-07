@@ -1,16 +1,20 @@
+readblocks_numblocks     !byte 0 
+readblocks_currentblock  !byte 0,0 ; 257 = ff 1
+readblocks_mempos        !byte 0,0 ; $2000 = 00 20
+    
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
-    ; x=start block [in]
-    ; y=number of blocks to read [in]
-    ; a=start memory position ($<y>00) [in]
-    sty .cnt
-    stx .block
-    sta .mempos + 1 ; memory position to store data in
+    ; set values in readblocks_* before calling this function
 -   jsr .readblock ; read block
-    inc .mempos+1   ; update mempos,block for next iteration
-    inc .block
-    dec .cnt        ; loop
+    inc readblocks_mempos + 1   ; update mempos,block for next iteration
+    inc readblocks_currentblock
+    bne +
+    inc readblocks_currentblock + 1
++   dec readblocks_numblocks        ; loop
     bne -
+    ; clear arguments for next call
+    lda #0
+    sta readblocks_currentblock + 1
     rts
 
 .readblock
@@ -19,15 +23,17 @@ readblocks
 
     ; convert block to track/sector
     ; (assuming 16 tracks, each with 16 sectors)
-    lda .block
+    lda readblocks_currentblock
     and #$0f
     sta .sector
-    lda .block
-    lsr
-    lsr
-    lsr
-    lsr
+    lda readblocks_currentblock
     sta .track
+    lda readblocks_currentblock + 1
+    ldx #4
+-   lsr
+    ror .track
+    dex
+    bne -
     inc .track ; tracks are 1..
 
     ; convert track/sector to ascii and update drive command
@@ -41,15 +47,15 @@ readblocks
     sta .uname_sector + 1
 
 !ifdef DEBUG {
-    ldx .mempos
+    ldx readblocks_mempos
     jsr printx
     lda #$20
     jsr kernel_printchar
-    ldx .mempos + 1
+    ldx readblocks_mempos + 1
     jsr printx
     lda #$20
     jsr kernel_printchar
-    ldx .block
+    ldx readblocks_currentblock
     jsr printx
     lda #$20
     jsr kernel_printchar
@@ -93,9 +99,9 @@ readblocks
     ldx #$02      ; filenumber 2
     jsr kernel_chkin ; call CHKIN (file 2 now used as input)
 
-    lda .mempos
+    lda readblocks_mempos
     sta zp_mempos
-    lda .mempos+1
+    lda readblocks_mempos+1
     sta zp_mempos + 1
 
     ldy #$00
@@ -130,9 +136,5 @@ cname_len = * - .cname
     !byte 13, 0 ; end of string, so we can print debug messages
 }
 uname_len = * - .uname
-
-.cnt    !byte 0
 .track  !byte 0
 .sector !byte 0
-.block  !byte 0
-.mempos !byte 0,0
