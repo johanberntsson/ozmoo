@@ -10,6 +10,40 @@ z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
 z_global_vars_start	!byte 0, 0
 
+z_opcount_1op_jump_high_arr
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_print_paddr
+
+z_opcount_1op_jump_low_arr
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_print_paddr
+	
+z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
+
 z_opcount_var_jump_high_arr
 !ifdef Z4PLUS {
 	!byte >z_ins_call_vs
@@ -34,19 +68,22 @@ z_opcode_extended = 190
 z_opcode_call_vs2 = 236
 z_opcode_call_vn2 = 250
 
-z_opcode_opcount_op0 = 0
-z_opcode_opcount_op1 = 1
-z_opcode_opcount_op2 = 2
+z_opcode_opcount_0op = 0
+z_opcode_opcount_1op = 1
+z_opcode_opcount_2op = 2
 z_opcode_opcount_var = 3
 
 z_init
 !zone {
+	; Copy z_pc from header
 	lda #0
 	sta z_pc
 	lda story_start + header_initial_pc
 	sta z_pc + 1
 	lda story_start + header_initial_pc + 1
 	sta z_pc + 2
+
+	; Setup globals pointer
 	lda story_start + header_globals + 1
 	clc
 	adc #<(story_start - 32)
@@ -94,7 +131,7 @@ z_execute
 }
 	and #%00011111
 	sta z_opcode_number ; This is correct for VAR and LONG forms. Fix others later.
-	lda #z_opcode_opcount_op2
+	lda #z_opcode_opcount_2op
 	sta z_opcode_opcount ; This is the most common case. Adjust value when other case is found.
 	lda z_opcode
 	bit z_opcode
@@ -204,13 +241,25 @@ z_execute
 .process_instruction
 	; TODO: Perform the instruction!
 	lda z_opcode_opcount
+	cmp #z_opcode_opcount_1op
+	beq .perform_1op
 	cmp #z_opcode_opcount_var
 	beq .perform_var
-	bne .not_implemented ; Always branch
+	bne z_not_implemented ; Always branch
+.perform_1op
+	lda #z_last_implemented_1op_opcode_number
+	cmp z_opcode_number
+	bcc z_not_implemented
+	ldx z_opcode_number
+	lda z_opcount_1op_jump_low_arr,x
+	sta .jsr_perform + 1
+	lda z_opcount_1op_jump_high_arr,x
+	sta .jsr_perform + 2
+	bne .jsr_perform ; Always branch
 .perform_var
 	lda #z_last_implemented_var_opcode_number
 	cmp z_opcode_number
-	bcc .not_implemented
+	bcc z_not_implemented
 	ldx z_opcode_number
 	lda z_opcount_var_jump_low_arr,x
 	sta .jsr_perform + 1
@@ -220,7 +269,7 @@ z_execute
 	jsr $8000
 	jmp .main_loop
 	
-.not_implemented
+z_not_implemented
 ;	ldx z_opcode
 ;	jsr printx
 ;	lda #$0d
@@ -354,6 +403,11 @@ check_for_routine_0_and_store
 }
 
 !zone {
+z_ins_print_paddr
+	jsr evaluate_all_args
+	; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
+	; JMP to routine to do printing
+	rts
 z_ins_call
 z_ins_call_vs
 	jsr evaluate_all_args
