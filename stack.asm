@@ -91,18 +91,12 @@ stack_call_routine
 	cmp #0
 	beq +
 	lda stack_ptr
-	clc
-	adc #2
 	sta z_local_vars_ptr
 	lda stack_ptr + 1
-	adc #0
 	sta z_local_vars_ptr + 1
 +	
-;	ldx z_local_var_count
-;	jsr printx
-;	lda #$0d
-;	jsr kernel_printchar
-	
+
+	; TASK: Setup local vars
 	
 	ldx #0 ; Index of first argument to be passed to routine - 1
 	ldy #2 ; Index of first byte to store local variables
@@ -131,6 +125,7 @@ stack_call_routine
 .setup_of_local_vars_complete
 	
 	; TASK: Store old Z_PC, number of local vars, number of arguments and store-result-bit on stack
+
 	lda zp_temp
 	ldx zp_temp + 1
 	beq +
@@ -139,7 +134,7 @@ stack_call_routine
 	asl
 	asl
 	asl
-	ora zp_temp + 2
+	ora z_local_var_count
 	sta (stack_ptr),y
 	iny
 	lda .stack_tmp
