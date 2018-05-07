@@ -41,6 +41,17 @@ read_text_byte
     inc .addr
 +   rts
 
+read_text
+    ; read line from keyboard into an array
+    ; See also: http://inform-fiction.org/manual/html/s2.html#p54
+
+read_char
+    ; read a char from the keyboard
+
+tokenize_text
+    ; break output from read_text into workds and find their addresses
+    ; in the dictionary. The result is stored in parse_buffer
+
 print_addr
     jsr read_text_byte
     sta .packedtext
@@ -107,6 +118,7 @@ print_addr
     rts
 
 testtext
+    rts
     lda #0
     sta .alphabet_offset
     lda #$03

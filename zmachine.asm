@@ -406,8 +406,11 @@ check_for_routine_0_and_store
 z_ins_print_paddr
 	jsr evaluate_all_args
 	; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
-	; JMP to routine to do printing
-	rts
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr convert_from_paddr
+	jmp print_addr
+
 z_ins_call
 z_ins_call_vs
 	jsr evaluate_all_args
