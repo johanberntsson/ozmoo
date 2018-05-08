@@ -13,11 +13,10 @@ z_local_vars_ptr	  = $26 ; 2 bytes (16 was bad?)
 zp_pc_h               = $0a
 zp_pc_l               = $0b
 z_opcode_opcount 	  = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
-
 zp_mempos             = $ae ; 2 bytes
+zero_keybufferset     = $d1 ; 2 bytes (points to screen memory, start of input)
+zero_keybuffer        = $d3 ; number of bytes in the current input
 zp_temp               = $fb ; 4 bytes
-
-
 
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
@@ -37,6 +36,7 @@ reg_backgroundcolor   = $d021
 ; --- Kernel routines ---
 kernel_setcursor      = $e50c ; set cursor to x/y (row/column)
 kernel_reset          = $fce2 ; cold reset of the C64
+kernel_scnkey         = $ff9f ; scan the keyboard
 kernel_setlfs         = $ffba ; set file parameters
 kernel_setnam         = $ffbd ; set file name
 kernel_open           = $ffc0 ; open a file
