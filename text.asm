@@ -76,7 +76,7 @@ read_text
     beq .readkey ; cursor left
     cmp #29
     beq .readkey ; cursor right
-    ; print the allowed char and story in the array
+    ; print the allowed char and store in the array
     jsr kernel_printchar
     pha
     ldy #0
@@ -97,22 +97,16 @@ read_text
     sta (mempointer),y
     pla ; don't save this (out of bounds)
     jmp .readkey
-
 .read_text_done
     ; turn off blinking cursor
     lda #$ff
     sta $cc
-    ; hide cursor if visible
+    ; hide cursor if still visible
     ldy zero_keybuffer
     lda (zero_keybufferset),y
     and #$7f
     sta (zero_keybufferset),y
     rts
-
-parse_text
-    ; another attemps at parsing the text (see tokenise below)
-    rts
-
 
 tokenise_text
     ; divide read_line input into words and look up them in the dictionary
@@ -139,29 +133,38 @@ tokenise_text
     ; look over text and find each word
     ldy #2 ; start position in text
 .find_word_loop
--   ; skip initial space
+    ; skip initial space
     cpy .textend
+    beq .start_of_word
     bcs .parsing_done
     lda (mempointer),y
     cmp #$20
     bne .start_of_word
     iny
-    jmp -
-    ; start of next word found
+    jmp .find_word_loop
 .start_of_word
+    ; start of next word found (y is first character of new word)
     sty .wordstart
 -   ; look for the end of the word
     lda (mempointer),y
     cmp #$20
-    beq .word_found
+    beq .space_found
+    cmp #44 ; comma
+    beq .terminator_found
     cpy .textend
     bcs .word_found
     iny
     jmp -
+.terminator_found
+    cpy .wordstart
+    beq .word_found
+.space_found
+    dey
 .word_found
     ; word found. Look it up in the dictionary
-    sty .wordend
     inc .numwords
+    iny
+    sty .wordend ; .wordend is the last character of the word + 1
     ; update parse_array
     lda .wordoffset
     tay
@@ -174,8 +177,8 @@ tokenise_text
     sta (mem_temp),y ; start index
     iny
     lda .wordend
-    ;sec
-    ;sbc .wordstart
+    sec
+    sbc .wordstart
     sta (mem_temp),y ; length
     ldy #1
     lda .numwords
