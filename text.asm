@@ -42,7 +42,7 @@ read_text_byte
 +   rts
 
 read_text
-    ; read line from keyboard into an array
+    ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
     stx mempointer ; 7c
     clc
@@ -54,14 +54,20 @@ read_text
     iny
     iny
 .read_loop
+    ;sty mem_temp
+    ;stx mem_temp + 1
+    ;jsr kernel_getchar ; will destroy x and y
+    ; TODO: delete can move cursor past first point, and give strange results
     jsr kernel_readchar
+    ;ldy mem_temp
+    ;ldx mem_temp + 1
     cmp #13
     beq .read_done  ; quit if newline
     cmp #20
     bne + 
     ; handle delete key
     cpy #2
-    bne .read_loop
+    beq .read_loop
     dey
     jmp .read_loop
 +   cpx #0
@@ -82,16 +88,21 @@ read_text
 .read_done
     tya     ; stored the number of characters read
     sec
-    sbc #2 ; skip byte 0, 1 (input starts of byte 2)
+    sbc #2 ; skip byte 0, 1 (input starts at byte 2)
     ldy #1
     sta (mempointer), y
     rts
 
 parse_text
+    ; another attemps at parsing the text (see tokenise below)
+    rts
+
+
+tokenise_text
     ; divide read_line input into words and look up them in the dictionary
-    ; input: mempointer should be setup to the text array
+    ; input: mempointer should be pointing to the text array
     ; (this will be okay if called immediately after read_text)
-    ; a/x should be the parse array
+    ; a/x should be the address of the parse array
     stx mem_temp ; a7
     clc
     adc #>story_start ; 05+20 = 25
@@ -244,6 +255,12 @@ print_addr
 
 testtext
     ; init the array (normally done by the story file)
+    ldy #20
+    lda #0
+-   sta $257c,y
+    sta $25a7,y
+    dey
+    bne -
     lda #20
     sta $257c
     lda #0     ; 0=overwrite, 1=append to previous input
@@ -251,6 +268,8 @@ testtext
     lda #$05
     ldx #$7c
     jsr read_text
+    lda #$0d
+    jsr kernel_printchar
     ldy #0
 -   lda $257c,y
     tax
