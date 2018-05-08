@@ -48,49 +48,65 @@ read_text
     clc
     adc #>story_start ; 05+20 = 25
     sta mempointer + 1
-    ldy #0
-    lda (mempointer),y
-    tax
-    iny
-    iny
-.read_loop
-    ;sty mem_temp
-    ;stx mem_temp + 1
-    ;jsr kernel_getchar ; will destroy x and y
-    ; TODO: delete can move cursor past first point, and give strange results
-    jsr kernel_readchar
-    ;ldy mem_temp
-    ;ldx mem_temp + 1
-    cmp #13
-    beq .read_done  ; quit if newline
+    ; turn on blinking cursor
+    lda #0
+    sta $cc
+.readkey
+    jsr kernel_getchar
+    cmp #$00
+    beq .readkey
+    cmp #$0d
+    beq .read_text_done
     cmp #20
-    bne + 
-    ; handle delete key
-    cpy #2
-    beq .read_loop
-    dey
-    jmp .read_loop
-+   cpx #0
-    beq .read_loop ; don't add if full
-    ; valid character?
-    cmp #$20
-    beq .valid_char
-    ; convert to lower case
-    cmp #97
-    bcc .valid_char
-    sec
-    sbc #32
-.valid_char
-    sta (mempointer), y ; add char
+    bne +
+    ; allow delete if buffer > 0
+    ldy zero_keybuffer
+    cpy #0
+    beq .readkey
++   ; disallow cursor keys etc
+    cmp #14
+    beq .readkey ; big/small
+    cmp #19
+    beq .readkey ; home
+    cmp #145
+    beq .readkey ; cursor up
+    cmp #17
+    beq .readkey ; cursor down
+    cmp #157
+    beq .readkey ; cursor left
+    cmp #29
+    beq .readkey ; cursor right
+    ; print the allowed char and story in the array
+    jsr kernel_printchar
+    pha
+    ldy #0
+    lda (mempointer),y ; max characters in array
+    cmp zero_keybuffer ; compare with size of keybuffer
+    bcc +
+    ; maxchars >= keybuffer
+    lda zero_keybuffer
     iny
-    dex
-    jmp .read_loop
-.read_done
-    tya     ; stored the number of characters read
-    sec
-    sbc #2 ; skip byte 0, 1 (input starts at byte 2)
-    ldy #1
-    sta (mempointer), y
+    sta (mempointer),y
+    tay
+    iny
+    pla
+    sta (mempointer),y
+    jmp .readkey
++   ; maxchars < keybuffer
+    iny
+    sta (mempointer),y
+    pla ; don't save this (out of bounds)
+    jmp .readkey
+
+.read_text_done
+    ; turn off blinking cursor
+    lda #$ff
+    sta $cc
+    ; hide cursor if visible
+    ldy zero_keybuffer
+    lda (zero_keybufferset),y
+    and #$7f
+    sta (zero_keybufferset),y
     rts
 
 parse_text
@@ -284,7 +300,7 @@ testtext
     sta $25a7
     lda #$05
     ldx #$a7
-    jsr parse_text
+    jsr tokenise_text
     lda #$0d
     jsr kernel_printchar
     ldy #0
