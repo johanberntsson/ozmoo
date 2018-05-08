@@ -4,8 +4,8 @@
 
 convert_from_paddr
     ; convert a/x to paddr in .addr
-    stx .addr + 2 ; 1b
-    sta .addr + 1 ; 03
+    stx .addr + 2
+    sta .addr + 1
     lda #$0
     sta .addr
 
@@ -44,6 +44,131 @@ read_text_byte
 read_text
     ; read line from keyboard into an array
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
+    stx mempointer ; 7c
+    clc
+    adc #>story_start ; 05+20 = 25
+    sta mempointer + 1
+    ldy #0
+    lda (mempointer),y
+    tax
+    iny
+    iny
+.read_loop
+    jsr kernel_readchar
+    cmp #13
+    beq .read_done  ; quit if newline
+    cmp #20
+    bne + 
+    ; handle delete key
+    cpy #2
+    bne .read_loop
+    dey
+    jmp .read_loop
++   cpx #0
+    beq .read_loop ; don't add if full
+    ; valid character?
+    cmp #$20
+    beq .valid_char
+    ; convert to lower case
+    cmp #97
+    bcc .valid_char
+    sec
+    sbc #32
+.valid_char
+    sta (mempointer), y ; add char
+    iny
+    dex
+    jmp .read_loop
+.read_done
+    tya     ; stored the number of characters read
+    sec
+    sbc #2 ; skip byte 0, 1 (input starts of byte 2)
+    ldy #1
+    sta (mempointer), y
+    rts
+
+parse_text
+    ; divide read_line input into words and look up them in the dictionary
+    ; input: mempointer should be setup to the text array
+    ; (this will be okay if called immediately after read_text)
+    ; a/x should be the parse array
+    stx mem_temp ; a7
+    clc
+    adc #>story_start ; 05+20 = 25
+    sta mem_temp + 1
+
+    lda #0
+    sta .numwords ; no words found yet
+    lda #2
+    sta .wordoffset ; where to store the next word in parse_array
+    ldy #0
+    lda (mem_temp),y 
+    sta .maxwords
+    iny
+    lda (mempointer),y ; number of chars in text string
+    clc
+    adc #1
+    sta .textend
+    ; look over text and find each word
+    ldy #2 ; start position in text
+.find_word_loop
+-   ; skip initial space
+    cpy .textend
+    bcs .parsing_done
+    lda (mempointer),y
+    cmp #$20
+    bne .start_of_word
+    iny
+    jmp -
+    ; start of next word found
+.start_of_word
+    sty .wordstart
+-   ; look for the end of the word
+    lda (mempointer),y
+    cmp #$20
+    beq .word_found
+    cpy .textend
+    bcs .word_found
+    iny
+    jmp -
+.word_found
+    ; word found. Look it up in the dictionary
+    sty .wordend
+    inc .numwords
+    ; update parse_array
+    lda .wordoffset
+    tay
+    clc
+    adc #4
+    sta .wordoffset
+    iny
+    iny
+    lda .wordstart
+    sta (mem_temp),y ; start index
+    iny
+    lda .wordend
+    ;sec
+    ;sbc .wordstart
+    sta (mem_temp),y ; length
+    ldy #1
+    lda .numwords
+    sta (mem_temp),y ; num of words
+    ; find the next word
+    ldy .wordend
+    lda .numwords
+    cmp .maxwords
+    bne  .find_word_loop
+.parsing_done
+    lda .numwords
+    ldy #1
+    sta (mem_temp),y
+    rts
+.maxwords   !byte 0 
+.numwords   !byte 0 
+.wordoffset !byte 0 
+.textend    !byte 0 
+.wordstart  !byte 0 
+.wordend    !byte 0 
 
 read_char
     ; read a char from the keyboard
@@ -61,7 +186,7 @@ print_addr
     ; extract 3 zchars (5 bits each)
     ldx #0
 .extract_loop
-  lda .packedtext + 1
+    lda .packedtext + 1
     and #$1f
     sta .zchars,x
 
@@ -118,16 +243,40 @@ print_addr
     rts
 
 testtext
-    rts
-    lda #0
-    sta .alphabet_offset
-    lda #$03
-    ldx #$1b
-    jsr convert_from_paddr
-    ; $0c6c: 13 2d 28 04 26 e6
-    ; $132d: 0 00100 11001 01101 = 4 25 13: (A1) Th
-    ; $2804: 0 01010 00000 00100 =
-    jsr print_addr
+    ; init the array (normally done by the story file)
+    lda #20
+    sta $257c
+    lda #0     ; 0=overwrite, 1=append to previous input
+    sta $257d
+    lda #$05
+    ldx #$7c
+    jsr read_text
+    ldy #0
+-   lda $257c,y
+    tax
+    jsr printx
+    lda #$20
+    jsr kernel_printchar
+    iny
+    cpy #12
+    bne -
+    ; parser
+    lda #6 ; max 6 words
+    sta $25a7
+    lda #$05
+    ldx #$a7
+    jsr parse_text
+    lda #$0d
+    jsr kernel_printchar
+    ldy #0
+-   lda $25a7,y
+    tax
+    jsr printx
+    lda #$20
+    jsr kernel_printchar
+    iny
+    cpy #16
+    bne -
     rts
 
 .addr !byte 0,0,0
