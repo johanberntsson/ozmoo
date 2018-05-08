@@ -46,9 +46,9 @@ z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
 
 z_opcount_2op_jump_high_arr
 	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_je
+	!byte >z_ins_jl
+	!byte >z_ins_jg
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -62,9 +62,9 @@ z_opcount_2op_jump_high_arr
 
 z_opcount_2op_jump_low_arr
 	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_je
+	!byte <z_ins_jl
+	!byte <z_ins_jg
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -491,6 +491,90 @@ check_for_routine_0_and_store
 }
 
 !zone {
+make_branch_true
+	lda #$80
+	bne +
+make_branch_false
+	lda #0
++	sta zp_temp
+	jsr read_byte_at_z_pc_then_inc
+	sta zp_temp + 1
+	and #%01000000
+	bne +
+	jsr read_byte_at_z_pc_then_inc
+	sta zp_temp + 2
++	bit zp_temp + 1
+	bmi +
+	lda #$80
+	eor zp_temp
+	sta zp_temp
++	bit zp_temp
+	bpl .done
+	; Calculate and perform the jump
+	bvc .two_byte_jump
+	lda zp_temp + 1
+	and #%00111111
+	sta zp_temp + 2
+	lda #0
+	sta zp_temp + 1
+	sta zp_temp
+	beq .both_jumps
+.two_byte_jump
+	lda zp_temp + 1
+	and #%00111111
+	tay
+	and #%00100000
+	beq +
+	; Propagate minus bit
+	tya
+	ora #%11000000
+	sta zp_temp + 1
+	lda #$ff
+	sta zp_temp
+	bne .both_jumps
++	tya
+	sta zp_temp + 1
+	lda #0
+	sta zp_temp
+.both_jumps	
+	ldy zp_temp + 2
+	cpy #2
+	bcs .not_return
+	lda zp_temp
+	ora zp_temp + 1
+	bne .not_return
+	; Return value in y	
+	; TODO: Implement!
+	jsr fatalerror
+	!pet "branchreturn: NO!",0
+	rts
+.not_return
+	tya
+	sec
+	sbc #2
+	sta zp_temp + 2
+	bcs +
+	lda zp_temp + 1
+	sbc #0
+	sta zp_temp + 1
+	lda zp_temp + 2
+	sbc #0
+	sta zp_temp + 2
++	lda z_pc + 2
+	clc
+	adc zp_temp + 2
+	sta z_pc + 2
+	lda z_pc + 1
+	adc zp_temp + 1
+	sta z_pc + 1
+	lda z_pc
+	adc zp_temp
+	sta z_pc
+.done
+	rts
+}
+
+!zone {
 ; 1OP instructions
 
 z_ins_print_paddr
@@ -502,6 +586,41 @@ z_ins_print_paddr
 	jmp print_addr
 
 ; 2OP instructions
+z_ins_je
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	cmp z_operand_value_low_arr + 1
+	bne .branch_false
+	lda z_operand_value_high_arr
+	cmp z_operand_value_high_arr + 1
+	beq .branch_true
+.branch_false
+	jmp make_branch_false
+.branch_true
+	jmp make_branch_true
+z_ins_jl
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	sec
+	sbc z_operand_value_low_arr + 1
+	lda z_operand_value_high_arr
+	sbc z_operand_value_high_arr + 1
+	bcc .branch_true
+	jmp make_branch_false
+z_ins_jg
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr + 1
+	sec
+	sbc z_operand_value_low_arr
+	lda z_operand_value_high_arr + 1
+	sbc z_operand_value_high_arr
+	bcc .branch_true
+	jmp make_branch_false
+	
+	
+
+	
+	rts
 
 z_ins_store
 	ldx #0
