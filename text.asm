@@ -57,6 +57,77 @@ read_next_byte
     rts
 .next_byte_state !byte 0
 
+convert_zchar_to_char
+    ; input: a=zchar
+    ; output: a=char
+    ; used registers: a,y
+    cmp #6
+    bcc +
+    ; print zchar
+    sec
+    sbc #6
+    clc
+    adc .alphabet_offset
+    tay
+    lda .alphabet,y
++   rts
+
+convert_char_to_zchar
+    ; input: a=char
+    ; output: a=zchar
+    ; used registers: a,x
+    ldx #26*3
+-   cmp .alphabet,x
+    beq +
+    dex
+    bne -
+    jsr fatalerror
+    !pet "invalid char",0
++   txa
+    clc
+    adc #6
+    rts
+
+convert_string_to_dictionary
+    ldy #0
+    sty .zword
+    sty .zword + 1
+-   ldx #5
+--  asl .zword + 1
+    rol .zword
+    dex
+    bne --
+    lda .textbuffer,y
+    jsr convert_char_to_zchar
+    tax
+    ora .zword + 1
+    sta .zword + 1
+!ifdef DEBUG { 
+    lda #$0d
+    jsr $ffd2
+    jsr printx
+    lda #$20
+    jsr $ffd2
+    ldx .zword + 1
+    jsr printx
+    lda #$0d
+    jsr $ffd2
+}
+    iny
+    cpy #3
+    bne -
+    ldx .zword
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 1
+    jsr printx
+    lda #$0d
+    jsr $ffd2
+    rts
+.zword !byte 0,0
+.textbuffer !pet "drop     "
+
 lookup_dictionary
     ; find a word in the dictionary
     ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
@@ -252,20 +323,7 @@ print_addr
     ; print the three chars
     ldx #2
 --  lda .zchars,x
-    cmp #6
-    bcc .l1
-    ; print zchar
-    sec
-    sbc #6
-    clc
-    adc .alphabet_offset
-    tay
-    lda .alphabet,y
-    jsr kernel_printchar
-    ; change back to A0
-    lda #0
-    sta .alphabet_offset
-    jmp .next_zchar
+    jsr convert_zchar_to_char
 .l1 cmp #0
     bne .l2
     ; space
@@ -283,7 +341,12 @@ print_addr
     ; change to A2
     lda #52
     sta .alphabet_offset
-.l4
+    jmp .next_zchar
+.l4 ; normal char
+    jsr kernel_printchar
+    ; change back to A0
+    lda #0
+    sta .alphabet_offset
 .next_zchar
     dex
     bpl --
@@ -293,6 +356,8 @@ print_addr
     rts
 
 testtext
+    jmp convert_string_to_dictionary
+
     ; init the array (normally done by the story file)
     ldy #20
     lda #0
@@ -341,7 +406,7 @@ testtext
 .zchars !byte 0,0,0
 .packedtext !byte 0,0
 .alphabet_offset !byte 0
-.alphabet
+.alphabet ; 26 * 3
     !pet "abcdefghijklmnopqrstuvwxyz"
     !pet "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     !pet " ",13,"0123456789.,!?_#'",34, "/\-:()"
