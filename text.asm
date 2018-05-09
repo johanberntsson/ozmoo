@@ -98,49 +98,200 @@ convert_char_to_zchar
     adc #6
     rts
 
-convert_string_to_dictionary
-    ; input:
-    ; output:
+find_word_in_dictionary
+    ; input: 
+    ;   y = index in mem_temp to store result in
+    ;   mem_temp = indirect address to parse_array
+    ;   mempointer = indirect address to string being parsed
+    ;   .wordstart = index in mempointer to first char of current word
+    ;   .wordend = index in mempointer to last char of current word
+    ; output: puts address in mem_temp[y] and mem_temp[y+1]
     ; side effects:
-    ; used registers:
-    ldy #0
-    sty .zword
+    ; used registers: a,x
+    sty .parse_array_index ; store away the index for later
+    lda #0
+    sty .zword      ; clear zword buffer
     sty .zword + 1
--   ldx #5
---  asl .zword + 1
+    sty .zword + 2
+    sty .zword + 3
+    sty .zword + 4
+    sty .zword + 5
+    lda .wordstart  ; truncate the word length to dictionary size
+    clc
+!ifndef Z4PLUS {
+    adc #6
+}
+!ifdef Z4PLUS {
+    adc #9
+}
+    sta .last_char_index 
+    ; get started!
+    lda #1
+    sta .triplet_counter ; keep track of triplets to insert extra bit
+    ldy .wordstart
+.encode_chars
+    ldx #5
+    dec .triplet_counter
+    bne .shift_zchar
+    lda #3
+    sta .triplet_counter
+    ldx #6
+.shift_zchar
+    asl .zword + 5
+    rol .zword + 4
+    rol .zword + 3
+    rol .zword + 2
+    rol .zword + 1
     rol .zword
     dex
-    bne --
-    lda .textbuffer,y
+    bne .shift_zchar
+
+    lda #5 ; pad character
+    cpy .wordend
+    bcs +
+    lda (mempointer),y
     jsr convert_char_to_zchar
-    tax
-    ora .zword + 1
-    sta .zword + 1
-!ifdef DEBUG { 
-    lda #$0d
-    jsr $ffd2
++   tax
     jsr printx
+    pha
     lda #$20
     jsr $ffd2
-    ldx .zword + 1
-    jsr printx
+    pla
+    ora .zword + 5
+    sta .zword + 5
+    iny
+    cpy .last_char_index
+    bne .encode_chars
+    ; done. Add stop bit to mark end of string
+    lda .zword + 5
+    ora #$80
+    sta .zword + 5
+!ifdef DEBUG {
+    ; print result
     lda #$0d
     jsr $ffd2
-}
-    iny
-    cpy #3
-    bne -
-    ldx .zword
+    ldx .zword 
     jsr printx
     lda #44
     jsr $ffd2
     ldx .zword + 1
     jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 2
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 3
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 4
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 5
+    jsr printx
     lda #$0d
     jsr $ffd2
+}
+    ; find entry in dictionary 
+    lda #0
+    sta .dict_cnt
+    sta .dict_cnt + 1
+    ldx dict_entries
+    lda dict_entries + 1
+    jsr set_z_address
+.dictionary_loop
+    ; show the dictonary word
+!ifdef DEBUG {
+    lda .addr
+    pha
+    lda .addr + 1
+    pha
+    lda .addr + 2
+    pha
+    jsr print_addr
+    lda #$0d
+    jsr kernel_printchar
+    pla 
+    sta .addr + 2
+    pla 
+    sta .addr + 1
+    pla 
+    sta .addr
+}
+!ifndef Z4PLUS {
+    ldy #4
+}
+!ifdef Z4PLUS {
+    ldy #6
+}
+    ; check if correct entry
+    ldx #0
+    stx .dictionary_address
+.loop_check_entry
+    jsr read_next_byte
+    cmp .zword,x
+    beq +
+    inc .dictionary_address
++   inx
+    dey
+    bne .loop_check_entry
+    cpx .dictionary_address
+    bne +
+    ; we found the correct entry!
+    inc $d020
+    jsr get_z_address
+    sta .dictionary_address
+    stx .dictionary_address + 1
+    jmp .found_dict_entry
+    ; skip the extra data bytes
++   lda dict_len_entries
+    sec
+!ifndef Z4PLUS {
+    sbc #4
+}
+!ifdef Z4PLUS {
+    sbc #6
+}
+    tay
+.dictionary_extra_bytes
+    jsr read_next_byte
+    dey
+    bne .dictionary_extra_bytes
+    ; increase the loop counter
+    inc .dict_cnt + 1
+    bne .check_high
+    inc .dict_cnt
+    ; counter < dict_num_entries?
+.check_high
+    lda dict_num_entries + 1
+    cmp .dict_cnt + 1
+    bne .dictionary_loop
+    lda dict_num_entries
+    cmp .dict_cnt
+    bne .dictionary_loop
+    ; no entry found
+    lda #0
+    sta .dictionary_address
+    sta .dictionary_address + 1
+.found_dict_entry
+    ; store result into parse_array and exit
+    ldy .parse_array_index
+    lda .dictionary_address
+    sta (mem_temp),y
+    iny
+    lda .dictionary_address + 1
+    sta (mem_temp),y
+    iny
     rts
-.zword !byte 0,0
-.textbuffer !pet "drop     "
+.dict_cnt !byte 0,0
+.triplet_counter !byte 0
+.last_char_index !byte 0
+.parse_array_index !byte 0
+.dictionary_address !byte 0,0
+.zword !byte 0,0,0,0,0,0
 
 lookup_dictionary
     ; find a word in the dictionary
@@ -286,8 +437,9 @@ tokenise_text
     clc
     adc #4
     sta .wordoffset
-    iny
-    iny
+    jsr find_word_in_dictionary
+    ;iny
+    ;iny
     lda .wordstart
     sta (mem_temp),y ; start index
     iny
@@ -387,8 +539,6 @@ print_addr
     rts
 
 testtext
-    jmp convert_string_to_dictionary
-
     ; init the array (normally done by the story file)
     ldy #20
     lda #0
