@@ -1,9 +1,11 @@
 ; message handing and decoding
-;
-; DragonTroll: PRINT_PADDR S030 ("The Dragon and the Troll"): 8d 03 1b
 
 set_z_paddress
     ; convert a/x to paddr in .addr
+    ; input: a,x
+    ; output: 
+    ; side effects: .addr
+    ; used registers: a,x
     stx .addr + 2
     sta .addr + 1
     lda #$0
@@ -37,12 +39,19 @@ set_z_address
     rts
 
 get_z_address
+    ; input: 
+    ; output: a,x
+    ; side effects: 
+    ; used registers: a,x
     ldx .addr + 2 ; low
     lda .addr + 1 ; high
     rts
 
 read_next_byte
-    ; destroys x,a: y untouched
+    ; input: 
+    ; output: a
+    ; side effects: .addr
+    ; used registers: a,x
     sty .next_byte_state
     lda .addr
     ldx .addr + 1
@@ -60,10 +69,10 @@ read_next_byte
 convert_zchar_to_char
     ; input: a=zchar
     ; output: a=char
+    ; side effects:
     ; used registers: a,y
     cmp #6
     bcc +
-    ; print zchar
     sec
     sbc #6
     clc
@@ -75,6 +84,7 @@ convert_zchar_to_char
 convert_char_to_zchar
     ; input: a=char
     ; output: a=zchar
+    ; side effects:
     ; used registers: a,x
     ldx #26*3
 -   cmp .alphabet,x
@@ -89,6 +99,10 @@ convert_char_to_zchar
     rts
 
 convert_string_to_dictionary
+    ; input:
+    ; output:
+    ; side effects:
+    ; used registers:
     ldy #0
     sty .zword
     sty .zword + 1
@@ -137,6 +151,10 @@ lookup_dictionary
 read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
+    ; input: a,x
+    ; output: mempointer
+    ; side effects: zero_keybuffer, zero_keybufferset
+    ; used registers: a,x,y
     stx mempointer ; 7c
     clc
     adc #>story_start ; 05+20 = 25
@@ -206,6 +224,10 @@ tokenise_text
     ; input: mempointer should be pointing to the text array
     ; (this will be okay if called immediately after read_text)
     ; a/x should be the address of the parse array
+    ; input: a,x,mempointer
+    ; output: mem_temp
+    ; side effects:
+    ; used registers: a,x,y
     stx mem_temp ; a7
     clc
     adc #>story_start ; 05+20 = 25
@@ -295,8 +317,17 @@ tokenise_text
 
 read_char
     ; read a char from the keyboard
+    ; input: 
+    ; output: 
+    ; side effects:
+    ; used registers: 
 
 print_addr
+    ; print zchar-encoded text
+    ; input: (.addr set with set_z_addr or set_z_paddr)
+    ; output: 
+    ; side effects: .addr
+    ; used registers: a,x,y
     lda #0
     sta .alphabet_offset
     jsr read_next_byte
