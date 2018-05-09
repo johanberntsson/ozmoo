@@ -59,6 +59,8 @@ z_opcount_2op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_store
+	!byte >z_not_implemented
+	!byte >z_ins_loadw
 
 z_opcount_2op_jump_low_arr
 	!byte <z_not_implemented
@@ -75,6 +77,8 @@ z_opcount_2op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_store
+	!byte <z_not_implemented
+	!byte <z_ins_loadw
 	
 z_last_implemented_2op_opcode_number = * - z_opcount_2op_jump_low_arr - 1
 
@@ -396,7 +400,6 @@ get_variable
 set_variable
 	; Value in a,x
 	; Variable in y
-	; TODO: Store value
 	cpy #0
 	beq .write_to_stack
 	sta zp_temp + 2
@@ -616,11 +619,6 @@ z_ins_jg
 	sbc z_operand_value_high_arr
 	bcc .branch_true
 	jmp make_branch_false
-	
-	
-
-	
-	rts
 
 z_ins_store
 	ldx #0
@@ -628,6 +626,29 @@ z_ins_store
 	ldy z_operand_low_arr
 	lda z_operand_value_high_arr + 1
 	ldx z_operand_value_low_arr + 1
+	jmp set_variable
+
+z_ins_loadw
+	jsr evaluate_all_args
+	asl z_operand_value_low_arr + 1 
+	rol z_operand_value_high_arr + 1
+	lda z_operand_value_low_arr
+	clc
+	adc z_operand_value_low_arr + 1
+	sta zp_temp
+	lda z_operand_value_high_arr
+	adc z_operand_value_high_arr + 1
+	adc #>story_start
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y
+	tax
+	dey
+	lda (zp_temp),y
+	pha
+	jsr read_byte_at_z_pc_then_inc
+	tay
+	pla
 	jmp set_variable
 	
 ; VAR instructions
