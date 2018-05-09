@@ -582,7 +582,7 @@ z_ins_print_paddr
 	; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
-	jsr convert_from_paddr
+	jsr set_z_paddress
 	jmp print_addr
 
 ; 2OP instructions

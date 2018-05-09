@@ -1,4 +1,5 @@
 C1541 := /usr/bin/c1541
+#X64 := /usr/bin/x64
 X64 := /usr/bin/x64 -warp
 
 all: z5

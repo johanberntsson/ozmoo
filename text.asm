@@ -2,7 +2,7 @@
 ;
 ; DragonTroll: PRINT_PADDR S030 ("The Dragon and the Troll"): 8d 03 1b
 
-convert_from_paddr
+set_z_paddress
     ; convert a/x to paddr in .addr
     stx .addr + 2
     sta .addr + 1
@@ -29,7 +29,21 @@ convert_from_paddr
     ; $031b -> $00, $0c, $6c
     rts
 
-read_text_byte
+set_z_address
+    stx .addr + 2
+    sta .addr + 1
+    lda #$0
+    sta .addr
+    rts
+
+get_z_address
+    ldx .addr + 2 ; low
+    lda .addr + 1 ; high
+    rts
+
+read_next_byte
+    ; destroys x,a: y untouched
+    sty .next_byte_state
     lda .addr
     ldx .addr + 1
     ldy .addr + 2
@@ -39,7 +53,15 @@ read_text_byte
     inc .addr + 1
     bne +
     inc .addr
-+   rts
++   ldy .next_byte_state
+    rts
+.next_byte_state !byte 0
+
+lookup_dictionary
+    ; find a word in the dictionary
+    ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
+    ; http://inform-fiction.org/manual/html/s2.html#s2_5
+
 
 read_text
     ; read line from keyboard into an array (address: a/x)
@@ -203,14 +225,12 @@ tokenise_text
 read_char
     ; read a char from the keyboard
 
-tokenize_text
-    ; break output from read_text into workds and find their addresses
-    ; in the dictionary. The result is stored in parse_buffer
-
 print_addr
-    jsr read_text_byte
+    lda #0
+    sta .alphabet_offset
+    jsr read_next_byte
     sta .packedtext
-    jsr read_text_byte
+    jsr read_next_byte
     sta .packedtext + 1
 
     ; extract 3 zchars (5 bits each)
