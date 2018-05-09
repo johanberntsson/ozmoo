@@ -61,6 +61,17 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_store
 	!byte >z_not_implemented
 	!byte >z_ins_loadw
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_call_2n
 
 z_opcount_2op_jump_low_arr
 	!byte <z_not_implemented
@@ -79,6 +90,17 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_store
 	!byte <z_not_implemented
 	!byte <z_ins_loadw
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_call_2n
 	
 z_last_implemented_2op_opcode_number = * - z_opcount_2op_jump_low_arr - 1
 
@@ -650,6 +672,16 @@ z_ins_loadw
 	tay
 	pla
 	jmp set_variable
+
+z_ins_call_2n
+	jsr evaluate_all_args
+	jsr check_for_routine_0_and_store
+	bne +
+	rts
++	ldx z_operand_count
+	dex
+	ldy #0 ; Don't store result
+	jmp stack_call_routine
 	
 ; VAR instructions
 	
