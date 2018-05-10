@@ -498,6 +498,7 @@ print_addr
     ; used registers: a,x,y
     lda #0
     sta .alphabet_offset
+.read_triplet_loop
     jsr read_next_byte
     sta .packedtext
     jsr read_next_byte
@@ -548,10 +549,17 @@ print_addr
     dex
     bpl --
     lda .packedtext + 1
-    beq print_addr
+    beq .read_triplet_loop
     rts
 
+!ifdef DEBUG {
 testtext
+    ldx #$1b
+    lda #$03
+    jsr set_z_paddress
+    jmp print_addr
+
+testparser
     ; init the array (normally done by the story file)
     ldy #20
     lda #0
@@ -595,6 +603,7 @@ testtext
     cpy #16
     bne -
     rts
+}
 
 .addr !byte 0,0,0
 .zchars !byte 0,0,0
