@@ -1,9 +1,11 @@
 ; screen update routines
-; - printx
-; - printstring
-; - fatalerror
 
 printinteger
+    ; subroutine: print integer value using Basic routine
+    ; input: a,x
+    ; output:
+    ; used registers: a
+    ; side effects:
 !zone {
     pha
 	lda #%00110111
@@ -15,10 +17,25 @@ printinteger
 	rts
 }
 
-printx
+puts_array 
+    ; subroutine: print zcode array
+    ; input:
+    ; output:
+    ; used registers:
+    ; side effects:
 !zone {
+    ; TODO: implements me
+    rts
+}
+
+
+printx
     ; subroutine: print value stored in x register
-    ; side effects: none (a, x, y, status saved)
+    ; input: x
+    ; output:
+    ; used registers:
+    ; side effects:
+!zone {
     php
     pha
     txa
@@ -27,8 +44,32 @@ printx
     pha
     lda #$00
     jsr printinteger
-    ;lda #13
-    ;jmp kernel_printchar
+    pla
+    tay
+    pla
+    tax
+    pla
+    plp
+    rts
+}
+
+puts_x
+!zone {
+    ; subroutine: print value stored in x register + newline
+    ; input: x
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    pha
+    txa
+    pha
+    tya
+    pha
+    lda #$00
+    jsr printinteger
+    lda #13
+    jsr kernel_printchar
     pla
     tay
     pla
@@ -39,6 +80,10 @@ printx
 }
 
 printstring
+    ; input: x
+    ; output:
+    ; used registers:
+    ; side effects:
 !zone {
     pha
 	lda #%00110111
@@ -51,8 +96,12 @@ printstring
 }
 
 print_following_string
-!zone {
     ; print text (implicit argument passing)
+    ; input: 
+    ; output:
+    ; used registers: a
+    ; side effects:
+!zone {
     ; usage:
     ;    jsr print_following_string
     ;    !pet "message",0
@@ -86,8 +135,12 @@ print_following_string
 }
 
 fatalerror
-!zone {
     ; print error (implicit argument passing)
+    ; input: 
+    ; output:
+    ; used registers: a,x,y
+    ; side effects: resets the computer
+!zone {
     ; usage:
     ;    jsr fatalerror
     ;    !pet "message",0

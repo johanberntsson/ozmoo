@@ -86,11 +86,14 @@ convert_char_to_zchar
     ; output: a=zchar
     ; side effects:
     ; used registers: a,x
-    ldx #26*3
+    ldx #0
 -   cmp .alphabet,x
     beq +
-    dex
+    inx
+    cpx #26*3
     bne -
+    tax
+    jsr printx
     jsr fatalerror
     !pet "invalid char",0
 +   txa
@@ -99,6 +102,9 @@ convert_char_to_zchar
     rts
 
 find_word_in_dictionary
+    ; convert word to zchars and find it in the dictionary
+    ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
+    ; http://inform-fiction.org/manual/html/s2.html#s2_5
     ; input: 
     ;   y = index in mem_temp to store result in
     ;   mem_temp = indirect address to parse_array
@@ -152,11 +158,13 @@ find_word_in_dictionary
     lda (mempointer),y
     jsr convert_char_to_zchar
 +   tax
-    jsr printx
-    pha
-    lda #$20
-    jsr $ffd2
-    pla
+!ifdef DEBUG {
+    ;jsr printx ; next zchar to insert into zword
+    ;pha
+    ;lda #$20
+    ;jsr $ffd2
+    ;pla
+}
     ora .zword + 5
     sta .zword + 5
     iny
@@ -167,87 +175,89 @@ find_word_in_dictionary
     ora #$80
     sta .zword + 5
 !ifdef DEBUG {
-    ; print result
-    lda #$0d
-    jsr $ffd2
-    ldx .zword 
-    jsr printx
-    lda #44
-    jsr $ffd2
-    ldx .zword + 1
-    jsr printx
-    lda #44
-    jsr $ffd2
-    ldx .zword + 2
-    jsr printx
-    lda #44
-    jsr $ffd2
-    ldx .zword + 3
-    jsr printx
-    lda #44
-    jsr $ffd2
-    ldx .zword + 4
-    jsr printx
-    lda #44
-    jsr $ffd2
-    ldx .zword + 5
-    jsr printx
-    lda #$0d
-    jsr $ffd2
+    ; print zword (6 or 9 bytes)
+    ;lda #$0d
+    ;jsr $ffd2
+    ;ldx .zword 
+    ;jsr printx
+    ;lda #44
+    ;jsr $ffd2
+    ;ldx .zword + 1
+    ;jsr printx
+    ;lda #44
+    ;jsr $ffd2
+    ;ldx .zword + 2
+    ;jsr printx
+    ;lda #44
+    ;jsr $ffd2
+    ;ldx .zword + 3
+    ;jsr printx
+    ;lda #44
+    ;jsr $ffd2
+    ;ldx .zword + 4
+    ;jsr printx
+    ;lda #44
+    ;jsr $ffd2
+    ;ldx .zword + 5
+    ;jsr printx
+    ;lda #$0d
+    ;jsr $ffd2
 }
     ; find entry in dictionary 
     lda #0
-    sta .dict_cnt
+    sta .dict_cnt     ; loop counter is 2 bytes
     sta .dict_cnt + 1
-    ldx dict_entries
+    ldx dict_entries     ; start address of dictionary
     lda dict_entries + 1
     jsr set_z_address
+!ifndef Z4PLUS {
+    lda #4
+}
+!ifdef Z4PLUS {
+    lda #6
+}
+    sta .zchars_per_entry
 .dictionary_loop
     ; show the dictonary word
 !ifdef DEBUG {
-    lda .addr
-    pha
-    lda .addr + 1
-    pha
-    lda .addr + 2
-    pha
-    jsr print_addr
-    lda #$0d
-    jsr kernel_printchar
-    pla 
-    sta .addr + 2
-    pla 
-    sta .addr + 1
-    pla 
-    sta .addr
+    ;lda .addr
+    ;pha
+    ;lda .addr + 1
+    ;pha
+    ;lda .addr + 2
+    ;pha
+    ;jsr print_addr
+    ;lda #$0d
+    ;jsr kernel_printchar
+    ;pla 
+    ;sta .addr + 2
+    ;pla 
+    ;sta .addr + 1
+    ;pla 
+    ;sta .addr
 }
-!ifndef Z4PLUS {
-    ldy #4
-}
-!ifdef Z4PLUS {
-    ldy #6
-}
-    ; check if correct entry
-    ldx #0
-    stx .dictionary_address
-.loop_check_entry
-    jsr read_next_byte
-    cmp .zword,x
-    beq +
-    inc .dictionary_address
-+   inx
-    dey
-    bne .loop_check_entry
-    cpx .dictionary_address
-    bne +
-    ; we found the correct entry!
-    inc $d020
+    ; store address to current entry
     jsr get_z_address
     sta .dictionary_address
     stx .dictionary_address + 1
-    jmp .found_dict_entry
+    ; check if correct entry
+    ldy #0
+    sty .num_matching_zchars
+.loop_check_entry
+    ; store 
+    jsr read_next_byte
+    cmp .zword,y
+    bne .zchars_differ
+    inc .num_matching_zchars
+.zchars_differ
+    iny
+    cpy .zchars_per_entry
+    bne .loop_check_entry
+    dey ; undo last inx in .loop_check_entry block
+    cpy .num_matching_zchars
+    beq .found_dict_entry ; we found the correct entry!
     ; skip the extra data bytes
-+   lda dict_len_entries
+    lda dict_len_entries
     sec
 !ifndef Z4PLUS {
     sbc #4
@@ -292,12 +302,8 @@ find_word_in_dictionary
 .parse_array_index !byte 0
 .dictionary_address !byte 0,0
 .zword !byte 0,0,0,0,0,0
-
-lookup_dictionary
-    ; find a word in the dictionary
-    ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
-    ; http://inform-fiction.org/manual/html/s2.html#s2_5
-
+.zchars_per_entry !byte 0
+.num_matching_zchars !byte 0
 
 read_text
     ; read line from keyboard into an array (address: a/x)
@@ -383,7 +389,6 @@ tokenise_text
     clc
     adc #>story_start ; 05+20 = 25
     sta mem_temp + 1
-
     lda #0
     sta .numwords ; no words found yet
     lda #2
@@ -437,7 +442,7 @@ tokenise_text
     clc
     adc #4
     sta .wordoffset
-    jsr find_word_in_dictionary
+    jsr find_word_in_dictionary ; will update y
     ;iny
     ;iny
     lda .wordstart
@@ -486,7 +491,6 @@ print_addr
     sta .packedtext
     jsr read_next_byte
     sta .packedtext + 1
-
     ; extract 3 zchars (5 bits each)
     ldx #0
 .extract_loop
@@ -502,7 +506,6 @@ print_addr
     inx
     cpx #3
     bne .extract_loop
-
     ; print the three chars
     ldx #2
 --  lda .zchars,x
@@ -533,7 +536,6 @@ print_addr
 .next_zchar
     dex
     bpl --
-
     lda .packedtext + 1
     beq print_addr
     rts
