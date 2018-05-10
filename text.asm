@@ -525,7 +525,7 @@ print_addr
     bne .l2
     ; space
     lda #$20
-    jsr kernel_printchar
+    jsr streams_print_output
     jmp .next_zchar
 .l2 cmp #4
     bne .l3
@@ -540,7 +540,7 @@ print_addr
     sta .alphabet_offset
     jmp .next_zchar
 .l4 ; normal char
-    jsr kernel_printchar
+    jsr streams_print_output
     ; change back to A0
     lda #0
     sta .alphabet_offset
@@ -567,13 +567,13 @@ testtext
     ldx #$7c
     jsr read_text
     lda #$0d
-    jsr kernel_printchar
+    jsr streams_print_output
     ldy #0
 -   lda $257c,y
     tax
     jsr printx
     lda #$20
-    jsr kernel_printchar
+    jsr streams_print_output
     iny
     cpy #12
     bne -
@@ -584,13 +584,13 @@ testtext
     ldx #$a7
     jsr tokenise_text
     lda #$0d
-    jsr kernel_printchar
+    jsr streams_print_output
     ldy #0
 -   lda $25a7,y
     tax
     jsr printx
     lda #$20
-    jsr kernel_printchar
+    jsr streams_print_output
     iny
     cpy #16
     bne -

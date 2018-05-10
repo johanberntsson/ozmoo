@@ -110,6 +110,26 @@ z_opcount_var_jump_high_arr
 } else {
 	!byte >z_ins_call
 }
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_output_stream
+
 
 z_opcount_var_jump_low_arr
 !ifdef Z4PLUS {
@@ -117,6 +137,25 @@ z_opcount_var_jump_low_arr
 } else {
 	!byte <z_ins_call
 }
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_output_stream
 
 z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
 ; These get zeropage addresses in constants.asm:
@@ -287,10 +326,14 @@ z_execute
 .op_is_not_large_constant
 	cmp #%11
 	beq .op_is_omitted
-	lda #0
-	sta z_operand_high_arr,y
 	jsr read_byte_at_z_pc_then_inc
 	sta z_operand_low_arr,y
+	tax
+	lda #0
+	cpx #$80
+	bcc +
+	lda #$ff
++	sta z_operand_high_arr,y
 .op_loaded
 	iny
 	cpy #8
@@ -695,5 +738,11 @@ z_ins_call_vs
 	dex
 	ldy #1 ; Store result = 1
 	jmp stack_call_routine
+	
+z_ins_output_stream
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+;	TODO: not done!
+	rts
 }
 	

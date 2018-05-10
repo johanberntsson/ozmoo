@@ -41,6 +41,7 @@ filelength !byte 0, 0, 0
 fileblocks !byte 0, 0
 
 ; include other assembly files
+!source "streams.asm"
 !source "disk.asm"
 !source "screen.asm"
 !source "memory.asm"
