@@ -69,6 +69,7 @@ fileblocks !byte 0, 0
     jsr parse_dictionary
 	;jsr testtext
 
+	jsr streams_init
 	jsr stack_init
 	jsr z_init
 	jsr z_execute
