@@ -1,4 +1,6 @@
-; message handing and decoding
+; TODO:
+; - fix offset bug in "drop all" find_word_in_dictionary
+; - use dictionary terminators instead of hard-coded ones
 
 set_z_paddress
     ; convert a/x to paddr in .addr
@@ -106,14 +108,16 @@ find_word_in_dictionary
     ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
     ; http://inform-fiction.org/manual/html/s2.html#s2_5
     ; input: 
-    ;   y = index in mem_temp to store result in
-    ;   mem_temp = indirect address to parse_array
-    ;   mempointer = indirect address to string being parsed
-    ;   .wordstart = index in mempointer to first char of current word
-    ;   .wordend = index in mempointer to last char of current word
-    ; output: puts address in mem_temp[y] and mem_temp[y+1]
+    ;   y = index in parse_array to store result in
+    ;   parse_array = indirect address to parse_array
+    ;   string_array = indirect address to string being parsed
+    ;   .wordstart = index in string_array to first char of current word
+    ;   .wordend = index in string_array to last char of current word
+    ; output: puts address in parse_array[y] and parse_array[y+1]
     ; side effects:
     ; used registers: a,x
+    ldx .wordstart
+    jsr puts_x
     sty .parse_array_index ; store away the index for later
     lda #0
     sty .zword      ; clear zword buffer
@@ -155,7 +159,7 @@ find_word_in_dictionary
     lda #5 ; pad character
     cpy .wordend
     bcs +
-    lda (mempointer),y
+    lda (string_array),y
     jsr convert_char_to_zchar
 +   tax
 !ifdef DEBUG {
@@ -244,7 +248,6 @@ find_word_in_dictionary
     ldy #0
     sty .num_matching_zchars
 .loop_check_entry
-    ; store 
     jsr read_next_byte
     cmp .zword,y
     bne .zchars_differ
@@ -290,10 +293,10 @@ find_word_in_dictionary
     ; store result into parse_array and exit
     ldy .parse_array_index
     lda .dictionary_address
-    sta (mem_temp),y
+    sta (parse_array),y
     iny
     lda .dictionary_address + 1
-    sta (mem_temp),y
+    sta (parse_array),y
     iny
     rts
 .dict_cnt !byte 0,0
@@ -309,13 +312,13 @@ read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
     ; input: a,x
-    ; output: mempointer
+    ; output: string_array
     ; side effects: zero_keybuffer, zero_keybufferset
     ; used registers: a,x,y
-    stx mempointer ; 7c
+    stx string_array ; 7c
     clc
     adc #>story_start ; 05+20 = 25
-    sta mempointer + 1
+    sta string_array + 1
     ; turn on blinking cursor
     lda #0
     sta $cc
@@ -348,21 +351,21 @@ read_text
     jsr kernel_printchar
     pha
     ldy #0
-    lda (mempointer),y ; max characters in array
+    lda (string_array),y ; max characters in array
     cmp zero_keybuffer ; compare with size of keybuffer
     bcc +
     ; maxchars >= keybuffer
     lda zero_keybuffer
     iny
-    sta (mempointer),y
+    sta (string_array),y
     tay
     iny
     pla
-    sta (mempointer),y
+    sta (string_array),y
     jmp .readkey
 +   ; maxchars < keybuffer
     iny
-    sta (mempointer),y
+    sta (string_array),y
     pla ; don't save this (out of bounds)
     jmp .readkey
 .read_text_done
@@ -378,26 +381,26 @@ read_text
 
 tokenise_text
     ; divide read_line input into words and look up them in the dictionary
-    ; input: mempointer should be pointing to the text array
+    ; input: string_array should be pointing to the text array
     ; (this will be okay if called immediately after read_text)
     ; a/x should be the address of the parse array
-    ; input: a,x,mempointer
-    ; output: mem_temp
+    ; input: a,x,string_array
+    ; output: parse_array
     ; side effects:
     ; used registers: a,x,y
-    stx mem_temp ; a7
+    stx parse_array
     clc
-    adc #>story_start ; 05+20 = 25
-    sta mem_temp + 1
+    adc #>story_start
+    sta parse_array + 1
     lda #0
     sta .numwords ; no words found yet
     lda #2
     sta .wordoffset ; where to store the next word in parse_array
     ldy #0
-    lda (mem_temp),y 
+    lda (parse_array),y 
     sta .maxwords
     iny
-    lda (mempointer),y ; number of chars in text string
+    lda (string_array),y ; number of chars in text string
     clc
     adc #1
     sta .textend
@@ -408,7 +411,7 @@ tokenise_text
     cpy .textend
     beq .start_of_word
     bcs .parsing_done
-    lda (mempointer),y
+    lda (string_array),y
     cmp #$20
     bne .start_of_word
     iny
@@ -417,7 +420,7 @@ tokenise_text
     ; start of next word found (y is first character of new word)
     sty .wordstart
 -   ; look for the end of the word
-    lda (mempointer),y
+    lda (string_array),y
     cmp #$20
     beq .space_found
     cmp #44 ; comma
@@ -446,15 +449,15 @@ tokenise_text
     ;iny
     ;iny
     lda .wordstart
-    sta (mem_temp),y ; start index
+    sta (parse_array),y ; start index
     iny
     lda .wordend
     sec
     sbc .wordstart
-    sta (mem_temp),y ; length
+    sta (parse_array),y ; length
     ldy #1
     lda .numwords
-    sta (mem_temp),y ; num of words
+    sta (parse_array),y ; num of words
     ; find the next word
     ldy .wordend
     lda .numwords
@@ -463,7 +466,7 @@ tokenise_text
 .parsing_done
     lda .numwords
     ldy #1
-    sta (mem_temp),y
+    sta (parse_array),y
     rts
 .maxwords   !byte 0 
 .numwords   !byte 0 
