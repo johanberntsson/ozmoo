@@ -1,5 +1,4 @@
 ; TODO:
-; - fix offset bug in "drop all" find_word_in_dictionary
 ; - use dictionary terminators instead of hard-coded ones
 
 set_z_paddress
