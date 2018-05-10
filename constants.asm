@@ -9,12 +9,13 @@ mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
 z_opcode_number       = $07
 stack_ptr             = $14 ; 2 bytes (08 was bad?)
+z_local_vars_ptr      = $26 ; 2 bytes (16 was bad?)
 parse_array           = $41 ; 2 bytes (22 was bad?)
 string_array          = $43 ; 2 bytes (24 was bad?)
-z_local_vars_ptr	  = $26 ; 2 bytes (16 was bad?)
+terminators_ptr       = $45 ; 2 bytes
 zp_pc_h               = $0a
 zp_pc_l               = $0b
-z_opcode_opcount 	  = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
+z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 zp_mempos             = $ae ; 2 bytes
 zero_keybufferset     = $d1 ; 2 bytes (points to screen memory, start of input)
 zero_keybuffer        = $d3 ; number of bytes in the current input

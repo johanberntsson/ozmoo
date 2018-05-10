@@ -1,6 +1,3 @@
-; TODO:
-; - use dictionary terminators instead of hard-coded ones
-
 set_z_paddress
     ; convert a/x to paddr in .addr
     ; input: a,x
@@ -115,8 +112,6 @@ find_word_in_dictionary
     ; output: puts address in parse_array[y] and parse_array[y+1]
     ; side effects:
     ; used registers: a,x
-    ldx .wordstart
-    jsr puts_x
     sty .parse_array_index ; store away the index for later
     lda #0
     sty .zword      ; clear zword buffer
@@ -139,12 +134,12 @@ find_word_in_dictionary
     sta .triplet_counter ; keep track of triplets to insert extra bit
     ldy .wordstart
 .encode_chars
-    ldx #5
+    ldx #5 ; shift 5 times to make place for the next zchar
     dec .triplet_counter
     bne .shift_zchar
     lda #3
     sta .triplet_counter
-    ldx #6
+    ldx #6 ; no, make that 6 times (to fill up 3 zchars in 2 bytes)
 .shift_zchar
     asl .zword + 5
     rol .zword + 4
@@ -422,13 +417,27 @@ tokenise_text
     lda (string_array),y
     cmp #$20
     beq .space_found
-    cmp #44 ; comma
+    ; check for terminators
+    tax
+    tya
+    pha     ; we need to reuse y, so save it on the stack
+    txa
+    ldy #0
+--  cmp (terminators_ptr),y
     beq .terminator_found
+    iny
+    cpy num_terminators
+    bne --
+    pla
+    tay ; restore y from the stack
+    ; check if end of string
     cpy .textend
     bcs .word_found
     iny
     jmp -
 .terminator_found
+    pla
+    tay ; restore y from the stack
     cpy .wordstart
     beq .word_found
 .space_found
