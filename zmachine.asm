@@ -701,11 +701,8 @@ z_ins_je
 	cmp z_operand_value_high_arr + 1
 	beq .branch_true
 .branch_false
-	!pet "branchfalse ",0
 	jmp make_branch_false
 .branch_true
-	jsr print_following_string
-	!pet "branchtrue ",0
 	jmp make_branch_true
 z_ins_jl
 	jsr evaluate_all_args

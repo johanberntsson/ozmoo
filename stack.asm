@@ -39,24 +39,6 @@ stack_call_routine
 	stx zp_temp
 	sty zp_temp + 1
 
-;	jsr print_following_string
-;	!pet "incoming z_pc",0
-;	ldx z_pc + 2
-;	lda z_pc + 1
-;	jsr printinteger
-;	lda #$0d
-;	jsr kernel_printchar
-
-	
-;	ldx stack_ptr
-;	lda stack_ptr + 1
-;	jsr printinteger
-;	lda #$0d
-;	jsr kernel_printchar
-	
-	
-	; TODO: Check that there is room for this frame!
-	
 	; TASK: Save PC. Set new PC. Setup new stack frame.
 	ldy #2
 -	lda z_pc,y
@@ -88,13 +70,22 @@ stack_call_routine
 	sta z_pc + 2
 	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
-	cmp #0
-	beq +
-	lda stack_ptr
+	
+	; Check that there is room on the stack
+	clc
+	adc #3
+	asl
+	adc stack_ptr
+	lda stack_ptr + 1
+	adc #0
+	cmp #>(stack_start + stack_size)
+	bcc +
+	jmp .stack_full
+	
++	lda stack_ptr
 	sta z_local_vars_ptr
 	lda stack_ptr + 1
 	sta z_local_vars_ptr + 1
-+	
 
 	; TASK: Setup local vars
 	
@@ -146,11 +137,12 @@ stack_call_routine
 	lda .stack_tmp + 2
 	sta (stack_ptr),y
 
-	; TASK: Set number of pushed bytes to 0
+	; TASK: Set number of pushed bytes to 0 (+4)
 	iny
 	lda #0
 	sta (stack_ptr),y
 	iny
+	lda #4
 	sta (stack_ptr),y
 	
 	; TASK: Set new (higher) value of stack pointer
@@ -163,18 +155,10 @@ stack_call_routine
 	adc #0
 	sta stack_ptr + 1
 
-;	jsr print_following_string
-;	!pet "hello stack",0
-;	ldx stack_ptr
-;	lda stack_ptr + 1
-;	jsr printinteger
-;	lda #$0d
-;	jsr kernel_printchar
-	
-	
 	rts
 
 stack_return_from_routine
+
 	; input: return value in a,x
 	ldy stack_ptr + 1
 	cpy #>stack_start
@@ -185,28 +169,19 @@ stack_return_from_routine
 +	sta zp_temp
 	stx zp_temp + 1
 	
-	; Skip past all items pushed onto stack in this frame
+	; Skip past all items pushed onto stack in this frame,
+	; and 4 bytes lower to read pc and whether to store return value
 	lda stack_ptr
 	sec
 	ldy #1
 	sbc (stack_ptr),y
-	tax
+	sta zp_temp + 2
 	lda stack_ptr + 1
 	dey
 	sbc (stack_ptr),y
-	tay
-
-	; Go 4 bytes lower to read pc and whether to store return value
-	txa
-	sec
-	sbc #4
-	sta zp_temp + 2
-	tya
-	sbc #0
 	sta zp_temp + 3
-	ldy #0
 	lda (zp_temp + 2),y
-	sta .stack_tmp
+	sta .stack_tmp ; storebit, argcount, varcount
 	
 	; Copy PC from stack to z_pc
 	iny
@@ -229,28 +204,18 @@ stack_return_from_routine
 	lda zp_temp + 3
 	sbc #0
 	sta stack_ptr + 1
-	
+
 	; TASK: Find new locals pointer value
 	; Skip past all items pushed onto stack in this frame
 	lda stack_ptr
 	sec
 	ldy #1
 	sbc (stack_ptr),y
-	tax
+	sta zp_temp + 2
 	lda stack_ptr + 1
 	dey
 	sbc (stack_ptr),y
-	tay
-
-	; Go 4 bytes lower to read number of locals
-	txa
-	sec
-	sbc #4
-	sta zp_temp + 2
-	tya
-	sbc #0
 	sta zp_temp + 3
-	ldy #0
 	lda (zp_temp + 2),y
 	
 	; Skip past locals on stack
@@ -267,6 +232,9 @@ stack_return_from_routine
 	lda zp_temp + 3
 	sbc #0
 	sta z_local_vars_ptr + 1
+
+;	jsr fatalerror
+;	!pet "return-debug-4!",0
 	
 	; Store return value if calling instruction asked for it
 	bit .stack_tmp
@@ -289,6 +257,7 @@ stack_push
 	lda stack_ptr + 1
 	cmp #>(stack_start + stack_size - 2)
 	bne .there_is_room
+.stack_full
 	jsr fatalerror
 	!pet "stack full",0
 .there_is_room
@@ -325,7 +294,8 @@ stack_pull
 	; Check that there are > 0 values on stack
 	ldy #1
 	lda (stack_ptr),y
-	bne .ok
+	cmp #6
+	bcs .ok
 	dey
 	lda (stack_ptr),y
 	bne .ok
@@ -366,17 +336,4 @@ stack_pull
 	pla
 	rts
 
-;.push_byte_primitive
-;	ldy #0
-;	sta (stack_ptr),y
-;	inc stack_ptr
-;	bne +
-;	inc stack_ptr + 1
-;	ldy stack_ptr + 1
-;	cpy #>(stack_start + stack_size)
-;	bcs .overflow
-;+	rts
-;.overflow
-;	jsr fatalerror
-;	!pet "stack overflow"
 }
