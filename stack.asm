@@ -15,7 +15,7 @@
 ; LLLL = Number of local variables in this routine
 ; ZZZ ZZZZZZZZ ZZZZZZZZ = Z_PC to go to when returning from this routine 
 ;
-; Stack pointer actually points to last word of current entry (POINTER TO NEXT FRAME)
+; Stack pointer actually points to last word of current entry (Number of pushed bytes)
 
 !zone {
 
@@ -175,7 +175,108 @@ stack_call_routine
 	rts
 
 stack_return_from_routine
-	rts
+	; input: return value in a,x
+	ldy stack_ptr + 1
+	cpy #>stack_start
+	bcs +
+	jmp .underflow
+
+	; Save input values
++	sta zp_temp
+	stx zp_temp + 1
+	
+	; Skip past all items pushed onto stack in this frame
+	lda stack_ptr
+	sec
+	ldy #1
+	sbc (stack_ptr),y
+	tax
+	lda stack_ptr + 1
+	dey
+	sbc (stack_ptr),y
+	tay
+
+	; Go 4 bytes lower to read pc and whether to store return value
+	txa
+	sec
+	sbc #4
+	sta zp_temp + 2
+	tya
+	sbc #0
+	sta zp_temp + 3
+	ldy #0
+	lda (zp_temp + 2),y
+	sta .stack_tmp
+	
+	; Copy PC from stack to z_pc
+	iny
+-	lda (zp_temp + 2),y
+	sta z_pc - 1,y
+	iny
+	cpy #4
+	bcc -
+	
+	; Skip past locals on stack
+	lda z_local_var_count
+	clc
+	adc #1
+	asl
+	sta .stack_tmp + 1
+	lda zp_temp + 2
+	sec
+	sbc .stack_tmp + 1
+	sta stack_ptr
+	lda zp_temp + 3
+	sbc #0
+	sta stack_ptr + 1
+	
+	; TASK: Find new locals pointer value
+	; Skip past all items pushed onto stack in this frame
+	lda stack_ptr
+	sec
+	ldy #1
+	sbc (stack_ptr),y
+	tax
+	lda stack_ptr + 1
+	dey
+	sbc (stack_ptr),y
+	tay
+
+	; Go 4 bytes lower to read number of locals
+	txa
+	sec
+	sbc #4
+	sta zp_temp + 2
+	tya
+	sbc #0
+	sta zp_temp + 3
+	ldy #0
+	lda (zp_temp + 2),y
+	
+	; Skip past locals on stack
+	and #$0f
+	sta z_local_var_count
+	clc
+	adc #1
+	asl
+	sta .stack_tmp + 2
+	lda zp_temp + 2
+	sec
+	sbc .stack_tmp + 2
+	sta z_local_vars_ptr
+	lda zp_temp + 3
+	sbc #0
+	sta z_local_vars_ptr + 1
+	
+	; Store return value if calling instruction asked for it
+	bit .stack_tmp
+	bpl +
+	jsr read_byte_at_z_pc_then_inc
+	tay
+	lda zp_temp
+	ldx zp_temp + 1
+	jmp z_set_variable	
++	rts
 
 stack_push
 	; Push a,x onto stack
@@ -228,6 +329,7 @@ stack_pull
 	dey
 	lda (stack_ptr),y
 	bne .ok
+.underflow
 	jsr fatalerror
 	!pet "stack empty",0
 
