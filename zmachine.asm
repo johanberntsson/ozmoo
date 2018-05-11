@@ -741,8 +741,6 @@ z_ins_call_vs
 	
 z_ins_output_stream
 	jsr evaluate_all_args
-	lda z_operand_value_low_arr
-;	TODO: not done!
-	rts
+	jmp streams_output_stream
 }
 	
