@@ -33,7 +33,7 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_remove_obj
 	!byte >z_ins_print_obj
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_jump
 	!byte >z_ins_print_paddr
 
 z_opcount_1op_jump_low_arr
@@ -49,7 +49,7 @@ z_opcount_1op_jump_low_arr
 	!byte <z_ins_remove_obj
 	!byte <z_ins_print_obj
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_jump
 	!byte <z_ins_print_paddr
 	
 z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
@@ -785,7 +785,35 @@ z_ins_remove_obj
 
 z_ins_print_obj
 	; TODO: Implementation
-	rts	
+	rts
+
+z_ins_jump
+	jsr evaluate_all_args
+	lda z_pc + 2
+	clc
+	adc z_operand_value_low_arr
+	tax
+	lda z_pc + 1
+	adc z_operand_value_high_arr
+	tay
+	lda #0
+	bit z_operand_value_high_arr
+	bpl +
+	lda #$ff
++	adc z_pc
+	pha
+	txa
+	sec
+	sbc #2
+	sta z_pc + 2
+	tya
+	sbc #0
+	sta z_pc + 1
+	pla
+	sbc #0
+	sta z_pc
+	rts
+	
 	
 z_ins_print_paddr
 	jsr evaluate_all_args
@@ -904,7 +932,6 @@ z_ins_add
 
 .mul_product = memory_buffer ; 5 bytes (4 for product + 1 for last bit)
 .mul_inv_multiplicand = memory_buffer + 5 ; 2 bytes
-mul_product = .mul_product
 
 z_ins_mul
 	jsr evaluate_all_args
