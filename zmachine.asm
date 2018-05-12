@@ -22,32 +22,32 @@ z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
 
 z_opcount_1op_jump_high_arr
 	!byte >z_not_implemented
+	!byte >z_ins_get_sibling
+	!byte >z_ins_get_child
+	!byte >z_ins_get_parent
+	!byte >z_ins_get_prop_len
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_remove_obj
+	!byte >z_ins_print_obj
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_print_paddr
 
 z_opcount_1op_jump_low_arr
 	!byte <z_not_implemented
+	!byte <z_ins_get_sibling
+	!byte <z_ins_get_child
+	!byte <z_ins_get_parent
+	!byte <z_ins_get_prop_len
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_remove_obj
+	!byte <z_ins_print_obj
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_print_paddr
@@ -61,20 +61,20 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_jg
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+	!byte >z_ins_jin
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_test_attr
+	!byte >z_ins_set_attr
+	!byte >z_ins_clear_attr
 	!byte >z_ins_store
-	!byte >z_not_implemented
+	!byte >z_ins_insert_obj
 	!byte >z_ins_loadw
 	!byte >z_ins_loadb
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_get_prop
+	!byte >z_ins_get_prop_addr
+	!byte >z_ins_get_next_prop
 	!byte >z_ins_add
 	!byte >z_not_implemented
 	!byte >z_ins_mul
@@ -90,20 +90,20 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_jg
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+	!byte <z_ins_jin
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_test_attr
+	!byte <z_ins_set_attr
+	!byte <z_ins_clear_attr
 	!byte <z_ins_store
-	!byte <z_not_implemented
+	!byte <z_ins_insert_obj
 	!byte <z_ins_loadw
 	!byte <z_ins_loadb
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_get_prop
+	!byte <z_ins_get_prop_addr
+	!byte <z_ins_get_next_prop
 	!byte <z_ins_add
 	!byte <z_not_implemented
 	!byte <z_ins_mul
@@ -122,7 +122,7 @@ z_opcount_var_jump_high_arr
 }
 	!byte >z_not_implemented
 	!byte >z_ins_storeb
-	!byte >z_not_implemented
+	!byte >z_ins_put_prop
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -149,7 +149,7 @@ z_opcount_var_jump_low_arr
 }
 	!byte <z_not_implemented
 	!byte <z_ins_storeb
-	!byte <z_not_implemented
+	!byte <z_ins_put_prop
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -695,6 +695,30 @@ z_ins_rtrue
 
 ; 1OP instructions
 
+z_ins_get_sibling
+	; TODO: Implementation
+	rts
+
+z_ins_get_child
+	; TODO: Implementation
+	rts
+
+z_ins_get_parent
+	; TODO: Implementation
+	rts
+
+z_ins_get_prop_len
+	; TODO: Implementation
+	rts
+
+z_ins_remove_obj
+	; TODO: Implementation
+	rts
+
+z_ins_print_obj
+	; TODO: Implementation
+	rts	
+	
 z_ins_print_paddr
 	jsr evaluate_all_args
 	; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
@@ -733,6 +757,22 @@ z_ins_jg
 	bcc .branch_true
 	jmp make_branch_false
 
+z_ins_jin
+	; TODO: Implementation
+	rts
+	
+z_ins_test_attr
+	; TODO: Implementation
+	rts
+
+z_ins_set_attr
+	; TODO: Implementation
+	rts
+	
+z_ins_clear_attr
+	; TODO: Implementation
+	rts
+	
 z_ins_store
 	ldx #0
 	jsr evaluate_all_args_except_x
@@ -741,6 +781,10 @@ z_ins_store
 	ldx z_operand_value_low_arr + 1
 	jmp z_set_variable
 
+z_ins_insert_obj
+	; TODO: Implementation
+	rts
+	
 z_ins_loadw
 	jsr evaluate_all_args
 	asl z_operand_value_low_arr + 1 
@@ -767,6 +811,18 @@ z_ins_loadb
 	tax
 	tya
 	jmp z_store_result
+
+z_ins_get_prop
+	; TODO: Implementation
+	rts
+	
+z_ins_get_prop_addr
+	; TODO: Implementation
+	rts
+
+z_ins_get_next_prop
+	; TODO: Implementation
+	rts
 
 z_ins_add
 	jsr evaluate_all_args
@@ -876,26 +932,14 @@ z_ins_storeb
 	lda z_operand_value_low_arr + 2
 	sta (zp_temp),y
 	rts
+
+z_ins_put_prop
+	; TODO: Implementation
+	rts
 	
 z_ins_output_stream
 	jsr evaluate_all_args
 	jmp streams_output_stream
 }
-	
-test_mul
-	lda #<23
-	sta z_operand_value_low_arr
-	lda #>23
-	sta z_operand_value_high_arr
-	lda #<-13
-	sta z_operand_value_low_arr + 1
-	lda #>-13
-	sta z_operand_value_high_arr + 1
-	jsr z_ins_mul
-	lda mul_product + 2
-	ldx mul_product + 3
-	jsr printinteger
-	jsr fatalerror
-	!pet "multiplied!",0
 	
 	
