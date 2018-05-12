@@ -68,6 +68,9 @@ fileblocks !byte 0, 0
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
     jsr parse_dictionary
+    jsr parse_object_table
+
+    jsr test_object_table
 	;jsr testtext
 
 	jsr streams_init
