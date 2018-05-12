@@ -12,9 +12,14 @@ z_global_vars_start	!byte 0, 0
 
 z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
+	!byte >z_ins_rfalse
+	!byte >z_ins_print
+	
 
 z_opcount_0op_jump_low_arr
 	!byte <z_ins_rtrue
+	!byte <z_ins_rfalse
+	!byte <z_ins_print
 	
 z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
 
@@ -735,6 +740,15 @@ z_ins_rtrue
 	lda #0
 	ldx #1
 	jmp stack_return_from_routine
+
+z_ins_rfalse
+	lda #0
+	tax
+	jmp stack_return_from_routine
+
+z_ins_print
+	; TODO: Implementation
+	rts
 
 ; 1OP instructions
 
