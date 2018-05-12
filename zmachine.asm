@@ -21,7 +21,7 @@ z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
 
 
 z_opcount_1op_jump_high_arr
-	!byte >z_not_implemented
+	!byte >z_ins_jz
 	!byte >z_ins_get_sibling
 	!byte >z_ins_get_child
 	!byte >z_ins_get_parent
@@ -37,7 +37,7 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_print_paddr
 
 z_opcount_1op_jump_low_arr
-	!byte <z_not_implemented
+	!byte <z_ins_jz
 	!byte <z_ins_get_sibling
 	!byte <z_ins_get_child
 	!byte <z_ins_get_parent
@@ -630,19 +630,21 @@ make_branch_false
 	lda #0
 +	sta zp_temp
 	jsr read_byte_at_z_pc_then_inc
-	sta zp_temp + 1
-	and #%01000000
-	bne +
-	jsr read_byte_at_z_pc_then_inc
-	sta zp_temp + 2
-+	bit zp_temp + 1
-	bmi +
-	lda #$80
+	sta zp_temp + 1 ; First byte of branch data
+	and #$c0
+	eor #$80 ; Invert top bit, since 0 means branch if condition = false
 	eor zp_temp
-	sta zp_temp
-+	bit zp_temp
+	sta zp_temp ; Top bit in zp_temp has now been inverted if it should. Ignore other bits.
+	and #$40
+	bne +
+	; This is a 14-bit offset
+	jsr read_byte_at_z_pc_then_inc
+	sta zp_temp + 2 ; Second byte of branch data
+	; Check if we should actually branch
++	bit zp_temp ; Top bit = 1 : branch
 	bpl .done
 	; Calculate and perform the jump
+	bit zp_temp + 1
 	bvc .two_byte_jump
 	lda zp_temp + 1
 	and #%00111111
@@ -663,7 +665,7 @@ make_branch_false
 	sta zp_temp + 1
 	lda #$ff
 	sta zp_temp
-	bne .both_jumps
+	bne .both_jumps ; Always branch
 +	txa
 	sta zp_temp + 1
 	lda #0
@@ -671,34 +673,33 @@ make_branch_false
 .both_jumps
 	ldx zp_temp + 2
 	cpx #2
-	bcs .not_return
+	bcs z_jump_to_offset_in_zp_temp
 	lda zp_temp
 	ora zp_temp + 1
-	bne .not_return
+	bne z_jump_to_offset_in_zp_temp
 	; Return value in x	
 	lda #0
 	jmp stack_return_from_routine
-.not_return
+z_jump_to_offset_in_zp_temp
+	lda z_pc + 2
+	clc
+	adc zp_temp + 2
+	tax
+	lda z_pc + 1
+	adc zp_temp + 1
+	tay
+	lda z_pc
+	adc zp_temp
+	pha
 	txa
 	sec
 	sbc #2
-	sta zp_temp + 2
-	bcs +
-	lda zp_temp + 1
-	sbc #0
-	sta zp_temp + 1
-	lda zp_temp + 2
-	sbc #0
-	sta zp_temp + 2
-+	lda z_pc + 2
-	clc
-	adc zp_temp + 2
 	sta z_pc + 2
-	lda z_pc + 1
-	adc zp_temp + 1
+	tya
+	sbc #0
 	sta z_pc + 1
-	lda z_pc
-	adc zp_temp
+	pla
+	sbc #0
 	sta z_pc
 .done
 	rts
@@ -736,6 +737,13 @@ z_ins_rtrue
 	jmp stack_return_from_routine
 
 ; 1OP instructions
+
+z_ins_jz
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	ora z_operand_value_high_arr
+	beq .branch_true
+	bne .branch_false
 
 z_ins_get_sibling
 	; TODO: Implementation
@@ -789,31 +797,16 @@ z_ins_print_obj
 
 z_ins_jump
 	jsr evaluate_all_args
-	lda z_pc + 2
-	clc
-	adc z_operand_value_low_arr
-	tax
-	lda z_pc + 1
-	adc z_operand_value_high_arr
-	tay
 	lda #0
 	bit z_operand_value_high_arr
 	bpl +
 	lda #$ff
-+	adc z_pc
-	pha
-	txa
-	sec
-	sbc #2
-	sta z_pc + 2
-	tya
-	sbc #0
-	sta z_pc + 1
-	pla
-	sbc #0
-	sta z_pc
-	rts
-	
++	sta zp_temp
+	lda z_operand_value_high_arr
+	sta zp_temp + 1
+	lda z_operand_value_low_arr
+	sta zp_temp + 2
+	jmp z_jump_to_offset_in_zp_temp
 	
 z_ins_print_paddr
 	jsr evaluate_all_args
