@@ -26,8 +26,8 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_get_child
 	!byte >z_ins_get_parent
 	!byte >z_ins_get_prop_len
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_inc
+	!byte >z_ins_dec
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_remove_obj
@@ -42,8 +42,8 @@ z_opcount_1op_jump_low_arr
 	!byte <z_ins_get_child
 	!byte <z_ins_get_parent
 	!byte <z_ins_get_prop_len
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_inc
+	!byte <z_ins_dec
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_remove_obj
@@ -442,7 +442,48 @@ clear_remaining_types_2
 }
 
 !zone {
-z_get_variable
+z_get_variable_reference
+	; input: Variable in x
+	; output: Address is returned in a,x
+	; affects registers: p
+	sty zp_temp + 3
+	cpx #0
+	beq .find_on_stack
+	txa
+	cmp #16
+	bcs .find_global_var
+	; Local variable
+	asl
+	clc
+	adc z_local_vars_ptr
+	tax
+	lda z_local_vars_ptr + 1
+	adc #0
+	ldy zp_temp + 3
+	rts
+.find_on_stack
+	lda stack_ptr
+	sec
+	sbc #2
+	tax
+	lda stack_ptr + 1
+	sbc #0
+	ldy zp_temp + 3
+	rts
+.find_global_var
+	ldx #0
+	stx zp_temp + 1
+	asl
+	rol zp_temp + 1
+	clc
+	adc z_global_vars_start
+	tax
+	lda zp_temp + 1
+	adc z_global_vars_start + 1
+	ldy zp_temp + 3
+	rts
+
+z_get_variable_value
 	; Variable in x
 	; Returns value in a,x
 	sty zp_temp + 3
@@ -543,17 +584,18 @@ evaluate_all_args_except_x
 	sta z_operand_value_high_arr,y
 	lda z_operand_low_arr,y
 	sta z_operand_value_low_arr,y
-.not_this_one
+.not_this_one	
 	iny
 	bne - ; Always branch
 .is_var
 	ldx z_operand_low_arr,y
-	jsr z_get_variable
+	jsr z_get_variable_value
 	sta z_operand_value_high_arr,y
 	txa
 	sta z_operand_value_low_arr,y
 	iny
 	bne - ; Always branch
+
 .done
 	rts
 }
@@ -711,6 +753,32 @@ z_ins_get_prop_len
 	; TODO: Implementation
 	rts
 
+z_ins_inc
+	ldx z_operand_low_arr
+	jsr z_get_variable_reference
+	stx .ins_inc + 1
+	sta .ins_inc + 2
+	ldx #1
+.ins_inc
+	inc $0400,x
+	bne +
+	dex
+	bpl .ins_inc
++	rts	
+	
+z_ins_dec
+	ldx z_operand_low_arr
+	jsr z_get_variable_reference
+	stx .ins_dec + 1
+	sta .ins_dec + 2
+	ldx #1
+.ins_dec
+	dec $0400,x
+	bne +
+	dex
+	bpl .ins_inc
++	rts	
+	
 z_ins_remove_obj
 	; TODO: Implementation
 	rts
