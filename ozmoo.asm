@@ -53,6 +53,7 @@ fileblocks !byte 0, 0
 }
 !source "text.asm"
 !source "dictionary.asm"
+!source "objecttable.asm"
 
 .initialize
     ; enable lower case mode
