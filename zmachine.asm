@@ -1,4 +1,4 @@
-z_pc				!byte 0, 0, 0
+z_pc				!byte 0, $10, 0
 ; z_pc_instruction	!byte 0, 0, 0
 z_extended_opcode 	!byte 0
 z_operand_count		!byte 0
@@ -71,13 +71,13 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_store
 	!byte >z_not_implemented
 	!byte >z_ins_loadw
-	!byte >z_not_implemented
+	!byte >z_ins_loadb
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_add
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_mul
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -100,13 +100,13 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_store
 	!byte <z_not_implemented
 	!byte <z_ins_loadw
-	!byte <z_not_implemented
+	!byte <z_ins_loadb
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_add
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_mul
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -121,7 +121,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_ins_call
 }
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_storeb
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -148,7 +148,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_ins_call
 }
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_storeb
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -612,34 +612,32 @@ make_branch_false
 .two_byte_jump
 	lda zp_temp + 1
 	and #%00111111
-	tay
+	tax
 	and #%00100000
 	beq +
 	; Propagate minus bit
-	tya
+	txa
 	ora #%11000000
 	sta zp_temp + 1
 	lda #$ff
 	sta zp_temp
 	bne .both_jumps
-+	tya
++	txa
 	sta zp_temp + 1
 	lda #0
 	sta zp_temp
-.both_jumps	
-	ldy zp_temp + 2
-	cpy #2
+.both_jumps
+	ldx zp_temp + 2
+	cpx #2
 	bcs .not_return
 	lda zp_temp
 	ora zp_temp + 1
 	bne .not_return
-	; Return value in y	
-	; TODO: Implement!
-	jsr fatalerror
-	!pet "branchreturn: NO!",0
-	rts
+	; Return value in x	
+	lda #0
+	jmp stack_return_from_routine
 .not_return
-	tya
+	txa
 	sec
 	sbc #2
 	sta zp_temp + 2
@@ -675,6 +673,20 @@ z_store_result
 }
 
 !zone {
+calc_address_in_byte_array
+	lda z_operand_value_low_arr
+	clc
+	adc z_operand_value_low_arr + 1
+	sta zp_temp
+	lda z_operand_value_high_arr
+	adc z_operand_value_high_arr + 1
+	adc #>story_start
+	sta zp_temp + 1
+	ldy #0
+	rts
+}
+
+!zone {
 ; 0OP instructions
 z_ins_rtrue
 	lda #0
@@ -707,8 +719,7 @@ z_ins_je
 z_ins_jl
 	jsr evaluate_all_args
 	lda z_operand_value_low_arr
-	sec
-	sbc z_operand_value_low_arr + 1
+	cmp z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr
 	sbc z_operand_value_high_arr + 1
 	bcc .branch_true
@@ -716,8 +727,7 @@ z_ins_jl
 z_ins_jg
 	jsr evaluate_all_args
 	lda z_operand_value_low_arr + 1
-	sec
-	sbc z_operand_value_low_arr
+	cmp z_operand_value_low_arr
 	lda z_operand_value_high_arr + 1
 	sbc z_operand_value_high_arr
 	bcc .branch_true
@@ -750,6 +760,14 @@ z_ins_loadw
 	lda (zp_temp),y
 	jmp z_store_result
 
+z_ins_loadb
+	jsr evaluate_all_args
+	jsr calc_address_in_byte_array
+	lda (zp_temp),y
+	tax
+	tya
+	jmp z_store_result
+
 z_ins_add
 	jsr evaluate_all_args
 	lda z_operand_value_low_arr
@@ -760,6 +778,75 @@ z_ins_add
 	adc z_operand_value_high_arr + 1
 	jmp z_store_result
 
+.mul_product = memory_buffer ; 5 bytes (4 for product + 1 for last bit)
+.mul_inv_multiplicand = memory_buffer + 5 ; 2 bytes
+mul_product = .mul_product
+
+z_ins_mul
+	jsr evaluate_all_args
+	lda #0
+	ldy #16
+	sta .mul_product
+	sta .mul_product + 1
+	sta .mul_product + 4
+	lda z_operand_value_high_arr
+	sta .mul_product + 2
+	lda z_operand_value_low_arr
+	sta .mul_product + 3
+	lda z_operand_value_low_arr + 1
+	eor #$ff
+	clc
+	adc #1
+	sta .mul_inv_multiplicand + 1
+	lda z_operand_value_high_arr + 1
+	eor #$ff
+	adc #0
+	sta .mul_inv_multiplicand
+	; Perform multiplication
+.mul_next_iteration
+	lda .mul_product + 3
+	and #1
+	beq .mul_bottom_is_0
+	; Bottom bit is 1
+	bit .mul_product + 4
+	bmi .mul_do_nothing
+	; Subtract
+	lda .mul_product + 1
+	clc
+	adc .mul_inv_multiplicand + 1
+	sta .mul_product + 1
+	lda .mul_product
+	adc .mul_inv_multiplicand
+	sta .mul_product
+	jmp .mul_do_nothing
+.mul_bottom_is_0
+	; Bottom bit is 0
+	bit .mul_product + 4
+	bpl .mul_do_nothing
+	; Add
+	lda .mul_product + 1
+	clc
+	adc z_operand_value_low_arr + 1
+	sta .mul_product + 1
+	lda .mul_product
+	adc z_operand_value_high_arr + 1
+	sta .mul_product
+.mul_do_nothing
+	clc
+	bit .mul_product
+	bpl +
+	sec
++	ror .mul_product
+	ror .mul_product + 1
+	ror .mul_product + 2
+	ror .mul_product + 3
+	ror .mul_product + 4
+	dey
+	bne .mul_next_iteration
+	lda .mul_product + 2
+	ldx .mul_product + 3
+	jmp z_store_result
+	
 z_ins_call_2n
 	jsr evaluate_all_args
 	jsr check_for_routine_0_and_store
@@ -782,9 +869,33 @@ z_ins_call_vs
 	dex
 	ldy #1 ; Store result = 1
 	jmp stack_call_routine
+
+z_ins_storeb
+	jsr evaluate_all_args
+	jsr calc_address_in_byte_array
+	lda z_operand_value_low_arr + 2
+	sta (zp_temp),y
+	rts
 	
 z_ins_output_stream
 	jsr evaluate_all_args
 	jmp streams_output_stream
 }
+	
+test_mul
+	lda #<23
+	sta z_operand_value_low_arr
+	lda #>23
+	sta z_operand_value_high_arr
+	lda #<-13
+	sta z_operand_value_low_arr + 1
+	lda #>-13
+	sta z_operand_value_high_arr + 1
+	jsr z_ins_mul
+	lda mul_product + 2
+	ldx mul_product + 3
+	jsr printinteger
+	jsr fatalerror
+	!pet "multiplied!",0
+	
 	
