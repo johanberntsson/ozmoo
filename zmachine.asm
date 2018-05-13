@@ -746,9 +746,7 @@ z_ins_rfalse
 	tax
 	jmp stack_return_from_routine
 
-z_ins_print
-	; TODO: Implementation
-	rts
+; z_ins_print (moved to text.asm)
 
 ; 1OP instructions
 
@@ -759,21 +757,13 @@ z_ins_jz
 	beq .branch_true
 	bne .branch_false
 
-z_ins_get_sibling
-	; TODO: Implementation
-	rts
+; z_ins_get_sibling (moved to objecttable.asm)
 
-z_ins_get_child
-	; TODO: Implementation
-	rts
+; z_ins_get_child (moved to objecttable.asm)
 
-z_ins_get_parent
-	; TODO: Implementation
-	rts
+; z_ins_get_parent (moved to objecttable.asm)
 
-z_ins_get_prop_len
-	; TODO: Implementation
-	rts
+; z_ins_get_prop_len (moved to objecttable.asm)
 
 z_ins_inc
 	ldx z_operand_low_arr
@@ -801,13 +791,9 @@ z_ins_dec
 	bpl .ins_inc
 +	rts	
 	
-z_ins_remove_obj
-	; TODO: Implementation
-	rts
+; z_ins_remove_obj (moved to objecttable.asm)
 
-z_ins_print_obj
-	; TODO: Implementation
-	rts
+; z_ins_print_obj (moved to objecttable.asm)
 
 z_ins_jump
 	jsr evaluate_all_args
@@ -821,14 +807,8 @@ z_ins_jump
 	lda z_operand_value_low_arr
 	sta zp_temp + 2
 	jmp z_jump_to_offset_in_zp_temp
-	
-z_ins_print_paddr
-	jsr evaluate_all_args
-	; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
-	lda z_operand_value_high_arr
-	ldx z_operand_value_low_arr
-	jsr set_z_paddress
-	jmp print_addr
+
+; z_ins_print_paddr (moved to text.asm)
 
 ; 2OP instructions
 z_ins_je
@@ -860,21 +840,13 @@ z_ins_jg
 	bcc .branch_true
 	jmp make_branch_false
 
-z_ins_jin
-	; TODO: Implementation
-	rts
+; z_ins_jin (moved to objecttable.asm)
 	
-z_ins_test_attr
-	; TODO: Implementation
-	rts
+; z_ins_test_attr (moved to objecttable.asm)
 
-z_ins_set_attr
-	; TODO: Implementation
-	rts
+; z_ins_set_attr (moved to objecttable.asm)
 	
-z_ins_clear_attr
-	; TODO: Implementation
-	rts
+; z_ins_clear_attr (moved to objecttable.asm)
 	
 z_ins_store
 	ldx #0
@@ -884,9 +856,7 @@ z_ins_store
 	ldx z_operand_value_low_arr + 1
 	jmp z_set_variable
 
-z_ins_insert_obj
-	; TODO: Implementation
-	rts
+; z_ins_insert_obj (moved to objecttable.asm)
 	
 z_ins_loadw
 	jsr evaluate_all_args
@@ -915,17 +885,11 @@ z_ins_loadb
 	tya
 	jmp z_store_result
 
-z_ins_get_prop
-	; TODO: Implementation
-	rts
+; z_ins_get_prop (moved to objecttable.asm)
 	
-z_ins_get_prop_addr
-	; TODO: Implementation
-	rts
+; z_ins_get_prop_addr (moved to objecttable.asm)
 
-z_ins_get_next_prop
-	; TODO: Implementation
-	rts
+; z_ins_get_next_prop (moved to objecttable.asm)
 
 z_ins_add
 	jsr evaluate_all_args
@@ -1035,9 +999,7 @@ z_ins_storeb
 	sta (zp_temp),y
 	rts
 
-z_ins_put_prop
-	; TODO: Implementation
-	rts
+; z_ins_put_prop (moved to objecttable.asm)
 	
 z_ins_output_stream
 	jsr evaluate_all_args

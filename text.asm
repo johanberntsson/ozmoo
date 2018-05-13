@@ -1,14 +1,37 @@
+; text opcodes
+
+z_ins_print_paddr
+    jsr evaluate_all_args
+    ; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
+    lda z_operand_value_high_arr
+    ldx z_operand_value_low_arr
+    jsr set_z_paddress
+    jmp print_addr
+
+z_ins_print 
+    ; TODO: Implementation 
+    ldy z_pc
+    lda z_pc + 1
+    ldx z_pc + 2
+    jsr set_z_himem_address
+    jsr print_addr
+    jsr get_z_himem_address
+    sty z_pc
+    sta z_pc + 1
+    stx z_pc + 2
+    rts
+
 set_z_paddress
     ; convert a/x to paddr in .addr
     ; input: a,x
     ; output: 
     ; side effects: .addr
     ; used registers: a,x
+    ; example: $031b -> $00, $0c, $6c (Z5)
     stx .addr + 2
     sta .addr + 1
     lda #$0
     sta .addr
-
 !ifdef Z4 {
     ldx #2
 }
@@ -25,8 +48,6 @@ set_z_paddress
     dex
     bne -
 }
-
-    ; $031b -> $00, $0c, $6c
     rts
 
 set_z_address
@@ -36,6 +57,12 @@ set_z_address
     sta .addr
     rts
 
+set_z_himem_address
+    stx .addr + 2
+    sta .addr + 1
+    sty .addr
+    rts
+
 get_z_address
     ; input: 
     ; output: a,x
@@ -43,6 +70,12 @@ get_z_address
     ; used registers: a,x
     ldx .addr + 2 ; low
     lda .addr + 1 ; high
+    rts
+
+get_z_himem_address
+    ldx .addr + 2
+    lda .addr + 1
+    ldy .addr
     rts
 
 read_next_byte
