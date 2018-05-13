@@ -14,12 +14,30 @@ z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
 	!byte >z_ins_rfalse
 	!byte >z_ins_print
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_new_line
 	
 
 z_opcount_0op_jump_low_arr
 	!byte <z_ins_rtrue
 	!byte <z_ins_rfalse
 	!byte <z_ins_print
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_new_line
 	
 z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
 
@@ -33,7 +51,7 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_get_prop_len
 	!byte >z_ins_inc
 	!byte >z_ins_dec
-	!byte >z_not_implemented
+	!byte >z_ins_print_addr
 	!byte >z_not_implemented
 	!byte >z_ins_remove_obj
 	!byte >z_ins_print_obj
@@ -49,7 +67,7 @@ z_opcount_1op_jump_low_arr
 	!byte <z_ins_get_prop_len
 	!byte <z_ins_inc
 	!byte <z_ins_dec
-	!byte <z_not_implemented
+	!byte <z_ins_print_addr
 	!byte <z_not_implemented
 	!byte <z_ins_remove_obj
 	!byte <z_ins_print_obj
@@ -69,7 +87,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_jin
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_and
 	!byte >z_ins_test_attr
 	!byte >z_ins_set_attr
 	!byte >z_ins_clear_attr
@@ -81,7 +99,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_get_prop_addr
 	!byte >z_ins_get_next_prop
 	!byte >z_ins_add
-	!byte >z_not_implemented
+	!byte >z_ins_sub
 	!byte >z_ins_mul
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -98,7 +116,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_jin
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_and
 	!byte <z_ins_test_attr
 	!byte <z_ins_set_attr
 	!byte <z_ins_clear_attr
@@ -110,7 +128,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_get_prop_addr
 	!byte <z_ins_get_next_prop
 	!byte <z_ins_add
-	!byte <z_not_implemented
+	!byte <z_ins_sub
 	!byte <z_ins_mul
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -128,7 +146,11 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_storeb
 	!byte >z_ins_put_prop
-	!byte >z_not_implemented
+!ifndef Z5PLUS {
+	!byte >z_ins_sread
+} else {
+	!byte >z_ins_aread
+}
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -155,7 +177,11 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_ins_storeb
 	!byte <z_ins_put_prop
-	!byte <z_not_implemented
+!ifndef Z5PLUS {
+	!byte <z_ins_sread
+} else {
+	!byte <z_ins_aread
+}
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -211,13 +237,6 @@ z_init
 z_execute
 !zone {
 .main_loop
-	jsr print_following_string
-	!pet "Parsing instruction at z_pc ",0
-	ldx z_pc + 2
-	lda z_pc + 1
-	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
 	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
 ;	lda z_pc
 ;	sta z_pc_instruction
@@ -239,6 +258,11 @@ z_execute
 	!pet "opcode: ",0
 	ldx z_opcode
 	jsr printx
+	jsr print_following_string
+	!pet " @ ",0
+	ldx z_pc + 2
+	lda z_pc + 1
+	jsr printinteger
 	lda #$0d
 	jsr kernel_printchar
 	lda z_opcode
@@ -416,6 +440,19 @@ z_not_implemented
 ;	jsr printx
 ;	lda #$0d
 ;	jsr kernel_printchar
+!ifndef DEBUG {
+	jsr print_following_string
+	!pet "opcode: ",0
+	ldx z_opcode
+	jsr printx
+	jsr print_following_string
+	!pet " @ ",0
+	ldx z_pc + 2
+	lda z_pc + 1
+	jsr printinteger
+	lda #$0d
+	jsr kernel_printchar
+}
 	jsr fatalerror
 	!pet "opcode not implemented!",0
 }
@@ -748,6 +785,9 @@ z_ins_rfalse
 
 ; z_ins_print (moved to text.asm)
 
+; z_ins_new_line (moved to text.asm)
+
+
 ; 1OP instructions
 
 z_ins_jz
@@ -789,7 +829,9 @@ z_ins_dec
 	bne +
 	dex
 	bpl .ins_inc
-+	rts	
++	rts
+
+; z_ins_print_addr (moved to text.asm)
 	
 ; z_ins_remove_obj (moved to objecttable.asm)
 
@@ -843,6 +885,15 @@ z_ins_jg
 ; z_ins_jin (moved to objecttable.asm)
 	
 ; z_ins_test_attr (moved to objecttable.asm)
+
+z_ins_and
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	and z_operand_value_low_arr + 1
+	tax
+	lda z_operand_value_high_arr
+	and z_operand_value_high_arr + 1
+	jmp z_store_result
 
 ; z_ins_set_attr (moved to objecttable.asm)
 	
@@ -899,6 +950,16 @@ z_ins_add
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
+	jmp z_store_result
+
+z_ins_sub
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	sec
+	sbc z_operand_value_low_arr + 1
+	tax
+	lda z_operand_value_high_arr
+	sbc z_operand_value_high_arr + 1
 	jmp z_store_result
 
 .mul_product = memory_buffer ; 5 bytes (4 for product + 1 for last bit)
@@ -1000,6 +1061,8 @@ z_ins_storeb
 	rts
 
 ; z_ins_put_prop (moved to objecttable.asm)
+	
+; z_ins_sread / z_ins_aread (moved to text.asm)
 	
 z_ins_output_stream
 	jsr evaluate_all_args

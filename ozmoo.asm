@@ -70,8 +70,10 @@ fileblocks !byte 0, 0
     jsr parse_dictionary
     jsr parse_object_table
 
+!ifdef DEBUG {
     jsr test_object_table
 	;jsr testtext
+}
 
 	jsr streams_init
 	jsr stack_init

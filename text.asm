@@ -1,5 +1,12 @@
 ; text opcodes
 
+z_ins_print_addr 
+    jsr evaluate_all_args
+    ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	jsr set_z_address
+	jmp print_addr
+
 z_ins_print_paddr
     jsr evaluate_all_args
     ; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
@@ -21,6 +28,23 @@ z_ins_print
     stx z_pc + 2
     rts
 
+!ifndef Z5PLUS {
+z_ins_sread
+    ; TODO: Implementation. 
+	; Note that sread is quite different in v4 compared to v1-v3. 
+	jsr fatalerror
+	!pet "sread not implemented...YET!",0
+} else {	
+z_ins_aread
+    ; TODO: Implementation 
+	jsr fatalerror
+	!pet "aread not implemented...YET!",0
+}
+	
+z_ins_new_line
+	lda #13
+	jmp streams_print_output
+	
 set_z_paddress
     ; convert a/x to paddr in .addr
     ; input: a,x
