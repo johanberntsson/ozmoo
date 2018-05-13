@@ -278,12 +278,10 @@ z_execute
 
 	; Top bits are 11. Form = Variable
 	and #%00100000
-	beq +
+	beq .get_4_ops ; This is a 2OP instruction, with up to 4 operands
 	inc z_opcode_opcount ; Set to VAR
 	bne .get_4_ops ; Always branch
-+	ldy #2
-	bne .get_y_ops ; Always branch
-	
+
 .top_bits_are_10
 	; Form = Short
 	and #%00001111
@@ -855,16 +853,22 @@ z_ins_jump
 ; 2OP instructions
 z_ins_je
 	jsr evaluate_all_args
-	lda z_operand_value_low_arr
-	cmp z_operand_value_low_arr + 1
-	bne .branch_false
+	ldx z_operand_count
+	dex
+-	lda z_operand_value_low_arr
+	cmp z_operand_value_low_arr,x
+	bne .je_try_next
 	lda z_operand_value_high_arr
-	cmp z_operand_value_high_arr + 1
+	cmp z_operand_value_high_arr,x
 	beq .branch_true
+.je_try_next
+	dex
+	bne -
 .branch_false
 	jmp make_branch_false
 .branch_true
 	jmp make_branch_true
+
 z_ins_jl
 	jsr evaluate_all_args
 	lda z_operand_value_low_arr
@@ -872,7 +876,8 @@ z_ins_jl
 	lda z_operand_value_high_arr
 	sbc z_operand_value_high_arr + 1
 	bcc .branch_true
-	jmp make_branch_false
+	bcs .branch_false ; Always branch
+
 z_ins_jg
 	jsr evaluate_all_args
 	lda z_operand_value_low_arr + 1
@@ -880,7 +885,7 @@ z_ins_jg
 	lda z_operand_value_high_arr + 1
 	sbc z_operand_value_high_arr
 	bcc .branch_true
-	jmp make_branch_false
+	bcs .branch_false ; Always branch
 
 ; z_ins_jin (moved to objecttable.asm)
 	
