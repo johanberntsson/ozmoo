@@ -471,10 +471,12 @@ read_text
     sta (string_array),y ; store new character in the array
     jmp .readkey
 +   ; keybuffer >= maxchars
-    inc $d020
+    lda (string_array),y ; max characters in array
+    sec
+    sbc #1
     iny
-    sta (string_array),y
-    pla ; don't save this (out of bounds)
+    sta (string_array),y ; number of characters in the array (max - 1)
+    pla ; don't save this character (out of bounds)
     jmp .readkey
 .read_text_done
     ; turn off blinking cursor
