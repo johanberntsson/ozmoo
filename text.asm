@@ -440,6 +440,8 @@ read_text
     ldy zero_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
+    jsr kernel_printchar ; print the delete char
+    jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #14
     beq .readkey ; big/small
