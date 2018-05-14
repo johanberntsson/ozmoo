@@ -619,6 +619,7 @@ print_addr
     ; used registers: a,x,y
     lda #0
     sta .alphabet_offset
+    sta .escape_char_counter
 .read_triplet_loop
     jsr read_next_byte
     sta .packedtext
@@ -630,7 +631,6 @@ print_addr
     lda .packedtext + 1
     and #$1f
     sta .zchars,x
-
     ldy #5
 -   lsr .packedtext
     ror .packedtext+1
@@ -642,7 +642,20 @@ print_addr
     ; print the three chars
     ldx #2
 --  lda .zchars,x
-    jsr convert_zchar_to_char
+    ldy .escape_char_counter
+    beq .l1
+    dec .escape_char_counter
+    beq +
+    ldy #5
+-   asl .escape_char
+    dey
+    bne -
+    ora .escape_char
+    sta .escape_char
+    jmp .next_zchar
++   lda .escape_char
+    jsr $ffd2
+    jmp .next_zchar
 .l1 cmp #0
     bne .l2
     ; space
@@ -661,7 +674,19 @@ print_addr
     lda #52
     sta .alphabet_offset
     jmp .next_zchar
-.l4 ; normal char
+.l4 ; escape char?
+    cmp #6
+    bne .l5
+    ldy .alphabet_offset
+    cpy #52
+    bne .l5
+    lda #0
+    sta .escape_char
+    lda #2
+    sta .escape_char_counter
+    jmp .next_zchar
+.l5 ; normal char
+    jsr convert_zchar_to_char
     jsr streams_print_output
     ; change back to A0
     lda #0
@@ -670,8 +695,11 @@ print_addr
     dex
     bpl --
     lda .packedtext + 1
-    beq .read_triplet_loop
-    rts
+    bne +
+    jmp .read_triplet_loop
++   rts
+.escape_char !byte 0
+.escape_char_counter !byte 0
 
 !ifdef DEBUG {
 testtext
@@ -679,7 +707,7 @@ testtext
     lda #$03
     jsr set_z_paddress
     jmp print_addr
-}
+
 testparser
     lda #63
     jsr $ffd2
@@ -728,6 +756,7 @@ testparser
     cpy #16
     bne -
     rts
+}
 
 .addr !byte 0,0,0
 .zchars !byte 0,0,0
