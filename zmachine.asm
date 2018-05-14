@@ -909,8 +909,8 @@ z_ins_jl
 	cmp z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr
 	sbc z_operand_value_high_arr + 1
-	bcc .branch_true
-	bcs .branch_false ; Always branch
+	bmi .branch_true
+	bpl .branch_false ; Always branch
 
 z_ins_jg
 	jsr evaluate_all_args
@@ -918,8 +918,8 @@ z_ins_jg
 	cmp z_operand_value_low_arr
 	lda z_operand_value_high_arr + 1
 	sbc z_operand_value_high_arr
-	bcc .branch_true
-	bcs .branch_false ; Always branch
+	bmi .branch_true
+	bpl .branch_false ; Always branch
 
 ; z_ins_jin (moved to objecttable.asm)
 	
@@ -971,10 +971,10 @@ z_ins_loadw_and_storew
 	jmp z_store_result
 .storew
 	lda z_operand_value_low_arr + 2
-	lda (zp_temp),y
+	sta (zp_temp),y
 	dey
 	lda z_operand_value_high_arr + 2
-	lda (zp_temp),y
+	sta (zp_temp),y
 	rts
 	
 z_ins_loadb
@@ -1102,6 +1102,8 @@ z_ins_call_vs
 	ldy #1 ; Store result = 1
 	jmp stack_call_routine
 
+; VAR storew is implemented in z_ins_loadw_and_storew, under 2OP	
+	
 z_ins_storeb
 	jsr evaluate_all_args
 	jsr calc_address_in_byte_array
