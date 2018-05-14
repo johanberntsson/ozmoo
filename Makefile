@@ -1,10 +1,10 @@
-#DEBUGFLAGS = -DDEBUG=1
-#VMFLAGS = -DUSEVM=1
+DEBUGFLAGS = -DDEBUG=1
+VMFLAGS = -DUSEVM=1
 C1541 := /usr/bin/c1541
 #X64 := /usr/bin/x64
 X64 := /usr/bin/x64 -warp
 
-all: z5
+all: z3
 
 d64.z3: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
@@ -12,7 +12,7 @@ d64.z3:
 	$(C1541) -attach dejavu.d64 -write ozmoo ozmoo
 
 d64.z5:
-	acme -DZ5=1 $(DEBUGFLAGS)  $(VMFLAGS)--cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	acme -DZ5=1 $(DEBUGFLAGS)  $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
 	cp d64toinf/dragontroll.d64 dragontroll.d64
 	$(C1541) -attach dragontroll.d64 -write ozmoo ozmoo
 

@@ -46,7 +46,7 @@ readblocks
     stx .uname_sector
     sta .uname_sector + 1
 
-!ifdef DEBUG {
+;!ifdef DEBUG {
     ldx readblocks_mempos
     jsr printx
     lda #$20
@@ -62,7 +62,7 @@ readblocks
     lda #<.uname
     ldy #>.uname
     jsr printstring
-}
+;}
     ; open the channel file
     lda #cname_len
     ldx #<.cname
@@ -132,9 +132,9 @@ cname_len = * - .cname
 .uname !text "U1 2 0 "
 .uname_track !text "18 "
 .uname_sector !text "00"
-!ifdef DEBUG {
+;!ifdef DEBUG {
     !byte 13, 0 ; end of string, so we can print debug messages
-}
+;}
 uname_len = * - .uname
 .track  !byte 0
 .sector !byte 0
