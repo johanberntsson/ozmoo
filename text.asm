@@ -417,7 +417,7 @@ read_text
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
     ; input: a,x
     ; output: string_array
-    ; side effects: zero_screencolumn, zero_screenline
+    ; side effects: zp_screencolumn, zp_screenline
     ; used registers: a,x,y
     stx string_array ; 7c
     clc
@@ -425,9 +425,17 @@ read_text
     sta string_array + 1
     ; turn on blinking cursor
     lda #0
-    sta $cc
-    lda zero_screencolumn
+    sta zp_cursorswitch
+    lda zp_screencolumn
     sta .read_text_startcolumn
+!ifdef Z5PLUS {
+    ldy #1
+    lda (string_array),y
+}
+!ifndef Z5PLUS {
+    lda #0
+}
+    sta .read_text_offset
 .readkey
     jsr kernel_getchar
     cmp #$00
@@ -437,7 +445,7 @@ read_text
     cmp #20
     bne +
     ; allow delete if anything in the buffer
-    ldy zero_screencolumn
+    ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
     jsr kernel_printchar ; print the delete char
@@ -458,40 +466,61 @@ read_text
     ; print the allowed char and store in the array
     jsr kernel_printchar
     pha
-    lda zero_screencolumn ; compare with size of keybuffer
+    lda zp_screencolumn ; compare with size of keybuffer
     sec
     sbc .read_text_startcolumn
+!ifdef Z5PLUS {
+    clc
+    adc .read_text_offset
+}
     ldy #0
     cmp (string_array),y ; max characters in array
     bcs +
     ; keybuffer < maxchars
+!ifdef Z5PLUS {
     iny
     sta (string_array),y ; number of characters in the array
+}
     tay
+!ifdef Z5PLUS {
     iny
+}
     pla
+    ; convert to lower case
+    and #$7f
     sta (string_array),y ; store new character in the array
     jmp .readkey
 +   ; keybuffer >= maxchars
+!ifdef Z5PLUS {
     lda (string_array),y ; max characters in array
     sec
     sbc #1
     iny
     sta (string_array),y ; number of characters in the array (max - 1)
+}
     pla ; don't save this character (out of bounds)
     jmp .readkey
 .read_text_done
     ; turn off blinking cursor
     lda #$ff
-    sta $cc
+    sta zp_cursorswitch
     ; hide cursor if still visible
-    ldy zero_screencolumn
-    lda (zero_screenline),y
+    ldy zp_screencolumn
+    lda (zp_screenline),y
     and #$7f
-    sta (zero_screenline),y
+    sta (zp_screenline),y
     lda #$0d
     jsr kernel_printchar
+!ifndef Z5PLUS {
+    ; add a zero at the end of the line
+    ldy #0
+    lda (zp_screenline),y
+    tay
+    lda #0
+    sta (zp_screenline),y
+}
     rts
+.read_text_offset !byte 0
 .read_text_startcolumn !byte 0
 
 tokenise_text
@@ -726,6 +755,10 @@ testparser
     sta $257c
     lda #0     ; 0=overwrite, 1=append to previous input
     sta $257d
+    lda #44
+    sta $257e
+    sta $257f
+    sta $2560
     lda #$05
     ldx #$7c
     jsr read_text
