@@ -16,7 +16,6 @@ z_ins_print_paddr
     jmp print_addr
 
 z_ins_print 
-    ; TODO: Implementation 
     ldy z_pc
     lda z_pc + 1
     ldx z_pc + 2
@@ -29,16 +28,70 @@ z_ins_print
     rts
 
 !ifndef Z5PLUS {
+
 z_ins_sread
-    ; TODO: Implementation. 
-	; Note that sread is quite different in v4 compared to v1-v3. 
-	jsr fatalerror
-	!pet "sread not implemented...YET!",0
+	; sread text parse (Z1-Z3)
+	; sread text parse time routine (Z4)
+    jsr evaluate_all_args
+    ; read input
+    lda z_operand_value_high_arr
+    ldx z_operand_value_low_arr
+    jsr read_text
+    ; parse it as well?
+    ldx z_operand_count
+    cpx #2
+    bcc .sread_done
+    lda z_operand_value_high_arr + 1
+    ldx z_operand_value_low_arr + 1
+    jsr tokenise_text
+.sread_done
+    rts
+
 } else {	
+
 z_ins_aread
-    ; TODO: Implementation 
-	jsr fatalerror
-	!pet "aread not implemented...YET!",0
+    ; aread text parse time routine -> (result)
+    jsr evaluate_all_args
+    ; read input
+    lda z_operand_value_high_arr
+    ldx z_operand_value_low_arr
+    jsr read_text
+    ; parse it as well?
+    ldx z_operand_count
+    cpx #2
+    bcc .aread_done
+    lda z_operand_value_high_arr + 1
+    ldx z_operand_value_low_arr + 1
+    jsr tokenise_text
+.aread_done
+    ; debug - print parsearray
+!ifdef DEBUG {
+    ldy #0
+-   lda (string_array),y
+    tax
+    jsr printx
+    lda #$20
+    jsr streams_print_output
+    iny
+    cpy #12
+    bne -
+    lda #$0d
+    jsr streams_print_output
+    ldy #0
+-   lda (parse_array),y
+    tax
+    jsr printx
+    lda #$20
+    jsr streams_print_output
+    iny
+    cpy #16
+    bne -
+    lda #$0d
+    jsr streams_print_output
+}
+    lda #0
+    ldx #13
+	jmp z_store_result
 }
 	
 z_ins_new_line
@@ -364,7 +417,7 @@ read_text
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
     ; input: a,x
     ; output: string_array
-    ; side effects: zero_keybuffer, zero_keybufferset
+    ; side effects: zero_screencolumn, zero_screenline
     ; used registers: a,x,y
     stx string_array ; 7c
     clc
@@ -373,6 +426,8 @@ read_text
     ; turn on blinking cursor
     lda #0
     sta $cc
+    lda zero_screencolumn
+    sta .read_text_startcolumn
 .readkey
     jsr kernel_getchar
     cmp #$00
@@ -381,9 +436,9 @@ read_text
     beq .read_text_done
     cmp #20
     bne +
-    ; allow delete if buffer > 0
-    ldy zero_keybuffer
-    cpy #0
+    ; allow delete if anything in the buffer
+    ldy zero_screencolumn
+    cpy .read_text_startcolumn
     beq .readkey
 +   ; disallow cursor keys etc
     cmp #14
@@ -401,20 +456,22 @@ read_text
     ; print the allowed char and store in the array
     jsr kernel_printchar
     pha
+    lda zero_screencolumn ; compare with size of keybuffer
+    sec
+    sbc .read_text_startcolumn
     ldy #0
-    lda (string_array),y ; max characters in array
-    cmp zero_keybuffer ; compare with size of keybuffer
-    bcc +
-    ; maxchars >= keybuffer
-    lda zero_keybuffer
+    cmp (string_array),y ; max characters in array
+    bcs +
+    ; keybuffer < maxchars
     iny
-    sta (string_array),y
+    sta (string_array),y ; number of characters in the array
     tay
     iny
     pla
-    sta (string_array),y
+    sta (string_array),y ; store new character in the array
     jmp .readkey
-+   ; maxchars < keybuffer
++   ; keybuffer >= maxchars
+    inc $d020
     iny
     sta (string_array),y
     pla ; don't save this (out of bounds)
@@ -424,11 +481,14 @@ read_text
     lda #$ff
     sta $cc
     ; hide cursor if still visible
-    ldy zero_keybuffer
-    lda (zero_keybufferset),y
+    ldy zero_screencolumn
+    lda (zero_screenline),y
     and #$7f
-    sta (zero_keybufferset),y
+    sta (zero_screenline),y
+    lda #$0d
+    jsr kernel_printchar
     rts
+.read_text_startcolumn !byte 0
 
 tokenise_text
     ; divide read_line input into words and look up them in the dictionary
@@ -617,6 +677,10 @@ testtext
     jmp print_addr
 
 testparser
+    lda #63
+    jsr $ffd2
+    lda #$20
+    jsr $ffd2
     ; init the array (normally done by the story file)
     ldy #20
     lda #0
