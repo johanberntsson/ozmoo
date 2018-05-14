@@ -1,6 +1,8 @@
 TODO:
 - reuse index and skip tests if same block as previous call to read_z_*
 - support custom alphabets in Z5 onwards
+- allow delay/routine in read_text
+- rewrite floppy access code to use all available sectors
 
 DONE:
 - the .block range in readblocks need to be increased

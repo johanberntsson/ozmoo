@@ -21,7 +21,7 @@ z_opcount_0op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_quit
 	!byte >z_ins_new_line
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -41,7 +41,7 @@ z_opcount_0op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_quit
 	!byte <z_ins_new_line
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -811,7 +811,11 @@ z_ins_rfalse
 	tax
 	jmp stack_return_from_routine
 
+
 ; z_ins_print (moved to text.asm)
+
+z_ins_quit
+	jmp kernel_reset
 
 ; z_ins_new_line (moved to text.asm)
 
