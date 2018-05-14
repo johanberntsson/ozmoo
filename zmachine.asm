@@ -23,7 +23,12 @@ z_opcount_0op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_new_line
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 	
+	!byte >z_not_implemented
 
 z_opcount_0op_jump_low_arr
 	!byte <z_ins_rtrue
@@ -38,10 +43,12 @@ z_opcount_0op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_new_line
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 	
 z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
-
-
 
 z_opcount_1op_jump_high_arr
 	!byte >z_ins_jz
@@ -58,6 +65,8 @@ z_opcount_1op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_jump
 	!byte >z_ins_print_paddr
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 
 z_opcount_1op_jump_low_arr
 	!byte <z_ins_jz
@@ -74,6 +83,8 @@ z_opcount_1op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_ins_jump
 	!byte <z_ins_print_paddr
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 	
 z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
 
@@ -105,6 +116,11 @@ z_opcount_2op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_call_2n
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 
 z_opcount_2op_jump_low_arr
 	!byte <z_not_implemented
@@ -134,6 +150,11 @@ z_opcount_2op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_call_2n
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 	
 z_last_implemented_2op_opcode_number = * - z_opcount_2op_jump_low_arr - 1
 
@@ -166,6 +187,18 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_output_stream
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 
 
 z_opcount_var_jump_low_arr
@@ -197,6 +230,18 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_output_stream
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 
 z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
 ; These get zeropage addresses in constants.asm:
@@ -380,6 +425,7 @@ z_execute
 	
 .process_instruction
 	; TODO: Perform the instruction!
+	ldx z_opcode_number
 	lda z_opcode_opcount
 	cmp #z_opcode_opcount_0op
 	beq .perform_0op
@@ -391,40 +437,24 @@ z_execute
 	beq .perform_var
 	bne z_not_implemented ; Always branch
 .perform_0op
-	lda #z_last_implemented_0op_opcode_number
-	cmp z_opcode_number
-	bcc z_not_implemented
-	ldx z_opcode_number
 	lda z_opcount_0op_jump_low_arr,x
 	sta .jsr_perform + 1
 	lda z_opcount_0op_jump_high_arr,x
 	sta .jsr_perform + 2
 	bne .jsr_perform ; Always branch
 .perform_1op
-	lda #z_last_implemented_1op_opcode_number
-	cmp z_opcode_number
-	bcc z_not_implemented
-	ldx z_opcode_number
 	lda z_opcount_1op_jump_low_arr,x
 	sta .jsr_perform + 1
 	lda z_opcount_1op_jump_high_arr,x
 	sta .jsr_perform + 2
 	bne .jsr_perform ; Always branch
 .perform_2op
-	lda #z_last_implemented_2op_opcode_number
-	cmp z_opcode_number
-	bcc z_not_implemented
-	ldx z_opcode_number
 	lda z_opcount_2op_jump_low_arr,x
 	sta .jsr_perform + 1
 	lda z_opcount_2op_jump_high_arr,x
 	sta .jsr_perform + 2
 	bne .jsr_perform ; Always branch
 .perform_var
-	lda #z_last_implemented_var_opcode_number
-	cmp z_opcode_number
-	bcc z_not_implemented
-	ldx z_opcode_number
 	lda z_opcount_var_jump_low_arr,x
 	sta .jsr_perform + 1
 	lda z_opcount_var_jump_high_arr,x
