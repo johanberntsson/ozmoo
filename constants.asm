@@ -17,7 +17,7 @@ zp_pc_h               = $0a
 zp_pc_l               = $0b
 z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 zp_mempos             = $ae ; 2 bytes
-zero_screenline       = $d1 ; 2 bytes (points to screen memory, start of input)
+zero_screenline       = $d1 ; 2 bytes current line (pointer to screen memory)
 zero_screencolumn     = $d3 ; current column
 zp_temp               = $fb ; 4 bytes
 
