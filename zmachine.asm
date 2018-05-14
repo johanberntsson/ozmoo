@@ -821,9 +821,13 @@ z_ins_dec
 	jsr z_get_variable_reference
 	stx .ins_dec + 1
 	sta .ins_dec + 2
+	stx .ins_dec + 4
+	sta .ins_dec + 5
 	ldx #1
 .ins_dec
 	dec $0400,x
+	lda $0400,x
+	cmp #$ff
 	bne +
 	dex
 	bpl .ins_inc
