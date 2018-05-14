@@ -577,13 +577,13 @@ tokenise_text
     jsr find_word_in_dictionary ; will update y
     ;iny
     ;iny
-    lda .wordstart
-    sta (parse_array),y ; start index
-    iny
     lda .wordend
     sec
     sbc .wordstart
     sta (parse_array),y ; length
+    iny
+    lda .wordstart
+    sta (parse_array),y ; start index
     ldy #1
     lda .numwords
     sta (parse_array),y ; num of words
@@ -679,7 +679,7 @@ testtext
     lda #$03
     jsr set_z_paddress
     jmp print_addr
-
+}
 testparser
     lda #63
     jsr $ffd2
@@ -728,7 +728,6 @@ testparser
     cpy #16
     bne -
     rts
-}
 
 .addr !byte 0,0,0
 .zchars !byte 0,0,0
