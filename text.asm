@@ -644,23 +644,25 @@ print_addr
 --  lda .zchars,x
     ldy .escape_char_counter
     beq .l1
-    dec .escape_char_counter
-    beq +
     ldy #5
 -   asl .escape_char
     dey
     bne -
     ora .escape_char
     sta .escape_char
+    dec .escape_char_counter
+    beq +
     jmp .next_zchar
 +   lda .escape_char
-    jsr $ffd2
+    jsr streams_print_output
     jmp .next_zchar
 .l1 cmp #0
     bne .l2
     ; space
     lda #$20
     jsr streams_print_output
+    lda #0
+    sta .alphabet_offset
     jmp .next_zchar
 .l2 cmp #4
     bne .l3
