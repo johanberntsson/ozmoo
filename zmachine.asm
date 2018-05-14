@@ -104,7 +104,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_clear_attr
 	!byte >z_ins_store
 	!byte >z_ins_insert_obj
-	!byte >z_ins_loadw
+	!byte >z_ins_loadw_and_storew
 	!byte >z_ins_loadb
 	!byte >z_ins_get_prop
 	!byte >z_ins_get_prop_addr
@@ -138,7 +138,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_clear_attr
 	!byte <z_ins_store
 	!byte <z_ins_insert_obj
-	!byte <z_ins_loadw
+	!byte <z_ins_loadw_and_storew
 	!byte <z_ins_loadb
 	!byte <z_ins_get_prop
 	!byte <z_ins_get_prop_addr
@@ -164,7 +164,7 @@ z_opcount_var_jump_high_arr
 } else {
 	!byte >z_ins_call
 }
-	!byte >z_not_implemented
+	!byte >z_ins_loadw_and_storew
 	!byte >z_ins_storeb
 	!byte >z_ins_put_prop
 !ifndef Z5PLUS {
@@ -207,7 +207,7 @@ z_opcount_var_jump_low_arr
 } else {
 	!byte <z_ins_call
 }
-	!byte <z_not_implemented
+	!byte <z_ins_loadw_and_storew
 	!byte <z_ins_storeb
 	!byte <z_ins_put_prop
 !ifndef Z5PLUS {
@@ -948,7 +948,7 @@ z_ins_store
 
 ; z_ins_insert_obj (moved to objecttable.asm)
 	
-z_ins_loadw
+z_ins_loadw_and_storew
 	jsr evaluate_all_args
 	asl z_operand_value_low_arr + 1 
 	rol z_operand_value_high_arr + 1
@@ -961,12 +961,22 @@ z_ins_loadw
 	adc #>story_start
 	sta zp_temp + 1
 	ldy #1
+	lda z_opcode_number
+	cmp #15 ; Code for loadw
+	bne .storew
 	lda (zp_temp),y
 	tax
 	dey
 	lda (zp_temp),y
 	jmp z_store_result
-
+.storew
+	lda z_operand_value_low_arr + 2
+	lda (zp_temp),y
+	dey
+	lda z_operand_value_high_arr + 2
+	lda (zp_temp),y
+	rts
+	
 z_ins_loadb
 	jsr evaluate_all_args
 	jsr calc_address_in_byte_array
