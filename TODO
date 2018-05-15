@@ -3,6 +3,8 @@ TODO:
 - support custom alphabets in Z5 onwards
 - allow delay/routine in read_text
 - rewrite floppy access code to use all available sectors
+- use more memory, $E000-$FFFF, perhaps also $D000-$E000?
+- support splitting of large files onto two floppies
 
 DONE:
 - the .block range in readblocks need to be increased
