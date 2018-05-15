@@ -45,28 +45,26 @@ stack_call_routine
 	sta .stack_tmp,y
 	dey
 	bpl -
-!ifdef Z3 {
-	ldy #1
-}
-!ifdef Z4 {
-	ldy #2
-}
-!ifdef Z5 {
-	ldy #2
-}
+!ifdef Z4plus {
 !ifdef Z8 {
 	ldy #3
+} else {
+	ldy #2
+}
 }
 	lda #0
 	sta z_pc
 	lda z_operand_high_arr
 	sta z_pc + 1
 	lda z_operand_low_arr
--	asl
+.rol_again
+	asl
 	rol z_pc + 1
 	rol z_pc
+!ifdef Z4plus {
 	dey
-	bne -
+	bne .rol_again
+}
 	sta z_pc + 2
 	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
@@ -94,8 +92,14 @@ stack_call_routine
 	
 -	cpx z_local_var_count
 	bcs .setup_of_local_vars_complete
+!ifndef Z5PLUS {
+	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
+}
 	cpx zp_temp ; Number of args
 	bcs .store_zero_in_local_var
+!ifndef Z5PLUS {
+	jsr read_byte_at_z_pc_then_inc ; Read second byte of initial var value
+}
 	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
 	iny
@@ -106,9 +110,14 @@ stack_call_routine
 	bne -
 	beq .setup_of_local_vars_complete
 .store_zero_in_local_var
+!ifdef Z5PLUS {
 	lda #0
+}
 	sta (stack_ptr),y
 	iny
+!ifndef Z5PLUS {
+	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
+}
 	sta (stack_ptr),y
 	iny
 	inx
