@@ -10,6 +10,94 @@ z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
 z_global_vars_start	!byte 0, 0
 
+; Not yet fully implemented
+; -------------------
+; 0OP
+; ---
+; print_ret
+; nop
+; save
+; restore
+; restart
+; ret_popped
+; catch
+; show_status
+; verify
+; piracy
+;
+; 1OP
+; ---
+; get_sibling
+; get_child
+; get_parent
+; get_prop_len
+; call_1s
+; remove_obj
+; ret
+; load
+; not
+; call_1n
+;
+; 2OP
+; ---
+; dec_chk
+; inc_chk
+; jin
+; test
+; or
+; test_attr
+; set_attr
+; clear_attr
+; insert_obj
+; get_prop
+; get_prop_addr
+; get_next_prop
+; div
+; mod
+; call_2s
+; set_colour
+; throw
+;
+; VAR
+; ---
+; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
+; pull
+; split_window
+; set_window
+; call_vs2
+; erase_window
+; erase_line
+; set_cursor
+; get_cursor
+; set_text
+; buffer_mode
+; input_stream
+; sound_effect
+; read_char
+; scan_table
+; not
+; call_vn
+; call_vn2
+; tokenise
+; encode_text
+; copy_table
+; print_table
+; check_arg_count
+;
+; EXT
+; ---
+; save
+; restore
+; log_shift
+; art_shift
+; set_font
+; save_undo
+; restore_undo
+; print_unicode
+; check_unicode
+; set_true_colour
+
+
 z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
 	!byte >z_ins_rfalse
