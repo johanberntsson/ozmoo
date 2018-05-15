@@ -6,6 +6,16 @@ A Z-machine interpreter for the Commodore 64
 
 Written by Johan Berntsson and Fredrik Ramsberg, 2018
 
+## Motivation
+
+We were looking for a redistrubutable interpreter of Infocom and Inform games that could be used for new interactive fiction works on the C64.
+
+While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, newer Inform-based games are unlikely to run on this interpreter.
+
+There are some alternate implementations, but they have some limitations:
+* [Infocom64](https://github.com/christopherkobayashi/infocom64) is based on assembly code of the original Infocom interpreter so it has the same license issues
+* [Zeugma](https://www.linusakesson.net/software/zeugma/index.php) doesn't support save and restore
+
 ## Building and running
 
 You need to install the Acme cross-assembler and the Vice C64 emulator. You also need to prepare a C64 floppy with the ZMachine story on. Either use the supplied d64toinf/dragontroll.d64 or prepare a new file using the utilities in d64toinf. Typing "make" on Linux will build inftod64 and prepare dejavu.d64.
