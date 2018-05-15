@@ -25,7 +25,7 @@
 !source "constants.asm"
 
 ; where to store stack
-stack_start = $1c00
+stack_start = $2c00
 stack_size = $0400;
 
 ; where to store story data
