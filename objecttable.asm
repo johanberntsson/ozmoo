@@ -3,6 +3,7 @@
 
 ; globals
 num_default_properties !byte 0
+objects_start_ptr      !byte 0, 0
 default_properties_ptr !byte 0, 0
 
 ; object table opcodes
@@ -86,7 +87,6 @@ z_ins_put_prop
 parse_object_table
     lda story_start + header_object_table     ; high byte
     ldx story_start + header_object_table + 1 ; low byte
-    jsr set_z_address
     ; property defaults table
     stx default_properties_ptr
     clc
@@ -99,13 +99,52 @@ parse_object_table
     ldx #126 ; 63 words
 }
     stx num_default_properties
+    ; store start of objects
+    lda default_properties_ptr
+    clc
+    adc num_default_properties
+    sta objects_start_ptr
+    lda default_properties_ptr + 1
+    adc #0
+    sta objects_start_ptr + 1
+    rts
+
+calculate_object_address
+    ; subroutine: calculate address for object
+    ; input: a,x object index (high/low)
+    ; output: object address in object_tree_ptr
+    ; used registers: a,x
+    ; side effects:
+    stx multiplier
+    sta multiplier + 1
+    ; a/x is one too high (object table is 1-indexed)
+    cpx #0
+    bne +
+    dec multiplier + 1
++   dec multiplier
+    
+!ifndef Z4PLUS {
+    lda #9
+}
+!ifdef Z4PLUS {
+    lda #14
+}
+    sta multiplicand
+    lda #0
+    sta multiplicand + 1
+    jsr mult16
+    ; add to the start of the object area
+    lda product
+    clc
+    adc objects_start_ptr
+    sta object_tree_ptr
+    lda product + 1
+    adc objects_start_ptr + 1
+    sta object_tree_ptr + 1
     rts
 
 ot_print_obj
-    stx object_tree_ptr
-    clc
-    adc #>story_start
-    sta object_tree_ptr + 1
+    jsr calculate_object_address
 !ifndef Z4PLUS {
     ldy #8
 }
@@ -123,8 +162,7 @@ ot_print_obj
 
 !ifdef DEBUG {
 test_object_table
-    ldx #$40
-    lda #$01 ; $0140 = first object in dejavu.z3
+    ldx #13
+    lda #0
     jmp  ot_print_obj
-
 }
