@@ -173,7 +173,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_ins_aread
 }
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_print_num
 	!byte >z_not_implemented
 	!byte >z_ins_push
 	!byte >z_not_implemented
@@ -216,7 +216,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_ins_aread
 }
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_print_num
 	!byte <z_not_implemented
 	!byte <z_ins_push
 	!byte <z_not_implemented
@@ -1118,6 +1118,25 @@ z_ins_storeb
 ; z_ins_put_prop (moved to objecttable.asm)
 	
 ; z_ins_sread / z_ins_aread (moved to text.asm)
+
+z_ins_print_num
+	jsr evaluate_all_args
+	bit z_operand_value_high_arr
+	bpl +
+	lda #$2c
+	jsr streams_output_stream
+	lda z_operand_value_low_arr
+	sec
+	sbc #1
+	eor #$ff
+	tax
+	lda z_operand_high_arr
+	sbc #0
+	eor #$ff
+-	jmp printinteger
++	ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	bpl - ; Always branch
 	
 z_ins_push
 	jsr evaluate_all_args

@@ -45,7 +45,7 @@ stack_call_routine
 	sta .stack_tmp,y
 	dey
 	bpl -
-!ifdef Z4plus {
+!ifdef Z4PLUS {
 !ifdef Z8 {
 	ldy #3
 } else {
@@ -61,7 +61,7 @@ stack_call_routine
 	asl
 	rol z_pc + 1
 	rol z_pc
-!ifdef Z4plus {
+!ifdef Z4PLUS {
 	dey
 	bne .rol_again
 }

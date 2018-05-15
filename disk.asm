@@ -46,7 +46,7 @@ readblocks
     stx .uname_sector
     sta .uname_sector + 1
 
-;!ifdef DEBUG {
+!ifdef DEBUG {
     ldx readblocks_mempos
     jsr printx
     lda #$20
@@ -62,7 +62,7 @@ readblocks
     lda #<.uname
     ldy #>.uname
     jsr printstring
-;}
+}
     ; open the channel file
     lda #cname_len
     ldx #<.cname
