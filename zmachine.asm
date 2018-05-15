@@ -15,15 +15,12 @@ z_global_vars_start	!byte 0, 0
 ; 0OP
 ; ---
 ; print_ret
-; nop
 ; save
 ; restore
 ; restart
-; ret_popped
 ; catch
 ; show_status
 ; verify
-; piracy
 ;
 ; 1OP
 ; ---
@@ -103,13 +100,13 @@ z_opcount_0op_jump_high_arr
 	!byte >z_ins_rfalse
 	!byte >z_ins_print
 	!byte >z_not_implemented
+	!byte >z_ins_nop
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_ret_popped
 !ifndef Z5PLUS {
-	!byte >stack_pull
+	!byte >stack_pull ; z_ins_pop
 } else {
 	!byte >z_not_implemented
 }
@@ -118,22 +115,24 @@ z_opcount_0op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+!ifndef Z5PLUS {
+	!byte >make_branch_true ; z_ins_piracy
+} else {
 	!byte >z_not_implemented
+}
 	
-	!byte >z_not_implemented
-
 z_opcount_0op_jump_low_arr
 	!byte <z_ins_rtrue
 	!byte <z_ins_rfalse
 	!byte <z_ins_print
 	!byte <z_not_implemented
+	!byte <z_ins_nop
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_ret_popped
 !ifndef Z5PLUS {
-	!byte <stack_pull
+	!byte <stack_pull ; z_ins_pop
 } else {
 	!byte <z_not_implemented
 }
@@ -142,7 +141,11 @@ z_opcount_0op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+!ifndef Z5PLUS {
+	!byte <make_branch_true ; z_ins_piracy
+} else {
 	!byte <z_not_implemented
+}
 	
 z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
 
@@ -907,17 +910,24 @@ z_ins_rfalse
 	tax
 	jmp stack_return_from_routine
 
-
 ; z_ins_print (moved to text.asm)
+
+; z_ins_nop is part of 1OP z_ins_inc
 
 z_ins_quit
 	jmp kernel_reset
 
+z_ins_ret_popped
+	ldx #0
+	jsr z_get_variable_value
+	jmp stack_return_from_routine
+	
 ;z_ins_pop
 ;	jmp stack_pull
 	
 ; z_ins_new_line (moved to text.asm)
 
+; z_ins_piracy jumps directly to make_branch_true
 
 ; 1OP instructions
 
@@ -947,6 +957,7 @@ z_ins_inc
 	bne +
 	dex
 	bpl .ins_inc
+z_ins_nop
 +	rts	
 	
 z_ins_dec
