@@ -13,6 +13,8 @@ z_local_vars_ptr      = $26 ; 2 bytes (16 was bad?)
 parse_array           = $41 ; 2 bytes (22 was bad?)
 string_array          = $43 ; 2 bytes (24 was bad?)
 terminators_ptr       = $45 ; 2 bytes
+properties_ptr        = $47 ; 2 bytes
+object_tree_ptr       = $49 ; 2 bytes
 zp_pc_h               = $0a
 zp_pc_l               = $0b
 z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
