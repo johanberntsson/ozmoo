@@ -93,6 +93,11 @@ z_ins_aread
     ldx #13
 	jmp z_store_result
 }
+
+z_ins_print_char
+	jsr evaluate_all_args
+    ldx z_operand_value_low_arr
+	jmp streams_print_output
 	
 z_ins_new_line
 	lda #13

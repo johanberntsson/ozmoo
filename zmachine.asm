@@ -20,7 +20,11 @@ z_opcount_0op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+!ifndef Z5PLUS {
+	!byte >stack_pull
+} else {
 	!byte >z_not_implemented
+}
 	!byte >z_ins_quit
 	!byte >z_ins_new_line
 	!byte >z_not_implemented
@@ -40,7 +44,11 @@ z_opcount_0op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+!ifndef Z5PLUS {
+	!byte <stack_pull
+} else {
 	!byte <z_not_implemented
+}
 	!byte <z_ins_quit
 	!byte <z_ins_new_line
 	!byte <z_not_implemented
@@ -172,7 +180,7 @@ z_opcount_var_jump_high_arr
 } else {
 	!byte >z_ins_aread
 }
-	!byte >z_not_implemented
+	!byte >z_ins_print_char
 	!byte >z_ins_print_num
 	!byte >z_not_implemented
 	!byte >z_ins_push
@@ -215,7 +223,7 @@ z_opcount_var_jump_low_arr
 } else {
 	!byte <z_ins_aread
 }
-	!byte <z_not_implemented
+	!byte <z_ins_print_char
 	!byte <z_ins_print_num
 	!byte <z_not_implemented
 	!byte <z_ins_push
@@ -817,6 +825,9 @@ z_ins_rfalse
 z_ins_quit
 	jmp kernel_reset
 
+;z_ins_pop
+;	jmp stack_pull
+	
 ; z_ins_new_line (moved to text.asm)
 
 
@@ -1118,6 +1129,8 @@ z_ins_storeb
 ; z_ins_put_prop (moved to objecttable.asm)
 	
 ; z_ins_sread / z_ins_aread (moved to text.asm)
+
+; z_ins_print_char (moved to text.asm)
 
 z_ins_print_num
 	jsr evaluate_all_args
