@@ -160,7 +160,7 @@ fatalerror
     jsr printstring ; print error
 ;!ifdef DEBUG {
 	jsr print_following_string
-	!pet "last opcodes: (#, z_pc, opcode)",13,0
+	!pet 13,"last opcodes: (#, z_pc, opcode)",13,0
 	lda z_trace_index
 	sec
 	sbc #40

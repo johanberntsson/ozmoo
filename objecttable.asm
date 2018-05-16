@@ -8,54 +8,56 @@ objects_start_ptr      !byte 0, 0
 ; object table opcodes
 z_ins_get_sibling
     ; get_sibling object -> (result) ?(label)
-    jsr evaluate_all_args
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr calculate_object_address
 !ifndef Z4PLUS {
-    ldy #5
+    lda #5
+} else {
+    lda #8
 }
-!ifdef Z4PLUS {
-    ldy #7
-}
-    lda (object_tree_ptr),y
-    tax
-    lda #0
-    jmp z_store_result
+	bne .get_parent_sibling_child ; Always branch
 
 z_ins_get_child
     ; get_child object -> (result) ?(label)
+!ifndef Z4PLUS {
+    lda #6
+} else  {
+    lda #11
+}
+.get_parent_sibling_child
+	pha
     jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
+	pla
+	tay
 !ifndef Z4PLUS {
-    ldy #6
-}
-!ifdef Z4PLUS {
-    ldy #8
-}
     lda (object_tree_ptr),y
+	pha ; Value is zero if object is zero, non-zero if object is non-zero
     tax
     lda #0
-    jmp z_store_result
+} else  {
+    lda (object_tree_ptr),y
+    tax
+	dey
+    ora (object_tree_ptr),y
+	pha ; Value is zero if object is zero, non-zero if object is non-zero
+    lda (object_tree_ptr),y
+}
+    jsr z_store_result
+	pla ; Value is zero if object is zero, non-zero if object is non-zero
+	bne .get_child_branch_true
+	jmp make_branch_false
+.get_child_branch_true
+	jmp make_branch_true
 
 z_ins_get_parent
     ; get_parent object -> (result)
-    jsr evaluate_all_args
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr calculate_object_address
 !ifndef Z4PLUS {
-    ldy #4
+    lda #4
+} else {
+    lda #6
 }
-!ifdef Z4PLUS {
-    ldy #6
-}
-    lda (object_tree_ptr),y
-    tax
-    lda #0
-    jmp z_store_result
+	bne .get_parent_sibling_child ; Always branch
 
 z_ins_get_prop_len
     ; get_prop_len property-address -> (result)

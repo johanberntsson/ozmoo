@@ -713,6 +713,7 @@ z_get_variable_value
 z_set_variable
 	; Value in a,x
 	; Variable in y
+	; affects: a, x, y
 	cpy #0
 	beq .write_to_stack
 	sta zp_temp + 2
@@ -893,6 +894,7 @@ z_jump_to_offset_in_zp_temp
 !zone {
 z_store_result
 	; input: a,x hold result
+	; affected: a,x,y
 	pha
 	jsr read_byte_at_z_pc_then_inc
 	tay
