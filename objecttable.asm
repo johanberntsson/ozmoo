@@ -143,18 +143,43 @@ z_ins_insert_obj
     ; now move object to destination
 !ifndef Z4PLUS {
     ; set current child of destination as object's sibling
-    ldy #6
+    ldy #6 ; child
     lda (object_tree_ptr),y
-    dey
+    ldy #5 ; sibling
     sta (zp_mempos),y
     ; set object as destination's child
-    dey
     lda z_operand_value_low_arr
+    ldy #6  ; child
     sta (object_tree_ptr),y
+    ; set destination as object's parent
+    lda z_operand_value_low_arr + 1
+    ldy #4  ; parent
+    sta (zp_mempos),y
 }
 !ifdef Z4PLUS {
-    jsr fatalerror
-    !pet "TODO z_ins_set_attr support for Z4-Z8", 13, 0
+    ; set current child of destination as object's sibling
+    ldy #10 ; child
+    lda (object_tree_ptr),y
+    ldy #8 ; sibling
+    sta (zp_mempos),y
+    ldy #11 ; child
+    lda (object_tree_ptr),y
+    ldy #9 ; sibling
+    sta (zp_mempos),y
+    ; set object as destination's child
+    lda z_operand_value_low_arr
+    ldy #10  ; child
+    sta (object_tree_ptr),y
+    lda z_operand_value_high_arr
+    iny
+    sta (object_tree_ptr),y
+    ; set destination as object's parent
+    lda z_operand_value_low_arr + 1
+    ldy #6  ; parent
+    sta (zp_mempos),y
+    lda z_operand_value_high_arr + 1
+    iny
+    sta (zp_mempos),y
 }
     rts
 
