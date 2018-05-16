@@ -37,7 +37,6 @@ z_global_vars_start	!byte 0, 0
 ;
 ; 2OP
 ; ---
-; dec_chk
 ; inc_chk
 ; jin
 ; test
@@ -192,7 +191,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_je
 	!byte >z_ins_jl
 	!byte >z_ins_jg
-	!byte >z_not_implemented
+	!byte >z_ins_dec_chk
 	!byte >z_not_implemented
 	!byte >z_ins_jin
 	!byte >z_not_implemented
@@ -226,7 +225,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_je
 	!byte <z_ins_jl
 	!byte <z_ins_jg
-	!byte <z_not_implemented
+	!byte <z_ins_dec_chk
 	!byte <z_not_implemented
 	!byte <z_ins_jin
 	!byte <z_not_implemented
@@ -931,12 +930,7 @@ z_ins_ret_popped
 
 ; 1OP instructions
 
-z_ins_jz
-	jsr evaluate_all_args
-	lda z_operand_value_low_arr
-	ora z_operand_value_high_arr
-	beq .branch_true
-	bne .branch_false
+; z_ins_jz placed later to allow relative jumps
 
 ; z_ins_get_sibling (moved to objecttable.asm)
 
@@ -998,7 +992,29 @@ z_ins_jump
 
 ; z_ins_print_paddr (moved to text.asm)
 
+z_ins_jz
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	ora z_operand_value_high_arr
+	beq .branch_true
+	bne .branch_false
+
 ; 2OP instructions
+z_ins_dec_chk
+	ldx #0
+	jsr evaluate_all_args_except_x
+	jsr z_ins_dec
+	ldx z_operand_low_arr
+	jsr z_get_variable_reference
+	stx zp_temp
+	sta zp_temp + 1
+	ldy #0
+	lda (zp_temp),y
+	sta z_operand_value_high_arr
+	iny
+	lda (zp_temp),y
+	jmp .jl_comp
+
 z_ins_je
 	jsr evaluate_all_args
 	ldx z_operand_count
@@ -1020,6 +1036,7 @@ z_ins_je
 z_ins_jl
 	jsr evaluate_all_args
 	lda z_operand_value_low_arr
+.jl_comp
 	cmp z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr
 	sbc z_operand_value_high_arr + 1
