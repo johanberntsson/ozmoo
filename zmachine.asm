@@ -24,9 +24,6 @@ z_global_vars_start	!byte 0, 0
 ;
 ; 1OP
 ; ---
-; get_sibling
-; get_child
-; get_parent
 ; get_prop_len
 ; call_1s
 ; remove_obj
@@ -57,6 +54,8 @@ z_global_vars_start	!byte 0, 0
 ; ---
 ; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
 ; pull
+; print_num (Doesn't consider currently active output streams)
+; random 
 ; split_window
 ; set_window
 ; call_vs2
@@ -271,7 +270,7 @@ z_opcount_var_jump_high_arr
 }
 	!byte >z_ins_print_char
 	!byte >z_ins_print_num
-	!byte >z_not_implemented
+	!byte >z_ins_random
 	!byte >z_ins_push
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -314,7 +313,7 @@ z_opcount_var_jump_low_arr
 }
 	!byte <z_ins_print_char
 	!byte <z_ins_print_num
-	!byte <z_not_implemented
+	!byte <z_ins_random
 	!byte <z_ins_push
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -380,6 +379,13 @@ z_init
 	adc #>(story_start - 32)
 	sta z_global_vars_start + 1
 	rts
+	
+	; Init randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	lda #$80
+	sta $d412	
 }
 
 z_execute
@@ -1305,7 +1311,42 @@ z_ins_print_num
 +	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	bpl - ; Always branch
-	
+
+z_ins_random	
+	jsr evaluate_all_args
+	lda z_operand_value_high_arr
+	bmi .random_seed
+	bne .random_large
+	lda z_operand_value_low_arr
+	beq .random_seed_0
+	; Small range (1-255)
+	sta zp_temp + 1 ; range value
+	ldy #1
+	sty zp_temp + 2 ; mask value %1 => %11 => %111 .. %11111111
+-	lda zp_temp + 1
+	and zp_temp + 2
+	cmp zp_temp + 1
+	beq .random_found_small_mask
+	sec
+	rol zp_temp + 1
+	bcc -
+.random_found_small_mask
+-	lda $d41b
+	and zp_temp + 2
+	cmp zp_temp + 1
+	bcs -
+	tax
+	inx
+	lda #0
+	jmp z_store_result
+.random_large
+.random_seed_0
+.random_seed
+	; TODO: Lots!
+	lda #0
+	tax
+	jmp z_store_result
+		
 z_ins_push
 	jsr evaluate_all_args
 	lda z_operand_value_high_arr
