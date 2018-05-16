@@ -298,9 +298,11 @@ calculate_property_length_number
     sta .property_length
     inc .property_length
 +   rts
+.property_number !byte 0
+.property_length !byte 0
 
-z_ins_get_prop
-    ; get_prop object property -> (result)
+find_first_prop
+    ; output: x,a = address to property block, or 0,0 if not found
     jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -319,14 +321,18 @@ z_ins_get_prop
     jsr read_next_byte ; length of object short name (# of zchars)
     ; skip short name
     asl ; a is number of words, multiply by two for number of bytes
-    jsr skip_bytes_z_address
+    jmp skip_bytes_z_address
+
+find_prop
+    ; call find_first_prop before calling find_prop
+    ; output: x,a = address to property block, or 0,0 if not found
     ; loop over the properties until the correct one found
 !ifndef Z4PLUS {
 .property_loop
     jsr calculate_property_length_number
     lda .property_length
     cmp #0
-    beq .no_property_found
+    beq .find_prop_not_found
 !ifdef DEBUG {
     ldx .property_number
     jsr printx
@@ -339,7 +345,7 @@ z_ins_get_prop
 }
     lda .property_length
     cmp z_operand_value_low_arr + 1; max 63 properties so only low_arr
-    beq .property_found
+    beq .find_prop_found
     ; skip property data
 -   jsr read_next_byte
     dec .property_length
@@ -348,10 +354,22 @@ z_ins_get_prop
 }
 !ifdef Z4PLUS {
     jsr fatalerror
-    !pet "TODO z_ins_get_prop support for Z4-Z8", 13, 0
+    !pet "TODO z_ins_get_prop_addr support for Z4-Z8", 13, 0
 }
-.no_property_found
-    ; get default property
+.find_prop_not_found
+    ldx #0
+    lda #0
+    rts
+.find_prop_found
+    jmp get_z_address
+
+z_ins_get_prop
+    ; get_prop object property -> (result)
+    jsr find_first_prop
+    jsr find_prop
+    cmp #0
+    bne +
+    ; no property found, get default property
     lda z_operand_value_low_arr + 1; max 63 properties so only low_arr
     asl ; default property is words (2 bytes each)
     tay
@@ -364,7 +382,7 @@ z_ins_get_prop
     sta object_tree_ptr + 1
 }
     jmp z_store_result
-.property_found
++   ; property found
     jsr read_next_byte
     tax
     lda .property_length
@@ -385,24 +403,52 @@ z_ins_get_prop
 }
     jmp z_store_result
 +   jsr fatalerror
-    !pet "TODO z_ins_get_prop bad prop length", 13, 0
-.property_number !byte 0
-.property_length !byte 0
+    !pet "z_ins_get_prop bad length", 13, 0
 
 z_ins_get_prop_addr
     ; get_prop_addr object property -> (result)
-    jsr fatalerror
-    !pet "TODO z_ins_prop_addr", 13, 0
+    jsr find_first_prop
+    jsr find_prop
+    jmp z_store_result
 
 z_ins_get_next_prop
     ; get_next_prop object property -> (result)
-    jsr fatalerror
-    !pet "TODO z_ins_next_prop", 13, 0
+    jsr find_first_prop
+    ldx z_operand_value_low_arr + 1
+    beq + ; property == 0, return first property number
+    ; find the property, and return next number
+    jsr find_prop
+    ; skip property data
+-   jsr read_next_byte
+    dec .property_length
+    bne -
++   jsr calculate_property_length_number
+    ldx .property_number
+    lda #0
+    jmp z_store_result
 
 z_ins_put_prop
     ; put_prop object property value
-    jsr fatalerror
-    !pet "TODO z_ins_put_prop", 13, 0
+    jsr find_first_prop
+    jsr find_prop
+    jsr get_z_address
+    stx zp_mempos
+    sta zp_mempos + 1
+    ldy #1
+    lda .property_length
+    cmp #1
+    bne +
+    ldx z_operand_value_low_arr + 2
+    sta (zp_mempos),y
++   cmp #2
+    bne +
+    ldx z_operand_value_low_arr + 2
+    sta (zp_mempos),y
+    iny 
+    ldx z_operand_value_high_arr + 2
+    sta (zp_mempos),y
++   jsr fatalerror
+    !pet "z_ins_put_prop bad length", 13, 0
 
 parse_object_table
     lda story_start + header_object_table     ; high byte
