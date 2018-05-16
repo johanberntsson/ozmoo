@@ -98,7 +98,6 @@ z_ins_test_attr
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
-
     lda z_operand_value_low_arr + 1 ; 17
     ; ignore high_arr. Max 48 attributes
     and #$07
@@ -128,8 +127,36 @@ z_ins_clear_attr
 
 z_ins_insert_obj
     ; insert_obj object destination
+    jsr evaluate_all_args
+    ; calculate and store object address
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr calculate_object_address
+    lda object_tree_ptr
+    sta zp_mempos
+    lda object_tree_ptr + 1
+    sta zp_mempos + 1
+    ; calculate destination address
+    ldx z_operand_value_low_arr + 1
+    lda z_operand_value_high_arr + 1
+    jsr calculate_object_address
+    ; now move object to destination
+!ifndef Z4PLUS {
+    ; set current child of destination as object's sibling
+    ldy #6
+    lda (object_tree_ptr),y
+    dey
+    sta (zp_mempos),y
+    ; set object as destination's child
+    dey
+    lda z_operand_value_low_arr
+    sta (object_tree_ptr),y
+}
+!ifdef Z4PLUS {
     jsr fatalerror
-    !pet "TODO z_ins_insert_obj", 13, 0
+    !pet "TODO z_ins_set_attr support for Z4-Z8", 13, 0
+}
+    rts
 
 z_ins_get_prop
     ; get_prop object property -> (result)
