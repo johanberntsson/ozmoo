@@ -303,7 +303,6 @@ calculate_property_length_number
 
 find_first_prop
     ; output: x,a = address to property block, or 0,0 if not found
-    jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -334,6 +333,8 @@ find_prop
     cmp #0
     beq .find_prop_not_found
 !ifdef DEBUG {
+    lda #46
+    jsr $ffd2
     ldx .property_number
     jsr printx
     lda #$20
@@ -365,6 +366,7 @@ find_prop
 
 z_ins_get_prop
     ; get_prop object property -> (result)
+    jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
     cmp #0
@@ -383,36 +385,34 @@ z_ins_get_prop
 }
     jmp z_store_result
 +   ; property found
-    jsr read_next_byte
-    tax
-    lda .property_length
-    cmp #1
-    bne +
     lda #0
-!ifdef DEBUG {
-    stx object_tree_ptr
-    sta object_tree_ptr + 1
-}
-    jmp z_store_result
-+   cmp #2
+    sta .prop_result + 1
+    jsr read_next_byte
+    sta .prop_result
+    lda .property_length
+    cmp #2
     bne +
     jsr read_next_byte
-!ifdef DEBUG {
-    stx object_tree_ptr
-    sta object_tree_ptr + 1
-}
-    jmp z_store_result
-+   jsr fatalerror
+    sta .prop_result + 1
++   cmp #0
+    bne +
+    jsr fatalerror
     !pet "z_ins_get_prop bad length", 13, 0
++   ldx .prop_result + 1
+    lda .prop_result 
+    jmp z_store_result
+.prop_result !byte 0,0
 
 z_ins_get_prop_addr
     ; get_prop_addr object property -> (result)
+    jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
     jmp z_store_result
 
 z_ins_get_next_prop
     ; get_next_prop object property -> (result)
+    jsr evaluate_all_args
     jsr find_first_prop
     ldx z_operand_value_low_arr + 1
     beq + ; property == 0, return first property number
@@ -429,6 +429,7 @@ z_ins_get_next_prop
 
 z_ins_put_prop
     ; put_prop object property value
+    jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
     jsr get_z_address
@@ -512,7 +513,7 @@ calculate_object_address
 test_object_table
     lda #13
     sta z_operand_value_low_arr
-    lda #17
+    lda #2
     sta z_operand_value_low_arr + 1
     lda #0
     sta z_operand_value_high_arr
@@ -520,11 +521,11 @@ test_object_table
     jsr z_ins_get_prop + 3 ; skip jsr evaluate_all_args
     jsr print_following_string
     !pet "result: ",0
-    ldx object_tree_ptr
+    ldx .prop_result
     jsr printx
     lda #$20
     jsr $ffd2
-    ldx object_tree_ptr + 1
+    ldx .prop_result + 1
     jsr printx
     lda #$0d
     jsr $ffd2
