@@ -59,13 +59,70 @@ z_ins_get_parent
 
 z_ins_get_prop_len
     ; get_prop_len property-address -> (result)
-    jsr fatalerror
-    !pet "TODO z_ins_get_prop_len", 13, 0
+    jsr evaluate_all_args
+    ldx z_operand_value_low_arr
+    bne +
+    lda z_operand_value_high_arr
+    bne +
+    ; get_prop_len 0 must return 0
+    jmp z_store_result
++   jsr set_z_address
+    jsr calculate_property_length_number
+    ldx .property_length
+    lda #0
+    jmp z_store_result
 
 z_ins_remove_obj
     ; remove_obj object
+    jsr evaluate_all_args
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr calculate_object_address
+    lda object_tree_ptr
+    sta zp_mempos
+    lda object_tree_ptr + 1
+    sta zp_mempos + 1
+!ifndef Z4PLUS {
+    ; get parent
+    ldy #4  ; parent
+    lda (zp_mempos),y
+    bne +
+    ; no parent, so no action
+    rts
++   tax
+    lda #0
+    sta (zp_mempos),y ; set obj.parent = null
+    jsr calculate_object_address
+    ldy #6  ; child
+    lda (object_tree_ptr),y
+    cmp z_operand_value_low_arr 
+    bne +
+    ; set parent.child = obj.sibling
+    ldy #5 ; sibling
+    lda (zp_mempos),y
+    iny
+    sta (object_tree_ptr),y
+    rts
++   ; look for obj in sibling chain
+    ; a = parent.child, a != obj
+-   tax
+    lda #0
+    jsr calculate_object_address
+    ldy #5 ; sibling
+    lda (object_tree_ptr),y
+    cmp z_operand_value_low_arr 
+    bne -
+    ; found obj in the sibling list
+    lda (zp_mempos),y            ; obj.sibling
+    lda (object_tree_ptr),y 
+    lda #0
+    sta (zp_mempos),y            ; obj.sibling = null
+    rts
+}
+!ifdef Z4PLUS {
     jsr fatalerror
-    !pet "TODO z_ins_remove_obj", 13, 0
+    !pet "TODO z_ins_remove_obj Z4-Z8", 13, 0
+}
 
 z_ins_print_obj
     ; print_obj object
@@ -89,11 +146,34 @@ z_ins_print_obj
 
 z_ins_jin
     ; jin obj1 obj2 ?(label)
-    jsr fatalerror
-    !pet "TODO z_ins_jin", 13, 0
+    jsr evaluate_all_args
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr calculate_object_address
+!ifndef Z4PLUS {
+    ldy #4  ; parent
+    lda (object_tree_ptr),y
+    cmp z_operand_value_low_arr + 1
+    bne .branch_false
+    beq .branch_true
+}
+!ifdef Z4PLUS {
+    ldy #6  ; parent
+    lda (object_tree_ptr),y
+    cmp z_operand_value_low_arr + 1
+    bne .branch_false
+    iny
+    lda (object_tree_ptr),y
+    cmp z_operand_value_high_arr + 1
+    bne .branch_false
+    beq .branch_true
+}
 
-z_ins_test_attr
-    ; test_attr object attribute ?(label)
+find_attr
+    ; find attribute
+    ; output: 
+    ;   y = index to attribute byte relative object_tree_ptr
+    ;   x = bit to set/clear, use .bitmask)
     jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -108,22 +188,35 @@ z_ins_test_attr
     lsr
     lsr
     tay
+    rts
+.bitmask !byte 128,64,32,16,8,4,2,1
+
+z_ins_test_attr
+    ; test_attr object attribute ?(label)
+    jsr find_attr
     lda (object_tree_ptr),y
     ora .bitmask,x
-    beq +
+    beq .branch_false
+.branch_true 
     jmp make_branch_true
-+   jmp make_branch_false
-.bitmask !byte 128,64,32,16,8,4,2,1
+.branch_false
+   jmp make_branch_false
 
 z_ins_set_attr
     ; set_attr object attribute
-    jsr fatalerror
-    !pet "TODO z_ins_set_attr", 13, 0
+    jsr find_attr
+    lda (object_tree_ptr),y
+    ora .bitmask,x
+    sta (object_tree_ptr),y
+    rts
 
 z_ins_clear_attr
     ; clear_attr object attribute
-    jsr fatalerror
-    !pet "TODO z_ins_clear_attr", 13, 0
+    jsr find_attr
+    lda (object_tree_ptr),y
+    eor .bitmask,x
+    sta (object_tree_ptr),y
+    rts
 
 z_ins_insert_obj
     ; insert_obj object destination
@@ -183,6 +276,29 @@ z_ins_insert_obj
 }
     rts
 
+calculate_property_length_number
+    ; must call set_z_address before this subroutine
+    ; output: updates .property_number, .property_length
+    ; .property_length = 0 if end of property list
+    lda #0
+    sta .property_number
+    sta .property_length
+    jsr read_next_byte ; size of property block (# data | property number)
+    cmp #0
+    beq +
+    pha
+    and #$1f ; property number
+    sta .property_number
+    pla
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr
+    sta .property_length
+    inc .property_length
++   rts
+
 z_ins_get_prop
     ; get_prop object property -> (result)
     jsr evaluate_all_args
@@ -207,20 +323,10 @@ z_ins_get_prop
     ; loop over the properties until the correct one found
 !ifndef Z4PLUS {
 .property_loop
-    jsr read_next_byte ; size of property block (# data | property number)
+    jsr calculate_property_length_number
+    lda .property_length
     cmp #0
     beq .no_property_found
-    pha
-    and #$1f ; property number
-    sta .property_number
-    pla
-    lsr
-    lsr
-    lsr
-    lsr
-    lsr
-    sta .property_length
-    inc .property_length
 !ifdef DEBUG {
     ldx .property_number
     jsr printx
@@ -230,8 +336,8 @@ z_ins_get_prop
     jsr printx
     lda #$0d
     jsr $ffd2
-    lda .property_length
 }
+    lda .property_length
     cmp z_operand_value_low_arr + 1; max 63 properties so only low_arr
     beq .property_found
     ; skip property data
