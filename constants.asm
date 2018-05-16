@@ -18,6 +18,7 @@ string_array          = $43 ; 2 bytes (24 was bad?)
 terminators_ptr       = $45 ; 2 bytes
 object_tree_ptr       = $49 ; 2 bytes
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
+z_trace_index		  = $54
 zp_mempos             = $ae ; 2 bytes
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
@@ -33,6 +34,9 @@ datasette_buffer_end  = $03fb
 ; --- BASIC rom routines ---
 basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
 basic_printinteger    = $bdcd ; write integer value in a/y
+
+; Trace information
+z_trace_page 		  = $cf00
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $d018 

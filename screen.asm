@@ -158,6 +158,65 @@ fatalerror
     tay
     txa
     jsr printstring ; print error
+;!ifdef DEBUG {
+	jsr print_following_string
+	!pet "last opcodes: (#, z_pc, opcode)",13,0
+	lda z_trace_index
+	sec
+	sbc #40
+	tay
+	ldx #0
+.print_next_op	
+	jsr printx
+	lda #$2c
+	jsr kernel_printchar
+	lda #$24
+	jsr kernel_printchar
+	lda z_trace_page,y
+	jsr .print_byte_as_hex
+	iny
+	lda z_trace_page,y
+	jsr .print_byte_as_hex
+	iny
+	lda z_trace_page,y
+	jsr .print_byte_as_hex
+	iny
+	lda #$2c
+	jsr kernel_printchar
+	lda #$24
+	jsr kernel_printchar
+	lda z_trace_page,y
+	jsr .print_byte_as_hex
+	lda #$0d
+	jsr kernel_printchar
+	iny
+	inx
+	cpx #10
+	bcc .print_next_op
+	bcs .print_no_more_ops
+
+.print_byte_as_hex
+	stx zp_temp
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda .hex_num,x
+	jsr kernel_printchar
+	pla
+	and #$0f
+	tax
+	lda .hex_num,x
+	ldx zp_temp
+	jmp kernel_printchar
+.hex_num
+	!pet "0123456789abcdef"
+.print_no_more_ops
+;}	
+	
+	
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
 }

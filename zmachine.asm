@@ -37,7 +37,6 @@ z_global_vars_start	!byte 0, 0
 ;
 ; 2OP
 ; ---
-; inc_chk
 ; jin
 ; test
 ; or
@@ -114,7 +113,7 @@ z_opcount_0op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-!ifndef Z5PLUS {
+!ifdef Z5PLUS {
 	!byte >make_branch_true ; z_ins_piracy
 } else {
 	!byte >z_not_implemented
@@ -140,7 +139,7 @@ z_opcount_0op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-!ifndef Z5PLUS {
+!ifdef Z5PLUS {
 	!byte <make_branch_true ; z_ins_piracy
 } else {
 	!byte <z_not_implemented
@@ -358,8 +357,14 @@ z_opcode_opcount_var = 3
 
 z_init
 !zone {
-	; Copy z_pc from header
+	; Setup trace
 	lda #0
+	sta z_trace_index
+	tay
+-	sta z_trace_page,y
+	iny
+	bne -
+	; Copy z_pc from header
 	sta z_pc
 	lda story_start + header_initial_pc
 	sta z_pc + 1
@@ -380,13 +385,22 @@ z_init
 z_execute
 !zone {
 .main_loop
-	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
+	; Store z_pc to trace page 
+	ldx #0
+	ldy z_trace_index
+-	lda z_pc,x
+	sta z_trace_page,y
+	iny
+	inx
+	cpx #3
+	bne -
 ;	lda z_pc
 ;	sta z_pc_instruction
 ;	lda z_pc + 1
 ;	sta z_pc_instruction + 1
 ;	lda z_pc + 2
 ;	sta z_pc_instruction + 2
+	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
 	lda #0
 	ldx #7
 -	sta z_operand_type_arr,x
@@ -395,7 +409,10 @@ z_execute
 
 	jsr read_byte_at_z_pc_then_inc
 	sta z_opcode
-	
+	sta z_trace_page,y
+	iny
+	sty z_trace_index
+
 !ifdef DEBUG {	
 	jsr print_following_string
 	!pet "opcode: ",0
