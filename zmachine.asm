@@ -1033,8 +1033,8 @@ z_ins_jl
 
 z_ins_jg
 	jsr evaluate_all_args
-	lda z_operand_value_low_arr + 1
 .jg_comp	
+	lda z_operand_value_low_arr + 1
 	cmp z_operand_value_low_arr
 	lda z_operand_value_high_arr + 1
 	sbc z_operand_value_high_arr
@@ -1069,6 +1069,7 @@ z_ins_inc_chk
 	sta z_operand_value_high_arr
 	iny
 	lda (zp_temp),y
+	sta z_operand_value_low_arr
 	jmp .jg_comp
 
 ; z_ins_jin (moved to objecttable.asm)
