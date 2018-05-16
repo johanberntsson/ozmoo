@@ -145,6 +145,19 @@ set_z_himem_address
     sty .addr
     rts
 
+skip_bytes_z_address
+    ; skip <a> bytes
+    clc
+    adc .addr + 2
+    sta .addr + 2
+    lda .addr + 1
+    adc #0
+    lda .addr + 1
+    lda .addr
+    adc #0
+    lda .addr
+    rts
+
 get_z_address
     ; input: 
     ; output: a,x
