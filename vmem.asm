@@ -39,7 +39,8 @@
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
-vmap_max_length  = 5 ; tests
+vmap_max_length  = 27 ; $3000-$cc00
+;vmap_max_length  = 5 ; tests
 ;vmap_max_length  = 44 ; $2000-$c000
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length

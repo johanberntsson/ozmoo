@@ -158,6 +158,18 @@ skip_bytes_z_address
     lda .addr
     rts
 
+!ifdef DEBUG {
+print_z_address
+    ldx .addr + 2 ; low
+    lda #$20
+    jsr $ffd2
+    jsr printx
+    ldx .addr + 1 ; high
+    jsr printx
+    lda #$0d
+    jmp $ffd2
+}
+
 get_z_address
     ; input: 
     ; output: a,x
@@ -177,7 +189,7 @@ read_next_byte
     ; input: 
     ; output: a
     ; side effects: .addr
-    ; used registers: a,x
+    ; used registers: a,x,y
     sty .next_byte_state
     lda .addr
     ldx .addr + 1
