@@ -1,5 +1,8 @@
 ; text opcodes
 
+TRACE_READTEXT = 1
+TRACE_TOKENISE = 1
+
 z_ins_print_addr 
     jsr evaluate_all_args
     ldx z_operand_value_low_arr
@@ -34,16 +37,54 @@ z_ins_sread
 	; sread text parse time routine (Z4)
     jsr evaluate_all_args
     ; read input
-    lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
     jsr read_text
+!ifdef TRACE_READTEXT {
+    jsr print_following_string
+    !pet "read_text ",0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr printx
+    jsr space
+    jsr printa
+    jsr newline
+    ldy #0
+-   lda (string_array),y
+    jsr printa
+    jsr space
+    iny
+    cpy #10
+    bne -
+    jsr newline
+}
     ; parse it as well?
     ldx z_operand_count
     cpx #2
     bcc .sread_done
     lda z_operand_value_high_arr + 1
     ldx z_operand_value_low_arr + 1
+!ifdef TRACE_TOKENISE {
+    jsr print_following_string
+    !pet "tokenise_text ",0
+    ldx z_operand_value_low_arr + 1
+    lda z_operand_value_high_arr + 1
+    jsr printx
+    jsr space
+    jsr printa
+    jsr newline
+}
     jsr tokenise_text
+!ifdef TRACE_TOKENISE {
+    ldy #0
+-   lda (parse_array),y
+    jsr printa
+    jsr space
+    iny
+    cpy #10
+    bne -
+    jsr newline
+}
 .sread_done
     rts
 
@@ -56,13 +97,51 @@ z_ins_aread
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
     jsr read_text
+!ifdef TRACE_READTEXT {
+    jsr print_following_string
+    !pet "read_text ",0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr printx
+    jsr space
+    jsr printa
+    jsr newline
+    ldy #0
+-   lda (string_array),y
+    jsr printa
+    jsr space
+    iny
+    cpy #10
+    bne -
+    jsr newline
+}
     ; parse it as well?
     ldx z_operand_count
     cpx #2
     bcc .aread_done
     lda z_operand_value_high_arr + 1
     ldx z_operand_value_low_arr + 1
+!ifdef TRACE_TOKENISE {
+    jsr print_following_string
+    !pet "tokenise_text ",0
+    ldx z_operand_value_low_arr + 1
+    lda z_operand_value_high_arr + 1
+    jsr printx
+    jsr space
+    jsr printa
+    jsr newline
+}
     jsr tokenise_text
+!ifdef TRACE_TOKENISE {
+    ldy #0
+-   lda (parse_array),y
+    jsr printa
+    jsr space
+    iny
+    cpy #10
+    bne -
+    jsr newline
+}
 .aread_done
     ; debug - print parsearray
 !ifdef DEBUG {
@@ -262,11 +341,10 @@ find_word_in_dictionary
     sty .zword + 5
     lda .wordstart  ; truncate the word length to dictionary size
     clc
-!ifndef Z4PLUS {
-    adc #6
-}
 !ifdef Z4PLUS {
     adc #9
+} else {
+    adc #6
 }
     sta .last_char_index 
     ; get started!
@@ -348,11 +426,10 @@ find_word_in_dictionary
     ldx dict_entries     ; start address of dictionary
     lda dict_entries + 1
     jsr set_z_address
-!ifndef Z4PLUS {
-    lda #4
-}
 !ifdef Z4PLUS {
     lda #6
+} else {
+    lda #4
 }
     sta .zchars_per_entry
 .dictionary_loop
@@ -379,7 +456,11 @@ find_word_in_dictionary
     sta .dictionary_address
     stx .dictionary_address + 1
     ; check if correct entry
+!ifdef Z4PLUS {
     ldy #0
+} else {
+    ldy #2
+}
     sty .num_matching_zchars
 .loop_check_entry
     jsr read_next_byte
@@ -396,11 +477,10 @@ find_word_in_dictionary
     ; skip the extra data bytes
     lda dict_len_entries
     sec
-!ifndef Z4PLUS {
-    sbc #4
-}
 !ifdef Z4PLUS {
     sbc #6
+} else {
+    sbc #4
 }
     tay
 .dictionary_extra_bytes
@@ -461,8 +541,7 @@ read_text
 !ifdef Z5PLUS {
     ldy #1
     lda (string_array),y
-}
-!ifndef Z5PLUS {
+} else {
     lda #0
 }
     sta .read_text_offset
@@ -519,6 +598,11 @@ read_text
     ; convert to lower case
     and #$7f
     sta (string_array),y ; store new character in the array
+!ifndef Z5PLUS {
+    iny
+    lda #0
+    sta (string_array),y ; store 0 after last char
+}
     jmp .readkey
 +   ; keybuffer >= maxchars
 !ifdef Z5PLUS {
@@ -541,14 +625,6 @@ read_text
     sta (zp_screenline),y
     lda #$0d
     jsr kernel_printchar
-!ifndef Z5PLUS {
-    ; add a zero at the end of the line
-    ldy #0
-    lda (zp_screenline),y
-    tay
-    lda #0
-    sta (zp_screenline),y
-}
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
@@ -573,13 +649,22 @@ tokenise_text
     ldy #0
     lda (parse_array),y 
     sta .maxwords
+!ifdef Z5PLUS {
     iny
     lda (string_array),y ; number of chars in text string
     clc
     adc #1
     sta .textend
-    ; look over text and find each word
     ldy #2 ; start position in text
+} else {
+-   iny
+    lda (string_array),y
+    bne -
+    dey
+    sty .textend
+    ldy #1 ; start position in text
+}
+    ; look over text and find each word
 .find_word_loop
     ; skip initial space
     cpy .textend

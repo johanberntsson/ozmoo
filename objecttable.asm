@@ -590,8 +590,7 @@ z_ins_get_prop
     jsr printa
     jsr newline
 }
-    jsr z_store_result
-    rts
+    jmp z_store_result
 .prop_result !byte 0,0
 
 z_ins_get_prop_addr
