@@ -1,10 +1,10 @@
 ; object table
 ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect12.html
 
-;TRACE_GETPSC = 1 ; trace get_parent, get_sibling, get_child
+;TRACE_TREE = 1 ; trace get_parent, get_sibling, get_child
 ;TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
 ;TRACE_ATTR = 1 ; trace find_attr, set_attr, clear_attr
-TRACE_PROP = 1  ; trace get_prop_len, 
+;TRACE_PROP = 1  ; trace get_prop_len, 
 
 ; globals
 num_default_properties !byte 0
@@ -13,7 +13,7 @@ objects_start_ptr      !byte 0, 0
 ; object table opcodes
 z_ins_get_sibling
     ; get_sibling object -> (result) ?(label)
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     jsr print_following_string
     !pet "get_sibling obj: ",0
 }
@@ -26,7 +26,7 @@ z_ins_get_sibling
 
 z_ins_get_child
     ; get_child object -> (result) ?(label)
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     jsr print_following_string
     !pet "get_child obj: ",0
 }
@@ -38,7 +38,7 @@ z_ins_get_child
 .get_parent_sibling_child
 	pha
     jsr evaluate_all_args
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     ldx z_operand_value_low_arr
     jsr printx
     jsr space
@@ -61,7 +61,7 @@ z_ins_get_child
 	pha ; Value is zero if object is zero, non-zero if object is non-zero
     lda (object_tree_ptr),y
 }
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     pha
     txa
     pha
@@ -80,7 +80,7 @@ z_ins_get_child
 
 z_ins_get_parent
     ; get_parent object -> (result)
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     jsr print_following_string
     !pet "get_parent obj: ",0
 }
@@ -91,7 +91,7 @@ z_ins_get_parent
 }
 	pha
     jsr evaluate_all_args
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     ldx z_operand_value_low_arr
     jsr printx
     jsr space
@@ -110,7 +110,7 @@ z_ins_get_parent
     tax
     lda (object_tree_ptr),y
 }
-!ifdef TRACE_GETPSC {
+!ifdef TRACE_TREE {
     pha
     txa
     pha
@@ -499,8 +499,8 @@ find_prop
     cmp #0
     beq .find_prop_not_found
 !ifdef DEBUG {
-    lda #46
-    jsr $ffd2
+    lda #46 ; .
+    jsr kernel_printchar
     ldx .property_number
     jsr printx
     jsr space
@@ -508,7 +508,7 @@ find_prop
     jsr printx
     jsr newline
 }
-    lda .property_length
+    lda .property_number
     cmp z_operand_value_low_arr + 1; max 63 properties so only low_arr
     beq .find_prop_found
     ; skip property data
@@ -531,18 +531,28 @@ find_prop
 z_ins_get_prop
     ; get_prop object property -> (result)
     jsr evaluate_all_args
+    jsr find_first_prop
+    jsr find_prop
 !ifdef TRACE_PROP {
+    pha
     jsr print_following_string
-    !pet "get_prop object property: ", 0
+    !pet "get_prop obj prop: ", 0
     ldx z_operand_value_low_arr
     jsr printx
     jsr space
-    ldx z_operand_value_high_arr
+    ldx z_operand_value_low_arr + 1
     jsr printx
+    lda #58 ; :
+    jsr kernel_printchar
+    ldy .property_number
+    jsr printy
     jsr space
+    ldy .property_length
+    jsr printy
+    lda #58 ; :
+    jsr kernel_printchar
+    pla
 }
-    jsr find_first_prop
-    jsr find_prop
     cmp #0
     bne .property_found
     ; no property found, get default property
@@ -574,13 +584,13 @@ z_ins_get_prop
     ldx .prop_result + 1
     lda .prop_result 
 .return_property
-    jsr z_store_result
 !ifdef TRACE_PROP {
     jsr printx
     jsr space
     jsr printa
     jsr newline
 }
+    jsr z_store_result
     rts
 .prop_result !byte 0,0
 
