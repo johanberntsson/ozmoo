@@ -1,5 +1,9 @@
 ; screen update routines
 
+.saved_a !byte 0
+.saved_x !byte 0
+.saved_y !byte 0
+
 printinteger
     ; subroutine: print integer value using Basic routine
     ; input: a,x
@@ -17,17 +21,41 @@ printinteger
 	rts
 }
 
-puts_array 
-    ; subroutine: print zcode array
-    ; input:
+space
+    ; subroutine: print space
+    ; input: 
     ; output:
     ; used registers:
     ; side effects:
-!zone {
-    ; TODO: implements me
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    lda #$20
+    jsr kernel_printchar
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
     rts
-}
 
+newline
+    ; subroutine: print newline
+    ; input: 
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    lda #$0d
+    jsr kernel_printchar
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
 
 printx
     ; subroutine: print value stored in x register
@@ -35,49 +63,56 @@ printx
     ; output:
     ; used registers:
     ; side effects:
-!zone {
     php
-    pha
-    txa
-    pha
-    tya
-    pha
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
     lda #$00
     jsr printinteger
-    pla
-    tay
-    pla
-    tax
-    pla
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
     plp
     rts
-}
 
-puts_x
-!zone {
-    ; subroutine: print value stored in x register + newline
-    ; input: x
+printy
+    ; subroutine: print value stored in y register
+    ; input: y
     ; output:
     ; used registers:
     ; side effects:
     php
-    pha
-    txa
-    pha
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
     tya
-    pha
+    tax
     lda #$00
     jsr printinteger
-    lda #13
-    jsr kernel_printchar
-    pla
-    tay
-    pla
-    tax
-    pla
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
     plp
     rts
-}
+
+printa
+    ; subroutine: print value stored in a register
+    ; input: a
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    tax
+    lda #$00
+    jsr printinteger
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
 
 printstring
     ; input: x
