@@ -1,6 +1,10 @@
 ; object table
 ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect12.html
 
+;TRACE_GETPSC = 1 ; trace get_parent, get_sibling and get_child
+TRACE_ATTR = 1 
+;TRACE_PROP = 1 
+
 ; globals
 num_default_properties !byte 0
 objects_start_ptr      !byte 0, 0
@@ -8,6 +12,10 @@ objects_start_ptr      !byte 0, 0
 ; object table opcodes
 z_ins_get_sibling
     ; get_sibling object -> (result) ?(label)
+!ifdef TRACE_GETPSC {
+    jsr print_following_string
+    !pet "get_sibling obj: ",0
+}
 !ifndef Z4PLUS {
     lda #5
 } else {
@@ -17,6 +25,10 @@ z_ins_get_sibling
 
 z_ins_get_child
     ; get_child object -> (result) ?(label)
+!ifdef TRACE_GETPSC {
+    jsr print_following_string
+    !pet "get_child obj: ",0
+}
 !ifndef Z4PLUS {
     lda #6
 } else  {
@@ -25,6 +37,12 @@ z_ins_get_child
 .get_parent_sibling_child
 	pha
     jsr evaluate_all_args
+!ifdef TRACE_GETPSC {
+    ldx z_operand_value_low_arr
+    jsr printx
+    lda #$20
+    jsr $ffd2
+}
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -43,6 +61,17 @@ z_ins_get_child
 	pha ; Value is zero if object is zero, non-zero if object is non-zero
     lda (object_tree_ptr),y
 }
+!ifdef TRACE_GETPSC {
+    pha
+    txa
+    pha
+    jsr printx
+    lda #$0d
+    jsr $ffd2
+    pla
+    tax
+    pla
+}
     jsr z_store_result
 	pla ; Value is zero if object is zero, non-zero if object is non-zero
 	bne .get_child_branch_true
@@ -52,12 +81,49 @@ z_ins_get_child
 
 z_ins_get_parent
     ; get_parent object -> (result)
+!ifdef TRACE_GETPSC {
+    jsr print_following_string
+    !pet "get_parent obj: ",0
+}
 !ifndef Z4PLUS {
     lda #4
 } else {
     lda #6
 }
-	bne .get_parent_sibling_child ; Always branch
+	pha
+    jsr evaluate_all_args
+!ifdef TRACE_GETPSC {
+    ldx z_operand_value_low_arr
+    jsr printx
+    lda #$20
+    jsr $ffd2
+}
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr calculate_object_address
+	pla
+	tay
+!ifndef Z4PLUS {
+    lda (object_tree_ptr),y
+    tax
+    lda #0
+} else  {
+    lda (object_tree_ptr),y
+    tax
+    lda (object_tree_ptr),y
+}
+!ifdef TRACE_GETPSC {
+    pha
+    txa
+    pha
+    jsr printx
+    lda #$0d
+    jsr $ffd2
+    pla
+    tax
+    pla
+}
+    jmp z_store_result
 
 z_ins_get_prop_len
     ; get_prop_len property-address -> (result)
@@ -126,6 +192,66 @@ z_ins_remove_obj
     !pet "TODO z_ins_remove_obj Z4-Z8", 13, 0
 }
 
+find_attr
+    ; find attribute
+    ; output: 
+    ;   y = index to attribute byte relative object_tree_ptr
+    ;   x = bit to set/clear, use .bitmask)
+    jsr evaluate_all_args
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr calculate_object_address
+!ifdef TRACE_ATTR {
+    ldx z_operand_value_low_arr
+    jsr printx
+    lda #40
+    jsr $ffd2
+    ldx object_tree_ptr
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx object_tree_ptr + 1
+    jsr printx
+    lda #41
+    jsr $ffd2
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    lda #$20
+    jsr $ffd2
+}
+    lda z_operand_value_low_arr + 1
+    ; ignore high_arr. Max 48 attributes
+    and #$07
+    tax
+!ifdef TRACE_ATTR {
+    lda #$78
+    jsr $ffd2
+    jsr printx
+    lda #$20
+    jsr $ffd2
+}
+    lda z_operand_value_low_arr + 1
+    lsr
+    lsr
+    lsr
+    tay
+!ifdef TRACE_ATTR {
+    txa
+    pha
+    tya
+    tax
+    lda #$79
+    jsr $ffd2
+    jsr printx
+    lda #$20
+    jsr $ffd2
+    pla
+    tax
+}
+
+    rts
+.bitmask !byte 128,64,32,16,8,4,2,1
+
 z_ins_print_obj
     ; print_obj object
     jsr evaluate_all_args
@@ -171,37 +297,27 @@ z_ins_jin
     beq .branch_true
 }
 
-find_attr
-    ; find attribute
-    ; output: 
-    ;   y = index to attribute byte relative object_tree_ptr
-    ;   x = bit to set/clear, use .bitmask)
-    jsr evaluate_all_args
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr calculate_object_address
-    lda z_operand_value_low_arr + 1 ; 17
-    ; ignore high_arr. Max 48 attributes
-    and #$07
-    tax
-    lda z_operand_value_low_arr + 1
-    lsr
-    lsr
-    lsr
-    lsr
-    tay
-    rts
-.bitmask !byte 128,64,32,16,8,4,2,1
-
 z_ins_test_attr
     ; test_attr object attribute ?(label)
+!ifdef TRACE_ATTR {
+    jsr print_following_string
+    !pet "test_attr obj attr: ",0
+}
     jsr find_attr
     lda (object_tree_ptr),y
-    ora .bitmask,x
+    and .bitmask,x
     beq .branch_false
 .branch_true 
+!ifdef TRACE_ATTR {
+    jsr print_following_string
+    !pet "true",13,0
+}
     jmp make_branch_true
 .branch_false
+!ifdef TRACE_ATTR {
+    jsr print_following_string
+    !pet "false",13,0
+}
    jmp make_branch_false
 
 z_ins_set_attr
