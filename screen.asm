@@ -134,30 +134,7 @@ print_following_string
     rts
 }
 
-fatalerror
-    ; print error (implicit argument passing)
-    ; input: 
-    ; output:
-    ; used registers: a,x,y
-    ; side effects: resets the computer
-!zone {
-    ; usage:
-    ;    jsr fatalerror
-    ;    !pet "message",0
-    ; uses stack pointer to find start of text, 
-    ; prints the error, then resets the computer
-
-    jsr print_following_string
-    !pet "fatal error: ", 0
-
-    ; store the return address
-    ; the address on stack is -1 before the first character
-    pla  ; remove LO for return address
-    tax
-    pla  ; remove HI for return address
-    tay
-    txa
-    jsr printstring ; print error
+print_trace
 ;!ifdef DEBUG {
 	jsr print_following_string
 	!pet 13,"last opcodes: (#, z_pc, opcode)",13,0
@@ -215,7 +192,35 @@ fatalerror
 	!pet "0123456789abcdef"
 .print_no_more_ops
 ;}	
+    rts
 	
+
+fatalerror
+    ; print error (implicit argument passing)
+    ; input: 
+    ; output:
+    ; used registers: a,x,y
+    ; side effects: resets the computer
+!zone {
+    ; usage:
+    ;    jsr fatalerror
+    ;    !pet "message",0
+    ; uses stack pointer to find start of text, 
+    ; prints the error, then resets the computer
+
+    jsr print_following_string
+    !pet "fatal error: ", 0
+
+    ; store the return address
+    ; the address on stack is -1 before the first character
+    pla  ; remove LO for return address
+    tax
+    pla  ; remove HI for return address
+    tay
+    txa
+    jsr printstring ; print error
+
+    jsr print_trace
 	
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
