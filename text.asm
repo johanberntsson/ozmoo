@@ -333,12 +333,12 @@ find_word_in_dictionary
     ; used registers: a,x
     sty .parse_array_index ; store away the index for later
     lda #0
-    sty .zword      ; clear zword buffer
-    sty .zword + 1
-    sty .zword + 2
-    sty .zword + 3
-    sty .zword + 4
-    sty .zword + 5
+    sta .zword      ; clear zword buffer
+    sta .zword + 1
+    sta .zword + 2
+    sta .zword + 3
+    sta .zword + 4
+    sta .zword + 5
     lda .wordstart  ; truncate the word length to dictionary size
     clc
 !ifdef Z4PLUS {
@@ -390,34 +390,32 @@ find_word_in_dictionary
     lda .zword + 5
     ora #$80
     sta .zword + 5
-!ifdef DEBUG {
+!ifdef TRACE_TOKENISE {
     ; print zword (6 or 9 bytes)
-    ;lda #$0d
-    ;jsr $ffd2
-    ;ldx .zword 
-    ;jsr printx
-    ;lda #44
-    ;jsr $ffd2
-    ;ldx .zword + 1
-    ;jsr printx
-    ;lda #44
-    ;jsr $ffd2
-    ;ldx .zword + 2
-    ;jsr printx
-    ;lda #44
-    ;jsr $ffd2
-    ;ldx .zword + 3
-    ;jsr printx
-    ;lda #44
-    ;jsr $ffd2
-    ;ldx .zword + 4
-    ;jsr printx
-    ;lda #44
-    ;jsr $ffd2
-    ;ldx .zword + 5
-    ;jsr printx
-    ;lda #$0d
-    ;jsr $ffd2
+    jsr newline
+    ldx .zword 
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 1
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 2
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 3
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 4
+    jsr printx
+    lda #44
+    jsr $ffd2
+    ldx .zword + 5
+    jsr printx
+    jsr newline
 }
     ; find entry in dictionary 
     lda #0
@@ -434,37 +432,37 @@ find_word_in_dictionary
     sta .zchars_per_entry
 .dictionary_loop
     ; show the dictonary word
-!ifdef DEBUG {
-    ;lda .addr
-    ;pha
-    ;lda .addr + 1
-    ;pha
-    ;lda .addr + 2
-    ;pha
-    ;jsr print_addr
-    ;lda #$0d
-    ;jsr kernel_printchar
-    ;pla 
-    ;sta .addr + 2
-    ;pla 
-    ;sta .addr + 1
-    ;pla 
-    ;sta .addr
+!ifdef TRACE_TOKENISE {
+    lda .addr
+    pha
+    lda .addr + 1
+    pha
+    lda .addr + 2
+    pha
+    jsr print_addr
+    jsr newline
+    pla 
+    sta .addr + 2
+    pla 
+    sta .addr + 1
+    pla 
+    sta .addr
 }
     ; store address to current entry
     jsr get_z_address
     sta .dictionary_address
     stx .dictionary_address + 1
     ; check if correct entry
-!ifdef Z4PLUS {
     ldy #0
-} else {
-    ldy #2
-}
     sty .num_matching_zchars
 .loop_check_entry
+johan
     jsr read_next_byte
+!ifdef Z4PLUS {
     cmp .zword,y
+} else {
+    cmp .zword + 2,y
+}
     bne .zchars_differ
     inc .num_matching_zchars
 .zchars_differ
