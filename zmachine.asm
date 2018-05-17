@@ -207,7 +207,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_add
 	!byte >z_ins_sub
 	!byte >z_ins_mul
-	!byte >z_not_implemented
+	!byte >z_ins_div
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_call_2n
@@ -241,7 +241,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_add
 	!byte <z_ins_sub
 	!byte <z_ins_mul
-	!byte <z_not_implemented
+	!byte <z_ins_div
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_call_2n
@@ -907,6 +907,62 @@ z_store_result
 	jmp z_set_variable
 }
 
+!zone z_division {
+z_divide
+	; input: Divisor in arg 0, dividend in arg 1
+	; output: result in division_result (low byte, high byte)
+	lda z_operand_value_high_arr
+	eor z_operand_value_high_arr + 1
+	sta zp_temp ; Top bit: 1 = Result is negative, other bits must be ignored
+	lda z_operand_value_low_arr
+	bit z_operand_value_high_arr
+	bpl +
+	; Get 2-complement of divisor
+	eor #$ff
+	clc
+	adc #1
+	tax
+	lda z_operand_value_high_arr
+	eor #$ff
+	adc #0
+	bpl ++ ; Always branch
++	tax
+	lda z_operand_value_high_arr
+++	stx divisor
+	sta divisor + 1
+	; Get 2-complement of dividend
+	lda z_operand_value_low_arr + 1
+	bit z_operand_value_high_arr + 1
+	bpl +
+	eor #$ff
+	clc
+	adc #1
+	tay
+	lda z_operand_value_high_arr + 1
+	eor #$ff
+	adc #0
+	bpl ++ ; Always branch
++	tax
+	lda z_operand_value_high_arr + 1
+++	stx dividend
+	sta dividend + 1
+	; TODO: Reverse sign if applicable. 
+	jsr divide16
+	bit zp_temp
+	bpl +
+	; Inverse sign of result
+	lda division_result
+	eor #$ff
+	clc
+	adc #1
+	sta division_result
+	lda division_result + 1
+	eor #$ff
+	adc #0
+	sta division_result + 1
++	rts
+}
+
 !zone {
 calc_address_in_byte_array
 	lda z_operand_value_low_arr
@@ -1258,6 +1314,13 @@ z_ins_mul
 	bne .mul_next_iteration
 	lda .mul_product + 2
 	ldx .mul_product + 3
+	jmp z_store_result
+
+z_ins_div
+	jsr evaluate_all_args
+	jsr z_divide
+	lda division_result + 1
+	ldx division_result
 	jmp z_store_result
 	
 z_ins_call_2n
