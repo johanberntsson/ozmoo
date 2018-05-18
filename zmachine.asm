@@ -1388,7 +1388,7 @@ z_ins_random
 	lda z_operand_value_low_arr
 	beq .random_seed_0
 	; Small range (1-255)
-	sta zp_temp + 1 ; range value
+--	sta zp_temp + 1 ; range value
 	ldy #1
 	sty zp_temp + 2 ; mask value %1 => %11 => %111 .. %11111111
 -	lda zp_temp + 1
@@ -1408,6 +1408,9 @@ z_ins_random
 	lda #0
 	jmp z_store_result
 .random_large
+	; TODO: Real implementation!
+	lda #255
+	bne --
 .random_seed_0
 .random_seed
 	; TODO: Lots!
