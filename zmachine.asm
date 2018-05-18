@@ -87,7 +87,7 @@ z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
 	!byte >z_ins_rfalse
 	!byte >z_ins_print
-	!byte >z_not_implemented
+	!byte >z_ins_print_ret
 	!byte >z_ins_nop
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -113,7 +113,7 @@ z_opcount_0op_jump_low_arr
 	!byte <z_ins_rtrue
 	!byte <z_ins_rfalse
 	!byte <z_ins_print
-	!byte <z_not_implemented
+	!byte <z_ins_print_ret
 	!byte <z_ins_nop
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -990,6 +990,8 @@ z_ins_rfalse
 	jmp stack_return_from_routine
 
 ; z_ins_print (moved to text.asm)
+
+; z_ins_print_ret (moved to text.asm)
 
 ; z_ins_nop is part of 1OP z_ins_inc
 

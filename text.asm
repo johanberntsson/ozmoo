@@ -30,6 +30,14 @@ z_ins_print
     stx z_pc + 2
     rts
 
+z_ins_print_ret
+    jsr z_ins_print
+    lda #$0d
+    jsr streams_print_output
+    lda #0
+    ldx #1
+    jmp stack_return_from_routine
+
 !ifndef Z5PLUS {
 
 z_ins_sread
@@ -54,7 +62,7 @@ z_ins_sread
     jsr printa
     jsr space
     iny
-    cpy #10
+    cpy #14
     bne -
     jsr newline
 }
@@ -367,19 +375,15 @@ find_word_in_dictionary
     rol .zword
     dex
     bne .shift_zchar
-
     lda #5 ; pad character
     cpy .wordend
     bcs +
     lda (string_array),y
     jsr convert_char_to_zchar
 +   tax
-!ifdef DEBUG {
-    ;jsr printx ; next zchar to insert into zword
-    ;pha
-    ;lda #$20
-    ;jsr $ffd2
-    ;pla
+!ifdef TRACE_TOKENISE {
+    jsr printx ; next zchar to insert into zword
+    jsr space
 }
     ora .zword + 5
     sta .zword + 5
