@@ -267,7 +267,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_ins_print_num
 	!byte >z_ins_random
 	!byte >z_ins_push
-	!byte >z_not_implemented
+	!byte >z_ins_pull
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_call_xs
@@ -275,7 +275,11 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+!ifdef Z4PLUS {
+	!byte >z_ins_set_text_style
+} else {
 	!byte >z_not_implemented
+}
 	!byte >z_not_implemented
 	!byte >z_ins_output_stream
 	!byte >z_not_implemented
@@ -308,7 +312,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_ins_print_num
 	!byte <z_ins_random
 	!byte <z_ins_push
-	!byte <z_not_implemented
+	!byte <z_ins_pull
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_call_xs
@@ -316,7 +320,11 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+!ifdef Z4PLUS {
+	!byte <z_ins_set_text_style
+} else {
 	!byte <z_not_implemented
+}
 	!byte <z_not_implemented
 	!byte <z_ins_output_stream
 	!byte <z_not_implemented
@@ -1422,8 +1430,16 @@ z_ins_push
 	jsr evaluate_all_args
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
-	ldy #0
+	jmp stack_push
+
+z_ins_pull
+	jsr stack_pull
+	ldy z_operand_low_arr
 	jmp z_set_variable
+
+z_ins_set_text_style
+	; TODO: Proper implementation!
+	rts
 	
 z_ins_output_stream
 	jsr evaluate_all_args
