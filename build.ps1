@@ -19,6 +19,7 @@ param (
 [string] $viceExe = "C:\ProgramsWoInstall\WinVICE-3.1-x64\x64.exe"
 
 [string] $upperType = $type.ToUpper();
+[string] $diskImageDir;
 [string] $diskImage;
 
 function BuildImage([string]$type, [bool]$useVmem) {
@@ -32,7 +33,7 @@ function BuildImage([string]$type, [bool]$useVmem) {
     if($lastExitCode -ne 0) {
         exit
     }           
-    copy -Force d64toinf/$diskImage $diskImage
+    copy -Force $diskImageDir/$diskImage $diskImage
     if($lastExitCode -ne 0) {
         exit
     }           
@@ -48,9 +49,11 @@ function BuildImage([string]$type, [bool]$useVmem) {
 ################
 
 if($upperType -eq 'Z3') {
+    $diskImageDir = 'd64toinf'
     $diskImage = 'dejavu.d64'
 } elseif($upperType -eq 'Z5') {
-    $diskImage = 'dragontroll.d64'
+    $diskImageDir = 'minform'
+    $diskImage = 'minform.d64'
 } else {
     Write-Error "Error: Type can only be z3 or z5"
     exit

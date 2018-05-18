@@ -28,8 +28,6 @@ z_global_vars_start	!byte 0, 0
 ; call_1s
 ; remove_obj
 ; load
-; not
-; call_1n
 ;
 ; 2OP
 ; ---
@@ -68,9 +66,6 @@ z_global_vars_start	!byte 0, 0
 ; sound_effect
 ; read_char
 ; scan_table
-; not
-; call_vn
-; call_vn2
 ; tokenise
 ; encode_text
 ; copy_table
@@ -161,7 +156,11 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_jump
 	!byte >z_ins_print_paddr
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+!ifndef Z5PLUS {
+	!byte >z_ins_not
+} else {
+	!byte >z_ins_call_xn
+}
 
 z_opcount_1op_jump_low_arr
 	!byte <z_ins_jz
@@ -179,7 +178,11 @@ z_opcount_1op_jump_low_arr
 	!byte <z_ins_jump
 	!byte <z_ins_print_paddr
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+!ifndef Z5PLUS {
+	!byte <z_ins_not
+} else {
+	!byte <z_ins_call_xn
+}
 	
 z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
 
@@ -210,7 +213,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_div
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_ins_call_2n
+	!byte >z_ins_call_xn
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -244,7 +247,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_div
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_ins_call_2n
+	!byte <z_ins_call_xn
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -286,14 +289,16 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+!ifdef Z5PLUS {
+	!byte >z_ins_not
+	!byte >z_ins_call_xn
+	!byte >z_ins_call_xn
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+}
 
 
 z_opcount_var_jump_low_arr
@@ -329,14 +334,16 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+!ifdef Z5PLUS {
+	!byte <z_ins_not
+	!byte <z_ins_call_xn
+	!byte <z_ins_call_xn
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+}
 
 z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
 ; These get zeropage addresses in constants.asm:
@@ -1087,6 +1094,15 @@ z_ins_jz
 	beq .branch_true
 	bne .branch_false
 
+z_ins_not
+	jsr evaluate_all_args
+	lda z_operand_value_low_arr
+	eor #$ff
+	tax
+	lda z_operand_value_high_arr
+	eor #$ff
+	jmp z_store_result
+	
 ; 2OP instructions
 
 z_ins_je
@@ -1323,7 +1339,7 @@ z_ins_div
 	ldx division_result
 	jmp z_store_result
 	
-z_ins_call_2n
+z_ins_call_xn
 	jsr evaluate_all_args
 	jsr check_for_routine_0_and_store
 	bne +
