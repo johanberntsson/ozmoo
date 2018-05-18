@@ -5,6 +5,9 @@ TODO:
 - rewrite floppy access code to use all available sectors
 - use more memory, $E000-$FFFF, perhaps also $D000-$E000?
 - support splitting of large files onto two floppies
+- optimise find_word_in_dictionary by stopping when searching > word
+- Czech tests: https://github.com/DustinCampbell/ZGo/tree/master/zcode/czech
+  https://www.ifarchive.org/indexes/if-archiveXinfocomXinterpretersXtools.html
 
 DONE:
 - the .block range in readblocks need to be increased
