@@ -25,7 +25,6 @@ z_global_vars_start	!byte 0, 0
 ; 1OP
 ; ---
 ; get_prop_len
-; call_1s
 ; remove_obj
 ; load
 ;
@@ -43,7 +42,6 @@ z_global_vars_start	!byte 0, 0
 ; get_next_prop
 ; div
 ; mod
-; call_2s
 ; set_colour
 ; throw
 ;
@@ -55,7 +53,6 @@ z_global_vars_start	!byte 0, 0
 ; random (Only handles range < 256, and no seeding)
 ; split_window
 ; set_window
-; call_vs2
 ; erase_window
 ; erase_line
 ; set_cursor
@@ -149,7 +146,7 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_inc
 	!byte >z_ins_dec
 	!byte >z_ins_print_addr
-	!byte >z_not_implemented
+	!byte >z_ins_call_xs
 	!byte >z_ins_remove_obj
 	!byte >z_ins_print_obj
 	!byte >z_ins_ret
@@ -171,7 +168,7 @@ z_opcount_1op_jump_low_arr
 	!byte <z_ins_inc
 	!byte <z_ins_dec
 	!byte <z_ins_print_addr
-	!byte <z_not_implemented
+	!byte <z_ins_call_xs
 	!byte <z_ins_remove_obj
 	!byte <z_ins_print_obj
 	!byte <z_ins_ret
@@ -212,7 +209,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_mul
 	!byte >z_ins_div
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_call_xs
 	!byte >z_ins_call_xn
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -246,7 +243,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_mul
 	!byte <z_ins_div
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_call_xs
 	!byte <z_ins_call_xn
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -257,11 +254,7 @@ z_opcount_2op_jump_low_arr
 z_last_implemented_2op_opcode_number = * - z_opcount_2op_jump_low_arr - 1
 
 z_opcount_var_jump_high_arr
-!ifdef Z4PLUS {
-	!byte >z_ins_call_vs
-} else {
-	!byte >z_ins_call
-}
+	!byte >z_ins_call_xs
 	!byte >z_ins_loadw_and_storew
 	!byte >z_ins_storeb
 	!byte >z_ins_put_prop
@@ -277,7 +270,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_call_xs
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -302,11 +295,7 @@ z_opcount_var_jump_high_arr
 
 
 z_opcount_var_jump_low_arr
-!ifdef Z4PLUS {
-	!byte <z_ins_call_vs
-} else {
-	!byte <z_ins_call
-}
+	!byte <z_ins_call_xs
 	!byte <z_ins_loadw_and_storew
 	!byte <z_ins_storeb
 	!byte <z_ins_put_prop
@@ -322,7 +311,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_call_xs
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -801,20 +790,16 @@ evaluate_all_args_except_x
 !zone {
 check_for_routine_0
 	; If value in argument 0 is 0, set status flag Z to 1 and return 
-	lda #0
-	cmp z_operand_value_high_arr
-	bne +
-	cmp z_operand_value_low_arr
-+	rts
+	lda z_operand_value_high_arr
+	ora z_operand_value_low_arr
+	rts
 check_for_routine_0_and_store
 	; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
 	jsr check_for_routine_0
 	bne .not_0
-	jsr read_byte_at_z_pc_then_inc
-	tay
 	lda #0
 	tax
-	jsr z_set_variable
+	jsr z_store_result
 	lda #0
 .not_0
 	rts
@@ -1341,7 +1326,7 @@ z_ins_div
 	
 z_ins_call_xn
 	jsr evaluate_all_args
-	jsr check_for_routine_0_and_store
+	jsr check_for_routine_0
 	bne +
 	rts
 +	ldx z_operand_count
@@ -1351,8 +1336,7 @@ z_ins_call_xn
 	
 ; VAR instructions
 	
-z_ins_call
-z_ins_call_vs
+z_ins_call_xs
 	jsr evaluate_all_args
 	jsr check_for_routine_0_and_store
 	bne +
