@@ -2,7 +2,7 @@
 ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect12.html
 
 ;TRACE_TREE = 1 ; trace get_parent, get_sibling, get_child
-;TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
+TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
 ;TRACE_ATTR = 1 ; trace find_attr, set_attr, clear_attr
 ;TRACE_PROP = 1  ; trace get_prop_len, 
 
@@ -108,17 +108,12 @@ z_ins_get_parent
 } else  {
     lda (object_tree_ptr),y
     tax
+    iny
     lda (object_tree_ptr),y
 }
 !ifdef TRACE_TREE {
-    pha
-    txa
-    pha
     jsr printx
     jsr newline
-    pla
-    tax
-    pla
 }
     jmp z_store_result
 
@@ -160,7 +155,13 @@ z_ins_remove_obj
     jsr evaluate_all_args
 !ifdef TRACE_OBJ {
     jsr print_following_string
-    !pet "remove_obj object: ", 13, 0
+    !pet "remove_obj object: ", 0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr
+    jsr printx
+    jsr space
 }
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -169,19 +170,27 @@ z_ins_remove_obj
     sta zp_mempos
     lda object_tree_ptr + 1
     sta zp_mempos + 1
-!ifndef Z4PLUS {
+!ifdef Z4PLUS {
+    jsr fatalerror
+    !pet "TODO z_ins_remove_obj Z4-Z8", 13, 0
+} else {
     ; get parent
     ldy #4  ; parent
     lda (zp_mempos),y
     bne +
     ; no parent, so no action
+!ifdef TRACE_OBJ {
+    jsr print_following_string
+    !pet "noparent", 13, 0
+}
     rts
-+   tax
++   tax ; x = parent
     lda #0
     sta (zp_mempos),y ; set obj.parent = null
     jsr calculate_object_address
     ldy #6  ; child
     lda (object_tree_ptr),y
+    jsr printa
     cmp z_operand_value_low_arr 
     bne +
     ; set parent.child = obj.sibling
@@ -206,17 +215,13 @@ z_ins_remove_obj
     sta (zp_mempos),y            ; obj.sibling = null
     rts
 }
-!ifdef Z4PLUS {
-    jsr fatalerror
-    !pet "TODO z_ins_remove_obj Z4-Z8", 13, 0
-}
 
 find_attr
     ; find attribute
     ; output: 
     ;   y = index to attribute byte relative object_tree_ptr
     ;   x = bit to set/clear, use .bitmask)
-    jsr evaluate_all_args
+    ; need to call evaluate_all_args before find_attr
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -287,11 +292,23 @@ z_ins_print_obj
 
 z_ins_jin
     ; jin obj1 obj2 ?(label)
+    jsr evaluate_all_args
 !ifdef TRACE_OBJ {
     jsr print_following_string
-    !pet "jin obj1 obj2: ", 13, 0
+    !pet "jin obj1 obj2: ", 0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr + 1
+    jsr printx
+    jsr newline
 }
-    jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -301,21 +318,21 @@ z_ins_jin
     cmp z_operand_value_low_arr + 1
     bne .branch_false
     beq .branch_true
-}
-!ifdef Z4PLUS {
+} else {
     ldy #6  ; parent
     lda (object_tree_ptr),y
-    cmp z_operand_value_low_arr + 1
+    cmp z_operand_value_high_arr + 1
     bne .branch_false
     iny
     lda (object_tree_ptr),y
-    cmp z_operand_value_high_arr + 1
+    cmp z_operand_value_low_arr + 1
     bne .branch_false
     beq .branch_true
 }
 
 z_ins_test_attr
     ; test_attr object attribute ?(label)
+    jsr evaluate_all_args
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "test_attr obj attr: ",0
@@ -343,11 +360,34 @@ z_ins_test_attr
 
 z_ins_set_attr
     ; set_attr object attribute
+    jsr evaluate_all_args
+    jsr find_attr
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "set_attr object attr: ", 0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr + 1
+    jsr printx
+    jsr space
 }
-    jsr find_attr
+    ; don't continue if object = 0
+    ldx z_operand_value_low_arr
+    bne .do_set_attr
+    ldx z_operand_value_low_arr + 1
+    bne .do_set_attr
+!ifdef TRACE_ATTR {
+    jsr newline
+}
+    rts
+.do_set_attr
     lda (object_tree_ptr),y
 !ifdef TRACE_ATTR {
     jsr printa
@@ -363,11 +403,34 @@ z_ins_set_attr
 
 z_ins_clear_attr
     ; clear_attr object attribute
+    jsr evaluate_all_args
+    jsr find_attr
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "clear_attr object attr: ", 0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr space
+    ldx z_operand_value_high_arr + 1
+    jsr printx
+    jsr space
 }
-    jsr find_attr
+    ; don't continue if object = 0
+    ldx z_operand_value_low_arr
+    bne .do_clear_attr
+    ldx z_operand_value_low_arr + 1
+    bne .do_clear_attr
+!ifdef TRACE_ATTR {
+    jsr newline
+}
+    rts
+.do_clear_attr
     lda (object_tree_ptr),y
 !ifdef TRACE_ATTR {
     jsr printa
@@ -603,6 +666,7 @@ z_ins_get_prop
     bne .proplength_not_two
     jsr read_next_byte
     sta .prop_result + 1
+    jmp .proplength_one_or_more
 .proplength_not_two
     cmp #0
     bne .proplength_one_or_more
