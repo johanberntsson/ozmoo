@@ -1,0 +1,1260 @@
+
+Story file is minform.z5
+
+    **** Story file header ****
+
+Z-code version:           5
+Interpreter flags:        None
+Release number:           4
+Size of resident memory:  2864
+Start PC:                 2865
+Dictionary address:       1c93
+Object table address:     010a
+Global variables address: 0ade
+Size of dynamic memory:   148f
+Game flags:               Supports undo
+Serial number:            180518
+Abbreviations address:    0042
+File size:                149a4
+Checksum:                 daa5
+Terminating keys address: 148e
+    Keys used: 
+Header extension address: 0102
+Inform Version:           6.33
+Header extension length:  0003
+Unicode table address:    0000
+Inform Version: 633
+
+    **** Story file map ****
+
+ Base    End   Size
+    0     3f     40  Story file header
+   40     41      2  Abbreviation data
+   42    101     c0  Abbreviation pointer table
+  102    109      8  Header extension table
+  10a    363    25a  Object table
+  364    740    3dd  Property data
+  741    74c      c  Class Prototype Object Numbers
+  74d    82e     e2  Property Names Table
+  82f    88e     60  Attribute Names Table
+  88f    add    24f
+  ade    cbd    1e0  Global variables
+  cbe   148e    7d1
+ 148f   154c     be  Grammar pointer table
+ 154d   1bba    66e  Grammar data
+ 1bbb   1c90     d6  Action routine table
+ 1c91   1c92      2
+ 1c93   2860    bce  Dictionary
+ 2861   2863      3
+ 2864  149a3  12140  Paged memory
+
+    **** Abbreviations ****
+
+[ 0] "   "
+[ 1] "   "
+[ 2] "   "
+[ 3] "   "
+[ 4] "   "
+[ 5] "   "
+[ 6] "   "
+[ 7] "   "
+[ 8] "   "
+[ 9] "   "
+[10] "   "
+[11] "   "
+[12] "   "
+[13] "   "
+[14] "   "
+[15] "   "
+[16] "   "
+[17] "   "
+[18] "   "
+[19] "   "
+[20] "   "
+[21] "   "
+[22] "   "
+[23] "   "
+[24] "   "
+[25] "   "
+[26] "   "
+[27] "   "
+[28] "   "
+[29] "   "
+[30] "   "
+[31] "   "
+[32] "   "
+[33] "   "
+[34] "   "
+[35] "   "
+[36] "   "
+[37] "   "
+[38] "   "
+[39] "   "
+[40] "   "
+[41] "   "
+[42] "   "
+[43] "   "
+[44] "   "
+[45] "   "
+[46] "   "
+[47] "   "
+[48] "   "
+[49] "   "
+[50] "   "
+[51] "   "
+[52] "   "
+[53] "   "
+[54] "   "
+[55] "   "
+[56] "   "
+[57] "   "
+[58] "   "
+[59] "   "
+[60] "   "
+[61] "   "
+[62] "   "
+[63] "   "
+[64] "   "
+[65] "   "
+[66] "   "
+[67] "   "
+[68] "   "
+[69] "   "
+[70] "   "
+[71] "   "
+[72] "   "
+[73] "   "
+[74] "   "
+[75] "   "
+[76] "   "
+[77] "   "
+[78] "   "
+[79] "   "
+[80] "   "
+[81] "   "
+[82] "   "
+[83] "   "
+[84] "   "
+[85] "   "
+[86] "   "
+[87] "   "
+[88] "   "
+[89] "   "
+[90] "   "
+[91] "   "
+[92] "   "
+[93] "   "
+[94] "   "
+[95] "   "
+
+    **** Objects ****
+
+  Object count = 34
+
+  1. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   5
+     Property address: 0364
+         Description: "Class"
+          Properties:
+
+  2. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 0374
+         Description: "Object"
+          Properties:
+
+  3. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 0386
+         Description: "Routine"
+          Properties:
+
+  4. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 0398
+         Description: "String"
+          Properties:
+
+  5. Attributes: None
+     Parent object:   1  Sibling object:   0  Child object:   0
+     Property address: 03aa
+         Description: "CompassDirection"
+          Properties:
+              [ 3] 09 b1 
+
+  6. Attributes: 3
+     Parent object:   0  Sibling object:   0  Child object:   7
+     Property address: 03d4
+         Description: "compass"
+          Properties:
+
+  7. Attributes: 17
+     Parent object:   6  Sibling object:   8  Child object:   0
+     Property address: 03dc
+         Description: "(n_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 5b 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 07 
+              [ 3] 09 b8 
+              [ 2] 00 05 
+              [ 1] 22 16 22 55 
+
+  8. Attributes: 17
+     Parent object:   6  Sibling object:   9  Child object:   0
+     Property address: 0404
+         Description: "(s_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 5c 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 08 
+              [ 3] 09 bf 
+              [ 2] 00 05 
+              [ 1] 24 3b 25 91 
+
+  9. Attributes: 17
+     Parent object:   6  Sibling object:  10  Child object:   0
+     Property address: 042c
+         Description: "(e_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 5d 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 09 
+              [ 3] 09 c6 
+              [ 2] 00 05 
+              [ 1] 1f 34 1f 46 
+
+ 10. Attributes: 17
+     Parent object:   6  Sibling object:  11  Child object:   0
+     Property address: 0454
+         Description: "(w_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 5e 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 0a 
+              [ 3] 09 cd 
+              [ 2] 00 05 
+              [ 1] 27 d1 28 10 
+
+ 11. Attributes: 17
+     Parent object:   6  Sibling object:  12  Child object:   0
+     Property address: 047c
+         Description: "(ne_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 5f 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 0b 
+              [ 3] 09 d4 
+              [ 2] 00 05 
+              [ 1] 22 28 22 5e 
+
+ 12. Attributes: 17
+     Parent object:   6  Sibling object:  13  Child object:   0
+     Property address: 04a4
+         Description: "(nw_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 61 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 0c 
+              [ 3] 09 db 
+              [ 2] 00 05 
+              [ 1] 22 8b 22 67 
+
+ 13. Attributes: 17
+     Parent object:   6  Sibling object:  14  Child object:   0
+     Property address: 04cc
+         Description: "(se_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 63 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 0d 
+              [ 3] 09 e2 
+              [ 2] 00 05 
+              [ 1] 24 83 25 9a 
+
+ 14. Attributes: 17
+     Parent object:   6  Sibling object:  15  Child object:   0
+     Property address: 04f4
+         Description: "(sw_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 65 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 0e 
+              [ 3] 09 e9 
+              [ 2] 00 05 
+              [ 1] 25 eb 25 a3 
+
+ 15. Attributes: 17
+     Parent object:   6  Sibling object:  16  Child object:   0
+     Property address: 051c
+         Description: "(u_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 67 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 0f 
+              [ 3] 09 f0 
+              [ 2] 00 05 
+              [ 1] 27 53 27 a4 1d f9 1c eb 25 37 
+
+ 16. Attributes: 17
+     Parent object:   6  Sibling object:  17  Child object:   0
+     Property address: 054a
+         Description: "(d_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 69 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 10 
+              [ 3] 09 f7 
+              [ 2] 00 05 
+              [ 1] 1e 80 1e fe 20 03 1d 8d 20 9c 
+
+ 17. Attributes: 17
+     Parent object:   6  Sibling object:  18  Child object:   0
+     Property address: 0578
+         Description: "(in_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 6a 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 11 
+              [ 3] 09 fe 
+              [ 2] 00 05 
+
+ 18. Attributes: 17
+     Parent object:   6  Sibling object:   0  Child object:   0
+     Property address: 059a
+         Description: "(out_obj)"
+          Properties:
+              [48] 0a 29 
+              [46] 4b 6b 
+              [41] 00 00 
+              [37] 4b 5a 
+              [35] 0a 1e 
+              [21] 00 12 
+              [ 3] 0a 05 
+              [ 2] 00 05 
+
+ 19. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 05bc
+         Description: "(darkness object)"
+          Properties:
+              [46] 4b a2 
+              [35] 17 aa 
+              [30] 00 00 
+
+ 20. Attributes: 0, 3, 16, 23
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 05d5
+         Description: "(self object)"
+          Properties:
+              [48] 00 00 
+              [46] 4b 9e 
+              [45] 00 64 
+              [44] ff ff 
+              [42] ff ff 
+              [41] 00 00 
+              [37] 4f 26 
+              [36] ff ff 
+              [35] 17 ad 
+              [29] 00 00 
+              [24] 00 00 
+              [ 6] ff ff 
+              [ 5] ff ff 
+              [ 4] ff ff 
+              [ 3] 0a 0c 
+              [ 1] 1c ac 1c b5 1c be 1c c7 1c d0 
+
+ 21. Attributes: 16
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 061a
+         Description: "(Inform Parser)"
+          Properties:
+              [ 3] 0a 27 
+
+ 22. Attributes: 16
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 062d
+         Description: "(Inform Library)"
+          Properties:
+              [ 3] 0a 2e 
+
+ 23. Attributes: 16
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 0640
+         Description: "(Library Extensions)"
+          Properties:
+              [ 3] 0a 44 
+
+ 24. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 0655
+         Description: "(LibraryMessages)"
+          Properties:
+              [ 4] 31 ad 
+
+ 25. Attributes: 9
+     Parent object:   0  Sibling object:   0  Child object:  26
+     Property address: 0668
+         Description: "My Room"
+          Properties:
+              [35] 4f 35 
+              [16] 00 21 
+              [ 8] 00 20 
+
+ 26. Attributes: 17
+     Parent object:  25  Sibling object:  27  Child object:   0
+     Property address: 0679
+         Description: "stairwell"
+          Properties:
+              [35] 4f 43 
+              [ 4] 46 42 
+              [ 1] 25 c7 25 d0 
+
+ 27. Attributes: 4, 15
+     Parent object:  25  Sibling object:  28  Child object:   0
+     Property address: 068d
+         Description: "small red box"
+          Properties:
+              [35] 4f 47 
+              [ 1] 25 52 23 d8 1d ba 
+
+ 28. Attributes: 19, 21
+     Parent object:  25  Sibling object:  29  Child object:   0
+     Property address: 06a4
+         Description: "lightswitch"
+          Properties:
+              [36] 4f 4c 
+              [35] 4f 52 
+              [ 1] 21 b3 26 18 
+
+ 29. Attributes: 0
+     Parent object:  25  Sibling object:  30  Child object:   0
+     Property address: 06ba
+         Description: "robot"
+          Properties:
+              [44] 46 46 
+              [35] 4f 56 
+              [29] 46 67 
+              [ 6] 46 53 
+              [ 3] 0a d7 
+              [ 1] 24 05 
+
+ 30. Attributes: 4, 14, 15, 19
+     Parent object:  25  Sibling object:  31  Child object:   0
+     Property address: 06d2
+         Description: "toy box"
+          Properties:
+              [35] 4f b0 
+              [ 4] 46 7f 
+              [ 1] 1d 9f 26 f9 1d ba 27 02 
+
+ 31. Attributes: None
+     Parent object:  25  Sibling object:   0  Child object:   0
+     Property address: 06ea
+         Description: "small toy"
+          Properties:
+              [35] 4f be 
+              [ 1] 25 52 26 f9 
+
+ 32. Attributes: None
+     Parent object:   0  Sibling object:   0  Child object:   0
+     Property address: 06fb
+         Description: "My Other Room"
+          Properties:
+              [35] 4f c2 
+              [ 7] 00 19 
+
+ 33. Attributes: 9
+     Parent object:   0  Sibling object:   0  Child object:  34
+     Property address: 070f
+         Description: "Downstairs Room"
+          Properties:
+              [38] 4f dd 
+              [35] 4f d0 
+              [15] 00 19 
+
+ 34. Attributes: None
+     Parent object:  33  Sibling object:   0  Child object:   0
+     Property address: 0726
+         Description: "small ball"
+          Properties:
+              [35] 4f e2 
+              [ 5] 46 86 
+              [ 4] 46 83 
+              [ 1] 25 52 24 20 1d 84 
+
+    **** Object tree ****
+
+[  1] "Class"
+ . [  5] "CompassDirection"
+[  2] "Object"
+[  3] "Routine"
+[  4] "String"
+[  6] "compass"
+ . [  7] "(n_obj)"
+ . [  8] "(s_obj)"
+ . [  9] "(e_obj)"
+ . [ 10] "(w_obj)"
+ . [ 11] "(ne_obj)"
+ . [ 12] "(nw_obj)"
+ . [ 13] "(se_obj)"
+ . [ 14] "(sw_obj)"
+ . [ 15] "(u_obj)"
+ . [ 16] "(d_obj)"
+ . [ 17] "(in_obj)"
+ . [ 18] "(out_obj)"
+[ 19] "(darkness object)"
+[ 20] "(self object)"
+[ 21] "(Inform Parser)"
+[ 22] "(Inform Library)"
+[ 23] "(Library Extensions)"
+[ 24] "(LibraryMessages)"
+[ 25] "My Room"
+ . [ 26] "stairwell"
+ . [ 27] "small red box"
+ . [ 28] "lightswitch"
+ . [ 29] "robot"
+ . [ 30] "toy box"
+ . [ 31] "small toy"
+[ 32] "My Other Room"
+[ 33] "Downstairs Room"
+ . [ 34] "small ball"
+
+    **** Parse tables ****
+
+  Verb entries = 95
+
+255. 1 entry, verb = "brief"
+    [00 24 0f]                "brief"
+
+254. 1 entry, verb = "long", synonyms = "verbose"
+    [00 25 0f]                "long"
+
+253. 1 entry, verb = "short", synonyms = "superbrie"
+    [00 26 0f]                "short"
+
+252. 1 entry, verb = "normal"
+    [00 65 0f]                "normal"
+
+251. 3 entries, verb = "notify"
+    [00 2d 0f]                "notify"
+    [00 2d 42 22 c1 0f]       "notify on"
+    [00 2c 42 22 af 0f]       "notify off"
+
+250. 1 entry, verb = "nouns", synonyms = "pronouns"
+    [00 32 0f]                "nouns"
+
+249. 1 entry, verb = "die", synonyms = "q", "quit"
+    [00 38 0f]                "die"
+
+248. 3 entries, verb = "recording"
+    [00 0a 0f]                "recording"
+    [00 0a 42 22 c1 0f]       "recording on"
+    [00 09 42 22 af 0f]       "recording off"
+
+247. 1 entry, verb = "replay"
+    [00 0b 0f]                "replay"
+
+246. 1 entry, verb = "restart"
+    [00 3a 0f]                "restart"
+
+245. 1 entry, verb = "restore"
+    [00 3b 0f]                "restore"
+
+244. 1 entry, verb = "save"
+    [00 3d 0f]                "save"
+
+243. 1 entry, verb = "score"
+    [00 3e 0f]                "score"
+
+242. 2 entries, verb = "full", synonyms = "fullscore"
+    [00 18 0f]                "full"
+    [00 18 42 24 5f 0f]       "full score"
+
+241. 3 entries, verb = "script", synonyms = "transcrip"
+    [00 40 0f]                "script"
+    [00 40 42 22 c1 0f]       "script on"
+    [00 3f 42 22 af 0f]       "script off"
+
+240. 1 entry, verb = "noscript", synonyms = "unscript"
+    [00 3f 0f]                "noscript"
+
+239. 1 entry, verb = "verify"
+    [00 58 0f]                "verify"
+
+238. 1 entry, verb = "version"
+    [00 66 0f]                "version"
+
+237. 1 entry, verb = "objects"
+    [00 2e 0f]                "objects"
+
+236. 1 entry, verb = "places"
+    [00 30 0f]                "places"
+
+235. 1 entry, verb = "answer", synonyms = "say", "shout", "speak"
+    [00 01 01 00 09 42 26 d5 01 00 06 0f] "answer topic to creature"
+
+234. 4 entries, verb = "ask"
+    [00 02 01 00 06 42 1c e2 01 00 09 0f] "ask creature about topic"
+    [00 60 01 00 06 42 20 15 01 00 00 0f] "ask creature for noun"
+    [00 5f 01 00 06 42 26 d5 01 00 09 0f] "ask creature to topic"
+    [00 5f 42 26 4e 01 00 06 01 00 09 0f] "ask that creature topic"
+
+233. 1 entry, verb = "attack", synonyms = "break", "crack", "destroy", "fight",
+                                          "hit", "kill", "murder", "punch",
+                                          "smash", "thump", "torture", "wreck"
+    [00 03 01 00 00 0f]       "attack noun"
+
+232. 1 entry, verb = "blow"
+    [00 04 01 00 01 0f]       "blow held"
+
+231. 2 entries, verb = "bother", synonyms = "curses", "darn", "drat"
+    [00 29 0f]                "bother"
+    [00 29 01 00 09 0f]       "bother topic"
+
+230. 2 entries, verb = "burn", synonyms = "light"
+    [00 05 01 00 00 0f]       "burn noun"
+    [00 05 01 00 00 42 28 2b 01 00 01 0f] "burn noun with held"
+
+229. 1 entry, verb = "buy", synonyms = "purchase"
+    [00 06 01 00 00 0f]       "buy noun"
+
+228. 2 entries, verb = "climb", synonyms = "scale"
+    [00 07 01 00 00 0f]       "climb noun"
+    [00 07 62 27 a4 52 23 09 01 00 00 0f] "climb up / over noun"
+
+227. 3 entries, verb = "close", synonyms = "cover", "shut"
+    [00 08 01 00 00 0f]       "close noun"
+    [00 08 42 27 a4 01 00 00 0f] "close up noun"
+    [00 4d 42 22 af 01 00 00 0f] "close off noun"
+
+226. 2 entries, verb = "consult"
+    [00 0c 01 00 00 42 1c e2 01 00 09 0f] "consult noun about topic"
+    [00 0c 01 00 00 42 22 c1 01 00 09 0f] "consult noun on topic"
+
+225. 1 entry, verb = "chop", synonyms = "cut", "prune", "slice"
+    [00 0d 01 00 00 0f]       "chop noun"
+
+224. 4 entries, verb = "dig"
+    [00 0e 01 00 00 0f]       "dig noun"
+    [00 0e 01 00 00 42 28 2b 01 00 01 0f] "dig noun with held"
+    [00 0e 42 21 11 01 00 00 0f] "dig in noun"
+    [00 0e 42 21 11 01 00 00 42 28 2b 01 00 01 0f] "dig in noun with held"
+
+223. 1 entry, verb = "disrobe", synonyms = "doff", "shed"
+    [00 0f 01 00 01 0f]       "disrobe held"
+
+222. 1 entry, verb = "drink", synonyms = "sip", "swallow"
+    [00 10 01 00 00 0f]       "drink noun"
+
+221. 3 entries, verb = "discard", synonyms = "drop"
+    [00 11 01 00 03 0f]       "discard multiheld"
+    [00 1c 01 00 04 62 21 11 72 21 2c 52 1e fe 01 00 00 0f] "discard
+multiexcept in / into / down noun"
+    [00 37 01 00 04 62 22 c1 52 22 d3 01 00 00 0f] "discard multiexcept on /
+onto noun"
+
+220. 1 entry, verb = "throw"
+    [00 53 01 00 01 62 1d 57 72 1d 06 72 22 c1 52 22 d3 01 00 00 0f] "throw
+held at / against / on / onto noun"
+
+219. 1 entry, verb = "eat"
+    [00 12 01 00 01 0f]       "eat held"
+
+218. 4 entries, verb = "empty"
+    [00 67 01 00 00 0f]       "empty noun"
+    [00 67 42 22 f7 01 00 00 0f] "empty out noun"
+    [00 67 01 00 00 42 22 f7 0f] "empty noun out"
+    [00 13 01 00 00 62 26 d5 72 21 2c 72 22 c1 52 22 d3 01 00 00 0f] "empty
+noun to / into / on / onto noun"
+
+217. 2 entries, verb = "cross", synonyms = "enter"
+    [00 68 0f]                "cross"
+    [00 14 01 00 00 0f]       "cross noun"
+
+216. 1 entry, verb = "check", synonyms = "describe", "examine", "watch", "x"
+    [00 15 01 00 00 0f]       "check noun"
+
+215. 2 entries, verb = "exit", synonyms = "out", "outside"
+    [00 16 0f]                "exit"
+    [00 16 01 00 00 0f]       "exit noun"
+
+214. 2 entries, verb = "fill"
+    [00 17 01 00 00 0f]       "fill noun"
+    [00 17 01 00 00 42 20 42 01 00 00 0f] "fill noun from noun"
+
+213. 5 entries, verb = "get"
+    [00 16 62 22 f7 72 22 af 52 27 a4 62 22 a6 52 20 42 01 00 00 0f] "get out /
+off / up of / from noun"
+    [00 4f 01 00 02 0f]       "get multi"
+    [00 14 62 21 11 72 21 2c 72 22 c1 52 22 d3 01 00 00 0f] "get in / into / on
+/ onto noun"
+    [00 19 42 22 af 01 00 00 0f] "get off noun"
+    [00 39 01 00 05 62 20 42 52 22 af 01 00 00 0f] "get multiinside from / off
+noun"
+
+212. 3 entries, verb = "feed", synonyms = "give", "offer", "pay"
+    [00 1a 01 00 01 42 26 d5 01 00 06 0f] "feed held to creature"
+    [04 1a 01 00 06 01 00 01 0f] "feed creature held" REVERSE
+    [00 1a 42 23 09 01 00 01 42 26 d5 01 00 06 0f] "feed over held to creature"
+
+211. 6 entries, verb = "go", synonyms = "run", "walk"
+    [00 57 0f]                "go"
+    [00 1b 83 46 98 0f]       "go noun = [parse $4698]"
+    [00 14 01 00 00 0f]       "go noun"
+    [00 16 62 22 f7 52 23 00 0f] "go out / outside"
+    [00 68 62 21 11 52 21 23 0f] "go in / inside"
+    [00 14 62 21 2c 72 21 11 72 21 23 52 26 b1 01 00 00 0f] "go into / in /
+inside / through noun"
+
+210. 1 entry, verb = "in", synonyms = "inside"
+    [00 68 0f]                "in"
+
+209. 1 entry, verb = "insert"
+    [00 1c 01 00 04 62 21 11 52 21 2c 01 00 00 0f] "insert multiexcept in /
+into noun"
+
+208. 3 entries, verb = "i", synonyms = "inv", "inventory"
+    [00 1d 0f]                "i"
+    [00 69 42 26 2a 0f]       "i tall"
+    [00 6a 42 28 19 0f]       "i wide"
+
+207. 6 entries, verb = "hop", synonyms = "jump", "skip"
+    [00 1e 0f]                "hop"
+    [00 1f 42 21 11 01 00 00 0f] "hop in noun"
+    [00 1f 42 21 2c 01 00 00 0f] "hop into noun"
+    [00 20 42 22 c1 01 00 00 0f] "hop on noun"
+    [00 20 42 27 ad 01 00 00 0f] "hop upon noun"
+    [00 21 42 23 09 01 00 00 0f] "hop over noun"
+
+206. 1 entry, verb = "embrace", synonyms = "hug", "kiss"
+    [00 22 01 00 06 0f]       "embrace creature"
+
+205. 4 entries, verb = "leave"
+    [00 57 0f]                "leave"
+    [00 1b 83 46 98 0f]       "leave noun = [parse $4698]"
+    [00 16 01 00 00 0f]       "leave noun"
+    [00 14 62 21 2c 72 21 11 72 21 23 52 26 b1 01 00 00 0f] "leave into / in /
+inside / through noun"
+
+204. 3 entries, verb = "hear", synonyms = "listen"
+    [00 23 0f]                "hear"
+    [00 23 01 00 00 0f]       "hear noun"
+    [00 23 42 26 d5 01 00 00 0f] "hear to noun"
+
+203. 1 entry, verb = "lock"
+    [00 27 01 00 00 42 28 2b 01 00 01 0f] "lock noun with held"
+
+202. 7 entries, verb = "l", synonyms = "look"
+    [00 00 0f]                "l"
+    [00 15 42 1d 57 01 00 00 0f] "l at noun"
+    [00 41 62 21 23 72 21 11 72 21 2c 72 26 b1 52 22 c1 01 00 00 0f] "l inside
+/ in / into / through / on noun"
+    [00 28 42 27 65 01 00 00 0f] "l under noun"
+    [00 0c 42 27 a4 01 00 09 42 21 11 01 00 00 0f] "l up topic in noun"
+    [00 15 83 46 98 0f]       "l noun = [parse $4698]"
+    [00 15 42 26 d5 83 46 98 0f] "l to noun = [parse $4698]"
+
+201. 1 entry, verb = "no"
+    [00 2a 0f]                "no"
+
+200. 2 entries, verb = "open", synonyms = "uncover", "undo", "unwrap"
+    [00 2f 01 00 00 0f]       "open noun"
+    [00 56 01 00 00 42 28 2b 01 00 01 0f] "open noun with held"
+
+199. 2 entries, verb = "peel"
+    [00 4f 01 00 00 0f]       "peel noun"
+    [00 4f 42 22 af 01 00 00 0f] "peel off noun"
+
+198. 2 entries, verb = "pick"
+    [00 4f 42 27 a4 01 00 02 0f] "pick up multi"
+    [00 4f 01 00 02 42 27 a4 0f] "pick multi up"
+
+197. 1 entry, verb = "pray"
+    [00 31 0f]                "pray"
+
+196. 3 entries, verb = "force", synonyms = "jemmy", "lever", "prise", "prize",
+                                           "pry"
+    [00 56 01 00 00 42 28 2b 01 00 01 0f] "force noun with held"
+    [00 56 62 1d 45 52 22 e5 01 00 00 42 28 2b 01 00 01 0f] "force apart / open
+noun with held"
+    [00 56 01 00 00 62 1d 45 52 22 e5 42 28 2b 01 00 01 0f] "force noun apart /
+open with held"
+
+195. 1 entry, verb = "drag", synonyms = "pull"
+    [00 33 01 00 00 0f]       "drag noun"
+
+194. 3 entries, verb = "clear", synonyms = "move", "press", "push", "shift"
+    [00 34 01 00 00 0f]       "clear noun"
+    [00 36 01 00 00 01 00 00 0f] "clear noun noun"
+    [00 63 01 00 00 42 26 d5 01 00 00 0f] "clear noun to noun"
+
+193. 5 entries, verb = "put"
+    [00 1c 01 00 04 62 21 11 72 21 23 52 21 2c 01 00 00 0f] "put multiexcept in
+/ inside / into noun"
+    [00 37 01 00 04 62 22 c1 52 22 d3 01 00 00 0f] "put multiexcept on / onto
+noun"
+    [00 5e 42 22 c1 01 00 01 0f] "put on held"
+    [00 11 42 1e fe 01 00 03 0f] "put down multiheld"
+    [00 11 01 00 03 42 1e fe 0f] "put multiheld down"
+
+192. 3 entries, verb = "read"
+    [00 15 01 00 00 0f]       "read noun"
+    [00 0c 42 1c e2 01 00 09 42 21 11 01 00 00 0f] "read about topic in noun"
+    [00 0c 01 00 09 42 21 11 01 00 00 0f] "read topic in noun"
+
+191. 3 entries, verb = "remove"
+    [00 0f 01 00 01 0f]       "remove held"
+    [00 4f 01 00 02 0f]       "remove multi"
+    [00 39 01 00 05 42 20 42 01 00 00 0f] "remove multiinside from noun"
+
+190. 1 entry, verb = "clean", synonyms = "dust", "polish", "rub", "scrub",
+                                         "shine", "sweep", "wipe"
+    [00 3c 01 00 00 0f]       "clean noun"
+
+189. 1 entry, verb = "search"
+    [00 41 01 00 00 0f]       "search noun"
+
+188. 2 entries, verb = "adjust", synonyms = "set"
+    [00 42 01 00 00 0f]       "adjust noun"
+    [00 43 01 00 00 42 26 d5 01 00 07 0f] "adjust noun to special"
+
+187. 2 entries, verb = "display", synonyms = "present", "show"
+    [04 44 01 00 06 01 00 01 0f] "display creature held" REVERSE
+    [00 44 01 00 01 42 26 d5 01 00 06 0f] "display held to creature"
+
+186. 2 entries, verb = "damn", synonyms = "fuck", "shit", "sod"
+    [00 4a 0f]                "damn"
+    [00 4a 01 00 09 0f]       "damn topic"
+
+185. 1 entry, verb = "sing"
+    [00 45 0f]                "sing"
+
+184. 2 entries, verb = "lie", synonyms = "sit"
+    [00 14 42 22 c1 42 26 de 42 22 a6 01 00 00 0f] "lie on top of noun"
+    [00 14 62 22 c1 72 21 11 52 21 23 01 00 00 0f] "lie on / in / inside noun"
+
+183. 1 entry, verb = "nap", synonyms = "sleep"
+    [00 46 0f]                "nap"
+
+182. 2 entries, verb = "smell", synonyms = "sniff"
+    [00 47 0f]                "smell"
+    [00 47 01 00 00 0f]       "smell noun"
+
+181. 1 entry, verb = "sorry"
+    [00 48 0f]                "sorry"
+
+180. 1 entry, verb = "squash", synonyms = "squeeze"
+    [00 49 01 00 00 0f]       "squash noun"
+
+179. 3 entries, verb = "stand"
+    [00 16 0f]                "stand"
+    [00 16 42 27 a4 0f]       "stand up"
+    [00 14 42 22 c1 01 00 00 0f] "stand on noun"
+
+178. 1 entry, verb = "dive", synonyms = "swim"
+    [00 4b 0f]                "dive"
+
+177. 2 entries, verb = "swing"
+    [00 4c 01 00 00 0f]       "swing noun"
+    [00 4c 42 22 c1 01 00 00 0f] "swing on noun"
+
+176. 5 entries, verb = "switch"
+    [00 4e 01 00 00 0f]       "switch noun"
+    [00 4e 01 00 00 42 22 c1 0f] "switch noun on"
+    [00 4d 01 00 00 42 22 af 0f] "switch noun off"
+    [00 4e 42 22 c1 01 00 00 0f] "switch on noun"
+    [00 4d 42 22 af 01 00 00 0f] "switch off noun"
+
+175. 4 entries, verb = "carry", synonyms = "hold", "take"
+    [00 4f 01 00 02 0f]       "carry multi"
+    [00 0f 42 22 af 01 00 01 0f] "carry off held"
+    [00 39 01 00 05 62 20 42 52 22 af 01 00 00 0f] "carry multiinside from /
+off noun"
+    [00 1d 42 21 3e 0f]       "carry inventory"
+
+174. 1 entry, verb = "taste"
+    [00 50 01 00 00 0f]       "taste noun"
+
+173. 2 entries, verb = "tell"
+    [00 51 01 00 06 42 1c e2 01 00 09 0f] "tell creature about topic"
+    [00 5f 01 00 06 42 26 d5 01 00 09 0f] "tell creature to topic"
+
+172. 1 entry, verb = "think"
+    [00 52 0f]                "think"
+
+171. 2 entries, verb = "attach", synonyms = "connect", "fasten", "fix", "tie"
+    [00 54 01 00 00 0f]       "attach noun"
+    [00 54 01 00 00 42 26 d5 01 00 00 0f] "attach noun to noun"
+
+170. 1 entry, verb = "feel", synonyms = "fondle", "grope", "touch"
+    [00 55 01 00 00 0f]       "feel noun"
+
+169. 1 entry, verb = "transfer"
+    [00 63 01 00 00 42 26 d5 01 00 00 0f] "transfer noun to noun"
+
+168. 5 entries, verb = "rotate", synonyms = "screw", "turn", "twist", "unscrew"
+    [00 35 01 00 00 0f]       "rotate noun"
+    [00 4e 01 00 00 42 22 c1 0f] "rotate noun on"
+    [00 4d 01 00 00 42 22 af 0f] "rotate noun off"
+    [00 4e 42 22 c1 01 00 00 0f] "rotate on noun"
+    [00 4d 42 22 af 01 00 00 0f] "rotate off noun"
+
+167. 1 entry, verb = "unlock"
+    [00 56 01 00 00 42 28 2b 01 00 01 0f] "unlock noun with held"
+
+166. 1 entry, verb = "wait", synonyms = "z"
+    [00 59 0f]                "wait"
+
+165. 5 entries, verb = "awake", synonyms = "awaken", "wake"
+    [00 5a 0f]                "awake"
+    [00 5a 42 27 a4 0f]       "awake up"
+    [00 5b 01 00 06 0f]       "awake creature"
+    [00 5b 01 00 06 42 27 a4 0f] "awake creature up"
+    [00 5b 42 27 a4 01 00 06 0f] "awake up creature"
+
+164. 4 entries, verb = "wave"
+    [00 5d 0f]                "wave"
+    [00 5c 01 00 00 0f]       "wave noun"
+    [00 5c 01 00 00 42 1d 57 01 00 00 0f] "wave noun at noun"
+    [00 5d 42 1d 57 01 00 00 0f] "wave at noun"
+
+163. 1 entry, verb = "don", synonyms = "wear"
+    [00 5e 01 00 01 0f]       "don held"
+
+162. 1 entry, verb = "y", synonyms = "yes"
+    [00 2b 0f]                "y"
+
+161. 1 entry, verb = "roll"
+    [00 64 01 00 00 0f]       "roll noun"
+
+    **** Verb action routines ****
+
+  Action table entries = 107
+
+action# action-routine "verb..."
+
+  0. 10818  "l"
+  1. 11168  "answer topic to creature"
+  2. 11180  "ask creature about topic"
+  3. 111b8  "attack noun"
+  4. 111ec  "blow held"
+  5. 111f8  "burn noun"
+            "burn noun with held"
+  6. 11224  "buy noun"
+  7. 11230  "climb noun"
+            "climb up / over noun"
+  8. 10f64  "close noun"
+            "close up noun"
+  9.  e4fc  "recording off"
+ 10.  e4ec  "recording"
+            "recording on"
+ 11.  e510  "replay"
+ 12. 1125c  "consult noun about topic"
+            "consult noun on topic"
+            "l up topic in noun"
+            "read about topic in noun"
+            "read topic in noun"
+ 13. 11268  "chop noun"
+ 14. 11294  "dig noun"
+            "dig noun with held"
+            "dig in noun"
+            "dig in noun with held"
+ 15. 10fc8  "disrobe held"
+            "remove held"
+            "carry off held"
+ 16. 112a0  "drink noun"
+ 17.  f414  "discard multiheld"
+            "put down multiheld"
+            "put multiheld down"
+ 18. 1109c  "eat held"
+ 19.  f860  "empty noun to / into / on / onto noun"
+ 20.  fb50  "cross noun"
+            "get in / into / on / onto noun"
+            "go noun"
+            "go into / in / inside / through noun"
+            "leave into / in / inside / through noun"
+            "lie on top of noun"
+            "lie on / in / inside noun"
+            "stand on noun"
+ 21. 10a44  "check noun"
+            "l at noun"
+            "l noun = [parse $4698]"
+            "l to noun = [parse $4698]"
+            "read noun"
+ 22.  fe28  "exit"
+            "exit noun"
+            "get out / off / up of / from noun"
+            "go out / outside"
+            "leave noun"
+            "stand"
+            "stand up"
+ 23. 112ac  "fill noun"
+            "fill noun from noun"
+ 24.  e7c8  "full"
+            "full score"
+ 25.  fdf0  "get off noun"
+ 26.  fa6c  "feed held to creature"
+            "feed creature held" REVERSE
+            "feed over held to creature"
+ 27.  ff8c  "go noun = [parse $4698]"
+            "leave noun = [parse $4698]"
+ 28.  f65c  "discard multiexcept in / into / down noun"
+            "insert multiexcept in / into noun"
+            "put multiexcept in / inside / into noun"
+ 29.  e888  "i"
+            "carry inventory"
+ 30. 112c4  "hop"
+ 31. 112d0  "hop in noun"
+            "hop into noun"
+ 32. 11318  "hop on noun"
+            "hop upon noun"
+ 33. 11378  "hop over noun"
+ 34. 113a4  "embrace creature"
+ 35. 113d0  "hear"
+            "hear noun"
+            "hear to noun"
+ 36. 10694  "brief"
+ 37. 106a4  "long"
+ 38. 106b4  "short"
+ 39. 10cd8  "lock noun with held"
+ 40. 10af8  "l under noun"
+ 41. 113dc  "bother"
+            "bother topic"
+ 42. 113e8  "no"
+ 43. 118a4  "y"
+ 44.  e52c  "notify off"
+ 45.  e520  "notify"
+            "notify on"
+ 46.  c6c0  "objects"
+ 47. 10e44  "open noun"
+ 48.  c6c8  "places"
+ 49. 113f0  "pray"
+ 50.  a4d0  "nouns"
+ 51. 113fc  "drag noun"
+ 52. 1148c  "clear noun"
+ 53. 1176c  "rotate noun"
+ 54. 1151c  "clear noun noun"
+ 55.  f4e8  "discard multiexcept on / onto noun"
+            "put multiexcept on / onto noun"
+ 56.  e3e8  "die"
+ 57.  f354  "get multiinside from / off noun"
+            "remove multiinside from noun"
+            "carry multiinside from / off noun"
+ 58.  e3f8  "restart"
+ 59.  e410  "restore"
+ 60. 11528  "clean noun"
+ 61.  e428  "save"
+ 62.  e70c  "score"
+ 63.  e4b0  "script off"
+            "noscript"
+ 64.  e470  "script"
+            "script on"
+ 65. 10b94  "l inside / in / into / through / on noun"
+            "search noun"
+ 66. 1155c  "adjust noun"
+ 67. 11568  "adjust noun to special"
+ 68.  faf8  "display creature held" REVERSE
+            "display held to creature"
+ 69. 11574  "sing"
+ 70. 11580  "nap"
+ 71. 1158c  "smell"
+            "smell noun"
+ 72. 115b8  "sorry"
+ 73. 115c4  "squash noun"
+ 74. 115fc  "damn"
+            "damn topic"
+ 75. 11608  "dive"
+ 76. 11614  "swing noun"
+            "swing on noun"
+ 77. 10de0  "close off noun"
+            "switch noun off"
+            "switch off noun"
+            "rotate noun off"
+            "rotate off noun"
+ 78. 10d7c  "switch noun"
+            "switch noun on"
+            "switch on noun"
+            "rotate noun on"
+            "rotate on noun"
+ 79.  f314  "get multi"
+            "peel noun"
+            "peel off noun"
+            "pick up multi"
+            "pick multi up"
+            "remove multi"
+            "carry multi"
+ 80. 11620  "taste noun"
+ 81. 11654  "tell creature about topic"
+ 82. 11678  "think"
+ 83. 11684  "throw held at / against / on / onto noun"
+ 84. 11700  "attach noun"
+            "attach noun to noun"
+ 85. 1172c  "feel noun"
+ 86. 10c5c  "open noun with held"
+            "force noun with held"
+            "force apart / open noun with held"
+            "force noun apart / open with held"
+            "unlock noun with held"
+ 87.  ff78  "go"
+            "leave"
+ 88.  e458  "verify"
+ 89. 117fc  "wait"
+ 90. 1180c  "awake"
+            "awake up"
+ 91. 11818  "awake creature"
+            "awake creature up"
+            "awake up creature"
+ 92. 11838  "wave noun"
+            "wave noun at noun"
+ 93. 1188c  "wave"
+            "wave at noun"
+ 94. 1100c  "put on held"
+            "don held"
+ 95. 111ac  "ask creature to topic"
+            "ask that creature topic"
+            "tell creature to topic"
+ 96. 11194  "ask creature for noun"
+ 97.  faec  
+ 98.  fb44  
+ 99.  f7fc  "clear noun to noun"
+            "transfer noun to noun"
+100. 11a50  "roll noun"
+101. 106c4  "normal"
+102.  c76c  "version"
+103.  f858  "empty noun"
+            "empty out noun"
+            "empty noun out"
+104.  ff80  "cross"
+            "go in / inside"
+            "in"
+105.  e86c  "i tall"
+106.  e850  "i wide"
+
+    **** Prepositions ****
+
+  Table entries = 0
+
+
+    **** Dictionary ****
+
+  Word separators = ".,""
+  Word count = 335, word size = 9
+
+[   1] .         [   2] ,         [   3] ,a        [   4] ,b        
+[   5] ,c        [   6] ,d        [   7] ,e        [   8] a         
+[   9] about     [  10] above     [  11] adjust    [  12] again     
+[  13] against   [  14] all       [  15] amusing   [  16] an        
+[  17] and       [  18] another   [  19] answer    [  20] apart     
+[  21] ask       [  22] at        [  23] attach    [  24] attack    
+[  25] awake     [  26] awaken    [  27] ball      [  28] below     
+[  29] blow      [  30] blue      [  31] both      [  32] bother    
+[  33] box       [  34] break     [  35] brief     [  36] burn      
+[  37] but       [  38] buy       [  39] carry     [  40] ceiling   
+[  41] check     [  42] chop      [  43] clean     [  44] clear     
+[  45] climb     [  46] close     [  47] comma,    [  48] connect   
+[  49] consult   [  50] cover     [  51] crack     [  52] cross     
+[  53] curses    [  54] cut       [  55] d         [  56] damn      
+[  57] darn      [  58] death     [  59] describe  [  60] destroy   
+[  61] die       [  62] dig       [  63] discard   [  64] display   
+[  65] disrobe   [  66] dive      [  67] doff      [  68] don       
+[  69] down      [  70] drag      [  71] drat      [  72] drink     
+[  73] drop      [  74] dust      [  75] e         [  76] each      
+[  77] east      [  78] eat       [  79] eight     [  80] eighteen  
+[  81] eleven    [  82] embrace   [  83] empty     [  84] enter     
+[  85] every     [  86] everythin [  87] examine   [  88] except    
+[  89] exit      [  90] fasten    [  91] feed      [  92] feel      
+[  93] fifteen   [  94] fight     [  95] fill      [  96] five      
+[  97] fix       [  98] floor     [  99] fondle    [ 100] for       
+[ 101] force     [ 102] former    [ 103] four      [ 104] fourteen  
+[ 105] from      [ 106] fuck      [ 107] full      [ 108] fullscore 
+[ 109] g         [ 110] get       [ 111] give      [ 112] go        
+[ 113] greetings [ 114] grope     [ 115] ground    [ 116] hallo     
+[ 117] hear      [ 118] hello     [ 119] her       [ 120] hi        
+[ 121] him       [ 122] his       [ 123] hit       [ 124] hold      
+[ 125] hop       [ 126] hug       [ 127] i         [ 128] in        
+[ 129] insert    [ 130] inside    [ 131] into      [ 132] inv       
+[ 133] inventory [ 134] it        [ 135] its       [ 136] jemmy     
+[ 137] jump      [ 138] kill      [ 139] kiss      [ 140] l         
+[ 141] leave     [ 142] lever     [ 143] lie       [ 144] light     
+[ 145] lighted   [ 146] lightswit [ 147] listen    [ 148] lit       
+[ 149] lock      [ 150] long      [ 151] look      [ 152] me        
+[ 153] move      [ 154] murder    [ 155] my        [ 156] myself    
+[ 157] n         [ 158] nap       [ 159] ne        [ 160] nine      
+[ 161] nineteen  [ 162] no        [ 163] normal    [ 164] north     
+[ 165] northeast [ 166] northwest [ 167] noscript  [ 168] notify    
+[ 169] nouns     [ 170] nw        [ 171] o         [ 172] objects   
+[ 173] of        [ 174] off       [ 175] offer     [ 176] on        
+[ 177] one       [ 178] onto      [ 179] oops      [ 180] open      
+[ 181] other     [ 182] out       [ 183] outside   [ 184] over      
+[ 185] pay       [ 186] peel      [ 187] pick      [ 188] places    
+[ 189] polish    [ 190] pray      [ 191] present   [ 192] press     
+[ 193] prise     [ 194] prize     [ 195] pronouns  [ 196] prune     
+[ 197] pry       [ 198] pull      [ 199] punch     [ 200] purchase  
+[ 201] push      [ 202] put       [ 203] q         [ 204] quit      
+[ 205] read      [ 206] recording [ 207] red       [ 208] remove    
+[ 209] replay    [ 210] restart   [ 211] restore   [ 212] robot     
+[ 213] roll      [ 214] rotate    [ 215] round     [ 216] rub       
+[ 217] run       [ 218] s         [ 219] save      [ 220] say       
+[ 221] scale     [ 222] score     [ 223] screw     [ 224] script    
+[ 225] scrub     [ 226] se        [ 227] search    [ 228] self      
+[ 229] set       [ 230] seven     [ 231] seventeen [ 232] shed      
+[ 233] shift     [ 234] shine     [ 235] shit      [ 236] short     
+[ 237] shout     [ 238] show      [ 239] shut      [ 240] sing      
+[ 241] sip       [ 242] sit       [ 243] six       [ 244] sixteen   
+[ 245] skip      [ 246] sky       [ 247] sleep     [ 248] slice     
+[ 249] small     [ 250] smash     [ 251] smell     [ 252] sniff     
+[ 253] sod       [ 254] some      [ 255] sorry     [ 256] south     
+[ 257] southeast [ 258] southwest [ 259] speak     [ 260] squash    
+[ 261] squeeze   [ 262] stairs    [ 263] stairwell [ 264] stand     
+[ 265] superbrie [ 266] sw        [ 267] swallow   [ 268] sweep     
+[ 269] swim      [ 270] swing     [ 271] switch    [ 272] take      
+[ 273] tall      [ 274] taste     [ 275] tell      [ 276] ten       
+[ 277] that      [ 278] the       [ 279] their     [ 280] them      
+[ 281] then      [ 282] these     [ 283] think     [ 284] thirteen  
+[ 285] this      [ 286] those     [ 287] three     [ 288] through   
+[ 289] throw     [ 290] thump     [ 291] tie       [ 292] to        
+[ 293] top       [ 294] torture   [ 295] touch     [ 296] toy       
+[ 297] toybox    [ 298] toys      [ 299] transcrip [ 300] transfer  
+[ 301] turn      [ 302] twelve    [ 303] twenty    [ 304] twist     
+[ 305] two       [ 306] u         [ 307] uncover   [ 308] under     
+[ 309] undo      [ 310] unlit     [ 311] unlock    [ 312] unscrew   
+[ 313] unscript  [ 314] unwrap    [ 315] up        [ 316] upon      
+[ 317] verbose   [ 318] verify    [ 319] version   [ 320] w         
+[ 321] wait      [ 322] wake      [ 323] walk      [ 324] watch     
+[ 325] wave      [ 326] wear      [ 327] west      [ 328] wide      
+[ 329] wipe      [ 330] with      [ 331] wreck     [ 332] x         
+[ 333] y         [ 334] yes       [ 335] z         
