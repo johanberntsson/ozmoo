@@ -133,18 +133,26 @@ z_ins_get_prop_len
     jsr space
     ldx z_operand_value_high_arr
     jsr printx
-    jsr newline
+    jsr space
 }
     ldx z_operand_value_low_arr
     bne +
     lda z_operand_value_high_arr
     bne +
     ; get_prop_len 0 must return 0
+!ifdef TRACE_PROP {
+    jsr printx
+    jsr newline
+}
     jmp z_store_result
 +   jsr set_z_address
     jsr calculate_property_length_number
     ldx .property_length
     lda #0
+!ifdef TRACE_PROP {
+    jsr printx
+    jsr newline
+}
     jmp z_store_result
 
 z_ins_remove_obj
@@ -451,7 +459,31 @@ calculate_property_length_number
     sta .property_length
     jsr read_next_byte ; size of property block (# data | property number)
     cmp #0
+    beq .end_pf_property_list
+!ifdef Z4PLUS {
+    pha
+    and #$1f ; property number
+    sta .property_number
+    pla
+    pha
+    and #$80
+    bne .two_bytes
+    lda #1
+    sta .property_length
+    pla
+    and #$40
     beq +
+    inc .property_length
++   rts
+.two_bytes
+    pla ; we don't care about byte 1, bit 6 anymore
+    jsr read_next_byte ; property_length
+    bne +
+    lda #64
++   and #$1f ; property number
+    sta .property_length
+    rts
+} else {
     pha
     and #$1f ; property number
     sta .property_number
@@ -463,7 +495,9 @@ calculate_property_length_number
     lsr
     sta .property_length
     inc .property_length
-+   rts
+}
+.end_pf_property_list
+    rts
 .property_number !byte 0
 .property_length !byte 0
 
@@ -492,7 +526,6 @@ find_prop
     ; call find_first_prop before calling find_prop
     ; output: x,a = address to property block, or 0,0 if not found
     ; loop over the properties until the correct one found
-!ifndef Z4PLUS {
 .property_loop
     jsr calculate_property_length_number
     lda .property_length
@@ -516,11 +549,6 @@ find_prop
     dec .property_length
     bne -
     jmp .property_loop
-}
-!ifdef Z4PLUS {
-    jsr fatalerror
-    !pet "TODO z_ins_get_prop_addr support for Z4-Z8", 13, 0
-}
 .find_prop_not_found
     ldx #0
     lda #0
@@ -595,13 +623,38 @@ z_ins_get_prop
 
 z_ins_get_prop_addr
     ; get_prop_addr object property -> (result)
-!ifdef TRACE_PROP {
-    jsr print_following_string
-    !pet "get_prop_addr object property: ", 13, 0
-}
     jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
+!ifdef TRACE_PROP {
+    pha
+    txa
+    pha
+    jsr print_following_string
+    !pet "get_prop_addr object property: ", 0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    lda #58 ; :
+    jsr kernel_printchar
+    ldy .property_number
+    jsr printy
+    jsr space
+    ldy .property_length
+    jsr printy
+    lda #58 ; :
+    jsr kernel_printchar
+    jsr get_z_address
+    jsr printx
+    jsr space
+    jsr printa
+    jsr newline
+    pla
+    tax
+    pla
+}
     jmp z_store_result
 
 z_ins_get_next_prop
@@ -627,18 +680,36 @@ z_ins_get_next_prop
 
 z_ins_put_prop
     ; put_prop object property value
-!ifdef TRACE_PROP {
-    jsr print_following_string
-    !pet "put_prop object property: ", 13, 0
-}
     jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
+!ifdef TRACE_PROP {
+    pha
+    jsr print_following_string
+    !pet "put_prop object property: ", 0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    lda #58 ; :
+    jsr kernel_printchar
+    ldy .property_number
+    jsr printy
+    jsr space
+    ldy .property_length
+    jsr printy
+    lda #58 ; :
+    jsr kernel_printchar
+    jsr newline
+    pla
+}
     jsr get_z_address
     stx zp_mempos
     sta zp_mempos + 1
     ldy #1
     lda .property_length
+    jsr printa
     cmp #1
     bne +
     ldx z_operand_value_low_arr + 2
@@ -650,6 +721,7 @@ z_ins_put_prop
     iny 
     ldx z_operand_value_high_arr + 2
     sta (zp_mempos),y
+    rts
 +   jsr fatalerror
     !pet "z_ins_put_prop bad length", 13, 0
 
