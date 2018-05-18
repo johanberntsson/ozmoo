@@ -15,7 +15,7 @@ Release 4;
 
 !Constant MINFORM_WEAR 1;  ! Define MINFORM_WEAR if you want 'worn' objects (saves 500 bytes otherwise)
 
-Include "Parser";
+Include "./parser";
 
 !=========================================================================
 !Replacement library messages.
@@ -25,7 +25,7 @@ with before [;
    Jump:  "Nothing fruitful can be accomplished by jumping here.";
 ];
 
-Include "VerbLib";
+Include "./verblib";
 
 !=========================================================================
 !Object Classes
@@ -155,7 +155,7 @@ Object SmallBall "small ball" Down_Room
     "Can't roll that!";
 ];
 
-Include "Grammar";
+Include "./grammar";
 
 !=========================================================================
 !New and Extended Verbs go here.
