@@ -1,8 +1,8 @@
 ; text opcodes
 
 ;TRACE_READTEXT = 1
-TRACE_TOKENISE = 1
-TRACE_SHOW_DICT_ENTRIES = 1
+;TRACE_TOKENISE = 1
+;TRACE_SHOW_DICT_ENTRIES = 1
 
 z_ins_print_addr 
     jsr evaluate_all_args
@@ -766,13 +766,6 @@ tokenise_text
 .wordstart  !byte 0 
 .wordend    !byte 0 
 
-read_char
-    ; read a char from the keyboard
-    ; input: 
-    ; output: 
-    ; side effects:
-    ; used registers: 
-
 print_addr
     ; print zchar-encoded text
     ; input: (.addr set with set_z_addr or set_z_paddr)
@@ -782,6 +775,7 @@ print_addr
     lda #0
     sta .alphabet_offset
     sta .escape_char_counter
+    sta .abbreviation_command
 .read_triplet_loop
     jsr read_next_byte
     sta .packedtext
@@ -803,9 +797,18 @@ print_addr
     bne .extract_loop
     ; print the three chars
     ldx #2
---  lda .zchars,x
-    ldy .escape_char_counter
+.print_chars_loop
+    lda .zchars,x
+    ldy .abbreviation_command
+    beq .l0
+    ; handle abbreviation
+    ; abbreviation is 32(.abbreviation_command-1)+a
+    jsr print_following_string
+    !pet "TODO: abbreviations",13,0
+    jmp .next_zchar
+.l0 ldy .escape_char_counter
     beq .l1
+    ; handle the two characters that make up an escaped character
     ldy #5
 -   asl .escape_char
     dey
@@ -849,7 +852,12 @@ print_addr
     lda #2
     sta .escape_char_counter
     jmp .next_zchar
-.l5 ; normal char
+.l5 ; abbreviation command?
+    cmp #4
+    bcs .l6
+    sta .abbreviation_command ; 1, 2 or 3
+    jmp .next_zchar
+.l6 ; normal char
     jsr convert_zchar_to_char
     jsr streams_print_output
     ; change back to A0
@@ -857,13 +865,16 @@ print_addr
     sta .alphabet_offset
 .next_zchar
     dex
-    bpl --
-    lda .packedtext + 1
+    ;bpl .print_chars_loop
+    bmi +
+    jmp .print_chars_loop
++   lda .packedtext + 1
     bne +
     jmp .read_triplet_loop
 +   rts
 .escape_char !byte 0
 .escape_char_counter !byte 0
+.abbreviation_command !byte 0
 
 !ifdef DEBUG {
 testtext
