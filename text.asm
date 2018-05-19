@@ -5,14 +5,12 @@
 ;TRACE_SHOW_DICT_ENTRIES = 1
 
 z_ins_print_addr 
-    jsr evaluate_all_args
     ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr set_z_address
 	jmp print_addr
 
 z_ins_print_paddr
-    jsr evaluate_all_args
     ; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
@@ -44,7 +42,6 @@ z_ins_print_ret
 z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
-    jsr evaluate_all_args
     ; read input
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -101,7 +98,6 @@ z_ins_sread
 
 z_ins_aread
     ; aread text parse time routine -> (result)
-    jsr evaluate_all_args
     ; read input
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
@@ -183,7 +179,6 @@ z_ins_aread
 }
 
 z_ins_print_char
-	jsr evaluate_all_args
     ldx z_operand_value_low_arr
 	jmp streams_print_output
 	

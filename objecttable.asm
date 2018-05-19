@@ -36,7 +36,6 @@ z_ins_get_child
 }
 .get_sibling_child
 	pha
-    jsr evaluate_all_args
 !ifdef TRACE_TREE {
     ldx z_operand_value_low_arr
     jsr printx
@@ -83,7 +82,6 @@ z_ins_get_parent
     jsr print_following_string
     !pet "get_parent obj: ",0
 }
-    jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
 !ifdef TRACE_TREE {
@@ -121,7 +119,6 @@ z_ins_get_parent
 
 z_ins_get_prop_len
     ; get_prop_len property-address -> (result)
-    jsr evaluate_all_args
 !ifdef TRACE_PROP {
     jsr print_following_string
     !pet "get_prop_len property-address: ",0
@@ -163,7 +160,6 @@ z_ins_get_prop_len
 .dest_num = .sibling_num      ; won't be used at the same time
 z_ins_remove_obj
     ; remove_obj object
-    jsr evaluate_all_args
     ; get object number
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -405,7 +401,6 @@ find_attr
 
 z_ins_print_obj
     ; print_obj object
-    jsr evaluate_all_args
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -425,7 +420,6 @@ z_ins_print_obj
 
 z_ins_jin
     ; jin obj1 obj2 ?(label)
-    jsr evaluate_all_args
 !ifdef TRACE_OBJ {
     jsr print_following_string
     !pet "jin obj1 obj2: ", 0
@@ -465,7 +459,6 @@ z_ins_jin
 
 z_ins_test_attr
     ; test_attr object attribute ?(label)
-    jsr evaluate_all_args
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "test_attr obj attr: ",0
@@ -493,7 +486,6 @@ z_ins_test_attr
 
 z_ins_set_attr
     ; set_attr object attribute
-    jsr evaluate_all_args
     jsr find_attr
 !ifdef TRACE_ATTR {
     jsr print_following_string
@@ -536,7 +528,6 @@ z_ins_set_attr
 
 z_ins_clear_attr
     ; clear_attr object attribute
-    jsr evaluate_all_args
     jsr find_attr
 !ifdef TRACE_ATTR {
     jsr print_following_string
@@ -773,7 +764,6 @@ find_prop
 
 z_ins_get_prop
     ; get_prop object property -> (result)
-    jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
 !ifdef TRACE_PROP {
@@ -839,7 +829,6 @@ z_ins_get_prop
 
 z_ins_get_prop_addr
     ; get_prop_addr object property -> (result)
-    jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
 !ifdef TRACE_PROP {
@@ -879,7 +868,6 @@ z_ins_get_next_prop
     jsr print_following_string
     !pet "get_next_prop object property: ", 13, 0
 }
-    jsr evaluate_all_args
     jsr find_first_prop
     ldx z_operand_value_low_arr + 1
     beq + ; property == 0, return first property number
@@ -896,7 +884,6 @@ z_ins_get_next_prop
 
 z_ins_put_prop
     ; put_prop object property value
-    jsr evaluate_all_args
     jsr find_first_prop
     jsr find_prop
 !ifdef TRACE_PROP {
@@ -1008,7 +995,7 @@ test_object_table
     lda #0
     sta z_operand_value_high_arr
     sta z_operand_value_high_arr + 1
-    jsr z_ins_get_prop + 3 ; skip jsr evaluate_all_args
+    jsr z_ins_get_prop
     jsr print_following_string
     !pet "result: ",0
     ldx .prop_result

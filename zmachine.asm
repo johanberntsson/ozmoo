@@ -547,8 +547,28 @@ z_execute
 .op_is_omitted
 	sty z_operand_count
 	
-.process_instruction
-	; TODO: Perform the instruction!
+;.evaluate_args
+	ldy #0
+-	cpy z_operand_count
+	bcs .perform_instruction
+	lda z_operand_type_arr,y
+	cmp #%10
+	beq .is_var
+	lda z_operand_high_arr,y
+	sta z_operand_value_high_arr,y
+	lda z_operand_low_arr,y
+	sta z_operand_value_low_arr,y
+	iny
+	bne - ; Always branch
+.is_var
+	ldx z_operand_low_arr,y
+	jsr z_get_variable_value
+	sta z_operand_value_high_arr,y
+	txa
+	sta z_operand_value_low_arr,y
+	iny
+	bne - ; Always branch
+.perform_instruction
 	ldx z_opcode_number
 	lda z_opcode_opcount
 	cmp #z_opcode_opcount_0op
@@ -634,6 +654,8 @@ clear_remaining_types_2
 	bne -
 +	rts
 }
+
+; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
 
 !zone {
 z_get_variable_reference
@@ -759,39 +781,6 @@ z_set_variable
 	iny
 	lda zp_temp + 3
 	sta (zp_temp),y
-	rts
-}
-
-!zone {
-evaluate_all_args
-	ldx #$ff
-evaluate_all_args_except_x
-	stx zp_temp + 2
-	ldy #0
--	cpy z_operand_count
-	bcs .done
-	cpy zp_temp + 2
-	beq .not_this_one
-	lda z_operand_type_arr,y
-	cmp #%10
-	beq .is_var
-	lda z_operand_high_arr,y
-	sta z_operand_value_high_arr,y
-	lda z_operand_low_arr,y
-	sta z_operand_value_low_arr,y
-.not_this_one	
-	iny
-	bne - ; Always branch
-.is_var
-	ldx z_operand_low_arr,y
-	jsr z_get_variable_value
-	sta z_operand_value_high_arr,y
-	txa
-	sta z_operand_value_low_arr,y
-	iny
-	bne - ; Always branch
-
-.done
 	rts
 }
 
@@ -1062,13 +1051,11 @@ z_ins_dec
 ; z_ins_print_obj (moved to objecttable.asm)
 
 z_ins_ret
-	jsr evaluate_all_args
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jmp stack_return_from_routine
 
 z_ins_jump
-	jsr evaluate_all_args
 	lda #0
 	bit z_operand_value_high_arr
 	bpl +
@@ -1083,14 +1070,12 @@ z_ins_jump
 ; z_ins_print_paddr (moved to text.asm)
 
 z_ins_jz
-	jsr evaluate_all_args
 	lda z_operand_value_low_arr
 	ora z_operand_value_high_arr
 	beq .branch_true
 	bne .branch_false
 
 z_ins_not
-	jsr evaluate_all_args
 	lda z_operand_value_low_arr
 	eor #$ff
 	tax
@@ -1101,7 +1086,6 @@ z_ins_not
 ; 2OP instructions
 
 z_ins_je
-	jsr evaluate_all_args
 	ldx z_operand_count
 	dex
 -	lda z_operand_value_low_arr
@@ -1119,7 +1103,6 @@ z_ins_je
 	jmp make_branch_true
 
 z_ins_jl
-	jsr evaluate_all_args
 	lda z_operand_value_low_arr
 .jl_comp
 	cmp z_operand_value_low_arr + 1
@@ -1128,9 +1111,19 @@ z_ins_jl
 	bmi .branch_true
 	bpl .branch_false ; Always branch
 
+z_ins_inc_chk
+	ldx z_operand_value_low_arr
+	jsr z_get_variable_reference
+	stx zp_temp
+	sta zp_temp + 1
+	jsr .inc_store_ref
+	ldy #0
+	lda (zp_temp),y
+	sta z_operand_value_high_arr
+	iny
+	lda (zp_temp),y
+	sta z_operand_value_low_arr
 z_ins_jg
-	jsr evaluate_all_args
-.jg_comp	
 	lda z_operand_value_low_arr + 1
 	cmp z_operand_value_low_arr
 	lda z_operand_value_high_arr + 1
@@ -1139,9 +1132,7 @@ z_ins_jg
 	bpl .branch_false ; Always branch
 
 z_ins_dec_chk
-	ldx #0
-	jsr evaluate_all_args_except_x
-	ldx z_operand_low_arr
+	ldx z_operand_value_low_arr
 	jsr z_get_variable_reference
 	stx zp_temp
 	sta zp_temp + 1
@@ -1153,28 +1144,12 @@ z_ins_dec_chk
 	lda (zp_temp),y
 	jmp .jl_comp
 
-z_ins_inc_chk
-	ldx #0
-	jsr evaluate_all_args_except_x
-	ldx z_operand_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	jsr .inc_store_ref
-	ldy #0
-	lda (zp_temp),y
-	sta z_operand_value_high_arr
-	iny
-	lda (zp_temp),y
-	sta z_operand_value_low_arr
-	jmp .jg_comp
 
 ; z_ins_jin (moved to objecttable.asm)
 	
 ; z_ins_test_attr (moved to objecttable.asm)
 
 z_ins_and
-	jsr evaluate_all_args
 	lda z_operand_value_low_arr
 	and z_operand_value_low_arr + 1
 	tax
@@ -1187,9 +1162,7 @@ z_ins_and
 ; z_ins_clear_attr (moved to objecttable.asm)
 	
 z_ins_store
-	ldx #0
-	jsr evaluate_all_args_except_x
-	ldy z_operand_low_arr
+	ldy z_operand_value_low_arr
 	lda z_operand_value_high_arr + 1
 	ldx z_operand_value_low_arr + 1
 	jmp z_set_variable
@@ -1197,7 +1170,6 @@ z_ins_store
 ; z_ins_insert_obj (moved to objecttable.asm)
 	
 z_ins_loadw_and_storew
-	jsr evaluate_all_args
 	asl z_operand_value_low_arr + 1 
 	rol z_operand_value_high_arr + 1
 	lda z_operand_value_low_arr
@@ -1226,7 +1198,6 @@ z_ins_loadw_and_storew
 	rts
 	
 z_ins_loadb
-	jsr evaluate_all_args
 	jsr calc_address_in_byte_array
 	lda (zp_temp),y
 	tax
@@ -1240,7 +1211,6 @@ z_ins_loadb
 ; z_ins_get_next_prop (moved to objecttable.asm)
 
 z_ins_add
-	jsr evaluate_all_args
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1
@@ -1250,7 +1220,6 @@ z_ins_add
 	jmp z_store_result
 
 z_ins_sub
-	jsr evaluate_all_args
 	lda z_operand_value_low_arr
 	sec
 	sbc z_operand_value_low_arr + 1
@@ -1263,7 +1232,6 @@ z_ins_sub
 .mul_inv_multiplicand = memory_buffer + 5 ; 2 bytes
 
 z_ins_mul
-	jsr evaluate_all_args
 	lda #0
 	ldy #16
 	sta .mul_product
@@ -1328,14 +1296,12 @@ z_ins_mul
 	jmp z_store_result
 
 z_ins_div
-	jsr evaluate_all_args
 	jsr z_divide
 	lda division_result + 1
 	ldx division_result
 	jmp z_store_result
 	
 z_ins_call_xn
-	jsr evaluate_all_args
 	jsr check_for_routine_0
 	bne +
 	rts
@@ -1347,7 +1313,6 @@ z_ins_call_xn
 ; VAR instructions
 	
 z_ins_call_xs
-	jsr evaluate_all_args
 	jsr check_for_routine_0_and_store
 	bne +
 	rts
@@ -1359,7 +1324,6 @@ z_ins_call_xs
 ; VAR storew is implemented in z_ins_loadw_and_storew, under 2OP	
 	
 z_ins_storeb
-	jsr evaluate_all_args
 	jsr calc_address_in_byte_array
 	lda z_operand_value_low_arr + 2
 	sta (zp_temp),y
@@ -1372,7 +1336,7 @@ z_ins_storeb
 ; z_ins_print_char (moved to text.asm)
 
 z_ins_print_num
-	jsr evaluate_all_args
+	; TODO: make it print to currently selected output streams
 	bit z_operand_value_high_arr
 	bpl +
 	lda #$2c
@@ -1391,7 +1355,6 @@ z_ins_print_num
 	bpl - ; Always branch
 
 z_ins_random	
-	jsr evaluate_all_args
 	lda z_operand_value_high_arr
 	bmi .random_seed
 	bne .random_large
@@ -1429,7 +1392,6 @@ z_ins_random
 	jmp z_store_result
 		
 z_ins_push
-	jsr evaluate_all_args
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jmp stack_push
@@ -1444,7 +1406,6 @@ z_ins_set_text_style
 	rts
 	
 z_ins_output_stream
-	jsr evaluate_all_args
 	jmp streams_output_stream
 }
 	

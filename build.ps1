@@ -52,8 +52,10 @@ if($upperType -eq 'Z3') {
     $diskImageDir = 'd64toinf'
     $diskImage = 'dejavu.d64'
 } elseif($upperType -eq 'Z5') {
-    $diskImageDir = 'minform'
-    $diskImage = 'minform.d64'
+#    $diskImageDir = 'minform'
+#    $diskImage = 'minform.d64'
+    $diskImageDir = 'test'
+    $diskImage = 'test.d64'
 } else {
     Write-Error "Error: Type can only be z3 or z5"
     exit
