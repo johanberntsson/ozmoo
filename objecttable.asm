@@ -1,8 +1,7 @@
-; object table
 ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect12.html
 
 ;TRACE_TREE = 1 ; trace get_parent, get_sibling, get_child
-TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
+;TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
 ;TRACE_ATTR = 1 ; trace find_attr, set_attr, clear_attr
 ;TRACE_PROP = 1  ; trace get_prop_len, 
 
@@ -22,7 +21,7 @@ z_ins_get_sibling
 } else {
     lda #8
 }
-	bne .get_parent_sibling_child ; Always branch
+	bne .get_sibling_child ; Always branch
 
 z_ins_get_child
     ; get_child object -> (result) ?(label)
@@ -35,7 +34,7 @@ z_ins_get_child
 } else  {
     lda #11
 }
-.get_parent_sibling_child
+.get_sibling_child
 	pha
     jsr evaluate_all_args
 !ifdef TRACE_TREE {
@@ -84,28 +83,31 @@ z_ins_get_parent
     jsr print_following_string
     !pet "get_parent obj: ",0
 }
-!ifndef Z4PLUS {
-    lda #4
-} else {
-    lda #6
-}
-	pha
     jsr evaluate_all_args
-!ifdef TRACE_TREE {
     ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+!ifdef TRACE_TREE {
+    jsr printx
+    jsr comma
+    jsr printa
+    jsr space
+}
+    jsr calculate_object_address
+!ifdef TRACE_TREE {
+    ldx object_tree_ptr
+    jsr printx
+    jsr comma
+    ldx object_tree_ptr + 1
     jsr printx
     jsr space
 }
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr calculate_object_address
-	pla
-	tay
 !ifndef Z4PLUS {
+    ldy #4
     lda (object_tree_ptr),y
     tax
     lda #0
 } else  {
+    ldy #6
     lda (object_tree_ptr),y
     tax
     iny
@@ -150,71 +152,202 @@ z_ins_get_prop_len
 }
     jmp z_store_result
 
+.zp_object = zp_mempos
+.zp_parent = object_tree_ptr  ; won't be used at the same time
+.zp_sibling = object_tree_ptr ; won't be used at the same time
+.zp_dest = object_tree_ptr    ; won't be used at the same time
+.object_num !byte 0,0
+.parent_num !byte 0,0
+.child_num !byte 0,0
+.sibling_num !byte 0,0        ; won't be used at the same time
+.dest_num = .sibling_num      ; won't be used at the same time
 z_ins_remove_obj
     ; remove_obj object
     jsr evaluate_all_args
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet "remove_obj object: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr
-    jsr printx
-    jsr space
-}
+    ; get object number
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
+    sta .object_num
+    stx .object_num + 1
+    ; find object in dynmem
+    ;lda .object_num
+    ;ldx .object_num + 1
     jsr calculate_object_address
     lda object_tree_ptr
-    sta zp_mempos
+    sta .zp_object
     lda object_tree_ptr + 1
-    sta zp_mempos + 1
+    sta .zp_object + 1
+    ; get parent number
 !ifdef Z4PLUS {
-    jsr fatalerror
-    !pet "TODO z_ins_remove_obj Z4-Z8", 13, 0
+    ldy #6  ; parent
+    lda (.zp_object),y
+    sta .parent_num
+    iny
+    lda (.zp_object),y
+    sta .parent_num + 1
 } else {
-    ; get parent
     ldy #4  ; parent
-    lda (zp_mempos),y
-    bne +
-    ; no parent, so no action
+    lda #0
+    sta .parent_num
+    lda (.zp_object),y
+    sta .parent_num + 1
+}
 !ifdef TRACE_OBJ {
     jsr print_following_string
-    !pet "noparent", 13, 0
-}
-    rts
-+   tax ; x = parent
-    lda #0
-    sta (zp_mempos),y ; set obj.parent = null
-    jsr calculate_object_address
-    ldy #6  ; child
-    lda (object_tree_ptr),y
+    !pet "remove_obj: obj ", 0
+    lda .object_num
     jsr printa
-    cmp z_operand_value_low_arr 
-    bne +
-    ; set parent.child = obj.sibling
-    ldy #5 ; sibling
-    lda (zp_mempos),y
-    iny
-    sta (object_tree_ptr),y
-    rts
-+   ; look for obj in sibling chain
-    ; a = parent.child, a != obj
--   tax
-    lda #0
-    jsr calculate_object_address
-    ldy #5 ; sibling
-    lda (object_tree_ptr),y
-    cmp z_operand_value_low_arr 
-    bne -
-    ; found obj in the sibling list
-    lda (zp_mempos),y            ; obj.sibling
-    lda (object_tree_ptr),y 
-    lda #0
-    sta (zp_mempos),y            ; obj.sibling = null
-    rts
+    jsr comma
+    lda .object_num + 1
+    jsr printa
+    jsr print_following_string
+    !pet " parent ", 0
+    lda .parent_num
+    jsr printa
+    jsr comma
+    lda .parent_num + 1
+    jsr printa
+    jsr space
 }
+    ; is there a parent?
+    lda .parent_num
+    bne .has_parent
+    lda .parent_num + 1
+    bne .has_parent
+    ; no parent, nothing to do
+    jmp .remove_obj_done
+.has_parent
+    ; yes, there is a parent...
+    ; find parent in dynmen
+    lda .parent_num
+    ldx .parent_num + 1
+    jsr calculate_object_address
+    ; get child number
+!ifdef Z4PLUS {
+    ldy #10  ; child
+    lda (.zp_parent),y
+    sta .child_num
+    iny
+    lda (.zp_parent),y
+    sta .child_num + 1
+} else {
+    ldy #6  ; child
+    lda #0
+    sta .child_num
+    lda (.zp_parent),y
+    sta .child_num + 1
+}
+!ifdef TRACE_OBJ {
+    jsr print_following_string
+    !pet " child ", 0
+    lda .child_num
+    jsr printa
+    jsr comma
+    lda .child_num + 1
+    jsr printa
+}
+    ; num_child == num_object?
+    lda .child_num
+    cmp .object_num
+    bne .not_child
+    lda .child_num + 1
+    cmp .object_num + 1
+    bne .not_child
+    ; object is the child of parent
+    ; set child of parent to object's sibling
+!ifdef Z4PLUS {
+    ldy #8  ; sibling
+    lda (.zp_object),y
+    pha
+    iny
+    lda (.zp_object),y
+    ldy #11  ; child+1
+    sta (.zp_parent),y
+    dey
+    pla
+    sta (.zp_parent),y
+} else {
+    ldy #5  ; sibling
+    lda (.zp_object),y
+    ldy #6  ; child
+    sta (.zp_parent),y
+}
+!ifdef TRACE_OBJ {
+    jsr print_following_string
+    !pet " directchild", 0
+}
+    jmp .remove_obj_done
+.not_child
+    ; find sibling in dynmen
+    lda .child_num
+    ldx .child_num + 1
+    sta .sibling_num
+    stx .sibling_num + 1
+-
+    lda .sibling_num
+    ldx .sibling_num + 1
+    jsr calculate_object_address
+    ; get next sibling number
+!ifdef Z4PLUS {
+    ldy #8  ; sibling
+    lda (.zp_sibling),y
+    sta .sibling_num
+    iny
+    lda (.zp_sibling),y
+    sta .sibling_num + 1
+} else {
+    ldy #5  ; sibling
+    lda #0
+    sta .sibling_num
+    lda (.zp_sibling),y
+    sta .sibling_num + 1
+}
+    ; while sibling != object
+    lda .sibling_num
+    cmp .object_num
+    bne -
+    lda .sibling_num + 1
+    cmp .object_num + 1
+    bne -
+    ; .zp_sibling.sibling == object. set to object.sibling instead
+!ifdef Z4PLUS {
+    ldy #8  ; sibling
+    lda (.zp_object),y
+    sta (.zp_sibling),y
+    iny
+    lda (.zp_object),y
+    sta (.zp_sibling),y
+} else {
+    ldy #5  ; sibling
+    lda (.zp_object),y
+    sta (.zp_sibling),y
+}
+!ifdef TRACE_OBJ {
+    jsr print_following_string
+    !pet " sibling", 0
+}
+.remove_obj_done
+    ; always set obj.parent and obj.sibling to 0
+    lda #0
+!ifdef Z4PLUS {
+    ldy #6  ; parent
+    sta (.zp_object),y
+    iny
+    sta (.zp_object),y
+    iny ; sibling (8)
+    sta (.zp_object),y
+    iny
+    sta (.zp_object),y
+} else {
+    ldy #4  ; parent
+    sta (.zp_object),y
+    iny ; sibling (5)
+    sta (.zp_object),y
+}
+!ifdef TRACE_OBJ {
+    jsr newline
+}
+    rts
 
 find_attr
     ; find attribute
@@ -450,66 +583,85 @@ z_ins_clear_attr
 
 z_ins_insert_obj
     ; insert_obj object destination
-    jsr evaluate_all_args
 !ifdef TRACE_OBJ {
     jsr print_following_string
-    !pet "insert_obj object destination: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
+    !pet "insert_obj obj dest: ",0
 }
-    ; calculate and store object address
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr calculate_object_address
-    lda object_tree_ptr
-    sta zp_mempos
-    lda object_tree_ptr + 1
-    sta zp_mempos + 1
+    jsr z_ins_remove_obj ; will set .zp_object and .object_num
     ; calculate destination address
     ldx z_operand_value_low_arr + 1
     lda z_operand_value_high_arr + 1
     jsr calculate_object_address
-    ; now move object to destination
-!ifndef Z4PLUS {
-    ; set current child of destination as object's sibling
-    ldy #6 ; child
-    lda (object_tree_ptr),y
-    ldy #5 ; sibling
-    sta (zp_mempos),y
-    ; set object as destination's child
-    lda z_operand_value_low_arr
-    ldy #6  ; child
-    sta (object_tree_ptr),y
-    ; set destination as object's parent
-    lda z_operand_value_low_arr + 1
-    ldy #4  ; parent
-    sta (zp_mempos),y
+    lda object_tree_ptr
+    sta .zp_dest
+    lda object_tree_ptr + 1
+    sta .zp_dest + 1
+    ; get destination number
+    ldx z_operand_value_low_arr + 1
+    lda z_operand_value_high_arr + 1
+    sta .dest_num
+    stx .dest_num + 1
+!ifdef TRACE_OBJ {
+    lda .object_num
+    jsr printa
+    jsr comma
+    lda .object_num + 1
+    jsr printa
+    jsr space
+    lda .dest_num
+    jsr printa
+    jsr comma
+    lda .dest_num + 1
+    jsr printa
+    jsr space
 }
 !ifdef Z4PLUS {
-    ; set current child of destination as object's sibling
+    ; object.parent = destination
+    ldy #6 ; parent
+    lda .dest_num
+    sta (.zp_object),y
+    iny
+    lda .dest_num + 1
+    sta (.zp_object),y
+    ; object.sibling = destination.child
     ldy #10 ; child
-    lda (object_tree_ptr),y
-    ldy #8 ; sibling
-    sta (zp_mempos),y
-    ldy #11 ; child
-    lda (object_tree_ptr),y
-    ldy #9 ; sibling
-    sta (zp_mempos),y
-    ; set object as destination's child
-    lda z_operand_value_low_arr
-    ldy #10  ; child
-    sta (object_tree_ptr),y
-    lda z_operand_value_high_arr
+    lda (.zp_dest),y
+    pha
     iny
-    sta (object_tree_ptr),y
-    ; set destination as object's parent
-    lda z_operand_value_low_arr + 1
-    ldy #6  ; parent
-    sta (zp_mempos),y
-    lda z_operand_value_high_arr + 1
+    lda (.zp_dest),y
+    ldy #9 ; sibling + 1
+    sta (.zp_object),y
+    dey
+    pla
+    sta (.zp_object),y
+    ; destination.child = object
+    ldy #10 ; child
+    lda .object_num
+    sta (.zp_dest),y
     iny
-    sta (zp_mempos),y
+    lda .object_num + 1
+    sta (.zp_dest),y
+} else {
+    ; object.parent = destination
+    ldy #4 ; parent
+    lda .dest_num + 1
+    sta (.zp_object),y
+    ; object.sibling = destination.child
+    ldy #6; child
+    lda (.zp_dest),y
+    dey ; sibling (4)
+    sta (.zp_object),y
+    ; destination.child = object
+    ldy #6 ; child
+    lda .object_num + 1
+    sta (.zp_dest),y
+}
+!ifdef TRACE_OBJ {
+    ldy #4 ; parent
+    lda (.zp_object),y
+    jsr printa
+    jsr space
+    jsr newline
 }
     rts
 

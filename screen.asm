@@ -39,6 +39,25 @@ space
     plp
     rts
 
+comma
+    ; subroutine: print space
+    ; input: 
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    lda #44
+    jsr kernel_printchar
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
+
+
 newline
     ; subroutine: print newline
     ; input: 
@@ -255,7 +274,7 @@ fatalerror
     txa
     jsr printstring ; print error
 
-    jsr print_trace
+    ;jsr print_trace
 	
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset

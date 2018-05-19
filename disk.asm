@@ -1,3 +1,5 @@
+;TRACE_FLOPPY = 1
+
 readblocks_numblocks     !byte 0 
 readblocks_currentblock  !byte 0,0 ; 257 = ff 1
 readblocks_mempos        !byte 0,0 ; $2000 = 00 20
@@ -46,19 +48,16 @@ readblocks
     stx .uname_sector
     sta .uname_sector + 1
 
-!ifdef DEBUG {
+!ifdef TRACE_FLOPPY {
     ldx readblocks_mempos
     jsr printx
-    lda #$20
-    jsr kernel_printchar
+    jsr space
     ldx readblocks_mempos + 1
     jsr printx
-    lda #$20
-    jsr kernel_printchar
+    jsr space
     ldx readblocks_currentblock
     jsr printx
-    lda #$20
-    jsr kernel_printchar
+    jsr space
     lda #<.uname
     ldy #>.uname
     jsr printstring
