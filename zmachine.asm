@@ -26,7 +26,6 @@ z_global_vars_start	!byte 0, 0
 ; ---
 ; get_prop_len
 ; remove_obj
-; load
 ;
 ; 2OP
 ; ---
@@ -40,15 +39,12 @@ z_global_vars_start	!byte 0, 0
 ; get_prop
 ; get_prop_addr
 ; get_next_prop
-; div
-; mod
 ; set_colour
 ; throw
 ;
 ; VAR
 ; ---
 ; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
-; pull
 ; print_num (Doesn't consider currently active output streams)
 ; random (Only handles range < 256, and no seeding)
 ; split_window
@@ -208,7 +204,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_sub
 	!byte >z_ins_mul
 	!byte >z_ins_div
-	!byte >z_not_implemented
+	!byte >z_ins_mod
 	!byte >z_ins_call_xs
 	!byte >z_ins_call_xn
 	!byte >z_not_implemented
@@ -242,7 +238,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_sub
 	!byte <z_ins_mul
 	!byte <z_ins_div
-	!byte <z_not_implemented
+	!byte <z_ins_mod
 	!byte <z_ins_call_xs
 	!byte <z_ins_call_xn
 	!byte <z_not_implemented
@@ -1307,6 +1303,23 @@ z_ins_div
 	jsr z_divide
 	lda division_result + 1
 	ldx division_result
+	jmp z_store_result
+	
+z_ins_mod
+	jsr z_divide
+	lda remainder
+	bit z_operand_value_high_arr
+	bmi +
+	tax
+	lda remainder  + 1
+	jmp z_store_result
++	eor #$ff
+	clc
+	adc #1
+	tax
+	lda remainder + 1
+	eor #$ff
+	adc #0
 	jmp z_store_result
 	
 z_ins_call_xn
