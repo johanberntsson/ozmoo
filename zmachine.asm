@@ -966,7 +966,7 @@ calc_address_in_byte_array
 	rts
 }
 
-!zone {
+!zone z_instructions {
 ; 0OP instructions
 z_ins_rtrue
 	lda #0
@@ -1012,7 +1012,7 @@ z_ins_ret_popped
 ; z_ins_get_prop_len (moved to objecttable.asm)
 
 z_ins_inc
-	ldx z_operand_low_arr
+	ldx z_operand_value_low_arr
 	jsr z_get_variable_reference
 .inc_store_ref	
 	stx .ins_inc + 1
@@ -1027,7 +1027,7 @@ z_ins_nop
 +	rts	
 	
 z_ins_dec
-	ldx z_operand_low_arr
+	ldx z_operand_value_low_arr
 	jsr z_get_variable_reference
 .dec_store_ref
 	stx .ins_dec + 1
@@ -1041,7 +1041,7 @@ z_ins_dec
 	cmp #$ff
 	bne +
 	dex
-	bpl .ins_inc
+	bpl .ins_dec
 +	rts
 
 ; z_ins_print_addr (moved to text.asm)
@@ -1403,7 +1403,7 @@ z_ins_push
 
 z_ins_pull
 	jsr stack_pull
-	ldy z_operand_low_arr
+	ldy z_operand_value_low_arr
 	jmp z_set_variable
 
 z_ins_set_text_style
