@@ -274,7 +274,7 @@ fatalerror
     txa
     jsr printstring ; print error
 
-    ;jsr print_trace
+    jsr print_trace
 	
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
