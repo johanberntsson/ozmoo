@@ -1,0 +1,20 @@
+v0.8    20031031
+
+- version-specific code (368 tests for v3 vs. 425 for v5)
+- compiles under v3, v4, v5, v8 (v6 breaks due to @pull [foo])
+
+v0.7	20031010
+
+- prints (much better) descriptions of failed tests
+
+v0.6	20031001
+
+- now counts passed & failed tests, e.g.
+- calls (skippable) subs which test sets of functionality.
+
+...
+
+v0.1	20030917
+
+- Started with Evin Robertson's nitfol test script.  
+- Removed a bunch of things that my interpreter couldn't do yet.
