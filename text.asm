@@ -1,7 +1,8 @@
 ; text opcodes
 
-TRACE_READTEXT = 1
-TRACE_TOKENISE = 1
+;TRACE_READTEXT = 1
+;TRACE_TOKENISE = 1
+;TRACE_SHOW_DICT_ENTRIES = 1
 
 z_ins_print_addr 
     jsr evaluate_all_args
@@ -391,9 +392,9 @@ find_word_in_dictionary
     cpy .last_char_index
     bne .encode_chars
     ; done. Add stop bit to mark end of string
-    lda .zword + 5
+    lda .zword + 4
     ora #$80
-    sta .zword + 5
+    sta .zword + 4
 !ifdef TRACE_TOKENISE {
     ; print zword (6 or 9 bytes)
     jsr newline
@@ -436,7 +437,7 @@ find_word_in_dictionary
     sta .zchars_per_entry
 .dictionary_loop
     ; show the dictonary word
-!ifdef TRACE_TOKENISE {
+!ifdef TRACE_SHOW_DICT_ENTRIES {
     lda .addr
     pha
     lda .addr + 1
@@ -444,7 +445,7 @@ find_word_in_dictionary
     lda .addr + 2
     pha
     jsr print_addr
-    jsr newline
+    jsr space
     pla 
     sta .addr + 2
     pla 
@@ -460,8 +461,11 @@ find_word_in_dictionary
     ldy #0
     sty .num_matching_zchars
 .loop_check_entry
-johan
     jsr read_next_byte
+!ifdef TRACE_SHOW_DICT_ENTRIES {
+    jsr printa
+    jsr space
+}
 !ifdef Z4PLUS {
     cmp .zword,y
 } else {
@@ -473,7 +477,13 @@ johan
     iny
     cpy .zchars_per_entry
     bne .loop_check_entry
-    dey ; undo last inx in .loop_check_entry block
+!ifdef TRACE_SHOW_DICT_ENTRIES {
+    jsr printy
+    jsr space
+    lda .num_matching_zchars
+    jsr printa
+    jsr newline
+}
     cpy .num_matching_zchars
     beq .found_dict_entry ; we found the correct entry!
     ; skip the extra data bytes
@@ -520,6 +530,7 @@ johan
 .last_char_index !byte 0
 .parse_array_index !byte 0
 .dictionary_address !byte 0,0
+johanword
 .zword !byte 0,0,0,0,0,0
 .zchars_per_entry !byte 0
 .num_matching_zchars !byte 0
