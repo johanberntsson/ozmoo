@@ -898,15 +898,16 @@ z_store_result
 
 !zone z_division {
 z_divide
-	; input: Divisor in arg 0, dividend in arg 1
+	; input: Dividend in arg 0, divisor in arg 1
 	; output: result in division_result (low byte, high byte)
 	lda z_operand_value_high_arr
 	eor z_operand_value_high_arr + 1
 	sta zp_temp ; Top bit: 1 = Result is negative, other bits must be ignored
+	; Get 2-complement of dividend, if negative
 	lda z_operand_value_low_arr
 	bit z_operand_value_high_arr
 	bpl +
-	; Get 2-complement of divisor
+	; It's negative!
 	eor #$ff
 	clc
 	adc #1
@@ -914,29 +915,31 @@ z_divide
 	lda z_operand_value_high_arr
 	eor #$ff
 	adc #0
-	bpl ++ ; Always branch
+	jmp ++
 +	tax
 	lda z_operand_value_high_arr
-++	stx divisor
-	sta divisor + 1
-	; Get 2-complement of dividend
+++	stx dividend
+	sta dividend + 1
+	; Get 2-complement of divisor, if negative
 	lda z_operand_value_low_arr + 1
 	bit z_operand_value_high_arr + 1
 	bpl +
+	; It's negative!
 	eor #$ff
 	clc
 	adc #1
-	tay
+	tax
 	lda z_operand_value_high_arr + 1
 	eor #$ff
 	adc #0
-	bpl ++ ; Always branch
+	jmp ++
 +	tax
 	lda z_operand_value_high_arr + 1
-++	stx dividend
-	sta dividend + 1
-	; TODO: Reverse sign if applicable. 
+++	stx divisor
+	sta divisor + 1
+	; Perform the division
 	jsr divide16
+	; Reverse sign if applicable. 
 	bit zp_temp
 	bpl +
 	; Inverse sign of result
@@ -1342,22 +1345,21 @@ z_ins_storeb
 
 z_ins_print_num
 	; TODO: make it print to currently selected output streams
-	bit z_operand_value_high_arr
-	bpl +
-	lda #$2c
-	jsr streams_output_stream
-	lda z_operand_value_low_arr
-	sec
-	sbc #1
-	eor #$ff
-	tax
-	lda z_operand_high_arr
-	sbc #0
-	eor #$ff
--	jmp printinteger
-+	ldx z_operand_value_low_arr
+	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
-	bpl - ; Always branch
+	bpl +
+	tay
+	lda #$2d
+	jsr streams_print_output
+	txa
+	eor #$ff
+	clc
+	adc #1
+	tax
+	tya
+	eor #$ff
+	adc #0
++	jmp printinteger
 
 z_ins_random	
 	lda z_operand_value_high_arr
