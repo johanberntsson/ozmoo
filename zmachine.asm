@@ -98,10 +98,11 @@ z_opcount_0op_jump_high_arr
 	!byte >z_ins_new_line
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
 !ifdef Z5PLUS {
+	!byte >z_ins_extended
 	!byte >make_branch_true ; z_ins_piracy
 } else {
+	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
 	
@@ -124,10 +125,11 @@ z_opcount_0op_jump_low_arr
 	!byte <z_ins_new_line
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
 !ifdef Z5PLUS {
+	!byte <z_ins_extended
 	!byte <make_branch_true ; z_ins_piracy
 } else {
+	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
 	
@@ -339,6 +341,20 @@ z_opcount_var_jump_low_arr
 }
 
 z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
+
+z_opcount_ext_jump_high_arr
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_art_shift
+z_opcount_ext_jump_low_arr
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_art_shift
+
+z_last_implemented_ext_opcode_number = * - z_opcount_ext_jump_low_arr - 1
+
 ; These get zeropage addresses in constants.asm:
 ; z_opcode 
 ; z_opcode_number
@@ -448,6 +464,19 @@ z_execute
 	bne .get_4_ops ; Always branch
 
 .top_bits_are_10
+!ifdef Z5PLUS {
+	cmp #z_opcode_extended
+	bne .short_form
+	; Form = Extended
+	lda #$e
+	sta z_opcode_number
+	lda #z_opcode_opcount_0op 
+	sta z_opcode_opcount ; Set to 0OP
+	jsr read_byte_at_z_pc_then_inc
+	sta z_extended_opcode
+	jmp .get_4_ops
+}
+.short_form
 	; Form = Short
 	and #%00001111
 	sta z_opcode_number
@@ -468,15 +497,6 @@ z_execute
 	jmp .read_operands
 	
 .top_bits_are_0x
-!ifdef Z5PLUS {
-	cmp #z_opcode_extended
-	bne .long_form
-	; Form = Extended
-	inc z_opcode_opcount ; Set to VAR
-	jsr read_byte_at_z_pc_then_inc
-	sta z_extended_opcode
-	jmp .get_4_ops
-}
 	
 .long_form	
 	; Form = Long
@@ -497,7 +517,6 @@ z_execute
 	
 .get_4_ops
 	ldy #4
-.get_y_ops
 	ldx #0
 	jsr z_get_op_types
 	lda z_opcode
@@ -996,6 +1015,20 @@ z_ins_ret_popped
 	
 ; z_ins_new_line (moved to text.asm)
 
+z_ins_extended
+	ldx z_extended_opcode
+	dex
+	cpx z_last_implemented_ext_opcode_number
+	bpl +
+	inx
+	lda z_opcount_ext_jump_low_arr,x
+	sta .jsr_perform_ext + 1
+	lda z_opcount_ext_jump_high_arr,x
+	sta .jsr_perform_ext + 2
+.jsr_perform_ext
+	jmp $8000
++	jmp z_not_implemented
+
 ; z_ins_piracy jumps directly to make_branch_true
 
 ; 1OP instructions
@@ -1435,6 +1468,33 @@ z_ins_set_text_style
 	
 z_ins_output_stream
 	jmp streams_output_stream
+
+; EXT instructions
+
+.left_shift
+	asl z_operand_value_low_arr
+	rol z_operand_value_high_arr
+	dec z_operand_value_low_arr + 1
+	bne .left_shift
+.shift_store
+	ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	jmp z_store_result
+
+z_ins_art_shift
+	bit z_operand_value_high_arr + 1
+	bpl .left_shift
+-	clc
+	bit z_operand_value_high_arr
+	bpl +
+	sec
++	ror z_operand_value_high_arr
+	ror z_operand_value_low_arr
+	inc z_operand_value_low_arr + 1
+	bne -
+	beq .shift_store ; Always branch
 }
+
+
 	
 	
