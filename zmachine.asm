@@ -152,7 +152,7 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_ret
 	!byte >z_ins_jump
 	!byte >z_ins_print_paddr
-	!byte >z_not_implemented
+	!byte >z_ins_load
 !ifndef Z5PLUS {
 	!byte >z_ins_not
 } else {
@@ -174,7 +174,7 @@ z_opcount_1op_jump_low_arr
 	!byte <z_ins_ret
 	!byte <z_ins_jump
 	!byte <z_ins_print_paddr
-	!byte <z_not_implemented
+	!byte <z_ins_load
 !ifndef Z5PLUS {
 	!byte <z_ins_not
 } else {
@@ -1068,6 +1068,11 @@ z_ins_jump
 	jmp z_jump_to_offset_in_zp_temp
 
 ; z_ins_print_paddr (moved to text.asm)
+
+z_ins_load
+	ldx z_operand_value_low_arr
+	jsr z_get_variable_value
+	jmp z_store_result
 
 z_ins_jz
 	lda z_operand_value_low_arr
