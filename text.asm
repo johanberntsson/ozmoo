@@ -1,8 +1,8 @@
 ; text opcodes
 
 ;TRACE_READTEXT = 1
-;TRACE_TOKENISE = 1
-;TRACE_SHOW_DICT_ENTRIES = 1
+TRACE_TOKENISE = 1
+TRACE_SHOW_DICT_ENTRIES = 1
 
 z_ins_print_addr 
     jsr evaluate_all_args
@@ -438,20 +438,26 @@ find_word_in_dictionary
 .dictionary_loop
     ; show the dictonary word
 !ifdef TRACE_SHOW_DICT_ENTRIES {
-    lda .addr
-    pha
+    ;lda .addr
+    ;pha
     lda .addr + 1
     pha
     lda .addr + 2
     pha
+    lda .addr+1
+    jsr printa
+    jsr comma
+    lda .addr+2
+    jsr printa
+    ;jsr space
     jsr print_addr
-    jsr space
+    ;jsr space
     pla 
     sta .addr + 2
     pla 
     sta .addr + 1
-    pla 
-    sta .addr
+    ;pla 
+    ;sta .addr
 }
     ; store address to current entry
     jsr get_z_address
@@ -530,7 +536,6 @@ find_word_in_dictionary
 .last_char_index !byte 0
 .parse_array_index !byte 0
 .dictionary_address !byte 0,0
-johanword
 .zword !byte 0,0,0,0,0,0
 .zchars_per_entry !byte 0
 .num_matching_zchars !byte 0
