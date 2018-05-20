@@ -549,11 +549,12 @@ z_execute
 	beq .op_is_omitted
 	jsr read_byte_at_z_pc_then_inc
 	sta z_operand_low_arr,y
-	tax
+; Commented out code for sign propagation. Also, this propagated sign for variables...
+;	tax
 	lda #0
-	cpx #$80
-	bcc +
-	lda #$ff
+;	cpx #$80
+;	bcc +
+;	lda #$ff
 +	sta z_operand_high_arr,y
 .op_loaded
 	iny
