@@ -9,6 +9,7 @@ z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
 z_global_vars_start	!byte 0, 0
+z_temp				!byte 0, 0, 0, 0, 0
 
 ; Not yet fully implemented
 ; -------------------
@@ -43,7 +44,6 @@ z_global_vars_start	!byte 0, 0
 ; VAR
 ; ---
 ; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
-; print_num (Doesn't consider currently active output streams)
 ; random (Only handles range < 256, and no seeding)
 ; split_window
 ; set_window
@@ -1392,7 +1392,6 @@ z_ins_storeb
 ; z_ins_print_char (moved to text.asm)
 
 z_ins_print_num
-	; TODO: make it print to currently selected output streams
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	bpl +
@@ -1403,11 +1402,46 @@ z_ins_print_num
 	eor #$ff
 	clc
 	adc #1
-	tax
+	sta z_operand_value_low_arr
 	tya
 	eor #$ff
 	adc #0
-+	jmp printinteger
+	sta z_operand_value_high_arr
+	; Sign has been printed, if any. Now print number (0 to 32768)
++	lda #10
+	sta z_operand_value_low_arr + 1
+	lda #0
+	sta z_operand_value_high_arr + 1
+	; Divide by 10 up to four times
+	ldy #0
+	sty zp_temp
+-	lda z_operand_value_low_arr
+	cmp #10
+	bcs +
+	tax
+	lda z_operand_value_high_arr
+	beq .done_dividing
++	jsr z_divide
+	lda remainder
+	ldy zp_temp
+	sta z_temp,y
+	inc zp_temp
+	lda division_result
+	sta z_operand_value_low_arr
+	lda division_result + 1
+	sta z_operand_value_high_arr
+	jmp -
+.done_dividing
+	ldy zp_temp
+	txa
+	sta z_temp,y
+-	lda z_temp,y
+	clc
+	adc #$30
+	jsr streams_print_output
+	dey
+	bpl -
+	rts
 
 z_ins_random	
 	lda z_operand_value_high_arr
