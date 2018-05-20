@@ -19,7 +19,7 @@ z_ins_get_sibling
 !ifndef Z4PLUS {
     lda #5
 } else {
-    lda #8
+    lda #9
 }
 	bne .get_sibling_child ; Always branch
 
@@ -101,14 +101,15 @@ z_ins_get_parent
 }
 !ifndef Z4PLUS {
     ldy #4
+    ldx #0
     lda (object_tree_ptr),y
     tax
     lda #0
 } else  {
-    ldy #6
+    ldy #7
     lda (object_tree_ptr),y
     tax
-    iny
+    dey
     lda (object_tree_ptr),y
 }
 !ifdef TRACE_TREE {
@@ -350,6 +351,7 @@ find_attr
     ; output: 
     ;   y = index to attribute byte relative object_tree_ptr
     ;   x = bit to set/clear, use .bitmask)
+    ;   x and y also stored in .bitmask_index and .attribute_index
     ; need to call evaluate_all_args before find_attr
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -374,6 +376,7 @@ find_attr
     lda z_operand_value_low_arr + 1
     ; ignore high_arr. Max 48 attributes
     and #$07
+    sta .bitmask_index
     tax
 !ifdef TRACE_ATTR {
     lda #$78 ; X
@@ -386,6 +389,7 @@ find_attr
     lsr
     lsr
     tay
+    sta .attribute_index
 !ifdef TRACE_ATTR {
     txa
     pha
@@ -398,6 +402,8 @@ find_attr
 }
     rts
 .bitmask !byte 128,64,32,16,8,4,2,1
+.bitmask_index !byte 0
+.attribute_index !byte 0
 
 z_ins_print_obj
     ; print_obj object
@@ -513,8 +519,14 @@ z_ins_set_attr
 }
     rts
 .do_set_attr
+    ldx .bitmask_index
+    ldy .attribute_index
     lda (object_tree_ptr),y
 !ifdef TRACE_ATTR {
+    lda .bitmask,x
+    jsr printa
+    jsr comma
+    lda (object_tree_ptr),y
     jsr printa
     jsr space
 }
@@ -555,6 +567,8 @@ z_ins_clear_attr
 }
     rts
 .do_clear_attr
+    ldx .bitmask_index
+    ldy .attribute_index
     lda (object_tree_ptr),y
 !ifdef TRACE_ATTR {
     jsr printa
