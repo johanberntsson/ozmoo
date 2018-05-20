@@ -1,6 +1,6 @@
 ; Anatomy of a stack frame:
 ; 
-; Number of pushed bytes
+; Number of pushed bytes + 4
 ; Pushed word n-1
 ; ...
 ; Pushed word 0
@@ -15,7 +15,7 @@
 ; LLLL = Number of local variables in this routine
 ; ZZZ ZZZZZZZZ ZZZZZZZZ = Z_PC to go to when returning from this routine 
 ;
-; Stack pointer actually points to last word of current entry (Number of pushed bytes)
+; Stack pointer actually points to last word of current entry (Number of pushed bytes + 4)
 
 !zone {
 
@@ -54,9 +54,9 @@ stack_call_routine
 }
 	lda #0
 	sta z_pc
-	lda z_operand_high_arr
+	lda z_operand_value_high_arr
 	sta z_pc + 1
-	lda z_operand_low_arr
+	lda z_operand_value_low_arr
 .rol_again
 	asl
 	rol z_pc + 1
@@ -345,4 +345,31 @@ stack_pull
 	pla
 	rts
 
+z_ins_check_arg_count
+	; Skip past all items pushed onto stack in this frame,
+	; and 4 bytes lower to read number of arguments
+	lda z_operand_value_high_arr
+	bne .branch_false
+	lda stack_ptr
+	sec
+	ldy #1
+	sbc (stack_ptr),y
+	sta zp_temp + 2
+	lda stack_ptr + 1
+	dey
+	sbc (stack_ptr),y
+	sta zp_temp + 3
+	lda (zp_temp + 2),y
+	lsr
+	lsr
+	lsr
+	lsr
+	and #7
+	cmp z_operand_value_low_arr
+	bcc .branch_false
+	jmp make_branch_true
+.branch_false
+	jmp make_branch_false
+	
 }
+

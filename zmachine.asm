@@ -292,7 +292,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_check_arg_count
 }
 
 
@@ -337,7 +337,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_check_arg_count
 }
 
 z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
@@ -1468,6 +1468,8 @@ z_ins_set_text_style
 z_ins_output_stream
 	jmp streams_output_stream
 
+; z_ins_check_arg_count moved to stack.asm	
+	
 ; EXT instructions
 
 z_ins_log_shift
