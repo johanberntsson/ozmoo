@@ -345,12 +345,12 @@ z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
 z_opcount_ext_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_log_shift
 	!byte >z_ins_art_shift
 z_opcount_ext_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_log_shift
 	!byte <z_ins_art_shift
 
 z_last_implemented_ext_opcode_number = * - z_opcount_ext_jump_low_arr - 1
@@ -1018,10 +1018,8 @@ z_ins_ret_popped
 
 z_ins_extended
 	ldx z_extended_opcode
-	dex
 	cpx z_last_implemented_ext_opcode_number
-	bpl +
-	inx
+	bcs +
 	lda z_opcount_ext_jump_low_arr,x
 	sta .jsr_perform_ext + 1
 	lda z_opcount_ext_jump_high_arr,x
@@ -1472,6 +1470,14 @@ z_ins_output_stream
 
 ; EXT instructions
 
+z_ins_log_shift
+	bit z_operand_value_high_arr + 1
+	bpl .left_shift
+-	lsr z_operand_value_high_arr
+	ror z_operand_value_low_arr
+	inc z_operand_value_low_arr + 1
+	bne -
+	beq .shift_store ; Always branch
 .left_shift
 	asl z_operand_value_low_arr
 	rol z_operand_value_high_arr
