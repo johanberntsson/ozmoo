@@ -72,11 +72,12 @@ streams_output_stream
 	jsr fatalerror
 	!pet "unsupported stream#",0
 .negative
+	lda z_operand_value_low_arr
 	cmp #-4
 	bmi .unsupported_stream
-	sec
-	sbc #1
 	eor #$ff
+	clc
+	adc #1
 	cmp #3
 	beq .turn_off_mem_stream
 	tax
