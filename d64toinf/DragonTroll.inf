@@ -1,0 +1,160 @@
+Array e->1 3 2 2 6 1 3 1 2 6 5 5 5 5 5 4 5 5 1 7 4 1 5 1 1;
+Array g->5 7 7 6 4 13 15 15 15 6 9 11 11 11 10 5 7 6 4 4 9 11 10 9 2;
+Array c-->"stick" "rope" "key" "ring" "sword" "treasure" "mountain pass" "mountain pass" "gate to the north" "gate to the south" "dragon" "troll";
+Array y-->3 11 5 21 0 20 12 17 18 19 25 1;
+Array b-->"on a plain" "in the forest" "in the desert" "in a swamp" "in the mountains" "by the river" "in a cave";
+Array u-->'n//' 's//' 'e//' 'w//' 'take' 'jump' 'drop' 'kill' 'give' 'i//' 'quit' 'q//';
+Array h-->"Road is blocked" "What???" "You can't take it!" "Where is it?" "You pick it up" "You drop it" "The rope hangs across the river" "Nothing happens" "You kill the dragon with the sword." "You unlock the gate.";
+Array f->43;
+Array t->26;
+Array w ->1 2 4 8;
+Array d-->1 (-1) 5 (-5);
+Array k->3*12;
+
+[ps a;
+	@output_stream 3 f;
+	print (string) a;
+	@output_stream -3;
+];
+
+[main p q r m a s x v;
+@art_shift 85 1 -> x;
+print x,"^"; 
+	print"The Dragon and the Troll^^Steal the treasure^";
+	for(x=0:x<12:x++){
+		ps(c-->x);
+		for(p=0:p<3:p++)
+			k-> (3*x+p)=f->(2+p);
+	}
+	p=1;
+	r=1;
+	m=1;
+.i;
+	s=m;
+	m=0;
+	if(s==0)m=1;
+.j;
+	if(m){
+		print(string)h-->(m-1),"^";
+		p=a;
+		m=0;
+	}
+	print"^You are ",(string)b-->(e->(p-1)-1),"^You see ^";
+	for(x=0:x<12:x++)
+		if(y-->x==p)print(string)c-->x,"^";
+	if(q&&p==10 or 5)print(string)h-->6,"^";
+	if(r){
+		r=0;
+		print"The troll wants its ring back.^";
+	}
+	g->17=6;
+	g->18=4;
+	if(y-->2<0){
+		g->17=7;
+		g->18=6;
+		if(p==18 or 19){
+			print(string)h-->9,"^";
+		}
+	}
+	print"You can go ";
+	for(x=0:x<4:x++)
+		if(g->(p-1)&(w->x))
+			print(address)u-->x,",";
+	new_line;
+.n;
+	print "? ";
+	f->0=40;
+	t->0=6;
+	read f t;
+	v=0;
+	if(t->1>0)
+		for(x=0:x<12:x++)
+			if(t-->1==u -->x)v=x+1;
+	if(v==0){
+		print"Eh?^";
+		jump n;
+	}
+	print t->0," ";
+	print t->1," ";
+	print t->2," ";
+	print t->3," ";
+	print t->4," ";
+	print t->5," ";
+	print t->6," ";
+	print t->7," ";
+	print t->8," ";
+	print t->9," ";
+	print t->10," ";
+	print t->11," ";
+	print t->12,"^";
+	a=p;
+	switch(v){
+	1,2,3,4:
+		m=(g->(p-1))&(w-> (v-1));
+		if(m)p=p+(d-->(v-1));
+		jump i;
+	5:
+		if(t->1>1)
+			for(x=0:x<12:x++){
+				if(k->(3*x)==f->(t->9)&&k->(3*x+1)==f->(1+t->9)&&k->(3*x+2)==f->(2+t->9)&&y-->x==p){
+					m=5-2*(x> 5);
+					if(m==5)y-->x=-1;
+					jump j;
+					}
+			}
+			m=2;
+		jump j;
+	7:
+		if(t->1>1)
+			for(x=0:x<12:x++){
+				if(k->(3*x)==f->(t->9)&&k->(3*x+1)==f->(1+t->9)&&k->(3*x+2)==f->(2+t->9)){
+					m=6-2*(y-->x>- 1);
+					if(m==6)y-->x=p;
+					if(p==10&&x==1&&y-->x==p){
+						m=7;
+						q=1;
+						g->9=14;
+						y-->1=0;
+					}
+					if(p~=1|| x~=5)jump j;
+.z;
+					print"When you give the chest to the troll he gives you a
+					kingdom and lots of gold. You live happily ever after.^";
+					jump o;
+				}
+			}
+		m=2;
+		jump j;
+	6:
+		p=p-(5*(p==17))+(5*(p==12));
+		if(y-->0>0||a==p)m=8;
+		jump j;
+	10:
+		print"Inventory:^";
+		for(x=0:x<12:x++)
+			if(y-->x<0)print(string)c-->x,"^";
+		jump j;
+	8:
+		if(p==25&&y-->10==p &&y-->4<0){
+			m=9;
+			g->24=10;
+			y-->10=0;
+			jump j;
+		}
+		print"Something kills you.";
+	9:
+		if(p==1 &&y-->3<0){
+			y-->3=0;
+			y-->4=-1;
+			print"You get a sword by the troll.^";
+			jump j;
+		}
+		if(p ==1&&y-->5<0)jump z;
+		m=8;
+		jump j;
+	}
+.o;
+	print"^Press [RETURN] to exit.^";
+	read f t;
+];
+

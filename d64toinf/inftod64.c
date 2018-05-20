@@ -8,6 +8,7 @@
  * The additions were written by Johan Berntsson in 2018
  */
 #define NEWFORMAT 1
+//#define TRACEBLOCK 1
 
 #define PRGNAME "InfToD64"
 #define PRGVERSION "3.02"
@@ -244,7 +245,9 @@ trans256 (int outfile)
   length = read (fdi2, databuf, 256);
 #ifdef NEWFORMAT
   if (endfile_reached == FALSE)
+#ifdef TRACEBLOCK
       printf("block %02d: 0x%02x (%3d): %p (%5d)\n", block++, databuf[0], databuf[0], 8192+256*block, 8192+256*block);
+#endif
 #endif
 
   if (endfile_reached == TRUE)
@@ -329,7 +332,9 @@ main (int argc, char **argv)
     // first track need to store header first
     block = 0;
     write (fdo1, databuf, 256);
+#ifdef TRACEBLOCK
     printf("block %02d: 0x%02x (%3d): %p (%5d)\n", block++, databuf[0], databuf[0], 8192+256*block, 8192+256*block);
+#endif
     transdata (15, 1);
     transzero (5);
     // rest of the story tracks
