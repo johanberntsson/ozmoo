@@ -14,7 +14,6 @@ z_global_vars_start	!byte 0, 0
 ; -------------------
 ; 0OP
 ; ---
-; print_ret
 ; save
 ; restore
 ; restart
@@ -31,7 +30,6 @@ z_global_vars_start	!byte 0, 0
 ; ---
 ; jin
 ; test
-; or
 ; test_attr
 ; set_attr
 ; clear_attr
@@ -63,14 +61,11 @@ z_global_vars_start	!byte 0, 0
 ; encode_text
 ; copy_table
 ; print_table
-; check_arg_count
 ;
 ; EXT
 ; ---
 ; save
 ; restore
-; log_shift
-; art_shift
 ; set_font
 ; save_undo
 ; restore_undo
