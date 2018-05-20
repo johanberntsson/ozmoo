@@ -1,4 +1,4 @@
-!! CZECH: Comprehensive Z-machine Emulation CHecker
+!! CZECH: Comprehensive Z-machine Emulation CHecker 0;
 !!
 !! Fairly thoroughly test z-machine stuff.
 !!
@@ -1625,6 +1625,10 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
 !---------------------- MAIN
 
 [ Main;
+   ! debugging do_art
+   do_art( 1, -1,  0);
+   do_art(85,  1, 170);
+   read mytable 0;
 
    Testnum = 0; Passed = 0; Failed = 0; Print_Tests = 0;
    @print "CZECH: the Comprehensive Z-machine Emulation CHecker, version ";
@@ -1638,7 +1642,7 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
 
 !   Standard = 0->50;
 !   if(0->50 || 0->51)
-!      print "Standard ", 0->50, ".", 0->51, " ";
+!      print "Standard ", 0->50, ".", 0->51, " "; 0;
 !   print "interpreter ", 0->30, (char) 0->31;
 
    ! If jumps don't work, we just give up.
