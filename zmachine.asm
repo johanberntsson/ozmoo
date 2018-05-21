@@ -91,7 +91,7 @@ z_opcount_0op_jump_high_arr
 	!byte >z_ins_quit
 	!byte >z_ins_new_line
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >make_branch_true
 !ifdef Z5PLUS {
 	!byte >z_ins_extended
 	!byte >make_branch_true ; z_ins_piracy
@@ -118,7 +118,7 @@ z_opcount_0op_jump_low_arr
 	!byte <z_ins_quit
 	!byte <z_ins_new_line
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <make_branch_true
 !ifdef Z5PLUS {
 	!byte <z_ins_extended
 	!byte <make_branch_true ; z_ins_piracy
@@ -126,7 +126,7 @@ z_opcount_0op_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
-	
+
 z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
 
 z_opcount_1op_jump_high_arr
@@ -1020,6 +1020,8 @@ z_ins_ret_popped
 ;	jmp stack_pull
 	
 ; z_ins_new_line (moved to text.asm)
+
+; z_ins_verify has no implementation, jump table points to make_branch_true instead.
 
 z_ins_extended
 	ldx z_extended_opcode
