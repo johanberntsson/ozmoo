@@ -371,6 +371,61 @@ z_init
 -	sta z_trace_page,y
 	iny
 	bne -
+	
+	; Modify header to tell game about terp capabilities
+!ifdef Z3 {
+	lda story_start + 1
+	ora #16 ; Statusline not available
+	and #(255 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
+;	ora #8 ; Statusline not available
+;	and #(255 - 4 - 2) ; Screen-splitting not available, variable-pitch font is not default
+	sta story_start + 1
+} else {
+!ifdef Z4 {
+	lda story_start + 1
+	ora #16 ; Fixed-pitch font available
+	and #(255 - 4 - 8 - 128) ; bold font, italic font, timed input not available
+	sta story_start + 1
+} else {
+	lda story_start + 1
+	ora #16 ; Fixed-pitch font available
+	and #(255 - 1 - 4 - 8 - 128) ; colours, bold font, italic font, timed input not available
+	sta story_start + 1
+	lda story_start + $10
+	and #(255 - 1) ; pictures, undo, sound effect not available
+	sta story_start + $10
+	lda story_start + $11
+	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, sound effect not available
+	sta story_start + $11
+}
+}
+!ifdef Z4PLUS {
+	lda #8
+	sta story_start + $1e ; Interpreter number (8 = C64)
+	lda #64
+	sta story_start + $1f ; Interpreter number. Usually ASCII code for a capital letter (We use @ until the terp is ready for release)
+	lda #25
+	sta story_start + $20 ; Screen lines
+	lda #40
+	sta story_start + $21 ; Screen columns
+}
+!ifdef Z5PLUS {
+	lda #>320
+	sta story_start + $22 ; Screen width in units
+	lda #<320
+	sta story_start + $23 ; Screen width in units
+	lda #>200
+	sta story_start + $24 ; Screen height in units
+	lda #<200
+	sta story_start + $25 ; Screen height in units
+	lda #8
+	sta story_start + $26 ; Font width in units
+	sta story_start + $27 ; Font height in units
+	; TODO: Store default background and foreground color in 2c, 2d (or comply to game's wish?)
+}
+	lda #0
+	sta story_start + $32 ; major standard revision number which this terp complies to
+	sta story_start + $33 ; minor standard revision number which this terp complies to
 	; Copy z_pc from header
 	sta z_pc
 	lda story_start + header_initial_pc
