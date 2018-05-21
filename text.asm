@@ -179,7 +179,7 @@ z_ins_aread
 }
 
 z_ins_print_char
-    ldx z_operand_value_low_arr
+    lda z_operand_value_low_arr
 	jmp streams_print_output
 	
 z_ins_new_line
