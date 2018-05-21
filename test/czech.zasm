@@ -1815,16 +1815,16 @@ print works or you wouldn't be seeing this.
  2652:  da 1f 06 06 00          CALL_2N         1818 (#00)
  2657:  b2 ...                  PRINT           "
 "
- 265a:  da 1f 07 11 01          CALL_2N         1c44 (#01)
+ 265a:  da 1f 07 11 00          CALL_2N         1c44 (#00)
  265f:  b2 ...                  PRINT           "
 "
- 2662:  da 1f 08 5b 01          CALL_2N         216c (#01)
+ 2662:  da 1f 08 5b 00          CALL_2N         216c (#00)
  2667:  b2 ...                  PRINT           "
 "
- 266a:  da 1f 08 85 01          CALL_2N         2214 (#01)
+ 266a:  da 1f 08 85 00          CALL_2N         2214 (#00)
  266f:  b2 ...                  PRINT           "
 "
- 2672:  da 1f 04 a8 01          CALL_2N         12a0 (#01)
+ 2672:  da 1f 04 a8 00          CALL_2N         12a0 (#00)
  2677:  b2 ...                  PRINT           "
 "
  267a:  b2 ...                  PRINT           "
