@@ -833,6 +833,16 @@ print_addr
     pha
     lda .addr + 2
     pha
+    lda .zchars
+    pha
+    lda .zchars + 1
+    pha
+    lda .zchars + 2
+    pha
+    lda .packedtext
+    pha
+    lda .packedtext + 1
+    pha
     lda story_start + header_abbreviations ; high byte
     ldx story_start + header_abbreviations + 1 ; low byte
     jsr set_z_address
@@ -851,8 +861,16 @@ print_addr
     ; print the abbreviation
     jsr print_addr
     ; restore state
-    lda #0
-    sta .abbreviation_command
+    pla
+    sta .packedtext + 1
+    pla
+    sta .packedtext
+    pla
+    sta .zchars + 2
+    pla
+    sta .zchars + 1
+    pla
+    sta .zchars
     pla
     sta .addr + 2
     pla
@@ -905,6 +923,7 @@ print_addr
     bne .l5
     lda #0
     sta .escape_char
+    sta .alphabet_offset
     lda #2
     sta .escape_char_counter
     jmp .next_zchar
