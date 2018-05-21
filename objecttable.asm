@@ -947,14 +947,20 @@ z_ins_put_prop
     ; put_prop object property value
     jsr find_first_prop
     jsr find_prop
+    stx zp_mempos
+    clc
+    adc #>story_start
+    sta zp_mempos + 1
 !ifdef TRACE_PROP {
-    pha
     jsr print_following_string
     !pet "put_prop object property: ", 0
     ldx z_operand_value_low_arr
     jsr printx
     jsr space
     ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 2
     jsr printx
     lda #58 ; :
     jsr kernel_printchar
@@ -965,26 +971,29 @@ z_ins_put_prop
     jsr printy
     lda #58 ; :
     jsr kernel_printchar
-    jsr newline
-    pla
+    jsr space
 }
-    jsr get_z_address
-    stx zp_mempos
-    sta zp_mempos + 1
-    ldy #1
     lda .property_length
-    jsr printa
     cmp #1
     bne +
     ldx z_operand_value_low_arr + 2
+    ldy #0
     sta (zp_mempos),y
+!ifdef TRACE_PROP {
+    jsr newline
+}
+    rts
 +   cmp #2
     bne +
-    ldx z_operand_value_low_arr + 2
+    ldy #0
+    lda z_operand_value_high_arr + 2
     sta (zp_mempos),y
     iny 
-    ldx z_operand_value_high_arr + 2
+    lda z_operand_value_low_arr + 2
     sta (zp_mempos),y
+!ifdef TRACE_PROP {
+    jsr newline
+}
     rts
 +   jsr fatalerror
     !pet "z_ins_put_prop bad length", 13, 0
