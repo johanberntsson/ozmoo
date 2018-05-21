@@ -3,7 +3,7 @@
 ;TRACE_TREE = 1 ; trace get_parent, get_sibling, get_child
 ;TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
 ;TRACE_ATTR = 1 ; trace find_attr, set_attr, clear_attr
-;TRACE_PROP = 1  ; trace get_prop_len, 
+;TRACE_PROP = 1  ; trace get_prop_len, get_next_prop
 
 ; globals
 num_default_properties !byte 0
@@ -131,8 +131,10 @@ z_ins_get_prop_len
     jsr space
 }
     ldx z_operand_value_low_arr
-    bne +
     lda z_operand_value_high_arr
+    cpx #0
+    bne +
+    cmp #0
     bne +
     ; get_prop_len 0 must return 0
 !ifdef TRACE_PROP {
@@ -141,8 +143,36 @@ z_ins_get_prop_len
 }
     jmp z_store_result
 +   jsr set_z_address
-    jsr calculate_property_length_number
-    ldx .property_length
+    ; z_address currently at start of prop data
+    ; need to back 1 step to the property length byte
+    jsr dec_z_address
+    jsr read_next_byte
+!ifdef Z4PLUS {
+    pha
+    and #$80
+    bne +
+    ; this is a 1-byte property block, check bit 6
+    lda #1
+    sta .property_length
+    pla
+    and #$40
+    beq ++
+    inc .property_length
+    bne ++ ; always jump
++   ; this is byte 2 of a 2-byte property block
+    pla
+    and #$3f
+    sta .property_length
+} else {
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr
+    sta .property_length
+    inc .property_length
+}
+++  ldx .property_length
     lda #0
 !ifdef TRACE_PROP {
     jsr printx
@@ -678,11 +708,14 @@ calculate_property_length_number
     sta .property_number
     sta .property_length
     jsr read_next_byte ; size of property block (# data | property number)
-    cmp #0
+!ifdef TRACE_PROP {
+    jsr printa
+    jsr comma
+}
     beq .end_pf_property_list
 !ifdef Z4PLUS {
     pha
-    and #$1f ; property number
+    and #$3f ; property number
     sta .property_number
     pla
     pha
@@ -698,11 +731,13 @@ calculate_property_length_number
 .two_bytes
     pla ; we don't care about byte 1, bit 6 anymore
     jsr read_next_byte ; property_length
+!ifdef TRACE_PROP {
+    jsr printa
+}
     bne +
     lda #64
-+   and #$1f ; property number
++   and #$3f ; property number
     sta .property_length
-    rts
 } else {
     pha
     and #$1f ; property number
@@ -717,6 +752,9 @@ calculate_property_length_number
     inc .property_length
 }
 .end_pf_property_list
+!ifdef TRACE_PROP {
+    jsr space
+}
     rts
 .property_number !byte 0
 .property_length !byte 0
@@ -726,11 +764,10 @@ find_first_prop
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
-!ifndef Z4PLUS {
-    ldy #8
-}
 !ifdef Z4PLUS {
     ldy #13
+} else {
+    ldy #8
 }
     lda (object_tree_ptr),y ; low byte
     tax
@@ -738,8 +775,10 @@ find_first_prop
     lda (object_tree_ptr),y ; high byte
     jsr set_z_address
     jsr read_next_byte ; length of object short name (# of zchars)
-    ; skip short name
-    asl ; a is number of words, multiply by two for number of bytes
+    ; skip short name (2 * bytes, since in words)
+    pha
+    jsr skip_bytes_z_address
+    pla
     jmp skip_bytes_z_address
 
 find_prop
@@ -751,7 +790,7 @@ find_prop
     lda .property_length
     cmp #0
     beq .find_prop_not_found
-!ifdef DEBUG {
+!ifdef TRACE_PROP {
     lda #46 ; .
     jsr kernel_printchar
     ldx .property_number
