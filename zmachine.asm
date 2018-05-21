@@ -683,6 +683,10 @@ z_get_variable_reference
 	cmp #16
 	bcs .find_global_var
 	; Local variable
+	tay
+	dey
+	cpy z_local_var_count
+	bcs .nonexistent_local
 	asl
 	clc
 	adc z_local_vars_ptr
@@ -704,6 +708,10 @@ z_get_variable_reference
 	ldy zp_temp + 3
 	rts
 
+.nonexistent_local
+	jsr fatalerror
+	!pet "used non-existent local var",0
+	
 z_get_variable_value
 	; Variable in x
 	; Returns value in a,x
@@ -714,6 +722,10 @@ z_get_variable_value
 	cmp #16
 	bcs .read_global_var
 	; Local variable
+	tay
+	dey
+	cpy z_local_var_count
+	bcs .nonexistent_local
 	asl
 	tay
 	iny
@@ -758,6 +770,10 @@ z_set_variable
 	cmp #16
 	bcs .write_global_var
 	; Local variable
+	tay
+	dey
+	cpy z_local_var_count
+	bcs .nonexistent_local
 	asl
 	tay
 	lda zp_temp + 2
