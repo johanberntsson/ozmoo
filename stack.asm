@@ -172,7 +172,7 @@ stack_return_from_routine
 	ldy stack_ptr + 1
 	cpy #>stack_start
 	bcs +
-	jmp .underflow
+	jmp .stack_underflow
 
 	; Save input values
 +	sta zp_temp
@@ -296,6 +296,22 @@ stack_push
 	bne +
 	inc stack_ptr + 1
 +	rts
+
+stack_get_ref_to_top_value
+	ldy #1
+	lda (stack_ptr),y
+	cmp #6
+	bcs +
+	dey
+	lda (stack_ptr),y
+	beq .stack_underflow
++	lda stack_ptr
+	sec
+	sbc #2
+	tax
+	lda stack_ptr + 1
+	sbc #0
+	rts
 	
 stack_pull
 	; Pull top value from stack, return in a,x
@@ -308,7 +324,7 @@ stack_pull
 	dey
 	lda (stack_ptr),y
 	bne .ok
-.underflow
+.stack_underflow
 	jsr fatalerror
 	!pet "stack empty",0
 

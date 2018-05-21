@@ -675,8 +675,12 @@ z_get_variable_reference
 	; affects registers: p
 	sty zp_temp + 3
 	cpx #0
-	beq .find_on_stack
-	txa
+	bne +
+	; Find on stack
+	jsr stack_get_ref_to_top_value
+	ldy zp_temp + 3
+	rts
++	txa
 	cmp #16
 	bcs .find_global_var
 	; Local variable
@@ -686,15 +690,6 @@ z_get_variable_reference
 	tax
 	lda z_local_vars_ptr + 1
 	adc #0
-	ldy zp_temp + 3
-	rts
-.find_on_stack
-	lda stack_ptr
-	sec
-	sbc #2
-	tax
-	lda stack_ptr + 1
-	sbc #0
 	ldy zp_temp + 3
 	rts
 .find_global_var
@@ -1097,7 +1092,14 @@ z_ins_jump
 
 z_ins_load
 	ldx z_operand_value_low_arr
-	jsr z_get_variable_value
+	jsr z_get_variable_reference
+	stx zp_temp
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y
+	tax
+	dey
+	lda (zp_temp),y
 	jmp z_store_result
 
 z_ins_jz
@@ -1201,10 +1203,17 @@ z_ins_and
 ; z_ins_clear_attr (moved to objecttable.asm)
 	
 z_ins_store
-	ldy z_operand_value_low_arr
+	ldx z_operand_value_low_arr
+	jsr z_get_variable_reference
+	stx zp_temp
+	sta zp_temp + 1
+	ldy #0
 	lda z_operand_value_high_arr + 1
-	ldx z_operand_value_low_arr + 1
-	jmp z_set_variable
+	sta (zp_temp),y
+	iny
+	lda z_operand_value_low_arr + 1
+	sta (zp_temp),y
+	rts
 
 ; z_ins_insert_obj (moved to objecttable.asm)
 	
@@ -1487,9 +1496,26 @@ z_ins_push
 
 z_ins_pull
 	jsr stack_pull
-	ldy z_operand_value_low_arr
-	jmp z_set_variable
+	pha
+	txa
+	pha
+	ldx z_operand_value_low_arr
+	jsr z_get_variable_reference
+	stx zp_temp
+	sta zp_temp + 1
+	ldy #1
+	pla
+	sta (zp_temp),y
+	pla
+	dey
+	sta (zp_temp),y
 
+;	jsr printinteger
+;	jsr fatalerror
+;	!pet "testiz",0
+
+	rts
+	
 z_ins_set_text_style
 	; TODO: Proper implementation!
 	rts
