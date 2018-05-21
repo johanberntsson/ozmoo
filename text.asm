@@ -222,6 +222,20 @@ set_z_address
     sta .addr
     rts
 
+dec_z_address
+    pha
+    dec .addr + 2
+    lda .addr + 2
+    cmp #$ff
+    bne +
+    dec .addr + 1
+    lda .addr + 1
+    cmp #$ff
+    bne +
+    dec .addr
++   pla
+    rts
+
 set_z_himem_address
     stx .addr + 2
     sta .addr + 1
@@ -235,10 +249,10 @@ skip_bytes_z_address
     sta .addr + 2
     lda .addr + 1
     adc #0
-    lda .addr + 1
+    sta .addr + 1
     lda .addr
     adc #0
-    lda .addr
+    sta .addr
     rts
 
 !ifdef DEBUG {

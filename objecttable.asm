@@ -163,6 +163,9 @@ z_ins_get_prop_len
     pla
     and #$3f
     sta .property_length
+    bne ++
+    lda #64
+    sta .property_length
 } else {
     lsr
     lsr
@@ -734,9 +737,10 @@ calculate_property_length_number
 !ifdef TRACE_PROP {
     ;jsr printa
 }
-    bne +
+    and #$3f ; property number
+    sta .property_length
+    bne .end_pf_property_list
     lda #64
-+   and #$3f ; property number
     sta .property_length
 } else {
     pha

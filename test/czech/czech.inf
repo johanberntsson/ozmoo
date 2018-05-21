@@ -1625,11 +1625,6 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
 !---------------------- MAIN
 
 [ Main;
-   ! debugging do_art
-   do_art( 1, -1,  0);
-   do_art(85,  1, 170);
-   read mytable 0;
-
    Testnum = 0; Passed = 0; Failed = 0; Print_Tests = 0;
    @print "CZECH: the Comprehensive Z-machine Emulation CHecker, version ";
    ! It's not entirely cool to be using print_paddr before testing.
@@ -1665,7 +1660,6 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
    test_misc(0); @print "^";
    test_header(0); @print "^";
    test_print(0); @print "^";
-
    print "^^Performed ", Testnum, " tests.^";
    print "Passed: ", Passed, ", Failed: ", Failed;
    print ", Print tests: ", Print_Tests, "^";
@@ -1674,7 +1668,8 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
       @print " passed + failed + print tests!^^";
    }
    print "Didn't crash: hooray!^";
-   print "Last test: quit!^";
+   print "Last test: quit! (press any key)^";
+   read mytable 0;
    @quit;
    .bad_quit;
    print "Quit didn't work!^";
