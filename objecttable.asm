@@ -709,8 +709,8 @@ calculate_property_length_number
     sta .property_length
     jsr read_next_byte ; size of property block (# data | property number)
 !ifdef TRACE_PROP {
-    jsr printa
-    jsr comma
+    ;jsr printa
+    ;jsr comma
 }
     beq .end_pf_property_list
 !ifdef Z4PLUS {
@@ -732,7 +732,7 @@ calculate_property_length_number
     pla ; we don't care about byte 1, bit 6 anymore
     jsr read_next_byte ; property_length
 !ifdef TRACE_PROP {
-    jsr printa
+    ;jsr printa
 }
     bne +
     lda #64
@@ -753,7 +753,7 @@ calculate_property_length_number
 }
 .end_pf_property_list
 !ifdef TRACE_PROP {
-    jsr space
+    ;jsr space
 }
     rts
 .property_number !byte 0
@@ -784,10 +784,11 @@ find_first_prop
 find_prop
     ; call find_first_prop before calling find_prop
     ; output: x,a = address to property block, or 0,0 if not found
+    ; (also stored in .find_prop_result)
     ; loop over the properties until the correct one found
 .property_loop
     jsr calculate_property_length_number
-    lda .property_length
+    lda .property_number
     cmp #0
     beq .find_prop_not_found
 !ifdef TRACE_PROP {
@@ -811,9 +812,15 @@ find_prop
 .find_prop_not_found
     ldx #0
     lda #0
+    stx .find_prop_result
+    sta .find_prop_result + 1
     rts
 .find_prop_found
-    jmp get_z_address
+    jsr get_z_address
+    stx .find_prop_result
+    sta .find_prop_result + 1
+    rts
+.find_prop_result !byte 0,0 ; x,a
 
 z_ins_get_prop
     ; get_prop object property -> (result)
@@ -845,9 +852,10 @@ z_ins_get_prop
     lda z_operand_value_low_arr + 1; max 63 properties so only low_arr
     asl ; default property is words (2 bytes each)
     tay
+    dey
     lda (default_properties_ptr),y
     tax
-    iny
+    dey
     lda (default_properties_ptr),y
     jmp .return_property
 .property_found
