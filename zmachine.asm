@@ -919,11 +919,13 @@ z_store_result
 
 !zone z_division {
 z_divide
-	; input: Dividend in arg 0, divisor in arg 1
+	; input: Dividend in arg 0, divisor in arg 1, y = signed? 0 = unsigned, $ff = signed
 	; output: result in division_result (low byte, high byte)
+	cpy #0
+	beq .div_unsigned
 	lda z_operand_value_high_arr
 	eor z_operand_value_high_arr + 1
-	sta zp_temp ; Top bit: 1 = Result is negative, other bits must be ignored
+	sta zp_temp + 2 ; Top bit: 1 = Result is negative, other bits must be ignored
 	; Get 2-complement of dividend, if negative
 	lda z_operand_value_low_arr
 	bit z_operand_value_high_arr
@@ -937,12 +939,17 @@ z_divide
 	eor #$ff
 	adc #0
 	jmp ++
+.div_unsigned
+	sty zp_temp + 2 ; Top bit: 1 = Result is negative, other bits must be ignored
+	lda z_operand_value_low_arr
 +	tax
 	lda z_operand_value_high_arr
 ++	stx dividend
 	sta dividend + 1
 	; Get 2-complement of divisor, if negative
 	lda z_operand_value_low_arr + 1
+	cpy #0
+	beq + ; Unsigned div, no sign inveversion
 	bit z_operand_value_high_arr + 1
 	bpl +
 	; It's negative!
@@ -961,7 +968,7 @@ z_divide
 	; Perform the division
 	jsr divide16
 	; Reverse sign if applicable. 
-	bit zp_temp
+	bit zp_temp + 2
 	bpl +
 	; Inverse sign of result
 	lda division_result
@@ -1372,12 +1379,14 @@ z_ins_mul
 	jmp z_store_result
 
 z_ins_div
+	ldy #$ff
 	jsr z_divide
 	lda division_result + 1
 	ldx division_result
 	jmp z_store_result
 	
 z_ins_mod
+	ldy #$ff
 	jsr z_divide
 	lda remainder
 	bit z_operand_value_high_arr
@@ -1458,7 +1467,8 @@ z_ins_print_num
 	tax
 	lda z_operand_value_high_arr
 	beq .done_dividing
-+	jsr z_divide
++	ldy #0
+	jsr z_divide
 	lda remainder
 	ldy zp_temp
 	sta z_temp,y
@@ -1537,11 +1547,6 @@ z_ins_pull
 	pla
 	dey
 	sta (zp_temp),y
-
-;	jsr printinteger
-;	jsr fatalerror
-;	!pet "testiz",0
-
 	rts
 	
 z_ins_set_text_style
