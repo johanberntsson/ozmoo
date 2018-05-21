@@ -30,7 +30,6 @@ z_temp				!byte 0, 0, 0, 0, 0
 ; 2OP
 ; ---
 ; jin
-; test
 ; test_attr
 ; set_attr
 ; clear_attr
@@ -184,7 +183,7 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_dec_chk
 	!byte >z_ins_inc_chk
 	!byte >z_ins_jin
-	!byte >z_not_implemented
+	!byte >z_ins_test
 	!byte >z_ins_or
 	!byte >z_ins_and
 	!byte >z_ins_test_attr
@@ -218,7 +217,7 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_dec_chk
 	!byte <z_ins_inc_chk
 	!byte <z_ins_jin
-	!byte <z_not_implemented
+	!byte <z_ins_test
 	!byte <z_ins_or
 	!byte <z_ins_and
 	!byte <z_ins_test_attr
@@ -1179,9 +1178,18 @@ z_ins_dec_chk
 
 
 ; z_ins_jin (moved to objecttable.asm)
-	
-; z_ins_test_attr (moved to objecttable.asm)
 
+z_ins_test
+	lda z_operand_value_low_arr
+	and z_operand_value_low_arr + 1
+	cmp z_operand_value_low_arr + 1
+	bne .branch_false
+	lda z_operand_value_high_arr
+	and z_operand_value_high_arr + 1
+	cmp z_operand_value_high_arr + 1
+	bne .branch_false
+	beq .branch_true ; Always branch
+	
 z_ins_or
 	lda z_operand_value_low_arr
 	ora z_operand_value_low_arr + 1
@@ -1197,6 +1205,8 @@ z_ins_and
 	lda z_operand_value_high_arr
 	and z_operand_value_high_arr + 1
 	jmp z_store_result
+
+; z_ins_test_attr (moved to objecttable.asm)
 
 ; z_ins_set_attr (moved to objecttable.asm)
 	
