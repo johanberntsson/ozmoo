@@ -812,8 +812,55 @@ print_addr
     beq .l0
     ; handle abbreviation
     ; abbreviation is 32(.abbreviation_command-1)+a
-    jsr print_following_string
-    !pet "TODO: abbreviations",13,0
+    ldy .abbreviation_command
+    dey
+    tya
+    asl
+    asl
+    asl
+    asl
+    asl
+    clc
+    adc .zchars,x
+    asl ; byte -> word 
+    tay
+    ; need to store state before calling print_addr recursively
+    txa
+    pha
+    lda .addr
+    pha
+    lda .addr + 1
+    pha
+    lda .addr + 2
+    pha
+    lda story_start + header_abbreviations ; high byte
+    ldx story_start + header_abbreviations + 1 ; low byte
+    jsr set_z_address
+    tya
+    jsr skip_bytes_z_address
+    jsr read_next_byte ; 0
+    pha
+    jsr read_next_byte ; 33
+    tax
+    pla
+    jsr set_z_address
+    ; abbreviation index is word, *2 for bytes
+    asl .addr + 2
+    rol .addr + 1 
+    rol .addr 
+    ; print the abbreviation
+    jsr print_addr
+    ; restore state
+    lda #0
+    sta .abbreviation_command
+    pla
+    sta .addr + 2
+    pla
+    sta .addr + 1
+    pla
+    sta .addr
+    pla
+    tax
     jmp .next_zchar
 .l0 ldy .escape_char_counter
     beq .l1
