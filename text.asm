@@ -45,6 +45,7 @@ z_ins_sread
     ; read input
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
+    jsr draw_status_line
     jsr read_text
 !ifdef TRACE_READTEXT {
     jsr print_following_string
