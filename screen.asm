@@ -72,6 +72,7 @@ draw_status_line
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num
+    ldx #0
     ldy #30
     jsr set_cursor
     ldy #0

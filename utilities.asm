@@ -20,7 +20,7 @@ ERROR_OUT_OF_MEMORY = 12
 
 fatalerror
     ; prints the error, then resets the computer
-    ; input: y (error code)
+    ; input: a (error code)
     ; side effects: resets the computer
 !ifndef DEBUG {
     pha
