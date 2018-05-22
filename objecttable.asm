@@ -877,8 +877,8 @@ z_ins_get_prop
 .proplength_not_two
     cmp #0
     bne .proplength_one_or_more
+    lda #ERROR_BAD_PROPERTY_LENGTH
     jsr fatalerror
-    !pet "z_ins_get_prop bad length", 13, 0
 .proplength_one_or_more
     ldx .prop_result + 1
     lda .prop_result 
@@ -999,8 +999,8 @@ z_ins_put_prop
     jsr newline
 }
     rts
-+   jsr fatalerror
-    !pet "z_ins_put_prop bad length", 13, 0
++   lda #ERROR_BAD_PROPERTY_LENGTH
+    jsr fatalerror
 
 parse_object_table
     lda story_start + header_object_table     ; high byte

@@ -6,8 +6,8 @@ X64 := /usr/bin/x64 -warp
 
 #all: dejavu
 #all: dragon
-#all: minform
-all: testz3
+all: minform
+#all: testz3
 #all: testz5
 
 d64.czechz3: 

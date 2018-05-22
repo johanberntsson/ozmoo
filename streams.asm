@@ -69,8 +69,8 @@ streams_output_stream
 	beq .turn_on_mem_stream
 	rts
 .unsupported_stream
+    lda #ERROR_UNSUPPORTED_STREAM
 	jsr fatalerror
-	!pet "unsupported stream#",0
 .negative
 	lda z_operand_value_low_arr
 	cmp #-4
@@ -117,8 +117,8 @@ streams_output_stream
 	inc streams_stack_items
 	rts
 .stream_nesting_error
+    lda #ERROR_STREAM_NESTING_ERROR
 	jsr fatalerror
-	!pet "stream nesting error",0
 .turn_off_mem_stream
 	lda streams_stack_items
 	beq .stream_nesting_error

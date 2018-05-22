@@ -23,19 +23,9 @@ z_temp				!byte 0, 0, 0, 0, 0
 ;
 ; 1OP
 ; ---
-; get_prop_len
-; remove_obj
 ;
 ; 2OP
 ; ---
-; jin
-; test_attr
-; set_attr
-; clear_attr
-; insert_obj
-; get_prop
-; get_prop_addr
-; get_next_prop
 ; set_colour
 ; throw
 ;
@@ -259,12 +249,16 @@ z_opcount_var_jump_high_arr
 	!byte >z_ins_random
 	!byte >z_ins_push
 	!byte >z_ins_pull
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_split_window
+	!byte >z_ins_set_window
 	!byte >z_ins_call_xs
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+!ifdef Z4PLUS {
+	!byte >z_ins_set_cursor
+} else {
 	!byte >z_not_implemented
+}
 	!byte >z_not_implemented
 !ifdef Z4PLUS {
 	!byte >z_ins_set_text_style
@@ -304,12 +298,16 @@ z_opcount_var_jump_low_arr
 	!byte <z_ins_random
 	!byte <z_ins_push
 	!byte <z_ins_pull
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_split_window
+	!byte <z_ins_set_window
 	!byte <z_ins_call_xs
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+!ifdef Z4PLUS {
+	!byte <z_ins_set_cursor
+} else {
 	!byte <z_not_implemented
+}
 	!byte <z_not_implemented
 !ifdef Z4PLUS {
 	!byte <z_ins_set_text_style
@@ -676,7 +674,7 @@ z_not_implemented
 ;	jsr printx
 ;	lda #$0d
 ;	jsr kernel_printchar
-!ifndef DEBUG {
+!ifdef DEBUG {
 	jsr print_following_string
 	!pet "opcode: ",0
 	ldx z_opcode
@@ -689,8 +687,8 @@ z_not_implemented
 	lda #$0d
 	jsr kernel_printchar
 }
+    lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror
-	!pet "opcode not implemented!",0
 }
 
 z_get_op_types
@@ -763,8 +761,8 @@ z_get_variable_reference
 	rts
 
 .nonexistent_local
+    lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
-	!pet "used non-existent local var",0
 	
 z_get_variable_value
 	; Variable in x
@@ -1583,6 +1581,10 @@ z_ins_push
 	ldx z_operand_value_low_arr
 	jmp stack_push
 
+; z_ins_split_window moved to screen.asm
+
+; z_ins_set_window moved to screen.asm
+
 z_ins_pull
 	jsr stack_pull
 	pha
@@ -1600,9 +1602,9 @@ z_ins_pull
 	sta (zp_temp),y
 	rts
 	
-z_ins_set_text_style
-	; TODO: Proper implementation!
-	rts
+; z_ins_set_cursor moved to screen.asm
+
+; z_ins_set_text_style moved to screen.asm
 	
 z_ins_output_stream
 	jmp streams_output_stream

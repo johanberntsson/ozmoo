@@ -115,8 +115,8 @@ load_header
     cmp #8
     beq +
 }
+    lda #ERROR_UNSUPPORTED_STORY_VERSION
     jsr fatalerror
-    !pet "unsupported story version", 0
 
 +   ; check file length
     ; Start by multiplying file length by 2
@@ -162,8 +162,8 @@ load_dynamic_memory
     ldx fileblocks + 1
     cpx #>($D000 - story_start) ; don't overwrite $d000
     bcc ++
-+   jsr fatalerror
-    !pet "Out of memory", 0
++   lda #ERROR_OUT_OF_MEMORY
+    jsr fatalerror
 
     ; read the rest
 ++  ldx #>story_start ; first free memory block

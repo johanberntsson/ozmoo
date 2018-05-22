@@ -28,9 +28,10 @@ stack_init
 	sta stack_ptr + 1
 	ldx stack_ptr
 	lda stack_ptr + 1
+!ifdef DEBUG {
 	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
+	jsr newline
+}
 	rts
 
 stack_call_routine
@@ -267,8 +268,8 @@ stack_push
 	cmp #>(stack_start + stack_size - 2)
 	bne .there_is_room
 .stack_full
+    lda #ERROR_STACK_FULL
 	jsr fatalerror
-	!pet "stack full",0
 .there_is_room
 	; Increase number of pushed values
 	ldy #1
@@ -325,8 +326,8 @@ stack_pull
 	lda (stack_ptr),y
 	bne .ok
 .stack_underflow
+    lda #ERROR_STACK_EMPTY
 	jsr fatalerror
-	!pet "stack empty",0
 
 	; Decrease stack pointer by two bytes	
 .ok	sec

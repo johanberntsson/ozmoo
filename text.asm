@@ -328,9 +328,11 @@ convert_char_to_zchar
     cpx #26*3
     bne -
     tax
+!ifdef DEBUG {
     jsr printx
+}
+    lda #ERROR_INVALID_CHAR
     jsr fatalerror
-    !pet "invalid char",0
 +   txa
     clc
     adc #6

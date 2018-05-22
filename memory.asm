@@ -17,8 +17,8 @@ read_byte_at_z_address
 	lda (mempointer),y
 	rts
 .too_high
+    lda #ERROR_MEMORY_OVER_64KB
 	jsr fatalerror
-	!pet "tried to access z-machine memory over 64kb", 0
 
 read_word_at_z_address
 	; Subroutine: Read the contents of a two consequtive byte addresses in the Z-machine

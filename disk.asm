@@ -122,9 +122,8 @@ readblocks
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
     jsr .close    ; even if OPEN failed, the file has to be closed
+    lda #ERROR_FLOPPY_READ_ERROR
     jsr fatalerror
-    !pet "floppy read error", 0
-
 .cname !text "#"
 cname_len = * - .cname
 
