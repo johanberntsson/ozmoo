@@ -381,28 +381,22 @@ z_init
 	; Modify header to tell game about terp capabilities
 !ifdef Z3 {
 	lda story_start + 1
-	ora #16 ; Statusline not available
-	and #(255 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
-;	ora #8 ; Statusline not available
-;	and #(255 - 4 - 2) ; Screen-splitting not available, variable-pitch font is not default
+	and #(255 - 16 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
 	sta story_start + 1
 } else {
 !ifdef Z4 {
 	lda story_start + 1
-	ora #16 ; Fixed-pitch font available
 	and #(255 - 4 - 8 - 128) ; bold font, italic font, timed input not available
+	ora #16 ; Fixed-space style available
 	sta story_start + 1
-} else {
+} else { ; Z5PLUS
 	lda story_start + 1
-	ora #16 ; Fixed-pitch font available
 	and #(255 - 1 - 4 - 8 - 128) ; colours, bold font, italic font, timed input not available
+	ora #16 ; Fixed-space style available
 	sta story_start + 1
 	lda story_start + $10
-	and #(255 - 1) ; pictures, undo, sound effect not available
+	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
 	sta story_start + $10
-	lda story_start + $11
-	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, sound effect not available
-	sta story_start + $11
 }
 }
 !ifdef Z4PLUS {

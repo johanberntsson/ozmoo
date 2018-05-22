@@ -18,11 +18,11 @@ ERROR_BAD_PROPERTY_LENGTH = 10
 ERROR_UNSUPPORTED_STORY_VERSION = 11
 ERROR_OUT_OF_MEMORY = 12
 
-!ifndef DEBUG {
 fatalerror
     ; prints the error, then resets the computer
     ; input: y (error code)
     ; side effects: resets the computer
+!ifndef DEBUG {
     pha
 	lda #%00110111
 	sta zero_processorports
@@ -39,10 +39,6 @@ fatalerror
     jmp kernel_reset      ; reset
 .fatal_error_string !pet "fatal error: ",0
 } else {
-fatalerror
-    ; prints the error, then resets the computer
-    ; input: a (error code)
-    ; side effects: resets the computer
     pha
     jsr print_following_string
     !pet "fatal error: ", 0
