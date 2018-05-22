@@ -481,18 +481,18 @@ z_execute
 	sty z_trace_index
 
 !ifdef DEBUG {	
-	jsr print_following_string
-	!pet "opcode: ",0
-	ldx z_opcode
-	jsr printx
-	jsr print_following_string
-	!pet " @ ",0
-	ldx z_pc + 2
-	lda z_pc + 1
-	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
-	lda z_opcode
+	;jsr print_following_string
+	;!pet "opcode: ",0
+	;ldx z_opcode
+	;jsr printx
+	;jsr print_following_string
+	;!pet " @ ",0
+	;ldx z_pc + 2
+	;lda z_pc + 1
+	;jsr printinteger
+	;lda #$0d
+	;jsr kernel_printchar
+	;lda z_opcode
 }
 	and #%00011111
 	sta z_opcode_number ; This is correct for VAR and LONG forms. Fix others later.
