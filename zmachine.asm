@@ -11,57 +11,6 @@ z_local_var_count	!byte 0
 z_global_vars_start	!byte 0, 0
 z_temp				!byte 0, 0, 0, 0, 0
 
-; Not yet fully implemented
-; -------------------
-; 0OP
-; ---
-; save
-; restore
-; restart
-; catch
-; show_status
-;
-; 1OP
-; ---
-;
-; 2OP
-; ---
-; set_colour
-; throw
-;
-; VAR
-; ---
-; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
-; random (Only handles range < 256, and no seeding)
-; split_window
-; set_window
-; erase_window
-; erase_line
-; set_cursor
-; get_cursor
-; set_text
-; buffer_mode
-; input_stream
-; sound_effect
-; read_char
-; scan_table
-; tokenise
-; encode_text
-; copy_table
-; print_table
-;
-; EXT
-; ---
-; save
-; restore
-; set_font
-; save_undo
-; restore_undo
-; print_unicode
-; check_unicode
-; set_true_colour
-
-
 z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
 	!byte >z_ins_rfalse

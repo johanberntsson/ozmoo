@@ -10,11 +10,11 @@ Written by Johan Berntsson and Fredrik Ramsberg, 2018
 
 We were looking for a redistrubutable interpreter of Infocom and Inform games that could be used for new interactive fiction works on the C64.
 
-While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, newer Inform-based games are unlikely to run on this interpreter.
+While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle.
 
 There are some alternate implementations, but they have some limitations:
-* [Infocom64](https://github.com/christopherkobayashi/infocom64) is based on assembly code of the original Infocom interpreter so it has the same license issues
-* [Zeugma](https://www.linusakesson.net/software/zeugma/index.php) doesn't support save and restore
+* [Infocom64](https://github.com/christopherkobayashi/infocom64) is based on assembly code of the original Infocom interpreter so it has the same license issues. Also, it only works with certain setups of hardware or emulation.
+* [Zeugma](https://www.linusakesson.net/software/zeugma/index.php) requires an REU (Ram Expansion Unit) and doesn't support save and restore.
 
 ## Building and running
 
@@ -35,5 +35,6 @@ preloaded for testing.
 
 ### Windows
 
-Use the build.ps1 script to build and test the interpreter.
+Use the build.ps1 script to build and test the interpreter. Example:
 
+.\build.ps1 -Type z5 -Run
