@@ -24,6 +24,9 @@ restore_cursor
 
 
 !ifdef Z3 {
+z_ins_show_status
+    jmp draw_status_line
+
 draw_status_line
     jsr save_cursor
     ldx #0
@@ -99,10 +102,10 @@ draw_status_line
     lda #146 ; reverse off
     jsr kernel_printchar
     jmp restore_cursor
+.score_str !pet "Score 999",0
+.moves_str !pet "Moves 9999",0
+.time_str !pet "Time 12:30:00",0
 }
-.score_str !pet "Score: ",0
-.moves_str !pet "Moves: ",0
-.time_str !pet "Time: ",0
 
 z_ins_split_window
     ; split_window lines
