@@ -38,20 +38,10 @@ draw_status_line
     ; Room name
     ; 
     ; name of the object whose number is in the first global variable
-    ldy #0
-    lda z_global_vars_start,y ; 22
-    sta object_tree_ptr 
-    iny 
-    ldx z_global_vars_start,y ; 54
-    stx object_tree_ptr + 1
-    ldy #8
-    lda (object_tree_ptr),y ; low byte
-    tax
-    dey
-    lda (object_tree_ptr),y ; high byte
-    jsr set_z_address
-    jsr read_next_byte ; length of object short name
-    jsr print_addr
+    ldx #16
+    jsr z_get_variable_value
+    jsr print_obj
+    ;jsr print_addr
     ;
     ; fill the rest of the line with spaces
     ;
@@ -77,7 +67,12 @@ draw_status_line
     jsr kernel_printchar
     iny
     bne -
-+   ldy #30
++   ldx #17
+    jsr z_get_variable_value
+    stx z_operand_value_low_arr
+    sta z_operand_value_high_arr
+    jsr z_ins_print_num
+    ldy #30
     jsr set_cursor
     ldy #0
 -   lda .moves_str,y
@@ -85,7 +80,12 @@ draw_status_line
     jsr kernel_printchar
     iny
     bne -
-+   jmp .statusline_done
++   ldx #18
+    jsr z_get_variable_value
+    stx z_operand_value_low_arr
+    sta z_operand_value_high_arr
+    jsr z_ins_print_num
+    jmp .statusline_done
 .timegame
     ; time game
     ldx #0
@@ -97,14 +97,25 @@ draw_status_line
     jsr kernel_printchar
     iny
     bne -
-+
++   ldx #17 ; hour
+    jsr z_get_variable_value
+    stx z_operand_value_low_arr
+    sta z_operand_value_high_arr
+    jsr z_ins_print_num
+    lda #58 ; :
+    jsr kernel_printchar
+    ldx #18 ; hour
+    jsr z_get_variable_value
+    stx z_operand_value_low_arr
+    sta z_operand_value_high_arr
+    jsr z_ins_print_num
 .statusline_done
     lda #146 ; reverse off
     jsr kernel_printchar
     jmp restore_cursor
-.score_str !pet "Score 999",0
-.moves_str !pet "Moves 9999",0
-.time_str !pet "Time 12:30:00",0
+.score_str !pet "Score ",0
+.moves_str !pet "Moves ",0
+.time_str !pet "Time ",0
 }
 
 z_ins_split_window

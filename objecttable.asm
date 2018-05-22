@@ -442,6 +442,9 @@ z_ins_print_obj
     ; print_obj object
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
+    jmp print_obj
+
+print_obj
     jsr calculate_object_address
 !ifndef Z4PLUS {
     ldy #8
