@@ -4,9 +4,7 @@
 current_text_style !byte 0 ; always 0 (roman) for Z3
 
 .current_window !byte 0
-.cursor_position !byte 0,0,0
-.cursor_offset_l !byte $00,$28,$50,$78,$a0,$c8,$f0,$18,$40,$68,$90,$b8,$e0,$08,$30,$58,$80,$a8,$d0,$f8,$20,$48,$70,$98,$c0
-.cursor_offset_h !byte $04,$04,$04,$04,$04,$04,$04,$05,$05,$05,$05,$05,$05,$06,$06,$06,$06,$06,$06,$06,$07,$07,$07,$07,$07
+.cursor_position !byte 0,0
 
 draw_status_line
     jsr save_cursor
@@ -47,34 +45,22 @@ draw_status_line
     jmp restore_cursor
 
 set_cursor
-    ; input: x=column (0-39)
-    ;        y=line(0-24)
-    stx zp_screencolumn
-    lda .cursor_offset_l,y
-    sta zp_screenline
-    lda .cursor_offset_h,y
-    sta zp_screenline + 1
-    rts
+    ; input: y=column (0-39)
+    ;        x=row (0-24)
+    clc
+    jmp kernel_plot
 
 save_cursor
-    lda zp_screenline
-    sta .cursor_position
-    lda zp_screenline + 1
-    sta .cursor_position + 1
-    lda zp_screencolumn
-    sta .cursor_position + 2
+    sec
+    jsr kernel_plot
+    stx .cursor_position
+    sty .cursor_position + 1
     rts
 
 restore_cursor
-    lda .cursor_position
-    sta zp_screenline
-    lda .cursor_position + 1
-    sta zp_screenline + 1
-    lda .cursor_position + 2
-    sta zp_screencolumn
-    rts
-
-
+    ldx .cursor_position
+    ldy .cursor_position + 1
+    jmp set_cursor
 
 z_ins_split_window
     ; split_window lines
@@ -140,8 +126,8 @@ z_ins_set_cursor
     jsr printx
     jsr newline
 }
-    ldy z_operand_value_low_arr
-    ldx z_operand_value_low_arr + 1
+    ldx z_operand_value_low_arr
+    ldy z_operand_value_low_arr + 1
     dex
     dey
     jmp set_cursor
