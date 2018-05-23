@@ -56,6 +56,7 @@ kernel_chkout         = $ffc9 ; define file as default output
 kernel_clrchn         = $ffcc ; close default input/output files
 kernel_readchar       = $ffcf ; read byte from default input into a
 kernel_printchar      = $ffd2 ; write char in a
+kernel_readtime       = $ffde ; get time of day in a/x/y
 kernel_getchar        = $ffe4 ; get a character
 kernel_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
 

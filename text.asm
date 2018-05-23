@@ -44,9 +44,32 @@ z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
     ; read input
+    ldy #0
+    sty .read_text_timer_value
+    sty .read_text_timer_callback
+    sty .read_text_timer_callback + 1
+    jsr kernel_readtime
+    sta .read_text_jiffy
+    stx .read_text_jiffy + 1
+    sty .read_text_jiffy + 2
+!ifndef Z4 {
     jsr draw_status_line
+}
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
+!ifdef Z4 {
+    ; time routine arguments
+    ldy z_operand_count
+    cpy #4
+    bne +
+    ldy z_operand_value_low_arr + 2
+    sty .read_text_timer_value
+    ldy z_operand_value_low_arr + 3
+    sty .read_text_timer_callback
+    ldy z_operand_value_high_arr + 3
+    sty .read_text_timer_callback + 1
++
+}
     jsr read_text
 !ifdef TRACE_READTEXT {
     jsr print_following_string
@@ -101,7 +124,25 @@ z_ins_sread
 z_ins_aread
     ; aread text parse time routine -> (result)
     ; read input
-    lda z_operand_value_high_arr
+    ldy #0
+    sty .read_text_timer_value
+    sty .read_text_timer_callback
+    sty .read_text_timer_callback + 1
+    jsr kernel_readtime
+    sta .read_text_jiffy
+    stx .read_text_jiffy + 1
+    sty .read_text_jiffy + 2
+    ; time routine arguments
+    ldy z_operand_count
+    cpy #4
+    bne +
+    ldy z_operand_value_low_arr + 2
+    sty .read_text_timer_value
+    ldy z_operand_value_low_arr + 3
+    sty .read_text_timer_callback
+    ldy z_operand_value_high_arr + 3
+    sty .read_text_timer_callback + 1
++   lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
     jsr read_text
 !ifdef TRACE_READTEXT {
@@ -778,6 +819,9 @@ tokenise_text
 .textend    !byte 0 
 .wordstart  !byte 0 
 .wordend    !byte 0 
+.read_text_timer_value !byte 0
+.read_text_timer_callback !byte 0, 0
+.read_text_jiffy !byte 0, 0, 0 
 
 print_addr
     ; print zchar-encoded text
