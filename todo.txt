@@ -1,6 +1,10 @@
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Create PETSCII <-> ZSCII conversion routines. Make them fast.
+
 - support custom alphabets in Z5 onwards
+
+System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
 
 - Czech tests: https://github.com/DustinCampbell/ZGo/tree/master/zcode/czech
   https://www.ifarchive.org/indexes/if-archiveXinfocomXinterpretersXtools.html
@@ -9,18 +13,12 @@ Ideas for tasks / subprojects to do next
 
 Optimise find_word_in_dictionary by stopping when searching > word. Possibly also use binary search to search dictionary faster.
 
-Fix random opcode (see notes under Instructions... below)
-
 Timed input
 Old todo: - allow delay/routine in read_text
 
 Color support
 
 Basic sound effect support (low-pitched beep and high-pitched beep)
-
-Create PETSCII <-> ZSCII conversion routines. Make them fast.
-
-System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
 
 save/restore
 	Copy SP and PC to below stack. Save this, stack and dynmem as one file.
@@ -30,6 +28,8 @@ catch/throw
 Buffering/word wrap
 
 [MORE] prompts
+
+Fix random opcode (see notes under Instructions... below)
 
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
 
@@ -70,7 +70,7 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; VAR
 ; ---
 ; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
-; random (Only handles range < 256, and no seeding. Also it seems to give a very bad distribution)
+; random (Too many 1:s when asking for random numbers in range [1,2], and no seeding.)
 ; split_window
 ; set_window
 ; erase_window

@@ -402,6 +402,19 @@ z_init
 
 z_execute
 !zone {
+
+; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
+;	lda #<2
+;	sta z_operand_value_low_arr
+;	lda #>2
+;	sta z_operand_value_high_arr
+;	ldx #250
+;	stx z_temp
+;-	jsr z_ins_random
+;	dec z_temp
+;	bne -
+
+
 .main_loop
 	; Store z_pc to trace page 
 	ldx #0
@@ -833,6 +846,10 @@ check_for_routine_0_and_store
 z_store_result
 	; input: a,x hold result
 	; affected: a,x,y
+
+;	jsr printinteger
+;	jmp space
+
 	pha
 	jsr read_byte_at_z_pc_then_inc
 	tay
@@ -1495,33 +1512,36 @@ z_ins_print_num
 z_ins_random	
 	lda z_operand_value_high_arr
 	bmi .random_seed
-	bne .random_large
-	lda z_operand_value_low_arr
+	ora z_operand_value_low_arr
 	beq .random_seed_0
-	; Small range (1-255)
---	sta zp_temp + 1 ; range value
 	ldy #1
-	sty zp_temp + 2 ; mask value %1 => %11 => %111 .. %11111111
--	lda zp_temp + 1
-	and zp_temp + 2
-	cmp zp_temp + 1
-	beq .random_found_small_mask
+	sty zp_temp + 2 ; lowbyte of mask
+	dey
+	sty zp_temp + 3 ; highbyte of mask
+-	lda zp_temp + 2
+	cmp z_operand_value_low_arr
+	lda zp_temp + 3
+	sbc z_operand_value_high_arr
+	bcs .random_found_mask
 	sec
-	rol zp_temp + 1
-	bcc -
-.random_found_small_mask
--	lda $d41b
+	rol zp_temp + 2
+	rol zp_temp + 3
+	bcc - ; Branch unless the mask is now > $ffff (which can't happen)
+.random_found_mask
+	lda $d41b
 	and zp_temp + 2
-	cmp zp_temp + 1
-	bcs -
 	tax
+	cmp z_operand_value_low_arr
+	lda $d41b
+	and zp_temp + 3
+	tay
+	sbc z_operand_value_high_arr
+	bcs .random_found_mask
+	tya
 	inx
-	lda #0
-	jmp z_store_result
-.random_large
-	; TODO: Real implementation!
-	lda #255
-	bne --
+	bne +
+	adc #1 ; Carry is always clear here, no need for clc
++	jmp z_store_result
 .random_seed_0
 .random_seed
 	; TODO: Lots!
