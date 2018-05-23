@@ -28,6 +28,15 @@ z_ins_show_status
     jmp draw_status_line
 
 draw_status_line
+    ; save z_operand* (will be destroyed by print_num)
+    lda z_operand_value_low_arr
+    pha
+    lda z_operand_value_high_arr
+    pha
+    lda z_operand_value_low_arr + 1
+    pha
+    lda z_operand_value_high_arr + 1
+    pha
     jsr save_cursor
     ldx #0
     ldy #0
@@ -113,6 +122,14 @@ draw_status_line
 .statusline_done
     lda #146 ; reverse off
     jsr kernel_printchar
+    pla
+    sta z_operand_value_high_arr + 1
+    pla
+    sta z_operand_value_low_arr + 1
+    pla
+    sta z_operand_value_high_arr
+    pla
+    sta z_operand_value_low_arr
     jmp restore_cursor
 .score_str !pet "Score ",0
 .moves_str !pet "Moves ",0

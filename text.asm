@@ -39,13 +39,14 @@ z_ins_print_ret
 
 !ifndef Z5PLUS {
 
+
 z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
     ; read input
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
     jsr draw_status_line
+    lda z_operand_value_high_arr
+    ldx z_operand_value_low_arr
     jsr read_text
 !ifdef TRACE_READTEXT {
     jsr print_following_string
