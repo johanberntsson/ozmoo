@@ -1,8 +1,18 @@
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+- support custom alphabets in Z5 onwards
+
+- Czech tests: https://github.com/DustinCampbell/ZGo/tree/master/zcode/czech
+  https://www.ifarchive.org/indexes/if-archiveXinfocomXinterpretersXtools.html
+
+- space, comma, newline, printx, printy, printa, etc. only in DEBUG
+
+Optimise find_word_in_dictionary by stopping when searching > word. Possibly also use binary search to search dictionary faster.
+
 Fix random opcode (see notes under Instructions... below)
 
 Timed input
+Old todo: - allow delay/routine in read_text
 
 Color support
 
@@ -24,26 +34,20 @@ Buffering/word wrap
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
 
 Extend virtual memory RAM up to $ffff (And disable trace automatically if RAM at page $cf00 is used for Vmem)
+Old todo: - use more memory, $E000-$FFFF, perhaps also $D000-$E000?
 
 Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
+Old todo: - reuse index and skip tests if same block as previous call to read_z_*
 
 Put first four entries of z_operand_value_(low/high)_arr on zeropage. Saves 200+ bytes and makes all instructions faster.
 
 Figure out how to best place loader, interpreter and different parts of story file on 1, 2 or 3 disk sides.
+Old todo: - rewrite floppy access code to use all available sectors
+Old todo: - support splitting of large files onto two floppies
 
 Add fast-loader code?
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
-
-Possible alternative versions / extensions
-------------------------------------------
-* Support for C1581 disks (can hold 3160 blocks of user data)
-* Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
-* Support for REU
-* C128 version which can use a C1571, additional RAM and 80-column mode.
-
-
-
 
 ; Instructions which have not yet been fully implemented
 ; ------------------------------------------------------
@@ -94,5 +98,23 @@ Possible alternative versions / extensions
 ; print_unicode
 ; check_unicode
 ; set_true_colour
+
+
+DONE:
+- the .block range in readblocks need to be increased
+
+
+
+
+Possible alternative versions / extensions
+------------------------------------------
+* Support for C1581 disks (can hold 3160 blocks of user data)
+* Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
+* Support for REU
+* C128 version which can use a C1571, additional RAM and 80-column mode.
+
+
+
+
 
 
