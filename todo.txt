@@ -70,7 +70,7 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; VAR
 ; ---
 ; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
-; random (Too many 1:s when asking for random numbers in range [1,2], and no seeding.)
+; random (Too many 1:s when asking for random numbers in range [1,2], probabaly too few 1:s in range [1,4])
 ; split_window
 ; set_window
 ; erase_window

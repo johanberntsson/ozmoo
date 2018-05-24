@@ -10,6 +10,13 @@ z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
 z_global_vars_start	!byte 0, 0
 z_temp				!byte 0, 0, 0, 0, 0
+z_rnd_mode 			!byte 0
+z_rnd_num 			!byte 0, 0
+z_rnd_prime = 41893;
+z_test				!byte 0
+z_test_mode_print = 1
+z_test_mode_print_and_store = 2
+
 
 z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
@@ -404,16 +411,64 @@ z_execute
 !zone {
 
 ; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
-;	lda #<2
-;	sta z_operand_value_low_arr
-;	lda #>2
-;	sta z_operand_value_high_arr
-;	ldx #250
-;	stx z_temp
-;-	jsr z_ins_random
-;	dec z_temp
-;	bne -
 
+	; lda #z_test_mode_print
+	; sta z_test
+
+	; lda #<-1
+	; sta z_operand_value_low_arr
+	; lda #>-1
+	; sta z_operand_value_high_arr
+; -	jsr z_ins_random
+	; lda #<10
+	; sta z_operand_value_low_arr
+	; lda #>10
+	; sta z_operand_value_high_arr
+	; ldx #18
+	; stx z_temp
+; -	jsr z_ins_random
+	; dec z_temp
+	; bne -
+	; jsr newline
+	; jsr newline
+	
+	; lda #<0
+	; sta z_operand_value_low_arr
+	; lda #>0
+	; sta z_operand_value_high_arr
+; -	jsr z_ins_random
+	; lda #<10
+	; sta z_operand_value_low_arr
+	; lda #>10
+	; sta z_operand_value_high_arr
+	; ldx #18
+	; stx z_temp
+; -	jsr z_ins_random
+	; dec z_temp
+	; bne -
+	; jsr newline
+	; jsr newline
+
+	; lda #<-1
+	; sta z_operand_value_low_arr
+	; lda #>-1
+	; sta z_operand_value_high_arr
+; -	jsr z_ins_random
+	; lda #<10
+	; sta z_operand_value_low_arr
+	; lda #>10
+	; sta z_operand_value_high_arr
+	; ldx #18
+	; stx z_temp
+; -	jsr z_ins_random
+	; dec z_temp
+	; bne -
+	; jsr newline
+	; jsr newline
+
+	lda #z_test_mode_print_and_store
+	lda #0
+	sta z_test
 
 .main_loop
 	; Store z_pc to trace page 
@@ -846,11 +901,9 @@ check_for_routine_0_and_store
 z_store_result
 	; input: a,x hold result
 	; affected: a,x,y
-
-;	jsr printinteger
-;	jmp space
-
-	pha
+;	jsr print_following_string
+;	!pet "STORE!",0
++	pha
 	jsr read_byte_at_z_pc_then_inc
 	tay
 	pla
@@ -1511,9 +1564,12 @@ z_ins_print_num
 
 z_ins_random	
 	lda z_operand_value_high_arr
-	bmi .random_seed
-	ora z_operand_value_low_arr
-	beq .random_seed_0
+	bpl +
+	jmp .random_seed
++	ora z_operand_value_low_arr
+	bne +
+	jmp	.random_seed_0
++	
 	ldy #1
 	sty zp_temp + 2 ; lowbyte of mask
 	dey
@@ -1528,7 +1584,9 @@ z_ins_random
 	rol zp_temp + 3
 	bcc - ; Branch unless the mask is now > $ffff (which can't happen)
 .random_found_mask
-	lda $d41b
+	lda z_rnd_mode
+	bne .random_predictable
+-	lda $d41b
 	and zp_temp + 2
 	tax
 	cmp z_operand_value_low_arr
@@ -1536,17 +1594,77 @@ z_ins_random
 	and zp_temp + 3
 	tay
 	sbc z_operand_value_high_arr
-	bcs .random_found_mask
+	bcs -
+.rnd_store_good_rnd_number
 	tya
 	inx
 	bne +
 	adc #1 ; Carry is always clear here, no need for clc
-+	jmp z_store_result
-.random_seed_0
-.random_seed
-	; TODO: Lots!
-	lda #0
++
+
+	ldy z_test
+	beq .rnd_store
+	sta z_temp
+	stx z_temp + 1
+	jsr printinteger
+	jsr space
+	lda z_temp
+	ldx z_temp + 1
+	ldy z_test
+	cpy #z_test_mode_print
+	bne .rnd_store
+	rts
+.rnd_store
+
+	jmp z_store_result
+.random_predictable
+	lda z_rnd_num
+	clc
+	adc #<z_rnd_prime
+	sta z_rnd_num
 	tax
+	lda z_rnd_num + 1
+	adc #>z_rnd_prime
+	sta z_rnd_num + 1
+	tay
+	txa
+	and zp_temp + 2
+	tax
+	cmp z_operand_value_low_arr
+	tya
+	and zp_temp + 3
+	tay
+	sbc z_operand_value_high_arr
+	bcs .random_predictable
+	bcc .rnd_store_good_rnd_number ; Always branch
+
+.random_seed_0
+	ldy z_test
+	beq +
+	jsr print_following_string
+	!pet "seed 0!",13,0
++	lda #0
+	sta z_rnd_mode
+	beq .rnd_tax_and_return
+.random_seed
+	ldy z_test
+	beq +
+	jsr print_following_string
+	!pet "seed -1!",13,0
++	lda #1 ; Predictable sequence
+	sta z_rnd_mode
+	lda #0
+	sta z_rnd_num
+	sta z_rnd_num + 1
+.rnd_tax_and_return
+	tax
+
+	ldy z_test
+	cpy #z_test_mode_print
+	bne .rnd_store_seed
+	rts
+.rnd_store_seed
+
 	jmp z_store_result
 		
 z_ins_push
