@@ -399,19 +399,20 @@ z_init
 	lda story_start + header_globals
 	adc #>(story_start - 32)
 	sta z_global_vars_start + 1
-	rts
 	
 	; Init randomization
 	lda #$ff
 	sta $d40e
 	sta $d40f
 	lda #$80
-	sta $d412	
+	sta $d412
+	jmp z_rnd_init_random
 }
 
 z_execute
 !zone {
 
+!ifdef DEBUG {
 ; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
 
 	jsr print_following_string
@@ -482,6 +483,7 @@ z_execute
 	lda #z_test_mode_print_and_store
 	lda #0
 	sta z_test
+}
 
 .main_loop
 	; Store z_pc to trace page 
@@ -914,8 +916,6 @@ check_for_routine_0_and_store
 z_store_result
 	; input: a,x hold result
 	; affected: a,x,y
-;	jsr print_following_string
-;	!pet "STORE!",0
 +	pha
 	jsr read_byte_at_z_pc_then_inc
 	tay
@@ -1004,6 +1004,19 @@ calc_address_in_byte_array
 }
 
 !zone rnd {
+z_rnd_init_random
+	; in: Nothing
+	lda $dc04
+	eor #%10101010
+	eor z_rnd_a
+	tay
+	lda $dc05
+	eor #%01010101
+	eor z_rnd_b
+	tax
+	lda $d41b
+	eor $d012
+	eor z_rnd_c
 z_rnd_init
 	; in: a,x,y as seed
 	sta z_rnd_a
@@ -1626,6 +1639,7 @@ z_ins_random
 	tax
 	inx
 
+!ifdef DEBUG {
 	ldy z_test
 	beq .rnd_store_bytesize
 	stx z_temp + 1
@@ -1638,6 +1652,7 @@ z_ins_random
 	bne .rnd_store_bytesize
 	rts
 .rnd_store_bytesize
+}
 
 	jmp z_store_result
 
@@ -1673,6 +1688,7 @@ z_ins_random
 	adc #1 ; Carry is always clear here, no need for clc
 +
 
+!ifdef DEBUG {
 	ldy z_test
 	beq .rnd_store
 	sta z_temp
@@ -1686,38 +1702,35 @@ z_ins_random
 	bne .rnd_store
 	rts
 .rnd_store
+}
 
 	jmp z_store_result
 
 .random_seed_0
+!ifdef DEBUG {
 	ldy z_test
 	beq +
 	jsr print_following_string
 	!pet "seed 0!",13,0
 +	
-	lda $dc04
-	eor #%10101010
-	eor z_rnd_a
-	tay
-	lda $dc05
-	eor #%01010101
-	eor z_rnd_b
-	tax
-	lda $d41b
-	eor $d012
-	eor z_rnd_c
-	jsr z_rnd_init
+}
+	jsr z_rnd_init_random
 	lda #0
 	sta z_rnd_mode
-	beq .rnd_tax_and_return
+	beq .rnd_tax_and_return ; Always branch
+
 .random_seed
+
+!ifdef DEBUG {
 	ldy z_test
 	beq +
 	tax
 	jsr print_following_string
 	!pet "seed -1!",13,0
 	txa
-+	
++
+}	
+
 	tay
 	ldx z_operand_value_low_arr
 	clc
@@ -1729,11 +1742,13 @@ z_ins_random
 .rnd_tax_and_return
 	tax
 
+!ifdef DEBUG {
 	ldy z_test
 	cpy #z_test_mode_print
 	bne .rnd_store_seed
 	rts
 .rnd_store_seed
+}
 
 	jmp z_store_result
 		
