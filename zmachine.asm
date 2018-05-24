@@ -412,8 +412,8 @@ z_execute
 
 ; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
 
-	; lda #z_test_mode_print
-	; sta z_test
+	lda #z_test_mode_print
+	sta z_test
 
 	; lda #<-1
 	; sta z_operand_value_low_arr
@@ -432,22 +432,22 @@ z_execute
 	; jsr newline
 	; jsr newline
 	
-	; lda #<0
-	; sta z_operand_value_low_arr
-	; lda #>0
-	; sta z_operand_value_high_arr
-; -	jsr z_ins_random
-	; lda #<10
-	; sta z_operand_value_low_arr
-	; lda #>10
-	; sta z_operand_value_high_arr
-	; ldx #18
-	; stx z_temp
-; -	jsr z_ins_random
-	; dec z_temp
-	; bne -
-	; jsr newline
-	; jsr newline
+	lda #<0
+	sta z_operand_value_low_arr
+	lda #>0
+	sta z_operand_value_high_arr
+-	jsr z_ins_random
+	lda #<4
+	sta z_operand_value_low_arr
+	lda #>4
+	sta z_operand_value_high_arr
+	ldx #255
+	stx z_temp + 4
+-	jsr z_ins_random
+	dec z_temp + 4
+	bne -
+	jsr newline
+	jsr newline
 
 	; lda #<-1
 	; sta z_operand_value_low_arr
