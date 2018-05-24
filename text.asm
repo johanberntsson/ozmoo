@@ -45,13 +45,7 @@ z_ins_sread
 	; sread text parse time routine (Z4)
     ; read input
     ldy #0
-    sty .read_text_timer_value
-    sty .read_text_timer_callback
-    sty .read_text_timer_callback + 1
-    jsr kernel_readtime
-    sta .read_text_jiffy
-    stx .read_text_jiffy + 1
-    sty .read_text_jiffy + 2
+    sty .read_text_time
 !ifndef Z4 {
     jsr draw_status_line
 }
@@ -63,11 +57,11 @@ z_ins_sread
     cpy #4
     bne +
     ldy z_operand_value_low_arr + 2
-    sty .read_text_timer_value
+    sty .read_text_time
     ldy z_operand_value_low_arr + 3
-    sty .read_text_timer_callback
+    sty .read_text_routine
     ldy z_operand_value_high_arr + 3
-    sty .read_text_timer_callback + 1
+    sty .read_text_routine + 1
 +
 }
     jsr read_text
@@ -125,23 +119,17 @@ z_ins_aread
     ; aread text parse time routine -> (result)
     ; read input
     ldy #0
-    sty .read_text_timer_value
-    sty .read_text_timer_callback
-    sty .read_text_timer_callback + 1
-    jsr kernel_readtime
-    sta .read_text_jiffy
-    stx .read_text_jiffy + 1
-    sty .read_text_jiffy + 2
+    sty .read_text_time
     ; time routine arguments
     ldy z_operand_count
     cpy #4
     bne +
     ldy z_operand_value_low_arr + 2
-    sty .read_text_timer_value
+    sty .read_text_time
     ldy z_operand_value_low_arr + 3
-    sty .read_text_timer_callback
+    sty .read_text_routine
     ldy z_operand_value_high_arr + 3
-    sty .read_text_timer_callback + 1
+    sty .read_text_routine + 1
 +   lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
     jsr read_text
@@ -594,17 +582,55 @@ find_word_in_dictionary
 .zchars_per_entry !byte 0
 .num_matching_zchars !byte 0
 
+prepare_read_text_timer
+    ; prepare time for next routine call (current time + time_jiffy)
+    jsr kernel_readtime  ; read current time (in jiffys)
+    stx .read_text_jiffy + 1
+    sty .read_text_jiffy + 2 
+    clc
+    adc .read_text_time_jiffy
+    sta .read_text_jiffy
+    txa
+    adc #0
+    sta .read_text_jiffy + 1
+    tya
+    adc #0
+    sta .read_text_jiffy + 1
+    rts
+
 read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
-    ; input: a,x
+    ; input: a,x, .read_text_time, .read_text_routine
     ; output: string_array
-    ; side effects: zp_screencolumn, zp_screenline
+    ; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
     ; used registers: a,x,y
-    stx string_array ; 7c
+    stx string_array
     clc
-    adc #>story_start ; 05+20 = 25
+    adc #>story_start
     sta string_array + 1
+    ; check timer usage
+    lda .read_text_time
+    sta .read_text_time_jiffy
+    beq .init_read_text ; no timer
+    ; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
+    lda #0
+    sta multiplier + 1
+    sta multiplicand + 1
+    lda .read_text_time
+    sta multiplier
+    lda #5
+    sta multiplicand ; t*5 for NTSC
+    lda c64_model
+    cmp #3
+    bne .is_ntsc
+    inc multiplicand ; t*6 for PAL
+.is_ntsc
+    jsr mult16
+    lda product
+    sta .read_text_time_jiffy
+    jsr prepare_read_text_timer
+.init_read_text
     ; turn on blinking cursor
     lda #0
     sta zp_cursorswitch
@@ -618,6 +644,24 @@ read_text
 }
     sta .read_text_offset
 .readkey
+    ; check if time for routine call
+    ; http://www.6502.org/tutorials/compare_beyond.html#2.2
+    lda .read_text_time
+    beq .no_timer
+    jsr kernel_readtime   ; read start time (in jiffys) in a,x,y (low to high)
+    cpy .read_text_jiffy + 2 ; compare high bytes
+    bcc .no_timer
+    bne .call_routine
+    cpx .read_text_jiffy + 1
+    bcc .no_timer
+    bne .call_routine
+    cmp .read_text_jiffy
+    bcc .no_timer
+.call_routine
+    ; current time >= .read_text_jiffy. Time to call routine
+    ; TODO: call routine and check return value
+    jsr prepare_read_text_timer
+.no_timer
     jsr kernel_getchar
     cmp #$00
     beq .readkey
@@ -700,6 +744,10 @@ read_text
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
+.read_text_time !byte 0 ; update interval in 1/10 seconds
+.read_text_time_jiffy !byte 0 ; update interval in jiffys
+.read_text_routine !byte 0, 0 ; called with .read_text_time intervals
+.read_text_jiffy !byte 0, 0, 0  ; current time
 
 tokenise_text
     ; divide read_line input into words and look up them in the dictionary
@@ -819,9 +867,6 @@ tokenise_text
 .textend    !byte 0 
 .wordstart  !byte 0 
 .wordend    !byte 0 
-.read_text_timer_value !byte 0
-.read_text_timer_callback !byte 0, 0
-.read_text_jiffy !byte 0, 0, 0 
 
 print_addr
     ; print zchar-encoded text
