@@ -10,9 +10,11 @@ z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
 z_global_vars_start	!byte 0, 0
 z_temp				!byte 0, 0, 0, 0, 0
+z_rnd_a				!byte 123
+z_rnd_b				!byte 75
+z_rnd_c				!byte 93
+z_rnd_x				!byte 1
 z_rnd_mode 			!byte 0
-z_rnd_num 			!byte 0, 0
-z_rnd_prime = 41893;
 z_test				!byte 0
 z_test_mode_print = 1
 z_test_mode_print_and_store = 2
@@ -412,36 +414,41 @@ z_execute
 
 ; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
 
+	jsr print_following_string
+	!pet "press enter to start",13,0
+    jsr kernel_readchar   ; read keyboard
+
+
 	lda #z_test_mode_print
 	sta z_test
 
-	; lda #<-1
-	; sta z_operand_value_low_arr
-	; lda #>-1
-	; sta z_operand_value_high_arr
-; -	jsr z_ins_random
-	; lda #<10
-	; sta z_operand_value_low_arr
-	; lda #>10
-	; sta z_operand_value_high_arr
-	; ldx #18
-	; stx z_temp
-; -	jsr z_ins_random
-	; dec z_temp
-	; bne -
-	; jsr newline
-	; jsr newline
+	lda #<-1
+	sta z_operand_value_low_arr
+	lda #>-1
+	sta z_operand_value_high_arr
+	jsr z_ins_random
+	lda #<10
+	sta z_operand_value_low_arr
+	lda #>10
+	sta z_operand_value_high_arr
+	ldx #15
+	stx z_temp + 4
+-	jsr z_ins_random
+	dec z_temp + 4
+	bne -
+	jsr newline
+	jsr newline
 	
 	lda #<0
 	sta z_operand_value_low_arr
 	lda #>0
 	sta z_operand_value_high_arr
--	jsr z_ins_random
-	lda #<4
+	jsr z_ins_random
+	lda #<10
 	sta z_operand_value_low_arr
-	lda #>4
+	lda #>10
 	sta z_operand_value_high_arr
-	ldx #255
+	ldx #15
 	stx z_temp + 4
 -	jsr z_ins_random
 	dec z_temp + 4
@@ -449,23 +456,29 @@ z_execute
 	jsr newline
 	jsr newline
 
-	; lda #<-1
-	; sta z_operand_value_low_arr
-	; lda #>-1
-	; sta z_operand_value_high_arr
-; -	jsr z_ins_random
-	; lda #<10
-	; sta z_operand_value_low_arr
-	; lda #>10
-	; sta z_operand_value_high_arr
-	; ldx #18
-	; stx z_temp
-; -	jsr z_ins_random
-	; dec z_temp
-	; bne -
-	; jsr newline
-	; jsr newline
+	lda #<-1
+	sta z_operand_value_low_arr
+	lda #>-1
+	sta z_operand_value_high_arr
+-	jsr z_ins_random
+	lda #<10
+	sta z_operand_value_low_arr
+	lda #>10
+	sta z_operand_value_high_arr
+	ldx #15
+	stx z_temp + 4
+-	jsr z_ins_random
+	dec z_temp + 4
+	bne -
+	jsr newline
+	jsr newline
 
+	lda #<0
+	sta z_operand_value_low_arr
+	lda #>0
+	sta z_operand_value_high_arr
+	jsr z_ins_random
+	
 	lda #z_test_mode_print_and_store
 	lda #0
 	sta z_test
@@ -987,6 +1000,31 @@ calc_address_in_byte_array
 	adc #>story_start
 	sta zp_temp + 1
 	ldy #0
+	rts
+}
+
+!zone rnd {
+z_rnd_init
+	; in: a,x,y as seed
+	sta z_rnd_a
+	stx z_rnd_b
+	sty z_rnd_c
+	eor #$ff
+	sta z_rnd_x
+z_rnd_number
+	inc z_rnd_x
+	lda z_rnd_x
+	eor z_rnd_c
+	eor z_rnd_a
+	sta z_rnd_a
+	clc
+	adc z_rnd_b
+	sta z_rnd_b
+	lsr
+	eor z_rnd_a
+	clc
+	adc z_rnd_c
+	sta z_rnd_c
 	rts
 }
 
@@ -1564,12 +1602,46 @@ z_ins_print_num
 
 z_ins_random	
 	lda z_operand_value_high_arr
-	bpl +
+	beq .random_highbyte_empty
+	bpl .random_wordsize
 	jmp .random_seed
-+	ora z_operand_value_low_arr
-	bne +
+.random_highbyte_empty
++	lda z_operand_value_low_arr
+	bne .random_wordsize
 	jmp	.random_seed_0
-+	
+.random_bytesize
+	ldy #1
+	sty zp_temp + 2 ; mask
+-	lda zp_temp + 2
+	cmp z_operand_value_low_arr
+	bcs .random_bytesize_found_mask
+	sec
+	rol zp_temp + 2
+	bcc - ; Branch unless the mask is now > $ff (which can't happen)
+.random_bytesize_found_mask
+-	jsr z_rnd_number
+	and zp_temp + 2
+	cmp z_operand_value_low_arr
+	bcs -
+	tax
+	inx
+
+	ldy z_test
+	beq .rnd_store_bytesize
+	stx z_temp + 1
+	lda #0
+	jsr printinteger
+	jsr space
+	ldx z_temp + 1
+	ldy z_test
+	cpy #z_test_mode_print
+	bne .rnd_store_bytesize
+	rts
+.rnd_store_bytesize
+
+	jmp z_store_result
+
+.random_wordsize	
 	ldy #1
 	sty zp_temp + 2 ; lowbyte of mask
 	dey
@@ -1584,18 +1656,17 @@ z_ins_random
 	rol zp_temp + 3
 	bcc - ; Branch unless the mask is now > $ffff (which can't happen)
 .random_found_mask
-	lda z_rnd_mode
-	bne .random_predictable
--	lda $d41b
+-	jsr z_rnd_number
+	and zp_temp + 3
+	tay
+	jsr z_rnd_number
 	and zp_temp + 2
 	tax
 	cmp z_operand_value_low_arr
-	lda $d41b
-	and zp_temp + 3
-	tay
+	tya
 	sbc z_operand_value_high_arr
 	bcs -
-.rnd_store_good_rnd_number
+; .rnd_store_good_rnd_number
 	tya
 	inx
 	bne +
@@ -1617,45 +1688,44 @@ z_ins_random
 .rnd_store
 
 	jmp z_store_result
-.random_predictable
-	lda z_rnd_num
-	clc
-	adc #<z_rnd_prime
-	sta z_rnd_num
-	tax
-	lda z_rnd_num + 1
-	adc #>z_rnd_prime
-	sta z_rnd_num + 1
-	tay
-	txa
-	and zp_temp + 2
-	tax
-	cmp z_operand_value_low_arr
-	tya
-	and zp_temp + 3
-	tay
-	sbc z_operand_value_high_arr
-	bcs .random_predictable
-	bcc .rnd_store_good_rnd_number ; Always branch
 
 .random_seed_0
 	ldy z_test
 	beq +
 	jsr print_following_string
 	!pet "seed 0!",13,0
-+	lda #0
++	
+	lda $dc04
+	eor #%10101010
+	eor z_rnd_a
+	tay
+	lda $dc05
+	eor #%01010101
+	eor z_rnd_b
+	tax
+	lda $d41b
+	eor $d012
+	eor z_rnd_c
+	jsr z_rnd_init
+	lda #0
 	sta z_rnd_mode
 	beq .rnd_tax_and_return
 .random_seed
 	ldy z_test
 	beq +
+	tax
 	jsr print_following_string
 	!pet "seed -1!",13,0
-+	lda #1 ; Predictable sequence
+	txa
++	
+	tay
+	ldx z_operand_value_low_arr
+	clc
+	adc #%10101010
+	jsr z_rnd_init
+	lda #1 ; Predictable sequence
 	sta z_rnd_mode
 	lda #0
-	sta z_rnd_num
-	sta z_rnd_num + 1
 .rnd_tax_and_return
 	tax
 
