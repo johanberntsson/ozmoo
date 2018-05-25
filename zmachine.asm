@@ -304,13 +304,14 @@ z_opcount_ext_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_log_shift
 	!byte >z_ins_art_shift
+
 z_opcount_ext_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_log_shift
 	!byte <z_ins_art_shift
 
-z_last_implemented_ext_opcode_number = * - z_opcount_ext_jump_low_arr - 1
+z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
 
 ; These get zeropage addresses in constants.asm:
 ; z_opcode 
@@ -344,13 +345,13 @@ z_init
 } else {
 !ifdef Z4 {
 	lda story_start + 1
-	and #(255 - 4 - 8 - 128) ; bold font, italic font, timed input not available
-	ora #16 ; Fixed-space style available
+	and #(255 - 4 - 8) ; bold font, italic font, timed input not available
+	ora #(16 + 128) ; Fixed-space style, timed input available
 	sta story_start + 1
 } else { ; Z5PLUS
 	lda story_start + 1
-	and #(255 - 1 - 4 - 8 - 128) ; colours, bold font, italic font, timed input not available
-	ora #16 ; Fixed-space style available
+	and #(255 - 1 - 4 - 8) ; colours, bold font, italic font
+	ora #(16 + 128) ; Fixed-space style, timed input available
 	sta story_start + 1
 	lda story_start + $10
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
@@ -1078,7 +1079,7 @@ z_ins_ret_popped
 
 z_ins_extended
 	ldx z_extended_opcode
-	cpx z_last_implemented_ext_opcode_number
+	cpx #z_number_of_ext_opcodes_implemented
 	bcs +
 	lda z_opcount_ext_jump_low_arr,x
 	sta .jsr_perform_ext + 1
