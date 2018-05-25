@@ -70,7 +70,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; input_stream
 ; sound_effect
 ; read_char
-; scan_table
 ; tokenise
 ; encode_text
 ; copy_table

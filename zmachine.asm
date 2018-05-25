@@ -258,8 +258,9 @@ z_opcount_var_jump_high_arr
 	!byte >z_ins_output_stream
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+!ifdef Z4PLUS {
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_scan_table
 !ifdef Z5PLUS {
 	!byte >z_ins_not
 	!byte >z_ins_call_xn
@@ -270,7 +271,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_check_arg_count
 }
-
+}
 
 z_opcount_var_jump_low_arr
 	!byte <z_ins_call_xs
@@ -307,8 +308,9 @@ z_opcount_var_jump_low_arr
 	!byte <z_ins_output_stream
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+!ifdef Z4PLUS {
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_scan_table
 !ifdef Z5PLUS {
 	!byte <z_ins_not
 	!byte <z_ins_call_xn
@@ -319,8 +321,9 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_ins_check_arg_count
 }
+}
 
-z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
+z_number_of_var_opcodes_implemented = * - z_opcount_var_jump_low_arr
 
 z_opcount_ext_jump_high_arr
 !ifdef Z5PLUS {
@@ -743,6 +746,8 @@ z_execute
 	sta .jsr_perform + 2
 	bne .jsr_perform ; Always branch
 .perform_var
+	cpx #z_number_of_var_opcodes_implemented
+	bcs z_not_implemented
 	lda z_opcount_var_jump_low_arr,x
 	sta .jsr_perform + 1
 	lda z_opcount_var_jump_high_arr,x
@@ -1818,8 +1823,70 @@ z_ins_random
 
 ; z_ins_set_text_style moved to screen.asm
 	
-z_ins_output_stream
-	jmp streams_output_stream
+; z_ins_output_stream jumps directly to streams_output_stream.
+
+z_ins_scan_table
+	lda z_operand_count
+	cmp #4
+	bcs +
+	lda #$82
+	bne ++
++	lda z_operand_value_low_arr + 3
+++	sta zp_temp ; form (bit 7 = 1 means words, 0 means bytes)
+	and #$7f
+	sta zp_temp + 1 ; entry length (1-127)
+	lda z_operand_value_low_arr + 1
+	sta zp_temp + 2 ; Lowbyte of table address
+	lda z_operand_value_high_arr + 1
+	sta zp_temp + 3 ; Highbyte of table address
+.scan_next	
+	lda z_operand_value_high_arr + 2
+	ora z_opcount_var_jump_low_arr + 2
+	beq .scan_table_false
+	ldy #0
+	lda (zp_temp + 2),y
+	bit zp_temp
+	bmi .scan_word_compare
+	; Byte compare
+	cmp z_operand_value_low_arr
+	bne .scan_not_a_match
+	lda z_operand_value_high_arr
+	bne .scan_not_a_match
+	beq .scan_is_a_match ; Always branch
+.scan_word_compare
+	cmp z_operand_value_high_arr
+	bne .scan_not_a_match
+	iny
+	lda (zp_temp + 2),y
+	cmp z_operand_value_low_arr
+	bne .scan_not_a_match
+	beq .scan_is_a_match ; Always branch
+.scan_not_a_match
+	; Move to next address in table
+	lda zp_temp + 2
+	clc
+	adc zp_temp + 1
+	sta zp_temp + 2
+	lda zp_temp + 3
+	adc #0
+	sta zp_temp + 3
+	; Decrease number of entries left
+	dec z_operand_value_low_arr + 2
+	ldy z_operand_value_low_arr + 2
+	cpy #$ff
+	bne .scan_next
+	dec z_operand_value_high_arr + 2
+	jmp .scan_next
+.scan_table_false
+	lda #0
+	tax
+	jsr z_store_result
+	jmp make_branch_false
+.scan_is_a_match
+	lda zp_temp + 2
+	ldx zp_temp + 3
+	jsr z_store_result
+	jmp make_branch_true
 
 ; z_ins_check_arg_count moved to stack.asm	
 	

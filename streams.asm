@@ -50,7 +50,7 @@ streams_print_output
 +	ldy zp_temp + 3
 	rts
 
-streams_output_stream
+z_ins_output_stream
 	; Set output stream held in z_operand 0
 	; input:  z_operand 0: 1..4 to enable, -1..-4 to disable. If enabling stream 3, also provide z_operand 1: z_address of table
 	; output:
