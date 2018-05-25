@@ -400,9 +400,9 @@ z_init
 	and #(255 - 1 - 4 - 8) ; colours, bold font, italic font
 	ora #(16 + 128) ; Fixed-space style, timed input available
 	sta story_start + 1
-	lda story_start + $10
+	lda story_start + $11
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
-	sta story_start + $10
+	sta story_start + $11
 }
 }
 !ifdef Z4PLUS {
