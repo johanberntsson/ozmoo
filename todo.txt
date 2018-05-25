@@ -89,7 +89,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; restore
 ; print_unicode
 ; check_unicode
-; set_true_colour
 
 
 DONE:

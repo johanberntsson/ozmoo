@@ -362,6 +362,28 @@ stack_pull
 	pla
 	rts
 
+z_ins_push
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jmp stack_push
+
+z_ins_pull
+	jsr stack_pull
+	pha
+	txa
+	pha
+	ldx z_operand_value_low_arr
+	jsr z_get_variable_reference
+	stx zp_temp
+	sta zp_temp + 1
+	ldy #1
+	pla
+	sta (zp_temp),y
+	pla
+	dey
+	sta (zp_temp),y
+	rts
+	
 z_ins_catch
 	; Store pointer to SPPPLLLL-byte in current frame.
 	lda stack_ptr

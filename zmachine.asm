@@ -337,7 +337,7 @@ z_opcount_ext_jump_high_arr
 	!byte >z_ins_save_restore_undo
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_set_true_colour
 }
 
 z_opcount_ext_jump_low_arr
@@ -355,7 +355,7 @@ z_opcount_ext_jump_low_arr
 	!byte <z_ins_save_restore_undo
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_set_true_colour
 }
 
 z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
@@ -1664,6 +1664,7 @@ z_ins_print_num
 	jsr streams_print_output
 	dey
 	bpl -
+z_ins_set_true_colour
 	rts
 
 z_ins_random	
@@ -1804,33 +1805,15 @@ z_ins_random
 }
 
 	jmp z_store_result
-		
-z_ins_push
-	lda z_operand_value_high_arr
-	ldx z_operand_value_low_arr
-	jmp stack_push
+
+; z_ins_push moved to stack.asm
+	
+; z_ins_pull moved to stack.asm
 
 ; z_ins_split_window moved to screen.asm
 
 ; z_ins_set_window moved to screen.asm
 
-z_ins_pull
-	jsr stack_pull
-	pha
-	txa
-	pha
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #1
-	pla
-	sta (zp_temp),y
-	pla
-	dey
-	sta (zp_temp),y
-	rts
-	
 ; z_ins_set_cursor moved to screen.asm
 
 ; z_ins_set_text_style moved to screen.asm
@@ -1899,6 +1882,9 @@ z_ins_save_restore_undo
 	ldx #$ff
 	txa
 	jmp z_store_result
+
+; z_ins_set_true_colour placed at end of VAR z_ins_print_num
+	
 	
 }
 
