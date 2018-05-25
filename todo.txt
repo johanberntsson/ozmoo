@@ -6,11 +6,6 @@ Create PETSCII <-> ZSCII conversion routines. Make them fast.
 
 System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
 
-- Czech tests: https://github.com/DustinCampbell/ZGo/tree/master/zcode/czech
-  https://www.ifarchive.org/indexes/if-archiveXinfocomXinterpretersXtools.html
-
-- space, comma, newline, printx, printy, printa, etc. only in DEBUG
-
 Optimise find_word_in_dictionary by stopping when searching > word. Possibly also use binary search to search dictionary faster.
 
 Timed input
@@ -22,8 +17,6 @@ Basic sound effect support (low-pitched beep and high-pitched beep)
 
 save/restore
 	Copy SP and PC to below stack. Save this, stack and dynmem as one file.
-
-catch/throw
 
 Buffering/word wrap
 
@@ -96,6 +89,12 @@ DONE:
 
 Fix random opcode (see notes under Instructions... below)
 
+- Czech tests: https://github.com/DustinCampbell/ZGo/tree/master/zcode/czech
+  https://www.ifarchive.org/indexes/if-archiveXinfocomXinterpretersXtools.html
+
+- space, comma, newline, printx, printy, printa, etc. only in DEBUG
+
+catch/throw
 
 
 
