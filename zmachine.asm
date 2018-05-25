@@ -18,7 +18,10 @@ z_rnd_mode 			!byte 0
 z_test				!byte 0
 z_test_mode_print = 1
 z_test_mode_print_and_store = 2
-
+z_font				!byte 1, 1
+z_window_lower = 0
+z_window_upper = 1
+z_window			!byte z_window_lower
 
 z_opcount_0op_jump_high_arr
 	!byte >z_ins_rtrue
@@ -300,16 +303,40 @@ z_opcount_var_jump_low_arr
 z_last_implemented_var_opcode_number = * - z_opcount_var_jump_low_arr - 1
 
 z_opcount_ext_jump_high_arr
+!ifdef Z5PLUS {
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_log_shift
 	!byte >z_ins_art_shift
+	!byte >z_ins_set_font
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+}
 
 z_opcount_ext_jump_low_arr
+!ifdef Z5PLUS {
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_log_shift
 	!byte <z_ins_art_shift
+	!byte <z_ins_set_font
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+}
 
 z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
 
@@ -1820,6 +1847,28 @@ z_ins_art_shift
 	inc z_operand_value_low_arr + 1
 	bne -
 	beq .shift_store ; Always branch
+
+z_ins_set_font
+	ldy z_window
+	lda z_operand_value_low_arr
+	beq .set_font_check_status
+	cmp #1
+	beq .set_font_do
+	cmp #4
+	beq .set_font_do
+	; Font is unavailable
+	lda #0
+	tax
+	jmp z_store_result
+.set_font_do
+	ldx z_font,y
+	sta z_font,y
+	lda #0
+	jmp z_store_result
+.set_font_check_status	
+	ldx z_font,y ; a is already 0
+	jmp z_store_result
+	
 }
 
 

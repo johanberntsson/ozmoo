@@ -89,7 +89,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; ---
 ; save
 ; restore
-; set_font
 ; save_undo
 ; restore_undo
 ; print_unicode
