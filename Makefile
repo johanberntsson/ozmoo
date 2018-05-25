@@ -25,6 +25,11 @@ d64.etude:
 	cp test/etude.d64 etude.d64
 	$(C1541) -attach etude.d64 -write ozmoo ozmoo
 
+d64.praxix: 
+	acme -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp test/praxix.d64 praxix.d64
+	$(C1541) -attach praxix.d64 -write ozmoo ozmoo
+
 d64.strictz3: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
 	cp test/strictz3.d64 strictz3.d64
@@ -61,6 +66,9 @@ minform: d64.minform
 
 etude: d64.etude
 	$(X64) etude.d64
+
+praxix: d64.praxix
+	$(X64) praxix.d64
 
 strictz3: d64.strictz3
 	$(X64) strictz3.d64

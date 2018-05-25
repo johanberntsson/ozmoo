@@ -10,7 +10,7 @@ all:
 	../d64toinf/inftod64 etude.z5 etude.d64
 	../d64toinf/inftod64 czech.z5 czechz5.d64
 	../d64toinf/inftod64 czech.z3 czechz3.d64
-
+	../d64toinf/inftod64 praxix.z5 praxix.d64
 clean:
 	rm -f *.z3 *.z5 inftod64.dat test.d64
 
