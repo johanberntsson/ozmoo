@@ -54,7 +54,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; save
 ; restore
 ; restart
-; catch
 ; show_status
 ;
 ; 1OP
@@ -63,7 +62,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; 2OP
 ; ---
 ; set_colour
-; throw
 ;
 ; VAR
 ; ---
@@ -89,8 +87,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; ---
 ; save
 ; restore
-; save_undo
-; restore_undo
 ; print_unicode
 ; check_unicode
 ; set_true_colour

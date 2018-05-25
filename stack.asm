@@ -362,6 +362,37 @@ stack_pull
 	pla
 	rts
 
+z_ins_catch
+	; Store pointer to SPPPLLLL-byte in current frame.
+	lda stack_ptr
+	sec
+	ldy #1
+	sbc (stack_ptr),y
+	tax
+	lda stack_ptr + 1
+	dey
+	sbc (stack_ptr),y
+	jmp z_store_result
+
+z_ins_throw
+	; Restore pointer given. Add $0004 to pointer. Place value $0004 in that position, to indicate no values have been pushed onto stack.
+	lda z_operand_value_low_arr + 1
+	clc
+	adc #4
+	sta stack_ptr
+	lda z_operand_value_high_arr + 1
+	adc #0
+	sta stack_ptr + 1
+	ldy #0
+	tya
+	sta (stack_ptr),y
+	iny
+	lda #4
+	sta (stack_ptr),y
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jmp stack_return_from_routine
+	
 z_ins_check_arg_count
 	; Skip past all items pushed onto stack in this frame,
 	; and 4 bytes lower to read number of arguments

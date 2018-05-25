@@ -36,7 +36,7 @@ z_opcount_0op_jump_high_arr
 !ifndef Z5PLUS {
 	!byte >stack_pull ; z_ins_pop
 } else {
-	!byte >z_not_implemented
+	!byte >z_ins_catch
 }
 	!byte >z_ins_quit
 	!byte >z_ins_new_line
@@ -67,7 +67,7 @@ z_opcount_0op_jump_low_arr
 !ifndef Z5PLUS {
 	!byte <stack_pull ; z_ins_pop
 } else {
-	!byte <z_not_implemented
+	!byte <z_ins_catch
 }
 	!byte <z_ins_quit
 	!byte <z_ins_new_line
@@ -159,10 +159,20 @@ z_opcount_2op_jump_high_arr
 	!byte >z_ins_mul
 	!byte >z_ins_div
 	!byte >z_ins_mod
+!ifndef Z4PLUS {
+	!byte >z_not_implemented
+} else {
 	!byte >z_ins_call_xs
+}
+!ifndef Z5PLUS {
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+} else {
 	!byte >z_ins_call_xn
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_throw
+}
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -193,10 +203,20 @@ z_opcount_2op_jump_low_arr
 	!byte <z_ins_mul
 	!byte <z_ins_div
 	!byte <z_ins_mod
+!ifndef Z4PLUS {
+	!byte <z_not_implemented
+} else {
 	!byte <z_ins_call_xs
+}
+!ifndef Z5PLUS {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+} else {
 	!byte <z_ins_call_xn
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_throw
+}
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -313,8 +333,8 @@ z_opcount_ext_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_save_restore_undo
+	!byte >z_ins_save_restore_undo
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -331,8 +351,8 @@ z_opcount_ext_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_save_restore_undo
+	!byte <z_ins_save_restore_undo
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -1087,6 +1107,8 @@ z_ins_rfalse
 
 ; z_ins_nop is part of 1OP z_ins_inc
 
+; z_ins_catch (moved to stack.asm)
+
 z_ins_quit
 	jmp kernel_reset
 
@@ -1562,6 +1584,9 @@ z_ins_call_xn
 	dex
 	ldy #0 ; Don't store result
 	jmp stack_call_routine
+
+; z_ins_throw (moved to stack.asm)
+
 	
 ; VAR instructions
 	
@@ -1867,6 +1892,12 @@ z_ins_set_font
 	jmp z_store_result
 .set_font_check_status	
 	ldx z_font,y ; a is already 0
+	jmp z_store_result
+
+z_ins_save_restore_undo
+	; Return -1 to indicate that this is not supported
+	ldx #$ff
+	txa
 	jmp z_store_result
 	
 }
