@@ -180,6 +180,7 @@ newline
     sty .saved_y
     lda #$0d
     jsr kernel_printchar
+    jsr increase_num_rows
     lda .saved_a
     ldx .saved_x
     ldy .saved_y

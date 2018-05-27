@@ -1,8 +1,48 @@
 ; screen update routines
 ; TRACE_WINDOW = 1
 
+.num_rows !byte 0
 .current_window !byte 0
 .cursor_position !byte 0,0
+
+clear_num_rows
+    lda #0
+    sta .num_rows
+    rts
+
+increase_num_rows
+    inc .num_rows
+    rts
+
+printchar
+    jsr kernel_printchar
+    lda zp_screencolumn
+    bne .printchar_exit
+    inc .num_rows
+    lda .num_rows
+    cmp #14
+    bcc .printchar_exit
+    jsr clear_num_rows
+    ldx #0
+-   lda .more_text,x
+    beq .printchar_pressanykey
+    jsr kernel_printchar
+    inx
+    bne -
+.printchar_pressanykey
+-   jsr kernel_getchar
+    cmp #$0d
+    bne -
+    ldx #0
+-   lda .more_text,x
+    beq .printchar_exit
+    lda #20 ; delete
+    jsr kernel_printchar
+    inx
+    bne -
+.printchar_exit
++   rts
+.more_text !pet "[More]",0
 
 set_cursor
     ; input: y=column (0-39)

@@ -605,6 +605,7 @@ read_text
     ; output: string_array
     ; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
     ; used registers: a,x,y
+    jsr clear_num_rows ; clear [More] counter
     stx string_array
     clc
     adc #>story_start

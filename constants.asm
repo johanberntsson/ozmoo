@@ -22,7 +22,8 @@ z_trace_index		  = $54
 zp_mempos             = $ae ; 2 bytes
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
-zp_screencolumn       = $d3 ; current column
+zp_screencolumn       = $d3 ; current cursor column
+zp_screenrow          = $d6 ; current cursor row
 zp_temp               = $fb ; 4 bytes
 
 memory_buffer         =	$02a7
