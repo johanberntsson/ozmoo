@@ -20,7 +20,7 @@ printchar
     bne .printchar_exit
     inc .num_rows
     lda .num_rows
-    cmp #14
+    cmp #12 ; zp_screencolumn can be 1-2 rows on the screen, so assume the worst
     bcc .printchar_exit
     jsr clear_num_rows
     ldx #0

@@ -4,6 +4,7 @@
 ;TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
 ;TRACE_ATTR = 1 ; trace find_attr, set_attr, clear_attr
 ;TRACE_PROP = 1  ; trace get_prop_len, get_next_prop
+;TRACE_FROTZ = 1 ; give Frotz-style messages
 
 ; globals
 num_default_properties !byte 0
@@ -25,6 +26,14 @@ z_ins_get_sibling
 
 z_ins_get_child
     ; get_child object -> (result) ?(label)
+!ifdef TRACE_FROTZ {
+    jsr print_following_string
+    !pet "@get_child  ",0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr print_obj
+    jsr newline
+}
 !ifdef TRACE_TREE {
     jsr print_following_string
     !pet "get_child obj: ",0
@@ -78,6 +87,14 @@ z_ins_get_child
 
 z_ins_get_parent
     ; get_parent object -> (result)
+!ifdef TRACE_FROTZ {
+    jsr print_following_string
+    !pet "@get_parent ",0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr print_obj
+    jsr newline
+}
 !ifdef TRACE_TREE {
     jsr print_following_string
     !pet "get_parent obj: ",0
@@ -501,6 +518,17 @@ z_ins_jin
 
 z_ins_test_attr
     ; test_attr object attribute ?(label)
+!ifdef TRACE_FROTZ {
+    jsr print_following_string
+    !pet "@test_attr ",0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr print_obj
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr newline
+}
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "test_attr obj attr: ",0
@@ -529,6 +557,17 @@ z_ins_test_attr
 z_ins_set_attr
     ; set_attr object attribute
     jsr find_attr
+!ifdef TRACE_FROTZ {
+    jsr print_following_string
+    !pet "@set_attr  ", 0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr print_obj
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr newline
+}
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "set_attr object attr: ", 0
@@ -548,7 +587,7 @@ z_ins_set_attr
     ; don't continue if object = 0
     ldx z_operand_value_low_arr
     bne .do_set_attr
-    ldx z_operand_value_low_arr + 1
+    ldx z_operand_value_high_arr
     bne .do_set_attr
 !ifdef TRACE_ATTR {
     jsr newline
@@ -577,6 +616,17 @@ z_ins_set_attr
 z_ins_clear_attr
     ; clear_attr object attribute
     jsr find_attr
+!ifdef TRACE_FROTZ {
+    jsr print_following_string
+    !pet "@clear_attr object ", 0
+    ldx z_operand_value_low_arr
+    lda z_operand_value_high_arr
+    jsr print_obj
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr newline
+}
 !ifdef TRACE_ATTR {
     jsr print_following_string
     !pet "clear_attr object attr: ", 0
@@ -596,7 +646,7 @@ z_ins_clear_attr
     ; don't continue if object = 0
     ldx z_operand_value_low_arr
     bne .do_clear_attr
-    ldx z_operand_value_low_arr + 1
+    ldx z_operand_value_high_arr
     bne .do_clear_attr
 !ifdef TRACE_ATTR {
     jsr newline

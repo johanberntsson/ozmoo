@@ -3,6 +3,7 @@
 ;TRACE_READTEXT = 1
 ;TRACE_TOKENISE = 1
 ;TRACE_SHOW_DICT_ENTRIES = 1
+;TRACE_PRINT_ARRAYS = 1
 
 z_ins_print_addr 
     ldx z_operand_value_low_arr
@@ -180,7 +181,7 @@ z_ins_aread
 }
 .aread_done
     ; debug - print parsearray
-!ifdef DEBUG {
+!ifdef TRACE_PRINT_ARRAYS {
     ldy #0
 -   lda (string_array),y
     tax
@@ -605,11 +606,12 @@ read_text
     ; output: string_array
     ; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
     ; used registers: a,x,y
-    jsr clear_num_rows ; clear [More] counter
     stx string_array
     clc
     adc #>story_start
     sta string_array + 1
+    ; clear [More] counter
+    jsr clear_num_rows
     ; check timer usage
     lda .read_text_time
     sta .read_text_time_jiffy
