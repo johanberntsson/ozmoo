@@ -466,74 +466,74 @@ z_execute
 !ifdef DEBUG {
 ; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
 
-	jsr print_following_string
-	!pet "press enter to start",13,0
-    jsr kernel_readchar   ; read keyboard
+	; jsr print_following_string
+	; !pet "press enter to start",13,0
+    ; jsr kernel_readchar   ; read keyboard
 
 
-	lda #z_test_mode_print
-	sta z_test
+	; lda #z_test_mode_print
+	; sta z_test
 
-	lda #<-1
-	sta z_operand_value_low_arr
-	lda #>-1
-	sta z_operand_value_high_arr
-	jsr z_ins_random
-	lda #<10
-	sta z_operand_value_low_arr
-	lda #>10
-	sta z_operand_value_high_arr
-	ldx #15
-	stx z_temp + 4
--	jsr z_ins_random
-	dec z_temp + 4
-	bne -
-	jsr newline
-	jsr newline
+	; lda #<-1
+	; sta z_operand_value_low_arr
+	; lda #>-1
+	; sta z_operand_value_high_arr
+	; jsr z_ins_random
+	; lda #<10
+	; sta z_operand_value_low_arr
+	; lda #>10
+	; sta z_operand_value_high_arr
+	; ldx #15
+	; stx z_temp + 4
+; -	jsr z_ins_random
+	; dec z_temp + 4
+	; bne -
+	; jsr newline
+	; jsr newline
 	
-	lda #<0
-	sta z_operand_value_low_arr
-	lda #>0
-	sta z_operand_value_high_arr
-	jsr z_ins_random
-	lda #<10
-	sta z_operand_value_low_arr
-	lda #>10
-	sta z_operand_value_high_arr
-	ldx #15
-	stx z_temp + 4
--	jsr z_ins_random
-	dec z_temp + 4
-	bne -
-	jsr newline
-	jsr newline
+	; lda #<0
+	; sta z_operand_value_low_arr
+	; lda #>0
+	; sta z_operand_value_high_arr
+	; jsr z_ins_random
+	; lda #<10
+	; sta z_operand_value_low_arr
+	; lda #>10
+	; sta z_operand_value_high_arr
+	; ldx #15
+	; stx z_temp + 4
+; -	jsr z_ins_random
+	; dec z_temp + 4
+	; bne -
+	; jsr newline
+	; jsr newline
 
-	lda #<-1
-	sta z_operand_value_low_arr
-	lda #>-1
-	sta z_operand_value_high_arr
--	jsr z_ins_random
-	lda #<10
-	sta z_operand_value_low_arr
-	lda #>10
-	sta z_operand_value_high_arr
-	ldx #15
-	stx z_temp + 4
--	jsr z_ins_random
-	dec z_temp + 4
-	bne -
-	jsr newline
-	jsr newline
+	; lda #<-1
+	; sta z_operand_value_low_arr
+	; lda #>-1
+	; sta z_operand_value_high_arr
+; -	jsr z_ins_random
+	; lda #<10
+	; sta z_operand_value_low_arr
+	; lda #>10
+	; sta z_operand_value_high_arr
+	; ldx #15
+	; stx z_temp + 4
+; -	jsr z_ins_random
+	; dec z_temp + 4
+	; bne -
+	; jsr newline
+	; jsr newline
 
-	lda #<0
-	sta z_operand_value_low_arr
-	lda #>0
-	sta z_operand_value_high_arr
-	jsr z_ins_random
+	; lda #<0
+	; sta z_operand_value_low_arr
+	; lda #>0
+	; sta z_operand_value_high_arr
+	; jsr z_ins_random
 	
-	lda #z_test_mode_print_and_store
-	lda #0
-	sta z_test
+	; lda #z_test_mode_print_and_store
+	; lda #0
+	; sta z_test
 }
 
 .main_loop
@@ -1893,6 +1893,9 @@ z_ins_scan_table
 ; EXT instructions
 
 z_ins_log_shift
+	lda z_operand_value_high_arr + 1
+	ora z_operand_value_low_arr + 1
+	beq .shift_store
 	bit z_operand_value_high_arr + 1
 	bpl .left_shift
 -	lsr z_operand_value_high_arr
@@ -1911,6 +1914,9 @@ z_ins_log_shift
 	jmp z_store_result
 
 z_ins_art_shift
+	lda z_operand_value_high_arr + 1
+	ora z_operand_value_low_arr + 1
+	beq .shift_store
 	bit z_operand_value_high_arr + 1
 	bpl .left_shift
 -	clc
