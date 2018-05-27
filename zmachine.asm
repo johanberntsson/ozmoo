@@ -1438,27 +1438,65 @@ z_ins_loadw_and_storew
 	clc
 	adc z_operand_value_low_arr + 1
 	sta zp_temp
+	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
-	clc
-	adc #>story_start
 	sta zp_temp + 1
 	ldy #1
 	lda z_opcode_number
 	cmp #15 ; Code for loadw
 	bne .storew
+	; Check if address is in dynamic memory
+	cpx story_start + header_static_mem + 1
+	lda zp_temp + 1
+	sbc story_start + header_static_mem
+	bcc .word_read_in_dynmem
+	; Check that address is in static memory
+	cpx story_start + header_high_mem + 1
+	lda zp_temp + 1
+	sbc story_start + header_high_mem
+	bcs .read_above_statmem
+	; Address is in static memory
+	lda zp_temp + 1
+	jsr set_z_address
+	jsr read_next_byte
+	pha
+	jsr read_next_byte
+	tax
+	pla
+	jmp z_store_result
+.word_read_in_dynmem
+	lda zp_temp +1
+	adc #>story_start
+	sta zp_temp + 1
 	lda (zp_temp),y
 	tax
 	dey
 	lda (zp_temp),y
 	jmp z_store_result
 .storew
+	; Check that address is in dynamic memory
+	cpx story_start + header_static_mem + 1
+	lda zp_temp + 1
+	sbc story_start + header_static_mem
+	bcs .write_outside_dynmem
+	; Ok, write is within dynmem
+	lda zp_temp + 1
+	adc #>story_start ; Carry is already clear
+	sta zp_temp + 1
 	lda z_operand_value_low_arr + 2
 	sta (zp_temp),y
 	dey
 	lda z_operand_value_high_arr + 2
 	sta (zp_temp),y
 	rts
+.write_outside_dynmem
+	lda #ERROR_WRITE_ABOVE_DYNMEM
+	jsr fatalerror
+.read_above_statmem
+	lda #ERROR_READ_ABOVE_STATMEM
+	jsr fatalerror
+
 	
 z_ins_loadb
 	jsr calc_address_in_byte_array

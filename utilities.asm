@@ -17,6 +17,8 @@ ERROR_USED_NONEXISTENT_LOCAL_VAR = 9
 ERROR_BAD_PROPERTY_LENGTH = 10
 ERROR_UNSUPPORTED_STORY_VERSION = 11
 ERROR_OUT_OF_MEMORY = 12
+ERROR_WRITE_ABOVE_DYNMEM = 13
+ERROR_READ_ABOVE_STATMEM = 14
 
 fatalerror
     ; prints the error, then resets the computer
@@ -99,10 +101,21 @@ fatalerror
     !pet "unsupported story version", 0
     jmp .fe_reset
 .fb cmp #ERROR_OUT_OF_MEMORY
+    bne .fc
+    jsr print_following_string
+    !pet "out of memory", 0
+    jmp .fe_reset
+.fc cmp #ERROR_WRITE_ABOVE_DYNMEM
+    bne .fd
+    jsr print_following_string
+    !pet "tried to write to non-dynamic memory", 0
+    jmp .fe_reset
+.fd cmp #ERROR_READ_ABOVE_STATMEM
     bne .fz
     jsr print_following_string
-    !pet "Out of memory", 0
+    !pet "tried to read from himem", 0
     jmp .fe_reset
+
 .fz jsr printinteger
 .fe_reset
     jsr newline
