@@ -767,7 +767,7 @@ calculate_property_length_number
 .property_length !byte 0
 
 find_first_prop
-    ; output: x,a = address to property block, or 0,0 if not found
+    ; output: z_address is set to property block, or 0,0 if not set in obj
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -780,10 +780,16 @@ find_first_prop
     tax
     dey
     lda (object_tree_ptr),y ; high byte
+    pha ; a is destroyed by set_z_address
     jsr set_z_address
-    jsr read_next_byte ; length of object short name (# of zchars)
+    pla
+    bne +
+    cpx #0
+    bne +
+    rts ; 0,0: no prop block exists, do nothing
++    jsr read_next_byte ; length of object short name (# of zchars)
     ; skip short name (2 * bytes, since in words)
-    pha
+    pha ; a is destroyed by skip_bytes_z_address
     jsr skip_bytes_z_address
     pla
     jmp skip_bytes_z_address
@@ -793,6 +799,10 @@ find_prop
     ; output: x,a = address to property block, or 0,0 if not found
     ; (also stored in .find_prop_result)
     ; loop over the properties until the correct one found
+    jsr get_z_address
+    bne .property_loop
+    cpx #0
+    beq .find_prop_not_found ; 0,0: not a valid property block
 .property_loop
     jsr calculate_property_length_number
     lda .property_number
