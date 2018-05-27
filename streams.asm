@@ -34,7 +34,7 @@ streams_print_output
 	lda streams_output_selected + 2
 	bne .mem_write
 	pla
-	jmp printchar; jmp kernel_printchar
+	jmp printchar_unbuffered
 .mem_write
 	lda streams_current_entry + 2
 	sta zp_temp

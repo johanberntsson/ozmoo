@@ -12,37 +12,103 @@ clear_num_rows
 
 increase_num_rows
     inc .num_rows
-    rts
-
-printchar
-    jsr kernel_printchar
-    lda zp_screencolumn
-    bne .printchar_exit
-    inc .num_rows
     lda .num_rows
     cmp #12 ; zp_screencolumn can be 1-2 rows on the screen, so assume the worst
-    bcc .printchar_exit
+    bcc .increase_num_rows_done
+    ; time to show [More]
     jsr clear_num_rows
+    ; print [More]
     ldx #0
 -   lda .more_text,x
     beq .printchar_pressanykey
     jsr kernel_printchar
     inx
     bne -
+    ; wait for ENTER
 .printchar_pressanykey
 -   jsr kernel_getchar
     cmp #$0d
     bne -
+    ; remove [More]
     ldx #0
 -   lda .more_text,x
-    beq .printchar_exit
+    beq .increase_num_rows_done
     lda #20 ; delete
     jsr kernel_printchar
     inx
     bne -
-.printchar_exit
-+   rts
+.increase_num_rows_done
+    rts
 .more_text !pet "[More]",0
+
+printchar_buffered
+    ; a is character to print
+    ldy .buffer_index
+    bne .not_first_space
+    ; skip space if at first position
+    cmp #$20
+    bne .not_first_space
+    rts
+.not_first_space
+    ; add this char in the buffer
+    cmp #$0d
+    bne .check_space
+    ; newline. Print line and reset the buffer
+    ldx #0
+-   lda .buffer,x
+    jsr kernel_printchar
+    inx
+    cpx .buffer_index
+    bne -
+    ldx #0
+    stx .buffer_index
+    stx .buffer_last_space
+    jmp increase_num_rows
+.check_space
+    cmp #$20
+    bne .not_space
+    ; update index to last space
+    ldy .buffer_index
+    sty .buffer_last_space
+.not_space
+    ldy .buffer_index
+    sta .buffer,y
+    inc .buffer_index
+    ldy .buffer_index
+    cpy #40
+    bne .buffer_not_full
+    ; print the line until last space
+    ldx #0
+-   lda .buffer,x
+    jsr kernel_printchar
+    inx
+    cpx .buffer_last_space
+    bne -
+    ; move the rest of the line back to the beginning and update indices
+    ldy #0
+-   lda .buffer,x
+    sta .buffer,y
+    iny
+    inx
+    cpx .buffer_index
+    bne -
+    sty .buffer_index
+    ldy #0
+    sty .buffer_last_space
+    jsr increase_num_rows
+.buffer_not_full
+    rts
+.buffer_index      !byte 0
+.buffer_last_space !byte 0
+.buffer            !fill 41, 0
+
+printchar_unbuffered
+    jsr kernel_printchar
+    lda zp_screencolumn
+    bne .printchar_exit
+    jsr increase_num_rows
+.printchar_exit
+    rts
 
 set_cursor
     ; input: y=column (0-39)
