@@ -1451,11 +1451,13 @@ z_ins_loadw_and_storew
 	lda zp_temp + 1
 	sbc story_start + header_static_mem
 	bcc .word_read_in_dynmem
+!ifdef DEBUG {
 	; Check that address is in static memory
 	cpx story_start + header_high_mem + 1
 	lda zp_temp + 1
 	sbc story_start + header_high_mem
 	bcs .read_above_statmem
+}
 	; Address is in static memory
 	lda zp_temp + 1
 	jsr set_z_address
@@ -1475,11 +1477,13 @@ z_ins_loadw_and_storew
 	lda (zp_temp),y
 	jmp z_store_result
 .storew
+!ifdef DEBUG {
 	; Check that address is in dynamic memory
 	cpx story_start + header_static_mem + 1
 	lda zp_temp + 1
 	sbc story_start + header_static_mem
 	bcs .write_outside_dynmem
+}
 	; Ok, write is within dynmem
 	lda zp_temp + 1
 	adc #>story_start ; Carry is already clear
@@ -1490,13 +1494,14 @@ z_ins_loadw_and_storew
 	lda z_operand_value_high_arr + 2
 	sta (zp_temp),y
 	rts
+!ifdef DEBUG {
 .write_outside_dynmem
 	lda #ERROR_WRITE_ABOVE_DYNMEM
 	jsr fatalerror
 .read_above_statmem
 	lda #ERROR_READ_ABOVE_STATMEM
 	jsr fatalerror
-
+}
 	
 z_ins_loadb
 	jsr calc_address_in_byte_array
