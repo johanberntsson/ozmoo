@@ -153,7 +153,7 @@ def create_d64(story_filename, d64_filename)
 end
 
 if ARGV.length != 2 then
-    puts "Usage: convert_db <zmachine file> <d64 file"
+    puts "Usage: create_d64.rb <zmachine file> <d64 file>"
     exit 0
 end
 story_filename = ARGV[0]
