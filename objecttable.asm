@@ -44,7 +44,21 @@ z_ins_get_child
     lda #11
 }
 .get_sibling_child
-	pha
+    ; check if object is 0
+    ldx z_operand_value_low_arr
+    bne +
+    ldx z_operand_value_high_arr
+    bne +
+    ; object is 0, store 0 and return false
+!ifdef DEBUG {
+    jsr print_following_string
+    !pet "WARNING: get_child called with object 0",13,0
+}
+    ldx #0
+    lda #0
+    jsr z_store_result
+	jmp make_branch_false
++	pha
 !ifdef TRACE_TREE {
     ldx z_operand_value_low_arr
     jsr printx

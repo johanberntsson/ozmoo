@@ -11,6 +11,8 @@ X64 := /usr/bin/x64 -warp -autostart-delay-random
 #all: czechz5
 #all: strictz3
 all: strictz5
+#all: etude
+#all: praxix
 
 d64.czechz3: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
