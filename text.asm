@@ -636,11 +636,12 @@ read_text
     sta zp_cursorswitch
     lda zp_screencolumn
     sta .read_text_startcolumn
-!ifdef Z5PLUS {
     ldy #1
+!ifdef Z5PLUS {
     lda (string_array),y
 } else {
     lda #0
+    sta (string_array),y ; default is empty string (0 in pos 1)
 }
     sta .read_text_offset
 .readkey
