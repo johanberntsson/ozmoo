@@ -47,12 +47,12 @@ d64.minform:
 
 d64.dejavu: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
-	cp d64toinf/dejavu.d64 dejavu.d64
+	cp examples/dejavu.d64 dejavu.d64
 	$(C1541) -attach dejavu.d64 -write ozmoo ozmoo
 
 d64.dragon:
 	acme -DZ5=1 $(DEBUGFLAGS)  $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
-	cp d64toinf/dragontroll.d64 dragontroll.d64
+	cp examples/dragontroll.d64 dragontroll.d64
 	$(C1541) -attach dragontroll.d64 -write ozmoo ozmoo
 
 dejavu: d64.dejavu
