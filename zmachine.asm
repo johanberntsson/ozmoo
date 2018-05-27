@@ -1050,6 +1050,7 @@ calc_address_in_byte_array
 	sta zp_temp
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
+	clc
 	adc #>story_start
 	sta zp_temp + 1
 	ldy #0
@@ -1439,6 +1440,7 @@ z_ins_loadw_and_storew
 	sta zp_temp
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
+	clc
 	adc #>story_start
 	sta zp_temp + 1
 	ldy #1
