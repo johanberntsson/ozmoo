@@ -1,4 +1,5 @@
-all: make_czech
+all: make_praxix
+#all: make_czech
 #all: make_oztest
 
 make_oztest:
@@ -24,6 +25,7 @@ make_etude:
 	../create_d64.rb etude.z5 etude.d64
 
 make_praxix:
+	inform -v5 +etude praxix/praxix.inf praxix.z5
 	../create_d64.rb praxix.z5 praxix.d64
 
 clean:
