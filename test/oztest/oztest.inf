@@ -6,7 +6,6 @@
 Switches e;
 
 Constant TEST_VERSION "0.1";
-
 !!
 !! USAGE NOTES:
 !!
@@ -921,7 +920,7 @@ Property propa 11;
 Property propb 12;
 Property propc 13;
 Property propd 14;
-Property prope 15;
+!Property prope 15;
 
 Object Obj1 "Test Object #1"
   has   attr1 attr2
@@ -1617,42 +1616,33 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
 ! MAIN calls a bunch of subs. Each one runs a set of related tests.
 !---------------------- MAIN
 
+Property prop8 7;
+Property prop10 10;
+Object RockRoom "Rock Room"
+    with prop10 77;
+Object Compass "compass";
+Object -> SouthWall "south wall"
+    with prop8 prop10;
+
+[ test_dejavu a b;
+    print "Dejavu ";
+    a = RockRoom;
+    Gtemp = SouthWall;
+    @get_prop Gtemp prop8 -> sp;
+    @get_prop a sp -> b;
+    assert0(b, 77);
+];
+
+    
 [ Main;
    Testnum = 0; Passed = 0; Failed = 0; Print_Tests = 0;
-   @print "OZTEST: the Comprehensive Z-machine Emulation CHecker, version ";
-   ! It's not entirely cool to be using print_paddr before testing.
-   ! So sue me.
+   @print "OZTEST, version ";
    @print_paddr TEST_VERSION;
    @print "^Test numbers appear in [brackets].^";
 
-   pt();
-   @print "^print works or you wouldn't be seeing this.^^";
+   test_dejavu(); @print "^";
 
-!   Standard = 0->50;
-!   if(0->50 || 0->51)
-!      print "Standard ", 0->50, ".", 0->51, " "; 0;
-!   print "interpreter ", 0->30, (char) 0->31;
 
-   ! If jumps don't work, we just give up.
-
-   ! Now test sets of functionality.
-   ! Argument of 1 means SKIP tests, 0 means DON'T skip the tests
-   ! Note that there may be stack ops,e.g., in the arithmetic test, and
-   ! those won't get skipped just because you call test_stack with '1'.
-   ! MOST tests in earlier subs won't
-   ! depend on functionality tested in later subs, but simple
-   ! jump, stack, call, print functionality is needed for almost all tests.
-   test_jumps(0); @print "^";
-   test_variables(0); @print "^";
-   test_arithmetic(0); @print "^";
-   test_logical(0); @print "^";
-   test_memory(0); @print "^";
-   test_subroutines(0); @print "^";
-   test_objects(0); @print "^";
-   test_indirect(0); @print "^";
-   test_misc(0); @print "^";
-   test_header(0); @print "^";
-   test_print(0); @print "^";
    print "^^Performed ", Testnum, " tests.^";
    print "Passed: ", Passed, ", Failed: ", Failed;
    print ", Print tests: ", Print_Tests, "^";
@@ -1661,7 +1651,6 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
       @print " passed + failed + print tests!^^";
    }
    print "Didn't crash: hooray!^";
-   read mytable 0;
    print "Last test: quit! (press any key)^";
    read mytable 0;
    @quit;

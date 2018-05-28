@@ -10,9 +10,10 @@ X64 := /usr/bin/x64 -warp -autostart-delay-random
 #all: czechz3
 #all: czechz5
 #all: strictz3
-all: strictz5
+#all: strictz5
 #all: etude
 #all: praxix
+all: oztestz3
 
 d64.czechz3: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
@@ -33,6 +34,16 @@ d64.praxix:
 	acme -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
 	cp test/praxix.d64 praxix.d64
 	$(C1541) -attach praxix.d64 -write ozmoo ozmoo
+
+d64.oztestz5: 
+	acme -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp test/oztestz5.d64 oztest.d64
+	$(C1541) -attach oztest.d64 -write ozmoo ozmoo
+
+d64.oztestz3: 
+	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp test/oztestz3.d64 oztest.d64
+	$(C1541) -attach oztest.d64 -write ozmoo ozmoo
 
 d64.strictz3: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
@@ -73,6 +84,12 @@ etude: d64.etude
 
 praxix: d64.praxix
 	$(X64) praxix.d64
+
+oztestz3: d64.oztestz3
+	$(X64) oztest.d64
+
+oztestz5: d64.oztestz5
+	$(X64) oztest.d64
 
 strictz3: d64.strictz3
 	$(X64) strictz3.d64
