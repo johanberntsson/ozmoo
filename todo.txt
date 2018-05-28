@@ -1,12 +1,19 @@
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+
+*** Speed ***
+- Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
+- Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
+- Optimise find_word_in_dictionary by stopping when searching > word. Possibly also use binary search to search dictionary faster.
+- Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
+    Old todo: - reuse index and skip tests if same block as previous call to read_z_*
+- Add fast-loader code?
+
 Create PETSCII <-> ZSCII conversion routines. Make them fast.
 
 - support custom alphabets in Z5 onwards
 
 System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
-
-Optimise find_word_in_dictionary by stopping when searching > word. Possibly also use binary search to search dictionary faster.
 
 Timed input
 Old todo: - allow delay/routine in read_text
@@ -27,16 +34,11 @@ Create our own screen handling routines to give us full control, including not s
 Extend virtual memory RAM up to $ffff (And disable trace automatically if RAM at page $cf00 is used for Vmem)
 Old todo: - use more memory, $E000-$FFFF, perhaps also $D000-$E000?
 
-Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
-Old todo: - reuse index and skip tests if same block as previous call to read_z_*
-
 Put first four entries of z_operand_value_(low/high)_arr on zeropage. Saves 200+ bytes and makes all instructions faster.
 
 Figure out how to best place loader, interpreter and different parts of story file on 1, 2 or 3 disk sides.
 Old todo: - rewrite floppy access code to use all available sectors
 Old todo: - support splitting of large files onto two floppies
-
-Add fast-loader code?
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
 
