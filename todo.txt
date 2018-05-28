@@ -60,17 +60,12 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ;
 ; VAR
 ; ---
-; print_char (handle ZSCII / PETSCII conversion, inlcluding special cases for accented characters)
-; split_window
-; set_window
+; print_char (handle ZSCII / PETSCII conversion, including special cases for accented characters)
 ; erase_window
 ; erase_line
-; set_cursor
 ; get_cursor
-; set_text
 ; buffer_mode
 ; input_stream
-; sound_effect
 ; read_char
 ; tokenise
 ; encode_text

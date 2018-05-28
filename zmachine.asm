@@ -257,7 +257,7 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_output_stream
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_sound_effect
 !ifdef Z4PLUS {
 	!byte >z_not_implemented
 	!byte >z_ins_scan_table
@@ -307,7 +307,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_ins_output_stream
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_sound_effect
 !ifdef Z4PLUS {
 	!byte <z_not_implemented
 	!byte <z_ins_scan_table
@@ -450,6 +450,19 @@ z_init
 	lda story_start + header_globals
 	adc #>(story_start - 32)
 	sta z_global_vars_start + 1
+
+	; Init sound
+	lda #0
+	ldx #$18
+-	sta $d400,x
+	dex
+	bpl -
+	lda #$f
+	sta $d418
+	lda #$00
+	sta $d405
+	lda #$f2
+	sta $d406
 	
 	; Init randomization
 	lda #$ff
@@ -464,6 +477,11 @@ z_execute
 !zone {
 
 !ifdef DEBUG {
+; Play high-pitched beep
+;	lda #1
+;	sta z_operand_value_low_arr
+;	jsr z_ins_sound_effect
+
 ; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
 
 	; jsr print_following_string
@@ -1871,6 +1889,31 @@ z_ins_random
 ; z_ins_set_text_style moved to screen.asm
 	
 ; z_ins_output_stream jumps directly to streams_output_stream.
+
+z_ins_sound_effect
+	ldx z_operand_value_low_arr
+	dex
+	beq .sound_high_pitched_beep
+	dex
+	beq .sound_low_pitched_beep
+	rts
+.sound_low_pitched_beep
+	lda #$08
+	!byte $2c ; BIT nnnn
+.sound_high_pitched_beep
+	lda #$40
+	sta $d401
+	lda #$21
+	sta $d404
+	ldy #40
+--	ldx #0
+-	dex
+	bne -
+	dey
+	bne --
+	lda #$20
+	sta $d404
+	rts
 
 z_ins_scan_table
 	lda z_operand_count
