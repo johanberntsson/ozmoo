@@ -1228,12 +1228,6 @@ z_ins_load
 	lda (zp_temp),y
 	jmp z_store_result
 
-z_ins_jz
-	lda z_operand_value_low_arr
-	ora z_operand_value_high_arr
-	beq make_branch_true
-	bne make_branch_false
-
 z_ins_not
 	lda z_operand_value_low_arr
 	eor #$ff
@@ -1242,6 +1236,12 @@ z_ins_not
 	eor #$ff
 	jmp z_store_result
 	
+z_ins_jz
+	lda z_operand_value_low_arr
+	ora z_operand_value_high_arr
+	beq make_branch_true
+	bne make_branch_false
+
 ; 2OP instructions
 	
 z_ins_jl
@@ -1250,7 +1250,9 @@ z_ins_jl
 	cmp z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr
 	sbc z_operand_value_high_arr + 1
-	bmi make_branch_true
+	bvc +
+	eor #$80
++	bmi make_branch_true
 	bpl make_branch_false ; Always branch
 
 z_ins_inc_chk
@@ -1270,7 +1272,9 @@ z_ins_jg
 	cmp z_operand_value_low_arr
 	lda z_operand_value_high_arr + 1
 	sbc z_operand_value_high_arr
-	bmi make_branch_true
+	bvc +
+	eor #$80
++	bmi make_branch_true
 	bpl make_branch_false ; Always branch
 
 z_ins_dec_chk
