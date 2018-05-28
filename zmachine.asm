@@ -254,7 +254,11 @@ z_opcount_var_jump_high_arr
 } else {
 	!byte >z_not_implemented
 }
+!ifdef Z4PLUS {
+	!byte >z_ins_buffer_mode
+} else {
 	!byte >z_not_implemented
+}
 	!byte >z_ins_output_stream
 	!byte >z_not_implemented
 	!byte >z_ins_sound_effect
@@ -304,7 +308,11 @@ z_opcount_var_jump_low_arr
 } else {
 	!byte <z_not_implemented
 }
+!ifdef Z4PLUS {
+	!byte <z_ins_set_buffer_mode
+} else {
 	!byte <z_not_implemented
+}
 	!byte <z_ins_output_stream
 	!byte <z_not_implemented
 	!byte <z_ins_sound_effect
@@ -1885,6 +1893,8 @@ z_ins_random
 ; z_ins_set_window moved to screen.asm
 
 ; z_ins_set_cursor moved to screen.asm
+
+; z_ins_buffer_mode moved to screen.asm
 
 ; z_ins_set_text_style moved to screen.asm
 	

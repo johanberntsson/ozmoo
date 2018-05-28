@@ -5,8 +5,8 @@
 .current_window !byte 0
 .cursor_position !byte 0,0
 !ifdef DEBUG {
-;.is_buffered_window !byte 0,0 ; in debug we print all directly
-.is_buffered_window !byte 1,0
+.is_buffered_window !byte 0,0 ; in debug printx etc prints all directly
+;.is_buffered_window !byte 1,0
 } else {
 .is_buffered_window !byte 1,0
 }
@@ -175,9 +175,16 @@ restore_cursor
     ldy .cursor_position + 1
     jmp set_cursor
 
+z_ins_buffer_mode 
+    ; buffer_mode flag
+    ldy #0
+    lda z_operand_value_low_arr
+    sta .is_buffered_window,y ; set window 0 (main screen) to flag
+    rts
 
 !ifdef Z3 {
 z_ins_show_status
+    ; show_status
     jmp draw_status_line
 
 draw_status_line

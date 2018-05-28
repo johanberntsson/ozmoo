@@ -260,12 +260,13 @@ z_ins_remove_obj
     ; remove_obj object
 !ifdef TRACE_FROTZ_OBJ {
     jsr print_following_string
-    !pet "remove_obj: obj ", 0
+    !pet "remove_obj: ", 0
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr print_obj
     jsr newline
 }
+z_ins_remove_obj_body
     ; get object number
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
@@ -754,7 +755,7 @@ z_ins_insert_obj
     jsr print_following_string
     !pet "insert_obj obj dest: ",0
 }
-    jsr z_ins_remove_obj ; will set .zp_object and .object_num
+    jsr z_ins_remove_obj_body ; will set .zp_object and .object_num
     ; calculate destination address
     ldx z_operand_value_low_arr + 1
     lda z_operand_value_high_arr + 1

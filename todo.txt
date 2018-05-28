@@ -64,7 +64,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; erase_window
 ; erase_line
 ; get_cursor
-; buffer_mode
 ; input_stream
 ; read_char
 ; tokenise
