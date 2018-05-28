@@ -1891,17 +1891,16 @@ z_ins_random
 ; z_ins_output_stream jumps directly to streams_output_stream.
 
 z_ins_sound_effect
+	lda #$08
 	ldx z_operand_value_low_arr
 	dex
 	beq .sound_high_pitched_beep
 	dex
 	beq .sound_low_pitched_beep
 	rts
-.sound_low_pitched_beep
-	lda #$08
-	!byte $2c ; BIT nnnn
 .sound_high_pitched_beep
 	lda #$40
+.sound_low_pitched_beep
 	sta $d401
 	lda #$21
 	sta $d404
