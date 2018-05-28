@@ -40,10 +40,10 @@ z_ins_print_ret
 
 !ifndef Z5PLUS {
 
-
 z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
+    jsr printchar_flush
     ; read input
     ldy #0
     sty .read_text_time
@@ -118,6 +118,7 @@ z_ins_sread
 
 z_ins_aread
     ; aread text parse time routine -> (result)
+    jsr printchar_flush
     ; read input
     ldy #0
     sty .read_text_time
