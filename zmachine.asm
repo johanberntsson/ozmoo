@@ -628,21 +628,19 @@ z_execute
 	jmp .read_operands
 	
 .top_bits_are_0x
-	
-.long_form	
 	; Form = Long
 	asl
 	sta zp_temp
+	ldx #0
+-	asl zp_temp
 	lda #%10
-	bit zp_temp
-	bmi +
+	bcs +
 	lda #%01
-+	sta z_operand_type_arr
-	lda #%10
-	bvs +
-	lda #%01
-+	sta z_operand_type_arr + 1
-	ldx #1
++	sta z_operand_type_arr,x
+	inx
+	cpx #2
+	bne -
+	dex
 	jsr clear_remaining_types
 	jmp .read_operands
 	
