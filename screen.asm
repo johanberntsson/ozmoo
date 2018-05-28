@@ -4,6 +4,12 @@
 .num_rows !byte 0
 .current_window !byte 0
 .cursor_position !byte 0,0
+!ifdef DEBUG {
+;.is_buffered_window !byte 0,0 ; in debug we print all directly
+.is_buffered_window !byte 1,0
+} else {
+.is_buffered_window !byte 1,0
+}
 
 clear_num_rows
     lda #0
@@ -12,9 +18,18 @@ clear_num_rows
 
 increase_num_rows
     inc .num_rows
+    ldx .current_window
+    lda .is_buffered_window,x
+    bne +
+    ; unbuffered windows don't insert newlines
     lda .num_rows
     cmp #24
     bcc .increase_num_rows_done
+    bcs .show_more
++   lda .num_rows
+    cmp #24
+    bcc .increase_num_rows_done
+.show_more
     ; time to show [More]
     jsr clear_num_rows
     ; print [More]
@@ -27,8 +42,7 @@ increase_num_rows
     ; wait for ENTER
 .printchar_pressanykey
 -   jsr kernel_getchar
-    cmp #$0d
-    bne -
+    beq -
     ; remove [More]
     ldx #0
 -   lda .more_text,x
@@ -68,9 +82,9 @@ printchar_buffered
     tya
     pha
     ; is this a buffered window?
-    ; in Z1-Z5 the main windows is 0, and the status line is 1
-    lda .current_window
-    beq .buffered_window
+    ldx .current_window
+    lda .is_buffered_window,x
+    bne .buffered_window
     lda .buffer_char
     jsr kernel_printchar
     jmp .printchar_done
@@ -142,14 +156,6 @@ printchar_buffered
 .buffer_index      !byte 0
 .buffer_last_space !byte 0
 .buffer            !fill 41, 0
-
-printchar_unbuffered
-    jsr kernel_printchar
-    lda zp_screencolumn
-    bne .printchar_exit
-    jsr increase_num_rows
-.printchar_exit
-    rts
 
 set_cursor
     ; input: y=column (0-39)
