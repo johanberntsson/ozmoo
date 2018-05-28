@@ -103,7 +103,8 @@ load_dynamic_memory
     ; read in chunks of 4 blocks (1 kB)
     lda story_start + header_static_mem
     lsr    ; x/4
-    ror
+    ;ror Fredrik found this bug
+    lsr
     clc
     adc #1 ; x/4 + 1
     asl

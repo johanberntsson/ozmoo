@@ -12,37 +12,144 @@ clear_num_rows
 
 increase_num_rows
     inc .num_rows
-    rts
-
-printchar
-    jsr kernel_printchar
-    lda zp_screencolumn
-    bne .printchar_exit
-    inc .num_rows
     lda .num_rows
-    cmp #12 ; zp_screencolumn can be 1-2 rows on the screen, so assume the worst
-    bcc .printchar_exit
+    cmp #24
+    bcc .increase_num_rows_done
+    ; time to show [More]
     jsr clear_num_rows
+    ; print [More]
     ldx #0
 -   lda .more_text,x
     beq .printchar_pressanykey
     jsr kernel_printchar
     inx
     bne -
+    ; wait for ENTER
 .printchar_pressanykey
 -   jsr kernel_getchar
     cmp #$0d
     bne -
+    ; remove [More]
     ldx #0
 -   lda .more_text,x
-    beq .printchar_exit
+    beq .increase_num_rows_done
     lda #20 ; delete
     jsr kernel_printchar
     inx
     bne -
-.printchar_exit
-+   rts
+.increase_num_rows_done
+    rts
 .more_text !pet "[More]",0
+
+printchar_flush
+    ; flush the printchar buffer
+    ldx #0
+-   cpx .buffer_index
+    beq +
+    txa ; kernel_printchar destroys x,y
+    pha
+    lda .buffer,x
+    jsr kernel_printchar
+    pla
+    tax
+    inx
+    bne -
++   ldx #0
+    stx .buffer_index
+    stx .buffer_last_space
+    rts
+
+printchar_buffered
+    ; a is character to print
+    sta .buffer_char
+    ; need to save x,y
+    txa
+    pha
+    tya
+    pha
+    ; is this a buffered window?
+    ; in Z1-Z5 the main windows is 0, and the status line is 1
+    lda .current_window
+    beq .buffered_window
+    lda .buffer_char
+    jsr kernel_printchar
+    jmp .printchar_done
+    ; update the buffer
+.buffered_window
+    lda .buffer_char
+    bne .not_first_space
+    ; skip space if at first position
+    cmp #$20
+    beq .printchar_done
+.not_first_space
+    ; add this char in the buffer
+    cmp #$0d
+    bne .check_space
+    ; newline. Print line and reset the buffer
+    jsr printchar_flush
+    lda #$0d
+    jsr kernel_printchar
+    jsr increase_num_rows
+    jmp .printchar_done
+.check_space
+    cmp #$20
+    bne .not_space
+    ; update index to last space
+    ldy .buffer_index
+    sty .buffer_last_space
+.not_space
+    ldy .buffer_index
+    sta .buffer,y
+    inc .buffer_index
+    ldy .buffer_index
+    cpy #40
+    bne .printchar_done
+    ; print the line until last space
+    ldx #0
+-   cpx .buffer_last_space
+    beq +
+    txa ; kernel_printchar destroys x,y
+    pha
+    lda .buffer,x
+    jsr kernel_printchar
+    pla
+    tax
+    inx
+    bne -
+    ; move the rest of the line back to the beginning and update indices
++   inx ; skip the space
+    ldy #0
+-   cpx .buffer_index
+    beq +
+    lda .buffer,x
+    sta .buffer,y
+    iny
+    inx
+    bne -
++   sty .buffer_index
+    ldy #0
+    sty .buffer_last_space
+    lda #$0d
+    jsr kernel_printchar
+    jsr increase_num_rows
+.printchar_done
+    pla
+    tay
+    pla
+    tax
+    rts
+.buffer_char       !byte 0
+.buffer_index      !byte 0
+.buffer_last_space !byte 0
+.buffer            !fill 41, 0
+
+printchar_unbuffered
+    jsr kernel_printchar
+    lda zp_screencolumn
+    bne .printchar_exit
+    jsr increase_num_rows
+.printchar_exit
+    rts
 
 set_cursor
     ; input: y=column (0-39)
@@ -69,6 +176,8 @@ z_ins_show_status
 
 draw_status_line
     ; save z_operand* (will be destroyed by print_num)
+    lda #1
+    sta .current_window
     lda z_operand_value_low_arr
     pha
     lda z_operand_value_high_arr
@@ -162,6 +271,8 @@ draw_status_line
 .statusline_done
     lda #146 ; reverse off
     jsr kernel_printchar
+    lda #0
+    sta .current_window
     pla
     sta z_operand_value_high_arr + 1
     pla
