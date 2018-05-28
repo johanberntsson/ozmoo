@@ -1,6 +1,91 @@
 ; screen update routines
 ; TRACE_WINDOW = 1
 
+z_ins_erase_window
+    ; erase_window window
+    jmp z_not_implemented
+
+z_ins_erase_line
+    ; erase_line value
+    jmp z_not_implemented
+
+z_ins_buffer_mode 
+    ; buffer_mode flag
+    ldy #0
+    lda z_operand_value_low_arr
+    sta .is_buffered_window,y ; set window 0 (main screen) to flag
+    rts
+
+z_ins_split_window
+    ; split_window lines
+!ifdef TRACE_WINDOW {
+    jsr print_following_string
+    !pet "split_window: ",0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr newline
+}
+    ; TODO: find out how to protect top lines from scrolling
+    rts
+
+z_ins_set_window
+    ;  set_window window
+!ifdef TRACE_WINDOW {
+    jsr print_following_string
+    !pet "set_window: ",0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr newline
+}
+    lda z_operand_value_low_arr
+    sta .current_window
+    bne +
+    ; this is the main text screen, restore cursor position
+    jmp restore_cursor
++   ; this is the status line window
+    ; store cursor position so it can be restored later
+    ; when set_window 0 is called
+    jmp save_cursor
+
+!ifdef Z4PLUS {
+z_ins_set_text_style
+!ifdef TRACE_WINDOW {
+    jsr print_following_string
+    !pet "set_text_style: ",0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr newline
+}
+    lda z_operand_value_low_arr
+    bne .t0
+    ; roman
+    lda #146 ; reverse off
+    jmp kernel_printchar
+.t0 cmp #1
+    bne .t1
+    lda #18 ; reverse on
+    jmp kernel_printchar
+.t1 rts
+
+z_ins_set_cursor
+    ; set_cursor line column
+!ifdef TRACE_WINDOW {
+    jsr print_following_string
+    !pet "set_cursor: ",0
+    ldx z_operand_value_low_arr
+    jsr printx
+    jsr space
+    ldx z_operand_value_low_arr + 1
+    jsr printx
+    jsr newline
+}
+    ldx z_operand_value_low_arr
+    ldy z_operand_value_low_arr + 1
+    dex
+    dey
+    jmp set_cursor
+}
+
 .num_rows !byte 0
 .current_window !byte 0
 .cursor_position !byte 0,0
@@ -175,13 +260,6 @@ restore_cursor
     ldy .cursor_position + 1
     jmp set_cursor
 
-z_ins_buffer_mode 
-    ; buffer_mode flag
-    ldy #0
-    lda z_operand_value_low_arr
-    sta .is_buffered_window,y ; set window 0 (main screen) to flag
-    rts
-
 !ifdef Z3 {
 z_ins_show_status
     ; show_status
@@ -300,72 +378,3 @@ draw_status_line
 .time_str !pet "Time ",0
 }
 
-z_ins_split_window
-    ; split_window lines
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "split_window: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
-}
-    ; TODO: find out how to protect top lines from scrolling
-    rts
-
-z_ins_set_window
-    ;  set_window window
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "set_window: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
-}
-    lda z_operand_value_low_arr
-    sta .current_window
-    bne +
-    ; this is the main text screen, restore cursor position
-    jmp restore_cursor
-+   ; this is the status line window
-    ; store cursor position so it can be restored later
-    ; when set_window 0 is called
-    jmp save_cursor
-
-!ifdef Z4PLUS {
-z_ins_set_text_style
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "set_text_style: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
-}
-    lda z_operand_value_low_arr
-    bne .t0
-    ; roman
-    lda #146 ; reverse off
-    jmp kernel_printchar
-.t0 cmp #1
-    bne .t1
-    lda #18 ; reverse on
-    jmp kernel_printchar
-.t1 rts
-
-z_ins_set_cursor
-    ; set_cursor line column
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "set_cursor: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr newline
-}
-    ldx z_operand_value_low_arr
-    ldy z_operand_value_low_arr + 1
-    dex
-    dey
-    jmp set_cursor
-}

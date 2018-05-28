@@ -241,11 +241,13 @@ z_opcount_var_jump_high_arr
 	!byte >z_ins_split_window
 	!byte >z_ins_set_window
 	!byte >z_ins_call_xs
-	!byte >z_not_implemented
-	!byte >z_not_implemented
 !ifdef Z4PLUS {
+	!byte >z_ins_erase_window
+	!byte >z_ins_erase_line
 	!byte >z_ins_set_cursor
 } else {
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
 	!byte >z_not_implemented
@@ -263,14 +265,14 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_sound_effect
 !ifdef Z4PLUS {
-	!byte >z_not_implemented
+	!byte >z_ins_read_char
 	!byte >z_ins_scan_table
 !ifdef Z5PLUS {
 	!byte >z_ins_not
 	!byte >z_ins_call_xn
 	!byte >z_ins_call_xn
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_tokenise_text
+	!byte >z_ins_encode_text
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_check_arg_count
@@ -295,11 +297,13 @@ z_opcount_var_jump_low_arr
 	!byte <z_ins_split_window
 	!byte <z_ins_set_window
 	!byte <z_ins_call_xs
-	!byte <z_not_implemented
-	!byte <z_not_implemented
 !ifdef Z4PLUS {
+	!byte <z_ins_erase_window
+	!byte <z_ins_erase_line
 	!byte <z_ins_set_cursor
 } else {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
 	!byte <z_not_implemented
@@ -317,14 +321,14 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_ins_sound_effect
 !ifdef Z4PLUS {
-	!byte <z_not_implemented
+	!byte <z_ins_read_char
 	!byte <z_ins_scan_table
 !ifdef Z5PLUS {
 	!byte <z_ins_not
 	!byte <z_ins_call_xn
 	!byte <z_ins_call_xn
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte >z_ins_tokenise_text
+	!byte >z_ins_encode_text
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_check_arg_count
@@ -1892,6 +1896,10 @@ z_ins_random
 
 ; z_ins_set_window moved to screen.asm
 
+; z_ins_erase_window moved to screen.asm
+
+; z_ins_erase_line moved to screen.asm
+
 ; z_ins_set_cursor moved to screen.asm
 
 ; z_ins_buffer_mode moved to screen.asm
@@ -1986,6 +1994,12 @@ z_ins_scan_table
 	ldx zp_temp + 3
 	jsr z_store_result
 	jmp make_branch_true
+
+; z_ins_read_char moved to text.asm	
+
+; z_ins_tokenise_text moved to text.asm
+
+; z_ins_encode_text moved to text.asm
 
 ; z_ins_check_arg_count moved to stack.asm	
 	

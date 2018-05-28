@@ -5,6 +5,26 @@
 ;TRACE_SHOW_DICT_ENTRIES = 1
 ;TRACE_PRINT_ARRAYS = 1
 
+z_ins_print_char
+    lda z_operand_value_low_arr
+	jmp streams_print_output
+	
+z_ins_new_line
+	lda #13
+	jmp streams_print_output
+	
+z_ins_read_char
+    ; read_char 1 time routine -> (result)
+    jmp z_not_implemented
+
+z_ins_tokenise_text
+    ; tokenise text parse dictionary flag
+    jmp z_not_implemented
+
+z_ins_encode_text
+    ; encode_text zscii-text length from coded-text
+    jmp z_not_implemented
+
 z_ins_print_addr 
     ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
@@ -211,14 +231,6 @@ z_ins_aread
 	jmp z_store_result
 }
 
-z_ins_print_char
-    lda z_operand_value_low_arr
-	jmp streams_print_output
-	
-z_ins_new_line
-	lda #13
-	jmp streams_print_output
-	
 set_z_paddress
     ; convert a/x to paddr in .addr
     ; input: a,x
