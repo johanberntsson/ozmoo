@@ -29,6 +29,8 @@ zp_temp               = $fb ; 4 bytes
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
 
+charset_switchable 	  = $291
+
 datasette_buffer_start= $033c
 datasette_buffer_end  = $03fb
 
