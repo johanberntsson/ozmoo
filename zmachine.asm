@@ -313,7 +313,7 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 }
 !ifdef Z4PLUS {
-	!byte <z_ins_set_buffer_mode
+	!byte <z_ins_buffer_mode
 } else {
 	!byte <z_not_implemented
 }
