@@ -576,6 +576,17 @@ z_execute
 	inx
 	cpx #3
 	bne -
+
+	; Store # of bytes on stack (4 if no values) to trace page
+	tya
+	tax
+	ldy #1
+	lda (stack_ptr),y
+	sta z_trace_page,x
+	inx
+	stx z_trace_index
+	
+	
 ;	lda z_pc
 ;	sta z_pc_instruction
 ;	lda z_pc + 1
@@ -591,9 +602,9 @@ z_execute
 
 	jsr read_byte_at_z_pc_then_inc
 	sta z_opcode
-	sta z_trace_page,y
-	iny
-	sty z_trace_index
+;	sta z_trace_page,y
+;	iny
+;	sty z_trace_index
 
 !ifdef DEBUG {	
 	;jsr print_following_string

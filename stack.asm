@@ -313,6 +313,10 @@ stack_get_ref_to_top_value
 	lda stack_ptr + 1
 	sbc #0
 	rts
+
+.stack_underflow
+    lda #ERROR_STACK_EMPTY
+	jsr fatalerror
 	
 stack_pull
 	; Pull top value from stack, return in a,x
@@ -325,10 +329,15 @@ stack_pull
 	dey
 	lda (stack_ptr),y
 	bne .ok
-.stack_underflow
-    lda #ERROR_STACK_EMPTY
-	jsr fatalerror
-
+.stack_empty_return_0
+!ifdef DEBUG {
+	jsr print_following_string
+	!pet "[warning: pull from empty stack]",13,0
+}
+	lda #0
+	tax
+	rts
+	
 	; Decrease stack pointer by two bytes	
 .ok	sec
 	lda stack_ptr
