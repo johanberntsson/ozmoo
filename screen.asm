@@ -2,7 +2,8 @@
 ; TRACE_WINDOW = 1
 NEW_MORE_PROMPT = 1
 
-.num_rows !byte 0
+.num_windows !byte 1
+.num_rows !byte 0,0
 .current_window !byte 0
 .window_size !byte 25, 0
 .cursor_position !byte 0,0
@@ -12,13 +13,32 @@ NEW_MORE_PROMPT = 1
 .is_buffered_window !byte 1,0
 }
 
-
+!ifdef Z4PLUS {
 z_ins_erase_window
     ; erase_window window
+    lda z_operand_value_low_arr
+    cmp #0
+    beq .window_0
+    cmp #1
+    beq .window_1
+    cmp #$ff ; clear screen, then; -1 unsplit, -2 keep as is
+    beq .no_split
+.no_split
+.window_0
+    lda .window_size + 1
+.window_1
+.clear_screen
     jmp z_not_implemented
 
 z_ins_erase_line
     ; erase_line value
+    ; clear current line (where the cursor is)
+    ldx #0
+    jsr clear_line
+    jmp z_not_implemented
+
+clear_line
+    ; clear line <x>
     jmp z_not_implemented
 
 z_ins_buffer_mode 
@@ -27,6 +47,7 @@ z_ins_buffer_mode
     lda z_operand_value_low_arr
     sta .is_buffered_window,y ; set window 0 (main screen) to flag
     rts
+}
 
 z_ins_split_window
     ; split_window lines
@@ -38,11 +59,28 @@ z_ins_split_window
     jsr newline
 }
     ldx z_operand_value_low_arr
+    jmp split_window
+
+split_window
+    ; split if <x> > 0, unsplit if <x> = 0
+    cpx #0
+    bne .split_window
+    ; unsplit
+    lda #25
+    sta .window_size
+    lda #0
+    sta .window_size + 1
+    lda #1
+    sta .num_windows
+    rts
+.split_window
     stx .window_size + 1
     lda #25
     sec
     sbc .window_size + 1
     sta .window_size
+    lda #2
+    sta .num_windows
     rts
 
 z_ins_set_window
@@ -109,13 +147,13 @@ clear_num_rows
     rts
 
 increase_num_rows
-    inc .num_rows
     ldx .current_window
+    inc .num_rows,x
     lda .is_buffered_window,x
     bne +
     ; unbuffered windows don't insert newlines
     lda .num_rows
-    cmp #12 ; make sure that we see all debug messages (if any)
+    cmp #5 ; make sure that we see all debug messages (if any)
     bcc .increase_num_rows_done
     bcs .show_more
 +   lda .num_rows
@@ -310,13 +348,11 @@ restore_cursor
 !ifdef Z3 {
 z_ins_show_status
     ; show_status (hardcoded size)
-    lda #24
-    sta .window_size
-    lda #1
-    sta .window_size + 1
     jmp draw_status_line
 
 draw_status_line
+    ldx #1
+    jsr split_window
     ; save z_operand* (will be destroyed by print_num)
     lda #1
     sta .current_window
