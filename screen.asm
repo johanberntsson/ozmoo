@@ -181,7 +181,7 @@ printchar_buffered
     cmp #$20
     beq .printchar_done
 .not_first_space
-    ; add this char in the buffer
+    ; add this char to the buffer
     cmp #$0d
     bne .check_space
     ; newline. Print line and reset the buffer
@@ -197,6 +197,14 @@ printchar_buffered
     ldy .buffer_index
     sty .buffer_last_space
 .not_space
+    cmp #46 ; .
+    bne .add_char
+    ; use period as separator of last resort if no space found
+    sty .buffer_last_space
+    bne .add_char
+    ldy .buffer_index
+    sty .buffer_last_space
+.add_char
     ldy .buffer_index
     sta .buffer,y
     inc .buffer_index
