@@ -1,5 +1,17 @@
 ; screen update routines
 ; TRACE_WINDOW = 1
+NEW_MORE_PROMPT = 1
+
+.num_rows !byte 0
+.current_window !byte 0
+.window_size !byte 25, 0
+.cursor_position !byte 0,0
+!ifdef DEBUG {
+.is_buffered_window !byte 0,0 ; in debug printx etc prints all directly
+} else {
+.is_buffered_window !byte 1,0
+}
+
 
 z_ins_erase_window
     ; erase_window window
@@ -25,7 +37,12 @@ z_ins_split_window
     jsr printx
     jsr newline
 }
-    ; TODO: find out how to protect top lines from scrolling
+    ldx z_operand_value_low_arr
+    stx .window_size + 1
+    lda #25
+    sec
+    sbc .window_size + 1
+    sta .window_size
     rts
 
 z_ins_set_window
@@ -86,16 +103,6 @@ z_ins_set_cursor
     jmp set_cursor
 }
 
-.num_rows !byte 0
-.current_window !byte 0
-.cursor_position !byte 0,0
-!ifdef DEBUG {
-.is_buffered_window !byte 0,0 ; in debug printx etc prints all directly
-;.is_buffered_window !byte 1,0
-} else {
-.is_buffered_window !byte 1,0
-}
-
 clear_num_rows
     lda #0
     sta .num_rows
@@ -108,26 +115,37 @@ increase_num_rows
     bne +
     ; unbuffered windows don't insert newlines
     lda .num_rows
-    cmp #24
+    cmp #12 ; make sure that we see all debug messages (if any)
     bcc .increase_num_rows_done
     bcs .show_more
 +   lda .num_rows
-    cmp #24
+    cmp .window_size
     bcc .increase_num_rows_done
 .show_more
     ; time to show [More]
     jsr clear_num_rows
     ; print [More]
+!ifdef NEW_MORE_PROMPT {
+    lda $07e7 
+    sta .more_text_char
+    lda #190 ; screen code for reversed >
+    sta $07e7
+} else {
     ldx #0
 -   lda .more_text,x
     beq .printchar_pressanykey
     jsr kernel_printchar
     inx
     bne -
+}
     ; wait for ENTER
 .printchar_pressanykey
 -   jsr kernel_getchar
     beq -
+!ifdef NEW_MORE_PROMPT {
+    lda .more_text_char
+    sta $07e7
+} else {
     ; remove [More]
     ldx #0
 -   lda .more_text,x
@@ -136,9 +154,14 @@ increase_num_rows
     jsr kernel_printchar
     inx
     bne -
+}
 .increase_num_rows_done
     rts
+!ifdef NEW_MORE_PROMPT {
+.more_text_char !byte 0
+} else {
 .more_text !pet "[More]",0
+}
 
 printchar_flush
     ; flush the printchar buffer
@@ -186,9 +209,17 @@ printchar_buffered
     bne .check_space
     ; newline. Print line and reset the buffer
     jsr printchar_flush
+!ifdef NEW_MORE_PROMPT {
+    ; more on the same line
+    jsr increase_num_rows
+    lda #$0d
+    jsr kernel_printchar
+} else {
+    ; more on the next line
     lda #$0d
     jsr kernel_printchar
     jsr increase_num_rows
+}
     jmp .printchar_done
 .check_space
     cmp #$20
@@ -236,9 +267,17 @@ printchar_buffered
 +   sty .buffer_index
     ldy #0
     sty .buffer_last_space
+!ifdef NEW_MORE_PROMPT {
+    ; more on the same line
+    jsr increase_num_rows
+    lda #$0d
+    jsr kernel_printchar
+} else {
+    ; more on the next line
     lda #$0d
     jsr kernel_printchar
     jsr increase_num_rows
+}
 .printchar_done
     pla
     tay
@@ -270,7 +309,11 @@ restore_cursor
 
 !ifdef Z3 {
 z_ins_show_status
-    ; show_status
+    ; show_status (hardcoded size)
+    lda #24
+    sta .window_size
+    lda #1
+    sta .window_size + 1
     jmp draw_status_line
 
 draw_status_line
