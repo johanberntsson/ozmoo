@@ -2,6 +2,7 @@ z_pc				!byte 0, $10, 0
 ; z_pc_instruction	!byte 0, 0, 0
 z_extended_opcode 	!byte 0
 z_operand_count		!byte 0
+z_canonical_opcode	!byte 0
 z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -23,7 +24,16 @@ z_window_lower = 0
 z_window_upper = 1
 z_window			!byte z_window_lower
 
-z_opcount_0op_jump_high_arr
+; opcount0 = 0
+; opcount1 = 16
+; opcount2 = 32
+; opcountvar = 64
+; opcountext = 96
+
+; =========================================== Highbytes of jump table
+
+z_jump_high_arr
+; 0OP
 	!byte >z_ins_rtrue
 	!byte >z_ins_rfalse
 	!byte >z_ins_print
@@ -47,47 +57,15 @@ z_opcount_0op_jump_high_arr
 }
 	!byte >make_branch_true ; z_ins_verify
 !ifdef Z5PLUS {
-	!byte >z_ins_extended
+	!byte >z_not_implemented
 	!byte >make_branch_true ; z_ins_piracy
 } else {
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
-	
-z_opcount_0op_jump_low_arr
-	!byte <z_ins_rtrue
-	!byte <z_ins_rfalse
-	!byte <z_ins_print
-	!byte <z_ins_print_ret
-	!byte <z_ins_nop
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_ins_ret_popped
-!ifndef Z5PLUS {
-	!byte <stack_pull ; z_ins_pop
-} else {
-	!byte <z_ins_catch
-}
-	!byte <z_ins_quit
-	!byte <z_ins_new_line
-!ifdef Z3 {
-	!byte <z_ins_show_status
-} else {
-	!byte <z_not_implemented
-}
-	!byte <make_branch_true ; z_ins_verify
-!ifdef Z5PLUS {
-	!byte <z_ins_extended
-	!byte <make_branch_true ; z_ins_piracy
-} else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-}
 
-z_last_implemented_0op_opcode_number = * - z_opcount_0op_jump_low_arr - 1
+; 1OP
 
-z_opcount_1op_jump_high_arr
 	!byte >z_ins_jz
 	!byte >z_ins_get_sibling
 	!byte >z_ins_get_child
@@ -109,31 +87,8 @@ z_opcount_1op_jump_high_arr
 	!byte >z_ins_call_xn
 }
 
-z_opcount_1op_jump_low_arr
-	!byte <z_ins_jz
-	!byte <z_ins_get_sibling
-	!byte <z_ins_get_child
-	!byte <z_ins_get_parent
-	!byte <z_ins_get_prop_len
-	!byte <z_ins_inc
-	!byte <z_ins_dec
-	!byte <z_ins_print_addr
-	!byte <z_ins_call_xs
-	!byte <z_ins_remove_obj
-	!byte <z_ins_print_obj
-	!byte <z_ins_ret
-	!byte <z_ins_jump
-	!byte <z_ins_print_paddr
-	!byte <z_ins_load
-!ifndef Z5PLUS {
-	!byte <z_ins_not
-} else {
-	!byte <z_ins_call_xn
-}
-	
-z_last_implemented_1op_opcode_number = * - z_opcount_1op_jump_low_arr - 1
+; 2OP
 
-z_opcount_2op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_je
 	!byte >z_ins_jl
@@ -177,53 +132,6 @@ z_opcount_2op_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 
-z_opcount_2op_jump_low_arr
-	!byte <z_not_implemented
-	!byte <z_ins_je
-	!byte <z_ins_jl
-	!byte <z_ins_jg
-	!byte <z_ins_dec_chk
-	!byte <z_ins_inc_chk
-	!byte <z_ins_jin
-	!byte <z_ins_test
-	!byte <z_ins_or
-	!byte <z_ins_and
-	!byte <z_ins_test_attr
-	!byte <z_ins_set_attr
-	!byte <z_ins_clear_attr
-	!byte <z_ins_store
-	!byte <z_ins_insert_obj
-	!byte <z_ins_loadw_and_storew
-	!byte <z_ins_loadb
-	!byte <z_ins_get_prop
-	!byte <z_ins_get_prop_addr
-	!byte <z_ins_get_next_prop
-	!byte <z_ins_add
-	!byte <z_ins_sub
-	!byte <z_ins_mul
-	!byte <z_ins_div
-	!byte <z_ins_mod
-!ifndef Z4PLUS {
-	!byte <z_not_implemented
-} else {
-	!byte <z_ins_call_xs
-}
-!ifndef Z5PLUS {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-} else {
-	!byte <z_ins_call_xn
-	!byte <z_not_implemented
-	!byte <z_ins_throw
-}
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	
-z_last_implemented_2op_opcode_number = * - z_opcount_2op_jump_low_arr - 1
-
-z_opcount_var_jump_high_arr
 	!byte >z_ins_call_xs
 	!byte >z_ins_loadw_and_storew
 	!byte >z_ins_storeb
@@ -267,6 +175,10 @@ z_opcount_var_jump_high_arr
 !ifdef Z4PLUS {
 	!byte >z_ins_read_char
 	!byte >z_ins_scan_table
+} else {
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+}
 !ifdef Z5PLUS {
 	!byte >z_ins_not
 	!byte >z_ins_call_xn
@@ -276,10 +188,141 @@ z_opcount_var_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_ins_check_arg_count
-}
+} else {
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 }
 
-z_opcount_var_jump_low_arr
+; EXT
+
+z_opcount_ext_jump_high_arr
+!ifdef Z5PLUS {
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_log_shift
+	!byte >z_ins_art_shift
+	!byte >z_ins_set_font
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_save_restore_undo
+	!byte >z_ins_save_restore_undo
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_ins_set_true_colour
+}
+
+
+; =========================================== Lowbytes of jump table
+	
+z_jump_low_arr
+	!byte <z_ins_rtrue
+	!byte <z_ins_rfalse
+	!byte <z_ins_print
+	!byte <z_ins_print_ret
+	!byte <z_ins_nop
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_ins_ret_popped
+!ifndef Z5PLUS {
+	!byte <stack_pull ; z_ins_pop
+} else {
+	!byte <z_ins_catch
+}
+	!byte <z_ins_quit
+	!byte <z_ins_new_line
+!ifdef Z3 {
+	!byte <z_ins_show_status
+} else {
+	!byte <z_not_implemented
+}
+	!byte <make_branch_true ; z_ins_verify
+!ifdef Z5PLUS {
+	!byte <z_not_implemented
+	!byte <make_branch_true ; z_ins_piracy
+} else {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+}
+
+; 1OP
+
+	!byte <z_ins_jz
+	!byte <z_ins_get_sibling
+	!byte <z_ins_get_child
+	!byte <z_ins_get_parent
+	!byte <z_ins_get_prop_len
+	!byte <z_ins_inc
+	!byte <z_ins_dec
+	!byte <z_ins_print_addr
+	!byte <z_ins_call_xs
+	!byte <z_ins_remove_obj
+	!byte <z_ins_print_obj
+	!byte <z_ins_ret
+	!byte <z_ins_jump
+	!byte <z_ins_print_paddr
+	!byte <z_ins_load
+!ifndef Z5PLUS {
+	!byte <z_ins_not
+} else {
+	!byte <z_ins_call_xn
+}
+	
+; 2OP
+
+	!byte <z_not_implemented
+	!byte <z_ins_je
+	!byte <z_ins_jl
+	!byte <z_ins_jg
+	!byte <z_ins_dec_chk
+	!byte <z_ins_inc_chk
+	!byte <z_ins_jin
+	!byte <z_ins_test
+	!byte <z_ins_or
+	!byte <z_ins_and
+	!byte <z_ins_test_attr
+	!byte <z_ins_set_attr
+	!byte <z_ins_clear_attr
+	!byte <z_ins_store
+	!byte <z_ins_insert_obj
+	!byte <z_ins_loadw_and_storew
+	!byte <z_ins_loadb
+	!byte <z_ins_get_prop
+	!byte <z_ins_get_prop_addr
+	!byte <z_ins_get_next_prop
+	!byte <z_ins_add
+	!byte <z_ins_sub
+	!byte <z_ins_mul
+	!byte <z_ins_div
+	!byte <z_ins_mod
+!ifndef Z4PLUS {
+	!byte <z_not_implemented
+} else {
+	!byte <z_ins_call_xs
+}
+!ifndef Z5PLUS {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+} else {
+	!byte <z_ins_call_xn
+	!byte <z_not_implemented
+	!byte <z_ins_throw
+}
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+
+; VAR	
+
 	!byte <z_ins_call_xs
 	!byte <z_ins_loadw_and_storew
 	!byte <z_ins_storeb
@@ -323,6 +366,10 @@ z_opcount_var_jump_low_arr
 !ifdef Z4PLUS {
 	!byte <z_ins_read_char
 	!byte <z_ins_scan_table
+} else {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+}
 !ifdef Z5PLUS {
 	!byte <z_ins_not
 	!byte <z_ins_call_xn
@@ -332,28 +379,18 @@ z_opcount_var_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_ins_check_arg_count
-}
+} else {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 }
 
-z_number_of_var_opcodes_implemented = * - z_opcount_var_jump_low_arr
-
-z_opcount_ext_jump_high_arr
-!ifdef Z5PLUS {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_ins_log_shift
-	!byte >z_ins_art_shift
-	!byte >z_ins_set_font
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_ins_save_restore_undo
-	!byte >z_ins_save_restore_undo
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_ins_set_true_colour
-}
+; EXT
 
 z_opcount_ext_jump_low_arr
 !ifdef Z5PLUS {
@@ -375,6 +412,8 @@ z_opcount_ext_jump_low_arr
 
 z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
 
+z_number_of_opcodes_implemented = * - z_jump_low_arr
+
 ; These get zeropage addresses in constants.asm:
 ; z_opcode 
 ; z_opcode_number
@@ -385,9 +424,11 @@ z_opcode_call_vs2 = 236
 z_opcode_call_vn2 = 250
 
 z_opcode_opcount_0op = 0
-z_opcode_opcount_1op = 1
-z_opcode_opcount_2op = 2
-z_opcode_opcount_var = 3
+z_opcode_opcount_1op = 16
+z_opcode_opcount_2op = 32
+z_opcode_opcount_var = 64
+z_opcode_opcount_ext = 96
+
 
 z_init
 !zone {
@@ -578,13 +619,13 @@ z_execute
 	bne -
 
 	; Store # of bytes on stack (4 if no values) to trace page
-	tya
-	tax
-	ldy #1
-	lda (stack_ptr),y
-	sta z_trace_page,x
-	inx
-	stx z_trace_index
+;	tya
+;	tax
+;	ldy #1
+;	lda (stack_ptr),y
+;	sta z_trace_page,x
+;	inx
+;	stx z_trace_index
 	
 	
 ;	lda z_pc
@@ -604,7 +645,7 @@ z_execute
 	sta z_opcode
 ;	sta z_trace_page,y
 ;	iny
-;	sty z_trace_index
+	sty z_trace_index
 
 !ifdef DEBUG {	
 	;jsr print_following_string
@@ -632,7 +673,7 @@ z_execute
 	; Top bits are 11. Form = Variable
 	and #%00100000
 	beq .get_4_ops ; This is a 2OP instruction, with up to 4 operands
-	inc z_opcode_opcount ; Set to VAR
+	asl z_opcode_opcount ; Set to VAR
 	bne .get_4_ops ; Always branch
 
 .top_bits_are_10
@@ -640,12 +681,16 @@ z_execute
 	cmp #z_opcode_extended
 	bne .short_form
 	; Form = Extended
-	lda #$e
-	sta z_opcode_number
-	lda #z_opcode_opcount_0op 
-	sta z_opcode_opcount ; Set to 0OP
+;	lda #$e
+;	sta z_opcode_number
+	lda #z_opcode_opcount_ext
+	sta z_opcode_opcount ; Set to EXT
 	jsr read_byte_at_z_pc_then_inc
 	sta z_extended_opcode
+	sta z_opcode_number
+;	clc
+;	adc #z_opcode_opcount_ext
+;	sta z_canonical_opcode
 	jmp .get_4_ops
 }
 .short_form
@@ -659,11 +704,12 @@ z_execute
 	rol z_operand_type_arr
 	asl
 	rol z_operand_type_arr
-	dec z_opcode_opcount ; Set to 1OP
+	lsr z_opcode_opcount ; Set to 1OP
 	lda z_operand_type_arr
 	cmp #%11
 	bne +
-	dec z_opcode_opcount ; Set to 0OP
+	lda #z_opcode_opcount_0op 
+	sta z_opcode_opcount ; Set to 0OP
 +	ldx #0
 	jsr clear_remaining_types
 	jmp .read_operands
@@ -696,13 +742,6 @@ z_execute
 	beq .get_4_more_ops
 	ldx #4
 	jsr clear_remaining_types_2
-	jmp .read_operands
-
-	; Get another byte of operand types
-.get_4_more_ops
-	ldy #4
-	ldx #4
-	jsr z_get_op_types
 
 .read_operands
 	ldy #0
@@ -754,46 +793,44 @@ z_execute
 	sta z_operand_value_low_arr,y
 	iny
 	bne - ; Always branch
+
+	; Get another byte of operand types
+.get_4_more_ops
+	ldy #4
+	ldx #4
+	jsr z_get_op_types
+	jmp .read_operands
+	
 .perform_instruction
-	ldx z_opcode_number
 	lda z_opcode_opcount
-	cmp #z_opcode_opcount_0op
-	beq .perform_0op
-	cmp #z_opcode_opcount_1op
-	beq .perform_1op
-	cmp #z_opcode_opcount_2op
-	beq .perform_2op
-	cmp #z_opcode_opcount_var
-	beq .perform_var
-	bne z_not_implemented ; Always branch
-.perform_0op
-	lda z_opcount_0op_jump_low_arr,x
-	sta .jsr_perform + 1
-	lda z_opcount_0op_jump_high_arr,x
-	sta .jsr_perform + 2
-	bne .jsr_perform ; Always branch
-.perform_1op
-	lda z_opcount_1op_jump_low_arr,x
-	sta .jsr_perform + 1
-	lda z_opcount_1op_jump_high_arr,x
-	sta .jsr_perform + 2
-	bne .jsr_perform ; Always branch
-.perform_2op
-	lda z_opcount_2op_jump_low_arr,x
-	sta .jsr_perform + 1
-	lda z_opcount_2op_jump_high_arr,x
-	sta .jsr_perform + 2
-	bne .jsr_perform ; Always branch
-.perform_var
-	cpx #z_number_of_var_opcodes_implemented
+	clc
+	adc z_opcode_number
+	sta z_canonical_opcode
+	cmp #z_number_of_opcodes_implemented
 	bcs z_not_implemented
-	lda z_opcount_var_jump_low_arr,x
+;.have_stored_canonical	
+	
+	ldy z_trace_index
+	sta z_trace_page,y
+	inc z_trace_index
+
+	tax 
+	lda z_jump_low_arr,x
 	sta .jsr_perform + 1
-	lda z_opcount_var_jump_high_arr,x
+	lda z_jump_high_arr,x
 	sta .jsr_perform + 2
 .jsr_perform
 	jsr $8000
 	jmp .main_loop
+
+; !ifdef Z5PLUS {
+;.extended
+;	lda z_extended_opcode
+	; cmp #z_number_of_ext_opcodes_implemented
+	; bcs z_not_implemented
+	; lda z_canonical_opcode
+	; bne .have_stored_canonical ; Always branch
+; }
 	
 z_not_implemented
 ;	ldx z_opcode
@@ -1171,17 +1208,7 @@ z_ins_ret_popped
 
 ; z_ins_verify has no implementation, jump table points to make_branch_true instead.
 
-z_ins_extended
-	ldx z_extended_opcode
-	cpx #z_number_of_ext_opcodes_implemented
-	bcs +
-	lda z_opcount_ext_jump_low_arr,x
-	sta .jsr_perform_ext + 1
-	lda z_opcount_ext_jump_high_arr,x
-	sta .jsr_perform_ext + 2
-.jsr_perform_ext
-	jmp $8000
-+	jmp z_not_implemented
+; z_ins_extended needs no implementation
 
 ; z_ins_piracy jumps directly to make_branch_true
 
@@ -1959,7 +1986,7 @@ z_ins_scan_table
 	sta zp_temp + 3 ; Highbyte of table address
 .scan_next	
 	lda z_operand_value_high_arr + 2
-	ora z_opcount_var_jump_low_arr + 2
+	ora z_operand_value_low_arr + 2
 	beq .scan_table_false
 	ldy #0
 	lda (zp_temp + 2),y
