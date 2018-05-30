@@ -332,7 +332,7 @@ stack_pull
 .stack_empty_return_0
 !ifdef DEBUG {
 	jsr print_following_string
-	!pet "[warning: pull from empty stack]",13,0
+	!pet "WARNING: pull from empty stack",13,0
 }
 	lda #0
 	tax
