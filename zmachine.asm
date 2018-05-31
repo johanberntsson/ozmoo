@@ -4,8 +4,6 @@ z_extended_opcode 	!byte 0
 z_operand_count		!byte 0
 z_canonical_opcode	!byte 0
 z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
-z_operand_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
-z_operand_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
@@ -720,6 +718,13 @@ z_execute
 	dex
 	jsr clear_remaining_types
 	jmp .read_operands
+
+	; Get another byte of operand types
+.get_4_more_ops
+	ldy #4
+	ldx #4
+	jsr z_get_op_types
+	jmp .read_operands
 	
 .get_4_ops
 	ldy #4
@@ -737,59 +742,31 @@ z_execute
 	ldy #0
 .read_next_operand
 	lda z_operand_type_arr,y
-	bne .op_is_not_large_constant
+	bne .operand_is_not_large_constant
 	jsr read_word_at_z_pc_then_inc
-	sta z_operand_high_arr,y
-	txa
-	sta z_operand_low_arr,y
-	jmp .op_loaded
-.op_is_not_large_constant
+	jmp .store_operand
+.operand_is_not_large_constant
 	cmp #%11
 	beq .op_is_omitted
+	tax
 	jsr read_byte_at_z_pc_then_inc
-	sta z_operand_low_arr,y
-; Commented out code for sign propagation. Also, this propagated sign for variables...
-;	tax
+	cpx #%10
+	beq .operand_is_var
+	tax
 	lda #0
-;	cpx #$80
-;	bcc +
-;	lda #$ff
-+	sta z_operand_high_arr,y
-.op_loaded
+	beq .store_operand ; Always branch
+.operand_is_var
+	tax
+	jsr z_get_variable_value
+.store_operand
+	sta z_operand_value_high_arr,y
+	txa
+	sta z_operand_value_low_arr,y
 	iny
 	cpy #8
 	bcc .read_next_operand
 .op_is_omitted
 	sty z_operand_count
-	
-;.evaluate_args
-	ldy #0
--	cpy z_operand_count
-	bcs .perform_instruction
-	lda z_operand_type_arr,y
-	cmp #%10
-	beq .is_var
-	lda z_operand_high_arr,y
-	sta z_operand_value_high_arr,y
-	lda z_operand_low_arr,y
-	sta z_operand_value_low_arr,y
-	iny
-	bne - ; Always branch
-.is_var
-	ldx z_operand_low_arr,y
-	jsr z_get_variable_value
-	sta z_operand_value_high_arr,y
-	txa
-	sta z_operand_value_low_arr,y
-	iny
-	bne - ; Always branch
-
-	; Get another byte of operand types
-.get_4_more_ops
-	ldy #4
-	ldx #4
-	jsr z_get_op_types
-	jmp .read_operands
 	
 .perform_instruction
 	lda z_opcode_opcount
@@ -813,15 +790,6 @@ z_execute
 	jsr $8000
 	jmp .main_loop
 
-; !ifdef Z5PLUS {
-;.extended
-;	lda z_extended_opcode
-	; cmp #z_number_of_ext_opcodes_implemented
-	; bcs z_not_implemented
-	; lda z_canonical_opcode
-	; bne .have_stored_canonical ; Always branch
-; }
-	
 z_not_implemented
 ;	ldx z_opcode
 ;	jsr printx
