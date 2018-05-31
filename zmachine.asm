@@ -970,22 +970,27 @@ z_set_variable
 	jsr stack_push
 	rts
 .write_global_var
-	ldx #0
-	stx zp_temp + 1
+	cmp #128
+	bcs .write_high_global_var
 	asl
-	rol zp_temp + 1
-	clc
-	adc z_global_vars_start
-	sta zp_temp
-	lda zp_temp + 1
-	adc z_global_vars_start + 1
-	sta zp_temp + 1
-	ldy #0
+	tay
 	lda zp_temp + 2
-	sta (zp_temp),y
+	sta (z_global_vars_start),y
 	iny
 	lda zp_temp + 3
-	sta (zp_temp),y
+	sta (z_global_vars_start),y
+	rts
+.write_high_global_var
+	inc z_global_vars_start + 1
+	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
+	asl
+	tay
+	lda zp_temp + 2
+	sta (z_global_vars_start),y
+	iny
+	lda zp_temp + 3
+	sta (z_global_vars_start),y
+	dec z_global_vars_start + 1
 	rts
 }
 
