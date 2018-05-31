@@ -7,7 +7,7 @@ z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
-z_global_vars_start	!byte 0, 0
+; z_global_vars_start	!byte 0, 0
 z_temp				!byte 0, 0, 0, 0, 0
 z_rnd_a				!byte 123
 z_rnd_b				!byte 75
@@ -420,6 +420,7 @@ z_opcode_opcount_ext = 96
 
 z_init
 !zone {
+
 	; Setup trace
 	lda #0
 	sta z_trace_index
@@ -913,24 +914,34 @@ z_get_variable_value
 	ldy zp_temp + 3
 	rts
 .read_global_var
-	ldx #0
-	stx zp_temp + 1
+	cmp #128
+	bcs .read_high_global_var
+z_get_low_global_variable_value
+	; Read global var 0-111
+	; input: a = variable# + 16 (16-127)
 	asl
-	rol zp_temp + 1
-	clc
-	adc z_global_vars_start
-	sta zp_temp
-	lda zp_temp + 1
-	adc z_global_vars_start + 1
-	sta zp_temp + 1
-	ldy #1
-	lda (zp_temp),y
+	tay
+	iny
+	lda (z_global_vars_start),y
 	tax
 	dey
-	lda (zp_temp),y
+	lda (z_global_vars_start),y
 	ldy zp_temp + 3
 	rts
-
+.read_high_global_var
+	inc z_global_vars_start + 1
+	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
+	asl
+	tay
+	iny
+	lda (z_global_vars_start),y
+	tax
+	dey
+	lda (z_global_vars_start),y
+	dec z_global_vars_start + 1
+	ldy zp_temp + 3
+	rts
+	
 z_set_variable
 	; Value in a,x
 	; Variable in y

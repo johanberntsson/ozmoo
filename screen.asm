@@ -439,8 +439,8 @@ draw_status_line
     ; Room name
     ; 
     ; name of the object whose number is in the first global variable
-    ldx #16
-    jsr z_get_variable_value
+    lda #16
+    jsr z_get_low_global_variable_value
     jsr print_obj
     ;jsr print_addr
     ;
@@ -468,8 +468,8 @@ draw_status_line
     jsr kernel_printchar
     iny
     bne -
-+   ldx #17
-    jsr z_get_variable_value
++   lda #17
+    jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num
@@ -482,8 +482,8 @@ draw_status_line
     jsr kernel_printchar
     iny
     bne -
-+   ldx #18
-    jsr z_get_variable_value
++   lda #18
+    jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num
@@ -499,15 +499,15 @@ draw_status_line
     jsr kernel_printchar
     iny
     bne -
-+   ldx #17 ; hour
-    jsr z_get_variable_value
++   lda #17 ; hour
+    jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num
     lda #58 ; :
     jsr kernel_printchar
-    ldx #18 ; minute
-    jsr z_get_variable_value
+    lda #18 ; minute
+    jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num

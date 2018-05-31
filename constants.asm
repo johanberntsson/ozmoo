@@ -19,6 +19,7 @@ terminators_ptr       = $45 ; 2 bytes
 object_tree_ptr       = $49 ; 2 bytes
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
 z_trace_index		  = $54
+z_global_vars_start	  = $9b ; 2 bytes
 zp_mempos             = $ae ; 2 bytes
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
