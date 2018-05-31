@@ -12,6 +12,8 @@ NEW_MORE_PROMPT = 1
 } else {
 .is_buffered_window !byte 1,0
 }
+.screen_offset_hi !byte $04, $04, $04, $04, $04, $04, $04, $05, $05, $05, $05, $05, $05, $06, $06, $06, $06, $06, $06, $06, $07, $07, $07, $07, $07
+.screen_offset_lo !byte $00, $28, $50, $78, $a0, $c8, $f0, $18, $40, $68, $90, $b8, $e0, $08, $30, $58, $80, $a8, $d0, $f8, $20, $48, $70, $98, $c0
 
 !ifdef Z4PLUS {
 z_ins_erase_window
@@ -22,24 +24,50 @@ z_ins_erase_window
     cmp #1
     beq .window_1
     cmp #$ff ; clear screen, then; -1 unsplit, -2 keep as is
-    beq .no_split
-.no_split
+    beq .keep_split
+    ldx #0 ; unsplit
+    jsr split_window
+.keep_split
+    lda #147 ; clear screen
+    jmp kernel_printchar
 .window_0
-    lda .window_size + 1
+    ldx .window_size + 1
+ -  jsr erase_line
+    inx
+    cpx #25
+    bne -
+    rts
 .window_1
-.clear_screen
-    jmp z_not_implemented
+    ldx #0
+ -  jsr erase_line
+    inx
+    cpx .window_size + 1
+    bne -
+    rts
 
 z_ins_erase_line
     ; erase_line value
     ; clear current line (where the cursor is)
-    ldx #0
-    jsr clear_line
-    jmp z_not_implemented
+    sec
+    jsr kernel_plot
+    jmp erase_line
 
-clear_line
-    ; clear line <x>
-    jmp z_not_implemented
+erase_line
+    ; clear line <x> 
+    ; registers: a,y
+    ; note: self modifying code
+    lda .screen_offset_lo,x 
+    sta .erase_line_loop + 1
+    lda .screen_offset_hi,x 
+    sta .erase_line_loop + 2
+    ldy #0
+    lda #$20
+.erase_line_loop
+    sta $8000,y
+    iny
+    cpy #40
+    bne .erase_line_loop
+    rts
 
 z_ins_buffer_mode 
     ; buffer_mode flag
