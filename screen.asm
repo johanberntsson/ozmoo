@@ -506,7 +506,7 @@ draw_status_line
     jsr z_ins_print_num
     lda #58 ; :
     jsr kernel_printchar
-    ldx #18 ; hour
+    ldx #18 ; minute
     jsr z_get_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr

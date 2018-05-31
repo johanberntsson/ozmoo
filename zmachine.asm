@@ -1185,8 +1185,7 @@ z_ins_quit
 	jmp kernel_reset
 
 z_ins_ret_popped
-	ldx #0
-	jsr z_get_variable_value
+	jsr stack_pull
 	jmp stack_return_from_routine
 	
 ;z_ins_pop

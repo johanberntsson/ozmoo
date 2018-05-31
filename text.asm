@@ -32,12 +32,13 @@ z_ins_tokenise_text
     adc #>story_start
     sta string_array + 1
     ; setup user dictionary, if supplied
-    ldx z_operand_value_low_arr + 2
-    bne +
-	lda z_operand_value_high_arr + 2
+    lda z_operand_value_low_arr + 2
+	ora z_operand_value_high_arr + 2
 	beq .no_user_dictionary
-.user_dictionary
-    stx .dict_entries
+; user dictionary
+    lda z_operand_value_low_arr + 2
+    sta .dict_entries
+	lda z_operand_value_high_arr + 2
     clc
     adc #>story_start
     sta .dict_entries + 1
