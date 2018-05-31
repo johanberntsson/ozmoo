@@ -1274,12 +1274,8 @@ z_ins_not
 	lda z_operand_value_high_arr
 	eor #$ff
 	jmp z_store_result
-	
-z_ins_jz
-	lda z_operand_value_low_arr
-	ora z_operand_value_high_arr
-	beq make_branch_true
-	bne make_branch_false
+
+; z_ins_jz moved to after z_ins_jl to allow relative branching	
 
 ; 2OP instructions
 	
@@ -1294,6 +1290,12 @@ z_ins_jl
 +	bmi make_branch_true
 	bpl make_branch_false ; Always branch
 
+z_ins_jz
+	lda z_operand_value_low_arr
+	ora z_operand_value_high_arr
+	bne make_branch_false
+	beq make_branch_true	
+	
 z_ins_inc_chk
 	ldx z_operand_value_low_arr
 	jsr z_get_variable_reference
@@ -1342,35 +1344,61 @@ z_ins_je
 	dex
 	bne -
 make_branch_false
-	lda #0
-	beq +
-make_branch_true
-	lda #$80
-+	sta zp_temp
 	jsr read_byte_at_z_pc_then_inc
-	sta zp_temp + 1 ; First byte of branch data
-	and #$c0
-	eor #$80 ; Invert top bit, since 0 means branch if condition = false
-	eor zp_temp
-	sta zp_temp ; Top bit in zp_temp has now been inverted if it should. Ignore other bits.
-	and #$40
-	bne +
-	; This is a 14-bit offset
-	jsr read_byte_at_z_pc_then_inc
-	sta zp_temp + 2 ; Second byte of branch data
-	; Check if we should actually branch
-+	bit zp_temp ; Top bit = 1 : branch
-	bpl .done
-	; Calculate and perform the jump
+	sta zp_temp + 1
 	bit zp_temp + 1
+	bvs +
+	jsr read_byte_at_z_pc_then_inc
+	sta zp_temp + 2
+	bit zp_temp + 1
++	bpl .choose_jumptype
+-	rts
+make_branch_true
+	jsr read_byte_at_z_pc_then_inc
+	sta zp_temp + 1
+	bit zp_temp + 1
+	bvs +
+	jsr read_byte_at_z_pc_then_inc
+	sta zp_temp + 2
+	bit zp_temp + 1
++	bpl -
+.choose_jumptype
+	; We have decided to jump
 	bvc .two_byte_jump
+	; This is a single byte jump
 	lda zp_temp + 1
 	and #%00111111
 	sta zp_temp + 2
+	cmp #2
+	bcs .jump_to_single_byte_offset
+	; Return value (true or false)
+	tax
+.return_x
 	lda #0
-	sta zp_temp + 1
-	sta zp_temp
-	beq .both_jumps
+	jmp stack_return_from_routine
+.jump_to_single_byte_offset
+	lda z_pc + 2
+	clc
+	adc zp_temp + 2
+	tax
+	lda z_pc + 1
+	adc #0
+	tay
+	lda z_pc
+	adc #0
+	pha
+	txa
+	sec
+	sbc #2
+	sta z_pc + 2
+	tya
+	sbc #0
+	sta z_pc + 1
+	pla
+	sbc #0
+	sta z_pc
+.done
+	rts
 .two_byte_jump
 	lda zp_temp + 1
 	and #%00111111
@@ -1383,21 +1411,18 @@ make_branch_true
 	sta zp_temp + 1
 	lda #$ff
 	sta zp_temp
-	bne .both_jumps ; Always branch
+	bne .two_byte_check_return ; Always branch
 +	txa
 	sta zp_temp + 1
 	lda #0
 	sta zp_temp
-.both_jumps
+.two_byte_check_return
 	ldx zp_temp + 2
 	cpx #2
 	bcs z_jump_to_offset_in_zp_temp
 	lda zp_temp
 	ora zp_temp + 1
-	bne z_jump_to_offset_in_zp_temp
-	; Return value in x	
-	lda #0
-	jmp stack_return_from_routine
+	beq .return_x
 z_jump_to_offset_in_zp_temp
 	lda z_pc + 2
 	clc
@@ -1419,7 +1444,6 @@ z_jump_to_offset_in_zp_temp
 	pla
 	sbc #0
 	sta z_pc
-.done
 	rts
 
 ; z_ins_jin (moved to objecttable.asm)
