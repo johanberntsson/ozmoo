@@ -53,7 +53,7 @@ z_jump_high_arr
 !ifdef Z3 {
 	!byte >z_ins_show_status
 } else {
-	!byte >z_not_implemented
+	!byte >z_ins_nop ; should be nop according to show_status/spec 1.0
 }
 	!byte >make_branch_true ; z_ins_verify
 !ifdef Z5PLUS {
@@ -237,7 +237,7 @@ z_jump_low_arr
 !ifdef Z3 {
 	!byte <z_ins_show_status
 } else {
-	!byte <z_not_implemented
+	!byte <z_ins_nop ; should be nop according to show_status/spec 1.0
 }
 	!byte <make_branch_true ; z_ins_verify
 !ifdef Z5PLUS {
