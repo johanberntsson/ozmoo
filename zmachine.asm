@@ -153,20 +153,15 @@ z_jump_high_arr
 	!byte >z_ins_erase_window
 	!byte >z_ins_erase_line
 	!byte >z_ins_set_cursor
-} else {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-}
-	!byte >z_not_implemented
-!ifdef Z4PLUS {
+	!byte >z_ins_get_cursor
 	!byte >z_ins_set_text_style
-} else {
-	!byte >z_not_implemented
-}
-!ifdef Z4PLUS {
 	!byte >z_ins_buffer_mode
 } else {
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
+	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
 	!byte >z_ins_output_stream
@@ -344,20 +339,15 @@ z_jump_low_arr
 	!byte <z_ins_erase_window
 	!byte <z_ins_erase_line
 	!byte <z_ins_set_cursor
-} else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-}
-	!byte <z_not_implemented
-!ifdef Z4PLUS {
+	!byte <z_ins_get_cursor
 	!byte <z_ins_set_text_style
-} else {
-	!byte <z_not_implemented
-}
-!ifdef Z4PLUS {
 	!byte <z_ins_buffer_mode
 } else {
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
+	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
 	!byte <z_ins_output_stream
@@ -1939,6 +1929,8 @@ z_ins_random
 ; z_ins_erase_line moved to screen.asm
 
 ; z_ins_set_cursor moved to screen.asm
+
+; z_ins_get_cursor moved to screen.asm
 
 ; z_ins_buffer_mode moved to screen.asm
 

@@ -32,14 +32,14 @@ z_ins_erase_window
     jmp kernel_printchar
 .window_0
     ldx .window_size + 1
- -  jsr erase_line
+-   jsr erase_line
     inx
     cpx #25
     bne -
     rts
 .window_1
     ldx #0
- -  jsr erase_line
+-   jsr erase_line
     inx
     cpx .window_size + 1
     bne -
@@ -150,6 +150,30 @@ z_ins_set_text_style
     jmp kernel_printchar
 .t1 rts
 
+z_ins_get_cursor
+    ; set_cursor array
+    ldx z_operand_value_low_arr
+    stx string_array
+    lda z_operand_value_high_arr
+    clc
+    adc #>story_start
+    sta string_array + 1
+    lda #0
+    ldy #1
+    sta (string_array),y
+    ldy #3
+    sta (string_array),y
+    jsr get_cursor ; x=row, y=column
+    tya
+    pha
+    ldy #0
+    txa ; row
+    sta (string_array),y
+    pla ; column
+    ldy #2
+    sta (string_array),y
+    rts
+
 z_ins_set_cursor
     ; set_cursor line column
 !ifdef TRACE_WINDOW {
@@ -162,9 +186,17 @@ z_ins_set_cursor
     jsr printx
     jsr newline
 }
-    ldx z_operand_value_low_arr
-    ldy z_operand_value_low_arr + 1
-    dex
+    ldx z_operand_value_low_arr ; line 1..
+    dex ; line 0..
+    ldy .current_window
+    bne .top_window
+    ; bottom window (add size of top window to x for correct offset)
+    txa
+    clc
+    adc .window_size + 1
+    txa
+.top_window
+    ldy z_operand_value_low_arr + 1 ; column
     dey
     jmp set_cursor
 }
@@ -361,9 +393,14 @@ set_cursor
     clc
     jmp kernel_plot
 
-save_cursor
+get_cursor
+    ; output: y=column (0-39)
+    ;         x=row (0-24)
     sec
-    jsr kernel_plot
+    jmp kernel_plot
+
+save_cursor
+    jsr get_cursor
     stx .cursor_position
     sty .cursor_position + 1
     rts
