@@ -63,7 +63,6 @@ Improve ZSCII / PETSCII conversion with special cases for accented characters
 ; ---
 ; input_stream
 ; read_char
-; tokenise
 ; encode_text
 ; copy_table
 ; print_table

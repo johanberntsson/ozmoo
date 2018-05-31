@@ -7,7 +7,7 @@
 
 z_ins_print_char
     lda z_operand_value_low_arr
-    jsr convert_zchar_to_char
+    ;jsr convert_zchar_to_char
 	jmp streams_print_output
 	
 z_ins_new_line
@@ -20,7 +20,33 @@ z_ins_read_char
 
 z_ins_tokenise_text
     ; tokenise text parse dictionary flag
-    jmp z_not_implemented
+    lda dict_entries ; default dictionary
+    sta .dict_entries
+    lda dict_entries + 1
+    sta .dict_entries + 1
+    ; setup string_array
+    ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+    stx string_array
+    clc
+    adc #>story_start
+    sta string_array + 1
+    ; setup user dictionary, if supplied
+    ldx z_operand_value_low_arr + 2
+    bne +
+	lda z_operand_value_high_arr + 2
+	beq .no_user_dictionary
+.user_dictionary
+    stx .dict_entries
+    clc
+    adc #>story_start
+    sta .dict_entries + 1
+.no_user_dictionary
+    ; setup parse_array and flag
+    ldx z_operand_value_low_arr + 1
+	lda z_operand_value_high_arr + 1
+    ldy z_operand_value_low_arr + 3
+    jmp tokenise_text
 
 z_ins_encode_text
     ; encode_text zscii-text length from coded-text
@@ -109,6 +135,10 @@ z_ins_sread
     ldx z_operand_count
     cpx #2
     bcc .sread_done
+    lda dict_entries
+    sta .dict_entries
+    lda dict_entries + 1
+    sta .dict_entries + 1
     lda z_operand_value_high_arr + 1
     ldx z_operand_value_low_arr + 1
 !ifdef TRACE_TOKENISE {
@@ -121,6 +151,7 @@ z_ins_sread
     jsr printa
     jsr newline
 }
+    ldy #0
     jsr tokenise_text
 !ifdef TRACE_TOKENISE {
     ldy #0
@@ -178,6 +209,10 @@ z_ins_aread
     ldx z_operand_count
     cpx #2
     bcc .aread_done
+    lda dict_entries
+    sta .dict_entries
+    lda dict_entries + 1
+    sta .dict_entries + 1
     lda z_operand_value_high_arr + 1
     ldx z_operand_value_low_arr + 1
 !ifdef TRACE_TOKENISE {
@@ -190,6 +225,7 @@ z_ins_aread
     jsr printa
     jsr newline
 }
+    ldy #0
     jsr tokenise_text
 !ifdef TRACE_TOKENISE {
     ldy #0
@@ -405,6 +441,8 @@ find_word_in_dictionary
     sta .zword + 3
     sta .zword + 4
     sta .zword + 5
+    lda #1
+    sta .is_word_found ; assume success until proven otherwise
     lda .wordstart  ; truncate the word length to dictionary size
     clc
 !ifdef Z4PLUS {
@@ -483,8 +521,8 @@ find_word_in_dictionary
     lda #0
     sta .dict_cnt     ; loop counter is 2 bytes
     sta .dict_cnt + 1
-    ldx dict_entries     ; start address of dictionary
-    lda dict_entries + 1
+    ldx .dict_entries     ; start address of dictionary
+    lda .dict_entries + 1
     jsr set_z_address
 !ifdef Z4PLUS {
     lda #6
@@ -578,6 +616,7 @@ find_word_in_dictionary
     lda #0
     sta .dictionary_address
     sta .dictionary_address + 1
+    sta .is_word_found
 .found_dict_entry
     ; store result into parse_array and exit
     ldy .parse_array_index
@@ -588,7 +627,9 @@ find_word_in_dictionary
     sta (parse_array),y
     iny
     rts
+.is_word_found !byte 0
 .dict_cnt !byte 0,0
+.dict_entries !byte 0,0
 .triplet_counter !byte 0
 .last_char_index !byte 0
 .parse_array_index !byte 0
@@ -772,10 +813,14 @@ tokenise_text
     ; input: string_array should be pointing to the text array
     ; (this will be okay if called immediately after read_text)
     ; a/x should be the address of the parse array
-    ; input: a,x,string_array
+    ; input: - string_array
+    ;        - .dict_entries: set to default (dict_entries or user dictionary)
+    ;        - x,a: address of parse_array
+    ;        - y: flag (1 = don't add unknown words to parse_array)
     ; output: parse_array
     ; side effects:
     ; used registers: a,x,y
+    sty .ignore_unknown_words
     stx parse_array
     clc
     adc #>story_start
@@ -847,7 +892,6 @@ tokenise_text
     dey
 .word_found
     ; word found. Look it up in the dictionary
-    inc .numwords
     iny
     sty .wordend ; .wordend is the last character of the word + 1
     ; update parse_array
@@ -857,8 +901,12 @@ tokenise_text
     adc #4
     sta .wordoffset
     jsr find_word_in_dictionary ; will update y
-    ;iny
-    ;iny
+    lda .is_word_found
+    bne .store_word_in_parse_array
+    lda .ignore_unknown_words
+    bne .find_next_word ; word unknown, and we shouldn't store unknown words
+.store_word_in_parse_array
+    inc .numwords
     lda .wordend
     sec
     sbc .wordstart
@@ -870,6 +918,7 @@ tokenise_text
     lda .numwords
     sta (parse_array),y ; num of words
     ; find the next word
+.find_next_word
     ldy .wordend
     lda .numwords
     cmp .maxwords
@@ -885,6 +934,7 @@ tokenise_text
 .textend    !byte 0 
 .wordstart  !byte 0 
 .wordend    !byte 0 
+.ignore_unknown_words !byte 0 
 
 print_addr
     ; print zchar-encoded text
@@ -1108,6 +1158,7 @@ testparser
     sta $25a7
     lda #$05
     ldx #$a7
+    ldy #0
     jsr tokenise_text
     lda #$0d
     jsr streams_print_output
