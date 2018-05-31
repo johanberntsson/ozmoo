@@ -159,18 +159,18 @@ z_ins_get_cursor
     adc #>story_start
     sta string_array + 1
     lda #0
-    ldy #1
+    ldy #0
     sta (string_array),y
-    ldy #3
+    ldy #2
     sta (string_array),y
     jsr get_cursor ; x=row, y=column
     tya
     pha
-    ldy #0
+    ldy #1
     txa ; row
     sta (string_array),y
     pla ; column
-    ldy #2
+    ldy #3
     sta (string_array),y
     rts
 

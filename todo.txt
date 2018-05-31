@@ -42,6 +42,8 @@ Old todo: - support splitting of large files onto two floppies
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
 
+Improve ZSCII / PETSCII conversion with special cases for accented characters
+
 ; Instructions which have not yet been fully implemented
 ; ------------------------------------------------------
 ; 0OP
@@ -59,7 +61,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ;
 ; VAR
 ; ---
-; print_char (handle ZSCII / PETSCII conversion, including special cases for accented characters)
 ; input_stream
 ; read_char
 ; tokenise
