@@ -15,8 +15,25 @@ z_ins_new_line
 	jmp streams_print_output
 	
 z_ins_read_char
-    ; read_char 1 time routine -> (result)
-    jmp z_not_implemented
+    ; read_char 1 [time routine] -> (result)
+    ; ignore argument 0 (always 1)
+    ; ldy z_operand_value_low_arr
+    ; optional time routine arguments
+    ldy #0
+    sty .read_text_time
+    ldy z_operand_count
+    cpy #3
+    bne +
+    ldy z_operand_value_low_arr + 1
+    sty .read_text_time
+    ldy z_operand_value_low_arr + 2
+    sty .read_text_routine
+    ldy z_operand_value_high_arr + 2
+    sty .read_text_routine + 1
++   jsr read_char
+    tax
+    lda #0
+	jmp z_store_result
 
 z_ins_tokenise_text
     ; tokenise text parse dictionary flag
@@ -691,6 +708,13 @@ prepare_read_text_timer
     tya
     adc #0
     sta .read_text_jiffy + 1
+    rts
+
+read_char
+    ; read char from keyboard into an array (address: a/x)
+    ; output: a = char read, or 0 if interrupted by timer
+-   jsr kernel_getchar
+    beq -
     rts
 
 read_text
