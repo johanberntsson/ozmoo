@@ -224,9 +224,16 @@ increase_num_rows
     jsr clear_num_rows
     ; print [More]
 !ifdef NEW_MORE_PROMPT {
-    lda $07e7 
+    lda $07e5 
     sta .more_text_char
-    lda #190 ; screen code for reversed >
+    lda $07e6 
+    sta .more_text_char + 1
+    lda $07e7 
+    sta .more_text_char + 2
+    ;lda #190 ; screen code for reversed >
+    lda #174 ; screen code for reversed .
+    sta $07e5
+    sta $07e6
     sta $07e7
 } else {
     ldx #0
@@ -242,6 +249,10 @@ increase_num_rows
     beq -
 !ifdef NEW_MORE_PROMPT {
     lda .more_text_char
+    sta $07e5
+    lda .more_text_char + 1
+    sta $07e6
+    lda .more_text_char + 2
     sta $07e7
 } else {
     ; remove [More]
@@ -256,7 +267,7 @@ increase_num_rows
 .increase_num_rows_done
     rts
 !ifdef NEW_MORE_PROMPT {
-.more_text_char !byte 0
+.more_text_char !byte 0,0,0
 } else {
 .more_text !pet "[More]",0
 }
