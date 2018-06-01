@@ -93,12 +93,6 @@ w1  cmp $d012
 	jsr z_init
 	jsr z_execute
 
-!ifdef DEBUG {
-    ;jsr test_object_table
-	;jsr testtext
-}
-
-
 	; Back to normal memory banks
 	ldx #%00110111
 	stx zero_processorports

@@ -20,7 +20,8 @@ z_ins_read_char
 
 z_ins_tokenise_text
     ; tokenise text parse dictionary flag
-    lda dict_entries ; default dictionary
+    ; default dictionary
+    lda dict_entries 
     sta .dict_entries
     lda dict_entries + 1
     sta .dict_entries + 1
@@ -35,7 +36,7 @@ z_ins_tokenise_text
     lda z_operand_value_low_arr + 2
 	ora z_operand_value_high_arr + 2
 	beq .no_user_dictionary
-; user dictionary
+    ; user dictionary
     lda z_operand_value_low_arr + 2
     sta .dict_entries
 	lda z_operand_value_high_arr + 2
@@ -1112,68 +1113,6 @@ print_addr
 .escape_char !byte 0
 .escape_char_counter !byte 0
 .abbreviation_command !byte 0
-
-!ifdef DEBUG {
-testtext
-    ldx #$1b
-    lda #$03
-    jsr set_z_paddress
-    jmp print_addr
-
-testparser
-    lda #63
-    jsr $ffd2
-    lda #$20
-    jsr $ffd2
-    ; init the array (normally done by the story file)
-    ldy #20
-    lda #0
--   sta $257c,y
-    sta $25a7,y
-    dey
-    bne -
-    lda #20
-    sta $257c
-    lda #0     ; 0=overwrite, 1=append to previous input
-    sta $257d
-    lda #44
-    sta $257e
-    sta $257f
-    sta $2560
-    lda #$05
-    ldx #$7c
-    jsr read_text
-    lda #$0d
-    jsr streams_print_output
-    ldy #0
--   lda $257c,y
-    tax
-    jsr printx
-    lda #$20
-    jsr streams_print_output
-    iny
-    cpy #12
-    bne -
-    ; parser
-    lda #6 ; max 6 words
-    sta $25a7
-    lda #$05
-    ldx #$a7
-    ldy #0
-    jsr tokenise_text
-    lda #$0d
-    jsr streams_print_output
-    ldy #0
--   lda $25a7,y
-    tax
-    jsr printx
-    lda #$20
-    jsr streams_print_output
-    iny
-    cpy #16
-    bne -
-    rts
-}
 
 .addr !byte 0,0,0
 .zchars !byte 0,0,0

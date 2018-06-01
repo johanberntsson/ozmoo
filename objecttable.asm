@@ -1235,8 +1235,3 @@ calculate_object_address
     adc objects_start_ptr + 1
     sta object_tree_ptr + 1
     rts
-
-!ifdef DEBUG {
-test_object_table
-    rts
-}
