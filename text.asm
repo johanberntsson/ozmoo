@@ -7,7 +7,7 @@
 
 z_ins_print_char
     lda z_operand_value_low_arr
-    jsr convert_zchar_to_char
+    ;jsr convert_zchar_to_char
 	jmp streams_print_output
 	
 z_ins_new_line
@@ -52,7 +52,34 @@ z_ins_tokenise_text
 
 z_ins_encode_text
     ; encode_text zscii-text length from coded-text
-    jmp z_not_implemented
+    ; setup string_array
+    ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+    stx string_array
+    clc
+    adc #>story_start
+    sta string_array + 1
+    ; setup length (seems okay to ignore)
+    ; ldx z_operand_value_low_arr + 1
+    ; setup from
+    ldx z_operand_value_low_arr + 2
+    stx .wordstart
+    ; do the deed
+    jsr encode_text
+    ; save result
+    ldx z_operand_value_low_arr + 3
+	lda z_operand_value_high_arr + 3
+    stx string_array
+    clc
+    adc #>story_start
+    sta string_array + 1
+    ldy #0
+-   lda .zword,y
+    sta (string_array),y
+    iny
+    cpy #6
+    bne -
+    rts
 
 z_ins_print_addr 
     ldx z_operand_value_low_arr
@@ -424,31 +451,13 @@ convert_char_to_zchar
     adc #6
     rts
 
-find_word_in_dictionary
-    ; convert word to zchars and find it in the dictionary
-    ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
-    ; http://inform-fiction.org/manual/html/s2.html#s2_5
-    ; input: 
-    ;   y = index in parse_array to store result in
-    ;   parse_array = indirect address to parse_array
-    ;   string_array = indirect address to string being parsed
-    ;   .wordstart = index in string_array to first char of current word
-    ;   .wordend = index in string_array to last char of current word
-    ; output: puts address in parse_array[y] and parse_array[y+1]
-    ; side effects:
-    ; used registers: a,x
-    sty .parse_array_index ; store away the index for later
-    lda #0
-    sta .zword      ; clear zword buffer
-    sta .zword + 1
-    sta .zword + 2
-    sta .zword + 3
-    sta .zword + 4
-    sta .zword + 5
-    lda #1
-    sta .is_word_found ; assume success until proven otherwise
-    lda .wordstart  ; truncate the word length to dictionary size
+encode_text
+    ; input .wordstart
+    ; registers: a,x,y
+    ; side effects: .last_char_index, .triplet_counter, .zword
+    lda .wordstart  
     clc
+    ; truncate the word length to dictionary size
 !ifdef Z4PLUS {
     adc #9
 } else {
@@ -494,6 +503,32 @@ find_word_in_dictionary
     lda .zword + 4
     ora #$80
     sta .zword + 4
+    rts
+
+find_word_in_dictionary
+    ; convert word to zchars and find it in the dictionary
+    ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect13.html
+    ; http://inform-fiction.org/manual/html/s2.html#s2_5
+    ; input: 
+    ;   y = index in parse_array to store result in
+    ;   parse_array = indirect address to parse_array
+    ;   string_array = indirect address to string being parsed
+    ;   .wordstart = index in string_array to first char of current word
+    ;   .wordend = index in string_array to last char of current word
+    ; output: puts address in parse_array[y] and parse_array[y+1]
+    ; side effects:
+    ; used registers: a,x
+    sty .parse_array_index ; store away the index for later
+    lda #0
+    sta .zword      ; clear zword buffer
+    sta .zword + 1
+    sta .zword + 2
+    sta .zword + 3
+    sta .zword + 4
+    sta .zword + 5
+    lda #1
+    sta .is_word_found ; assume success until proven otherwise
+    jsr encode_text
 !ifdef TRACE_TOKENISE {
     ; print zword (6 or 9 bytes)
     jsr newline
