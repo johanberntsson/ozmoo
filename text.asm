@@ -7,7 +7,7 @@
 
 z_ins_print_char
     lda z_operand_value_low_arr
-    ;jsr convert_zchar_to_char
+    jsr convert_zchar_to_char
 	jmp streams_print_output
 	
 z_ins_new_line
@@ -390,6 +390,8 @@ convert_zchar_to_char
     ; output: a=char
     ; side effects:
     ; used registers: a,y
+    cmp #$20
+    beq +
     cmp #6
     bcc +
     sec
