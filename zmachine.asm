@@ -606,6 +606,13 @@ z_execute
 	inx
 	cpx #3
 	bne -
+	
+;	ldx z_pc + 2
+;	cpx #$8b
+;	bne +
+;	lda #ERROR_READ_ABOVE_STATMEM
+;	jmp fatalerror
+; +
 
 	; Store # of bytes on stack (4 if no values) to trace page
 ;	tya
@@ -636,6 +643,8 @@ z_execute
 ;	iny
 	sty z_trace_index
 
+	
+	
 !ifdef DEBUG {	
 	;jsr print_following_string
 	;!pet "opcode: ",0
@@ -782,6 +791,19 @@ z_execute
 	sta z_trace_page,y
 	inc z_trace_index
 
+	; ldx z_pc + 1
+	; cpx #$0a
+	; bne .okidoki
+	; ldx z_pc + 2
+	; cpx #$32
+	; bne .okidoki
+	; ldx $cf5a
+	; cpx #$76
+	; bne .okidoki
+	; lda #ERROR_READ_ABOVE_STATMEM
+	; jmp fatalerror
+; .okidoki
+	
 	tax 
 	lda z_jump_low_arr,x
 	sta .jsr_perform + 1

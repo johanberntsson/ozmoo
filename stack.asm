@@ -1,6 +1,6 @@
 ; Anatomy of a stack frame:
 ; 
-; Number of pushed bytes + 4
+; Number of pushed bytes (2*n)
 ; Pushed word n-1
 ; ...
 ; Pushed word 0
@@ -19,20 +19,41 @@
 
 !zone {
 
-.stack_tmp !byte 0, 0, 0 
+.stack_tmp !byte 0, 0, 0
+stack_pushed_bytes !byte 0, 0
 
 stack_init
 	lda #<(stack_start - 2)
 	sta stack_ptr
 	lda #>(stack_start - 2)
 	sta stack_ptr + 1
+	lda #0
+	sta stack_pushed_bytes
+	sta stack_pushed_bytes + 1
+!ifdef DEBUG {
 	ldx stack_ptr
 	lda stack_ptr + 1
-!ifdef DEBUG {
 	jsr printinteger
 	jsr newline
 }
 	rts
+
+
+.many_pushed_bytes
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	sta zp_temp + 2
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	sta zp_temp + 3
+	ldy #0
+	lda stack_pushed_bytes
+	sta (zp_temp + 2),y
+	iny
+	lda stack_pushed_bytes + 1
+	sta (zp_temp + 2),y
+	jmp .move_stack_ptr_to_last_word_of_frame
 
 stack_call_routine
 	; x = Number of arguments to be passed to routine
@@ -40,6 +61,35 @@ stack_call_routine
 	stx zp_temp
 	sty zp_temp + 1
 
+	; TASK: Wrap up current stack frame
+	lda stack_ptr + 1
+	cmp #>stack_start
+	bcc .current_frame_done ; There is no current frame, so no need to close it either
+	lda stack_pushed_bytes
+	bne .many_pushed_bytes
+	; Frame has < 256 bytes pushed
+	ldy stack_pushed_bytes + 1
+	beq .no_pushed_bytes
+	sta (stack_ptr),y
+	tya
+	iny
+	sta (stack_ptr),y
+.move_stack_ptr_to_last_word_of_frame
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	sta stack_ptr
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	sta stack_ptr + 1
+	bne .current_frame_done ; Always branch
+.no_pushed_bytes
+	sta (stack_ptr),y
+	tya
+	iny
+	sta (stack_ptr),y
+.current_frame_done
+	
 	; TASK: Save PC. Set new PC. Setup new stack frame.
 	ldy #2
 -	lda z_pc,y
@@ -70,18 +120,18 @@ stack_call_routine
 	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
 	
-	; Check that there is room on the stack
-	clc
-	adc #3
-	asl
-	adc stack_ptr
-	lda stack_ptr + 1
-	adc #0
-	cmp #>(stack_start + stack_size)
-	bcc +
-	jmp .stack_full
-	
-+	lda stack_ptr
+	; ; Check that there is room on the stack
+	; clc
+	; adc #3
+	; asl
+	; adc stack_ptr
+	; lda stack_ptr + 1
+	; adc #0
+	; cmp #>(stack_start + stack_size)
+	; bcc +
+	; jmp .stack_full
+; +	
+	lda stack_ptr
 	sta z_local_vars_ptr
 	lda stack_ptr + 1
 	sta z_local_vars_ptr + 1
@@ -147,16 +197,19 @@ stack_call_routine
 	lda .stack_tmp + 2
 	sta (stack_ptr),y
 
-	; TASK: Set number of pushed bytes to 0 (+4)
-	iny
+	; TASK: Set number of pushed bytes to 0
+	; iny
+	; lda #0
+	; sta (stack_ptr),y
+	; iny
+	; lda #4
+	; sta (stack_ptr),y
 	lda #0
-	sta (stack_ptr),y
-	iny
-	lda #4
-	sta (stack_ptr),y
+	sta stack_pushed_bytes
+	sta stack_pushed_bytes + 1
 	
 	; TASK: Set new (higher) value of stack pointer
-	dey
+	iny
 	tya
 	clc
 	adc stack_ptr
@@ -164,9 +217,15 @@ stack_call_routine
 	lda stack_ptr + 1
 	adc #0
 	sta stack_ptr + 1
-
+	cmp #>(stack_start + stack_size)
+	bcs .stack_full
+	
 	rts
 
+.stack_full
+    lda #ERROR_STACK_FULL
+	jmp fatalerror
+	
 stack_return_from_routine
 
 	; input: return value in a,x
@@ -181,51 +240,91 @@ stack_return_from_routine
 	
 	; Skip past all items pushed onto stack in this frame,
 	; and 4 bytes lower to read pc and whether to store return value
-	lda stack_ptr
-	sec
-	ldy #1
-	sbc (stack_ptr),y
-	sta zp_temp + 2
-	lda stack_ptr + 1
-	dey
-	sbc (stack_ptr),y
-	sta zp_temp + 3
-	lda (zp_temp + 2),y
+	ldy z_local_var_count
+	iny
+	tya
+	asl
+	tay
+	; lda stack_ptr
+	; sec
+	; sbc #4
+	; sta zp_temp + 2
+	; lda stack_ptr + 1
+	; sbc #0
+	; sta zp_temp + 3
+	; ldy #0
+	
+	; ldy #1
+	; sbc (stack_ptr),y
+	; sta zp_temp + 2
+	; lda stack_ptr + 1
+	; dey
+	; sbc (stack_ptr),y
+	; sta zp_temp + 3
+	lda (z_local_vars_ptr),y
 	sta .stack_tmp ; storebit, argcount, varcount
 	
 	; Copy PC from stack to z_pc
 	iny
--	lda (zp_temp + 2),y
-	sta z_pc - 1,y
+	ldx #0
+-	lda (z_local_vars_ptr),y
+	sta z_pc,x
 	iny
-	cpy #4
+	inx
+	cpx #3
 	bcc -
 	
 	; Skip past locals on stack
-	lda z_local_var_count
-	clc
-	adc #1
-	asl
-	sta .stack_tmp + 1
-	lda zp_temp + 2
-	sec
-	sbc .stack_tmp + 1
-	sta stack_ptr
-	lda zp_temp + 3
-	sbc #0
-	sta stack_ptr + 1
+	; lda z_local_var_count
+	; clc
+	; adc #1
+	; asl
+	; sta .stack_tmp + 1
+	; lda zp_temp + 2
+	; sec
+	; sbc .stack_tmp + 1
+	; sta stack_ptr
+	; lda zp_temp + 3
+	; sbc #0
+	; sta stack_ptr + 1
 
+	; TASK: Set stack_pushed_bytes to new value
+	ldy #0
+	lda (z_local_vars_ptr),y
+	sta stack_pushed_bytes
+	iny
+	lda (z_local_vars_ptr),y
+	sta stack_pushed_bytes + 1
+	
 	; TASK: Find new locals pointer value
 	; Skip past all items pushed onto stack in this frame
-	lda stack_ptr
+	
+	; First, set stack_ptr correctly
+	lda z_local_vars_ptr
 	sec
-	ldy #1
-	sbc (stack_ptr),y
+;	ldy #1 ; Not needed, has right value already
+	sbc (z_local_vars_ptr),y
+	tax
+	lda z_local_vars_ptr + 1
+	dey
+	sbc (z_local_vars_ptr),y
+	tay
+
+	txa
+	sbc #0 ; Carry should always be set after last operation
+	sta stack_ptr
+	tya
+	sbc #0
+	sta stack_ptr + 1
+	
+	; Find # of locals
+	lda stack_ptr
+	sbc #4 ; Carry should always be set after last operation
 	sta zp_temp + 2
 	lda stack_ptr + 1
-	dey
-	sbc (stack_ptr),y
+	sbc #0
 	sta zp_temp + 3
+	ldy #0
 	lda (zp_temp + 2),y
 	
 	; Skip past locals on stack
@@ -242,9 +341,6 @@ stack_return_from_routine
 	lda zp_temp + 3
 	sbc #0
 	sta z_local_vars_ptr + 1
-
-;	jsr fatalerror
-;	!pet "return-debug-4!",0
 	
 	; Store return value if calling instruction asked for it
 	bit .stack_tmp
@@ -254,65 +350,140 @@ stack_return_from_routine
 	lda zp_temp
 	ldx zp_temp + 1
 	jmp z_set_variable	
-+	rts
++	
+	; lda #ERROR_READ_ABOVE_STATMEM
+	; jmp fatalerror
+
+	rts
 
 stack_push
 	; Push a,x onto stack
-	sta zp_temp
-	stx zp_temp + 1
-	; Check that there is room
-	lda stack_ptr
-	cmp #<(stack_start + stack_size - 2)
-	bne .there_is_room
-	lda stack_ptr + 1
-	cmp #>(stack_start + stack_size - 2)
-	bne .there_is_room
-.stack_full
-    lda #ERROR_STACK_FULL
-	jsr fatalerror
-.there_is_room
-	; Increase number of pushed values
-	ldy #1
-	lda (stack_ptr),y
-	clc
-	adc #2
-	ldy #3
+	ldy stack_pushed_bytes
+	bne .push_case_many_bytes
+	ldy stack_pushed_bytes + 1
 	sta (stack_ptr),y
-	ldy #0
-	lda (stack_ptr),y
-	clc
-	adc #0
-	ldy #2
-	sta (stack_ptr),y
-	; Store value
-	lda zp_temp
-	ldy #0
-	sta (stack_ptr),y
-	lda zp_temp + 1
 	iny
+	txa
 	sta (stack_ptr),y
-	; Increase stack pointer
-	inc stack_ptr
-	inc stack_ptr
+	iny
+	sty stack_pushed_bytes + 1
 	bne +
-	inc stack_ptr + 1
-+	rts
+	inc stack_pushed_bytes
++	lda stack_ptr + 1
+	cmp #>(stack_start + stack_size - 256)
+	bcs .push_check_room
+	rts
+.push_case_many_bytes
+	sta zp_temp
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	sta zp_temp + 2
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	sta zp_temp + 3
+	ldy #0
+	lda zp_temp
+	sta (zp_temp + 2),y
+	iny
+	txa
+	sta (zp_temp + 2),y
+	inc stack_pushed_bytes + 1
+	inc stack_pushed_bytes + 1
+	bne +
+	inc stack_pushed_bytes	
++	lda stack_pushed_bytes
+	cmp #>(stack_start + stack_size - 256)
+	bcs .push_check_room
+-	rts
+.push_check_room
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	cmp #>(stack_start + stack_size)
+	bcc -
+	jmp .stack_full
+	
+	; ; Check that there is room
+	; lda stack_ptr
+	; cmp #<(stack_start + stack_size - 2)
+	; bne .there_is_room
+	; lda stack_ptr + 1
+	; cmp #>(stack_start + stack_size - 2)
+	; beq .stack_full
+; .there_is_room
+	; ; Increase number of pushed values
+	; ldy #1
+	; lda (stack_ptr),y
+	; clc
+	; adc #2
+	; ldy #3
+	; sta (stack_ptr),y
+	; ldy #0
+	; lda (stack_ptr),y
+	; clc
+	; adc #0
+	; ldy #2
+	; sta (stack_ptr),y
+	; ; Store value
+	; lda zp_temp
+	; ldy #0
+	; sta (stack_ptr),y
+	; lda zp_temp + 1
+	; iny
+	; sta (stack_ptr),y
+	; ; Increase stack pointer
+	; inc stack_ptr
+	; inc stack_ptr
+	; bne +
+	; inc stack_ptr + 1
+; +	rts
 
 stack_get_ref_to_top_value
-	ldy #1
-	lda (stack_ptr),y
-	cmp #6
-	bcs +
-	dey
-	lda (stack_ptr),y
+	clc
+	ldy stack_pushed_bytes
+	bne .get_ref_case_many_bytes
+	ldx stack_pushed_bytes + 1
 	beq .stack_underflow
-+	lda stack_ptr
+	dex
+	dex
+	txa
+	adc stack_ptr
+	tax
+	lda #0
+	adc stack_ptr + 1
+	rts
+.get_ref_case_many_bytes
+	lda stack_pushed_bytes + 1
+	adc stack_ptr
+	tax
+	tya
+	adc stack_ptr + 1
+	tay
+	txa
 	sec
 	sbc #2
 	tax
-	lda stack_ptr + 1
+	tya
 	sbc #0
 	rts
+	
+	; ldy #1
+	; lda (stack_ptr),y
+	; cmp #6
+	; bcs +
+	; dey
+	; lda (stack_ptr),y
+	; beq .stack_underflow
+; +	lda stack_ptr
+	; sec
+	; sbc #2
+	; tax
+	; lda stack_ptr + 1
+	; sbc #0
+	; rts
 
 .stack_underflow
     lda #ERROR_STACK_EMPTY
@@ -320,15 +491,52 @@ stack_get_ref_to_top_value
 	
 stack_pull
 	; Pull top value from stack, return in a,x
-
-	; Check that there are > 0 values on stack
-	ldy #1
-	lda (stack_ptr),y
-	cmp #6
-	bcs .ok
+	ldy stack_pushed_bytes
+	bne .pull_case_many_bytes
+	ldy stack_pushed_bytes + 1
+	beq .stack_empty_return_0
 	dey
 	lda (stack_ptr),y
-	bne .ok
+	tax
+	dey
+	lda (stack_ptr),y
+	sty stack_pushed_bytes + 1
+	rts
+.pull_case_many_bytes
+	; Decrease # of bytes on stack
+	lda stack_pushed_bytes + 1
+	sec
+	sbc #2
+	sta stack_pushed_bytes + 1
+	tax
+	tya
+	sbc #0
+	sta stack_pushed_bytes
+	tay
+	; Calculate address of top value
+	txa
+	clc
+	adc stack_ptr
+	sta zp_temp
+	tya
+	adc stack_ptr + 1
+	sta zp_temp + 1
+	; Load value and return
+	ldy #1
+	lda (zp_temp),y
+	tax
+	dey
+	lda (zp_temp),y
+	rts
+	
+	; ; Check that there are > 0 values on stack
+	; ldy #1
+	; lda (stack_ptr),y
+	; cmp #6
+	; bcs .ok
+	; dey
+	; lda (stack_ptr),y
+	; bne .ok
 .stack_empty_return_0
 !ifdef DEBUG {
 	jsr print_following_string
@@ -338,38 +546,38 @@ stack_pull
 	tax
 	rts
 	
-	; Decrease stack pointer by two bytes	
-.ok	sec
-	lda stack_ptr
-	sbc #2
-	sta stack_ptr
-	bcs +
-	lda stack_ptr + 1
-	sbc #0
-	sta stack_ptr + 1
-	; Retrieve the top value on the stack 
-+	ldy #0
-	lda (stack_ptr),y
-	pha
-	iny
-	lda (stack_ptr),y
-	pha
-	; Decrease the number of bytes on the stack by 2, and move the value 2 bytes down in memory
-	ldy #3
-	lda (stack_ptr),y
-	sec
-	sbc #2
-	ldy #1
-	sta (stack_ptr),y
-	iny
-	lda (stack_ptr),y
-	sbc #0
-	ldy #0
-	sta (stack_ptr),y
-	pla
-	tax
-	pla
-	rts
+	; ; Decrease stack pointer by two bytes	
+; .ok	sec
+	; lda stack_ptr
+	; sbc #2
+	; sta stack_ptr
+	; bcs +
+	; lda stack_ptr + 1
+	; sbc #0
+	; sta stack_ptr + 1
+	; ; Retrieve the top value on the stack 
+; +	ldy #0
+	; lda (stack_ptr),y
+	; pha
+	; iny
+	; lda (stack_ptr),y
+	; pha
+	; ; Decrease the number of bytes on the stack by 2, and move the value 2 bytes down in memory
+	; ldy #3
+	; lda (stack_ptr),y
+	; sec
+	; sbc #2
+	; ldy #1
+	; sta (stack_ptr),y
+	; iny
+	; lda (stack_ptr),y
+	; sbc #0
+	; ldy #0
+	; sta (stack_ptr),y
+	; pla
+	; tax
+	; pla
+	; rts
 
 z_ins_push
 	lda z_operand_value_high_arr
@@ -394,32 +602,25 @@ z_ins_pull
 	rts
 	
 z_ins_catch
-	; Store pointer to SPPPLLLL-byte in current frame.
-	lda stack_ptr
-	sec
-	ldy #1
-	sbc (stack_ptr),y
-	tax
+	; Store pointer to first byte where pushed values are stored in current frame.
+	ldx stack_ptr
 	lda stack_ptr + 1
-	dey
-	sbc (stack_ptr),y
+	; lda stack_ptr
+	; sec
+	; ldy #1
+	; sbc (stack_ptr),y
+	; tax
+	; lda stack_ptr + 1
+	; dey
+	; sbc (stack_ptr),y
 	jmp z_store_result
 
 z_ins_throw
-	; Restore pointer given. Add $0004 to pointer. Place value $0004 in that position, to indicate no values have been pushed onto stack.
+	; Restore pointer given. Return from routine (frame).
 	lda z_operand_value_low_arr + 1
-	clc
-	adc #4
 	sta stack_ptr
 	lda z_operand_value_high_arr + 1
-	adc #0
 	sta stack_ptr + 1
-	ldy #0
-	tya
-	sta (stack_ptr),y
-	iny
-	lda #4
-	sta (stack_ptr),y
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jmp stack_return_from_routine
@@ -431,14 +632,22 @@ z_ins_check_arg_count
 	bne .branch_false
 	lda stack_ptr
 	sec
-	ldy #1
-	sbc (stack_ptr),y
+	sbc #4
 	sta zp_temp + 2
 	lda stack_ptr + 1
-	dey
-	sbc (stack_ptr),y
+	sbc #0
 	sta zp_temp + 3
+	ldy #0
 	lda (zp_temp + 2),y
+	
+	; ldy #1
+	; sbc (stack_ptr),y
+	; sta zp_temp + 2
+	; lda stack_ptr + 1
+	; dey
+	; sbc (stack_ptr),y
+	; sta zp_temp + 3
+	; lda (zp_temp + 2),y
 	lsr
 	lsr
 	lsr
