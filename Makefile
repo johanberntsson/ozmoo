@@ -1,14 +1,16 @@
 #DEBUGFLAGS = -DDEBUG=1
-#VMFLAGS = -DUSEVM=1
+VMFLAGS = -DUSEVM=1
 C1541 := /usr/bin/c1541
 #X64 := /usr/bin/x64
 X64 := /usr/bin/x64 -warp -autostart-delay-random
 
+all: minizork
+#all: zork1
 #all: dejavu
 #all: dragon
 #all: minform
 #all: czechz3
-all: czechz5
+#all: czechz5
 #all: strictz3
 #all: strictz5
 #all: etude
@@ -60,6 +62,16 @@ d64.minform:
 	cp minform/minform.d64 minform.d64
 	$(C1541) -attach minform.d64 -write ozmoo ozmoo
 
+d64.minizork: 
+	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp infocom/minizork.d64 minizork.d64
+	$(C1541) -attach minizork.d64 -write ozmoo ozmoo
+
+d64.zork1: 
+	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp infocom/zork1.d64 zork1.d64
+	$(C1541) -attach zork1.d64 -write ozmoo ozmoo
+
 d64.dejavu: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
 	cp examples/dejavu.d64 dejavu.d64
@@ -69,6 +81,12 @@ d64.dragon:
 	acme -DZ5=1 $(DEBUGFLAGS)  $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
 	cp examples/dragontroll.d64 dragontroll.d64
 	$(C1541) -attach dragontroll.d64 -write ozmoo ozmoo
+
+minizork: d64.minizork
+	$(X64) minizork.d64
+
+zork1: d64.zork1
+	$(X64) zork1.d64
 
 dejavu: d64.dejavu
 	$(X64) dejavu.d64

@@ -24,7 +24,7 @@ readblocks
     ; $mempos (contains address to store in) [in]
 
     ; convert block to track/sector
-    ; (assuming 16 tracks, each with 16 sectors)
+    ; (assuming each tracks has 16 sectors, skipping track18)
     lda readblocks_currentblock
     and #$0f
     sta .sector
@@ -37,9 +37,13 @@ readblocks
     dex
     bne -
     inc .track ; tracks are 1..
+    lda .track
+    cmp #18
+    bcc +
+    inc .track ; skip track 18
 
     ; convert track/sector to ascii and update drive command
-    lda .track
++   lda .track
     jsr conv2dec
     stx .uname_track
     sta .uname_track + 1
