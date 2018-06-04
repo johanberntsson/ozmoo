@@ -19,6 +19,59 @@ ERROR_UNSUPPORTED_STORY_VERSION = 11
 ERROR_OUT_OF_MEMORY = 12
 ERROR_WRITE_ABOVE_DYNMEM = 13
 ERROR_READ_ABOVE_STATMEM = 14
+ERROR_TOO_MANY_TERMINATORS = 15
+
+!ifdef DEBUG {
+.error_unsupported_stream !pet "unsupported stream#",0
+.error_invalid_char !pet "invalid char",0
+.error_stream_nesting_error !pet "stream nesting error",0
+.error_floppy_read_error !pet "floppy read error", 0
+.error_memory_over_64kb !pet "tried to access z-machine memory over 64kb", 0
+.error_stack_full !pet "stack full",0
+.error_stack_empty !pet "stack empty",0
+.error_opcode_not_implemented !pet "opcode not implemented!",0
+.error_used_nonexistent_local_var !pet "used non-existent local var",0
+.error_bad_property_length !pet "bad property length", 0
+.error_unsupported_story_version !pet "unsupported story version", 0
+.error_out_of_memory !pet "out of memory", 0
+.error_write_above_dynmem !pet "tried to write to non-dynamic memory", 0
+.error_read_above_statmem !pet "tried to read from himem", 0
+.error_too_many_terminators !pet "too many terminators", 0
+
+.error_message_high_arr
+    !byte >.error_unsupported_stream
+    !byte >.error_invalid_char
+    !byte >.error_stream_nesting_error
+    !byte >.error_floppy_read_error
+    !byte >.error_memory_over_64kb
+    !byte >.error_stack_full
+    !byte >.error_stack_empty
+    !byte >.error_opcode_not_implemented
+    !byte >.error_used_nonexistent_local_var
+    !byte >.error_bad_property_length
+    !byte >.error_unsupported_story_version
+    !byte >.error_out_of_memory
+    !byte >.error_write_above_dynmem
+    !byte >.error_read_above_statmem
+    !byte >.error_too_many_terminators
+
+.error_message_low_arr
+    !byte <.error_unsupported_stream
+    !byte <.error_invalid_char
+    !byte <.error_stream_nesting_error
+    !byte <.error_floppy_read_error
+    !byte <.error_memory_over_64kb
+    !byte <.error_stack_full
+    !byte <.error_stack_empty
+    !byte <.error_opcode_not_implemented
+    !byte <.error_used_nonexistent_local_var
+    !byte <.error_bad_property_length
+    !byte <.error_unsupported_story_version
+    !byte <.error_out_of_memory
+    !byte <.error_write_above_dynmem
+    !byte <.error_read_above_statmem
+    !byte <.error_too_many_terminators
+}
 
 fatalerror
     ; prints the error, then resets the computer
@@ -43,82 +96,25 @@ fatalerror
 } else {
     pha
     jsr print_following_string
-    !pet "fatal error: ", 0
+    !pet "fatal error ", 0
     pla
-    cmp #ERROR_UNSUPPORTED_STREAM
-    bne .f1
-    jsr print_following_string
-    !pet "unsupported stream#",0
-    jmp .fe_reset
-.f1 cmp #ERROR_INVALID_CHAR
-    bne .f2
-    jsr print_following_string
-    !pet "invalid char",0
-    jmp .fe_reset
-.f2 cmp #ERROR_STREAM_NESTING_ERROR
-    bne .f3
-    jsr print_following_string
-    !pet "stream nesting error",0
-    jmp .fe_reset
-.f3 cmp #ERROR_FLOPPY_READ_ERROR
-    bne .f4
-    jsr print_following_string
-    !pet "floppy read error", 0
-    jmp .fe_reset
-.f4 cmp #ERROR_MEMORY_OVER_64KB
-    bne .f5
-    jsr print_following_string
-    !pet "tried to access z-machine memory over 64kb", 0
-    jmp .fe_reset
-.f5 cmp #ERROR_STACK_FULL
-    bne .f6
-    jsr print_following_string
-    !pet "stack full",0
-    jmp .fe_reset
-.f6 cmp #ERROR_STACK_EMPTY
-    bne .f7
-    jsr print_following_string
-    !pet "stack empty",0
-    jmp .fe_reset
-.f7 cmp #ERROR_OPCODE_NOT_IMPLEMENTED
-    bne .f8
-    jsr print_following_string
-    !pet "opcode not implemented!",0
-    jmp .fe_reset
-.f8 cmp #ERROR_USED_NONEXISTENT_LOCAL_VAR
-    bne .f9
-    jsr print_following_string
-    !pet "used non-existent local var",0
-    jmp .fe_reset
-.f9 cmp #ERROR_BAD_PROPERTY_LENGTH
-    bne .fa
-    jsr print_following_string
-    !pet "bad property length", 0
-    jmp .fe_reset
-.fa cmp #ERROR_UNSUPPORTED_STORY_VERSION
-    bne .fb
-    jsr print_following_string
-    !pet "unsupported story version", 0
-    jmp .fe_reset
-.fb cmp #ERROR_OUT_OF_MEMORY
-    bne .fc
-    jsr print_following_string
-    !pet "out of memory", 0
-    jmp .fe_reset
-.fc cmp #ERROR_WRITE_ABOVE_DYNMEM
-    bne .fd
-    jsr print_following_string
-    !pet "tried to write to non-dynamic memory", 0
-    jmp .fe_reset
-.fd cmp #ERROR_READ_ABOVE_STATMEM
-    bne .fz
-    jsr print_following_string
-    !pet "tried to read from himem", 0
-    jmp .fe_reset
-
-.fz jsr printinteger
-.fe_reset
-    jsr newline
+    tay
+    jsr printa
+    lda #58 ; :
+    jsr kernel_printchar
+    jsr space
+    lda .error_message_low_arr,y
+    sta .errorloop + 1
+    lda .error_message_high_arr,y
+    sta .errorloop + 2
+    ldx #0
+.errorloop
+    lda $8000,x
+    beq +
+    jsr kernel_printchar
+    inx
+    bne .errorloop
++   jsr newline
     jsr print_trace
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
