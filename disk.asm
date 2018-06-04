@@ -1,4 +1,5 @@
 ;TRACE_FLOPPY = 1
+;TRACE_FLOPPY_VERBOSE = 1
 
 readblocks_numblocks     !byte 0 
 readblocks_currentblock  !byte 0,0 ; 257 = ff 1
@@ -7,6 +8,24 @@ readblocks_mempos        !byte 0,0 ; $2000 = 00 20
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
+!ifdef TRACE_FLOPPY {
+    jsr newline
+    jsr print_following_string
+    !pet "readblocks (n,curr,pos) ",0
+    lda readblocks_numblocks
+    jsr printa
+    jsr comma
+    lda readblocks_currentblock
+    jsr print_byte_as_hex
+    lda readblocks_currentblock + 1
+    jsr print_byte_as_hex
+    jsr comma
+    lda readblocks_mempos + 1
+    jsr print_byte_as_hex
+    lda readblocks_mempos 
+    jsr print_byte_as_hex
+    jsr newline
+}
 -   jsr .readblock ; read block
     inc readblocks_mempos + 1   ; update mempos,block for next iteration
     inc readblocks_currentblock
@@ -52,19 +71,22 @@ readblocks
     stx .uname_sector
     sta .uname_sector + 1
 
-!ifdef TRACE_FLOPPY {
-    ldx readblocks_mempos
-    jsr printx
+!ifdef TRACE_FLOPPY_VERBOSE {
     jsr space
-    ldx readblocks_mempos + 1
-    jsr printx
-    jsr space
+    lda #36 ; $
+    jsr kernel_printchar
+    lda readblocks_mempos + 1
+    jsr print_byte_as_hex
+    lda readblocks_mempos 
+    jsr print_byte_as_hex
+    jsr comma
     ldx readblocks_currentblock
     jsr printx
-    jsr space
-    lda #<.uname
-    ldy #>.uname
-    jsr printstring
+    ;jsr comma
+    ;lda #<.uname
+    ;ldy #>.uname
+    ;jsr printstring
+    jsr newline
 }
     ; open the channel file
     lda #cname_len
@@ -135,7 +157,7 @@ cname_len = * - .cname
 .uname_track !text "18 "
 .uname_sector !text "00"
 ;!ifdef DEBUG {
-    !byte 13, 0 ; end of string, so we can print debug messages
+    !byte 0 ; end of string, so we can print debug messages
 ;}
 uname_len = * - .uname
 .track  !byte 0

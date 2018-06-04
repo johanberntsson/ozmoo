@@ -137,6 +137,9 @@ z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
     jsr printchar_flush
+!ifdef TRACE_VM {
+    ;jsr print_vm_map
+}
     ; read input
     ldy #0
     sty .read_text_time

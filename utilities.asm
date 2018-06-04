@@ -313,7 +313,6 @@ print_following_string
 }
 
 print_trace
-;!ifdef DEBUG {
 	jsr print_following_string
 	!pet 13,"last opcodes: (#, z_pc, opcode)",13,0
 	lda z_trace_index
@@ -328,20 +327,20 @@ print_trace
 	lda #$24
 	jsr kernel_printchar
 	lda z_trace_page,y
-	jsr .print_byte_as_hex
+	jsr print_byte_as_hex
 	iny
 	lda z_trace_page,y
-	jsr .print_byte_as_hex
+	jsr print_byte_as_hex
 	iny
 	lda z_trace_page,y
-	jsr .print_byte_as_hex
+	jsr print_byte_as_hex
 	iny
 	lda #$2c
 	jsr kernel_printchar
 	lda #$24
 	jsr kernel_printchar
 	lda z_trace_page,y
-	jsr .print_byte_as_hex
+	jsr print_byte_as_hex
 	lda #$0d
 	jsr kernel_printchar
 	iny
@@ -350,7 +349,7 @@ print_trace
 	bcc .print_next_op
 	bcs .print_no_more_ops
 
-.print_byte_as_hex
+print_byte_as_hex
 	stx zp_temp
 	pha
 	lsr
@@ -369,7 +368,6 @@ print_trace
 .hex_num
 	!pet "0123456789abcdef"
 .print_no_more_ops
-;}	
     rts
 	
 }

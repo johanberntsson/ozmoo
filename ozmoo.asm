@@ -78,10 +78,10 @@ w1  cmp $d012
 	lda #147
 	jsr kernel_printchar
 
-	; add empty line to avoid having the first line overwritten
-	; by the status line
-	lda #$0d
-	jsr kernel_printchar
+	; start text output from bottom of the screen
+	ldy #0
+	ldx #24
+	jsr set_cursor
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	ldx #%00110110

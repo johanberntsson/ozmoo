@@ -213,7 +213,7 @@ increase_num_rows
     bne +
     ; unbuffered windows don't insert newlines
     lda .num_rows
-    cmp #5 ; make sure that we see all debug messages (if any)
+    cmp #15 ; make sure that we see all debug messages (if any)
     bcc .increase_num_rows_done
     bcs .show_more
 +   lda .num_rows
