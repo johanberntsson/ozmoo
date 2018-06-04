@@ -1116,14 +1116,25 @@ z_divide
 
 !zone {
 calc_address_in_byte_array
+	; output: If address is in dynmem, y = 0 and address is in (zp_temp). Otherwise, y = 1 and address is in .addr
+	; y value is loaded last, so beq/bne can be used to check y value
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1
-	sta zp_temp
+	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
-	clc
-	adc #>story_start
+	tay
+	cpx story_start + header_static_mem + 1
+	sbc story_start + header_static_mem
+	tya
+	bcc .is_in_dynmem
+	jsr set_z_address
+	ldy #1
+	rts
+.is_in_dynmem	
+	stx zp_temp
+	adc #>story_start ; Carry is already clear
 	sta zp_temp + 1
 	ldy #0
 	rts
@@ -1540,13 +1551,14 @@ z_ins_loadw_and_storew
 	lda zp_temp + 1
 	sbc story_start + header_static_mem
 	bcc .word_read_in_dynmem
-!ifdef DEBUG {
-	; Check that address is in static memory
-	cpx story_start + header_high_mem + 1
-	lda zp_temp + 1
-	sbc story_start + header_high_mem
-	bcs .read_above_statmem
-}
+; !ifdef DEBUG {
+	; ; Check that address is in z-machine memory
+	; ; THIS CHECK IS ALL WRONG! Need to compute end of file address to compare to!
+	; cpx story_start + header_high_mem + 1
+	; lda zp_temp + 1
+	; sbc story_start + header_high_mem
+	; bcs .read_above_statmem
+; }
 	; Address is in static memory
 	lda zp_temp + 1
 	jsr set_z_address
@@ -1587,17 +1599,30 @@ z_ins_loadw_and_storew
 .write_outside_dynmem
 	lda #ERROR_WRITE_ABOVE_DYNMEM
 	jsr fatalerror
-.read_above_statmem
-	lda #ERROR_READ_ABOVE_STATMEM
-	jsr fatalerror
+; .read_above_statmem
+	; lda #ERROR_READ_ABOVE_STATMEM
+	; jsr fatalerror
 }
 	
 z_ins_loadb
 	jsr calc_address_in_byte_array
+	bne + ; Z = 0 if address is in statmem
 	lda (zp_temp),y
 	tax
 	tya
 	jmp z_store_result
++	jsr read_next_byte
+	tax
+	lda #0
+	jmp z_store_result
+
+; VAR instruction, moved here to allow relative jump to error	
+z_ins_storeb
+	jsr calc_address_in_byte_array
+	bne .write_outside_dynmem
+	lda z_operand_value_low_arr + 2
+	sta (zp_temp),y
+	rts
 
 ; z_ins_get_prop (moved to objecttable.asm)
 	
@@ -1739,13 +1764,9 @@ z_ins_call_xs
 	jmp stack_call_routine
 
 ; VAR storew is implemented in z_ins_loadw_and_storew, under 2OP	
-	
-z_ins_storeb
-	jsr calc_address_in_byte_array
-	lda z_operand_value_low_arr + 2
-	sta (zp_temp),y
-	rts
 
+; VAR storeb was moved to 2OP area, to allow for relative jump for error.
+	
 ; z_ins_put_prop (moved to objecttable.asm)
 	
 ; z_ins_sread / z_ins_aread (moved to text.asm)
