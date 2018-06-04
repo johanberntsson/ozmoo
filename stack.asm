@@ -23,19 +23,25 @@
 stack_pushed_bytes !byte 0, 0
 
 stack_init
-	lda #<(stack_start - 2)
+	lda #<(stack_start)
 	sta stack_ptr
-	lda #>(stack_start - 2)
+	lda #>(stack_start)
 	sta stack_ptr + 1
 	lda #0
 	sta stack_pushed_bytes
 	sta stack_pushed_bytes + 1
-!ifdef DEBUG {
-	ldx stack_ptr
-	lda stack_ptr + 1
-	jsr printinteger
-	jsr newline
-}
+	; tay
+; -	sta stack_start,y
+	; iny
+	; cpy #4
+	; bcc -
+
+; !ifdef DEBUG {
+	; ldx stack_ptr
+	; lda stack_ptr + 1
+	; jsr printinteger
+	; jsr newline
+; }
 	rts
 
 
