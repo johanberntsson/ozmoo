@@ -1039,7 +1039,6 @@ print_addr
     beq .l0
     ; handle abbreviation
     ; abbreviation is 32(.abbreviation_command-1)+a
-    ldy .abbreviation_command
     dey
     tya
     asl
@@ -1106,6 +1105,8 @@ print_addr
     sta .addr
     pla
     tax
+    lda #0
+    sta .alphabet_offset
     jmp .next_zchar
 .l0 ldy .escape_char_counter
     beq .l1
