@@ -27,7 +27,7 @@ PRELOAD_STATIC = 1
 ; filelength: $57e4 
 ;
 ; Using story_start
-; dictionary.asm: bad! terminators_ptr
+; dictionary.asm: ok
 ; objecttable.asm: ok, since object table in dynmem
 ; ozmoo.asm: ok
 ; screen.asm: ok, only z_ins_get_cursor to story in array/dynmem

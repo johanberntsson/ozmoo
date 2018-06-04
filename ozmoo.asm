@@ -52,6 +52,7 @@ c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
 !ifdef USEVM {
 !source "vmem.asm"
 }
+!source "zaddress.asm"
 !source "text.asm"
 !source "dictionary.asm"
 !source "objecttable.asm"
