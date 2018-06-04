@@ -22,6 +22,7 @@
 .stack_tmp !byte 0, 0, 0
 stack_pushed_bytes !byte 0, 0
 
+
 stack_init
 	lda #<(stack_start)
 	sta stack_ptr
@@ -30,6 +31,7 @@ stack_init
 	lda #0
 	sta stack_pushed_bytes
 	sta stack_pushed_bytes + 1
+	sta stack_has_top_value
 	; tay
 ; -	sta stack_start,y
 	; iny
@@ -44,7 +46,56 @@ stack_init
 ; }
 	rts
 
+	
+stack_push_top_value
+	; prerequisites: Caller must check that stack_has_top_value > 0
+	; uses: a,y
+	lda stack_pushed_bytes
+	bne +
+	ldy stack_pushed_bytes + 1
+	lda stack_top_value
+	sta (stack_ptr),y
+	iny
+	lda stack_top_value + 1
+	sta (stack_ptr),y
+	iny
+	sty stack_pushed_bytes + 1
+	bne .top_done
+	inc stack_pushed_bytes
+.top_done
++	lda stack_pushed_bytes
+	cmp #>(stack_start + stack_size - 256)
+	bcs .push_check_room
+-	rts
+.push_check_room
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	cmp #>(stack_start + stack_size)
+	bcc -
+	jmp .stack_full
 
++	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	sta zp_temp + 2
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	sta zp_temp + 3
+	ldy #0
+	lda stack_top_value
+	sta (zp_temp + 2),y
+	iny
+	lda stack_top_value + 1
+	sta (zp_temp + 2),y
+	inc stack_pushed_bytes + 1	
+	inc stack_pushed_bytes + 1
+	bne .top_done
+	inc stack_pushed_bytes
+	bne .top_done ; Always branch
+	
 .many_pushed_bytes
 	lda stack_ptr
 	clc
@@ -68,9 +119,13 @@ stack_call_routine
 	sty zp_temp + 1
 
 	; TASK: Wrap up current stack frame
-	lda stack_ptr + 1
-	cmp #>stack_start
-	bcc .current_frame_done ; There is no current frame, so no need to close it either
+	lda stack_has_top_value
+	beq +
+	jsr stack_push_top_value
++
+;	lda stack_ptr + 1
+;	cmp #>stack_start
+;	bcc .current_frame_done ; There is no current frame, so no need to close it either
 	lda stack_pushed_bytes
 	bne .many_pushed_bytes
 	; Frame has < 256 bytes pushed
@@ -211,6 +266,7 @@ stack_call_routine
 	; lda #4
 	; sta (stack_ptr),y
 	lda #0
+	sta stack_has_top_value
 	sta stack_pushed_bytes
 	sta stack_pushed_bytes + 1
 	
@@ -296,6 +352,7 @@ stack_return_from_routine
 
 	; TASK: Set stack_pushed_bytes to new value
 	ldy #0
+	sta stack_has_top_value
 	lda (z_local_vars_ptr),y
 	sta stack_pushed_bytes
 	iny
@@ -364,53 +421,66 @@ stack_return_from_routine
 
 stack_push
 	; Push a,x onto stack
-	ldy stack_pushed_bytes
-	bne .push_case_many_bytes
-	ldy stack_pushed_bytes + 1
-	sta (stack_ptr),y
-	iny
-	txa
-	sta (stack_ptr),y
-	iny
-	sty stack_pushed_bytes + 1
+	ldy stack_has_top_value
 	bne +
-	inc stack_pushed_bytes
-+	lda stack_ptr + 1
-	cmp #>(stack_start + stack_size - 256)
-	bcs .push_check_room
+	sta stack_top_value
+	stx stack_top_value + 1
+	inc stack_has_top_value
 	rts
-.push_case_many_bytes
-	sta zp_temp
-	lda stack_ptr
-	clc
-	adc stack_pushed_bytes + 1
-	sta zp_temp + 2
-	lda stack_ptr + 1
-	adc stack_pushed_bytes
-	sta zp_temp + 3
-	ldy #0
++	sta zp_temp
+	jsr stack_push_top_value
 	lda zp_temp
-	sta (zp_temp + 2),y
-	iny
-	txa
-	sta (zp_temp + 2),y
-	inc stack_pushed_bytes + 1
-	inc stack_pushed_bytes + 1
-	bne +
-	inc stack_pushed_bytes	
-+	lda stack_pushed_bytes
-	cmp #>(stack_start + stack_size - 256)
-	bcs .push_check_room
--	rts
-.push_check_room
-	lda stack_ptr
-	clc
-	adc stack_pushed_bytes + 1
-	lda stack_ptr + 1
-	adc stack_pushed_bytes
-	cmp #>(stack_start + stack_size)
-	bcc -
-	jmp .stack_full
+	sta stack_top_value
+	stx stack_top_value + 1
+	rts
+	
+	; ldy stack_pushed_bytes
+	; bne .push_case_many_bytes
+	; ldy stack_pushed_bytes + 1
+	; sta (stack_ptr),y
+	; iny
+	; txa
+	; sta (stack_ptr),y
+	; iny
+	; sty stack_pushed_bytes + 1
+	; bne +
+	; inc stack_pushed_bytes
+; +	lda stack_ptr + 1
+	; cmp #>(stack_start + stack_size - 256)
+	; bcs .push_check_room
+	; rts
+; .push_case_many_bytes
+	; sta zp_temp
+	; lda stack_ptr
+	; clc
+	; adc stack_pushed_bytes + 1
+	; sta zp_temp + 2
+	; lda stack_ptr + 1
+	; adc stack_pushed_bytes
+	; sta zp_temp + 3
+	; ldy #0
+	; lda zp_temp
+	; sta (zp_temp + 2),y
+	; iny
+	; txa
+	; sta (zp_temp + 2),y
+	; inc stack_pushed_bytes + 1
+	; inc stack_pushed_bytes + 1
+	; bne +
+	; inc stack_pushed_bytes	
+; +	lda stack_pushed_bytes
+	; cmp #>(stack_start + stack_size - 256)
+	; bcs .push_check_room
+; -	rts
+; .push_check_room
+	; lda stack_ptr
+	; clc
+	; adc stack_pushed_bytes + 1
+	; lda stack_ptr + 1
+	; adc stack_pushed_bytes
+	; cmp #>(stack_start + stack_size)
+	; bcc -
+	; jmp .stack_full
 	
 	; ; Check that there is room
 	; lda stack_ptr
@@ -448,7 +518,12 @@ stack_push
 ; +	rts
 
 stack_get_ref_to_top_value
-	clc
+	ldy stack_has_top_value
+	bne +
+	lda #>stack_top_value
+	ldx #<stack_top_value
+	rts
++	clc
 	ldy stack_pushed_bytes
 	bne .get_ref_case_many_bytes
 	ldx stack_pushed_bytes + 1
@@ -497,7 +572,13 @@ stack_get_ref_to_top_value
 	
 stack_pull
 	; Pull top value from stack, return in a,x
-	ldy stack_pushed_bytes
+	ldy stack_has_top_value
+	beq +
+	lda stack_top_value
+	ldx stack_top_value + 1
+	dec stack_has_top_value
+	rts
++	ldy stack_pushed_bytes
 	bne .pull_case_many_bytes
 	ldy stack_pushed_bytes + 1
 	beq .stack_empty_return_0

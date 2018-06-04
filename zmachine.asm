@@ -1619,7 +1619,9 @@ z_ins_loadb
 ; VAR instruction, moved here to allow relative jump to error	
 z_ins_storeb
 	jsr calc_address_in_byte_array
+!ifdef DEBUG {
 	bne .write_outside_dynmem
+}
 	lda z_operand_value_low_arr + 2
 	sta (zp_temp),y
 	rts
