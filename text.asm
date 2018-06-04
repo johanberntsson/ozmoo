@@ -935,7 +935,7 @@ tokenise_text
     pha     ; we need to reuse y, so save it on the stack
     txa
     ldy #0
---  cmp (terminators_ptr),y
+--  cmp terminators,y
     beq .terminator_found
     iny
     cpy num_terminators

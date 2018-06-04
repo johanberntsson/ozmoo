@@ -2,6 +2,7 @@ dict_entries !byte 0, 0
 dict_len_entries !byte 0
 dict_num_entries !byte 0,0
 num_terminators !byte 0
+terminators !byte 0,0,0,0,0
 
 parse_dictionary
     lda story_start + header_dictionary     ; 05
@@ -9,15 +10,17 @@ parse_dictionary
     jsr set_z_address
     ; read terminators
     jsr read_next_byte
-    sta num_terminators
-    tay
-    jsr get_z_address
-    stx terminators_ptr
-    clc
-    adc #>story_start
-    sta terminators_ptr + 1
+    jsr newline
+    cmp #5 ; max num terminators
+    bcc +
+    lda #ERROR_TOO_MANY_TERMINATORS
+    jsr fatalerror
++   sta num_terminators
+    ldy #0
 -   jsr read_next_byte
-    dey
+    sta terminators,y
+    iny
+    cpy num_terminators
     bne -
     ; read entries
     jsr read_next_byte

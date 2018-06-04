@@ -99,6 +99,7 @@ fatalerror
     !pet "fatal error ", 0
     pla
     tay
+    dey
     jsr printa
     lda #58 ; :
     jsr kernel_printchar

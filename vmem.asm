@@ -1,11 +1,12 @@
 ; virtual memory
 ;TRACE_VM = 1
+PRELOAD_STATIC = 1
 
 ; virtual memory address space
 ; Z1-Z3: 128 kB (0 - $1ffff)
 ; Z4-Z5: 256 kB (0 - $3ffff)
 ; Z6-Z8: 512 kB (0 - $7ffff)
-
+;
 ; map structure: one entry for each kB of available virtual memory
 ; each map entry is:
 ; 1 byte: ZMachine offset high byte (bitmask: $F0=used, $80=dynamic (rw))
@@ -16,10 +17,25 @@
 ; will store in datasette_buffer
 ;
 ; Example: dejavu.z3
+; abbrevations: $0042
+; object_table: $0102
+; globals: $0636
+; static memory: $0a4a
+; dictionary: $1071
+; high memory: $1764
 ; initial PC: $1765
-; high memory base: $1764
-; static memory base: $0a4a
 ; filelength: $57e4 
+;
+; Using story_start
+; dictionary.asm: bad! terminators_ptr
+; objecttable.asm: ok, since object table in dynmem
+; ozmoo.asm: ok
+; screen.asm: ok, only z_ins_get_cursor to story in array/dynmem
+; streams.asm: probably ok, stores in table/array in dynmem
+; text.asm: probably ok, string_array, parse_array in dynmem
+;           - should make read_next_byte more efficient
+; vmem.asm: ok
+; zmachine.asm: seems ok, only direct access for header + dynmem 
 ;
 ;  vmap_max_length = 5
 ;  initial vmap_length = 3
@@ -109,8 +125,13 @@ load_dynamic_memory
     jsr load_header
     ; load dynamic memory
     ; read in chunks of 4 blocks (1 kB)
-    ;lda story_start + header_static_mem
+!ifdef PRELOAD_STATIC {
+    ; dynmem + statmem
     lda story_start + header_high_mem
+} else {
+    ; dynmem only
+    lda story_start + header_static_mem
+}
     lsr    ; x/4
     lsr
     clc
@@ -145,8 +166,13 @@ prepare_static_high_memory
     sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
     pla
     ; check if rw or ro (swappable)
-    ;cmp story_start + header_static_mem
+!ifdef PRELOAD_STATIC {
+    ; dynmem + statmem
     cmp story_start + header_high_mem
+} else {
+    ; only dynmem
+    cmp story_start + header_static_mem
+}
     bcs + ; a >= static_mem
     ; allocated 1kB entry
     sta vmap_z_l,y ; z offset ($00 -)
