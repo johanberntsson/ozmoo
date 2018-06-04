@@ -1,6 +1,9 @@
 ; virtual memory
-;TRACE_VM = 1
-PRELOAD_STATIC = 1
+TRACE_VM = 1
+;TRACE_VM_PC = 1
+;PRELOAD_UNTIL = header_static_mem ; dynmem only
+;PRELOAD_UNTIL = header_dictionary ; dynmen + grammar tables
+PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
 
 ; virtual memory address space
 ; Z1-Z3: 128 kB (0 - $1ffff)
@@ -125,13 +128,7 @@ load_dynamic_memory
     jsr load_header
     ; load dynamic memory
     ; read in chunks of 4 blocks (1 kB)
-!ifdef PRELOAD_STATIC {
-    ; dynmem + statmem
-    lda story_start + header_high_mem
-} else {
-    ; dynmem only
-    lda story_start + header_static_mem
-}
+    lda story_start + PRELOAD_UNTIL
     lsr    ; x/4
     lsr
     clc
@@ -166,13 +163,7 @@ prepare_static_high_memory
     sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
     pla
     ; check if rw or ro (swappable)
-!ifdef PRELOAD_STATIC {
-    ; dynmem + statmem
-    cmp story_start + header_high_mem
-} else {
-    ; only dynmem
-    cmp story_start + header_static_mem
-}
+    cmp story_start + PRELOAD_UNTIL
     bcs + ; a >= static_mem
     ; allocated 1kB entry
     sta vmap_z_l,y ; z offset ($00 -)
@@ -198,18 +189,22 @@ read_byte_at_z_address
     sta zp_pc_h
     stx zp_pc_l
     sty mempointer ; low byte unchanged
-!ifdef TRACE_VM {
-    ;jsr print_following_string
-    ;!pet "pc: ", 0
-    ;ldx zp_pc_h
-    ;jsr printx
-    ;jsr space
-    ;ldx zp_pc_l
-    ;jsr printx
-    ;jsr space
-    ;ldx mempointer
-    ;jsr printx
-    ;jsr newline
+!ifdef TRACE_VM_PC {
+    lda zp_pc_l
+    cmp #$10
+    bcs +
+    cmp #$08
+    bcc +
+    jsr print_following_string
+    !pet "pc: ", 0
+    lda zp_pc_h
+    jsr print_byte_as_hex
+    lda zp_pc_l
+    jsr print_byte_as_hex
+    lda mempointer
+    jsr print_byte_as_hex
+    jsr newline
++
 }
     ; is there a block with this address in map?
     ldx #$ff ; this is the active block, if found
