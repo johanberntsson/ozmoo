@@ -10,7 +10,9 @@ parse_dictionary
     jsr set_z_address
     ; read terminators
     jsr read_next_byte
+!ifdef DEBUG {
     jsr newline
+}
     cmp #5 ; max num terminators
     bcc +
     lda #ERROR_TOO_MANY_TERMINATORS

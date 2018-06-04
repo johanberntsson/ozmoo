@@ -69,6 +69,7 @@ vmap_c64 = vmap_z_l + vmap_max_length
 !ifdef USEVM {
 !ifdef TRACE_VM {
 print_vm_map
+!ifdef DEBUG {
     ldy #0
 -   cpy #10
     bcs +
@@ -98,6 +99,7 @@ print_vm_map
     iny 
     cpy #vmap_max_length
     bne -
+}
     rts
 }
 
