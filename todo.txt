@@ -25,10 +25,6 @@ Basic sound effect support (low-pitched beep and high-pitched beep)
 save/restore
 	Copy SP and PC to below stack. Save this, stack and dynmem as one file.
 
-Buffering/word wrap
-
-[MORE] prompts
-
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
 
 Extend virtual memory RAM up to $ffff (And disable trace automatically if RAM at page $cf00 is used for Vmem)
@@ -84,6 +80,10 @@ Fix random opcode (see notes under Instructions... below)
 - space, comma, newline, printx, printy, printa, etc. only in DEBUG
 
 catch/throw
+
+Buffering/word wrap
+
+[MORE] prompts
 
 
 
