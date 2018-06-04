@@ -1,9 +1,9 @@
 ; virtual memory
 TRACE_VM = 1
 ;TRACE_VM_PC = 1
-;PRELOAD_UNTIL = header_static_mem ; dynmem only
+PRELOAD_UNTIL = header_static_mem ; dynmem only
 ;PRELOAD_UNTIL = header_dictionary ; dynmen + grammar tables
-PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
+;PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
 
 ; virtual memory address space
 ; Z1-Z3: 128 kB (0 - $1ffff)
@@ -67,9 +67,10 @@ vmap_z_l = vmap_z_h + vmap_max_length
 vmap_c64 = vmap_z_l + vmap_max_length
 
 !ifdef USEVM {
+
+!ifdef DEBUG {
 !ifdef TRACE_VM {
 print_vm_map
-!ifdef DEBUG {
     ldy #0
 -   cpy #10
     bcs +
@@ -99,8 +100,8 @@ print_vm_map
     iny 
     cpy #vmap_max_length
     bne -
-}
     rts
+}
 }
 
 load_blocks_from_index
@@ -180,7 +181,7 @@ prepare_static_high_memory
     cpy #vmap_max_length
     bne -
 !ifdef TRACE_VM {
-    jsr print_vm_map
+    ;jsr print_vm_map
 }
     rts
 
