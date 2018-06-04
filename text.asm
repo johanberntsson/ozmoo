@@ -57,8 +57,6 @@ z_ins_tokenise_text
     lda z_operand_value_low_arr + 2
     sta .dict_entries
 	lda z_operand_value_high_arr + 2
-    clc
-    adc #>story_start
     sta .dict_entries + 1
 .no_user_dictionary
     ; setup parse_array and flag
