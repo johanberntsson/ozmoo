@@ -226,14 +226,13 @@ read_byte_at_z_address
     and #$7
     cmp zp_pc_h
     bne +
+    ; vm index for this block found
     tya
     tax ; store block index in x
+    jmp .index_found
 +   iny
     cpy #vmap_max_length
     bne -
-    ; did we find an entry in vmem map?
-    cpx #$ff
-    bne +
     ; no index found, add last
 !ifdef TRACE_VM {
     ;jsr print_following_string
@@ -248,7 +247,8 @@ read_byte_at_z_address
     and #$fc ; skip bit 0,1 since kB blocks
     sta vmap_z_l,x
     jsr load_blocks_from_index
-+   ; index x found. get return value
+.index_found
+    ; index x found. get return value
     lda zp_pc_l
     and #$03 ; keep index into kB chunk
     clc
