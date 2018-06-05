@@ -2014,6 +2014,7 @@ z_ins_sound_effect
 	sta $d404
 	rts
 
+!ifdef Z4PLUS {
 z_ins_scan_table
 	lda z_operand_count
 	cmp #4
@@ -2076,6 +2077,7 @@ z_ins_scan_table
 	ldx zp_temp + 3
 	jsr z_store_result
 	jmp make_branch_true
+}
 
 ; z_ins_read_char moved to text.asm	
 
@@ -2087,6 +2089,7 @@ z_ins_scan_table
 	
 ; EXT instructions
 
+!ifdef Z5PLUS {
 z_ins_log_shift
 	lda z_operand_value_high_arr + 1
 	ora z_operand_value_low_arr + 1
@@ -2150,6 +2153,7 @@ z_ins_save_restore_undo
 	ldx #$ff
 	txa
 	jmp z_store_result
+}
 
 ; z_ins_set_true_colour placed at end of VAR z_ins_print_num
 	

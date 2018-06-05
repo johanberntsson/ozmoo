@@ -471,7 +471,8 @@ z_ins_pull
 	dey
 	sta (zp_temp),y
 	rts
-	
+
+!ifdef Z5PLUS {	
 z_ins_catch
 	; Store pointer to first byte where pushed values are stored in current frame.
 	ldx stack_ptr
@@ -516,6 +517,7 @@ z_ins_check_arg_count
 	jmp make_branch_true
 .branch_false
 	jmp make_branch_false
+}	
 	
 }
 
