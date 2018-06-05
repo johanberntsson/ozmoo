@@ -4,9 +4,9 @@ C1541 := /usr/bin/c1541
 #X64 := /usr/bin/x64 -autostart-delay-random
 X64 := /usr/bin/x64 -warp -autostart-delay-random
 
-#all: minizork
+all: minizork
 #all: zork1
-all: dejavu
+#all: dejavu
 #all: dragon
 #all: minform
 #all: czechz3

@@ -6,6 +6,9 @@ A Z-machine interpreter for the Commodore 64
 
 Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
+![Minizork running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
+
+
 ## Motivation
 
 We were looking for a redistrubutable interpreter of Infocom and Inform games that could be used for new interactive fiction works on the C64.
