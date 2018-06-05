@@ -22,7 +22,6 @@
 .stack_tmp !byte 0, 0, 0
 stack_pushed_bytes !byte 0, 0
 
-
 stack_init
 	lda #<(stack_start)
 	sta stack_ptr
@@ -50,33 +49,7 @@ stack_init
 stack_push_top_value
 	; prerequisites: Caller must check that stack_has_top_value > 0
 	; uses: a,y
-	lda stack_pushed_bytes
-	bne +
-	ldy stack_pushed_bytes + 1
-	lda stack_top_value
-	sta (stack_ptr),y
-	iny
-	lda stack_top_value + 1
-	sta (stack_ptr),y
-	iny
-	sty stack_pushed_bytes + 1
-	bne .top_done
-	inc stack_pushed_bytes
-.top_done
-+	lda stack_pushed_bytes
-	cmp #>(stack_start + stack_size - 256)
-	bcs .push_check_room
--	rts
-.push_check_room
-	lda stack_ptr
-	clc
-	adc stack_pushed_bytes + 1
-	lda stack_ptr + 1
-	adc stack_pushed_bytes
-	cmp #>(stack_start + stack_size)
-	bcc -
-	jmp .stack_full
-
+	; Note: Does not change stack_has_top_value! Caller must do this as needed.
 +	lda stack_ptr
 	clc
 	adc stack_pushed_bytes + 1
@@ -94,8 +67,22 @@ stack_push_top_value
 	inc stack_pushed_bytes + 1
 	bne .top_done
 	inc stack_pushed_bytes
-	bne .top_done ; Always branch
-	
+.top_done
++	lda stack_pushed_bytes
+	cmp #>(stack_start + stack_size - 256)
+	bcs .push_check_room
+-	rts
+.push_check_room
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	cmp #>(stack_start + stack_size)
+	bcc -
+	jmp .stack_full
+
+; This is used by stack_call_routine	
 .many_pushed_bytes
 	lda stack_ptr
 	clc
@@ -181,17 +168,6 @@ stack_call_routine
 	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
 	
-	; ; Check that there is room on the stack
-	; clc
-	; adc #3
-	; asl
-	; adc stack_ptr
-	; lda stack_ptr + 1
-	; adc #0
-	; cmp #>(stack_start + stack_size)
-	; bcc +
-	; jmp .stack_full
-; +	
 	lda stack_ptr
 	sta z_local_vars_ptr
 	lda stack_ptr + 1
@@ -259,12 +235,6 @@ stack_call_routine
 	sta (stack_ptr),y
 
 	; TASK: Set number of pushed bytes to 0
-	; iny
-	; lda #0
-	; sta (stack_ptr),y
-	; iny
-	; lda #4
-	; sta (stack_ptr),y
 	lda #0
 	sta stack_has_top_value
 	sta stack_pushed_bytes
@@ -291,38 +261,21 @@ stack_call_routine
 stack_return_from_routine
 
 	; input: return value in a,x
-	ldy stack_ptr + 1
-	cpy #>stack_start
-	bcs +
-	jmp .stack_underflow
+	; ldy stack_ptr + 1
+	; cpy #>stack_start
+	; bcs +
+	; jmp .stack_underflow
 
 	; Save input values
 +	sta zp_temp
 	stx zp_temp + 1
 	
-	; Skip past all items pushed onto stack in this frame,
-	; and 4 bytes lower to read pc and whether to store return value
+	; Read pc to return to and whether to store return value in this frame
 	ldy z_local_var_count
 	iny
 	tya
 	asl
 	tay
-	; lda stack_ptr
-	; sec
-	; sbc #4
-	; sta zp_temp + 2
-	; lda stack_ptr + 1
-	; sbc #0
-	; sta zp_temp + 3
-	; ldy #0
-	
-	; ldy #1
-	; sbc (stack_ptr),y
-	; sta zp_temp + 2
-	; lda stack_ptr + 1
-	; dey
-	; sbc (stack_ptr),y
-	; sta zp_temp + 3
 	lda (z_local_vars_ptr),y
 	sta .stack_tmp ; storebit, argcount, varcount
 	
@@ -336,23 +289,9 @@ stack_return_from_routine
 	cpx #3
 	bcc -
 	
-	; Skip past locals on stack
-	; lda z_local_var_count
-	; clc
-	; adc #1
-	; asl
-	; sta .stack_tmp + 1
-	; lda zp_temp + 2
-	; sec
-	; sbc .stack_tmp + 1
-	; sta stack_ptr
-	; lda zp_temp + 3
-	; sbc #0
-	; sta stack_ptr + 1
-
 	; TASK: Set stack_pushed_bytes to new value
 	ldy #0
-	sta stack_has_top_value
+	sty stack_has_top_value
 	lda (z_local_vars_ptr),y
 	sta stack_pushed_bytes
 	iny
@@ -434,113 +373,22 @@ stack_push
 	stx stack_top_value + 1
 	rts
 	
-	; ldy stack_pushed_bytes
-	; bne .push_case_many_bytes
-	; ldy stack_pushed_bytes + 1
-	; sta (stack_ptr),y
-	; iny
-	; txa
-	; sta (stack_ptr),y
-	; iny
-	; sty stack_pushed_bytes + 1
-	; bne +
-	; inc stack_pushed_bytes
-; +	lda stack_ptr + 1
-	; cmp #>(stack_start + stack_size - 256)
-	; bcs .push_check_room
-	; rts
-; .push_case_many_bytes
-	; sta zp_temp
-	; lda stack_ptr
-	; clc
-	; adc stack_pushed_bytes + 1
-	; sta zp_temp + 2
-	; lda stack_ptr + 1
-	; adc stack_pushed_bytes
-	; sta zp_temp + 3
-	; ldy #0
-	; lda zp_temp
-	; sta (zp_temp + 2),y
-	; iny
-	; txa
-	; sta (zp_temp + 2),y
-	; inc stack_pushed_bytes + 1
-	; inc stack_pushed_bytes + 1
-	; bne +
-	; inc stack_pushed_bytes	
-; +	lda stack_pushed_bytes
-	; cmp #>(stack_start + stack_size - 256)
-	; bcs .push_check_room
-; -	rts
-; .push_check_room
-	; lda stack_ptr
-	; clc
-	; adc stack_pushed_bytes + 1
-	; lda stack_ptr + 1
-	; adc stack_pushed_bytes
-	; cmp #>(stack_start + stack_size)
-	; bcc -
-	; jmp .stack_full
-	
-	; ; Check that there is room
-	; lda stack_ptr
-	; cmp #<(stack_start + stack_size - 2)
-	; bne .there_is_room
-	; lda stack_ptr + 1
-	; cmp #>(stack_start + stack_size - 2)
-	; beq .stack_full
-; .there_is_room
-	; ; Increase number of pushed values
-	; ldy #1
-	; lda (stack_ptr),y
-	; clc
-	; adc #2
-	; ldy #3
-	; sta (stack_ptr),y
-	; ldy #0
-	; lda (stack_ptr),y
-	; clc
-	; adc #0
-	; ldy #2
-	; sta (stack_ptr),y
-	; ; Store value
-	; lda zp_temp
-	; ldy #0
-	; sta (stack_ptr),y
-	; lda zp_temp + 1
-	; iny
-	; sta (stack_ptr),y
-	; ; Increase stack pointer
-	; inc stack_ptr
-	; inc stack_ptr
-	; bne +
-	; inc stack_ptr + 1
-; +	rts
-
 stack_get_ref_to_top_value
 	ldy stack_has_top_value
-	bne +
+	beq +
 	lda #>stack_top_value
 	ldx #<stack_top_value
 	rts
-+	clc
-	ldy stack_pushed_bytes
-	bne .get_ref_case_many_bytes
++
+!ifdef DEBUG {	
 	ldx stack_pushed_bytes + 1
 	beq .stack_underflow
-	dex
-	dex
-	txa
-	adc stack_ptr
-	tax
-	lda #0
-	adc stack_ptr + 1
-	rts
-.get_ref_case_many_bytes
+}
+	clc
 	lda stack_pushed_bytes + 1
 	adc stack_ptr
 	tax
-	tya
+	lda stack_pushed_bytes
 	adc stack_ptr + 1
 	tay
 	txa
@@ -550,26 +398,13 @@ stack_get_ref_to_top_value
 	tya
 	sbc #0
 	rts
-	
-	; ldy #1
-	; lda (stack_ptr),y
-	; cmp #6
-	; bcs +
-	; dey
-	; lda (stack_ptr),y
-	; beq .stack_underflow
-; +	lda stack_ptr
-	; sec
-	; sbc #2
-	; tax
-	; lda stack_ptr + 1
-	; sbc #0
-	; rts
 
+!ifdef DEBUG {	
 .stack_underflow
     lda #ERROR_STACK_EMPTY
-	jsr fatalerror
-	
+	jmp fatalerror
+}
+
 stack_pull
 	; Pull top value from stack, return in a,x
 	ldy stack_has_top_value
@@ -578,25 +413,14 @@ stack_pull
 	ldx stack_top_value + 1
 	dec stack_has_top_value
 	rts
-+	ldy stack_pushed_bytes
-	bne .pull_case_many_bytes
-	ldy stack_pushed_bytes + 1
++	lda stack_pushed_bytes + 1
 	beq .stack_empty_return_0
-	dey
-	lda (stack_ptr),y
-	tax
-	dey
-	lda (stack_ptr),y
-	sty stack_pushed_bytes + 1
-	rts
-.pull_case_many_bytes
 	; Decrease # of bytes on stack
-	lda stack_pushed_bytes + 1
 	sec
 	sbc #2
 	sta stack_pushed_bytes + 1
 	tax
-	tya
+	lda stack_pushed_bytes
 	sbc #0
 	sta stack_pushed_bytes
 	tay
@@ -615,15 +439,7 @@ stack_pull
 	dey
 	lda (zp_temp),y
 	rts
-	
-	; ; Check that there are > 0 values on stack
-	; ldy #1
-	; lda (stack_ptr),y
-	; cmp #6
-	; bcs .ok
-	; dey
-	; lda (stack_ptr),y
-	; bne .ok
+
 .stack_empty_return_0
 !ifdef DEBUG {
 	jsr print_following_string
@@ -632,40 +448,8 @@ stack_pull
 	lda #0
 	tax
 	rts
-	
-	; ; Decrease stack pointer by two bytes	
-; .ok	sec
-	; lda stack_ptr
-	; sbc #2
-	; sta stack_ptr
-	; bcs +
-	; lda stack_ptr + 1
-	; sbc #0
-	; sta stack_ptr + 1
-	; ; Retrieve the top value on the stack 
-; +	ldy #0
-	; lda (stack_ptr),y
-	; pha
-	; iny
-	; lda (stack_ptr),y
-	; pha
-	; ; Decrease the number of bytes on the stack by 2, and move the value 2 bytes down in memory
-	; ldy #3
-	; lda (stack_ptr),y
-	; sec
-	; sbc #2
-	; ldy #1
-	; sta (stack_ptr),y
-	; iny
-	; lda (stack_ptr),y
-	; sbc #0
-	; ldy #0
-	; sta (stack_ptr),y
-	; pla
-	; tax
-	; pla
-	; rts
 
+	
 z_ins_push
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
@@ -713,28 +497,15 @@ z_ins_throw
 	jmp stack_return_from_routine
 	
 z_ins_check_arg_count
-	; Skip past all items pushed onto stack in this frame,
-	; and 4 bytes lower to read number of arguments
+	; Read number of arguments provided to this routine
 	lda z_operand_value_high_arr
 	bne .branch_false
-	lda stack_ptr
-	sec
-	sbc #4
-	sta zp_temp + 2
-	lda stack_ptr + 1
-	sbc #0
-	sta zp_temp + 3
-	ldy #0
-	lda (zp_temp + 2),y
-	
-	; ldy #1
-	; sbc (stack_ptr),y
-	; sta zp_temp + 2
-	; lda stack_ptr + 1
-	; dey
-	; sbc (stack_ptr),y
-	; sta zp_temp + 3
-	; lda (zp_temp + 2),y
+	ldy z_local_var_count
+	iny
+	tya
+	asl
+	tay
+	lda (z_local_vars_ptr),y
 	lsr
 	lsr
 	lsr
