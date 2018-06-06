@@ -83,10 +83,12 @@ w1  cmp $d012
 	ldy #0
 	ldx #24
 	jsr set_cursor
+
+	; Turn off interrupts
+	+disable_interrupts
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
-
 
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
@@ -100,7 +102,7 @@ w1  cmp $d012
 
 	; Back to normal memory banks
 	+set_memory_normal
-
+	+enable_interrupts
     rts
 
 load_header

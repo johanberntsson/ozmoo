@@ -616,6 +616,10 @@ read_text
     sta string_array + 1
     ; clear [More] counter
     jsr clear_num_rows
+    ; set up memory banks and interrupts
+    +store_memory_config
+    +set_memory_normal
+    +enable_interrupts
     ; check timer usage
     lda .read_text_time
     sta .read_text_time_jiffy
@@ -668,6 +672,7 @@ read_text
 .call_routine
     ; current time >= .read_text_jiffy. Time to call routine
     ; TODO: call routine and check return value
+    ; TODO: switch back to all ram/no irq first, then restore for $ffd2 etc?
     jsr prepare_read_text_timer
 .no_timer
     jsr kernel_getchar
@@ -749,6 +754,8 @@ read_text
     sta (zp_screenline),y
     lda #$0d
     jsr $ffd2 ; kernel_printchar
+    +disable_interrupts
+    +restore_memory_config
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0

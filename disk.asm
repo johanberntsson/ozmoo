@@ -1,5 +1,5 @@
-TRACE_FLOPPY = 1
-TRACE_FLOPPY_VERBOSE = 1
+;TRACE_FLOPPY = 1
+;TRACE_FLOPPY_VERBOSE = 1
 
 readblocks_numblocks     !byte 0 
 readblocks_currentblock  !byte 0,0 ; 257 = ff 1

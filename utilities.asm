@@ -8,30 +8,40 @@
 ; - set_memory_normal
 ; - set_memory_all_ram
 ; - set_memory_no_basic
+; - store_memory_config
+; - restore_memory_config
+; 
 ; various debug functions
+; - printx etc
 
 ; zero_processorports: ...<d000><e000><a000> on/off
+previous_zero_processorports !byte 0
+!macro store_memory_config {
+    lda zero_processorports
+    sta previous_zero_processorports
+}
+
+!macro restore_memory_config {
+    lda previous_zero_processorports
+    sta zero_processorports
+}
+
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
-    pha
     lda #%00110000 
     sta zero_processorports
-    pla
 }
 
 !macro set_memory_no_basic {
-    pha
     lda #%00110110
     sta zero_processorports
-    pla
 }
 
 !macro set_memory_normal {
-    pha
     lda #%00110111
     sta zero_processorports
-    pla
 }
+
 
 ; to be expanded to disable NMI IRQs later if needed
 !macro disable_interrupts {
@@ -116,7 +126,6 @@ fatalerror
     ; side effects: resets the computer
 !ifndef DEBUG {
     pha
-    +set_memory_normal
     ldy #>.fatal_error_string
 	lda #<.fatal_error_string
 	jsr printstring
@@ -127,6 +136,8 @@ fatalerror
     lda #$0d
     jsr streams_print_output
     jsr printchar_flush
+    +set_memory_normal
+    +enable_interrupts
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
 .fatal_error_string !pet "fatal error: ",0
