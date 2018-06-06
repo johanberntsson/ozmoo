@@ -82,6 +82,7 @@ w1  cmp $d012
 	+disable_interrupts
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
+	;+set_memory_all_ram
 	+set_memory_no_basic
 
 	jsr load_dynamic_memory

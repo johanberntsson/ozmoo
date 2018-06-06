@@ -16,11 +16,6 @@
 
 ; zero_processorports: ...<d000><e000><a000> on/off
 previous_zero_processorports !byte 0
-!macro store_memory_config {
-    lda zero_processorports
-    sta previous_zero_processorports
-}
-
 !macro restore_memory_config {
     lda previous_zero_processorports
     sta zero_processorports
@@ -28,16 +23,22 @@ previous_zero_processorports !byte 0
 
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
+    lda zero_processorports
+    sta previous_zero_processorports
     lda #%00110000 
     sta zero_processorports
 }
 
 !macro set_memory_no_basic {
+    lda zero_processorports
+    sta previous_zero_processorports
     lda #%00110110
     sta zero_processorports
 }
 
 !macro set_memory_normal {
+    lda zero_processorports
+    sta previous_zero_processorports
     lda #%00110111
     sta zero_processorports
 }
@@ -120,6 +121,11 @@ ERROR_TOO_MANY_TERMINATORS = 15
     !byte <.error_too_many_terminators
 }
 
+waitforenter
+    jsr $ffe4 ; kernel_getchar
+    beq waitforenter
+    rts
+
 fatalerror
     ; prints the error, then resets the computer
     ; input: a (error code)
@@ -138,8 +144,8 @@ fatalerror
     jsr printchar_flush
     +set_memory_normal
     +enable_interrupts
-    jsr kernel_readchar   ; read keyboard
-    jmp kernel_reset      ; reset
+    jsr waitforenter
+    jmp z_ins_quit
 .fatal_error_string !pet "fatal error: ",0
 } else {
     pha
@@ -158,7 +164,7 @@ fatalerror
     jsr newline
     jsr print_trace
     jsr printchar_flush
-    jsr kernel_readchar   ; read keyboard
+    jsr waitforenter
     jmp kernel_reset      ; reset
 
 .saved_a !byte 0

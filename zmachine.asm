@@ -528,7 +528,7 @@ z_execute
 
 	; jsr print_following_string
 	; !pet "press enter to start",13,0
-    ; jsr kernel_readchar   ; read keyboard
+    ; jsr waitforenter
 
 
 	; lda #z_test_mode_print
@@ -1196,6 +1196,8 @@ z_ins_rfalse
 ; z_ins_catch (moved to stack.asm)
 
 z_ins_quit
+    +set_memory_no_basic
+    jsr printchar_flush
 	jmp kernel_reset
 
 z_ins_ret_popped

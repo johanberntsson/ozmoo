@@ -134,10 +134,8 @@ z_ins_print_ret
 z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
+    +set_memory_no_basic
     jsr printchar_flush
-!ifdef TRACE_VM {
-    ;jsr print_vm_map
-}
     ; read input
     ldy #0
     sty .read_text_time
@@ -211,11 +209,13 @@ z_ins_sread
     jsr newline
 }
 .sread_done
+    +restore_memory_config
     rts
 
 } else {	
 
 z_ins_aread
+    +set_memory_no_basic
     ; aread text parse time routine -> (result)
     jsr printchar_flush
     ; read input
@@ -310,6 +310,7 @@ z_ins_aread
     lda #$0d
     jsr streams_print_output
 }
+    +restore_memory_config
     lda #0
     ldx #13
 	jmp z_store_result
@@ -616,10 +617,6 @@ read_text
     sta string_array + 1
     ; clear [More] counter
     jsr clear_num_rows
-    ; set up memory banks and interrupts
-    +store_memory_config
-    +set_memory_normal
-    +enable_interrupts
     ; check timer usage
     lda .read_text_time
     sta .read_text_time_jiffy
@@ -754,8 +751,6 @@ read_text
     sta (zp_screenline),y
     lda #$0d
     jsr $ffd2 ; kernel_printchar
-    +disable_interrupts
-    +restore_memory_config
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0

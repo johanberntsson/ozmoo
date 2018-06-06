@@ -8,6 +8,7 @@ readblocks_mempos        !byte 0,0 ; $2000 = 00 20
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
+    +set_memory_no_basic
 !ifdef TRACE_FLOPPY {
     jsr newline
     jsr print_following_string
@@ -36,6 +37,7 @@ readblocks
     ; clear arguments for next call
     lda #0
     sta readblocks_currentblock + 1
+    +restore_memory_config
     rts
 
 .readblock
