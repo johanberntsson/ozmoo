@@ -12,7 +12,6 @@ NEW_MORE_PROMPT = 1
 .screen_offset_lo !byte $00, $28, $50, $78, $a0, $c8, $f0, $18, $40, $68, $90, $b8, $e0, $08, $30, $58, $80, $a8, $d0, $f8, $20, $48, $70, $98, $c0
 
 init_screen_colors
-    +set_memory_vic2_kernal
     lda #$0f
     sta $d020
     lda #$0b
@@ -21,7 +20,6 @@ init_screen_colors
     jsr $ffd2 ; kernel_printchar
     lda #147 ; clear screen
     jsr $ffd2 ; kernel_printchar
-    +restore_memory_config
     rts
 
 !ifdef Z4PLUS {
@@ -55,7 +53,7 @@ z_ins_erase_window
     cpx .window_size + 1
     bne -
 .erase_window_done
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 z_ins_erase_line
@@ -65,7 +63,7 @@ z_ins_erase_line
     sec
     jsr kernel_plot
     jsr .erase_line
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 .erase_line
@@ -105,7 +103,7 @@ z_ins_split_window
 }
     ldx z_operand_value_low_arr
     jsr .split_window
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 .split_window
@@ -149,7 +147,7 @@ z_ins_set_window
     ; store cursor position so it can be restored later
     ; when set_window 0 is called
     jsr .save_cursor
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 !ifdef Z4PLUS {
@@ -173,7 +171,7 @@ z_ins_set_text_style
     lda #18 ; reverse on
     jsr $ffd2 ; kernel_printchar
 .t1 
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 z_ins_get_cursor
@@ -199,7 +197,7 @@ z_ins_get_cursor
     pla ; column
     ldy #3
     sta (string_array),y
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 z_ins_set_cursor
@@ -228,7 +226,7 @@ z_ins_set_cursor
     ldy z_operand_value_low_arr + 1 ; column
     dey
     jsr set_cursor
-    +restore_memory_config
+    +restore_default_memory
     rts
 }
 
@@ -336,7 +334,7 @@ printchar_buffered
     +set_memory_vic2_kernal
     lda .buffer_char
     jsr $ffd2 ; kernel_printchar
-    +restore_memory_config
+    +restore_default_memory
     jmp .printchar_done
     ; update the buffer
 .buffered_window
@@ -364,7 +362,7 @@ printchar_buffered
     jsr $ffd2 ; kernel_printchar
     jsr .increase_num_rows
 }
-    +restore_memory_config
+    +restore_default_memory
     jmp .printchar_done
 .check_space
     cmp #$20
@@ -424,7 +422,7 @@ printchar_buffered
     jsr $ffd2 ; kernel_printchar
     jsr .increase_num_rows
 }
-    +restore_memory_config
+    +restore_default_memory
 .printchar_done
     pla
     tay
@@ -464,7 +462,7 @@ z_ins_show_status
     +set_memory_vic2_kernal
     ; show_status (hardcoded size)
     jsr draw_status_line
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 draw_status_line

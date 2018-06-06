@@ -5,40 +5,40 @@
 ; - fatalerror
 ; - enable_interrupts
 ; - disable_interrupts
-; - set_memory_normal
+; - set_default_memory_all_ram
+; - set_default_memory_vic2_kernal
+; - restore_default_memory
 ; - set_memory_all_ram
-; - set_memory_no_basic
-; - store_memory_config
-; - restore_memory_config
+; - set_memory_vic2_kernal
+; - set_memory_basic_vic2_kernal
 ; 
 ; various debug functions
 ; - printx etc
 
 ; zero_processorports: ...<d000><e000><a000> on/off
-previous_zero_processorports !byte 0
-!macro restore_memory_config {
-    lda previous_zero_processorports
+default_memory_config !byte 0
+!macro set_default_memory_all_ram {
+    lda #%00110000 
+    sta default_memory_config
+}
+!macro set_default_memory_vic2_kernal {
+    lda #%00110110
+    sta default_memory_config
+}
+!macro restore_default_memory {
+    lda default_memory_config
     sta zero_processorports
 }
-
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
-    lda zero_processorports
-    sta previous_zero_processorports
     lda #%00110000 
     sta zero_processorports
 }
-
 !macro set_memory_vic2_kernal {
-    lda zero_processorports
-    sta previous_zero_processorports
     lda #%00110110
     sta zero_processorports
 }
-
 !macro set_memory_basic_vic2_kernal {
-    lda zero_processorports
-    sta previous_zero_processorports
     lda #%00110111
     sta zero_processorports
 }

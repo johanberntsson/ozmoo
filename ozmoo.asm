@@ -65,6 +65,10 @@ w1  cmp $d012
     bmi w0
     and #$03
     sta c64_model
+
+	; Turn off interrupts
+	+disable_interrupts
+
     ; enable lower case mode
     lda #23
     sta reg_screen_char_mode
@@ -78,13 +82,6 @@ w1  cmp $d012
 	ldx #24
 	jsr set_cursor
 
-	; Turn off interrupts
-	+disable_interrupts
-	
-	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
-	;+set_memory_all_ram
-	+set_memory_vic2_kernal
-
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
     jsr parse_dictionary
@@ -93,6 +90,12 @@ w1  cmp $d012
 	jsr streams_init
 	jsr stack_init
 	jsr z_init
+
+	; Default banks during execution
+	;+set_default_memory_all_ram
+	+set_default_memory_vic2_kernal
+	+restore_default_memory
+
 	jsr z_execute
 
 	; Back to normal memory banks

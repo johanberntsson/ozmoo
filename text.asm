@@ -97,19 +97,26 @@ z_ins_encode_text
     rts
 
 z_ins_print_addr 
+    +set_memory_vic2_kernal
     ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr set_z_address
-	jmp print_addr
+	jsr print_addr
+	+restore_default_memory
+	rts
 
 z_ins_print_paddr
     ; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
+    +set_memory_vic2_kernal
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
     jsr set_z_paddress
-    jmp print_addr
+    jsr print_addr
+	+restore_default_memory
+    rts
 
 z_ins_print 
+    +set_memory_vic2_kernal
     ldy z_pc
     lda z_pc + 1
     ldx z_pc + 2
@@ -119,15 +126,19 @@ z_ins_print
     sty z_pc
     sta z_pc + 1
     stx z_pc + 2
+	+restore_default_memory
     rts
 
 z_ins_print_ret
+    +set_memory_vic2_kernal
     jsr z_ins_print
     lda #$0d
     jsr streams_print_output
     lda #0
     ldx #1
-    jmp stack_return_from_routine
+    jsr stack_return_from_routine
+	+restore_default_memory
+    rts
 
 !ifndef Z5PLUS {
 
@@ -209,13 +220,13 @@ z_ins_sread
     jsr newline
 }
 .sread_done
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 } else {	
 
 z_ins_aread
-    +set_memory_no_basic
+    +set_memory_vic2_kernal
     ; aread text parse time routine -> (result)
     jsr printchar_flush
     ; read input
@@ -310,7 +321,7 @@ z_ins_aread
     lda #$0d
     jsr streams_print_output
 }
-    +restore_memory_config
+    +restore_default_memory
     lda #0
     ldx #13
 	jmp z_store_result

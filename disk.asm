@@ -37,7 +37,7 @@ readblocks
     ; clear arguments for next call
     lda #0
     sta readblocks_currentblock + 1
-    +restore_memory_config
+    +restore_default_memory
     rts
 
 .readblock
