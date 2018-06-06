@@ -494,6 +494,7 @@ z_init
 	sta z_global_vars_start + 1
 
 	; Init sound
+	+set_memory_vic2_kernal
 	lda #0
 	ldx #$18
 -	sta $d400,x
@@ -512,7 +513,8 @@ z_init
 	sta $d40f
 	lda #$80
 	sta $d412
-	jmp z_rnd_init_random
+	jsr z_rnd_init_random
+	+restore_default_memory
 }
 
 z_execute
@@ -1139,6 +1141,7 @@ calc_address_in_byte_array
 
 !zone rnd {
 z_rnd_init_random
+    +set_memory_vic2_kernal
 	; in: Nothing
 	lda $dc04
 	eor #%10101010
@@ -1151,6 +1154,9 @@ z_rnd_init_random
 	lda $d41b
 	eor $d012
 	eor z_rnd_c
+	pha
+	+restore_default_memory
+	pla
 z_rnd_init
 	; in: a,x,y as seed
 	sta z_rnd_a
@@ -1989,6 +1995,7 @@ z_ins_random
 ; z_ins_output_stream jumps directly to streams_output_stream.
 
 z_ins_sound_effect
+    +set_memory_vic2_kernal
 	lda #$08
 	ldx z_operand_value_low_arr
 	dex
@@ -2010,6 +2017,7 @@ z_ins_sound_effect
 	bne --
 	lda #$20
 	sta $d404
+	+restore_default_memory
 	rts
 
 !ifdef Z4PLUS {

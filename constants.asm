@@ -45,6 +45,7 @@ datasette_buffer_end  = $03fb
 z_trace_page 		  = $cf00
 
 ; --- I/O registers ---
+reg_curr_raster_line  = $d012 
 reg_screen_char_mode  = $d018 
 reg_bordercolor       = $d020
 reg_backgroundcolor   = $d021 

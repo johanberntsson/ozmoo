@@ -13,9 +13,9 @@ NEW_MORE_PROMPT = 1
 
 init_screen_colors
     lda #$0f
-    sta $d020
+    sta reg_bordercolor
     lda #$0b
-    sta $d021
+    sta reg_backgroundcolor
     lda #155 ; light grey
     jsr $ffd2 ; kernel_printchar
     lda #147 ; clear screen

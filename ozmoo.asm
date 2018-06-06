@@ -1,3 +1,5 @@
+;ALLRAM = 1
+
 ; Which Z-machine to generate binary for
 ; (usually defined on the acme command line instead)
 ; Z1, Z2, Z6 and Z7 will (probably) never be supported
@@ -59,15 +61,12 @@ c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
 
 .initialize
     ; check if PAL or NTSC (needed for read_line timer)
-w0  lda $d012
-w1  cmp $d012
+w0  lda reg_curr_raster_line
+w1  cmp reg_curr_raster_line
     beq w1
     bmi w0
     and #$03
     sta c64_model
-
-	; Turn off interrupts
-	+disable_interrupts
 
     ; enable lower case mode
     lda #23
@@ -82,6 +81,20 @@ w1  cmp $d012
 	ldx #24
 	jsr set_cursor
 
+	; Turn off interrupts
+	+disable_interrupts
+	; Default banks during execution
+!ifdef ALLRAM {
+	+set_default_memory_all_ram
+} else {
+	+set_default_memory_vic2_kernal
+}
+!ifdef DEBUG {
+    ; I don't trust DEBUG with ALLRAM at the moment
+	+set_default_memory_vic2_kernal
+}
+	+restore_default_memory
+
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
     jsr parse_dictionary
@@ -91,10 +104,6 @@ w1  cmp $d012
 	jsr stack_init
 	jsr z_init
 
-	; Default banks during execution
-	;+set_default_memory_all_ram
-	+set_default_memory_vic2_kernal
-	+restore_default_memory
 
 	jsr z_execute
 
