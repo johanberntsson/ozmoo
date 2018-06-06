@@ -466,15 +466,14 @@ find_attr
     ldx z_operand_value_low_arr
     jsr printx
     lda #40 ; (
-    jsr kernel_printchar
+    jsr streams_print_output
     ldx object_tree_ptr
     jsr printx
-    lda #44 ; ,
-    jsr kernel_printchar
+    jsr comma
     ldx object_tree_ptr + 1
     jsr printx
     lda #41 ; )
-    jsr kernel_printchar
+    jsr streams_print_output
     ldx z_operand_value_low_arr + 1
     jsr printx
     jsr space
@@ -486,7 +485,7 @@ find_attr
     tax
 !ifdef TRACE_ATTR {
     lda #$78 ; X
-    jsr kernel_printchar
+    jsr streams_print_output
     jsr printx
     jsr space
 }
@@ -500,7 +499,7 @@ find_attr
     txa
     pha
     lda #$79 ; Y
-    jsr kernel_printchar
+    jsr streams_print_output
     jsr printy
     jsr space
     pla
@@ -937,7 +936,7 @@ find_prop
     beq .find_prop_not_found
 !ifdef TRACE_PROP {
     lda #46 ; .
-    jsr kernel_printchar
+    jsr streams_print_output
     ldx .property_number
     jsr printx
     jsr space
@@ -990,15 +989,13 @@ z_ins_get_prop
     jsr space
     ldx z_operand_value_low_arr + 1
     jsr printx
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     ldy .property_number
     jsr printy
     jsr space
     ldy .property_length
     jsr printy
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     pla
 }
     cmp #0
@@ -1077,15 +1074,13 @@ z_ins_get_prop_addr
     jsr space
     ldx z_operand_value_low_arr + 1
     jsr printx
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     ldy .property_number
     jsr printy
     jsr space
     ldy .property_length
     jsr printy
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     jsr get_z_address
     jsr printx
     jsr space
@@ -1142,15 +1137,13 @@ z_ins_put_prop
     jsr space
     ldx z_operand_value_low_arr + 2
     jsr printx
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     ldy .property_number
     jsr printy
     jsr space
     ldy .property_length
     jsr printy
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     jsr space
 }
     lda .property_length

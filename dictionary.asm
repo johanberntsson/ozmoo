@@ -36,41 +36,40 @@ parse_dictionary
     sta dict_entries  + 1
     rts
 
-show_dictionary
-    ; show all entries (assume at least one)
-    lda #0
-    sta .dict_x
-    sta .dict_x + 1
-    ldx dict_entries
-    lda dict_entries + 1
-    jsr set_z_address
--   ; show the dictonary word
-    jsr print_addr
-    lda #$0d
-    jsr kernel_printchar
-    ; skip the extra data bytes
-    lda dict_len_entries
-    sec
-!ifndef Z4PLUS {
-    sbc #4
-}
-!ifdef Z4PLUS {
-    sbc #6
-}
-    tay
---  jsr read_next_byte
-    dey
-    bne --
-    ; increase the loop counter
-    inc .dict_x + 1
-    bne +
-    inc .dict_x
-    ; counter < dict_num_entries?
-+   lda dict_num_entries + 1
-    cmp .dict_x + 1
-    bne -
-    lda dict_num_entries
-    cmp .dict_x 
-    bne -
-    rts
-.dict_x: !byte 0,0
+;show_dictionary
+;    ; show all entries (assume at least one)
+;    lda #0
+;    sta .dict_x
+;    sta .dict_x + 1
+;    ldx dict_entries
+;    lda dict_entries + 1
+;    jsr set_z_address
+;-   ; show the dictonary word
+;    jsr print_addr
+;    jsr newline
+;    ; skip the extra data bytes
+;    lda dict_len_entries
+;    sec
+;!ifndef Z4PLUS {
+;    sbc #4
+;}
+;!ifdef Z4PLUS {
+;    sbc #6
+;}
+;    tay
+;--  jsr read_next_byte
+;    dey
+;    bne --
+;    ; increase the loop counter
+;    inc .dict_x + 1
+;    bne +
+;    inc .dict_x
+;    ; counter < dict_num_entries?
+;+   lda dict_num_entries + 1
+;    cmp .dict_x + 1
+;    bne -
+;    lda dict_num_entries
+;    cmp .dict_x 
+;    bne -
+;    rts
+;.dict_x: !byte 0,0

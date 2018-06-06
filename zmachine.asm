@@ -655,8 +655,7 @@ z_execute
 	;ldx z_pc + 2
 	;lda z_pc + 1
 	;jsr printinteger
-	;lda #$0d
-	;jsr kernel_printchar
+	;jsr newline
 	;lda z_opcode
 }
 	and #%00011111
@@ -816,8 +815,7 @@ z_execute
 z_not_implemented
 ;	ldx z_opcode
 ;	jsr printx
-;	lda #$0d
-;	jsr kernel_printchar
+;	jsr newline
 !ifdef DEBUG {
 	jsr print_following_string
 	!pet "opcode: ",0
@@ -828,8 +826,7 @@ z_not_implemented
 	ldx z_pc + 2
 	lda z_pc + 1
 	jsr printinteger
-	lda #$0d
-	jsr kernel_printchar
+	jsr newline
 }
     lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror

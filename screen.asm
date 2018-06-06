@@ -7,11 +7,7 @@ NEW_MORE_PROMPT = 1
 .current_window !byte 0
 .window_size !byte 25, 0
 .cursor_position !byte 0,0
-!ifdef DEBUG {
-.is_buffered_window !byte 0,0 ; in debug printx etc prints all directly
-} else {
 .is_buffered_window !byte 1,0
-}
 .screen_offset_hi !byte $04, $04, $04, $04, $04, $04, $04, $05, $05, $05, $05, $05, $05, $06, $06, $06, $06, $06, $06, $06, $07, $07, $07, $07, $07
 .screen_offset_lo !byte $00, $28, $50, $78, $a0, $c8, $f0, $18, $40, $68, $90, $b8, $e0, $08, $30, $58, $80, $a8, $d0, $f8, $20, $48, $70, $98, $c0
 
@@ -29,7 +25,7 @@ z_ins_erase_window
     jsr split_window
 .keep_split
     lda #147 ; clear screen
-    jmp kernel_printchar
+    jmp $ffd2 ; kernel_printchar
 .window_0
     ldx .window_size + 1
 -   jsr erase_line
@@ -143,11 +139,11 @@ z_ins_set_text_style
     bne .t0
     ; roman
     lda #146 ; reverse off
-    jmp kernel_printchar
+    jmp $ffd2 ; kernel_printchar
 .t0 cmp #1
     bne .t1
     lda #18 ; reverse on
-    jmp kernel_printchar
+    jmp $ffd2 ; kernel_printchar
 .t1 rts
 
 z_ins_get_cursor
@@ -212,10 +208,11 @@ increase_num_rows
     lda .is_buffered_window,x
     bne +
     ; unbuffered windows don't insert newlines
-    lda .num_rows
-    cmp #15 ; make sure that we see all debug messages (if any)
-    bcc .increase_num_rows_done
-    bcs .show_more
+    ;lda .num_rows
+    ;cmp #24 ; make sure that we see all debug messages (if any)
+    ;bcc .increase_num_rows_done
+    ;bcs .show_more
+    jmp .increase_num_rows_done
 +   lda .num_rows
     cmp .window_size
     bcc .increase_num_rows_done
@@ -239,7 +236,7 @@ increase_num_rows
     ldx #0
 -   lda .more_text,x
     beq .printchar_pressanykey
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     inx
     bne -
 }
@@ -260,7 +257,7 @@ increase_num_rows
 -   lda .more_text,x
     beq .increase_num_rows_done
     lda #20 ; delete
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     inx
     bne -
 }
@@ -277,10 +274,10 @@ printchar_flush
     ldx #0
 -   cpx .buffer_index
     beq +
-    txa ; kernel_printchar destroys x,y
+    txa ; kernel_printchar/$ffd2 destroys x,y
     pha
     lda .buffer,x
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     pla
     tax
     inx
@@ -303,7 +300,7 @@ printchar_buffered
     lda .is_buffered_window,x
     bne .buffered_window
     lda .buffer_char
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     jmp .printchar_done
     ; update the buffer
 .buffered_window
@@ -322,11 +319,11 @@ printchar_buffered
     ; more on the same line
     jsr increase_num_rows
     lda #$0d
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
 } else {
     ; more on the next line
     lda #$0d
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     jsr increase_num_rows
 }
     jmp .printchar_done
@@ -355,10 +352,10 @@ printchar_buffered
     ldx #0
 -   cpx .buffer_last_space
     beq +
-    txa ; kernel_printchar destroys x,y
+    txa ; kernel_printchar/$ffd2 destroys x,y
     pha
     lda .buffer,x
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     pla
     tax
     inx
@@ -380,11 +377,11 @@ printchar_buffered
     ; more on the same line
     jsr increase_num_rows
     lda #$0d
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
 } else {
     ; more on the next line
     lda #$0d
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     jsr increase_num_rows
 }
 .printchar_done
@@ -445,7 +442,7 @@ draw_status_line
     ldy #0
     jsr set_cursor
     lda #18 ; reverse on
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     ;
     ; Room name
     ; 
@@ -461,7 +458,7 @@ draw_status_line
     cmp #40
     beq +
     lda #$20
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     jmp -
     ;
     ; score or time game?
@@ -476,7 +473,7 @@ draw_status_line
     ldy #0
 -   lda .score_str,y
     beq +
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     iny
     bne -
 +   lda #17
@@ -490,7 +487,7 @@ draw_status_line
     ldy #0
 -   lda .moves_str,y
     beq +
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     iny
     bne -
 +   lda #18
@@ -507,7 +504,7 @@ draw_status_line
     ldy #0
 -   lda .time_str,y
     beq +
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     iny
     bne -
 +   lda #17 ; hour
@@ -516,7 +513,7 @@ draw_status_line
     sta z_operand_value_high_arr
     jsr z_ins_print_num
     lda #58 ; :
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     lda #18 ; minute
     jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
@@ -524,7 +521,7 @@ draw_status_line
     jsr z_ins_print_num
 .statusline_done
     lda #146 ; reverse off
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     lda #0
     sta .current_window
     pla

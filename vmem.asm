@@ -81,8 +81,7 @@ print_vm_map
     and #%11000000
     jsr print_byte_as_hex
     jsr space
-    lda #36 ; $
-    jsr kernel_printchar
+    jsr dollar
     lda vmap_z_h,y ; zmachine mem offset ($0 - 
     and #%00111111
     jsr printa
@@ -94,8 +93,8 @@ print_vm_map
     lda vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
     jsr print_byte_as_hex
     lda #$30
-    jsr kernel_printchar
-    jsr kernel_printchar
+    jsr streams_print_output
+    jsr streams_print_output
     jsr newline
     iny 
     cpy #vmap_max_length

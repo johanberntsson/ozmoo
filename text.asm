@@ -681,7 +681,7 @@ read_text
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
-    jsr kernel_printchar ; print the delete char
+    jsr $ffd2 ; kernel_printchar ; print the delete char
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #14
@@ -697,7 +697,7 @@ read_text
     cmp #29
     beq .readkey ; cursor right
     ; print the allowed char and store in the array
-    jsr kernel_printchar
+    jsr $ffd2; kernel_printchar
     pha
     lda zp_screencolumn ; compare with size of keybuffer
     sec
@@ -748,7 +748,7 @@ read_text
     and #$7f
     sta (zp_screenline),y
     lda #$0d
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0

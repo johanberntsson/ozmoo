@@ -116,9 +116,7 @@ fatalerror
     ; side effects: resets the computer
 !ifndef DEBUG {
     pha
-    jsr printchar_flush
     +set_memory_normal
-	ldy #0
     ldy #>.fatal_error_string
 	lda #<.fatal_error_string
 	jsr printstring
@@ -127,35 +125,28 @@ fatalerror
     lda #0
     jsr printinteger
     lda #$0d
-    jsr kernel_printchar
+    jsr streams_print_output
+    jsr printchar_flush
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
 .fatal_error_string !pet "fatal error: ",0
 } else {
     pha
-    jsr printchar_flush
     jsr print_following_string
     !pet "fatal error ", 0
     pla
-    tay
-    dey
+    tax
+    dex
     jsr printa
-    lda #58 ; :
-    jsr kernel_printchar
+    jsr colon
     jsr space
-    lda .error_message_low_arr,y
-    sta .errorloop + 1
-    lda .error_message_high_arr,y
-    sta .errorloop + 2
-    ldx #0
-.errorloop
-    lda $8000,x
-    beq +
-    jsr kernel_printchar
-    inx
-    bne .errorloop
-+   jsr newline
+    lda .error_message_high_arr,x
+    tay
+    lda .error_message_low_arr,x
+    jsr printstring
+    jsr newline
     jsr print_trace
+    jsr printchar_flush
     jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
 
@@ -174,7 +165,7 @@ space
     stx .saved_x
     sty .saved_y
     lda #$20
-    jsr kernel_printchar
+    jsr streams_print_output
     lda .saved_a
     ldx .saved_x
     ldy .saved_y
@@ -182,7 +173,7 @@ space
     rts
 
 comma
-    ; subroutine: print space
+    ; subroutine: print comma
     ; input: 
     ; output:
     ; used registers:
@@ -192,7 +183,43 @@ comma
     stx .saved_x
     sty .saved_y
     lda #44
-    jsr kernel_printchar
+    jsr streams_print_output
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
+
+dollar
+    ; subroutine: print space
+    ; input: 
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    lda #36
+    jsr streams_print_output
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
+
+colon
+    ; subroutine: print colon
+    ; input: 
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    lda #58
+    jsr streams_print_output
     lda .saved_a
     ldx .saved_x
     ldy .saved_y
@@ -211,8 +238,7 @@ newline
     stx .saved_x
     sty .saved_y
     lda #$0d
-    jsr kernel_printchar
-    jsr increase_num_rows
+    jsr streams_print_output
     lda .saved_a
     ldx .saved_x
     ldy .saved_y
@@ -304,7 +330,7 @@ print_following_string
 .return_address
     lda $0000 ; self-modifying code (aaarg! but oh, so efficent)
     beq +
-    jsr kernel_printchar
+    jsr streams_print_output
     jmp -
 
     ; put updated return address on stack
@@ -316,8 +342,10 @@ print_following_string
 }
 
 print_trace
+    jsr newline
 	jsr print_following_string
-	!pet 13,"last opcodes: (#, z_pc, opcode)",13,0
+	!pet "last opcodes: (#, z_pc, opcode)",0
+    jsr newline
 	lda z_trace_index
 	sec
 	sbc #40
@@ -325,10 +353,8 @@ print_trace
 	ldx #0
 .print_next_op	
 	jsr printx
-	lda #$2c
-	jsr kernel_printchar
-	lda #$24
-	jsr kernel_printchar
+	jsr comma
+	jsr dollar
 	lda z_trace_page,y
 	jsr print_byte_as_hex
 	iny
@@ -338,14 +364,11 @@ print_trace
 	lda z_trace_page,y
 	jsr print_byte_as_hex
 	iny
-	lda #$2c
-	jsr kernel_printchar
-	lda #$24
-	jsr kernel_printchar
+	jsr comma
+	jsr dollar
 	lda z_trace_page,y
 	jsr print_byte_as_hex
-	lda #$0d
-	jsr kernel_printchar
+	jsr newline
 	iny
 	inx
 	cpx #10
@@ -361,13 +384,13 @@ print_byte_as_hex
 	lsr
 	tax
 	lda .hex_num,x
-	jsr kernel_printchar
+	jsr streams_print_output
 	pla
 	and #$0f
 	tax
 	lda .hex_num,x
 	ldx zp_temp
-	jmp kernel_printchar
+	jmp streams_print_output
 .hex_num
 	!pet "0123456789abcdef"
 .print_no_more_ops
@@ -377,6 +400,7 @@ print_byte_as_hex
 
 printinteger
     ; subroutine: print 16 bit integer value
+    ; (https://groups.google.com/forum/#!topic/comp.sys.cbm/htHknwABEmg)
     ; input: a,x (x = low, a = high);
     ; output:
     ; used registers: a
@@ -412,7 +436,7 @@ printinteger
     inc .digits
     clc
     adc #$30 ;* ascii code for 0
-    jsr kernel_printchar
+    jsr streams_print_output
 .dec5
     iny
     cpy #5
@@ -442,7 +466,7 @@ printstring
 .loop
     lda $8000,y
     beq +
-    jsr kernel_printchar
+    jsr streams_print_output
     iny
     bne .loop
 +   rts

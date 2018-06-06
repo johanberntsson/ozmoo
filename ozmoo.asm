@@ -74,10 +74,10 @@ w1  cmp $d012
 	sta $d020
 	lda #$0b
 	sta $d021
-	lda #155
-	jsr kernel_printchar
-	lda #147
-	jsr kernel_printchar
+	lda #155 ; light grey
+	jsr $ffd2 ; kernel_printchar
+	lda #147 ; clear screen
+	jsr $ffd2 ; kernel_printchar
 
 	; start text output from bottom of the screen
 	ldy #0

@@ -1,5 +1,5 @@
-;TRACE_FLOPPY = 1
-;TRACE_FLOPPY_VERBOSE = 1
+TRACE_FLOPPY = 1
+TRACE_FLOPPY_VERBOSE = 1
 
 readblocks_numblocks     !byte 0 
 readblocks_currentblock  !byte 0,0 ; 257 = ff 1
@@ -73,8 +73,7 @@ readblocks
 
 !ifdef TRACE_FLOPPY_VERBOSE {
     jsr space
-    lda #36 ; $
-    jsr kernel_printchar
+    jsr dollar
     lda readblocks_mempos + 1
     jsr print_byte_as_hex
     lda readblocks_mempos 
