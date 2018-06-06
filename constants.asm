@@ -61,6 +61,8 @@ kernel_chkin          = $ffc6 ; define file as default input
 kernel_chkout         = $ffc9 ; define file as default output
 kernel_clrchn         = $ffcc ; close default input/output files
 kernel_readchar       = $ffcf ; read byte from default input into a
+;use streams_print_output instead of kernel_printchar
+;($ffd2 only allowed for input/output in screen.asm and text.asm)
 ;kernel_printchar      = $ffd2 ; write char in a
 kernel_readtime       = $ffde ; get time of day in a/x/y
 kernel_getchar        = $ffe4 ; get a character

@@ -11,6 +11,17 @@ NEW_MORE_PROMPT = 1
 .screen_offset_hi !byte $04, $04, $04, $04, $04, $04, $04, $05, $05, $05, $05, $05, $05, $06, $06, $06, $06, $06, $06, $06, $07, $07, $07, $07, $07
 .screen_offset_lo !byte $00, $28, $50, $78, $a0, $c8, $f0, $18, $40, $68, $90, $b8, $e0, $08, $30, $58, $80, $a8, $d0, $f8, $20, $48, $70, $98, $c0
 
+init_screen_colors
+    lda #$0f
+    sta $d020
+    lda #$0b
+    sta $d021
+    lda #155 ; light grey
+    jsr $ffd2 ; kernel_printchar
+    lda #147 ; clear screen
+    jsr $ffd2 ; kernel_printchar
+    rts
+
 !ifdef Z4PLUS {
 z_ins_erase_window
     ; erase_window window

@@ -70,14 +70,8 @@ w1  cmp $d012
     sta reg_screen_char_mode
 	lda #$80
 	sta charset_switchable
-	lda #$0f
-	sta $d020
-	lda #$0b
-	sta $d021
-	lda #155 ; light grey
-	jsr $ffd2 ; kernel_printchar
-	lda #147 ; clear screen
-	jsr $ffd2 ; kernel_printchar
+
+	jsr init_screen_colors
 
 	; start text output from bottom of the screen
 	ldy #0

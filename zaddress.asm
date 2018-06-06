@@ -44,13 +44,11 @@ skip_bytes_z_address
 !ifdef DEBUG {
 print_z_address
     ldx .addr + 2 ; low
-    lda #$20
-    jsr $ffd2
+    jsr space
     jsr printx
     ldx .addr + 1 ; high
     jsr printx
-    lda #$0d
-    jmp $ffd2
+    jsr newline
 }
 
 get_z_address
