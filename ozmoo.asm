@@ -42,12 +42,12 @@ fileblocks !byte 0, 0
 c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
 
 ; include other assembly files
+!source "utilities.asm"
 !source "streams.asm"
 !source "disk.asm"
 !source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
-!source "utilities.asm"
 !source "zmachine.asm"
 !ifdef USEVM {
 !source "vmem.asm"
@@ -85,8 +85,7 @@ w1  cmp $d012
 	jsr set_cursor
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
-	ldx #%00110110
-	stx zero_processorports
+	+set_memory_no_basic
 
 
 	jsr load_dynamic_memory
@@ -100,8 +99,7 @@ w1  cmp $d012
 	jsr z_execute
 
 	; Back to normal memory banks
-	ldx #%00110111
-	stx zero_processorports
+	+set_memory_normal
 
     rts
 

@@ -2,8 +2,45 @@
 ; - conv2dec
 ; - mult16
 ; - divide16
-; - fatal error
+; - fatalerror
+; - enable_interrupts
+; - disable_interrupts
+; - set_memory_normal
+; - set_memory_all_ram
+; - set_memory_no_basic
 ; various debug functions
+
+; zero_processorports: ...<d000><e000><a000> on/off
+!macro set_memory_all_ram {
+    ; Don't forget to disable interrupts first!
+    pha
+    lda #%00110000 
+    sta zero_processorports
+    pla
+}
+
+!macro set_memory_no_basic {
+    pha
+    lda #%00110110
+    sta zero_processorports
+    pla
+}
+
+!macro set_memory_normal {
+    pha
+    lda #%00110111
+    sta zero_processorports
+    pla
+}
+
+; to be expanded to disable NMI IRQs later if needed
+!macro disable_interrupts {
+    sei 
+}
+
+!macro enable_interrupts {
+    cli
+}
 
 ERROR_UNSUPPORTED_STREAM = 1
 ERROR_INVALID_CHAR = 2
@@ -79,15 +116,16 @@ fatalerror
     ; side effects: resets the computer
 !ifndef DEBUG {
     pha
-	lda #%00110111
-	sta zero_processorports
-	ldy #>.fatal_error_string
+    jsr printchar_flush
+    +set_memory_normal
+	ldy #0
+    ldy #>.fatal_error_string
 	lda #<.fatal_error_string
-    jsr basic_printstring
+	jsr printstring
     pla
     tax
     lda #0
-    jsr basic_printinteger
+    jsr printinteger
     lda #$0d
     jsr kernel_printchar
     jsr kernel_readchar   ; read keyboard
@@ -95,6 +133,7 @@ fatalerror
 .fatal_error_string !pet "fatal error: ",0
 } else {
     pha
+    jsr printchar_flush
     jsr print_following_string
     !pet "fatal error ", 0
     pla
@@ -123,23 +162,6 @@ fatalerror
 .saved_a !byte 0
 .saved_x !byte 0
 .saved_y !byte 0
-
-printinteger
-    ; subroutine: print integer value using Basic routine
-    ; input: a,x
-    ; output:
-    ; used registers: a
-    ; side effects:
-!zone {
-    pha
-	lda #%00110111
-	sta zero_processorports
-	pla
-    jsr basic_printinteger
-	lda #%00110110
-	sta zero_processorports
-	rts
-}
 
 space
     ; subroutine: print space
@@ -254,22 +276,6 @@ printa
     plp
     rts
 
-printstring
-    ; input: x
-    ; output:
-    ; used registers:
-    ; side effects:
-!zone {
-    pha
-	lda #%00110111
-	sta zero_processorports
-	pla
-    jsr basic_printstring
-	lda #%00110110
-	sta zero_processorports
-	rts
-}
-
 print_following_string
     ; print text (implicit argument passing)
     ; input: 
@@ -367,6 +373,79 @@ print_byte_as_hex
 .print_no_more_ops
     rts
 	
+}
+
+printinteger
+    ; subroutine: print 16 bit integer value
+    ; input: a,x (x = low, a = high);
+    ; output:
+    ; used registers: a
+    ; side effects:
+!zone {
+    stx .binary
+    sta .binary+1
+    ldy #0
+    sty .digits ; 0 = remove leading zeros
+.dec1
+    ldx #0
+.dec2
+    lda .binary
+    cmp .dectbl1,y
+    lda .binary+1
+    sbc .dectbl2,y
+    bcc .dec3
+    sta .binary+1
+    lda .binary
+    sbc .dectbl1,y
+    sta .binary
+    inx
+    bne .dec2
+.dec3
+    txa
+    sta .decchr,y
+    bne .dec4
+    cpy #4
+    beq .dec4
+    ldx .digits
+    beq .dec5
+.dec4
+    inc .digits
+    clc
+    adc #$30 ;* ascii code for 0
+    jsr kernel_printchar
+.dec5
+    iny
+    cpy #5
+    bne .dec1
+    rts
+.dectbl1
+    !byte <10000,<1000,<100,<10,<1
+.dectbl2
+    !byte >10000,>1000,>100,>10,>1
+.binary
+    !word 0
+.decchr
+    !byte 0,0,0,0,0
+.digits
+    !byte 0 ;* number of digits if y=0
+}
+
+printstring
+    ; input: a,y (lo/hi)
+    ; output:
+    ; used registers:
+    ; side effects:
+!zone {
+    sta .loop+1
+    sty .loop+2
+    ldy #0
+.loop
+    lda $8000,y
+    beq +
+    jsr kernel_printchar
+    iny
+    bne .loop
++   rts
 }
 
 conv2dec
