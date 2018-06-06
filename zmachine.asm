@@ -1196,8 +1196,7 @@ z_ins_rfalse
 ; z_ins_catch (moved to stack.asm)
 
 z_ins_quit
-    +set_memory_no_basic
-    jsr printchar_flush
+    +set_memory_vic2_kernal
 	jmp kernel_reset
 
 z_ins_ret_popped

@@ -83,7 +83,7 @@ w1  cmp $d012
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	;+set_memory_all_ram
-	+set_memory_no_basic
+	+set_memory_vic2_kernal
 
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
@@ -96,7 +96,7 @@ w1  cmp $d012
 	jsr z_execute
 
 	; Back to normal memory banks
-	+set_memory_normal
+	+set_memory_basic_vic2_kernal
 	+enable_interrupts
     rts
 

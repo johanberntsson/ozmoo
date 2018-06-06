@@ -29,14 +29,14 @@ previous_zero_processorports !byte 0
     sta zero_processorports
 }
 
-!macro set_memory_no_basic {
+!macro set_memory_vic2_kernal {
     lda zero_processorports
     sta previous_zero_processorports
     lda #%00110110
     sta zero_processorports
 }
 
-!macro set_memory_normal {
+!macro set_memory_basic_vic2_kernal {
     lda zero_processorports
     sta previous_zero_processorports
     lda #%00110111
@@ -142,7 +142,7 @@ fatalerror
     lda #$0d
     jsr streams_print_output
     jsr printchar_flush
-    +set_memory_normal
+    +set_memory_basic_vic2_kernal
     +enable_interrupts
     jsr waitforenter
     jmp z_ins_quit

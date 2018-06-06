@@ -12,6 +12,7 @@ NEW_MORE_PROMPT = 1
 .screen_offset_lo !byte $00, $28, $50, $78, $a0, $c8, $f0, $18, $40, $68, $90, $b8, $e0, $08, $30, $58, $80, $a8, $d0, $f8, $20, $48, $70, $98, $c0
 
 init_screen_colors
+    +set_memory_vic2_kernal
     lda #$0f
     sta $d020
     lda #$0b
@@ -20,10 +21,12 @@ init_screen_colors
     jsr $ffd2 ; kernel_printchar
     lda #147 ; clear screen
     jsr $ffd2 ; kernel_printchar
+    +restore_memory_config
     rts
 
 !ifdef Z4PLUS {
 z_ins_erase_window
+    +set_memory_vic2_kernal
     ; erase_window window
     lda z_operand_value_low_arr
     cmp #0
@@ -33,33 +36,39 @@ z_ins_erase_window
     cmp #$ff ; clear screen, then; -1 unsplit, -2 keep as is
     beq .keep_split
     ldx #0 ; unsplit
-    jsr split_window
+    jsr .split_window
 .keep_split
     lda #147 ; clear screen
-    jmp $ffd2 ; kernel_printchar
+    jsr $ffd2 ; kernel_printchar
+    jmp .erase_window_done
 .window_0
     ldx .window_size + 1
--   jsr erase_line
+-   jsr .erase_line
     inx
     cpx #25
     bne -
-    rts
+    beq .erase_window_done
 .window_1
     ldx #0
--   jsr erase_line
+-   jsr .erase_line
     inx
     cpx .window_size + 1
     bne -
+.erase_window_done
+    +restore_memory_config
     rts
 
 z_ins_erase_line
+    +set_memory_vic2_kernal
     ; erase_line value
     ; clear current line (where the cursor is)
     sec
     jsr kernel_plot
-    jmp erase_line
+    jsr .erase_line
+    +restore_memory_config
+    rts
 
-erase_line
+.erase_line
     ; clear line <x> 
     ; registers: a,y
     ; note: self modifying code
@@ -85,6 +94,7 @@ z_ins_buffer_mode
 }
 
 z_ins_split_window
+    +set_memory_vic2_kernal
     ; split_window lines
 !ifdef TRACE_WINDOW {
     jsr print_following_string
@@ -94,12 +104,14 @@ z_ins_split_window
     jsr newline
 }
     ldx z_operand_value_low_arr
-    jmp split_window
+    jsr .split_window
+    +restore_memory_config
+    rts
 
-split_window
+.split_window
     ; split if <x> > 0, unsplit if <x> = 0
     cpx #0
-    bne .split_window
+    bne .do_split_window
     ; unsplit
     lda #25
     sta .window_size
@@ -108,7 +120,7 @@ split_window
     lda #1
     sta .num_windows
     rts
-.split_window
+.do_split_window
     stx .window_size + 1
     lda #25
     sec
@@ -119,6 +131,7 @@ split_window
     rts
 
 z_ins_set_window
+    +set_memory_vic2_kernal
     ;  set_window window
 !ifdef TRACE_WINDOW {
     jsr print_following_string
@@ -131,14 +144,17 @@ z_ins_set_window
     sta .current_window
     bne +
     ; this is the main text screen, restore cursor position
-    jmp restore_cursor
+    jmp .restore_cursor
 +   ; this is the status line window
     ; store cursor position so it can be restored later
     ; when set_window 0 is called
-    jmp save_cursor
+    jsr .save_cursor
+    +restore_memory_config
+    rts
 
 !ifdef Z4PLUS {
 z_ins_set_text_style
+    +set_memory_vic2_kernal
 !ifdef TRACE_WINDOW {
     jsr print_following_string
     !pet "set_text_style: ",0
@@ -150,14 +166,18 @@ z_ins_set_text_style
     bne .t0
     ; roman
     lda #146 ; reverse off
-    jmp $ffd2 ; kernel_printchar
+    jsr $ffd2 ; kernel_printchar
+    jmp .t1
 .t0 cmp #1
     bne .t1
     lda #18 ; reverse on
-    jmp $ffd2 ; kernel_printchar
-.t1 rts
+    jsr $ffd2 ; kernel_printchar
+.t1 
+    +restore_memory_config
+    rts
 
 z_ins_get_cursor
+    +set_memory_vic2_kernal
     ; set_cursor array
     ldx z_operand_value_low_arr
     stx string_array
@@ -170,7 +190,7 @@ z_ins_get_cursor
     sta (string_array),y
     ldy #2
     sta (string_array),y
-    jsr get_cursor ; x=row, y=column
+    jsr .get_cursor ; x=row, y=column
     tya
     pha
     ldy #1
@@ -179,9 +199,11 @@ z_ins_get_cursor
     pla ; column
     ldy #3
     sta (string_array),y
+    +restore_memory_config
     rts
 
 z_ins_set_cursor
+    +set_memory_vic2_kernal
     ; set_cursor line column
 !ifdef TRACE_WINDOW {
     jsr print_following_string
@@ -205,7 +227,9 @@ z_ins_set_cursor
 .top_window
     ldy z_operand_value_low_arr + 1 ; column
     dey
-    jmp set_cursor
+    jsr set_cursor
+    +restore_memory_config
+    rts
 }
 
 clear_num_rows
@@ -213,7 +237,7 @@ clear_num_rows
     sta .num_rows
     rts
 
-increase_num_rows
+.increase_num_rows
     ldx .current_window
     inc .num_rows,x
     lda .is_buffered_window,x
@@ -253,8 +277,7 @@ increase_num_rows
 }
     ; wait for ENTER
 .printchar_pressanykey
--   jsr kernel_getchar
-    beq -
+    jsr waitforenter
 !ifdef NEW_MORE_PROMPT {
     lda .more_text_char
     sta $07e5
@@ -310,8 +333,10 @@ printchar_buffered
     ldx .current_window
     lda .is_buffered_window,x
     bne .buffered_window
+    +set_memory_vic2_kernal
     lda .buffer_char
     jsr $ffd2 ; kernel_printchar
+    +restore_memory_config
     jmp .printchar_done
     ; update the buffer
 .buffered_window
@@ -319,24 +344,27 @@ printchar_buffered
     bne .not_first_space
     ; skip space if at first position
     cmp #$20
-    beq .printchar_done
+    bne .not_first_space
+    jmp .printchar_done
 .not_first_space
     ; add this char to the buffer
     cmp #$0d
     bne .check_space
     ; newline. Print line and reset the buffer
+    +set_memory_vic2_kernal
     jsr printchar_flush
 !ifdef NEW_MORE_PROMPT {
     ; more on the same line
-    jsr increase_num_rows
+    jsr .increase_num_rows
     lda #$0d
     jsr $ffd2 ; kernel_printchar
 } else {
     ; more on the next line
     lda #$0d
     jsr $ffd2 ; kernel_printchar
-    jsr increase_num_rows
+    jsr .increase_num_rows
 }
+    +restore_memory_config
     jmp .printchar_done
 .check_space
     cmp #$20
@@ -360,6 +388,7 @@ printchar_buffered
     cpy #40
     bne .printchar_done
     ; print the line until last space
+    +set_memory_vic2_kernal
     ldx #0
 -   cpx .buffer_last_space
     beq +
@@ -386,15 +415,16 @@ printchar_buffered
     sty .buffer_last_space
 !ifdef NEW_MORE_PROMPT {
     ; more on the same line
-    jsr increase_num_rows
+    jsr .increase_num_rows
     lda #$0d
     jsr $ffd2 ; kernel_printchar
 } else {
     ; more on the next line
     lda #$0d
     jsr $ffd2 ; kernel_printchar
-    jsr increase_num_rows
+    jsr .increase_num_rows
 }
+    +restore_memory_config
 .printchar_done
     pla
     tay
@@ -412,31 +442,34 @@ set_cursor
     clc
     jmp kernel_plot
 
-get_cursor
+.get_cursor
     ; output: y=column (0-39)
     ;         x=row (0-24)
     sec
     jmp kernel_plot
 
-save_cursor
-    jsr get_cursor
+.save_cursor
+    jsr .get_cursor
     stx .cursor_position
     sty .cursor_position + 1
     rts
 
-restore_cursor
+.restore_cursor
     ldx .cursor_position
     ldy .cursor_position + 1
     jmp set_cursor
 
 !ifdef Z3 {
 z_ins_show_status
+    +set_memory_vic2_kernal
     ; show_status (hardcoded size)
-    jmp draw_status_line
+    jsr draw_status_line
+    +restore_memory_config
+    rts
 
 draw_status_line
     ldx #1
-    jsr split_window
+    jsr .split_window
     ; save z_operand* (will be destroyed by print_num)
     lda #1
     sta .current_window
@@ -448,7 +481,7 @@ draw_status_line
     pha
     lda z_operand_value_high_arr + 1
     pha
-    jsr save_cursor
+    jsr .save_cursor
     ldx #0
     ldy #0
     jsr set_cursor
@@ -543,7 +576,7 @@ draw_status_line
     sta z_operand_value_high_arr
     pla
     sta z_operand_value_low_arr
-    jmp restore_cursor
+    jmp .restore_cursor
 .score_str !pet "Score ",0
 .moves_str !pet "Moves ",0
 .time_str !pet "Time ",0

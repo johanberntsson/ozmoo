@@ -134,7 +134,7 @@ z_ins_print_ret
 z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
-    +set_memory_no_basic
+    +set_memory_vic2_kernal
     jsr printchar_flush
     ; read input
     ldy #0
