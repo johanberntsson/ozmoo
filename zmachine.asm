@@ -515,6 +515,7 @@ z_init
 	sta $d412
 	jsr z_rnd_init_random
 	+restore_default_memory
+	rts
 }
 
 z_execute
