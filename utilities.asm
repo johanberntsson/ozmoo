@@ -16,6 +16,10 @@
 ; - printx etc
 
 ; zero_processorports: ...<d000><e000><a000> on/off
+; #%00110000 all ram
+; #%00110110 vic2 kernal
+; #%00110111 basic vic2 kernal
+;
 default_memory_config !byte 0
 !macro set_default_memory_all_ram {
     lda #%00110000 
@@ -122,7 +126,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
 }
 
 waitforenter
-    jsr $ffe4 ; kernel_getchar
+    jsr kernel_getchar
     beq waitforenter
     rts
 

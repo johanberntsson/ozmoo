@@ -449,24 +449,19 @@ find_word_in_dictionary
     jsr newline
     ldx .zword 
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 1
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 2
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 3
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 4
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 5
     jsr printx
     jsr newline
@@ -694,7 +689,7 @@ read_text
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
-    jsr $ffd2 ; kernel_printchar ; print the delete char
+    jsr kernel_printchar ; print the delete char
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #14
@@ -710,7 +705,7 @@ read_text
     cmp #29
     beq .readkey ; cursor right
     ; print the allowed char and store in the array
-    jsr $ffd2; kernel_printchar
+    jsr kernel_printchar
     pha
     lda zp_screencolumn ; compare with size of keybuffer
     sec
@@ -761,7 +756,7 @@ read_text
     and #$7f
     sta (zp_screenline),y
     lda #$0d
-    jsr $ffd2 ; kernel_printchar
+    jsr kernel_printchar
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
