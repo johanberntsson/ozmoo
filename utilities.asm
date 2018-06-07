@@ -30,11 +30,13 @@ default_memory_config !byte 0
     sta default_memory_config
 }
 !macro restore_default_memory {
+	sei
     lda default_memory_config
     sta zero_processorports
 }
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
+	sei
     lda #%00110000 
     sta zero_processorports
 }

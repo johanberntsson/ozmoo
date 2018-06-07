@@ -68,6 +68,12 @@ w1  cmp reg_curr_raster_line
     and #$03
     sta c64_model
 
+	; Setup dummy IRQ handler
+	lda #<irq_handler
+	sta $fffe
+	lda #>irq_handler
+	sta $ffff
+	
     ; enable lower case mode
     lda #23
     sta reg_screen_char_mode
@@ -205,4 +211,13 @@ load_dynamic_memory
 prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)
     rts
+	
 }
+
+irq_handler
+	pha
+	lda $dc0d
+	lda $dd0d
+	pla
+	rti
+	

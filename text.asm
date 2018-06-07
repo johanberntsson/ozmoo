@@ -126,6 +126,7 @@ z_ins_print
     sty z_pc
     sta z_pc + 1
     stx z_pc + 2
+	+disable_interrupts
 	+restore_default_memory
     rts
 
@@ -137,6 +138,7 @@ z_ins_print_ret
     lda #0
     ldx #1
     jsr stack_return_from_routine
+	+disable_interrupts
 	+restore_default_memory
     rts
 
@@ -220,6 +222,7 @@ z_ins_sread
     jsr newline
 }
 .sread_done
+	+disable_interrupts
     +restore_default_memory
     rts
 
@@ -321,6 +324,7 @@ z_ins_aread
     lda #$0d
     jsr streams_print_output
 }
+	+disable_interrupts
     +restore_default_memory
     lda #0
     ldx #13

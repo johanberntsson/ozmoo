@@ -147,6 +147,7 @@ z_ins_set_window
     ; store cursor position so it can be restored later
     ; when set_window 0 is called
     jsr .save_cursor
+	+disable_interrupts
     +restore_default_memory
     rts
 
@@ -197,6 +198,7 @@ z_ins_get_cursor
     pla ; column
     ldy #3
     sta (string_array),y
+	+disable_interrupts
     +restore_default_memory
     rts
 
@@ -226,6 +228,7 @@ z_ins_set_cursor
     ldy z_operand_value_low_arr + 1 ; column
     dey
     jsr set_cursor
+	+disable_interrupts
     +restore_default_memory
     rts
 }
@@ -334,6 +337,7 @@ printchar_buffered
     +set_memory_vic2_kernal
     lda .buffer_char
     jsr kernel_printchar
+	+disable_interrupts
     +restore_default_memory
     jmp .printchar_done
     ; update the buffer
@@ -362,6 +366,7 @@ printchar_buffered
     jsr kernel_printchar
     jsr .increase_num_rows
 }
+	+disable_interrupts
     +restore_default_memory
     jmp .printchar_done
 .check_space
@@ -422,6 +427,7 @@ printchar_buffered
     jsr kernel_printchar
     jsr .increase_num_rows
 }
+	+disable_interrupts
     +restore_default_memory
 .printchar_done
     pla
@@ -438,13 +444,16 @@ set_cursor
     ; input: y=column (0-39)
     ;        x=row (0-24)
     clc
-    jmp kernel_plot
+--	jsr kernel_plot
+	+disable_interrupts
+	+restore_default_memory
+	rts
 
 .get_cursor
     ; output: y=column (0-39)
     ;         x=row (0-24)
     sec
-    jmp kernel_plot
+	bcs --
 
 .save_cursor
     jsr .get_cursor
@@ -462,6 +471,7 @@ z_ins_show_status
     +set_memory_vic2_kernal
     ; show_status (hardcoded size)
     jsr draw_status_line
+	+disable_interrupts
     +restore_default_memory
     rts
 

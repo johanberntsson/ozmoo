@@ -37,6 +37,7 @@ readblocks
     ; clear arguments for next call
     lda #0
     sta readblocks_currentblock + 1
+	+disable_interrupts
     +restore_default_memory
     rts
 
@@ -132,7 +133,12 @@ readblocks
 
     ldy #$00
 -   jsr kernel_readchar ; call CHRIN (get a byte from file)
+	tax
+	+disable_interrupts
+	+restore_default_memory
+	txa
     sta (zp_mempos),Y   ; write byte to memory
+	+set_memory_vic2_kernal
     iny
     bne -         ; next byte, end when 256 bytes are read
 .close
