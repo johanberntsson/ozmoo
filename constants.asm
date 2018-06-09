@@ -45,29 +45,28 @@ datasette_buffer_end  = $03fb
 z_trace_page 		  = $cf00
 
 ; --- I/O registers ---
-reg_curr_raster_line  = $d012 
 reg_screen_char_mode  = $d018 
 reg_bordercolor       = $d020
 reg_backgroundcolor   = $d021 
 
 ; --- Kernel routines ---
-;kernel_setcursor      = $e50c ; set cursor to x/y (row/column)
-kernel_reset          = $fce2 ; cold reset of the C64 (utilities.asm)
-;kernel_scnkey         = $ff9f ; scan the keyboard
-kernel_setlfs         = $ffba ; set file parameters (disk.asm)
-kernel_setnam         = $ffbd ; set file name (disk.asm)
-kernel_open           = $ffc0 ; open a file (disk.asm)
-kernel_close          = $ffc3 ; close a file (disk.asm)
-kernel_chkin          = $ffc6 ; define file as default input (disk.asm)
+kernel_setcursor      = $e50c ; set cursor to x/y (row/column)
+kernel_reset          = $fce2 ; cold reset of the C64
+kernel_scnkey         = $ff9f ; scan the keyboard
+kernel_setlfs         = $ffba ; set file parameters
+kernel_setnam         = $ffbd ; set file name
+kernel_open           = $ffc0 ; open a file
+kernel_close          = $ffc3 ; close a file
+kernel_chkin          = $ffc6 ; define file as default input
 kernel_chkout         = $ffc9 ; define file as default output
-kernel_clrchn         = $ffcc ; close default input/output files (disk.asm)
-kernel_readchar       = $ffcf ; read byte from default input into a (disk.asm)
+kernel_clrchn         = $ffcc ; close default input/output files
+kernel_readchar       = $ffcf ; read byte from default input into a
 ;use streams_print_output instead of kernel_printchar
-;(kernel_printchar only allowed for input/output in screen.asm and text.asm)
-kernel_printchar      = $ffd2 ; write char in a
-kernel_readtime       = $ffde ; get time of day in a/x/y (text.asm)
-kernel_getchar        = $ffe4 ; get a character (text.asm)
-kernel_plot           = $fff0 ; set (c=1)/get (c=0) x=row, y=col (screen.asm)
+;($ffd2 only allowed for input/output in screen.asm and text.asm)
+;kernel_printchar      = $ffd2 ; write char in a
+kernel_readtime       = $ffde ; get time of day in a/x/y
+kernel_getchar        = $ffe4 ; get a character
+kernel_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
 
 
 ; story file header constants

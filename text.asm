@@ -97,26 +97,19 @@ z_ins_encode_text
     rts
 
 z_ins_print_addr 
-    +set_memory_vic2_kernal
     ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr set_z_address
-	jsr print_addr
-	+restore_default_memory
-	rts
+	jmp print_addr
 
 z_ins_print_paddr
     ; Packed address is now in (z_operand_value_high_arr, z_operand_value_low_arr)
-    +set_memory_vic2_kernal
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
     jsr set_z_paddress
-    jsr print_addr
-	+restore_default_memory
-    rts
+    jmp print_addr
 
 z_ins_print 
-    +set_memory_vic2_kernal
     ldy z_pc
     lda z_pc + 1
     ldx z_pc + 2
@@ -126,29 +119,25 @@ z_ins_print
     sty z_pc
     sta z_pc + 1
     stx z_pc + 2
-	+disable_interrupts
-	+restore_default_memory
     rts
 
 z_ins_print_ret
-    +set_memory_vic2_kernal
     jsr z_ins_print
     lda #$0d
     jsr streams_print_output
     lda #0
     ldx #1
-    jsr stack_return_from_routine
-	+disable_interrupts
-	+restore_default_memory
-    rts
+    jmp stack_return_from_routine
 
 !ifndef Z5PLUS {
 
 z_ins_sread
 	; sread text parse (Z1-Z3)
 	; sread text parse time routine (Z4)
-    +set_memory_vic2_kernal
     jsr printchar_flush
+!ifdef TRACE_VM {
+    ;jsr print_vm_map
+}
     ; read input
     ldy #0
     sty .read_text_time
@@ -222,14 +211,11 @@ z_ins_sread
     jsr newline
 }
 .sread_done
-	+disable_interrupts
-    +restore_default_memory
     rts
 
 } else {	
 
 z_ins_aread
-    +set_memory_vic2_kernal
     ; aread text parse time routine -> (result)
     jsr printchar_flush
     ; read input
@@ -324,8 +310,6 @@ z_ins_aread
     lda #$0d
     jsr streams_print_output
 }
-	+disable_interrupts
-    +restore_default_memory
     lda #0
     ldx #13
 	jmp z_store_result
@@ -453,19 +437,24 @@ find_word_in_dictionary
     jsr newline
     ldx .zword 
     jsr printx
-    jsr comma
+    lda #44
+    jsr $ffd2
     ldx .zword + 1
     jsr printx
-    jsr comma
+    lda #44
+    jsr $ffd2
     ldx .zword + 2
     jsr printx
-    jsr comma
+    lda #44
+    jsr $ffd2
     ldx .zword + 3
     jsr printx
-    jsr comma
+    lda #44
+    jsr $ffd2
     ldx .zword + 4
     jsr printx
-    jsr comma
+    lda #44
+    jsr $ffd2
     ldx .zword + 5
     jsr printx
     jsr newline
@@ -679,7 +668,6 @@ read_text
 .call_routine
     ; current time >= .read_text_jiffy. Time to call routine
     ; TODO: call routine and check return value
-    ; TODO: switch back to all ram/no irq first, then restore for $ffd2 etc?
     jsr prepare_read_text_timer
 .no_timer
     jsr kernel_getchar
@@ -693,7 +681,7 @@ read_text
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
-    jsr kernel_printchar ; print the delete char
+    jsr $ffd2 ; kernel_printchar ; print the delete char
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #14
@@ -709,7 +697,7 @@ read_text
     cmp #29
     beq .readkey ; cursor right
     ; print the allowed char and store in the array
-    jsr kernel_printchar
+    jsr $ffd2; kernel_printchar
     pha
     lda zp_screencolumn ; compare with size of keybuffer
     sec
@@ -760,7 +748,7 @@ read_text
     and #$7f
     sta (zp_screenline),y
     lda #$0d
-    jsr kernel_printchar
+    jsr $ffd2 ; kernel_printchar
     rts
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0

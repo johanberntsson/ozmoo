@@ -1,5 +1,3 @@
-;ALLRAM = 1
-
 ; Which Z-machine to generate binary for
 ; (usually defined on the acme command line instead)
 ; Z1, Z2, Z6 and Z7 will (probably) never be supported
@@ -61,45 +59,28 @@ c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
 
 .initialize
     ; check if PAL or NTSC (needed for read_line timer)
-w0  lda reg_curr_raster_line
-w1  cmp reg_curr_raster_line
+w0  lda $d012
+w1  cmp $d012
     beq w1
     bmi w0
     and #$03
     sta c64_model
-
-	; Setup dummy IRQ handler
-	lda #<irq_handler
-	sta $fffe
-	lda #>irq_handler
-	sta $ffff
-	
     ; enable lower case mode
     lda #23
     sta reg_screen_char_mode
 	lda #$80
 	sta charset_switchable
 
-	jsr init_screen_colors
+	jsr init_screen_colours
 
 	; start text output from bottom of the screen
 	ldy #0
 	ldx #24
 	jsr set_cursor
+	
+	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
+	+set_memory_no_basic
 
-	; Turn off interrupts
-	+disable_interrupts
-	; Default banks during execution
-!ifdef ALLRAM {
-	+set_default_memory_all_ram
-} else {
-	+set_default_memory_vic2_kernal
-}
-!ifdef DEBUG {
-    ; I don't trust DEBUG with ALLRAM at the moment
-	+set_default_memory_vic2_kernal
-}
-	+restore_default_memory
 
 	jsr load_dynamic_memory
 	jsr prepare_static_high_memory
@@ -109,13 +90,11 @@ w1  cmp reg_curr_raster_line
 	jsr streams_init
 	jsr stack_init
 	jsr z_init
-
-
 	jsr z_execute
 
 	; Back to normal memory banks
-	+set_memory_basic_vic2_kernal
-	+enable_interrupts
+	+set_memory_normal
+
     rts
 
 load_header
@@ -211,13 +190,4 @@ load_dynamic_memory
 prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)
     rts
-	
 }
-
-irq_handler
-	pha
-	lda $dc0d
-	lda $dd0d
-	pla
-	rti
-	

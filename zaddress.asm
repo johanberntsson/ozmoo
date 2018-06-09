@@ -48,7 +48,7 @@ print_z_address
     jsr printx
     ldx .addr + 1 ; high
     jsr printx
-    jsr newline
+    jmp newline
 }
 
 get_z_address

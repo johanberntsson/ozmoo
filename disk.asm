@@ -8,7 +8,6 @@ readblocks_mempos        !byte 0,0 ; $2000 = 00 20
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
-    +set_memory_vic2_kernal
 !ifdef TRACE_FLOPPY {
     jsr newline
     jsr print_following_string
@@ -37,8 +36,6 @@ readblocks
     ; clear arguments for next call
     lda #0
     sta readblocks_currentblock + 1
-	+disable_interrupts
-    +restore_default_memory
     rts
 
 .readblock
@@ -133,12 +130,7 @@ readblocks
 
     ldy #$00
 -   jsr kernel_readchar ; call CHRIN (get a byte from file)
-	tax
-	+disable_interrupts
-	+restore_default_memory
-	txa
     sta (zp_mempos),Y   ; write byte to memory
-	+set_memory_vic2_kernal
     iny
     bne -         ; next byte, end when 256 bytes are read
 .close

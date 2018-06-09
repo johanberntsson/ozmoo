@@ -5,50 +5,33 @@
 ; - fatalerror
 ; - enable_interrupts
 ; - disable_interrupts
-; - set_default_memory_all_ram
-; - set_default_memory_vic2_kernal
-; - restore_default_memory
+; - set_memory_normal
 ; - set_memory_all_ram
-; - set_memory_vic2_kernal
-; - set_memory_basic_vic2_kernal
-; 
+; - set_memory_no_basic
 ; various debug functions
-; - printx etc
 
 ; zero_processorports: ...<d000><e000><a000> on/off
-; #%00110000 all ram
-; #%00110110 vic2 kernal
-; #%00110111 basic vic2 kernal
-;
-default_memory_config !byte 0
-!macro set_default_memory_all_ram {
-    lda #%00110000 
-    sta default_memory_config
-}
-!macro set_default_memory_vic2_kernal {
-    lda #%00110110
-    sta default_memory_config
-}
-!macro restore_default_memory {
-	sei
-    lda default_memory_config
-    sta zero_processorports
-}
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
-	sei
+    pha
     lda #%00110000 
     sta zero_processorports
-}
-!macro set_memory_vic2_kernal {
-    lda #%00110110
-    sta zero_processorports
-}
-!macro set_memory_basic_vic2_kernal {
-    lda #%00110111
-    sta zero_processorports
+    pla
 }
 
+!macro set_memory_no_basic {
+    pha
+    lda #%00110110
+    sta zero_processorports
+    pla
+}
+
+!macro set_memory_normal {
+    pha
+    lda #%00110111
+    sta zero_processorports
+    pla
+}
 
 ; to be expanded to disable NMI IRQs later if needed
 !macro disable_interrupts {
@@ -127,17 +110,13 @@ ERROR_TOO_MANY_TERMINATORS = 15
     !byte <.error_too_many_terminators
 }
 
-waitforenter
-    jsr kernel_getchar
-    beq waitforenter
-    rts
-
 fatalerror
     ; prints the error, then resets the computer
     ; input: a (error code)
     ; side effects: resets the computer
 !ifndef DEBUG {
     pha
+    +set_memory_normal
     ldy #>.fatal_error_string
 	lda #<.fatal_error_string
 	jsr printstring
@@ -148,10 +127,8 @@ fatalerror
     lda #$0d
     jsr streams_print_output
     jsr printchar_flush
-    +set_memory_basic_vic2_kernal
-    +enable_interrupts
-    jsr waitforenter
-    jmp z_ins_quit
+    jsr kernel_readchar   ; read keyboard
+    jmp kernel_reset      ; reset
 .fatal_error_string !pet "fatal error: ",0
 } else {
     pha
@@ -170,7 +147,7 @@ fatalerror
     jsr newline
     jsr print_trace
     jsr printchar_flush
-    jsr waitforenter
+    jsr kernel_readchar   ; read keyboard
     jmp kernel_reset      ; reset
 
 .saved_a !byte 0

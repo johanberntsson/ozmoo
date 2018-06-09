@@ -1,5 +1,5 @@
 ; virtual memory
-;TRACE_VM = 1
+TRACE_VM = 1
 ;TRACE_VM_PC = 1
 PRELOAD_UNTIL = header_static_mem ; dynmem only
 ;PRELOAD_UNTIL = header_dictionary ; dynmen + grammar tables
