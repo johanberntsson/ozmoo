@@ -598,6 +598,7 @@ z_execute
 
 .main_loop
 	; Store z_pc to trace page 
+!ifdef TRACE {
 	ldx #0
 	ldy z_trace_index
 -	lda z_pc,x
@@ -606,6 +607,8 @@ z_execute
 	inx
 	cpx #3
 	bne -
+	sty z_trace_index
+}
 	
 ;	ldx z_pc + 2
 ;	cpx #$8b
@@ -639,11 +642,6 @@ z_execute
 
 	jsr read_byte_at_z_pc_then_inc
 	sta z_opcode
-;	sta z_trace_page,y
-;	iny
-	sty z_trace_index
-
-	
 	
 !ifdef DEBUG {	
 	;jsr print_following_string
@@ -782,27 +780,15 @@ z_execute
 	clc
 	adc z_opcode_number
 	sta z_canonical_opcode
-	cmp #z_number_of_opcodes_implemented
-	bcs z_not_implemented
-;.have_stored_canonical	
-	
+!ifdef TRACE {
 	ldy z_trace_index
 	sta z_trace_page,y
 	inc z_trace_index
+}
+	cmp #z_number_of_opcodes_implemented
+	bcs z_not_implemented
+;.have_stored_canonical	
 
-	; ldx z_pc + 1
-	; cpx #$0a
-	; bne .okidoki
-	; ldx z_pc + 2
-	; cpx #$32
-	; bne .okidoki
-	; ldx $cf5a
-	; cpx #$76
-	; bne .okidoki
-	; lda #ERROR_READ_ABOVE_STATMEM
-	; jmp fatalerror
-; .okidoki
-	
 	tax 
 	lda z_jump_low_arr,x
 	sta .jsr_perform + 1
@@ -813,9 +799,6 @@ z_execute
 	jmp .main_loop
 
 z_not_implemented
-;	ldx z_opcode
-;	jsr printx
-;	jsr newline
 !ifdef DEBUG {
 	jsr print_following_string
 	!pet "opcode: ",0
