@@ -28,8 +28,18 @@
 stack_start = $2c00
 stack_size = $0400;
 
-; where to store story data
-story_start = stack_start + stack_size
+!ifdef USEVM {
+    ; where to store vmem_buffer
+    vmem_buffer_size = $0400;
+    vmem_buffer_start = stack_start + stack_size
+    ; where to store story data
+    vmem_start = vmem_buffer_start + vmem_buffer_size
+    vmem_end = $10000
+    story_start = vmem_start
+} else {
+    ; where to store story data
+    story_start = stack_start + stack_size
+}
 
 ; basic program (10 SYS2061)
 !source "basic-boot.asm"

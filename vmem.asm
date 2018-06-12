@@ -1,3 +1,4 @@
+!ifdef USEVM {
 ; virtual memory
 TRACE_VM = 1
 ;TRACE_VM_PC = 1
@@ -29,17 +30,6 @@ PRELOAD_UNTIL = header_static_mem ; dynmem only
 ; initial PC: $1765
 ; filelength: $57e4 
 ;
-; Using story_start
-; dictionary.asm: ok
-; objecttable.asm: ok, since object table in dynmem
-; ozmoo.asm: ok
-; screen.asm: ok, only z_ins_get_cursor to story in array/dynmem
-; streams.asm: probably ok, stores in table/array in dynmem
-; text.asm: probably ok, string_array, parse_array in dynmem
-;           - should make read_next_byte more efficient
-; vmem.asm: ok
-; zmachine.asm: seems ok, only direct access for header + dynmem 
-;
 ;  vmap_max_length = 5
 ;  initial vmap_length = 3
 ;  final   vmap_length = 5
@@ -59,20 +49,39 @@ PRELOAD_UNTIL = header_static_mem ; dynmem only
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
-vmap_max_length  = 27 ; $3000-$cc00
-;vmap_max_length  = 5 ; tests
-;vmap_max_length  = 44 ; $3000-$d000
+vmap_max_length  = (vmem_end-vmem_start)/1024
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
 vmap_c64 = vmap_z_l + vmap_max_length
 
-!ifdef USEVM {
+vmap_index !byte 0        ; current vmap index matching the z pointer
+vmem_buffer_index !byte 0 ; buffer currently contains this vmap index
+
 
 !ifdef DEBUG {
 !ifdef TRACE_VM {
 print_vm_map
+!zone {
+    ; print buffer
+    jsr space
+    lda #66
+    jsr streams_print_output
+    jsr space
+    jsr dollar
+    lda vmem_buffer_index
+    jsr print_byte_as_hex
+    lda #$30
+    jsr streams_print_output
+    lda #$30
+    jsr streams_print_output
+    jsr newline
     ldy #0
--   cpy #10
+-   ; don't print empty entries
+    lda vmap_z_h,y ; zmachine mem offset ($0 - 
+    and #$f0
+    beq .next_entry
+    ; not empty, print
+    cpy #10
     bcs +
     jsr space ; alignment when <10
 +   jsr printy
@@ -94,36 +103,60 @@ print_vm_map
     jsr print_byte_as_hex
     lda #$30
     jsr streams_print_output
+    lda #$30
     jsr streams_print_output
     jsr newline
+.next_entry
     iny 
     cpy #vmap_max_length
     bne -
     rts
 }
 }
+}
 
 load_blocks_from_index
     ; x = index to load
     ; side effects: a,y,status destroyed
-    txa
-    pha
-    ldy #4 ; number of blocks
-    lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
-    pha
-    lda vmap_z_l,x ; start block
-    tax
-    pla
-    stx readblocks_currentblock
-    sty readblocks_numblocks
+    ldx vmap_index
+    ; initialise block copy function (see below)
+    lda #>vmem_buffer_start ; start of buffer
+    sta .copy_to_vmem + 2
+    lda vmap_c64,x ; start block
+    sta .copy_to_vmem + 5
+    sta vmem_buffer_index
+    ; read 4 blocks into vmem_buffer
+    lda #4
+    sta readblocks_numblocks
+    lda #>vmem_buffer_start ; start of buffer
     sta readblocks_mempos + 1
+    lda vmap_z_l,x ; start block
+    sta readblocks_currentblock
     jsr readblocks
+    ; copy vmem_buffer to block (banking as needed)
+    sei
+    +set_memory_all_ram
+    ldx #4
+-   ldy #0
+.copy_to_vmem
+    lda $8000,y
+    sta $8000,y
+    iny
+    bne .copy_to_vmem
+    inc .copy_to_vmem + 2
+    inc .copy_to_vmem + 5
+    dex
+    bne -
+    +set_memory_no_basic
+    cli
 !ifdef TRACE_VM {
+    ;jsr print_following_string
+    ;!pet "load_blocks_from_index: ",0
     ;jsr print_vm_map
 }
-    pla
-    tax
+    ldx vmap_index
     rts
+    
 
 load_dynamic_memory
     ; load header
@@ -179,6 +212,8 @@ prepare_static_high_memory
 ++  iny
     cpy #vmap_max_length
     bne -
+    lda #$00
+    sta vmem_buffer_index
 !ifdef TRACE_VM {
     ;jsr print_vm_map
 }
@@ -209,7 +244,6 @@ read_byte_at_z_address
 +
 }
     ; is there a block with this address in map?
-    ldx #$ff ; this is the active block, if found
     ldy #0
 -   ; is the block active?
     lda vmap_z_h,y
@@ -226,8 +260,7 @@ read_byte_at_z_address
     cmp zp_pc_h
     bne +
     ; vm index for this block found
-    tya
-    tax ; store block index in x
+    sty vmap_index
     jmp .index_found
 +   iny
     cpy #vmap_max_length
@@ -245,14 +278,57 @@ read_byte_at_z_address
     lda zp_pc_l
     and #$fc ; skip bit 0,1 since kB blocks
     sta vmap_z_l,x
+    stx vmap_index
     jsr load_blocks_from_index
 .index_found
-    ; index x found. get return value
+    ; index x found
+    ldx vmap_index
+    ; check if swappable memory
+    lda vmap_z_h,x
+    and #$40
+    bne .unswappable
+    ; this is swappable memory
+    ; update vmem_buffer if needed
+    lda vmap_c64,x
+    cmp vmem_buffer_index
+    beq .buffer_updated
+    ; copy vmem to vmem_buffer (banking as needed)
+    lda vmap_c64,x ; start block
+    sta .copy_to_vmem_to_buffer + 2
+    sta vmem_buffer_index
+    lda #>vmem_buffer_start ; start of buffer
+    sta .copy_to_vmem_to_buffer + 5
+    sei
+    +set_memory_all_ram
+    ldx #4
+-   ldy #0
+.copy_to_vmem_to_buffer
+    lda $8000,y
+    sta $8000,y
+    iny
+    bne .copy_to_vmem_to_buffer
+    inc .copy_to_vmem_to_buffer + 2
+    inc .copy_to_vmem_to_buffer + 5
+    dex
+    bne -
+    +set_memory_no_basic
+    cli
+.buffer_updated
+    lda zp_pc_l
+    and #$03 ; keep index into kB chunk
+    clc
+    adc #>vmem_buffer_start
+    sta mempointer + 1
+    ldx vmap_index
+    bne .update_page_rank ; always true
+.unswappable
+    ; update memory pointer
     lda zp_pc_l
     and #$03 ; keep index into kB chunk
     clc
     adc vmap_c64,x
     sta mempointer + 1
+.update_page_rank
     ; update page rank
     cpx #$00  ; x is index of accesses Z_PC
     beq .return_result
