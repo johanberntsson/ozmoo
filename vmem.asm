@@ -116,8 +116,26 @@ print_vm_map
 }
 
 load_blocks_from_index
-    ; x = index to load
-    ; side effects: a,y,status destroyed
+    ; vmap_index = index to load
+    ; side effects: a,y,x,status destroyed
+    ldx vmap_index
+    lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
+    cmp #$d0
+    bcs .load_blocks_from_index_using_buffer
+    ldy #4 ; number of blocks
+    lda vmap_c64,x ; c64 mem offset
+    pha
+    lda vmap_z_l,x ; start block
+    tax
+    pla
+    stx readblocks_currentblock
+    sty readblocks_numblocks
+    sta readblocks_mempos + 1
+    jsr readblocks
+    jmp .blocks_loaded
+.load_blocks_from_index_using_buffer
+    ; vmap_index = index to load
+    ; side effects: a,y,x,status destroyed
     ldx vmap_index
     ; initialise block copy function (see below)
     lda #>vmem_buffer_start ; start of buffer
@@ -149,14 +167,13 @@ load_blocks_from_index
     bne -
     +set_memory_no_basic
     cli
+.blocks_loaded
 !ifdef TRACE_VM {
     ;jsr print_following_string
     ;!pet "load_blocks_from_index: ",0
     ;jsr print_vm_map
 }
-    ldx vmap_index
     rts
-    
 
 load_dynamic_memory
     ; load header
@@ -187,25 +204,29 @@ prepare_static_high_memory
     ; dynamic memory marked as rw (not swappable)
     ; missing blocks will later be loaded as needed
     ; by read_byte_at_z_address
+    lda #>vmem_end
+    sta .zp_maxmem
     ldy #0
 -   tya ; calculate c64 offset
     asl
     asl ; 1kB bytes each
-    ; store c64 index
-    pha
+    ; check if rw or ro (swappable)
+    cmp story_start + PRELOAD_UNTIL
+    bcs + ; a >= PRELOAD_UNTIL (dyn mem)
+    ; allocated 1kB entry
+    sta vmap_z_l,y ; z offset ($00 -)
     clc 
     adc #>story_start
     sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
-    pla
-    ; check if rw or ro (swappable)
-    cmp story_start + PRELOAD_UNTIL
-    bcs + ; a >= static_mem
-    ; allocated 1kB entry
-    sta vmap_z_l,y ; z offset ($00 -)
     lda #$c0 ; used, dynamic
     sta vmap_z_h,y 
     jmp ++
 +   ; non-allocated 1kB entry
+    lda .zp_maxmem
+    sec
+    sbc #4
+    sta .zp_maxmem
+    sta vmap_c64,y
     lda #0
     sta vmap_z_h,y
     sta vmap_z_l,y
@@ -218,6 +239,7 @@ prepare_static_high_memory
     ;jsr print_vm_map
 }
     rts
+.zp_maxmem !byte 0
 
 read_byte_at_z_address
     ; Subroutine: Read the contents of a byte address in the Z-machine
@@ -284,9 +306,9 @@ read_byte_at_z_address
     ; index x found
     ldx vmap_index
     ; check if swappable memory
-    lda vmap_z_h,x
-    and #$40
-    bne .unswappable
+    lda vmap_c64,x
+    cmp #$d0
+    bcc .unswappable
     ; this is swappable memory
     ; update vmem_buffer if needed
     lda vmap_c64,x
