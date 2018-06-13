@@ -19,7 +19,7 @@
 
 !zone {
 
-.stack_tmp !byte 0, 0, 0
+.stack_tmp !byte 0, 0, 0, 0
 stack_pushed_bytes !byte 0, 0
 
 stack_init
@@ -165,7 +165,19 @@ stack_call_routine
 	bne .rol_again
 }
 	sta z_pc + 2
-	jsr read_byte_at_z_pc_then_inc
+	
+	; Check if we changed page
+	lda .stack_tmp + 1
+	cmp z_pc + 1
+	bne +
+	lda .stack_tmp
+	cmp z_pc
+	beq ++
++	inc z_pc_mempointer_is_unsafe
+++
+	
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
 	
 	lda stack_ptr
@@ -181,12 +193,18 @@ stack_call_routine
 -	cpx z_local_var_count
 	bcs .setup_of_local_vars_complete
 !ifndef Z5PLUS {
-	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
+	sty .stack_tmp + 3
+	+read_next_byte_at_z_pc
+	ldy .stack_tmp + 3
+;	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
 }
 	cpx zp_temp ; Number of args
 	bcs .store_zero_in_local_var
 !ifndef Z5PLUS {
-	jsr read_byte_at_z_pc_then_inc ; Read second byte of initial var value
+	sty .stack_tmp + 3
+	+read_next_byte_at_z_pc
+	ldy .stack_tmp + 3
+;	jsr read_byte_at_z_pc_then_inc ; Read second byte of initial var value
 }
 	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
@@ -204,7 +222,10 @@ stack_call_routine
 	sta (stack_ptr),y
 	iny
 !ifndef Z5PLUS {
-	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
+	sty .stack_tmp + 3
+	+read_next_byte_at_z_pc
+	ldy .stack_tmp + 3
+;	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
 }
 	sta (stack_ptr),y
 	iny
@@ -282,12 +303,24 @@ stack_return_from_routine
 	; Copy PC from stack to z_pc
 	iny
 	ldx #0
--	lda (z_local_vars_ptr),y
+-	lda z_pc,x
+	sta .stack_tmp + 1,x
+	lda (z_local_vars_ptr),y
 	sta z_pc,x
 	iny
 	inx
 	cpx #3
 	bcc -
+
+	; Check if we changed page
+	lda .stack_tmp + 2
+	cmp z_pc + 1
+	bne +
+	lda .stack_tmp + 1
+	cmp z_pc
+	beq ++
++	inc z_pc_mempointer_is_unsafe
+++
 	
 	; TASK: Set stack_pushed_bytes to new value
 	ldy #0
@@ -347,7 +380,8 @@ stack_return_from_routine
 	; Store return value if calling instruction asked for it
 	bit .stack_tmp
 	bpl +
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	tay
 	lda zp_temp
 	ldx zp_temp + 1

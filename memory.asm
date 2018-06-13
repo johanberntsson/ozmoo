@@ -44,56 +44,30 @@ read_byte_at_z_pc_then_inc
 !zone {
 	stx mem_temp
 	sty mem_temp + 1
+	lda #0
+	sta z_pc_mempointer_is_unsafe
 	lda z_pc	
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address
 	inc z_pc + 2
 	bne +
+	inc z_pc_mempointer_is_unsafe ; Signal that a page boundary was crossed
 	inc z_pc + 1
 	bne +
 	inc z_pc
-+	ldx mem_temp
++	ldx mempointer + 1
+	stx z_pc_mempointer + 1
+	ldx mem_temp
 	ldy mem_temp + 1
 	rts
 }
 
-read_word_at_z_pc_then_inc
-	; Returns: values in a,x  (first byte, second byte)
+inc_z_pc_page
 !zone {
-	sty mem_temp  ; to be able to restore y when exiting
-    lda z_pc	
-    ldx z_pc + 1
-	ldy z_pc + 2
-	cpy #$ff
-	beq .read_across_page_boundary
-	jsr read_word_at_z_address
-    inc z_pc + 2
-	inc z_pc + 2
-	bne +
+	inc z_pc_mempointer_is_unsafe
 	inc z_pc + 1
 	bne +
 	inc z_pc
-+	ldy mem_temp ; restore y
-	rts
-.read_across_page_boundary
-	ldy #2 
-	sty mem_temp + 1 ; loop counter
--   lda z_pc	
-    ldx z_pc + 1
-	ldy z_pc + 2
-	jsr read_byte_at_z_address
-	pha
-    inc z_pc + 2
-	bne +
-	inc z_pc + 1
-	bne +
-	inc z_pc
-+   dec mem_temp + 1
-    bne -
-    pla
-    tax
-    pla
-	ldy mem_temp ; restore y
-	rts
++	rts
 }

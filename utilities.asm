@@ -42,6 +42,18 @@
     cli
 }
 
+!macro read_next_byte_at_z_pc {
+	ldy z_pc_mempointer_is_unsafe
+	bne +
+	lda (z_pc_mempointer),y
+	inc z_pc_mempointer ; Also increases z_pc
+	bne ++
+	jsr inc_z_pc_page
+	bne ++ ; Always branch
++	jsr read_byte_at_z_pc_then_inc	
+++	
+}
+
 ERROR_UNSUPPORTED_STREAM = 1
 ERROR_INVALID_CHAR = 2
 ERROR_STREAM_NESTING_ERROR = 3

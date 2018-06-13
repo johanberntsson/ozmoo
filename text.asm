@@ -119,6 +119,7 @@ z_ins_print
     sty z_pc
     sta z_pc + 1
     stx z_pc + 2
+	inc z_pc_mempointer_is_unsafe
     rts
 
 z_ins_print_ret

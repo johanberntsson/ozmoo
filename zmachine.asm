@@ -1,4 +1,4 @@
-z_pc				!byte 0, $10, 0
+; z_pc				!byte 0, $10, 0
 ; z_pc_instruction	!byte 0, 0, 0
 z_extended_opcode 	!byte 0
 z_operand_count		!byte 0
@@ -421,6 +421,10 @@ z_opcode_opcount_ext = 96
 z_init
 !zone {
 
+	lda #1
+	sta z_pc_mempointer_is_unsafe
+
+!ifdef TRACE {
 	; Setup trace
 	lda #0
 	sta z_trace_index
@@ -428,6 +432,7 @@ z_init
 -	sta z_trace_page,y
 	iny
 	bne -
+}
 	
 	; Modify header to tell game about terp capabilities
 !ifdef Z3 {
@@ -597,8 +602,8 @@ z_execute
 }
 
 .main_loop
-	; Store z_pc to trace page 
 !ifdef TRACE {
+	; Store z_pc to trace page 
 	ldx #0
 	ldy z_trace_index
 -	lda z_pc,x
@@ -640,7 +645,8 @@ z_execute
 	dex
 	bpl -
 
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta z_opcode
 	
 !ifdef DEBUG {	
@@ -680,7 +686,8 @@ z_execute
 ;	sta z_opcode_number
 	lda #z_opcode_opcount_ext
 	sta z_opcode_opcount ; Set to EXT
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta z_extended_opcode
 	sta z_opcode_number
 ;	clc
@@ -750,13 +757,23 @@ z_execute
 .read_next_operand
 	lda z_operand_type_arr,y
 	bne .operand_is_not_large_constant
-	jsr read_word_at_z_pc_then_inc
+	sty z_temp
+	+read_next_byte_at_z_pc
+	pha
+	+read_next_byte_at_z_pc
+	ldy z_temp
+	tax
+	pla
+;	jsr read_word_at_z_pc_then_inc
 	jmp .store_operand
 .operand_is_not_large_constant
 	cmp #%11
 	beq .op_is_omitted
 	tax
-	jsr read_byte_at_z_pc_then_inc
+	sty z_temp
+	+read_next_byte_at_z_pc
+	ldy z_temp
+;	jsr read_byte_at_z_pc_then_inc
 	cpx #%10
 	beq .operand_is_var
 	tax
@@ -818,7 +835,10 @@ z_not_implemented
 z_get_op_types
 	; x = index of first operand (0 or 4), y = number of operands (1-4) 
 !zone {
-	jsr read_byte_at_z_pc_then_inc
+	sty z_temp
+	+read_next_byte_at_z_pc
+	ldy z_temp
+;	jsr read_byte_at_z_pc_then_inc
 .get_next_op_type
 	asl
 	rol z_operand_type_arr,x
@@ -1022,7 +1042,8 @@ z_store_result
 	; input: a,x hold result
 	; affected: a,x,y
 +	pha
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	tay
 	pla
 	jmp z_set_variable
@@ -1300,14 +1321,14 @@ z_ins_jl
 	sbc z_operand_value_high_arr + 1
 	bvc +
 	eor #$80
-+	bmi make_branch_true
-	bpl make_branch_false ; Always branch
+	bpl make_branch_false
+	jmp make_branch_true
 
 z_ins_jz
 	lda z_operand_value_low_arr
 	ora z_operand_value_high_arr
 	bne make_branch_false
-	beq make_branch_true	
+	jmp make_branch_true
 	
 z_ins_inc_chk
 	ldx z_operand_value_low_arr
@@ -1357,26 +1378,31 @@ z_ins_je
 	dex
 	bne -
 make_branch_false
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 1
 	bit zp_temp + 1
 	bvs +
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 2
 	bit zp_temp + 1
 +	bpl .choose_jumptype
 -	rts
 make_branch_true
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 1
 	bit zp_temp + 1
 	bvs +
-	jsr read_byte_at_z_pc_then_inc
+	+read_next_byte_at_z_pc
+;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 2
 	bit zp_temp + 1
 +	bpl -
 .choose_jumptype
 	; We have decided to jump
+	inc z_pc_mempointer_is_unsafe ; TODO: Should only be set to unsafe if changing page!
 	bvc .two_byte_jump
 	; This is a single byte jump
 	lda zp_temp + 1
