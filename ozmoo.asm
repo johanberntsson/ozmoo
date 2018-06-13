@@ -25,7 +25,7 @@
 !source "constants.asm"
 
 ; where to store stack
-stack_start = $2c00
+stack_start = $3000
 stack_size = $0400;
 
 !ifdef USEVM {
