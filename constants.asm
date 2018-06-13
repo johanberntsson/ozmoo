@@ -45,7 +45,7 @@ datasette_buffer_end  = $03fb
 ;basic_printinteger    = $bdcd ; write integer value in a/x
 
 ; Trace information
-z_trace_page 		  = $cf00
+z_trace_page 		  = $2f00
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $d018 

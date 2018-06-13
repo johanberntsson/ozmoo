@@ -7,9 +7,9 @@ X64 := /usr/bin/x64 -cartcrt final_cartridge.crt -autostart-delay-random
 
 #all: minizork
 #all: zork1
-all: dejavu
+#all: dejavu
 #all: dragon
-#all: minform
+all: minform
 #all: czechz3
 #all: czechz5
 #all: strictz3
@@ -59,7 +59,8 @@ d64.strictz5:
 	$(C1541) -attach strictz5.d64 -write ozmoo ozmoo
 
 d64.minform: 
-	acme -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	acme -DTRACE=1 -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	#exomizer/src/exomizer sfx basic oz -o ozmoo
 	cp minform/minform.d64 minform.d64
 	$(C1541) -attach minform.d64 -write ozmoo ozmoo
 
@@ -74,7 +75,8 @@ d64.zork1:
 	$(C1541) -attach zork1.d64 -write ozmoo ozmoo
 
 d64.dejavu: 
-	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile oz ozmoo.asm
+	exomizer/src/exomizer sfx basic oz -o ozmoo
 	cp examples/dejavu.d64 dejavu.d64
 	$(C1541) -attach dejavu.d64 -write ozmoo ozmoo
 

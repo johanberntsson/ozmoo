@@ -117,7 +117,7 @@ def add_story_data(story_file, d64_file)
     story_data_added
 end
 
-def create_d64(story_filename, d64_filename)
+def create_d64(story_filename, d64_filename, dynmem_filename)
     begin
         story_file = File.open(story_filename, "rb")
     rescue
@@ -130,6 +130,16 @@ def create_d64(story_filename, d64_filename)
         puts "ERROR: Can't open #{d64_filename} for writing"
         story_file.close
         exit 0
+    end
+    if !dynmem_filename.nil? then
+        begin
+            dynmem_file = File.open(dynmem_filename, "wb")
+        rescue
+            puts "ERROR: Can't open #{dynmem_filename} for writing"
+            story_file.close
+            d64_file.close
+            exit 0
+        end
     end
 
     puts "Creating..."
@@ -150,7 +160,28 @@ def create_d64(story_filename, d64_filename)
         puts
     end
 
-    # now do it for real
+    # check header.high_mem_start (size of dynmem + statmem)
+    # minform: $1768 = 5992 (23, 104)
+    story_file.read(4) # skip version and flags1
+    high_mem_start = story_file.read(2).unpack("n")
+    
+    # check header.static_mem_start (size of dynmem)
+    story_file.read(8) # skip until this entry
+    static_mem_start = story_file.read(2).unpack("n")[0]
+
+    # get dynmem size (in 1kb blocks)
+    dynmem_size = 1024 * ((static_mem_start + 512)/1024)
+
+    # save dynmem as separate file
+    story_file.rewind
+    dynmem = story_file.read(dynmem_size)
+    if !dynmem_filename.nil? then
+        dynmem_file.write(dynmem)
+        dynmem_file.close
+    end
+
+    # now save the sectors
+    story_file.rewind
     for track in 1..35 do
         for sector in 1.. get_track_length(track) do
             if track == 18 && sector == 1 then
@@ -171,14 +202,15 @@ def create_d64(story_filename, d64_filename)
 
 end
 
-if ARGV.length != 2 then
-    puts "Usage: create_d64.rb <zmachine file> <d64 file>"
+if ARGV.length < 2 then
+    puts "Usage: create_d64.rb <zmachine file> <d64 file> [<dynmem file>]"
     exit 0
 end
 story_filename = ARGV[0]
 d64_filename = ARGV[1]
+dynmem_filename = ARGV[2] # nil if not given
 
-create_d64(story_filename, d64_filename)
+create_d64(story_filename, d64_filename, dynmem_filename)
 puts "Done!"
 exit 0
 
