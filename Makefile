@@ -2,7 +2,8 @@ DEBUGFLAGS = -DDEBUG=1
 VMFLAGS = -DUSEVM=1
 C1541 := /usr/bin/c1541
 #X64 := /usr/bin/x64 -autostart-delay-random
-X64 := /usr/bin/x64 -warp -autostart-delay-random
+#X64 := /usr/bin/x64 -warp -autostart-delay-random
+X64 := /usr/bin/x64 -cartcrt final_cartridge.crt -autostart-delay-random
 
 #all: minizork
 #all: zork1
