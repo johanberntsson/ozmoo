@@ -1419,7 +1419,9 @@ make_branch_true
 	clc
 	adc zp_temp + 2
 	tax
-	lda z_pc + 1
+	bcc +
+	inc z_pc_mempointer_is_unsafe
++	lda z_pc + 1
 	adc #0
 	tay
 	lda z_pc
@@ -1435,7 +1437,6 @@ make_branch_true
 	pla
 	sbc #0
 	sta z_pc
-	inc z_pc_mempointer_is_unsafe ; TODO: Should only be set to unsafe if changing page!
 .done
 	rts
 .two_byte_jump
