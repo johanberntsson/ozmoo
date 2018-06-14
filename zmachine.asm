@@ -423,7 +423,7 @@ z_init
 
 	lda #1
 	sta z_pc_mempointer_is_unsafe
-
+	
 !ifdef TRACE {
 	; Setup trace
 	lda #0
@@ -1789,9 +1789,9 @@ z_ins_call_xs
 ; z_ins_print_char (moved to text.asm)
 
 z_ins_print_num
-	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
-	bpl +
+	bpl print_num_unsigned 
+	ldx z_operand_value_low_arr
 	tay
 	lda #$2d
 	jsr streams_print_output
@@ -1804,8 +1804,9 @@ z_ins_print_num
 	eor #$ff
 	adc #0
 	sta z_operand_value_high_arr
+print_num_unsigned
 	; Sign has been printed, if any. Now print number (0 to 32768)
-+	lda #10
+	lda #10
 	sta z_operand_value_low_arr + 1
 	lda #0
 	sta z_operand_value_high_arr + 1

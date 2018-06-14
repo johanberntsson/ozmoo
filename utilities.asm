@@ -412,58 +412,33 @@ print_byte_as_hex
 
 printinteger
     ; subroutine: print 16 bit integer value
-    ; (https://groups.google.com/forum/#!topic/comp.sys.cbm/htHknwABEmg)
     ; input: a,x (x = low, a = high);
     ; output:
-    ; used registers: a
+    ; used registers: a, x, y
     ; side effects:
 !zone {
-    stx .binary
-    sta .binary+1
-    ldy #0
-    sty .digits ; 0 = remove leading zeros
-.dec1
-    ldx #0
-.dec2
-    lda .binary
-    cmp .dectbl1,y
-    lda .binary+1
-    sbc .dectbl2,y
-    bcc .dec3
-    sta .binary+1
-    lda .binary
-    sbc .dectbl1,y
-    sta .binary
-    inx
-    bne .dec2
-.dec3
-    txa
-    sta .decchr,y
-    bne .dec4
-    cpy #4
-    beq .dec4
-    ldx .digits
-    beq .dec5
-.dec4
-    inc .digits
-    clc
-    adc #$30 ;* ascii code for 0
-    jsr streams_print_output
-.dec5
-    iny
-    cpy #5
-    bne .dec1
-    rts
-.dectbl1
-    !byte <10000,<1000,<100,<10,<1
-.dectbl2
-    !byte >10000,>1000,>100,>10,>1
-.binary
-    !word 0
-.decchr
-    !byte 0,0,0,0,0
-.digits
-    !byte 0 ;* number of digits if y=0
+	pha
+	ldy #1
+-	lda z_operand_value_high_arr,y
+	sta .temp,y
+	lda z_operand_value_low_arr,y
+	sta .temp + 2,y
+	dey
+	bpl -
+	pla
+	sta z_operand_value_high_arr
+	stx z_operand_value_low_arr
+	jsr print_num_unsigned
+	ldy #1
+-	lda .temp,y
+	sta z_operand_value_high_arr,y
+	lda .temp + 2,y
+	sta z_operand_value_low_arr,y
+	dey
+	bpl -
+	rts
+.temp
+	!byte 0,0,0,0
 }
 
 printstring
