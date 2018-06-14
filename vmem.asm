@@ -57,6 +57,7 @@ vmap_c64 = vmap_z_l + vmap_max_length
 vmap_index !byte 0        ; current vmap index matching the z pointer
 vmem_buffer_index !byte 0 ; buffer currently contains this vmap index
 
+current_zp
 
 !ifdef DEBUG {
 !ifdef TRACE_VM {
@@ -235,6 +236,9 @@ prepare_static_high_memory
     bne -
     lda #$00
     sta vmem_buffer_index
+    lda #$ff
+    sta zp_pc_h
+    sta zp_pc_l
 !ifdef TRACE_VM {
     ;jsr print_vm_map
 }
@@ -245,9 +249,17 @@ read_byte_at_z_address
     ; Subroutine: Read the contents of a byte address in the Z-machine
     ; a,x,y (high, mid, low) contains address.
     ; Returns: value in a
+    sty mempointer ; low byte unchanged
+    ; same page as before?
+    cmp zp_pc_h
+    bne .read_new_byte
+    cpx zp_pc_l
+    bne .read_new_byte
+    ; same 256 byte segment, just return
+    jmp .return_result
+.read_new_byte
     sta zp_pc_h
     stx zp_pc_l
-    sty mempointer ; low byte unchanged
 !ifdef TRACE_VM_PC {
     lda zp_pc_l
     cmp #$10
