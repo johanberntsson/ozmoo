@@ -20,23 +20,6 @@ read_byte_at_z_address
     lda #ERROR_MEMORY_OVER_64KB
 	jsr fatalerror
 
-read_word_at_z_address
-	; Subroutine: Read the contents of a two consequtive byte addresses in the Z-machine
-	; a,x,y (high, mid, low) contains first address.
-	; Returns: values in a,x  (first byte, second byte)
-	cmp #0
-	bne .too_high
-	sty mempointer
-	txa
-	clc
-	adc #>story_start
-	sta mempointer + 1
-	ldy #1
-	lda (mempointer),y
-	tax
-	dey
-	lda (mempointer),y
-	rts
 }
 }
 

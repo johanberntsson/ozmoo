@@ -177,7 +177,6 @@ stack_call_routine
 ++
 	
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta z_local_var_count
 	
 	lda stack_ptr
@@ -194,17 +193,15 @@ stack_call_routine
 	bcs .setup_of_local_vars_complete
 !ifndef Z5PLUS {
 	sty .stack_tmp + 3
-	+read_next_byte_at_z_pc
+	+read_next_byte_at_z_pc ; Read first byte of initial var value
 	ldy .stack_tmp + 3
-;	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
 }
 	cpx zp_temp ; Number of args
 	bcs .store_zero_in_local_var
 !ifndef Z5PLUS {
 	sty .stack_tmp + 3
-	+read_next_byte_at_z_pc
+	+read_next_byte_at_z_pc ; Read second byte of initial var value
 	ldy .stack_tmp + 3
-;	jsr read_byte_at_z_pc_then_inc ; Read second byte of initial var value
 }
 	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
@@ -223,9 +220,8 @@ stack_call_routine
 	iny
 !ifndef Z5PLUS {
 	sty .stack_tmp + 3
-	+read_next_byte_at_z_pc
+	+read_next_byte_at_z_pc ; Read first byte of initial var value
 	ldy .stack_tmp + 3
-;	jsr read_byte_at_z_pc_then_inc ; Read first byte of initial var value
 }
 	sta (stack_ptr),y
 	iny
@@ -381,7 +377,6 @@ stack_return_from_routine
 	bit .stack_tmp
 	bpl +
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	tay
 	lda zp_temp
 	ldx zp_temp + 1

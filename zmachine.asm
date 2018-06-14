@@ -1,5 +1,3 @@
-; z_pc				!byte 0, $10, 0
-; z_pc_instruction	!byte 0, 0, 0
 z_extended_opcode 	!byte 0
 z_operand_count		!byte 0
 z_canonical_opcode	!byte 0
@@ -7,7 +5,6 @@ z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_local_var_count	!byte 0
-; z_global_vars_start	!byte 0, 0
 z_temp				!byte 0, 0, 0, 0, 0
 z_rnd_a				!byte 123
 z_rnd_b				!byte 75
@@ -543,17 +540,8 @@ z_execute
 	bne -
 	sty z_trace_index
 }
-	
-
-	; ; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
-	; lda #0
-	; ldx #7
-; -	sta z_operand_type_arr,x
-	; dex
-	; bpl -
 
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta z_opcode
 	
 !ifdef DEBUG {	
@@ -569,8 +557,6 @@ z_execute
 	;jsr newline
 	;lda z_opcode
 }
-	and #%00011111
-	sta z_opcode_number ; This is correct for VAR and LONG forms. Fix others later.
 	lda #z_opcode_opcount_2op
 	sta z_opcode_opcount ; This is the most common case. Adjust value when other case is found.
 	lda z_opcode
@@ -579,35 +565,35 @@ z_execute
 	bvc .top_bits_are_10
 
 	; Top bits are 11. Form = Variable
+	tax
+	and #%00011111
+	sta z_opcode_number
+	txa
 	and #%00100000
-	beq .get_4_ops ; This is a 2OP instruction, with up to 4 operands
+	beq + ; This is a 2OP instruction, with up to 4 operands
 	asl z_opcode_opcount ; Set to VAR
-	bne .get_4_ops ; Always branch
++	jmp .get_4_ops ; Always branch
 
 .top_bits_are_10
 !ifdef Z5PLUS {
 	cmp #z_opcode_extended
 	bne .short_form
 	; Form = Extended
-;	lda #$e
-;	sta z_opcode_number
 	lda #z_opcode_opcount_ext
 	sta z_opcode_opcount ; Set to EXT
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta z_extended_opcode
 	sta z_opcode_number
-;	clc
-;	adc #z_opcode_opcount_ext
-;	sta z_canonical_opcode
 	jmp .get_4_ops
 }
 .short_form
 	; Form = Short
 	and #%00001111
 	sta z_opcode_number
-	lda #0
-	sta z_operand_type_arr
+	ldx #0
+	stx z_operand_type_arr
+	inx
+	stx z_operand_count
 	lda z_opcode
 	asl
 	asl
@@ -621,8 +607,7 @@ z_execute
 	bne +
 	lda #z_opcode_opcount_0op 
 	sta z_opcode_opcount ; Set to 0OP
-+	ldx #0
-	jsr clear_remaining_types
++
 	jmp .read_operands
 	
 .top_bits_are_0x
@@ -638,12 +623,17 @@ z_execute
 	inx
 	cpx #2
 	bne -
+	stx z_operand_count
 	dex
-	jsr clear_remaining_types
+	lda z_opcode
+	and #%00011111
+	sta z_opcode_number
 	jmp .read_operands
 
 	; Get another byte of operand types
 .get_4_more_ops
+	ldy #8
+	sty z_operand_count
 	ldy #4
 	ldx #4
 	jsr z_get_op_types
@@ -651,6 +641,7 @@ z_execute
 	
 .get_4_ops
 	ldy #4
+	sty z_operand_count
 	ldx #0
 	jsr z_get_op_types
 	lda z_opcode
@@ -658,8 +649,6 @@ z_execute
 	beq .get_4_more_ops
 	cmp #z_opcode_call_vn2
 	beq .get_4_more_ops
-	ldx #4
-	jsr clear_remaining_types_2
 
 .read_operands
 	ldy #0
@@ -673,7 +662,6 @@ z_execute
 	ldy z_temp
 	tax
 	pla
-;	jsr read_word_at_z_pc_then_inc
 	jmp .store_operand
 .operand_is_not_large_constant
 	cmp #%11
@@ -682,7 +670,6 @@ z_execute
 	sty z_temp
 	+read_next_byte_at_z_pc
 	ldy z_temp
-;	jsr read_byte_at_z_pc_then_inc
 	cpx #%10
 	beq .operand_is_var
 	tax
@@ -696,7 +683,7 @@ z_execute
 	txa
 	sta z_operand_value_low_arr,y
 	iny
-	cpy #8
+	cpy z_operand_count
 	bcc .read_next_operand
 .op_is_omitted
 	sty z_operand_count
@@ -746,32 +733,22 @@ z_get_op_types
 !zone {
 	sty z_temp
 	+read_next_byte_at_z_pc
+	sta z_temp + 1
 	ldy z_temp
-;	jsr read_byte_at_z_pc_then_inc
 .get_next_op_type
-	pha
 	lda #0
+	asl z_temp + 1
+	rol
+	asl z_temp + 1
+	rol
 	sta z_operand_type_arr,x
-	pla
-	asl
-	rol z_operand_type_arr,x
-	asl
-	rol z_operand_type_arr,x
 	inx
+	cmp #%11
+	beq .done
 	dey
 	bne .get_next_op_type
-	; Set remaining types to 11 (no operand) up to y = 3 or y = 7
-	dex
-clear_remaining_types	
--	inx
-	txa
-	and #%11
-	beq + ; if x mod 4 == 0
-clear_remaining_types_2
-	lda #%11
-	sta z_operand_type_arr,x
-	bne -
-+	rts
+.done
+	rts
 }
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
@@ -956,7 +933,6 @@ z_store_result
 	; affected: a,x,y
 +	pha
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	tay
 	pla
 	jmp z_set_variable
@@ -1292,24 +1268,20 @@ z_ins_je
 	bne -
 make_branch_false
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 1
 	bit zp_temp + 1
 	bvs +
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 2
 	bit zp_temp + 1
 +	bpl .choose_jumptype
 -	rts
 make_branch_true
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 1
 	bit zp_temp + 1
 	bvs +
 	+read_next_byte_at_z_pc
-;	jsr read_byte_at_z_pc_then_inc
 	sta zp_temp + 2
 	bit zp_temp + 1
 +	bpl -
