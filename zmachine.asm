@@ -1321,7 +1321,7 @@ z_ins_jl
 	sbc z_operand_value_high_arr + 1
 	bvc +
 	eor #$80
-	bpl make_branch_false
++	bpl make_branch_false
 	jmp make_branch_true
 
 z_ins_jz
