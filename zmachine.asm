@@ -528,77 +528,6 @@ z_execute
 ;	lda #1
 ;	sta z_operand_value_low_arr
 ;	jsr z_ins_sound_effect
-
-; To test random number distribution, uncommment this code and code to print integer and return at beginning of z_store_result
-
-	; jsr print_following_string
-	; !pet "press enter to start",13,0
-    ; jsr kernel_readchar   ; read keyboard
-
-
-	; lda #z_test_mode_print
-	; sta z_test
-
-	; lda #<-1
-	; sta z_operand_value_low_arr
-	; lda #>-1
-	; sta z_operand_value_high_arr
-	; jsr z_ins_random
-	; lda #<10
-	; sta z_operand_value_low_arr
-	; lda #>10
-	; sta z_operand_value_high_arr
-	; ldx #15
-	; stx z_temp + 4
-; -	jsr z_ins_random
-	; dec z_temp + 4
-	; bne -
-	; jsr newline
-	; jsr newline
-	
-	; lda #<0
-	; sta z_operand_value_low_arr
-	; lda #>0
-	; sta z_operand_value_high_arr
-	; jsr z_ins_random
-	; lda #<10
-	; sta z_operand_value_low_arr
-	; lda #>10
-	; sta z_operand_value_high_arr
-	; ldx #15
-	; stx z_temp + 4
-; -	jsr z_ins_random
-	; dec z_temp + 4
-	; bne -
-	; jsr newline
-	; jsr newline
-
-	; lda #<-1
-	; sta z_operand_value_low_arr
-	; lda #>-1
-	; sta z_operand_value_high_arr
-; -	jsr z_ins_random
-	; lda #<10
-	; sta z_operand_value_low_arr
-	; lda #>10
-	; sta z_operand_value_high_arr
-	; ldx #15
-	; stx z_temp + 4
-; -	jsr z_ins_random
-	; dec z_temp + 4
-	; bne -
-	; jsr newline
-	; jsr newline
-
-	; lda #<0
-	; sta z_operand_value_low_arr
-	; lda #>0
-	; sta z_operand_value_high_arr
-	; jsr z_ins_random
-	
-	; lda #z_test_mode_print_and_store
-	; lda #0
-	; sta z_test
 }
 
 .main_loop
@@ -615,35 +544,13 @@ z_execute
 	sty z_trace_index
 }
 	
-;	ldx z_pc + 2
-;	cpx #$8b
-;	bne +
-;	lda #ERROR_READ_ABOVE_STATMEM
-;	jmp fatalerror
-; +
 
-	; Store # of bytes on stack (4 if no values) to trace page
-;	tya
-;	tax
-;	ldy #1
-;	lda (stack_ptr),y
-;	sta z_trace_page,x
-;	inx
-;	stx z_trace_index
-	
-	
-;	lda z_pc
-;	sta z_pc_instruction
-;	lda z_pc + 1
-;	sta z_pc_instruction + 1
-;	lda z_pc + 2
-;	sta z_pc_instruction + 2
-	; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
-	lda #0
-	ldx #7
--	sta z_operand_type_arr,x
-	dex
-	bpl -
+	; ; Set all operand types to 0, since this will be convenient when ROL:ing types into these bytes
+	; lda #0
+	; ldx #7
+; -	sta z_operand_type_arr,x
+	; dex
+	; bpl -
 
 	+read_next_byte_at_z_pc
 ;	jsr read_byte_at_z_pc_then_inc
@@ -699,6 +606,8 @@ z_execute
 	; Form = Short
 	and #%00001111
 	sta z_opcode_number
+	lda #0
+	sta z_operand_type_arr
 	lda z_opcode
 	asl
 	asl
@@ -840,6 +749,10 @@ z_get_op_types
 	ldy z_temp
 ;	jsr read_byte_at_z_pc_then_inc
 .get_next_op_type
+	pha
+	lda #0
+	sta z_operand_type_arr,x
+	pla
 	asl
 	rol z_operand_type_arr,x
 	asl
