@@ -2,9 +2,9 @@
 ; virtual memory
 TRACE_VM = 1
 ;TRACE_VM_PC = 1
-PRELOAD_UNTIL = header_static_mem ; dynmem only
+;PRELOAD_UNTIL = header_static_mem ; dynmem only
 ;PRELOAD_UNTIL = header_dictionary ; dynmen + grammar tables
-;PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
+PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
 
 ; virtual memory address space
 ; Z1-Z3: 128 kB (0 - $1ffff)

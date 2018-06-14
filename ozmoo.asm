@@ -91,8 +91,11 @@ w1  cmp $d012
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 
-
+!ifdef DYNMEM_ALREADY_LOADED {
+	jsr parse_header
+} else {
 	jsr load_dynamic_memory
+}
 	jsr prepare_static_high_memory
     jsr parse_dictionary
     jsr parse_object_table
@@ -116,7 +119,9 @@ load_header
     sty readblocks_numblocks
     sta readblocks_mempos + 1
     jsr readblocks
+    ;jmp parse_header
 
+parse_header ; must follow load_header
     ; check z machine version
     lda story_start + header_version
 !ifdef Z3 {

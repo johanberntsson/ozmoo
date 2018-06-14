@@ -59,10 +59,10 @@ d64.strictz5:
 	$(C1541) -attach strictz5.d64 -write ozmoo ozmoo
 
 d64.minform: 
-	acme -DTRACE=1 -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
-	#exomizer/src/exomizer sfx basic oz -o ozmoo
+	acme -DDYNMEM_ALREADY_LOADED=1 -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	exomizer/src/exomizer sfx basic ozmoo minform/minform.dynmem,14336 -o ozmoo_zip
 	cp minform/minform.d64 minform.d64
-	$(C1541) -attach minform.d64 -write ozmoo ozmoo
+	$(C1541) -attach minform.d64 -write ozmoo_zip ozmoo
 
 d64.minizork: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm

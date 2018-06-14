@@ -163,19 +163,22 @@ def create_d64(story_filename, d64_filename, dynmem_filename)
     # check header.high_mem_start (size of dynmem + statmem)
     # minform: $1768 = 5992 (23, 104)
     story_file.read(4) # skip version and flags1
-    high_mem_start = story_file.read(2).unpack("n")
+    high_mem_start = story_file.read(2).unpack("n")[0]
     
     # check header.static_mem_start (size of dynmem)
     story_file.read(8) # skip until this entry
     static_mem_start = story_file.read(2).unpack("n")[0]
 
     # get dynmem size (in 1kb blocks)
-    dynmem_size = 1024 * ((static_mem_start + 512)/1024)
+    #dynmem_size = 1024 * ((static_mem_start + 512)/1024)
+    dynmem_size = 1024 * ((high_mem_start + 512)/1024)
 
     # save dynmem as separate file
     story_file.rewind
     dynmem = story_file.read(dynmem_size)
     if !dynmem_filename.nil? then
+        # Assume memory starts at $3800
+        dynmem_file.write([0x00,0x38].pack("CC"))
         dynmem_file.write(dynmem)
         dynmem_file.close
     end
