@@ -1419,14 +1419,16 @@ make_branch_true
 	clc
 	adc zp_temp + 2
 	tax
+	ldy z_pc + 1
+	lda z_pc
 	bcc +
 	inc z_pc_mempointer_is_unsafe
-+	lda z_pc + 1
-	adc #0
-	tay
-	lda z_pc
-	adc #0
-	pha
+	iny
+	bne +
+	clc
+	adc #1
+	; Subtract 2
++	pha
 	txa
 	sec
 	sbc #2
