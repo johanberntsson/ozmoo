@@ -1482,11 +1482,14 @@ z_jump_to_offset_in_zp_temp
 	sta z_pc + 2
 	tya
 	sbc #0
-	sta z_pc + 1
+	tay
 	pla
 	sbc #0
 	sta z_pc
-	inc z_pc_mempointer_is_unsafe ; TODO: Should only be set to unsafe if changing page!
+	cpy z_pc + 1
+	beq +
+	inc z_pc_mempointer_is_unsafe
++	sty z_pc + 1
 	rts
 
 ; z_ins_jin (moved to objecttable.asm)
