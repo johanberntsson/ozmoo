@@ -1263,7 +1263,7 @@ z_ins_dec
 	dex
 	bpl .ins_dec
 +	rts
-
+	
 ; z_ins_print_addr (moved to text.asm)
 	
 ; z_ins_remove_obj (moved to objecttable.asm)
@@ -1402,7 +1402,6 @@ make_branch_true
 +	bpl -
 .choose_jumptype
 	; We have decided to jump
-	inc z_pc_mempointer_is_unsafe ; TODO: Should only be set to unsafe if changing page!
 	bvc .two_byte_jump
 	; This is a single byte jump
 	lda zp_temp + 1
@@ -1436,6 +1435,7 @@ make_branch_true
 	pla
 	sbc #0
 	sta z_pc
+	inc z_pc_mempointer_is_unsafe ; TODO: Should only be set to unsafe if changing page!
 .done
 	rts
 .two_byte_jump
@@ -1483,6 +1483,7 @@ z_jump_to_offset_in_zp_temp
 	pla
 	sbc #0
 	sta z_pc
+	inc z_pc_mempointer_is_unsafe ; TODO: Should only be set to unsafe if changing page!
 	rts
 
 ; z_ins_jin (moved to objecttable.asm)
