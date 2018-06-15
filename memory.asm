@@ -23,26 +23,19 @@ read_byte_at_z_address
 }
 }
 
-read_byte_at_z_pc_then_inc
+get_page_at_z_pc
 !zone {
 	stx mem_temp
-	sty mem_temp + 1
 	lda #0
 	sta z_pc_mempointer_is_unsafe
 	lda z_pc	
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address
-	inc z_pc + 2
-	bne +
-	inc z_pc_mempointer_is_unsafe ; Signal that a page boundary was crossed
-	inc z_pc + 1
-	bne +
-	inc z_pc
-+	ldx mempointer + 1
-	stx z_pc_mempointer + 1
+	ldy mempointer + 1
+	sty z_pc_mempointer + 1
+	ldy #0
 	ldx mem_temp
-	ldy mem_temp + 1
 	rts
 }
 

@@ -44,13 +44,12 @@
 
 !macro read_next_byte_at_z_pc {
 	ldy z_pc_mempointer_is_unsafe
-	bne +
-	lda (z_pc_mempointer),y
+	beq +
+	jsr get_page_at_z_pc	
++	lda (z_pc_mempointer),y
 	inc z_pc_mempointer ; Also increases z_pc
 	bne ++
 	jsr inc_z_pc_page
-	bne ++ ; Always branch
-+	jsr read_byte_at_z_pc_then_inc	
 ++	
 }
 
