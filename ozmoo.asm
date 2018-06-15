@@ -24,8 +24,16 @@
 
 !source "constants.asm"
 
+; Trace information
+z_trace_page 		  = 256 * ((>program_end) + 1)
+!ifdef TRACE {
+	z_trace_size = 256
+} else {
+	z_trace_size = 0
+}
+
 ; where to store stack
-stack_start = $3000
+stack_start = z_trace_page + z_trace_size
 stack_size = $0400;
 
 !ifdef USEVM {
@@ -206,3 +214,6 @@ prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)
     rts
 }
+
+program_end
+

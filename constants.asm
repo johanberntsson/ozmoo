@@ -44,9 +44,6 @@ datasette_buffer_end  = $03fb
 ;basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
 ;basic_printinteger    = $bdcd ; write integer value in a/x
 
-; Trace information
-z_trace_page 		  = $2f00
-
 ; --- I/O registers ---
 reg_screen_char_mode  = $d018 
 reg_bordercolor       = $d020

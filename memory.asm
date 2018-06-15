@@ -26,15 +26,14 @@ read_byte_at_z_address
 get_page_at_z_pc
 !zone {
 	stx mem_temp
-	lda #0
-	sta z_pc_mempointer_is_unsafe
 	lda z_pc	
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address
 	ldy mempointer + 1
 	sty z_pc_mempointer + 1
-	ldy #0
+	ldy #0 ; Important: y should always be 0 when exiting this routine!
+	sty z_pc_mempointer_is_unsafe
 	ldx mem_temp
 	rts
 }
