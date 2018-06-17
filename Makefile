@@ -7,6 +7,7 @@ X64 := /usr/bin/x64 -cartcrt final_cartridge.crt -autostart-delay-random
 
 #all: minizork
 #all: zork1
+#all: hollywood
 #all: dejavu
 #all: dragon
 all: minform
@@ -85,6 +86,11 @@ d64.zork1:
 	cp infocom/zork1.d64 zork1.d64
 	$(C1541) -attach zork1.d64 -write ozmoo ozmoo
 
+d64.hollywood: 
+	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp infocom/hollywood.d64 hollywood.d64
+	$(C1541) -attach hollywood.d64 -write ozmoo ozmoo
+
 d64.dejavu: 
 	acme -DZ3=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile oz ozmoo.asm
 	exomizer/src/exomizer sfx basic oz -o ozmoo
@@ -101,6 +107,9 @@ minizork: d64.minizork
 
 zork1: d64.zork1
 	$(X64) zork1.d64
+
+hollywood: d64.hollywood
+	$(X64) hollywood.d64
 
 dejavu: d64.dejavu
 	$(X64) dejavu.d64

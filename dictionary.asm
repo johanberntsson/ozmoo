@@ -2,7 +2,7 @@ dict_entries !byte 0, 0
 dict_len_entries !byte 0
 dict_num_entries !byte 0,0
 num_terminators !byte 0
-terminators !byte 0,0,0,0,0
+terminators !byte 0,0,0,0,0,0,0,0,0,0
 
 parse_dictionary
     lda story_start + header_dictionary     ; 05
@@ -13,7 +13,7 @@ parse_dictionary
 !ifdef DEBUG {
     jsr newline
 }
-    cmp #5 ; max num terminators
+    cmp #10 ; max num terminators
     bcc +
     lda #ERROR_TOO_MANY_TERMINATORS
     jsr fatalerror
