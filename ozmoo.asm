@@ -37,11 +37,11 @@ stack_start = z_trace_page + z_trace_size
 stack_size = $0400;
 
 !ifdef USEVM {
-    ; where to store vmem_buffer
-    vmem_buffer_size = $0400;
-    vmem_buffer_start = stack_start + stack_size
+    ; where to store vmem_caches
+    vmem_cache_size = 4*256 ; 4 caches, 256 bytes each
+    vmem_cache_start = stack_start + stack_size
     ; where to store story data
-    vmem_start = vmem_buffer_start + vmem_buffer_size
+    vmem_start = vmem_cache_start + vmem_cache_size
     vmem_end = $10000
     story_start = vmem_start
 } else {

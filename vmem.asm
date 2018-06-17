@@ -1,6 +1,6 @@
 !ifdef USEVM {
 ; virtual memory
-TRACE_VM = 1
+;TRACE_VM = 1
 ;TRACE_VM_PC = 1
 ;PRELOAD_UNTIL = header_static_mem ; dynmem only
 ;PRELOAD_UNTIL = header_dictionary ; dynmen + grammar tables
@@ -54,27 +54,38 @@ vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
 vmap_c64 = vmap_z_l + vmap_max_length
 
-vmap_index !byte 0        ; current vmap index matching the z pointer
-vmem_buffer_index !byte 0 ; buffer currently contains this vmap index
-
-current_zp
+vmap_index !byte 0              ; current vmap index matching the z pointer
+vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
+vmem_cache_cnt !byte 0         ; current execution cache
+vmem_cache_index !byte 0,0,0,0 ; cache currently contains this vmap index
 
 !ifdef DEBUG {
 !ifdef TRACE_VM {
 print_vm_map
 !zone {
-    ; print buffer
+    ; print caches
     jsr space
     lda #66
     jsr streams_print_output
     jsr space
+    lda vmem_cache_cnt
+    jsr printa
+    jsr space
     jsr dollar
-    lda vmem_buffer_index
+    lda vmem_cache_index
     jsr print_byte_as_hex
-    lda #$30
-    jsr streams_print_output
-    lda #$30
-    jsr streams_print_output
+    jsr space
+    jsr dollar
+    lda vmem_cache_index + 1
+    jsr print_byte_as_hex
+    jsr space
+    jsr dollar
+    lda vmem_cache_index + 2
+    jsr print_byte_as_hex
+    jsr space
+    jsr dollar
+    lda vmem_cache_index + 3
+    jsr print_byte_as_hex
     jsr newline
     ldy #0
 -   ; don't print empty entries
@@ -122,7 +133,7 @@ load_blocks_from_index
     ldx vmap_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
     cmp #$d0
-    bcs .load_blocks_from_index_using_buffer
+    bcs load_blocks_from_index_using_cache
     ldy #4 ; number of blocks
     lda vmap_c64,x ; c64 mem offset
     pha
@@ -133,30 +144,44 @@ load_blocks_from_index
     sty readblocks_numblocks
     sta readblocks_mempos + 1
     jsr readblocks
-    jmp .blocks_loaded
-.load_blocks_from_index_using_buffer
+!ifdef TRACE_VM {
+    ;jsr print_following_string
+    ;!pet "load_blocks (normal) ",0
+    ;jsr print_vm_map
+}
+    rts
+
+load_blocks_from_index_using_cache
     ; vmap_index = index to load
+    ; vmem_cache_cnt = which 256 byte cache use as transfer buffer
     ; side effects: a,y,x,status destroyed
-    ldx vmap_index
     ; initialise block copy function (see below)
-    lda #>vmem_buffer_start ; start of buffer
+    ldx vmap_index
+    lda #>vmem_cache_start ; start of cache
     sta .copy_to_vmem + 2
     lda vmap_c64,x ; start block
     sta .copy_to_vmem + 5
-    sta vmem_buffer_index
-    ; read 4 blocks into vmem_buffer
-    lda #4
+    sta vmem_cache_index
+    ldx #4 ; read 4 blocks (1 kb) in total
+    ; read next into vmem_cache
+-   lda #1
     sta readblocks_numblocks
-    lda #>vmem_buffer_start ; start of buffer
+    lda #>vmem_cache_start ; start of cache
+    clc
+    adc vmem_cache_cnt
     sta readblocks_mempos + 1
+    txa
+    pha
+    clc
+    adc vmap_index
+    tax
     lda vmap_z_l,x ; start block
     sta readblocks_currentblock
     jsr readblocks
-    ; copy vmem_buffer to block (banking as needed)
+    ; copy vmem_cache to block (banking as needed)
     sei
     +set_memory_all_ram
-    ldx #4
--   ldy #0
+    ldy #0
 .copy_to_vmem
     lda $8000,y
     sta $8000,y
@@ -164,14 +189,15 @@ load_blocks_from_index
     bne .copy_to_vmem
     inc .copy_to_vmem + 2
     inc .copy_to_vmem + 5
-    dex
-    bne -
     +set_memory_no_basic
     cli
-.blocks_loaded
+    pla
+    tax
+    dex
+    bne -
 !ifdef TRACE_VM {
     ;jsr print_following_string
-    ;!pet "load_blocks_from_index: ",0
+    ;!pet "load_blocks (banking) ",0
     ;jsr print_vm_map
 }
     rts
@@ -234,13 +260,19 @@ prepare_static_high_memory
 ++  iny
     cpy #vmap_max_length
     bne -
-    lda #$00
-    sta vmem_buffer_index
+    ;probably not needed since already set to zero
+    ;and reinit of vmem shoudn't be necessary
+    ;lda #$00
+    ;sta vmem_cache_cnt
+    ;sta vmem_cache_index
+    ;sta vmem_cache_index + 1
+    ;sta vmem_cache_index + 2 
+    ;sta vmem_cache_index + 3
     lda #$ff
     sta zp_pc_h
     sta zp_pc_l
 !ifdef TRACE_VM {
-    ;jsr print_vm_map
+    jsr print_vm_map
 }
     rts
 .zp_maxmem !byte 0
@@ -259,7 +291,10 @@ read_byte_at_z_address
     jmp .return_result
 .read_new_byte
     sta zp_pc_h
-    stx zp_pc_l
+    txa
+    sta zp_pc_l
+    and #$03 ; keep index into kB chunk
+    sta vmem_1kb_offset
 !ifdef TRACE_VM_PC {
     lda zp_pc_l
     cmp #$10
@@ -322,43 +357,57 @@ read_byte_at_z_address
     cmp #$d0
     bcc .unswappable
     ; this is swappable memory
-    ; update vmem_buffer if needed
+    ; update vmem_cache if needed
     lda vmap_c64,x
-    cmp vmem_buffer_index
-    beq .buffer_updated
-    ; copy vmem to vmem_buffer (banking as needed)
+    clc
+    adc vmem_1kb_offset
+    ldy #0
+-   cmp vmem_cache_index,y
+    beq .cache_updated
+    iny
+    cpy #4
+    bne -
+    ; copy vmem to vmem_cache (banking as needed)
     lda vmap_c64,x ; start block
-    sta .copy_to_vmem_to_buffer + 2
-    sta vmem_buffer_index
-    lda #>vmem_buffer_start ; start of buffer
-    sta .copy_to_vmem_to_buffer + 5
+    clc
+    adc vmem_1kb_offset
+    sta .copy_to_vmem_to_cache + 2
+    sta vmem_cache_index
+    lda #>vmem_cache_start ; start of cache
+    clc
+    adc vmem_cache_cnt
+    sta .copy_to_vmem_to_cache + 5
     sei
     +set_memory_all_ram
-    ldx #4
 -   ldy #0
-.copy_to_vmem_to_buffer
+.copy_to_vmem_to_cache
     lda $8000,y
     sta $8000,y
     iny
-    bne .copy_to_vmem_to_buffer
-    inc .copy_to_vmem_to_buffer + 2
-    inc .copy_to_vmem_to_buffer + 5
-    dex
-    bne -
+    bne .copy_to_vmem_to_cache
+    inc .copy_to_vmem_to_cache + 2
+    inc .copy_to_vmem_to_cache + 5
     +set_memory_no_basic
     cli
-.buffer_updated
-    lda zp_pc_l
-    and #$03 ; keep index into kB chunk
+    ldy vmem_cache_cnt
+    ; set next cache to use when needed
+    inc vmem_cache_cnt
+    lda vmem_cache_cnt
+    cmp #4
+    bne .cache_updated
+    lda #0
+    sta vmem_cache_cnt
+.cache_updated
+    ; here y is vmem_cache where current z_pc is
+    tya
     clc
-    adc #>vmem_buffer_start
+    adc #>vmem_cache_start
     sta mempointer + 1
     ldx vmap_index
     bne .update_page_rank ; always true
 .unswappable
     ; update memory pointer
-    lda zp_pc_l
-    and #$03 ; keep index into kB chunk
+    lda vmem_1kb_offset
     clc
     adc vmap_c64,x
     sta mempointer + 1
