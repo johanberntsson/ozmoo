@@ -8,6 +8,7 @@ readblocks_mempos        !byte 0,0 ; $2000 = 00 20
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
+    ; register: a,x,y
 !ifdef TRACE_FLOPPY {
     jsr newline
     jsr print_following_string
@@ -39,6 +40,7 @@ readblocks
     rts
 
 .readblock
+    ; register a,x,y
     ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
 
