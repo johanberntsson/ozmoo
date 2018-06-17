@@ -1,4 +1,4 @@
-#DEBUGFLAGS = -DDEBUG=1
+DEBUGFLAGS = -DDEBUG=1
 VMFLAGS = -DUSEVM=1
 C1541 := /usr/bin/c1541
 #X64 := /usr/bin/x64 -autostart-delay-random
@@ -58,9 +58,20 @@ d64.strictz5:
 	cp test/strictz5.d64 strictz5.d64
 	$(C1541) -attach strictz5.d64 -write ozmoo ozmoo
 
-d64.minform: 
+d64.minform2: 
+	acme -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
+	cp minform/minform.d64 minform.d64
+	$(C1541) -attach minform.d64 -write ozmoo ozmoo
+
+get-story-start:
+	$(eval storystart := $(shell grep story_start acme_labels.txt | sed 's/[^0-9]//g' | sed 's/^/ibase=16;/' | bc))
+	$(info $(storystart))
+
+d64.minform-compile: 
 	acme -DDYNMEM_ALREADY_LOADED=1 -DZ5=1 $(DEBUGFLAGS) $(VMFLAGS) --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm
-	exomizer/src/exomizer sfx basic ozmoo minform/minform.dynmem,14336 -o ozmoo_zip
+
+d64.minform: d64.minform-compile get-story-start
+	exomizer/src/exomizer sfx basic ozmoo minform/minform.dynmem,$(storystart) -o ozmoo_zip
 	cp minform/minform.d64 minform.d64
 	$(C1541) -attach minform.d64 -write ozmoo_zip ozmoo
 
