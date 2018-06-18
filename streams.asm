@@ -48,7 +48,7 @@ streams_print_output
 	inc streams_current_entry + 2
 	bne +
 	inc streams_current_entry + 3
-+	ldy zp_temp + 3
++	ldy zp_temp + 2
 	rts
 
 z_ins_output_stream

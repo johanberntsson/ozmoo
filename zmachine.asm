@@ -18,6 +18,7 @@ z_font				!byte 1, 1
 z_window_lower = 0
 z_window_upper = 1
 z_window			!byte z_window_lower
+z_interrupt_return_value !byte 0,0
 
 ; opcount0 = 0
 ; opcount1 = 16
@@ -414,12 +415,16 @@ z_opcode_opcount_2op = 32
 z_opcode_opcount_var = 64
 z_opcode_opcount_ext = 96
 
+z_exe_mode_normal = $0
+z_exe_mode_return_from_read_interrupt = $80
 
 z_init
 !zone {
 
-	lda #1
-	sta z_pc_mempointer_is_unsafe
+	ldy #1
+	sty z_pc_mempointer_is_unsafe
+	dey
+	sty z_exe_mode ; 0 = Normal
 	
 !ifdef TRACE {
 	; Setup trace
@@ -517,8 +522,18 @@ z_init
 	jmp z_rnd_init_random
 }
 
+
+
+!zone z_execute {
+
+!ifdef Z4PLUS {
+.return_from_interrupt
+	lda #z_exe_mode_normal
+	sta z_exe_mode
+	jsr read_routine_callback
+}
+
 z_execute
-!zone {
 
 !ifdef DEBUG {
 ; Play high-pitched beep
@@ -528,6 +543,12 @@ z_execute
 }
 
 .main_loop
+
+!ifdef Z4PLUS {
+	lda z_exe_mode
+	bne .return_from_interrupt
+}
+
 !ifdef TRACE {
 	; Store z_pc to trace page 
 	ldx #0
@@ -1647,6 +1668,7 @@ z_ins_call_xn
 +	ldx z_operand_count
 	dex
 	ldy #0 ; Don't store result
+	tya ; Normal call mode
 	jmp stack_call_routine
 
 ; z_ins_throw (moved to stack.asm)
@@ -1661,6 +1683,7 @@ z_ins_call_xs
 +	ldx z_operand_count
 	dex
 	ldy #1 ; Store result = 1
+	lda #z_exe_mode_normal
 	jmp stack_call_routine
 
 ; VAR storew is implemented in z_ins_loadw_and_storew, under 2OP	

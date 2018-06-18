@@ -19,7 +19,7 @@
 
 !zone {
 
-.stack_tmp !byte 0, 0, 0, 0
+.stack_tmp !byte 0, 0, 0, 0, 0
 stack_pushed_bytes !byte 0, 0
 
 stack_init
@@ -100,10 +100,12 @@ stack_push_top_value
 	jmp .move_stack_ptr_to_last_word_of_frame
 
 stack_call_routine
+	; a = Mode ($80 = Call read interrupt routine, 0 = Normal)
 	; x = Number of arguments to be passed to routine
 	; y = Does Z_PC point to a variable where return value should be stored (0/1)
 	stx zp_temp
 	sty zp_temp + 1
+	sta .stack_tmp + 4
 
 	; TASK: Wrap up current stack frame
 	lda stack_has_top_value
@@ -242,9 +244,11 @@ stack_call_routine
 	ora z_local_var_count
 	sta (stack_ptr),y
 	iny
-	lda .stack_tmp
+	lda .stack_tmp + 4 ; Add call mode
+;	and #$f8 ; Should not be needed!
+	ora .stack_tmp
 	sta (stack_ptr),y
-	iny
+	iny 
 	lda .stack_tmp + 1
 	sta (stack_ptr),y
 	iny
@@ -302,7 +306,14 @@ stack_return_from_routine
 -	lda z_pc,x
 	sta .stack_tmp + 1,x
 	lda (z_local_vars_ptr),y
-	sta z_pc,x
+	cpx #0
+	bne +
+	pha
+	and #$f8
+	sta z_exe_mode
+	pla
+	and #$07
++	sta z_pc,x
 	iny
 	inx
 	cpx #3
@@ -373,6 +384,15 @@ stack_return_from_routine
 	sbc #0
 	sta z_local_vars_ptr + 1
 	
+	; Set interrupt return value, if this was a return from an interrupt
+	lda z_exe_mode
+	beq +
+	lda zp_temp
+	sta z_interrupt_return_value
+	lda zp_temp + 1
+	sta z_interrupt_return_value + 1
++
+
 	; Store return value if calling instruction asked for it
 	bit .stack_tmp
 	bpl +

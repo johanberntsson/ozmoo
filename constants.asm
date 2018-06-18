@@ -21,6 +21,7 @@ stack_top_value 	  = $4b ; 2 bytes !byte 0, 0
 stack_has_top_value   = $4d ; !byte 0
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
 z_trace_index		  = $54
+z_exe_mode	  		  = $55
 z_pc_mempointer_is_unsafe = $57
 z_pc				  = $58 ; 3 bytes (last byte shared with z_pc_mempointer)
 z_pc_mempointer		  = $5a ; 2 bytes (first byte shared with z_pc)

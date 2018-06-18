@@ -229,9 +229,9 @@ z_ins_aread
     bne +
     ldy z_operand_value_low_arr + 2
     sty .read_text_time
-    ldy z_operand_value_low_arr + 3
-    sty .read_text_routine
     ldy z_operand_value_high_arr + 3
+    sty .read_text_routine
+    ldy z_operand_value_low_arr + 3
     sty .read_text_routine + 1
 +   lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
@@ -621,6 +621,7 @@ update_read_text_timer
     rts
 
 read_char
+!ifdef Z4PLUS {
     ; check if time for routine call
     ; http://www.6502.org/tutorials/compare_beyond.html#2.2
     lda .read_text_time
@@ -643,13 +644,35 @@ read_char
     ; (z_pc I guess, comes as an argument to z_ins_read_char above.
     ; but does this mean that the routine must be below $10000?)
     ;inc $d020
+	lda .read_text_routine
+	sta z_operand_value_high_arr
+	lda .read_text_routine + 1
+	sta z_operand_value_low_arr
+	lda #z_exe_mode_return_from_read_interrupt
+	ldx #0
+	ldy #0
+	jsr stack_call_routine
+	; JOHAN: At this point, we should let the interrupt routine start, so we need to rts.
+	; Anything else we need to do first?
+	
     jsr update_read_text_timer
+}
 .no_timer
     jsr kernel_getchar
     cmp #$00
     beq read_char
     rts
 
+!ifdef Z4PLUS {
+read_routine_callback
+	; Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value
+	lda #z_exe_mode_normal
+	sta z_exe_mode
+	jsr print_following_string
+	!pet "read_routine_callback hasn't been implemented...",13,0
+	rts
+}	
+	
 read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
