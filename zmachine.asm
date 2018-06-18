@@ -614,7 +614,6 @@ z_execute
 	ldx #0
 	stx z_operand_type_arr
 	inx
-	stx z_operand_count
 	lda z_opcode
 	asl
 	asl
@@ -626,9 +625,11 @@ z_execute
 	lda z_operand_type_arr
 	cmp #%11
 	bne +
+	dex
 	lda #z_opcode_opcount_0op 
 	sta z_opcode_opcount ; Set to 0OP
 +
+	stx z_operand_count
 	jmp .read_operands
 	
 .top_bits_are_0x
@@ -762,13 +763,14 @@ z_get_op_types
 	rol
 	asl z_temp + 1
 	rol
-	sta z_operand_type_arr,x
-	inx
 	cmp #%11
 	beq .done
+	sta z_operand_type_arr,x
+	inx
 	dey
 	bne .get_next_op_type
 .done
+	stx z_operand_count
 	rts
 }
 

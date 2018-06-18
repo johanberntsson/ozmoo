@@ -668,8 +668,10 @@ read_routine_callback
 	; Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value
 	lda #z_exe_mode_normal
 	sta z_exe_mode
+!ifdef DEBUG {
 	jsr print_following_string
 	!pet "read_routine_callback hasn't been implemented...",13,0
+}
 	rts
 }	
 	
