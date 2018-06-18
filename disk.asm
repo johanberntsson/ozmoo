@@ -12,7 +12,7 @@ readblocks
 !ifdef TRACE_FLOPPY {
     jsr newline
     jsr print_following_string
-    !pet "readblocks (n,curr,pos) ",0
+    !pet "readblocks (n,zp,c64) ",0
     lda readblocks_numblocks
     jsr printa
     jsr comma
@@ -27,22 +27,20 @@ readblocks
     jsr print_byte_as_hex
     jsr newline
 }
--   jsr .readblock ; read block
+-   jsr readblock ; read block
     inc readblocks_mempos + 1   ; update mempos,block for next iteration
     inc readblocks_currentblock
     bne +
     inc readblocks_currentblock + 1
 +   dec readblocks_numblocks        ; loop
     bne -
-    ; clear arguments for next call
-    lda #0
-    sta readblocks_currentblock + 1
     rts
 
-.readblock
-    ; register a,x,y
+readblock
     ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
+    ; set values in readblocks_* before calling this function
+    ; register a,x,y
 
     ; convert block to track/sector
     ; (assuming each tracks has 16 sectors, skipping track18)

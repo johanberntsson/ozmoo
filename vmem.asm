@@ -134,20 +134,20 @@ load_blocks_from_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
     cmp #$d0
     bcs load_blocks_from_index_using_cache
-    ldy #4 ; number of blocks
+    lda #4 ; number of blocks
+    sta readblocks_numblocks
     lda vmap_c64,x ; c64 mem offset
-    pha
-    lda vmap_z_l,x ; start block
-    tax
-    pla
-    stx readblocks_currentblock
-    sty readblocks_numblocks
     sta readblocks_mempos + 1
+    lda vmap_z_l,x ; start block
+    sta readblocks_currentblock
+    lda vmap_z_h,x ; start block
+    and #$07
+    sta readblocks_currentblock + 1
     jsr readblocks
 !ifdef TRACE_VM {
-    ;jsr print_following_string
-    ;!pet "load_blocks (normal) ",0
-    ;jsr print_vm_map
+    jsr print_following_string
+    !pet "load_blocks (normal) ",0
+    jsr print_vm_map
 }
     rts
 
@@ -164,9 +164,7 @@ load_blocks_from_index_using_cache
     sta vmem_cache_index
     ldx #4 ; read 4 blocks (1 kb) in total
     ; read next into vmem_cache
--   lda #1
-    sta readblocks_numblocks
-    lda #>vmem_cache_start ; start of cache
+-   lda #>vmem_cache_start ; start of cache
     clc
     adc vmem_cache_cnt
     sta readblocks_mempos + 1
@@ -177,7 +175,10 @@ load_blocks_from_index_using_cache
     tax
     lda vmap_z_l,x ; start block
     sta readblocks_currentblock
-    jsr readblocks
+    lda vmap_z_h,x ; start block
+    and #$07
+    sta readblocks_currentblock + 1
+    jsr readblock
     ; copy vmem_cache to block (banking as needed)
     sei
     +set_memory_all_ram
@@ -221,7 +222,7 @@ load_dynamic_memory
     clc
     adc #1 ; skip header
     ldx #$01
-    stx readblocks_currentblock
+    stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
     sty readblocks_numblocks
     sta readblocks_mempos + 1
     jmp readblocks

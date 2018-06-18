@@ -122,11 +122,10 @@ load_header
     ; read the header
     lda #>story_start ; first free memory block
     ldx #$00    ; first block to read from floppy
-    ldy #$01    ; read 1 block
     stx readblocks_currentblock
-    sty readblocks_numblocks
+    stx readblocks_currentblock + 1
     sta readblocks_mempos + 1
-    jsr readblocks
+    jsr readblock
     ;jmp parse_header
 
 parse_header ; must follow load_header
@@ -187,7 +186,6 @@ parse_header ; must follow load_header
 !ifndef USEVM {
 load_dynamic_memory
     ; the default case is to simply treat all as dynamic (r/w)
-
     jsr load_header
 	; check that the file is not too big
 	ldx fileblocks
@@ -205,7 +203,7 @@ load_dynamic_memory
     ldx #$01           ; first block to read from floppy
     ldy fileblocks + 1 ; read the rest of the blocks
     dey ; skip the header
-    stx readblocks_currentblock
+    stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
     sty readblocks_numblocks
     sta readblocks_mempos + 1
     jmp readblocks
