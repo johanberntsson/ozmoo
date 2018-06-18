@@ -70,7 +70,6 @@ end
 
 if path.empty? || path.length == 1 then
     file = `dir *#{File::SEPARATOR}#{filename}`
-    puts path
     if path.empty? then
         puts "ERROR: empty path"
         exit 0
@@ -85,6 +84,7 @@ if !File.exists? d64_file then
     exit 0
 end
 if !File.exists?(dynmem_file) && use_compression == true then
+    use_compression = false
     puts "#{dynmem_file} not found, compression disabled (push enter)"
     STDIN.getc
 end
