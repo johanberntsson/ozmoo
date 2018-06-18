@@ -30,6 +30,7 @@ z_ins_read_char
     sty .read_text_routine
     ldy z_operand_value_high_arr + 2
     sty .read_text_routine + 1
+    jsr init_read_text_timer
 +   jsr read_char
     tax
     lda #0
@@ -581,7 +582,31 @@ find_word_in_dictionary
 .zchars_per_entry !byte 0
 .num_matching_zchars !byte 0
 
-prepare_read_text_timer
+init_read_text_timer
+    lda .read_text_time
+    sta .read_text_time_jiffy
+    bne + 
+    rts ; no timer
++   ; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
+    lda #0
+    sta multiplier + 1
+    sta multiplicand + 1
+    lda .read_text_time
+    sta multiplier
+    lda #5
+    sta multiplicand ; t*5 for NTSC
+    lda c64_model
+    cmp #3
+    bne .is_ntsc
+    inc multiplicand ; t*6 for PAL
+.is_ntsc
+    jsr mult16
+    lda product
+    sta .read_text_time_jiffy
+    ;jmp update_read_text_timer
+    ; update_read_text_timer must follow below to save a few bytes
+
+update_read_text_timer
     ; prepare time for next routine call (current time + time_jiffy)
     jsr kernel_readtime  ; read current time (in jiffys)
     stx .read_text_jiffy + 1
@@ -598,10 +623,31 @@ prepare_read_text_timer
     rts
 
 read_char
-    ; read char from keyboard into an array (address: a/x)
-    ; output: a = char read, or 0 if interrupted by timer
--   jsr kernel_getchar
-    beq -
+    ; check if time for routine call
+    ; http://www.6502.org/tutorials/compare_beyond.html#2.2
+    lda .read_text_time
+    beq .no_timer
+    jsr kernel_readtime   ; read start time (in jiffys) in a,x,y (low to high)
+    cpy .read_text_jiffy + 2 ; compare high bytes
+    bcc .no_timer
+    cpx .read_text_jiffy + 1
+    bcc .no_timer
+    cmp .read_text_jiffy
+    bcc .no_timer
+.call_routine
+    ; current time >= .read_text_jiffy. Time to call routine
+    ; TODO: call routine and check return value
+    ; FREDRIK 
+    ; call routine() which return true or false
+    ; address: .read_text_routine and .read_text_routine+1
+    ; (z_pc I guess, comes as an argument to z_ins_read_char above.
+    ; but does this mean that the routine must be below $10000?)
+    ;inc $d020
+    jsr update_read_text_timer
+.no_timer
+    jsr kernel_getchar
+    cmp #$00
+    beq read_char
     rts
 
 read_text
@@ -618,26 +664,7 @@ read_text
     ; clear [More] counter
     jsr clear_num_rows
     ; check timer usage
-    lda .read_text_time
-    sta .read_text_time_jiffy
-    beq .init_read_text ; no timer
-    ; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
-    lda #0
-    sta multiplier + 1
-    sta multiplicand + 1
-    lda .read_text_time
-    sta multiplier
-    lda #5
-    sta multiplicand ; t*5 for NTSC
-    lda c64_model
-    cmp #3
-    bne .is_ntsc
-    inc multiplicand ; t*6 for PAL
-.is_ntsc
-    jsr mult16
-    lda product
-    sta .read_text_time_jiffy
-    jsr prepare_read_text_timer
+    jsr init_read_text_timer
 .init_read_text
     ; turn on blinking cursor
     lda #0
@@ -653,28 +680,13 @@ read_text
 }
     sta .read_text_offset
 .readkey
-    ; check if time for routine call
-    ; http://www.6502.org/tutorials/compare_beyond.html#2.2
-    lda .read_text_time
-    beq .no_timer
-    jsr kernel_readtime   ; read start time (in jiffys) in a,x,y (low to high)
-    cpy .read_text_jiffy + 2 ; compare high bytes
-    bcc .no_timer
-    bne .call_routine
-    cpx .read_text_jiffy + 1
-    bcc .no_timer
-    bne .call_routine
-    cmp .read_text_jiffy
-    bcc .no_timer
-.call_routine
-    ; current time >= .read_text_jiffy. Time to call routine
-    ; TODO: call routine and check return value
-    jsr prepare_read_text_timer
-.no_timer
-    jsr kernel_getchar
-    cmp #$00
-    beq .readkey
-    cmp #$0d
+    jsr read_char
+    cmp #0
+    bne +
+    ; timeout from routine
+    ; TODO: what to do?
+    rts
++   cmp #$0d
     beq .read_text_done
     cmp #20
     bne +
