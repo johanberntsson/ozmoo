@@ -609,8 +609,6 @@ init_read_text_timer
 update_read_text_timer
     ; prepare time for next routine call (current time + time_jiffy)
     jsr kernel_readtime  ; read current time (in jiffys)
-    stx .read_text_jiffy + 1
-    sty .read_text_jiffy + 2 
     clc
     adc .read_text_time_jiffy
     sta .read_text_jiffy
@@ -619,7 +617,7 @@ update_read_text_timer
     sta .read_text_jiffy + 1
     tya
     adc #0
-    sta .read_text_jiffy + 1
+    sta .read_text_jiffy + 2
     rts
 
 read_char
@@ -630,8 +628,10 @@ read_char
     jsr kernel_readtime   ; read start time (in jiffys) in a,x,y (low to high)
     cpy .read_text_jiffy + 2 ; compare high bytes
     bcc .no_timer
+    bne .call_routine
     cpx .read_text_jiffy + 1
     bcc .no_timer
+    bne .call_routine
     cmp .read_text_jiffy
     bcc .no_timer
 .call_routine
