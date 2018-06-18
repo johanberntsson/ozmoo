@@ -13,17 +13,17 @@ else
     $EXOMIZER = "exomizer/src/exomizer"
 end
 
-def play(game, filename, path, ztype, use_compression)
+def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     if use_compression then
         compression = "-DDYNMEM_ALREADY_LOADED=1"
     else
         compression = ""
     end
     system("acme #{compression} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm")
-    system("cp #{path}#{File::SEPARATOR}#{game}.d64 #{game}.d64")
+    system("cp #{d64_file} #{game}.d64")
     if use_compression then
         storystart = `grep story_start acme_labels.txt | sed 's/[^0-9]//g' | sed 's/^/ibase=16;/' | bc`.strip
-        system("#{$EXOMIZER} sfx basic ozmoo #{path}#{File::SEPARATOR}#{game}.dynmem,#{storystart} -o ozmoo_zip")
+        system("#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip")
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip ozmoo")
     else
         system("#{$C1541} -attach #{game}.d64 -write ozmoo ozmoo")
@@ -89,7 +89,7 @@ if !File.exists?(dynmem_file) && use_compression == true then
     STDIN.getc
 end
 
-play(game, filename, path, ztype.upcase, use_compression)
+play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
 
 exit 0
 
