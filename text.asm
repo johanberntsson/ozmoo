@@ -672,6 +672,8 @@ read_char
 	; Restore buffering setting
 	lda .text_tmp
 	sta is_buffered_window
+
+	; JOHAN: Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value. What next?
 	
     jsr update_read_text_timer
 }
@@ -681,17 +683,17 @@ read_char
     beq read_char
     rts
 
-!ifdef Z4PLUS {
-read_routine_callback
-	; Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value
-	lda #z_exe_mode_normal
-	sta z_exe_mode
-!ifdef DEBUG {
-	jsr print_following_string
-	!pet "read_routine_callback hasn't been implemented...",13,0
-}
-	rts
-}	
+; !ifdef Z4PLUS {
+; read_routine_callback
+	; ; Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value
+	; lda #z_exe_mode_normal
+	; sta z_exe_mode
+; !ifdef DEBUG {
+	; jsr print_following_string
+	; !pet "read_routine_callback hasn't been implemented...",13,0
+; }
+	; rts
+; }	
 	
 read_text
     ; read line from keyboard into an array (address: a/x)
