@@ -32,22 +32,20 @@ z_trace_page 		  = 256 * ((>program_end) + 1)
 	z_trace_size = 0
 }
 
-; where to store stack
-stack_start = z_trace_page + z_trace_size
-stack_size = $0400;
-
+; where to store vmem_caches
+vmem_cache_start = z_trace_page + z_trace_size ; stack_start + stack_size
 !ifdef USEVM {
-    ; where to store vmem_caches
     vmem_cache_size = 4*256 ; 4 caches, 256 bytes each
-    vmem_cache_start = stack_start + stack_size
-    ; where to store story data
-    vmem_start = vmem_cache_start + vmem_cache_size
-    vmem_end = $10000
-    story_start = vmem_start
 } else {
-    ; where to store story data
-    story_start = stack_start + stack_size
+    vmem_cache_size = 0
 }
+
+stack_start = vmem_cache_start + vmem_cache_size
+stack_size = $0400;
+story_start = stack_start + stack_size
+
+vmem_start = story_start
+vmem_end = $10000
 
 ; basic program (10 SYS2061)
 !source "basic-boot.asm"
