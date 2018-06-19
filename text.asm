@@ -4,6 +4,7 @@
 ;TRACE_TOKENISE = 1
 ;TRACE_SHOW_DICT_ENTRIES = 1
 ;TRACE_PRINT_ARRAYS = 1
+.text_tmp	!byte 0
 
 z_ins_print_char
     lda z_operand_value_low_arr
@@ -644,9 +645,15 @@ read_char
     ; (z_pc I guess, comes as an argument to z_ins_read_char above.
     ; but does this mean that the routine must be below $10000?)
     ;inc $d020
-	; lda #0
+	
+	; Turn off buffering
+	lda is_buffered_window
+	sta .text_tmp
+	lda #0
+	sta is_buffered_window
 	; stx z_operand_value_low_arr
 	; jsr z_ins_buffer_mode
+
 	lda .read_text_routine
 	sta z_operand_value_high_arr
 	ldx .read_text_routine + 1
@@ -660,8 +667,13 @@ read_char
 	jsr stack_call_routine
 	; JOHAN: At this point, we should let the interrupt routine start, so we need to rts.
 	; Anything else we need to do first?
+	jsr z_execute
+
+	; Restore buffering setting
+	lda .text_tmp
+	sta is_buffered_window
 	
-    jmp update_read_text_timer
+    jsr update_read_text_timer
 }
 .no_timer
     jsr kernel_getchar

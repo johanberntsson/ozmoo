@@ -530,7 +530,8 @@ z_init
 .return_from_interrupt
 	lda #z_exe_mode_normal
 	sta z_exe_mode
-	jsr read_routine_callback
+	; jsr read_routine_callback
+	rts
 }
 
 z_execute

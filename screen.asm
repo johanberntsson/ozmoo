@@ -7,7 +7,7 @@ NEW_MORE_PROMPT = 1
 .current_window !byte 0
 .window_size !byte 25, 0
 .cursor_position !byte 0,0
-.is_buffered_window !byte 1,0
+is_buffered_window !byte 1,0
 
 init_screen_colours
     lda #$0f
@@ -157,7 +157,7 @@ z_ins_buffer_mode
     ; buffer_mode flag
     ldy #0
     lda z_operand_value_low_arr
-    sta .is_buffered_window,y ; set window 0 (main screen) to flag
+    sta is_buffered_window,y ; set window 0 (main screen) to flag
     rts
 }
 
@@ -293,7 +293,7 @@ clear_num_rows
 increase_num_rows
     ldx .current_window
     inc .num_rows,x
-    lda .is_buffered_window,x
+    lda is_buffered_window,x
     bne +
     ; unbuffered windows don't insert newlines
     ;lda .num_rows
@@ -385,7 +385,7 @@ printchar_buffered
     pha
     ; is this a buffered window?
     ldx .current_window
-    lda .is_buffered_window,x
+    lda is_buffered_window,x
     bne .buffered_window
     lda .buffer_char
     jsr $ffd2 ; kernel_printchar
