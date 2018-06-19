@@ -673,7 +673,10 @@ read_char
     jsr update_read_text_timer
 	; just return the value: 0 or 1 (true or false)
 	lda z_interrupt_return_value
-	rts
+	ora z_interrupt_return_value + 1
+	beq +
+	lda #1
++	rts
 }
 .no_timer
     jsr kernel_getchar
