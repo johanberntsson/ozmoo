@@ -59,7 +59,6 @@ Improve ZSCII / PETSCII conversion with special cases for accented characters
 ; ---
 ; input_stream
 ; copy_table
-; print_table
 ;
 ; EXT
 ; ---

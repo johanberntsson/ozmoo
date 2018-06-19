@@ -43,11 +43,11 @@ skip_bytes_z_address
 
 !ifdef DEBUG {
 print_z_address
-    ldx .addr + 2 ; low
-    jsr space
-    jsr printx
-    ldx .addr + 1 ; high
-    jsr printx
+    jsr dollar
+    lda .addr + 1 ; low
+    jsr print_byte_as_hex
+    lda .addr + 2 ; high
+    jsr print_byte_as_hex
     jmp newline
 }
 

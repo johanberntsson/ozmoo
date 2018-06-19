@@ -8,8 +8,6 @@ NEW_MORE_PROMPT = 1
 .window_size !byte 25, 0
 .cursor_position !byte 0,0
 .is_buffered_window !byte 1,0
-.screen_offset_hi !byte $04, $04, $04, $04, $04, $04, $04, $05, $05, $05, $05, $05, $05, $06, $06, $06, $06, $06, $06, $06, $07, $07, $07, $07, $07
-.screen_offset_lo !byte $00, $28, $50, $78, $a0, $c8, $f0, $18, $40, $68, $90, $b8, $e0, $08, $30, $58, $80, $a8, $d0, $f8, $20, $48, $70, $98, $c0
 
 init_screen_colours
     lda #$0f
@@ -59,21 +57,101 @@ z_ins_erase_line
     jmp erase_line
 
 erase_line
-    ; clear line <x> 
+    ; clear line <x>  (0-24)
     ; registers: a,y
     ; note: self modifying code
-    lda .screen_offset_lo,x 
-    sta .erase_line_loop + 1
-    lda .screen_offset_hi,x 
+    txa
+    tay
+    lda #$04
     sta .erase_line_loop + 2
-    ldy #0
-    lda #$20
+    lda #$00
+    sta .erase_line_loop + 1
+    cpy #0
+    beq +
+-   lda .erase_line_loop + 2
+    clc
+    adc #40
+    sta .erase_line_loop + 1
+    lda .erase_line_loop + 2
+    adc #0
+    sta .erase_line_loop + 2
+    dey
+    bne -
++   lda #$20 ; y=0 here
 .erase_line_loop
     sta $8000,y
     iny
     cpy #40
     bne .erase_line_loop
     rts
+
+!ifdef Z5PLUS {
+z_ins_print_table
+    ; print_table zscii-text width [height = 1] [skip]
+    ; defaults
+    lda #1
+    sta .pt_height
+    lda #0
+    sta .pt_skip
+    ; parse arguments
+    ldx z_operand_value_low_arr ; zscii
+    lda z_operand_value_high_arr
+    jsr set_z_paddress
+    lda z_operand_value_low_arr + 1
+    sta .pt_width
+    ldy z_operand_count
+    cpy #2
+    bcc +
+    lda z_operand_value_low_arr + 2
+    sta .pt_height
++   cpy #3
+    bcc +
+    lda z_operand_value_low_arr + 3
+    sta .pt_skip
++   ; start printing
+    jsr printchar_flush
+    jsr get_cursor ; x=row, y=column
+    stx .pt_cursor
+    sty .pt_cursor + 1
+    jsr init_get_zchar
+    lda #0
+    sta .pt_height + 1
+.pt_row
+    lda .pt_width
+    sta .pt_width + 1
+.pt_line
+    jsr get_next_zchar 
+    jsr convert_zchar_to_char
+    jsr streams_print_output
+    dec .pt_width + 1
+    bne .pt_line
+    ; skip (reuse .pt_width + 1 (which is zero) to save a few bytes)
+-   lda .pt_width + 1
+    cmp .pt_skip
+    beq +
+    jsr get_next_zchar
+    inc .pt_width + 1
+    bne - ; always true in this context
++   ; next line?
+    jsr printchar_flush
+    inc .pt_height + 1
+    lda .pt_height + 1
+    cmp .pt_height
+    beq +
+    ; prepare cursor
+    lda .pt_cursor
+    clc
+    adc .pt_height + 1
+    tax
+    ldy .pt_cursor + 1
+    jsr set_cursor
+    jmp .pt_row
++   rts
+.pt_cursor !byte 0,0
+.pt_width !byte 0, 0
+.pt_height !byte 0, 0
+.pt_skip !byte 0
+}
 
 z_ins_buffer_mode 
     ; buffer_mode flag

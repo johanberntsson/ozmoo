@@ -15,12 +15,16 @@ end
 
 def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     if use_compression then
-        compression = "-DDYNMEM_ALREADY_LOADED=1"
+        $COMPRESSIONFLAGS = "-DDYNMEM_ALREADY_LOADED=1"
     else
-        compression = ""
+        $COMPRESSIONFLAGS = ""
     end
-    system("acme #{compression} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm")
-    system("cp #{d64_file} #{game}.d64")
+    cmd = "acme #{$COMPRESSIONFLAGS} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+    ret = system(cmd)
+    exit 0 if !ret
+    cmd = "cp #{d64_file} #{game}.d64"
+    ret = system(cmd)
+    exit 0 if !ret
     if use_compression then
         storystart = `grep story_start acme_labels.txt | sed 's/[^0-9]//g' | sed 's/^/ibase=16;/' | bc`.strip
         system("#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip")

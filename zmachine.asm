@@ -177,7 +177,7 @@ z_jump_high_arr
 	!byte >z_ins_tokenise_text
 	!byte >z_ins_encode_text
 	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_print_table
 	!byte >z_ins_check_arg_count
 } else {
 	!byte >z_not_implemented
@@ -360,10 +360,10 @@ z_jump_low_arr
 	!byte <z_ins_not
 	!byte <z_ins_call_xn
 	!byte <z_ins_call_xn
-	!byte >z_ins_tokenise_text
-	!byte >z_ins_encode_text
+	!byte <z_ins_tokenise_text
+	!byte <z_ins_encode_text
 	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_print_table
 	!byte <z_ins_check_arg_count
 } else {
 	!byte <z_not_implemented
@@ -2008,6 +2008,8 @@ z_ins_scan_table
 ; z_ins_tokenise_text moved to text.asm
 
 ; z_ins_encode_text moved to text.asm
+
+; z_ins_print_table moved to screen.asm
 
 ; z_ins_check_arg_count moved to stack.asm	
 	
