@@ -26,9 +26,9 @@ z_ins_read_char
     bne +
     ldy z_operand_value_low_arr + 1
     sty .read_text_time
-    ldy z_operand_value_low_arr + 2
-    sty .read_text_routine
     ldy z_operand_value_high_arr + 2
+    sty .read_text_routine
+    ldy z_operand_value_low_arr + 2
     sty .read_text_routine + 1
     jsr init_read_text_timer
 +   jsr read_char
@@ -155,9 +155,9 @@ z_ins_sread
     bne +
     ldy z_operand_value_low_arr + 2
     sty .read_text_time
-    ldy z_operand_value_low_arr + 3
-    sty .read_text_routine
     ldy z_operand_value_high_arr + 3
+    sty .read_text_routine
+    ldy z_operand_value_low_arr + 3
     sty .read_text_routine + 1
 +
 }
@@ -644,10 +644,16 @@ read_char
     ; (z_pc I guess, comes as an argument to z_ins_read_char above.
     ; but does this mean that the routine must be below $10000?)
     ;inc $d020
+	; lda #0
+	; stx z_operand_value_low_arr
+	; jsr z_ins_buffer_mode
 	lda .read_text_routine
 	sta z_operand_value_high_arr
-	lda .read_text_routine + 1
-	sta z_operand_value_low_arr
+	ldx .read_text_routine + 1
+	stx z_operand_value_low_arr
+;	jsr printinteger
+;	lda #ERROR_UNSUPPORTED_STREAM
+;	jmp fatalerror
 	lda #z_exe_mode_return_from_read_interrupt
 	ldx #0
 	ldy #0
@@ -655,7 +661,7 @@ read_char
 	; JOHAN: At this point, we should let the interrupt routine start, so we need to rts.
 	; Anything else we need to do first?
 	
-    jsr update_read_text_timer
+    jmp update_read_text_timer
 }
 .no_timer
     jsr kernel_getchar
