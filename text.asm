@@ -923,14 +923,20 @@ tokenise_text
 .wordend    !byte 0 
 .ignore_unknown_words !byte 0 
 
-OLDANDWORKING = 1
+;OLDANDWORKING = 1
+; print test (dragontroll.z5)
+;ldx #$e9
+;lda #$06
+;jsr set_z_paddress
+;jsr print_addr
+;jsr printchar_flush
 
 init_get_zchar
     ; returns the first zchar in a
     ; side effects: .addr
     ; must .addr with set_z_addr or set_z_paddr
     ; used registers: a,x,y
-    lda #0
+    lda #2
     sta .zchar_triplet_cnt
     rts
 
@@ -939,11 +945,12 @@ get_next_zchar
     ; side effects: .addr
     ; used registers: a,x,y
     lda .zchar_triplet_cnt
+    cmp #2
     bne +
     jsr read_next_byte
     sta .packedtext
     jsr read_next_byte
-    sta .packedtext
+    sta .packedtext + 1
     ; extract 3 zchars (5 bits each)
     ; stop bit remains in .packedtext + 1
     ldx #0
@@ -961,10 +968,10 @@ get_next_zchar
     bne .nextzchar_loop
 +   ldx .zchar_triplet_cnt
     lda .zchars,x
-    inx
-    cpx #3
+    dex
+    cpx #$ff
     bne +
-    ldx #0
+    ldx #2
 +   stx .zchar_triplet_cnt
     rts
 .zchar_triplet_cnt !byte 0
@@ -973,6 +980,7 @@ was_last_zchar
     ; only call after a get_next_zchar
     ; returns a=0 if current zchar is the last zchar, else > 0
     lda .zchar_triplet_cnt ; 0 - 2
+    cmp #2
     bne +
     lda .packedtext + 1
     eor #1
@@ -981,6 +989,7 @@ was_last_zchar
 !ifndef OLDANDWORKING {
 get_abbreviation_offset
     ; abbreviation is 32(.abbreviation_command-1)+a
+    sta .current_zchar
     dey
     tya
     asl
@@ -989,10 +998,11 @@ get_abbreviation_offset
     asl
     asl
     clc
-    adc .zchars,x
+    adc .current_zchar
     asl ; byte -> word 
     tay
     rts
+.current_zchar !byte 0
 
 print_addr
     ; print zchar-encoded text
@@ -1005,8 +1015,6 @@ print_addr
     sta .escape_char_counter
     sta .abbreviation_command
     jsr init_get_zchar
-.read_triplet_loop
-    ; print the three chars
 .print_chars_loop
     jsr get_next_zchar
     ldy .abbreviation_command
@@ -1136,7 +1144,7 @@ print_addr
 .next_zchar
     jsr was_last_zchar
     beq +
-    jmp .read_triplet_loop
+    jmp .print_chars_loop
 +   rts
 }
 

@@ -85,6 +85,7 @@ erase_line
     bne .erase_line_loop
     rts
 
+!ifdef Z5PLUS {
 z_ins_print_table
     ; print_table zscii-text width [height = 1] [skip]
     ; defaults
@@ -150,6 +151,7 @@ z_ins_print_table
 .pt_width !byte 0, 0
 .pt_height !byte 0, 0
 .pt_skip !byte 0
+}
 
 z_ins_buffer_mode 
     ; buffer_mode flag
