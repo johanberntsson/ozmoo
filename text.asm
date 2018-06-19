@@ -24,7 +24,7 @@ z_ins_read_char
     sty .read_text_time
     ldy z_operand_count
     cpy #3
-    bne +
+    bne .read_char_loop
     ldy z_operand_value_low_arr + 1
     sty .read_text_time
     ldy z_operand_value_high_arr + 2
@@ -32,8 +32,14 @@ z_ins_read_char
     ldy z_operand_value_low_arr + 2
     sty .read_text_routine + 1
     jsr init_read_text_timer
-+   jsr read_char
-    tax
+.read_char_loop
+    jsr read_char
+    cmp #0
+    beq .read_char_loop ; timer routine returned false
+    cmp #1
+    bne +
+    lda #0 ; time routine returned true, and read_char should return 0
++   tax
     lda #0
 	jmp z_store_result
 
@@ -622,6 +628,8 @@ update_read_text_timer
     rts
 
 read_char
+	; return: 0,1: return value of routine (false, true)
+	;         any other number: char value
 !ifdef Z4PLUS {
     ; check if time for routine call
     ; http://www.6502.org/tutorials/compare_beyond.html#2.2
@@ -638,14 +646,7 @@ read_char
     bcc .no_timer
 .call_routine
     ; current time >= .read_text_jiffy. Time to call routine
-    ; TODO: call routine and check return value
-    ; FREDRIK 
-    ; call routine() which return true or false
-    ; address: .read_text_routine and .read_text_routine+1
-    ; (z_pc I guess, comes as an argument to z_ins_read_char above.
-    ; but does this mean that the routine must be below $10000?)
-    ;inc $d020
-	
+    jsr turn_off_cursor
 	; Turn off buffering
 	lda is_buffered_window
 	sta .text_tmp
@@ -653,29 +654,26 @@ read_char
 	sta is_buffered_window
 	; stx z_operand_value_low_arr
 	; jsr z_ins_buffer_mode
-
 	lda .read_text_routine
 	sta z_operand_value_high_arr
 	ldx .read_text_routine + 1
 	stx z_operand_value_low_arr
-;	jsr printinteger
-;	lda #ERROR_UNSUPPORTED_STREAM
-;	jmp fatalerror
 	lda #z_exe_mode_return_from_read_interrupt
 	ldx #0
 	ldy #0
 	jsr stack_call_routine
-	; JOHAN: At this point, we should let the interrupt routine start, so we need to rts.
-	; Anything else we need to do first?
+	; let the interrupt routine start, so we need to rts.
 	jsr z_execute
-
 	; Restore buffering setting
 	lda .text_tmp
 	sta is_buffered_window
-
-	; JOHAN: Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value. What next?
-	
+	; Interrupt routine has been executed, with value in word
+	; z_interrupt_return_value
+	; set up next time out
     jsr update_read_text_timer
+	; just return the value: 0 or 1 (true or false)
+	lda z_interrupt_return_value
+	rts
 }
 .no_timer
     jsr kernel_getchar
@@ -683,18 +681,21 @@ read_char
     beq read_char
     rts
 
-; !ifdef Z4PLUS {
-; read_routine_callback
-	; ; Interrupt routine has been executed, and returned with value now stored in word z_interrupt_return_value
-	; lda #z_exe_mode_normal
-	; sta z_exe_mode
-; !ifdef DEBUG {
-	; jsr print_following_string
-	; !pet "read_routine_callback hasn't been implemented...",13,0
-; }
-	; rts
-; }	
-	
+turn_on_cursor
+    lda #0
+    sta zp_cursorswitch
+    rts
+
+turn_off_cursor
+    lda #$ff
+    sta zp_cursorswitch
+    ; hide cursor if still visible
+    ldy zp_screencolumn
+    lda (zp_screenline),y
+    and #$7f
+    sta (zp_screenline),y
+    rts
+
 read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
@@ -712,8 +713,8 @@ read_text
     jsr init_read_text_timer
 .init_read_text
     ; turn on blinking cursor
-    lda #0
-    sta zp_cursorswitch
+    jsr turn_on_cursor
+    ; store start column
     lda zp_screencolumn
     sta .read_text_startcolumn
     ldy #1
@@ -725,15 +726,55 @@ read_text
 }
     sta .read_text_offset
 .readkey
+    jsr get_cursor ; x=row, y=column
+    stx .read_text_cursor
+    sty .read_text_cursor + 1
     jsr read_char
     cmp #0
     bne +
-    ; timeout from routine
-    ; TODO: what to do?
-    rts
+    ; timer routine returned false
+    ; did the routine draw something on the screen?
+    jsr get_cursor ; x=row, y=column
+    cpy .read_text_cursor + 1
+    beq .readkey
+    ; text changed, redraw input line
+!ifdef Z5PLUS {
+    ldy #1
+    lda (string_array),y
+    tax
+.p0 cpx #0
+    beq .p1
+    iny
+    lda (string_array),y
+    jsr $ffd2
+    dex
+    jmp .p0
+.p1   
+} else {
+    ldy #1
+.p0 lda (string_array),y ; default is empty string (0 in pos 1)
+    beq .p1
+    jsr $ffd2
+    iny
+    jmp .p0
+.p1
+}
+    jsr turn_on_cursor
+    jmp .readkey
++   cmp #1
+    bne +
+    ; timer routine returned true
+    ; clear input and return 
+    ldy #1
+    lda #0
+    sta (string_array),y
+    lda #0 ; return 0
+    jmp .read_text_done
 +   cmp #$0d
-    beq .read_text_done
-    cmp #20
+    bne +
+    lda #13 ; return 13
+    jmp .read_text_done
++   cmp #20
     bne +
     ; allow delete if anything in the buffer
     ldy zp_screencolumn
@@ -797,17 +838,14 @@ read_text
     pla ; don't save this character (out of bounds)
     jmp .readkey
 .read_text_done
+    pha ; return value
     ; turn off blinking cursor
-    lda #$ff
-    sta zp_cursorswitch
-    ; hide cursor if still visible
-    ldy zp_screencolumn
-    lda (zp_screenline),y
-    and #$7f
-    sta (zp_screenline),y
-    lda #$0d
-    jsr $ffd2 ; kernel_printchar
-    rts
+    jsr turn_off_cursor
+    pla
+    beq +
+    jsr $ffd2 ; print final char unless it is 0
++   rts
+.read_text_cursor !byte 0,0
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
 .read_text_time !byte 0 ; update interval in 1/10 seconds
