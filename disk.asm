@@ -161,3 +161,20 @@ cname_len = * - .cname
 uname_len = * - .uname
 .track  !byte 0
 .sector !byte 0
+
+
+z_ins_save
+!ifdef Z3 {
+	jmp make_branch_false
+}
+!ifdef Z4 {
+	lda #0
+	tax
+	jmp z_store_result
+}
+!ifdef Z5PLUS {
+	lda #0
+	tax
+	jmp z_store_result
+}
+

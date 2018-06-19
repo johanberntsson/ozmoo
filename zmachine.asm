@@ -35,8 +35,13 @@ z_jump_high_arr
 	!byte >z_ins_print
 	!byte >z_ins_print_ret
 	!byte >z_ins_nop
+!ifndef Z5PLUS {
+	!byte >z_ins_save
+	!byte >z_not_implemented
+} else {
 	!byte >z_not_implemented
 	!byte >z_not_implemented
+}
 	!byte >z_not_implemented
 	!byte >z_ins_ret_popped
 !ifndef Z5PLUS {
@@ -194,7 +199,7 @@ z_jump_high_arr
 
 z_opcount_ext_jump_high_arr
 !ifdef Z5PLUS {
-	!byte >z_not_implemented
+	!byte >z_ins_save
 	!byte >z_not_implemented
 	!byte >z_ins_log_shift
 	!byte >z_ins_art_shift
@@ -219,8 +224,13 @@ z_jump_low_arr
 	!byte <z_ins_print
 	!byte <z_ins_print_ret
 	!byte <z_ins_nop
+!ifndef Z5PLUS {
+	!byte <z_ins_save
+	!byte <z_not_implemented
+} else {
 	!byte <z_not_implemented
 	!byte <z_not_implemented
+}
 	!byte <z_not_implemented
 	!byte <z_ins_ret_popped
 !ifndef Z5PLUS {
@@ -380,7 +390,7 @@ z_jump_low_arr
 
 z_opcount_ext_jump_low_arr
 !ifdef Z5PLUS {
-	!byte <z_not_implemented
+	!byte <z_ins_save
 	!byte <z_not_implemented
 	!byte <z_ins_log_shift
 	!byte <z_ins_art_shift
@@ -674,6 +684,8 @@ z_execute
 	beq .get_4_more_ops
 
 .read_operands
+	ldy z_operand_count
+	beq .op_is_omitted
 	ldy #0
 .read_next_operand
 	lda z_operand_type_arr,y
@@ -687,8 +699,8 @@ z_execute
 	pla
 	jmp .store_operand
 .operand_is_not_large_constant
-	cmp #%11
-	beq .op_is_omitted
+;	cmp #%11
+;	beq .op_is_omitted  ; Should no longer be needed!
 	tax
 	sty z_temp
 	+read_next_byte_at_z_pc
