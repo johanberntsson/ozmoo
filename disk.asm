@@ -165,16 +165,24 @@ uname_len = * - .uname
 
 z_ins_save
 !ifdef Z3 {
-	jmp make_branch_false
+	jsr save_game
+	beq +
+	jmp make_branch_true
++	jmp make_branch_false
 }
 !ifdef Z4 {
-	lda #0
-	tax
+	jsr save_game
 	jmp z_store_result
 }
 !ifdef Z5PLUS {
-	lda #0
-	tax
+	jsr save_game
 	jmp z_store_result
 }
 
+save_game
+	lda #0
+	tax
+	rts
+
+
+	
