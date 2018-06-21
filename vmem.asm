@@ -132,18 +132,20 @@ load_blocks_from_index
     ; side effects: a,y,x,status destroyed
     ldx vmap_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
+	cmp #$e0
+	bcs +
     cmp #$d0
     bcs load_blocks_from_index_using_cache
-    lda #4 ; number of blocks
-    sta readblocks_numblocks
-    lda vmap_c64,x ; c64 mem offset
-    sta readblocks_mempos + 1
-    lda vmap_z_l,x ; start block
-    sta readblocks_currentblock
-    lda vmap_z_h,x ; start block
-    and #$07
-    sta readblocks_currentblock + 1
-    jsr readblocks
++	lda #4 ; number of blocks
+	sta readblocks_numblocks
+	lda vmap_c64,x ; c64 mem offset
+	sta readblocks_mempos + 1
+	lda vmap_z_l,x ; start block
+	sta readblocks_currentblock
+	lda vmap_z_h,x ; start block
+	and #$07
+	sta readblocks_currentblock + 1
+	jsr readblocks
 !ifdef TRACE_VM {
     jsr print_following_string
     !pet "load_blocks (normal) ",0
@@ -163,7 +165,6 @@ load_blocks_from_index_using_cache
     sta .copy_to_vmem + 2
     lda vmap_c64,x ; start block
     sta .copy_to_vmem + 5
-    sta vmem_cache_index
     ldx #0 ; Start with page 0 in this 1KB-block
     ; read next into vmem_cache
 -   lda #>vmem_cache_start ; start of cache
@@ -197,6 +198,13 @@ load_blocks_from_index_using_cache
     inx
 	cpx #4 ; read 4 blocks (1 kb) in total
     bcc -
+
+	ldx .copy_to_vmem + 5
+	dex
+	tax
+	ldx vmem_cache_cnt
+    sta vmem_cache_index,x
+	
 !ifdef TRA	CE_VM {
     ;jsr print_following_string
     ;!pet "load_blocks (banking) ",0
@@ -374,7 +382,8 @@ read_byte_at_z_address
     clc
     adc vmem_1kb_offset
     sta .copy_to_vmem_to_cache + 2
-    sta vmem_cache_index
+	ldx vmem_cache_cnt
+    sta vmem_cache_index,x
     lda #>vmem_cache_start ; start of cache
     clc
     adc vmem_cache_cnt
@@ -387,17 +396,14 @@ read_byte_at_z_address
     sta $8000,y
     iny
     bne .copy_to_vmem_to_cache
-    inc .copy_to_vmem_to_cache + 2
-    inc .copy_to_vmem_to_cache + 5
     +set_memory_no_basic
     cli
     ldy vmem_cache_cnt
     ; set next cache to use when needed
-    inc vmem_cache_cnt
-    lda vmem_cache_cnt
-    cmp #4
-    bne .cache_updated
-    lda #0
+	iny
+	tya
+	dey
+	and #%11
     sta vmem_cache_cnt
 .cache_updated
     ; here y is vmem_cache where current z_pc is
@@ -458,5 +464,5 @@ read_byte_at_z_address
     ldy #0
     lda (mempointer),y
     rts
-}
+;}
 
