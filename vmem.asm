@@ -158,11 +158,13 @@ load_blocks_from_index_using_cache
     ; initialise block copy function (see below)
     ldx vmap_index
     lda #>vmem_cache_start ; start of cache
+    clc
+    adc vmem_cache_cnt
     sta .copy_to_vmem + 2
     lda vmap_c64,x ; start block
     sta .copy_to_vmem + 5
     sta vmem_cache_index
-    ldx #4 ; read 4 blocks (1 kb) in total
+    ldx #0 ; Start with page 0 in this 1KB-block
     ; read next into vmem_cache
 -   lda #>vmem_cache_start ; start of cache
     clc
@@ -170,10 +172,8 @@ load_blocks_from_index_using_cache
     sta readblocks_mempos + 1
     txa
     pha
-    clc
-    adc vmap_index
-    tax
-    lda vmap_z_l,x ; start block
+    ldx vmap_index
+    ora vmap_z_l,x ; start block
     sta readblocks_currentblock
     lda vmap_z_h,x ; start block
     and #$07
@@ -188,15 +188,16 @@ load_blocks_from_index_using_cache
     sta $8000,y
     iny
     bne .copy_to_vmem
-    inc .copy_to_vmem + 2
+;    inc .copy_to_vmem + 2
     inc .copy_to_vmem + 5
     +set_memory_no_basic
     cli
     pla
     tax
-    dex
-    bne -
-!ifdef TRACE_VM {
+    inx
+	cpx #4 ; read 4 blocks (1 kb) in total
+    bcc -
+!ifdef TRA	CE_VM {
     ;jsr print_following_string
     ;!pet "load_blocks (banking) ",0
     ;jsr print_vm_map
