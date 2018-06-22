@@ -132,8 +132,8 @@ load_blocks_from_index
     ; side effects: a,y,x,status destroyed
     ldx vmap_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
-	cmp #$e0
-	bcs +
+;	cmp #$e0
+;	bcs +
     cmp #$d0
     bcs load_blocks_from_index_using_cache
 +	lda #4 ; number of blocks

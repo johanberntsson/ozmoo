@@ -358,6 +358,16 @@ print_trace
 	!pet "last opcodes: (#, z_pc, opcode)",0
     jsr newline
 	lda z_trace_index
+	tay
+	and #%11
+	cmp #%11
+	bne +
+	jsr print_following_string
+	!pet "last opcode not stored (shown as $ee)",13,0
+	lda #$ee
+	sta z_trace_page,y
+	iny
++	tya
 	sec
 	sbc #40
 	tay
