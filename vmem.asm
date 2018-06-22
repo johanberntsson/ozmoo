@@ -134,7 +134,7 @@ load_blocks_from_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
 ;	cmp #$e0
 ;	bcs +
-    cmp #$d0
+    cmp #$c0
     bcs load_blocks_from_index_using_cache
 +	lda #4 ; number of blocks
 	sta readblocks_numblocks
@@ -201,7 +201,7 @@ load_blocks_from_index_using_cache
 
 	ldx .copy_to_vmem + 5
 	dex
-	tax
+	txa
 	ldx vmem_cache_cnt
     sta vmem_cache_index,x
 	
@@ -349,9 +349,30 @@ read_byte_at_z_address
     ;jsr print_following_string
     ;!pet "notfound", 13, 0
 }
+	; Load 1 KB block into RAM
     ldx #vmap_max_length
     dex
-    lda zp_pc_h
+
+	; Protect page held in z_pc_mempointer + 1
+	lda z_pc_mempointer + 1
+	and #%11111100
+	cmp vmap_c64,x
+	bne +
+	dex
+
+	; Remove any pages beloning to the old block at this position from the cache. 
++	ldy #3
+-	lda vmem_cache_index,y
+	and #%11111100
+	cmp vmap_c64,x
+	bne +
+	lda #0
+	sta vmem_cache_index,y
++	dey
+	bpl -
+
+	; Store address of 1 KB block to load, then load it
+	lda zp_pc_h
     ora #$80 ; mark as used
     sta vmap_z_h,x
     lda zp_pc_l
@@ -364,53 +385,67 @@ read_byte_at_z_address
     ldx vmap_index
     ; check if swappable memory
     lda vmap_c64,x
-    cmp #$d0
+    cmp #$c0
     bcc .unswappable
     ; this is swappable memory
     ; update vmem_cache if needed
-    lda vmap_c64,x
+;    lda vmap_c64,x
     clc
     adc vmem_1kb_offset
-    ldy #0
--   cmp vmem_cache_index,y
+	; Check if this page is in cache
+    ldx #3
+-   cmp vmem_cache_index,x
     beq .cache_updated
-    iny
-    cpy #4
-    bne -
+    dex
+    bpl -
+	; The requested page was not found in the cache
     ; copy vmem to vmem_cache (banking as needed)
-    lda vmap_c64,x ; start block
-    clc
-    adc vmem_1kb_offset
-    sta .copy_to_vmem_to_cache + 2
+ ;   lda vmap_c64,x ; start block
+ ;   clc
+ ;   adc vmem_1kb_offset
+    sta .copy_from_vmem_to_cache + 2
 	ldx vmem_cache_cnt
-    sta vmem_cache_index,x
+	; Protect page held in z_pc_mempointer + 1
+	pha
+	lda z_pc_mempointer + 1
+	beq +
+	cmp vmem_cache_index,x
+	bne +
+	inx
+	txa
+	and #%11
+	tax
+	stx vmem_cache_cnt
++	pla
+	sta vmem_cache_index,x
     lda #>vmem_cache_start ; start of cache
     clc
     adc vmem_cache_cnt
-    sta .copy_to_vmem_to_cache + 5
+    sta .copy_from_vmem_to_cache + 5
     sei
     +set_memory_all_ram
 -   ldy #0
-.copy_to_vmem_to_cache
+.copy_from_vmem_to_cache
     lda $8000,y
     sta $8000,y
     iny
-    bne .copy_to_vmem_to_cache
+    bne .copy_from_vmem_to_cache
     +set_memory_no_basic
     cli
-    ldy vmem_cache_cnt
     ; set next cache to use when needed
-	iny
-	tya
-	dey
+	inx
+	txa
+	dex
 	and #%11
     sta vmem_cache_cnt
 .cache_updated
-    ; here y is vmem_cache where current z_pc is
-    tya
+    ; x is now vmem_cache (0-3) where current z_pc is
+    txa
     clc
     adc #>vmem_cache_start
     sta mempointer + 1
+;    lda vmap_index,y
+;	tax
     ldx vmap_index
     bne .update_page_rank ; always true
 .unswappable
