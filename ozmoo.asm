@@ -45,7 +45,11 @@ stack_size = $0400;
 story_start = stack_start + stack_size
 
 vmem_start = story_start
-vmem_end = $10000
+!ifdef ALLRAM {
+	vmem_end = $10000
+} else {
+	vmem_end = $d000
+}
 
 ; basic program (10 SYS2061)
 !source "basic-boot.asm"
