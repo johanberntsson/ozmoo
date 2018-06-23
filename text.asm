@@ -5,6 +5,18 @@
 ;TRACE_SHOW_DICT_ENTRIES = 1
 ;TRACE_PRINT_ARRAYS = 1
 .text_tmp	!byte 0
+.current_character !byte 0
+
+.character_translation_table
+; Pairs of values (zscii code, petscii code). End with 0,0.
+	!byte $5f, $a4 ; Underscore = left arrow
+!ifdef SWEDISH_CHARS {
+	!byte $e5, $5d ; å = ]
+	!byte $e4, $5b ; ä = [
+	!byte $f6, $5c ; ä = [
+}
+	!byte 0,0
+
 
 z_ins_print_char
     lda z_operand_value_low_arr
@@ -330,23 +342,48 @@ convert_zchar_to_char
     ; side effects:
     ; used registers: a,y
     cmp #$20
-    beq +
+    beq +++
     cmp #6
-    bcc +
+    bcc +++
     sec
     sbc #6
     clc
     adc .alphabet_offset
     tay
     lda .alphabet,y
-+   rts
-
++	sta .current_character
+	ldy #0
+-	lda .character_translation_table,y
+	beq ++
+	iny
+	cmp .current_character
+	beq +
+	iny
+	bne - ; Always branch
+++	lda .current_character
++++	rts
++	lda .character_translation_table,y
+	rts
+	
 convert_char_to_zchar
     ; input: a=char
     ; output: a=zchar
     ; side effects:
     ; used registers: a,x
-    ldx #0
+	sta .current_character
+	ldx #1
+-	lda .character_translation_table,x
+	beq +
+	cmp .current_character
+	beq ++
+	inx
+	inx
+	bne - ; Always branch
+++	dex
+	lda .character_translation_table,x
+	bne +++ ; Always branch
++	lda .current_character
++++	ldx #0
 -   cmp .alphabet,x
     beq +
     inx
