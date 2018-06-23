@@ -353,13 +353,24 @@ read_byte_at_z_address
     ldx #vmap_max_length
     dex
 
-	; Protect page held in z_pc_mempointer + 1
-	lda z_pc_mempointer + 1
+	; ; Protect page held in z_pc_mempointer + 1
+	; lda z_pc_mempointer + 1
+	; and #%11111100
+	; cmp vmap_c64,x
+	; bne +
+	; dex
+; +
+	; Protect page where z_pc currently points
+	lda z_pc + 1
 	and #%11111100
-	cmp vmap_c64,x
+	cmp vmap_z_l,x
+	bne +
+	lda vmap_z_h,x
+	and #%111
+	cmp z_pc
 	bne +
 	dex
-
+	
 	; Remove any pages beloning to the old block at this position from the cache. 
 +	ldy #3
 -	lda vmem_cache_index,y
