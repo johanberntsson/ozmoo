@@ -36,6 +36,8 @@ zp_temp               = $fb ; 4 bytes
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
 
+first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+
 charset_switchable 	  = $291
 
 datasette_buffer_start= $033c

@@ -134,7 +134,7 @@ load_blocks_from_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
 ;	cmp #$e0
 ;	bcs +
-    cmp #$c0
+    cmp #first_banked_memory_page
     bcs load_blocks_from_index_using_cache
 +	lda #4 ; number of blocks
 	sta readblocks_numblocks
@@ -158,6 +158,18 @@ load_blocks_from_index_using_cache
     ; vmem_cache_cnt = which 256 byte cache use as transfer buffer
     ; side effects: a,y,x,status destroyed
     ; initialise block copy function (see below)
+
+	; Protect buffer which z_pc points to
+	lda vmem_cache_cnt
+	clc
+	adc #>vmem_cache_start
+	cmp z_pc_mempointer + 1
+	bne +
+	inx
+	txa
+	and #%11
+	sta vmem_cache_cnt
++
     ldx vmap_index
     lda #>vmem_cache_start ; start of cache
     clc
@@ -371,7 +383,7 @@ read_byte_at_z_address
 	bne +
 	dex
 	
-	; Remove any pages beloning to the old block at this position from the cache. 
+	; Remove any pages belonging to the old block at this position from the cache. 
 +	ldy #3
 -	lda vmem_cache_index,y
 	and #%11111100
@@ -396,7 +408,7 @@ read_byte_at_z_address
     ldx vmap_index
     ; check if swappable memory
     lda vmap_c64,x
-    cmp #$c0
+    cmp #first_banked_memory_page
     bcc .unswappable
     ; this is swappable memory
     ; update vmem_cache if needed
@@ -418,9 +430,10 @@ read_byte_at_z_address
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
 	pha
-	lda z_pc_mempointer + 1
-	beq +
-	cmp vmem_cache_index,x
+	txa
+	clc
+	adc #>vmem_cache_start
+	cmp z_pc_mempointer + 1
 	bne +
 	inx
 	txa
