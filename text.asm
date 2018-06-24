@@ -9,7 +9,8 @@
 
 .character_translation_table
 ; Pairs of values (zscii code, petscii code). End with 0,0.
-	!byte $5f, $a4 ; Underscore = left arrow
+	!byte $5f, $a4 ; Underscore = underscore-like graphic character
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
 !ifdef SWEDISH_CHARS {
 	!byte $e5, $5d ; å = ]
 	!byte $e4, $5b ; ä = [
@@ -351,6 +352,7 @@ convert_zchar_to_char
     adc .alphabet_offset
     tay
     lda .alphabet,y
+translate_zscii_to_petscii
 +	sta .current_character
 	ldy #0
 -	lda .character_translation_table,y
@@ -361,9 +363,9 @@ convert_zchar_to_char
 	iny
 	bne - ; Always branch
 ++	lda .current_character
-+++	rts
-+	lda .character_translation_table,y
 	rts
++	lda .character_translation_table,y
++++	rts
 	
 convert_char_to_zchar
     ; input: a=char
@@ -1194,6 +1196,7 @@ print_addr
     beq +
     jmp .next_zchar
 +   lda .escape_char
+	jsr translate_zscii_to_petscii
     jsr streams_print_output
     jmp .next_zchar
 .l1 cmp #0
