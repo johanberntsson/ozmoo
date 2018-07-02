@@ -556,7 +556,7 @@ draw_status_line
     bne .timegame
     ; score game
     ldx #0
-    ldy #20
+    ldy #25
     jsr set_cursor
     ldy #0
 -   lda .score_str,y
@@ -569,16 +569,9 @@ draw_status_line
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num
-    ldx #0
-    ldy #30
-    jsr set_cursor
-    ldy #0
--   lda .moves_str,y
-    beq +
+    lda #47
     jsr $ffd2 ; kernel_printchar
-    iny
-    bne -
-+   lda #18
+    lda #18
     jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
@@ -621,8 +614,7 @@ draw_status_line
     pla
     sta z_operand_value_low_arr
     jmp restore_cursor
-.score_str !pet "Score ",0
-.moves_str !pet "Moves ",0
+.score_str !pet "Score: ",0
 .time_str !pet "Time ",0
 }
 

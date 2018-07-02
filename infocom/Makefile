@@ -7,7 +7,7 @@ zork1:
 	../create_d64.rb zork1.z3 zork1.d64
 
 hollywood:
-	../create_d64.rb hollywood.z3 hollywood.d64
+	../create_d64.rb hollywood.z3 hollywood.d64 hollywood.dynmem
 
 clean:
 	rm -f *.d64
