@@ -336,17 +336,18 @@ read_byte_at_z_address
 }
     ; is there a block with this address in map?
     ldy #0
--   ; is the block active?
-    lda vmap_z_h,y
-    and #$80
-    beq +     ; next entry if used bit not set
-    ; compare with low byte
+-   ; compare with low byte
     lda zp_pc_l
     and #$fc ; skip bit 0,1 since kB blocks
     cmp vmap_z_l,y ; zmachine mem offset ($0 - 
     bne + 
-    ; is the high byte correct?
+	; is the block active?
     lda vmap_z_h,y
+	tax
+    and #$80
+    beq +     ; next entry if used bit not set
+    ; is the high byte correct?
+    txa
     and #$7
     cmp zp_pc_h
     bne +
