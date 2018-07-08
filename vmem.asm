@@ -383,9 +383,35 @@ read_byte_at_z_address
 	cmp z_pc
 	bne +
 	dex
++
+
+	; We have now decided on a map position where we will store the requested block. Position is held in x.
+!ifdef DEBUG {
+!ifdef PRINT_SWAPS {
+	jsr space
+    lda vmap_z_h,x
+	tay
+	and #$80
+	beq .printswaps_part_2
+	tya
+	and #$7
+	jsr dollar
+	jsr print_byte_as_hex
+    lda vmap_z_l,x
+	jsr print_byte_as_hex
+.printswaps_part_2
+	jsr arrow
+	jsr dollar
+	lda zp_pc_h
+	jsr print_byte_as_hex
+    lda zp_pc_l
+	jsr print_byte_as_hex
+	jsr space
+}
+}
 	
-	; Remove any pages belonging to the old block at this position from the cache. 
-+	ldy #3
+	; Forget any cache pages belonging to the old block at this position. 
+	ldy #3
 -	lda vmem_cache_index,y
 	and #%11111100
 	cmp vmap_c64,x

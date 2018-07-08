@@ -1,3 +1,9 @@
+Known bugs
+----------
+TAKE AUNT in HH prints "You can't see !unt here!"
+
+Room description in Top Landing (E, N, E) in HH lacks last ".".
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 
@@ -9,26 +15,14 @@ Ideas for tasks / subprojects to do next
     Old todo: - reuse index and skip tests if same block as previous call to read_z_*
 - Add fast-loader code?
 
-Create PETSCII <-> ZSCII conversion routines. Make them fast.
-
 - support custom alphabets in Z5 onwards
 
-System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
-
-Timed input
-Old todo: - allow delay/routine in read_text
-
 Color support
-
-Basic sound effect support (low-pitched beep and high-pitched beep)
 
 save/restore
 	Copy SP and PC to below stack. Save this, stack and dynmem as one file.
 
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
-
-Extend virtual memory RAM up to $ffff (And disable trace automatically if RAM at page $cf00 is used for Vmem)
-Old todo: - use more memory, $E000-$FFFF, perhaps also $D000-$E000?
 
 Put first four entries of z_operand_value_(low/high)_arr on zeropage. Saves 200+ bytes and makes all instructions faster.
 
@@ -37,8 +31,6 @@ Old todo: - rewrite floppy access code to use all available sectors
 Old todo: - support splitting of large files onto two floppies
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
-
-Improve ZSCII / PETSCII conversion with special cases for accented characters
 
 ; Instructions which have not yet been fully implemented
 ; ------------------------------------------------------
@@ -83,6 +75,20 @@ catch/throw
 Buffering/word wrap
 
 [MORE] prompts
+
+Timed input
+Old todo: - allow delay/routine in read_text
+
+Basic sound effect support (low-pitched beep and high-pitched beep)
+
+Extend virtual memory RAM up to $ffff (And disable trace automatically if RAM at page $cf00 is used for Vmem)
+Old todo: - use more memory, $E000-$FFFF, perhaps also $D000-$E000?
+
+Create PETSCII <-> ZSCII conversion routines. Make them fast.
+
+Improve ZSCII / PETSCII conversion with special cases for accented characters
+
+System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
 
 
 

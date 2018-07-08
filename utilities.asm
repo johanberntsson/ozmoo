@@ -202,7 +202,7 @@ comma
     rts
 
 dollar
-    ; subroutine: print space
+    ; subroutine: print dollar
     ; input: 
     ; output:
     ; used registers:
@@ -230,6 +230,26 @@ colon
     stx .saved_x
     sty .saved_y
     lda #58
+    jsr streams_print_output
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
+
+arrow
+    ; subroutine: print ->
+    ; input: 
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    lda #$2d
+    jsr streams_print_output
+    lda #$3e
     jsr streams_print_output
     lda .saved_a
     ldx .saved_x
