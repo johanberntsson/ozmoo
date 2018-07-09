@@ -58,6 +58,8 @@ vmap_index !byte 0              ; current vmap index matching the z pointer
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
 vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !byte 0,0,0,0 ; cache currently contains this vmap index
+vmem_all_blocks_occupied !byte 0
+vmem_temp !byte 0
 
 !ifdef DEBUG {
 !ifdef TRACE_VM {
@@ -362,38 +364,56 @@ read_byte_at_z_address
     ;jsr print_following_string
     ;!pet "notfound", 13, 0
 }
-	; Load 1 KB block into RAM
-    ldx #vmap_max_length
-    dex
 
-	; ; Protect page held in z_pc_mempointer + 1
-	; lda z_pc_mempointer + 1
-	; and #%11111100
-	; cmp vmap_c64,x
-	; bne +
-	; dex
-; +
-	; Protect page where z_pc currently points
+	; Load 1 KB block into RAM
+	lda vmem_all_blocks_occupied
+	bne .replace_block
+    ldx #vmap_max_length - 1
+-	lda vmap_z_h,x
+	bpl .block_chosen
+	and #$40
+	bne .last_block_used ; We have scanned down to dynmem. Give up.
+	dex 
+	bne - ; Always branch
+.last_block_used
+	inc vmem_all_blocks_occupied
+.replace_block
+    ldx #vmap_max_length - 1
+	; Protect block where z_pc currently points
+	lda vmap_z_h + vmap_max_length - 1
+	and #%111
+	cmp z_pc
+	bne .block_chosen
 	lda z_pc + 1
 	and #%11111100
 	cmp vmap_z_l,x
-	bne +
-	lda vmap_z_h,x
-	and #%111
-	cmp z_pc
-	bne +
+	bne .block_chosen
 	dex
-+
+.block_chosen
 
 	; We have now decided on a map position where we will store the requested block. Position is held in x.
 !ifdef DEBUG {
 !ifdef PRINT_SWAPS {
-	jsr space
+	lda streams_output_selected + 2
+	beq +
+	lda #20
+	jsr $ffd2
+	lda #64
+	jsr $ffd2
+	lda #20
+	jsr $ffd2
+	jmp ++
++	jsr space
+	jsr dollar
+	txa
+	jsr print_byte_as_hex
+	jsr colon
+	lda vmap_c64,x
+	jsr dollar
+	jsr print_byte_as_hex
+	jsr colon
     lda vmap_z_h,x
-	tay
-	and #$80
-	beq .printswaps_part_2
-	tya
+	bpl .printswaps_part_2
 	and #$7
 	jsr dollar
 	jsr print_byte_as_hex
@@ -405,8 +425,10 @@ read_byte_at_z_address
 	lda zp_pc_h
 	jsr print_byte_as_hex
     lda zp_pc_l
+	and #%11111100
 	jsr print_byte_as_hex
 	jsr space
+++	
 }
 }
 	
@@ -522,6 +544,7 @@ read_byte_at_z_address
     bne .return_result
     ; not dynamic, let's bubble this index up (swap x and y)
     ; swap vmap entries at <x> and <y>
+.swap_x_and_y
     lda vmap_z_h,y
     pha
     lda vmap_z_l,y

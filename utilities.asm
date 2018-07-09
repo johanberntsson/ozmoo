@@ -417,7 +417,7 @@ print_trace
 	bcs .print_no_more_ops
 
 print_byte_as_hex
-	stx zp_temp
+	stx .saved_x
 	pha
 	lsr
 	lsr
@@ -430,7 +430,7 @@ print_byte_as_hex
 	and #$0f
 	tax
 	lda .hex_num,x
-	ldx zp_temp
+	ldx .saved_x
 	jmp streams_print_output
 .hex_num
 	!pet "0123456789abcdef"
