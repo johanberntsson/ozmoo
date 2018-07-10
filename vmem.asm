@@ -57,7 +57,8 @@ vmap_c64 = vmap_z_l + vmap_max_length
 vmap_index !byte 0              ; current vmap index matching the z pointer
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
 vmem_cache_cnt !byte 0         ; current execution cache
-vmem_cache_index !byte 0,0,0,0 ; cache currently contains this vmap index
+vmem_cache_index !byte 0,0,0,0,0,0,0
+;	!fill vmem_cache_count ; cache currently contains this vmap index
 vmem_all_blocks_occupied !byte 0
 vmem_temp !byte 0
 
@@ -163,14 +164,16 @@ load_blocks_from_index_using_cache
 
 	; Protect buffer which z_pc points to
 	lda vmem_cache_cnt
+	tax
 	clc
 	adc #>vmem_cache_start
 	cmp z_pc_mempointer + 1
 	bne +
 	inx
-	txa
-	and #%11
-	sta vmem_cache_cnt
+	cpx #vmem_cache_count
+	bcc ++
+	ldx #0
+++	stx vmem_cache_cnt
 +
     ldx vmap_index
     lda #>vmem_cache_start ; start of cache
@@ -433,7 +436,7 @@ read_byte_at_z_address
 }
 	
 	; Forget any cache pages belonging to the old block at this position. 
-	ldy #3
+	ldy #vmem_cache_count - 1
 -	lda vmem_cache_index,y
 	and #%11111100
 	cmp vmap_c64,x
@@ -465,7 +468,7 @@ read_byte_at_z_address
     clc
     adc vmem_1kb_offset
 	; Check if this page is in cache
-    ldx #3
+    ldx #vmem_cache_count - 1
 -   cmp vmem_cache_index,x
     beq .cache_updated
     dex
@@ -485,10 +488,11 @@ read_byte_at_z_address
 	cmp z_pc_mempointer + 1
 	bne +
 	inx
-	txa
-	and #%11
-	tax
-	stx vmem_cache_cnt
+	cpx #vmem_cache_count
+	bcc ++
+	ldx #0
+++	stx vmem_cache_cnt
+
 +	pla
 	sta vmem_cache_index,x
     lda #>vmem_cache_start ; start of cache
@@ -509,8 +513,10 @@ read_byte_at_z_address
 	inx
 	txa
 	dex
-	and #%11
-    sta vmem_cache_cnt
+	cmp #vmem_cache_count
+	bcc ++
+	lda #0
+++	sta vmem_cache_cnt
 .cache_updated
     ; x is now vmem_cache (0-3) where current z_pc is
     txa
