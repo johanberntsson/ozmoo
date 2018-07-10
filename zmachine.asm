@@ -527,9 +527,14 @@ z_init
 	lda #$ff
 	sta $d40e
 	sta $d40f
-	lda #$80
-	sta $d412
+	ldx #$80
+	stx $d412
+!ifdef BENCHMARK {
+	ldy #1
+	jmp z_rnd_init
+} else {
 	jmp z_rnd_init_random
+}
 }
 
 
@@ -1860,6 +1865,7 @@ z_ins_random
 	jmp z_store_result
 
 .random_seed_0
+!ifndef BENCHMARK {
 !ifdef DEBUG {
 	ldy z_test
 	beq +
@@ -1871,7 +1877,7 @@ z_ins_random
 	lda #0
 	sta z_rnd_mode
 	beq .rnd_tax_and_return ; Always branch
-
+}
 .random_seed
 
 !ifdef DEBUG {

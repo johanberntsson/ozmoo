@@ -330,8 +330,10 @@ increase_num_rows
 }
     ; wait for ENTER
 .printchar_pressanykey
+!ifndef BENCHMARK {
 -   jsr kernel_getchar
     beq -
+}
 !ifdef NEW_MORE_PROMPT {
     lda .more_text_char
     sta $07e5
@@ -586,7 +588,7 @@ draw_status_line
 -   lda .time_str,y
     beq +
     jsr $ffd2 ; kernel_printchar
-    iny
+	iny
     bne -
 +   lda #17 ; hour
     jsr z_get_low_global_variable_value
