@@ -40,7 +40,7 @@ first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking
 
 charset_switchable 	  = $291
 
-datasette_buffer_start= $033c
+datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
 datasette_buffer_end  = $03fb
 
 ; --- BASIC rom routines ---

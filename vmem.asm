@@ -49,10 +49,24 @@ PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
 ; swapping: bubble up latest used frame, remove from end of mapping array
 ;           (do not swap or move dynamic frames)
 
-vmap_max_length  = (vmem_end-vmem_start)/1024
+!ifdef SMALLBLOCK {
+	vmem_blocksize = 512
+	vmem_blockmask = %11111110
+	vmem_block_pagecount = 2
+} else {
+	vmem_blocksize = 1024
+	vmem_blockmask = %11111100
+	vmem_block_pagecount = 4
+}
+
+vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
+!ifdef SMALLBLOCK {
+vmap_c64 !fill 100 ; Arrghh... This hardcoded value is not nice.
+} else {
 vmap_c64 = vmap_z_l + vmap_max_length
+}
 
 vmap_index !byte 0              ; current vmap index matching the z pointer
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
@@ -139,7 +153,7 @@ load_blocks_from_index
 ;	bcs +
     cmp #first_banked_memory_page
     bcs load_blocks_from_index_using_cache
-+	lda #4 ; number of blocks
++	lda #vmem_block_pagecount ; number of blocks
 	sta readblocks_numblocks
 	lda vmap_c64,x ; c64 mem offset
 	sta readblocks_mempos + 1
@@ -213,7 +227,7 @@ load_blocks_from_index_using_cache
     pla
     tax
     inx
-	cpx #4 ; read 4 blocks (1 kb) in total
+	cpx #vmem_block_pagecount ; read 4 blocks (1 kb) in total
     bcc -
 
 	ldx .copy_to_vmem + 5
@@ -236,11 +250,15 @@ load_dynamic_memory
     ; read in chunks of 4 blocks (1 kB)
     lda story_start + PRELOAD_UNTIL
     lsr    ; x/4
+;!ifndef SMALLBLOCK {
     lsr
+;}
     clc
     adc #1 ; x/4 + 1
-    asl
     asl    ; (x/4 + 1) * 4
+;!ifndef SMALLBLOCK {
+    asl
+;}
     tay
     dey    ; skip header
     ; read blocks
@@ -262,7 +280,9 @@ prepare_static_high_memory
     sta .zp_maxmem
     ldy #0
 -   tya ; calculate c64 offset
+!ifndef SMALLBLOCK {
     asl
+}
     asl ; 1kB bytes each
     ; check if rw or ro (swappable)
     cmp story_start + PRELOAD_UNTIL
@@ -278,7 +298,7 @@ prepare_static_high_memory
 +   ; non-allocated 1kB entry
     lda .zp_maxmem
     sec
-    sbc #4
+    sbc #vmem_block_pagecount
     sta .zp_maxmem
     sta vmap_c64,y
     lda #0
@@ -320,7 +340,7 @@ read_byte_at_z_address
     sta zp_pc_h
     txa
     sta zp_pc_l
-    and #$03 ; keep index into kB chunk
+    and #255 - vmem_blockmask ; keep index into kB chunk
     sta vmem_1kb_offset
 !ifdef TRACE_VM_PC {
     lda zp_pc_l
@@ -343,7 +363,7 @@ read_byte_at_z_address
     ldy #0
 -   ; compare with low byte
     lda zp_pc_l
-    and #$fc ; skip bit 0,1 since kB blocks
+    and #vmem_blockmask ; skip bit 0,1 since kB blocks
     cmp vmap_z_l,y ; zmachine mem offset ($0 - 
     bne + 
 	; is the block active?
@@ -388,7 +408,7 @@ read_byte_at_z_address
 	cmp z_pc
 	bne .block_chosen
 	lda z_pc + 1
-	and #%11111100
+	and #vmem_blockmask
 	cmp vmap_z_l,x
 	bne .block_chosen
 	dex
@@ -428,7 +448,7 @@ read_byte_at_z_address
 	lda zp_pc_h
 	jsr print_byte_as_hex
     lda zp_pc_l
-	and #%11111100
+	and #vmem_blockmask
 	jsr print_byte_as_hex
 	jsr space
 ++	
@@ -438,7 +458,7 @@ read_byte_at_z_address
 	; Forget any cache pages belonging to the old block at this position. 
 	ldy #vmem_cache_count - 1
 -	lda vmem_cache_index,y
-	and #%11111100
+	and #vmem_blockmask
 	cmp vmap_c64,x
 	bne +
 	lda #0
@@ -451,7 +471,7 @@ read_byte_at_z_address
     ora #$80 ; mark as used
     sta vmap_z_h,x
     lda zp_pc_l
-    and #$fc ; skip bit 0,1 since kB blocks
+    and #vmem_blockmask ; skip bit 0,1 since kB blocks
     sta vmap_z_l,x
     stx vmap_index
     jsr load_blocks_from_index
