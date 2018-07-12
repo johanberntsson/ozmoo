@@ -60,13 +60,19 @@ vmem_block_pagecount = vmem_blocksize / 256
 vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
+
+!ifndef VMEM_CLOCK {
 !ifdef SMALLBLOCK {
 vmap_c64 !fill 100 ; Arrghh... This hardcoded value is not nice.
 } else {
 vmap_c64 = vmap_z_l + vmap_max_length
 }
+}
 
+vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
+vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
+vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
 vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !byte 0,0,0,0,0,0,0
@@ -145,16 +151,26 @@ print_vm_map
 load_blocks_from_index
     ; vmap_index = index to load
     ; side effects: a,y,x,status destroyed
+!ifdef VMEM_CLOCK {
+	lda vmap_index
+	asl
+!ifndef SMALLBLOCK {
+	asl
+}
+	; Carry is already clear
+	adc #>story_start
+} else {
     ldx vmap_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
+}
+	tay ; Store in y so we can use it later.
 ;	cmp #$e0
 ;	bcs +
     cmp #first_banked_memory_page
     bcs load_blocks_from_index_using_cache
 +	lda #vmem_block_pagecount ; number of blocks
 	sta readblocks_numblocks
-	lda vmap_c64,x ; c64 mem offset
-	sta readblocks_mempos + 1
+	sty readblocks_mempos + 1
 	lda vmap_z_l,x ; start block
 	sta readblocks_currentblock
 	lda vmap_z_h,x ; start block
@@ -171,6 +187,7 @@ load_blocks_from_index
 load_blocks_from_index_using_cache
     ; vmap_index = index to load
     ; vmem_cache_cnt = which 256 byte cache use as transfer buffer
+	; y = first c64 memory page where it should be loaded
     ; side effects: a,y,x,status destroyed
     ; initialise block copy function (see below)
 
@@ -192,8 +209,7 @@ load_blocks_from_index_using_cache
     clc
     adc vmem_cache_cnt
     sta .copy_to_vmem + 2
-    lda vmap_c64,x ; start block
-    sta .copy_to_vmem + 5
+    sty .copy_to_vmem + 5
     ldx #0 ; Start with page 0 in this 1KB-block
     ; read next into vmem_cache
 -   lda #>vmem_cache_start ; start of cache
@@ -287,18 +303,28 @@ prepare_static_high_memory
     bcs + ; a >= PRELOAD_UNTIL (dyn mem)
     ; allocated 1kB entry
     sta vmap_z_l,y ; z offset ($00 -)
+!ifndef VMEM_CLOCK {
     clc 
     adc #>story_start
     sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
+}
     lda #$c0 ; used, dynamic
     sta vmap_z_h,y 
     jmp ++
 +   ; non-allocated 1kB entry
+!ifdef VMEM_CLOCK {
+	lda vmap_first_swappable_index
+	bne .vmap_swappable_set
+	sty vmap_first_swappable_index
+	sty vmap_clock_index
+.vmap_swappable_set
+} else {
     lda .zp_maxmem
     sec
     sbc #vmem_block_pagecount
     sta .zp_maxmem
     sta vmap_c64,y
+}
     lda #0
     sta vmap_z_h,y
     sta vmap_z_l,y
@@ -333,7 +359,9 @@ read_byte_at_z_address
     cpx zp_pc_l
     bne .read_new_byte
     ; same 256 byte segment, just return
-    jmp .return_result
+    ldy #0
+    lda (mempointer),y
+    rts
 .read_new_byte
     sta zp_pc_h
     txa
@@ -363,7 +391,7 @@ read_byte_at_z_address
     lda zp_pc_l
     and #vmem_blockmask ; skip bit 0,1 since kB blocks
     cmp vmap_z_l,y ; zmachine mem offset ($0 - 
-    bne + 
+    bne +
 	; is the block active?
     lda vmap_z_h,y
 	tax
@@ -375,6 +403,11 @@ read_byte_at_z_address
     cmp zp_pc_h
     bne +
     ; vm index for this block found
+!ifdef VMEM_CLOCK {
+	txa
+	ora #%00100000 		; Set referenced flag
+    sta vmap_z_h,y
+}
     sty vmap_index
     jmp .index_found
 +   iny
@@ -387,6 +420,49 @@ read_byte_at_z_address
 }
 
 	; Load 1 KB block into RAM
+!ifdef VMEM_CLOCK {
+	ldx vmap_clock_index
+-	lda vmap_z_h,x
+	bpl .block_chosen
+	tay
+	and #$20
+	beq .block_maybe_chosen
+	tya
+	and #%11011111 ; Turn off referenced flag
+	sta vmap_z_h,x
+--	inx
+	cpx #vmap_max_length
+	bcc -
+	ldx vmap_first_swappable_index
+	bne - ; Always branch
+.block_maybe_chosen
+	; Protect block where z_pc currently points
+	tya
+	and #%111
+	cmp z_pc
+	bne .block_chosen
+	lda z_pc + 1
+	and #vmem_blockmask
+	cmp vmap_z_l,x
+	beq -- ; This block is protected, keep looking
+.block_chosen
+	txa
+	tay
+	asl
+!ifndef SMALLBLOCK {
+	asl
+}
+	; Carry is already clear
+	adc #>story_start
+	sta vmap_c64_offset
+	; Pick next index to use
+	iny
+	cpy #vmap_max_length
+	bcc .not_max_index
+	ldy vmap_first_swappable_index
+.not_max_index
+	sty vmap_clock_index
+} else {
 	lda vmem_all_blocks_occupied
 	bne .replace_block
     ldx #vmap_max_length - 1
@@ -411,6 +487,9 @@ read_byte_at_z_address
 	bne .block_chosen
 	dex
 .block_chosen
+	lda vmap_c64,x
+	sta vmap_c64_offset
+}
 
 	; We have now decided on a map position where we will store the requested block. Position is held in x.
 !ifdef DEBUG {
@@ -429,7 +508,7 @@ read_byte_at_z_address
 	txa
 	jsr print_byte_as_hex
 	jsr colon
-	lda vmap_c64,x
+	lda vmap_c64_offset
 	jsr dollar
 	jsr print_byte_as_hex
 	jsr colon
@@ -457,7 +536,7 @@ read_byte_at_z_address
 	ldy #vmem_cache_count - 1
 -	lda vmem_cache_index,y
 	and #vmem_blockmask
-	cmp vmap_c64,x
+	cmp vmap_c64_offset
 	bne +
 	lda #0
 	sta vmem_cache_index,y
@@ -466,7 +545,7 @@ read_byte_at_z_address
 
 	; Store address of 1 KB block to load, then load it
 	lda zp_pc_h
-    ora #$80 ; mark as used
+    ora #%10000000 ; mark as used
     sta vmap_z_h,x
     lda zp_pc_l
     and #vmem_blockmask ; skip bit 0,1 since kB blocks
@@ -475,10 +554,27 @@ read_byte_at_z_address
     jsr load_blocks_from_index
 .index_found
     ; index x found
+!ifdef VMEM_CLOCK {
+    lda vmap_index
+	tax
+	asl
+!ifndef SMALLBLOCK {
+	asl
+}
+	; Carry is already clear
+	adc #>story_start
+} else {
     ldx vmap_index
     ; check if swappable memory
     lda vmap_c64,x
-    cmp #first_banked_memory_page
+}
+	sta vmap_c64_offset
+	; tay
+    ; lda vmap_z_h,x
+    ; ora #%00100000 ; mark as referenced
+    ; sta vmap_z_h,x
+	; tya
+	cmp #first_banked_memory_page
     bcc .unswappable
     ; this is swappable memory
     ; update vmem_cache if needed
@@ -549,11 +645,12 @@ read_byte_at_z_address
     ; update memory pointer
     lda vmem_1kb_offset
     clc
-    adc vmap_c64,x
+    adc vmap_c64_offset
     sta mempointer + 1
 .update_page_rank
     ; update page rank
-    cpx #$00  ; x is index of accesses Z_PC
+!ifndef VMEM_CLOCK { 
+	cpx #$00  ; x is index of accesses Z_PC
     beq .return_result
 !ifdef TRACE_VM {
     ;jsr printx
@@ -588,6 +685,7 @@ read_byte_at_z_address
     pla
     sta vmap_z_h,x
 .return_result
+}
 !ifdef TRACE_VM {
     ;pha
     ;jsr print_vm_map
