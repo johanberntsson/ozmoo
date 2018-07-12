@@ -51,14 +51,12 @@ PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
 
 !ifdef SMALLBLOCK {
 	vmem_blocksize = 512
-	vmem_blockmask = %11111110
-	vmem_block_pagecount = 2
 } else {
 	vmem_blocksize = 1024
-	vmem_blockmask = %11111100
-	vmem_block_pagecount = 4
 }
 
+vmem_blockmask = 255 - (>(vmem_blocksize - 1))
+vmem_block_pagecount = vmem_blocksize / 256
 vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
