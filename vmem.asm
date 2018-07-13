@@ -67,11 +67,12 @@ vmap_c64 !fill 100 ; Arrghh... This hardcoded value is not nice.
 } else {
 vmap_c64 = vmap_z_l + vmap_max_length
 }
+} else {
+vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
 }
 
 vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
-vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
 vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
 vmem_cache_cnt !byte 0         ; current execution cache
@@ -81,6 +82,52 @@ vmem_all_blocks_occupied !byte 0
 vmem_temp !byte 0
 
 !ifdef DEBUG {
+!ifdef VMEM_OPTIMIZE {
+print_optimized_vm_map
+	; x = 0 : Algorithm = queue
+	; x = 1 : Algorithm = clock
+	txa
+	pha
+	jsr printchar_flush
+	pla
+	tax
+	lda #0
+	sta streams_output_selected + 2
+	sta is_buffered_window
+	jsr newline
+	jsr dollar
+	jsr dollar
+	jsr dollar
+	cpx #0
+	bne +
+	jsr print_following_string
+	!pet "queue",13,0
+	jmp ++
++	jsr print_following_string
+	!pet "clock:",0
+!ifdef VMEM_CLOCK {
+	lda vmap_clock_index
+	jsr print_byte_as_hex
+}
+	jsr newline
+++	ldx #0
+-	lda vmap_z_h,x
+	jsr print_byte_as_hex
+	lda vmap_z_l,x
+	jsr print_byte_as_hex
+	jsr colon
+	inx
+	cpx #vmap_max_length
+	bcc -
+	jsr newline
+	jsr dollar
+	jsr dollar
+	jsr dollar
+	jsr newline
+    jsr kernel_readchar   ; read keyboard
+    jmp kernel_reset      ; reset
+}
+
 !ifdef TRACE_VM {
 print_vm_map
 !zone {
@@ -258,6 +305,12 @@ load_blocks_from_index_using_cache
     rts
 
 load_dynamic_memory
+!ifdef DEBUG {
+!ifdef VMEM_OPTIMIZE {
+	jsr print_following_string
+	!pet "*** vmem optimization mode ***",13,0
+}	
+}
     ; load header
     jsr load_header
     ; load dynamic memory
@@ -424,6 +477,12 @@ read_byte_at_z_address
 	ldx vmap_clock_index
 -	lda vmap_z_h,x
 	bpl .block_chosen
+!ifdef DEBUG {
+!ifdef VMEM_OPTIMIZE {
+	ldx #1
+	jmp print_optimized_vm_map
+}	
+}
 	tay
 	and #$20
 	beq .block_maybe_chosen
@@ -473,6 +532,12 @@ read_byte_at_z_address
 	dex 
 	bne - ; Always branch
 .last_block_used
+!ifdef DEBUG {
+!ifdef VMEM_OPTIMIZE {
+	ldx #0
+	jmp print_optimized_vm_map
+}	
+}
 	inc vmem_all_blocks_occupied
 .replace_block
     ldx #vmap_max_length - 1
