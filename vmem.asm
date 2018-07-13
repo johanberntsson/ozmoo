@@ -104,12 +104,7 @@ print_optimized_vm_map
 	!pet "queue",13,0
 	jmp ++
 +	jsr print_following_string
-	!pet "clock:",0
-!ifdef VMEM_CLOCK {
-	lda vmap_clock_index
-	jsr print_byte_as_hex
-}
-	jsr newline
+	!pet "clock",13,0
 ++	ldx #0
 -	lda vmap_z_h,x
 	jsr print_byte_as_hex
@@ -119,6 +114,16 @@ print_optimized_vm_map
 	inx
 	cpx #vmap_max_length
 	bcc -
+
+	; Print block that was just to be read
+-	lda zp_pc_h
+	ora #$80 ; Mark as used
+	jsr print_byte_as_hex
+	lda zp_pc_l
+	and #vmem_blockmask
+	jsr print_byte_as_hex
+	jsr colon
+
 	jsr newline
 	jsr dollar
 	jsr dollar
