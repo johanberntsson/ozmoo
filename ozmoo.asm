@@ -34,13 +34,14 @@ z_trace_page 		  = 256 * ((>program_end) + 1)
 
 ; where to store vmem_caches
 vmem_cache_start = z_trace_page + z_trace_size ; stack_start + stack_size
+vmem_cache_base_count = 4 ; Should be a multiple of 4. Higher values than 4 are not working properly (HH game breaks). Should probably be set to 4 later, when the interpreter is so big that vmem never needs to handle more than 102 blocks.
 !ifdef USEVM {
 !ifdef vmem_cache_start {
 !ifndef vmem_cache_count {
-!if (>vmem_cache_start) & %11 = 0 {
-    vmem_cache_count = 4 ; 4 caches
+!if (>vmem_cache_start) & (255 - vmem_blockmask) = 0 {
+    vmem_cache_count = vmem_cache_base_count ; 4 caches
 } else {
-    vmem_cache_count = (8 - ((>vmem_cache_start) & %11)) ; 5-7 caches
+    vmem_cache_count = (vmem_cache_base_count + vmem_block_pagecount - ((>vmem_cache_start) & (255 - vmem_blockmask))) ; 5-7 caches
 }
 } else {
     vmem_cache_count = 0
