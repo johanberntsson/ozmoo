@@ -2,7 +2,11 @@ Known bugs
 ----------
 TAKE AUNT in HH prints "You can't see !unt here!"
 
+Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
+
 Room description in Top Landing (E, N, E) in HH lacks last ".".
+
+Typing SCORE gives a text with words "pointS" and "turnS".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
