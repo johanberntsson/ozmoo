@@ -1,0 +1,83 @@
+Drives and devices
+------------------
+A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drive devices attached to the C64. The device# which can be used are 8, 9, 10, 11. Two different story disks can not use the same device#.
+
+
+Build modes
+-----------
+
+Notes: 
+
+* Initial caching means some or all of memory is filled with suitable parts of the story file, by loading this content from a file as the game starts. Using initial caching speeds up game start for many players since this initial loading sequence can use any fastloader the user may have enabled. It also means gameplay is as fast as it gets, right from the start.
+
+* Less RAM available for virtual memory system: This means a smaller part of C64 memory can be used for virtual memory handling, which means the game will need to load sectors from disk more often. This will of course slow the game down.
+
+Modes requiring a single 1541 drive for play:
+---
+S1: Single 1541 drive, one disk
+	Story file size < ~140 KB: Full initial caching. Full amount of RAM available for virtual memory system.
+	Story file size < ~180 KB: Less initial caching the larger the story file. Full amount of RAM available for virtual memory system.
+
+	Disks used:
+		* Boot / Story disk
+	
+S2: Single 1541 drive, two disks
+	Story file size < ~210 KB: Full initial caching. Full amount of RAM available for virtual memory system.
+	Story file size < ~230 KB: Full initial caching. Less RAM available for virtual memory system the larger the story file.
+
+	Disks used:
+		* Boot disk
+		* Story disk
+	
+Modes requiring two 1541 drives for play:
+---
+D2: Double 1541 drives, two disks
+	Story file size < ~330 KB: Full initial caching. Full amount of RAM available for virtual memory system.
+	Story file size < ~370 KB: Less initial caching the larger the story file. Full amount of RAM available for virtual memory system.
+
+	Disks used:
+		* Boot disk / Story disk A
+		* Story disk B
+
+D3: Double 1541 drives, three disks
+	Story file size < ~400 KB: Full initial caching. Full amount of RAM available for virtual memory system.
+	Story file size < ~420 KB: Full initial caching. Less RAM available for virtual memory system the larger the story file.
+
+	Disks used:
+		* Boot disk
+		* Story disk A
+		* Story disk B
+	
+Modes requiring a 1571, a 1581 or an SD2IEC:
+---
+To be added at a later date.
+
+Interpreter config
+------------------
+Interpreter configuration is stored in a file on the boot disk. This file has a load address of $FE00. The boot program has the responsibility to load this file before starting the interpreter.
+
+Contents:
+4 bytes: Game signature
+
+--- Disk information block ---
+1 byte: Number of bytes used for disk information, including this byte
+1 byte: Number of disks used (disk 0 is the save disk(s), disk 1 .. are game disks
+For each disk:
+		1 byte: n: Number of bytes used for this entry, including this byte.
+		1 byte: Device# (+ 128 if this is a story disk). If device# is < 8 or > 11, interpreter should halt and tell user to run setup program.
+		1 byte: t: Number of tracks used for story data
+		t bytes: Sectors used for story data: Bit 0-4: # of sectors used. Bit 5-7: First sector# used. (Example: %01010000: Use 16 sectors, starting with #2)
+		x bytes: Disk name in Petscii. Special codes:
+			0: End of string
+			128: "Boot "
+			129: "Story "
+			130: "disk "
+			131: "(1541 disk)"
+
+--- Vmem information block ---
+1 byte: Number of bytes used for vmem information
+1 byte: Number of vmem blocks suggested for initial caching
+1 byte: Number of vmem blocks already preloaded
+x bytes: vmap_z_h contents for the suggested blocks
+x bytes: vmap_z_l contents for the suggested blocks
+
