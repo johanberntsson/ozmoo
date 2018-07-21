@@ -1,16 +1,27 @@
 # specialised make for Ozmoo
+
+require 'FileUtils'
+
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 $DEBUGFLAGS = "-DDEBUG=1"
 $VMFLAGS = "-DUSEVM=1"
 
 if $is_windows then
-    puts "TODO: customize for Windows"
-    exit 0
+    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -cartcrt final_cartridge.crt -autostart-delay-random"
+    $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
+    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
 else
     $X64 = "/usr/bin/x64 -cartcrt final_cartridge.crt -autostart-delay-random"
     $C1541 = "/usr/bin/c1541"
     $EXOMIZER = "exomizer/src/exomizer"
+end
+
+def get_story_start(label_file_name)
+	File.open(label_file_name).each do |line|
+		next unless $_ =~ /story_start\s*=\s*\$([0-9a-f]{4})/i;
+		return $1.to_i(16)
+	end
 end
 
 def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
@@ -22,17 +33,22 @@ def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     cmd = "acme #{$COMPRESSIONFLAGS} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
     ret = system(cmd)
     exit 0 if !ret
-    cmd = "cp #{d64_file} #{game}.d64"
-    ret = system(cmd)
-    exit 0 if !ret
+	ret = FileUtils.copy_file("#{d64_file}", "#{game}.d64")
+#    cmd = "cp #{d64_file} #{game}.d64"
+#    ret = system(cmd)
+#    exit 0 if !ret
     if use_compression then
-        storystart = `grep story_start acme_labels.txt | sed 's/[^0-9]//g' | sed 's/^/ibase=16;/' | bc`.strip
+        storystart = get_story_start('acme_labels.txt');
         system("#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip")
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip ozmoo")
     else
         system("#{$C1541} -attach #{game}.d64 -write ozmoo ozmoo")
     end
     system("#{$X64} #{game}.d64")
+		puts "Hllx"
+		puts $is_windows
+		puts "#{$X64} #{game}.d64"
+
 end
 
 i = 0
