@@ -2,8 +2,8 @@
 # converts zmachine file (*.z3, *.z5 etc.) to Commodore 64 floppy (*.d64)
 
 # This is ugly. Ruby isn't good at handling binary data
-$zerobyte = [0].pack("C")
-$ffbyte = [255].pack("C")
+$zerobyte = 0.chr
+$ffbyte = 255.chr
 # Hard coded BAM, to be replaced with proper allocation
 $track1801 = [
     # $16500 = 91392 = 357 (18,0)
@@ -86,7 +86,7 @@ def get_track_length(track)
 end
 
 def add_1801(d64_file)
-    d64_file.write $track1801.pack("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
+    d64_file.write $track1801.pack("C*")
 end
 
 def add_1802(d64_file)
