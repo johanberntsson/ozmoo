@@ -103,23 +103,23 @@ def add_zeros(d64_file)
     end
 end
 
-def add_story_data(story_file, d64_file)
+def add_story_data(d64_file)
     story_data_added = false
-    256.times do
-        if story_file.eof? then
-            d64_file.write $zerobyte
-        else
-            story_data_added = true
-            byte = story_file.read(1)
-            d64_file.write byte
-        end
-    end
+	if $story_file_data.length > $story_file_cursor + 1
+		d64_file.write $story_file_data[$story_file_cursor .. $story_file_cursor + 255]
+		$story_file_cursor += 256
+        story_data_added = true
+	else
+		add_zeros(d64_file)
+	end
     story_data_added
 end
 
 def create_d64(story_filename, d64_filename, dynmem_filename)
     begin
-        story_file = File.open(story_filename, "rb")
+        $story_file_data = IO.binread(story_filename)
+		$story_file_data += $zerobyte * (1024 - ($story_file_data.length % 1024))   
+        $story_file_cursor = 0
     rescue
         puts "ERROR: Can't open #{story_filename} for reading"
         exit 0
@@ -145,9 +145,8 @@ def create_d64(story_filename, d64_filename, dynmem_filename)
     puts "Creating..."
 
     # preallocate sectors
-    story_file_length = File.size?(story_filename)
-    num_sectors = (story_file_length / 256)
-    num_sectors = num_sectors + 1 if (story_file_length % 256) > 0
+    story_file_length = $story_file_data.length
+    num_sectors = (story_file_length.to_f / 256).ceil
     for track in 1..35 do
         print "#{track}:"
         for sector in 1.. get_track_length(track) do
@@ -162,21 +161,18 @@ def create_d64(story_filename, d64_filename, dynmem_filename)
 
     # check header.high_mem_start (size of dynmem + statmem)
     # minform: $1768 = 5992 (23, 104)
-    story_file.read(4) # skip version and flags1
-    high_mem_start = story_file.read(2).unpack("n")[0]
+    high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
     
     # check header.static_mem_start (size of dynmem)
-    story_file.read(8) # skip until this entry
-    static_mem_start = story_file.read(2).unpack("n")[0]
+    static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 
-    # get dynmem size (in 1kb blocks)
-    #dynmem_size = 1024 * ((static_mem_start + 512)/1024)
-    dynmem_size = 1024 * ((high_mem_start + 512)/1024)
-
-    # save dynmem as separate file
-    story_file.rewind
-    dynmem = story_file.read(dynmem_size)
     if !dynmem_filename.nil? then
+		# save dynmem as separate file
+
+		# get dynmem size (in 1kb blocks)
+		dynmem_size = 1024 * ((high_mem_start + 512)/1024)
+
+		dynmem = $story_file_data[0 .. dynmem_size - 1]
         # Assume memory starts at $3800
         dynmem_file.write([0x00,0x38].pack("CC"))
         dynmem_file.write(dynmem)
@@ -184,7 +180,7 @@ def create_d64(story_filename, d64_filename, dynmem_filename)
     end
 
     # now save the sectors
-    story_file.rewind
+#    story_file.rewind
     for track in 1..35 do
         for sector in 1.. get_track_length(track) do
             if track == 18 && sector == 1 then
@@ -194,13 +190,13 @@ def create_d64(story_filename, d64_filename, dynmem_filename)
             elsif track == 18 then
                 add_zeros(d64_file)
             elsif sector <= 16 then
-                add_story_data(story_file, d64_file)
+                add_story_data(d64_file)
             else
                 add_zeros(d64_file)
             end
         end
     end
-    story_file.close
+#    story_file.close
     d64_file.close
 
 end
