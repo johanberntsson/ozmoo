@@ -1,6 +1,8 @@
 #!/usr/bin/ruby
 # converts zmachine file (*.z3, *.z5 etc.) to Commodore 64 floppy (*.d64)
 
+$print_disk_map = false # Set to true to print which blocks are allocated
+
 # This is ugly. Ruby isn't good at handling binary data
 $zerobyte = 0.chr
 $ffbyte = 255.chr
@@ -62,7 +64,7 @@ $track1801 = [
 ]
 
 def allocate_sector(track, sector)
-    print "*"
+    print "*" if $print_disk_map
     index1 = 4 * track
     index2 = 4 * track + 1 + ((sector - 1) / 8)
     # adjust number of free sectors
@@ -148,15 +150,15 @@ def create_d64(story_filename, d64_filename, dynmem_filename)
     story_file_length = $story_file_data.length
     num_sectors = (story_file_length.to_f / 256).ceil
     for track in 1..35 do
-        print "#{track}:"
+        print "#{track}:" if $print_disk_map
         for sector in 1.. get_track_length(track) do
-            print " #{sector}"
+            print " #{sector}" if $print_disk_map
             if track != 18 && sector <= 16 && num_sectors > 0 then
                 allocate_sector(track, sector)
                 num_sectors = num_sectors - 1
             end
         end
-        puts
+        puts if $print_disk_map
     end
 
     # check header.high_mem_start (size of dynmem + statmem)
