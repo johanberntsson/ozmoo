@@ -2,7 +2,7 @@
 
 require 'FileUtils'
 
-$print_disk_map = false # Set to true to print which blocks are allocated
+$print_disk_map = true # Set to true to print which blocks are allocated
 $DEBUGFLAGS = "-DDEBUG=1 -DVMEM_OPTIMIZE=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
@@ -81,9 +81,9 @@ $track1801 = [
     0xa0,0xa0,0xa0,0x00,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+    0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
+    0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
+    0x11,0xff,0xff,0x01,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -93,12 +93,16 @@ $track1801 = [
 
 def allocate_sector(track, sector)
     print "*" if $print_disk_map
-    index1 = 4 * track
-    index2 = 4 * track + 1 + ((sector - 1) / 8)
+	index1 = 4 * track
+	index2 = 4 * track + 1 + (sector / 8)
+	if track > 35 then # Use SpeedDOS 40-track BAM layout
+		index1 += 0x30
+		index2 += 0x30
+	end
     # adjust number of free sectors
     $track1801[index1] = $track1801[index1] - 1
     # allocate sector
-    index3 = 255 - 2**(7 - ((sector - 1) % 8))
+    index3 = 255 - 2**(7 - (sector % 8))
     $track1801[index2] = $track1801[index2] & index3
 end
 
@@ -146,6 +150,10 @@ def add_story_data(d64_file)
 end
 
 def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
+	# Create a disk image. Return number of free blocks, or -1 for failure.
+	tracks = 40 # 35 or 40 are useful options
+	skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
+	free_blocks = 664 + 19 - skip_blocks_on_18 + (tracks > 35 ? 17 * tracks - 35 : 0) 
     begin
         d64_file = File.open(d64_filename, "wb")
     rescue
@@ -177,11 +185,11 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
     # preallocate sectors
     story_data_length = $story_file_data.length - $story_file_cursor
     num_sectors = [($story_file_data.length.to_f / 256).ceil, max_story_blocks].min
-    for track in 1..35 do
+    for track in 1 .. tracks do
         print "#{track}:" if $print_disk_map
-        for sector in 1.. get_track_length(track) do
+        for sector in 0 .. get_track_length(track) - 1 do
             print " #{sector}" if $print_disk_map
-            if track != 18 && sector <= 16 && num_sectors > 0 then
+            if track != 18 && sector <= 15 && num_sectors > 0 then
                 allocate_sector(track, sector)
                 num_sectors = num_sectors - 1
             end
@@ -210,15 +218,15 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
     end
 
     # now save the sectors
-    for track in 1..35 do
-        for sector in 1.. get_track_length(track) do
-            if track == 18 && sector == 1 then
+    for track in 1 .. tracks do
+        for sector in 0 .. get_track_length(track) - 1 do
+            if track == 18 && sector == 0 then
                 add_1801(d64_file)
-            elsif track == 18 && sector == 2 then
+            elsif track == 18 && sector == 1 then
                 add_1802(d64_file)
             elsif track == 18 then
                 add_zeros(d64_file)
-            elsif sector <= 16 then
+            elsif sector <= 15 then
                 add_story_data(d64_file)
             else
                 add_zeros(d64_file)
