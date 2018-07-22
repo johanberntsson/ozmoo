@@ -431,6 +431,14 @@ z_exe_mode_return_from_read_interrupt = $80
 z_init
 !zone {
 
+!ifdef DEBUG {
+!ifdef VMEM_OPTIMIZE {
+	jsr print_following_string
+	!pet "*** vmem optimization mode ***",13,13,0
+}	
+}
+
+
 	ldy #1
 	sty z_pc_mempointer_is_unsafe
 	dey

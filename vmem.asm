@@ -310,12 +310,6 @@ load_blocks_from_index_using_cache
     rts
 
 load_dynamic_memory
-!ifdef DEBUG {
-!ifdef VMEM_OPTIMIZE {
-	jsr print_following_string
-	!pet "*** vmem optimization mode ***",13,0
-}	
-}
     ; load header
     jsr load_header
     ; load dynamic memory

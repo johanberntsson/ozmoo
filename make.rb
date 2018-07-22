@@ -145,15 +145,7 @@ def add_story_data(d64_file)
     story_data_added
 end
 
-def create_d64(story_filename, disk_title, d64_filename, dynmem_filename)
-    begin
-        $story_file_data = IO.binread(story_filename)
-		$story_file_data += $zerobyte * (1024 - ($story_file_data.length % 1024))   
-        $story_file_cursor = 0
-    rescue
-        puts "ERROR: Can't open #{story_filename} for reading"
-        exit 0
-    end
+def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
     begin
         d64_file = File.open(d64_filename, "wb")
     rescue
@@ -183,8 +175,8 @@ def create_d64(story_filename, disk_title, d64_filename, dynmem_filename)
 	end
 	
     # preallocate sectors
-    story_file_length = $story_file_data.length
-    num_sectors = (story_file_length.to_f / 256).ceil
+    story_data_length = $story_file_data.length - $story_file_cursor
+    num_sectors = [($story_file_data.length.to_f / 256).ceil, max_story_blocks].min
     for track in 1..35 do
         print "#{track}:" if $print_disk_map
         for sector in 1.. get_track_length(track) do
@@ -298,8 +290,8 @@ rescue
     puts "Usage: make.rb [-S1] [-c] <file> [z3|z5]"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -c: use compression with exomizer"
-    puts "       file: path optional (e.g. infocom/zork1.z3)"
-    puts "       z3|z5: zmachine version, if not clear from file"
+    puts "       filename: path optional (e.g. infocom/zork1.z3)"
+    puts "       -z3|-z5: zmachine version, if not clear from filename"
     exit 0
 end
 
@@ -329,9 +321,19 @@ end
 d64_file = "temp1.d64"
 dynmem_file = "temp.dynmem"
 
+begin
+	$story_file_data = IO.binread(file)
+	$story_file_data += $zerobyte * (1024 - ($story_file_data.length % 1024))   
+	$story_file_cursor = 0
+rescue
+	puts "ERROR: Can't open #{file} for reading"
+	exit 0
+end
+
 case mode
 when MODE_S1
-	create_d64(file, game, d64_file, dynmem_file)
+	max_story_blocks = 9999
+	create_d64(game, d64_file, dynmem_file, max_story_blocks)
 	play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
 else
 	puts "Unsupported build mode. Currently supported modes: S1."
