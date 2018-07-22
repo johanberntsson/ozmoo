@@ -13,6 +13,8 @@ MODE_D3 = 4
 
 mode = MODE_S1
 
+$vmem_blocksize = ($VMFLAGS =~ /\s-DSMALLBLOCK=\d+/ ? 512 : 1024)
+
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
@@ -151,14 +153,23 @@ end
 
 def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
 	# Create a disk image. Return number of free blocks, or -1 for failure.
-	tracks = 40 # 35 or 40 are useful options
-	skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
+
+	tracks = 35 # 35 or 40 are useful options
+	skip_blocks_on_18 = 19 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 	free_blocks = 664 + 19 - skip_blocks_on_18 + (tracks > 35 ? 17 * tracks - 35 : 0) 
+
+	$config_track_map = []
+
+	for track in 36 .. 40 do
+		$track1801[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
+	end
+	
+	
     begin
         d64_file = File.open(d64_filename, "wb")
     rescue
         puts "ERROR: Can't open #{d64_filename} for writing"
-        story_file.close
+#        story_file.close
         exit 0
     end
     if !dynmem_filename.nil? then
@@ -166,7 +177,7 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
             dynmem_file = File.open(dynmem_filename, "wb")
         rescue
             puts "ERROR: Can't open #{dynmem_filename} for writing"
-            story_file.close
+ #           story_file.close
             d64_file.close
             exit 0
         end
@@ -187,15 +198,25 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
     num_sectors = [($story_file_data.length.to_f / 256).ceil, max_story_blocks].min
     for track in 1 .. tracks do
         print "#{track}:" if $print_disk_map
+		first_story_sector = 0 + (track == 18 ? skip_blocks_on_18 : 0)
+		last_story_sector = -1
         for sector in 0 .. get_track_length(track) - 1 do
             print " #{sector}" if $print_disk_map
-            if track != 18 && sector <= 15 && num_sectors > 0 then
+            if (track != 18 || sector >= skip_blocks_on_18) && sector <= 15 && num_sectors > 0 then
                 allocate_sector(track, sector)
-                num_sectors = num_sectors - 1
+				last_story_sector = sector
+				free_blocks -= 1
+                num_sectors -= 1
             end
         end
+		if last_story_sector >= first_story_sector then
+			$config_track_map.push 32 * first_story_sector + last_story_sector + 1
+		else
+			$config_track_map.push 0
+		end
         puts if $print_disk_map
     end
+	$config_track_map = $config_track_map.reverse.drop_while{|i| i==0}.reverse # Drop trailing zero elements
 
     # check header.high_mem_start (size of dynmem + statmem)
     # minform: $1768 = 5992 (23, 104)
@@ -208,9 +229,9 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
 		# save dynmem as separate file
 
 		# get dynmem size (in 1kb blocks)
-		dynmem_size = 1024 * ((high_mem_start + 512)/1024)
+		$dynmem_size = 1024 * ((high_mem_start + 512)/1024)
 
-		dynmem = $story_file_data[0 .. dynmem_size - 1]
+		dynmem = $story_file_data[0 .. $dynmem_size - 1]
         # Assume memory starts at $3800
         dynmem_file.write([0x00,0x38].pack("CC"))
         dynmem_file.write(dynmem)
@@ -224,9 +245,7 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
                 add_1801(d64_file)
             elsif track == 18 && sector == 1 then
                 add_1802(d64_file)
-            elsif track == 18 then
-                add_zeros(d64_file)
-            elsif sector <= 15 then
+            elsif (track != 18 || sector >= skip_blocks_on_18) && sector <= 15 then
                 add_story_data(d64_file)
             else
                 add_zeros(d64_file)
@@ -234,7 +253,7 @@ def create_d64(disk_title, d64_filename, dynmem_filename, max_story_blocks)
         end
     end
     d64_file.close
-
+	free_blocks
 end
 
 ################################## END create_d64.rb
@@ -338,10 +357,38 @@ rescue
 	exit 0
 end
 
+config_data = [
+0, 0, 0, 0, # Game ID
+8, # Number of bytes used for disk information, including this byte
+2, # Number of disks, change later if wrong
+6, 8, 0, 130, 131, 0 # Data for save disk: 6 bytes used, device# = 8, 0 tracks used for story data, name = "Save disk"
+]
+
+
 case mode
 when MODE_S1
 	max_story_blocks = 9999
 	create_d64(game, d64_file, dynmem_file, max_story_blocks)
+	# Add config data about boot / story disk
+	disk_info_size = 9 + $config_track_map.length
+	config_data += [disk_info_size, 8, $config_track_map.length] + $config_track_map
+	config_data += [128, "/".ord, " ".ord, 129, 131, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+	# Add config data about vmem
+	dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
+	config_data += [
+		3 + 2 * dynmem_vmem_blocks, # Size of vmem data
+		dynmem_vmem_blocks, # Number of suggested blocks
+		use_compression ? dynmem_vmem_blocks : 0, # Number of preloaded blocks
+		]
+	lowbytes = []
+	dynmem_vmem_blocks.times do |i|
+		config_data.push(0xc0)
+		lowbytes.push(i * $vmem_blocksize / 256)
+	end
+	config_data += lowbytes;
+#	puts config_data
+	# Add loader and terp to boot / play disk
 	play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
 else
 	puts "Unsupported build mode. Currently supported modes: S1."
