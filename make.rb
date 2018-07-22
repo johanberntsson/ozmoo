@@ -6,6 +6,13 @@ $print_disk_map = false # Set to true to print which blocks are allocated
 $DEBUGFLAGS = "-DDEBUG=1 -DVMEM_OPTIMIZE=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
+MODE_S1 = 1
+MODE_S2 = 2
+MODE_D2 = 3
+MODE_D3 = 4
+
+mode = MODE_S1
+
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
@@ -18,6 +25,8 @@ else
     $C1541 = "/usr/bin/c1541"
     $EXOMIZER = "exomizer/src/exomizer"
 end
+
+
 
 ################################## create_d64.rb
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
@@ -163,7 +172,7 @@ def create_d64(story_filename, disk_title, d64_filename, dynmem_filename)
         end
     end
 
-    puts "Creating..."
+    puts "Creating disk image..."
 
 	# Set disk title
 	$track1801[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
@@ -209,7 +218,6 @@ def create_d64(story_filename, disk_title, d64_filename, dynmem_filename)
     end
 
     # now save the sectors
-#    story_file.rewind
     for track in 1..35 do
         for sector in 1.. get_track_length(track) do
             if track == 18 && sector == 1 then
@@ -225,21 +233,9 @@ def create_d64(story_filename, disk_title, d64_filename, dynmem_filename)
             end
         end
     end
-#    story_file.close
     d64_file.close
 
 end
-
-# if ARGV.length < 2 then
-    # puts "Usage: create_d64.rb <zmachine file> <d64 file> [<dynmem file>]"
-    # exit 0
-# end
-# story_filename = ARGV[0]
-# d64_filename = ARGV[1]
-# dynmem_filename = ARGV[2] # nil if not given
-
-# puts "Done!"
-# exit 0
 
 ################################## END create_d64.rb
 
@@ -259,6 +255,7 @@ def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
         $COMPRESSIONFLAGS = ""
     end
     cmd = "acme #{$COMPRESSIONFLAGS} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+	puts cmd
     ret = system(cmd)
     exit 0 if !ret
 	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
@@ -267,8 +264,9 @@ def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
 #    exit 0 if !ret
     if use_compression then
         storystart = get_story_start('acme_labels.txt');
-		puts "#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip"
-        system("#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip")
+		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"lda $0400,x sta $d020\" ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip"
+		puts exomizer_cmd
+        system(exomizer_cmd)
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip ozmoo")
     else
         system("#{$C1541} -attach #{game}.d64 -write ozmoo ozmoo")
@@ -281,19 +279,24 @@ i = 0
 use_compression = false
 ztype = ""
 begin
-    if ARGV[i] == "-c" then
-        use_compression = true
-        i = i + 1
-    end
-    raise "error" if i >= ARGV.length
-    file = ARGV[i]
-    i = i + 1
-    if i < ARGV.length then
-        ztype = ARGV[i]
-        i = i + 1
-    end
+	while i < ARGV.length
+		if ARGV[i] == "-c" then
+			use_compression = true
+		elsif ARGV[i] =~ /^-S1$/i then
+			mode = MODE_S1
+		elsif ARGV[i] =~ /^-Z\d$/i then
+			ztype = ARGV[i].downcase
+		elsif ARGV[i] =~ /^-/i then
+			puts "Unknown option: " + ARGV[i]
+			raise "error"
+		else 
+			file = ARGV[i]
+		end
+		i = i + 1
+	end
 rescue
-    puts "Usage: make.rb [-c] <file> [z3|z5]"
+    puts "Usage: make.rb [-S1] [-c] <file> [z3|z5]"
+    puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -c: use compression with exomizer"
     puts "       file: path optional (e.g. infocom/zork1.z3)"
     puts "       z3|z5: zmachine version, if not clear from file"
@@ -326,19 +329,24 @@ end
 d64_file = "temp1.d64"
 dynmem_file = "temp.dynmem"
 
-create_d64(file, game, d64_file, dynmem_file)
-
-if !File.exists? d64_file then
-    puts "#{d64_file} not found"
-    exit 0
-end
-if !File.exists?(dynmem_file) && use_compression == true then
-    use_compression = false
-    puts "#{dynmem_file} not found, compression disabled (push enter)"
-    STDIN.getc
+case mode
+when MODE_S1
+	create_d64(file, game, d64_file, dynmem_file)
+	play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
+else
+	puts "Unsupported build mode. Currently supported modes: S1."
 end
 
-play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
+# if !File.exists? d64_file then
+    # puts "#{d64_file} not found"
+    # exit 0
+# end
+# if !File.exists?(dynmem_file) && use_compression == true then
+    # use_compression = false
+    # puts "#{dynmem_file} not found, compression disabled (push enter)"
+    # STDIN.getc
+# end
+
 
 exit 0
 
