@@ -8,7 +8,8 @@ $DEBUGFLAGS = "-DDEBUG=1"
 $VMFLAGS = "-DUSEVM=1"
 
 if $is_windows then
-    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -cartcrt final_cartridge.crt -autostart-delay-random"
+#    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -cartcrt final_cartridge.crt -autostart-delay-random"
+    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
 else
@@ -19,9 +20,9 @@ end
 
 def get_story_start(label_file_name)
 	File.open(label_file_name).each do |line|
-		next unless $_ =~ /story_start\s*=\s*\$([0-9a-f]{4})/i;
-		return $1.to_i(16)
+		return $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
 	end
+	return 0
 end
 
 def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
@@ -33,22 +34,20 @@ def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     cmd = "acme #{$COMPRESSIONFLAGS} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
     ret = system(cmd)
     exit 0 if !ret
-	ret = FileUtils.copy_file("#{d64_file}", "#{game}.d64")
+	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
 #    cmd = "cp #{d64_file} #{game}.d64"
 #    ret = system(cmd)
 #    exit 0 if !ret
     if use_compression then
         storystart = get_story_start('acme_labels.txt');
+		puts "#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip"
         system("#{$EXOMIZER} sfx basic ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip")
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip ozmoo")
     else
         system("#{$C1541} -attach #{game}.d64 -write ozmoo ozmoo")
     end
+	puts "#{$X64} #{game}.d64"
     system("#{$X64} #{game}.d64")
-		puts "Hllx"
-		puts $is_windows
-		puts "#{$X64} #{game}.d64"
-
 end
 
 i = 0
