@@ -2,7 +2,7 @@
 
 require 'FileUtils'
 
-$PRINT_DISK_MAP = true # Set to true to print which blocks are allocated
+$PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 $DEBUGFLAGS = "-DDEBUG=1 -DVMEM_OPTIMIZE=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
@@ -15,7 +15,6 @@ mode = MODE_S1
 
 $vmem_blocksize = ($VMFLAGS =~ /\s-DSMALLBLOCK=\d+/ ? 512 : 1024)
 $ZEROBYTE = 0.chr
-$FFBYTE = 255.chr
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
@@ -36,19 +35,35 @@ end
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
 
 class D64_image
-	def initialize(disk_title, d64_filename)
+	def initialize(disk_title, d64_filename, is_boot_disk)
 		@disk_title = disk_title
 		@d64_filename = d64_filename
+		@is_boot_disk = is_boot_disk
 
 		@tracks = 35 # 35 or 40 are useful options
 		@skip_blocks_on_18 = 19 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
-		@free_blocks = 664 + 19 - @skip_blocks_on_18 + (@tracks > 35 ? 17 * @tracks - 35 : 0) 
+		@config_track = 30 # Change to 19 later
+		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
+		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 
+			(@tracks > 35 ? 17 * @tracks - 35 : 0) -
+			@skip_blocks_on_config_track
 		@d64_file = nil
 		
 		@config_track_map = []
-		
+		@contents = Array.new(@tracks > 35 ? 196608 : 174848, 0)
+		@track_offset = [0,
+			0,21,42,63,84,
+			105,126,147,168,189,
+			210,231,252,273,294,
+			315,336,357,376,395,
+			414,433,452,471,490,
+			508,526,544,562,580,
+			598,615,632,649,666,
+			683,700,717,734,751,
+			768]
+			
 		# BAM
-		@track1801 = [
+		@track1800 = [
 			# $16500 = 91392 = 357 (18,0)
 			0x12,0x01, # track/sector
 			0x41, # DOS version
@@ -107,93 +122,26 @@ class D64_image
 		# Create a disk image. Return number of free blocks, or -1 for failure.
 
 		for track in 36 .. 40 do
-			@track1801[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > @tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
+			@track1800[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > @tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
 		end
 		
-		
-		begin
-			@d64_file = File.open(@d64_filename, "wb")
-		rescue
-			puts "ERROR: Can't open #{@d64_filename} for writing"
-	#        story_file.close
-			exit 0
-		end
-
 		puts "Creating disk image..."
 
 		# Set disk title
-		@track1801[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
+		@track1800[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
 		[disk_title.length, 0x10].min.times do |charno|
 			code = disk_title[charno].ord
 			code &= 0xdf if code >= 0x61 and code <= 0x7a
-			@track1801[0x90 + charno] = code 
+			@track1800[0x90 + charno] = code 
 		end
 		
 
 	end # initialize
 
-	def config_track_map
-		@config_track_map
+	def free_blocks
+		@free_blocks
 	end
 	
-	def allocate_sector(track, sector)
-		print "*" if $PRINT_DISK_MAP
-		index1 = 4 * track
-		index2 = 4 * track + 1 + (sector / 8)
-		if track > 35 then # Use SpeedDOS 40-track BAM layout
-			index1 += 0x30
-			index2 += 0x30
-		end
-		# adjust number of free sectors
-		@track1801[index1] = @track1801[index1] - 1
-		# allocate sector
-		index3 = 255 - 2**(7 - (sector % 8))
-		@track1801[index2] = @track1801[index2] & index3
-	end
-
-	def get_track_length(track)
-		if track <= 17 then
-			sectors = 21
-		elsif track <= 24 then
-			sectors = 19
-		elsif track <= 30 then
-			sectors = 18
-		else
-			sectors = 17
-		end
-		sectors
-	end
-
-	def add_1801(d64_file)
-		d64_file.write @track1801.pack("C*")
-	end
-
-	def add_1802(d64_file)
-		d64_file.write $ZEROBYTE 
-		d64_file.write $FFBYTE 
-		254.times do
-			d64_file.write $ZEROBYTE 
-		end
-	end
-
-	def add_zeros(d64_file)
-		256.times do
-			d64_file.write $ZEROBYTE 
-		end
-	end
-
-	def add_story_block(d64_file)
-		story_block_added = false
-		if $story_file_data.length > $story_file_cursor + 1
-			d64_file.write $story_file_data[$story_file_cursor .. $story_file_cursor + 255]
-			$story_file_cursor += 256
-			story_block_added = true
-		else
-			add_zeros(d64_file)
-		end
-		story_block_added
-	end
-
 	def add_story_data(max_story_blocks)
 		
 		# preallocate sectors
@@ -201,12 +149,18 @@ class D64_image
 		num_sectors = [($story_file_data.length.to_f / 256).ceil, max_story_blocks].min
 		for track in 1 .. @tracks do
 			print "#{track}:" if $PRINT_DISK_MAP
-			first_story_sector = 0 + (track == 18 ? @skip_blocks_on_18 : 0)
+			first_story_sector = 0 + 
+				(track == 18 ? @skip_blocks_on_18 : 0) + 
+				(track == @config_track ? @skip_blocks_on_config_track : 0)
 			last_story_sector = -1
 			for sector in 0 .. get_track_length(track) - 1 do
 				print " #{sector}" if $PRINT_DISK_MAP
-				if (track != 18 || sector >= @skip_blocks_on_18) && sector <= 15 && num_sectors > 0 then
+				if @is_boot_disk && track == @config_track && sector < @skip_blocks_on_config_track then
 					allocate_sector(track, sector)
+				elsif (track != 18 || sector >= @skip_blocks_on_18) &&
+						sector <= 15 && num_sectors > 0 then
+					allocate_sector(track, sector)
+					add_story_block(track, sector)
 					last_story_sector = sector
 					@free_blocks -= 1
 					num_sectors -= 1
@@ -219,27 +173,82 @@ class D64_image
 			end
 			puts if $PRINT_DISK_MAP
 		end
+		add_1800()
+		add_1801()
+
 		@config_track_map = @config_track_map.reverse.drop_while{|i| i==0}.reverse # Drop trailing zero elements
 
-		# now save the sectors
-		for track in 1 .. @tracks do
-			for sector in 0 .. get_track_length(track) - 1 do
-				if track == 18 && sector == 0 then
-					add_1801(@d64_file)
-				elsif track == 18 && sector == 1 then
-					add_1802(@d64_file)
-				elsif (track != 18 || sector >= @skip_blocks_on_18) && sector <= 15 then
-					add_story_block(@d64_file)
-				else
-					add_zeros(@d64_file)
-				end
-			end
-		end
-		@d64_file.close
 		@free_blocks
 	end
 
-end # class d64_image
+	def config_track_map
+		@config_track_map
+	end
+	
+	def set_config_data(data)
+		if !@is_boot_disk then
+			puts "ERROR: Tried to save config data on a non-boot disk."
+			exit 0
+		elsif !(data.is_a?(Array)) or data.length > 512 then
+			puts "ERROR: Tried to save config data on a non-boot disk."
+			exit 0
+		end
+		@contents[@track_offset[@config_track] * 256 .. @track_offset[@config_track] * 256 + data.length - 1] = data
+		
+	end
+	
+	def save
+		begin
+			d64_file = File.open(@d64_filename, "wb")
+		rescue
+			puts "ERROR: Can't open #{@d64_filename} for writing"
+			exit 0
+		end
+		d64_file.write @contents.pack("C*")
+		d64_file.close
+	end
+
+	private
+	
+	def allocate_sector(track, sector)
+		print "*" if $PRINT_DISK_MAP
+		index1 = 4 * track
+		index2 = 4 * track + 1 + (sector / 8)
+		if track > 35 then # Use SpeedDOS 40-track BAM layout
+			index1 += 0x30
+			index2 += 0x30
+		end
+		# adjust number of free sectors
+		@track1800[index1] -= 1
+		# allocate sector
+		index3 = 255 - 2**(sector % 8)
+		@track1800[index2] &= index3
+	end
+
+	def get_track_length(track)
+		@track_offset[track + 1] - @track_offset[track]
+	end
+
+	def add_1800()
+		@contents[@track_offset[18] * 256 .. @track_offset[18] * 256 + 255] = @track1800
+	end
+
+	def add_1801()
+		@contents[@track_offset[18] * 256 + 256] = 0 
+		@contents[@track_offset[18] * 256 + 257] = 0xff 
+	end
+
+	def add_story_block(track, sector)
+		story_block_added = false
+		if $story_file_data.length > $story_file_cursor + 1
+			@contents[256 * (@track_offset[track] + sector) .. 256 * (@track_offset[track] + sector) + 255] =
+				$story_file_data[$story_file_cursor .. $story_file_cursor + 255].unpack("C*")
+			$story_file_cursor += 256
+			story_block_added = true
+		end
+		story_block_added
+	end
+end # class D64_image
 
 ################################## END create_d64.rb
 
@@ -298,6 +307,10 @@ begin
 		end
 		i = i + 1
 	end
+	if !file
+		raise "error"
+		exit 0
+	end
 rescue
     puts "Usage: make.rb [-S1] [-c] <file> [z3|z5]"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
@@ -321,14 +334,10 @@ if extension.empty? then
     exit 0
 end
 
-if path.empty? || path.length == 1 then
-    file = `dir *#{File::SEPARATOR}#{filename}`
-    if path.empty? then
-        puts "ERROR: empty path"
-        exit 0
-    end
-    path = File.dirname(file)
-end
+# if path.empty? || path.length == 1 then
+	# puts "ERROR: empty path"
+	# exit 0
+# end
 
 d64_file = "temp1.d64"
 dynmem_file = "temp.dynmem"
@@ -379,8 +388,13 @@ config_data = [
 case mode
 when MODE_S1
 	max_story_blocks = 9999
-	disk = D64_image.new(game, d64_file)
+	disk = D64_image.new(game, d64_file, true) # game file to read from, d64 file to create, is boot disk?
 	disk.add_story_data(max_story_blocks)
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
+		exit 0
+	end
+	
 	# Add config data about boot / story disk
 	disk_info_size = 9 + disk.config_track_map.length
 	config_data += [disk_info_size, 8, disk.config_track_map.length] + disk.config_track_map
@@ -400,6 +414,8 @@ when MODE_S1
 	end
 	config_data += lowbytes;
 #	puts config_data
+	disk.set_config_data(config_data)
+	disk.save()
 	# Add loader and terp to boot / play disk
 	play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
 else
