@@ -71,6 +71,7 @@ vmem_start = story_start
 filelength !byte 0, 0, 0
 fileblocks !byte 0, 0
 c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
+game_id		!byte 0,0,0,0
 
 ; include other assembly files
 !source "utilities.asm"
@@ -102,13 +103,60 @@ w1  cmp $d012
 	lda #$80
 	sta charset_switchable
 
-	jsr init_screen_colours
+	jsr init_screen_colours_invisible
 
+; Read and parse config from boot disk
+	lda #0
+	sta readblocks_mempos
+	lda #4
+	sta readblocks_mempos + 1
+	lda #30
+	ldx #0
+	ldy #8
+	jsr read_track_sector
+	inc readblocks_mempos + 1
+	lda #30
+	ldx #1
+	ldy #8
+	jsr read_track_sector
+;    jsr kernel_readchar   ; read keyboard
+; Copy game id
+	ldx #0
+-	lda $0400,x
+	sta game_id,x
+	inx
+	cpx #4
+	bcc -
+; Copy disk info
+	ldx $0404
+-	lda $0404,x
+	sta disk_info,x
+	dex
+	bpl - ; Should never be more than 110 bytes, so bpl should work
+; Copy vmem info
+!ifdef USEVM {
+	lda #4
+	clc
+	adc $0404
+	sta zp_temp
+	lda #4
+;	adc #0 ; Not needed if disk info is always <= 110 bytes
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y ; Number of suggested blocks
+	; TODO: Copy the suggested block information.
+	; TODO: Read the blocks which haven't been read
+	; TODO: Use the disk information for mapping logical story blocks to disk blocks
+	
+}	
+	
+	jsr init_screen_colours
+	
 	; start text output from bottom of the screen
 	ldy #0
 	ldx #24
 	jsr set_cursor
-	
+
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 

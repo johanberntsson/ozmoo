@@ -9,13 +9,16 @@ NEW_MORE_PROMPT = 1
 .cursor_position !byte 0,0
 is_buffered_window !byte 1,0
 
+init_screen_colours_invisible
+    lda #151 ; dark grey
+	bne +
 init_screen_colours
+    lda #155 ; light grey
++	jsr $ffd2 ; kernel_printchar
     lda #$0f
     sta $d020
     lda #$0b
     sta $d021
-    lda #155 ; light grey
-    jsr $ffd2 ; kernel_printchar
     lda #147 ; clear screen
     jmp $ffd2 ; kernel_printchar
 

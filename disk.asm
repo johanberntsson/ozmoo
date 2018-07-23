@@ -4,6 +4,20 @@
 readblocks_numblocks     !byte 0 
 readblocks_currentblock  !byte 0,0 ; 257 = ff 1
 readblocks_mempos        !byte 0,0 ; $2000 = 00 20
+
+disk_info
+!ifdef Z3 {
+	!fill 49
+}
+!ifdef Z4 {
+	!fill 84
+}
+!ifdef Z5 {
+	!fill 84
+}
+!ifdef Z8 {
+	!fill 110
+}
     
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
@@ -57,12 +71,19 @@ readblock
     bne -
     inc .track ; tracks are 1..
     lda .track
+	ldy #8
     cmp #18
     bcc +
     inc .track ; skip track 18
+	bne + ; Always branch
 
     ; convert track/sector to ascii and update drive command
-+   lda .track
+read_track_sector
+	; input: a: track, x: sector, y: device#, Word at readblocks_mempos holds storage address
+	sta .track
+	stx .sector
++   sty .device
+	lda .track
     jsr conv2dec
     stx .uname_track
     sta .uname_track + 1
@@ -94,9 +115,10 @@ readblock
     jsr kernel_setnam ; call SETNAM
 
     lda #$02      ; file number 2
-    ldx $BA       ; last used device number
-    bne +
-    ldx #$08      ; default to device 8
+	; TODO: Handle device# smarter!
+;    ldx $BA       ; last used device number
+;    bne +
+    ldx .device
 +   ldy #$02      ; secondary address 2
     jsr kernel_setlfs ; call SETLFS
 
@@ -110,7 +132,8 @@ readblock
     ldy #>.uname
     jsr kernel_setnam ; call SETNAM
     lda #$0F      ; file number 15
-    ldx $BA       ; last used device number
+;    ldx $BA       ; last used device number
+    ldx .device
     ldy #$0F      ; secondary address 15
     jsr kernel_setlfs ; call SETLFS
 
@@ -161,6 +184,7 @@ cname_len = * - .cname
 uname_len = * - .uname
 .track  !byte 0
 .sector !byte 0
+.device !byte 0
 
 
 z_ins_save
