@@ -110,12 +110,12 @@ w1  cmp $d012
 	sta readblocks_mempos
 	lda #4
 	sta readblocks_mempos + 1
-	lda #35
+	lda #19
 	ldx #0
 	ldy #8
 	jsr read_track_sector
 	inc readblocks_mempos + 1
-	lda #35
+	lda #19
 	ldx #1
 	ldy #8
 	jsr read_track_sector
