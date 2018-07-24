@@ -3,7 +3,7 @@
 require 'FileUtils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "-DDEBUG=1 -DVMEM_OPTIMIZE=1"
+$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE_x=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
 MODE_S1 = 1
@@ -40,9 +40,9 @@ class D64_image
 		@d64_filename = d64_filename
 		@is_boot_disk = is_boot_disk
 
-		@tracks = 35 # 35 or 40 are useful options
+		@tracks = 40 # 35 or 40 are useful options
 		@skip_blocks_on_18 = 19 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
-		@config_track = 30 # Change to 19 later
+		@config_track = 35
 		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
 		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 
 			(@tracks > 35 ? 17 * @tracks - 35 : 0) -
@@ -158,7 +158,8 @@ class D64_image
 				if @is_boot_disk && track == @config_track && sector < @skip_blocks_on_config_track then
 					allocate_sector(track, sector)
 				elsif (track != 18 || sector >= @skip_blocks_on_18) &&
-						sector <= 15 && num_sectors > 0 then
+						# sector <= 15 && 
+						num_sectors > 0 then
 					allocate_sector(track, sector)
 					add_story_block(track, sector)
 					last_story_sector = sector
@@ -379,9 +380,10 @@ dynmem_filehandle.close
 
 config_data = [
 0, 0, 0, 0, # Game ID
-8, # Number of bytes used for disk information, including this byte
+10, # Number of bytes used for disk information, including this byte
 2, # Number of disks, change later if wrong
-6, 8, 0, 130, 131, 0 # Data for save disk: 6 bytes used, device# = 8, 0 tracks used for story data, name = "Save disk"
+# Data for save disk: 8 bytes used, device# = 8, Last story data sector + 1 = 0 tracks used for story data, name = "Save disk"
+8, 8, 0, 0, 0, 130, 131, 0 
 ]
 
 
@@ -396,8 +398,11 @@ when MODE_S1
 	end
 	
 	# Add config data about boot / story disk
-	disk_info_size = 9 + disk.config_track_map.length
-	config_data += [disk_info_size, 8, disk.config_track_map.length] + disk.config_track_map
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += i}
+	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
 	config_data += [128, "/".ord, " ".ord, 129, 131, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	# Add config data about vmem

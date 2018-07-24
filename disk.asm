@@ -5,20 +5,23 @@ readblocks_numblocks     !byte 0
 readblocks_currentblock  !byte 0,0 ; 257 = ff 1
 readblocks_mempos        !byte 0,0 ; $2000 = 00 20
 
+; story_blocks_per_disk_h	!byte 0,0,0
+; story_blocks_per_disk_l !byte 0,0,0
+
 disk_info
 !ifdef Z3 {
-	!fill 49
+	!fill 54
 }
 !ifdef Z4 {
-	!fill 84
+	!fill 92
 }
 !ifdef Z5 {
-	!fill 84
+	!fill 92
 }
 !ifdef Z8 {
-	!fill 110
+	!fill 118
 }
-    
+
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
@@ -57,25 +60,107 @@ readblock
     ; register a,x,y
 
     ; convert block to track/sector
-    ; (assuming each tracks has 16 sectors, skipping track18)
     lda readblocks_currentblock
-    and #$0f
-    sta .sector
-    lda readblocks_currentblock
-    sta .track
+	sta .blocks_to_go
     lda readblocks_currentblock + 1
-    ldx #4
--   lsr
-    ror .track
-    dex
-    bne -
-    inc .track ; tracks are 1..
-    lda .track
-	ldy #8
-    cmp #18
-    bcc +
-    inc .track ; skip track 18
-	bne + ; Always branch
+	sta .blocks_to_go + 1
+	
+	lda disk_info
+	sta .disks ; # of disks
+	ldx #0 ; Memory index
+	ldy #0 ; Disk id
+-	txa
+	clc
+	adc disk_info + 1,x
+	sta .next_disk_index ; x-value where next disk starts
+	; Check if the block we are looking for is on this disk
+	lda readblocks_currentblock
+	sec
+	sbc disk_info + 4,x
+	sta .blocks_to_go_tmp + 1
+	lda readblocks_currentblock + 1
+	sbc disk_info + 3,x
+	sta .blocks_to_go_tmp
+	bcc + ; Found the right disk!
+	; This is not the right disk. Save # of blocks to go into next disk.
+	lda .blocks_to_go_tmp
+	sta .blocks_to_go
+	lda .blocks_to_go_tmp + 1
+	sta .blocks_to_go + 1
+	bcs .next_disk ; Not the right disk, keep looking!
++	lda disk_info + 2,x
+	sta .device
+	lda disk_info + 5,x
+	sta .disk_tracks ; # of tracks which have entries
+	lda #1
+	sta .track
+	; lda #0
+	; sta zp_temp + 3 ; # highbyte of # of story blocks on disk
+	; lda #0
+	; sta story_blocks_per_disk_l - 1,y
+--	lda disk_info + 6,x
+	and #%00011111
+	sta .sector
+	lda .blocks_to_go + 1
+	sec
+	sbc .sector
+	sta .blocks_to_go_tmp + 1
+	lda .blocks_to_go
+	sbc #0
+	sta .blocks_to_go_tmp
+	bcc + ; Found the right track
+	lda .blocks_to_go_tmp
+	sta .blocks_to_go
+	lda .blocks_to_go_tmp + 1
+	sta .blocks_to_go + 1
+	jmp .next_track
++	lda .blocks_to_go + 1
+	sta .sector
+	lda disk_info + 6,x
+	and #%11100000
+	beq .have_set_device_track_sector
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr ; a now holds # of sectors at start of track not in use
+	clc
+	adc .blocks_to_go + 1
+	sta .sector
+	jmp .have_set_device_track_sector
+.next_track
+	inx
+	inc .track
+	dec .disk_tracks
+	bne --
+.next_disk
+	ldx .next_disk_index
+	iny
+	cpy .disks
+	bcs +
+	jmp -
++	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
+	jmp fatalerror
+
+    ; ; (assuming each tracks has 16 sectors, skipping track18)
+    ; lda readblocks_currentblock
+    ; and #$0f
+    ; sta .sector
+    ; lda readblocks_currentblock
+    ; sta .track
+    ; lda readblocks_currentblock + 1
+    ; ldx #4
+; -   lsr
+    ; ror .track
+    ; dex
+    ; bne -
+    ; inc .track ; tracks are 1..
+    ; lda .track
+	; ldy #8
+    ; cmp #18
+    ; bcc +
+    ; inc .track ; skip track 18
+	; bne + ; Always branch
 
     ; convert track/sector to ascii and update drive command
 read_track_sector
@@ -83,6 +168,7 @@ read_track_sector
 	sta .track
 	stx .sector
 +   sty .device
+.have_set_device_track_sector
 	lda .track
     jsr conv2dec
     stx .uname_track
@@ -185,7 +271,11 @@ uname_len = * - .uname
 .track  !byte 0
 .sector !byte 0
 .device !byte 0
-
+.blocks_to_go !byte 0, 0
+.blocks_to_go_tmp !byte 0, 0
+.disks	!byte 0
+.next_disk_index	!byte 0
+.disk_tracks	!byte 0
 
 z_ins_save
 !ifdef Z3 {

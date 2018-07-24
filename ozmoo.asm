@@ -110,12 +110,12 @@ w1  cmp $d012
 	sta readblocks_mempos
 	lda #4
 	sta readblocks_mempos + 1
-	lda #30
+	lda #35
 	ldx #0
 	ldy #8
 	jsr read_track_sector
 	inc readblocks_mempos + 1
-	lda #30
+	lda #35
 	ldx #1
 	ldy #8
 	jsr read_track_sector
@@ -129,10 +129,11 @@ w1  cmp $d012
 	bcc -
 ; Copy disk info
 	ldx $0404
--	lda $0404,x
-	sta disk_info,x
 	dex
-	bpl - ; Should never be more than 110 bytes, so bpl should work
+-	lda $0404,x
+	sta disk_info - 1,x
+	dex
+	bne -
 ; Copy vmem info
 !ifdef USEVM {
 	lda #4
