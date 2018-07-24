@@ -41,7 +41,7 @@ class D64_image
 		@is_boot_disk = is_boot_disk
 
 		@tracks = 40 # 35 or 40 are useful options
-		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@skip_blocks_on_18 = 19 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@config_track = 19
 		@skip_blocks_on_config_track = (@is_boot_disk ? 19 : 0)
 		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 
@@ -168,7 +168,7 @@ class D64_image
 				end
 			end
 			if last_story_sector >= first_story_sector then
-				@config_track_map.push 32 * first_story_sector + last_story_sector + 1
+				@config_track_map.push 32 * first_story_sector + last_story_sector - first_story_sector + 1
 			else
 				@config_track_map.push 0
 			end
@@ -400,7 +400,7 @@ when MODE_S1
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
 	last_block_plus_1 = 0
-	disk.config_track_map.each{|i| last_block_plus_1 += i}
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
 	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk.config_track_map.length] + disk.config_track_map
 	config_data += [128, "/".ord, " ".ord, 129, 131, 0]  # Name: "Boot / Story disk"
