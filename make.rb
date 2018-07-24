@@ -41,9 +41,9 @@ class D64_image
 		@is_boot_disk = is_boot_disk
 
 		@tracks = 40 # 35 or 40 are useful options
-		@skip_blocks_on_18 = 19 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@config_track = 19
-		@skip_blocks_on_config_track = (@is_boot_disk ? 19 : 0)
+		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
 		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 
 			(@tracks > 35 ? 17 * @tracks - 35 : 0) -
 			@skip_blocks_on_config_track
@@ -158,7 +158,7 @@ class D64_image
 				if @is_boot_disk && track == @config_track && sector < 2 then
 					allocate_sector(track, sector)
 				elsif (track != 18 || sector >= @skip_blocks_on_18) &&
-						(!@is_boot_disk || track != @config_track || sector > @skip_blocks_on_config_track) &&
+						(!@is_boot_disk || track != @config_track || sector >= @skip_blocks_on_config_track) &&
 						num_sectors > 0 then
 					allocate_sector(track, sector)
 					add_story_block(track, sector)

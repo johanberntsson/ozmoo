@@ -114,11 +114,14 @@ readblock
 	lda .blocks_to_go_tmp + 1
 	sta .blocks_to_go + 1
 	jmp .next_track
-+	lda .blocks_to_go + 1
++	; Add sectors not used at beginning of track
+	lda .blocks_to_go + 1
 	sta .sector
 	lda disk_info + 6,x
-	and #%11100000
-	beq .have_set_device_track_sector
+	cmp #$20
+	bcc .have_set_device_track_sector
+;	and #%11100000
+;	beq .have_set_device_track_sector
 	lsr
 	lsr
 	lsr
