@@ -3,7 +3,7 @@
 require 'FileUtils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE_x=1"
+$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK_x=1 -DVMEM_OPTIMIZE_x=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
 MODE_S1 = 1
@@ -298,7 +298,7 @@ begin
 			use_compression = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
-		elsif ARGV[i] =~ /^-Z\d$/i then
+		elsif ARGV[i] =~ /^-Z[3-5]$/i then
 			ztype = ARGV[i].downcase
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
@@ -317,7 +317,7 @@ rescue
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -c: use compression with exomizer"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
-    puts "       -z3|-z5: zmachine version, if not clear from filename"
+    puts "       -z3|-z4|-z5: zmachine version, if not clear from filename"
     exit 0
 end
 
@@ -386,6 +386,21 @@ config_data = [
 8, 8, 0, 0, 0, 130, 131, 0 
 ]
 
+# Create config data for vmem
+dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
+all_vmem_blocks = 52 * 1024 / $vmem_blocksize
+vmem_data = [
+	3 + 2 * all_vmem_blocks, # Size of vmem data
+	all_vmem_blocks, # Number of suggested blocks
+	use_compression ? dynmem_vmem_blocks : 0, # Number of preloaded blocks
+	]
+lowbytes = []
+all_vmem_blocks.times do |i|
+	vmem_data.push(i <= dynmem_vmem_blocks ? 0xc0 : 0x80)
+	lowbytes.push(i * $vmem_blocksize / 256)
+end
+vmem_data += lowbytes;
+
 
 case mode
 when MODE_S1
@@ -405,20 +420,10 @@ when MODE_S1
 		disk.config_track_map.length] + disk.config_track_map
 	config_data += [128, "/".ord, " ".ord, 129, 131, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
-	# Add config data about vmem
-	dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
-	config_data += [
-		3 + 2 * dynmem_vmem_blocks, # Size of vmem data
-		dynmem_vmem_blocks, # Number of suggested blocks
-		use_compression ? dynmem_vmem_blocks : 0, # Number of preloaded blocks
-		]
-	lowbytes = []
-	dynmem_vmem_blocks.times do |i|
-		config_data.push(0xc0)
-		lowbytes.push(i * $vmem_blocksize / 256)
-	end
-	config_data += lowbytes;
-#	puts config_data
+	
+	config_data += vmem_data
+
+	#	puts config_data
 	disk.set_config_data(config_data)
 	disk.save()
 	# Add loader and terp to boot / play disk
