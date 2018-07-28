@@ -33,9 +33,9 @@ readblocks
     lda readblocks_numblocks
     jsr printa
     jsr comma
-    lda readblocks_currentblock
-    jsr print_byte_as_hex
     lda readblocks_currentblock + 1
+    jsr print_byte_as_hex
+    lda readblocks_currentblock
     jsr print_byte_as_hex
     jsr comma
     lda readblocks_mempos + 1

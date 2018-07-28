@@ -103,7 +103,7 @@ w1  cmp $d012
 	lda #$80
 	sta charset_switchable
 
-	jsr init_screen_colours_invisible
+	jsr init_screen_colours;_invisible
 
 ; Read and parse config from boot disk
 	lda #0
@@ -134,30 +134,13 @@ w1  cmp $d012
 	sta disk_info - 1,x
 	dex
 	bne -
-; Copy vmem info
-!ifdef USEVM {
-	lda #4
-	clc
-	adc $0404
-	sta zp_temp
-	lda #4
-;	adc #0 ; Not needed if disk info is always <= 110 bytes
-	sta zp_temp + 1
-	ldy #1
-	lda (zp_temp),y ; Number of suggested blocks
-	; TODO: Copy the suggested block information.
-	; TODO: Read the blocks which haven't been read
-	; TODO: Use the disk information for mapping logical story blocks to disk blocks
-	
-}	
-	
-	jsr init_screen_colours
-	
-	; start text output from bottom of the screen
+
+	; TEMPORARY: start text output from middle of the screen
 	ldy #0
-	ldx #24
+	ldx #13
 	jsr set_cursor
 
+	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 
@@ -172,6 +155,14 @@ w1  cmp $d012
 
 	jsr streams_init
 	jsr stack_init
+
+	jsr init_screen_colours
+	
+	; start text output from bottom of the screen
+	ldy #0
+	ldx #24
+	jsr set_cursor
+	
 	jsr z_init
 	jsr z_execute
 
@@ -182,12 +173,18 @@ w1  cmp $d012
 
 load_header
     ; read the header
+!ifdef USEVM {
+	lda #vmem_block_pagecount
+} else {
+	lda #1
+}
+	sta readblocks_numblocks
     lda #>story_start ; first free memory block
     ldx #$00    ; first block to read from floppy
     stx readblocks_currentblock
     stx readblocks_currentblock + 1
     sta readblocks_mempos + 1
-    jsr readblock
+    jsr readblocks
     ;jmp parse_header
 
 parse_header ; must follow load_header

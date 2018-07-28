@@ -184,7 +184,16 @@ print_vm_map
     lda #0 ; add 00
     jsr print_byte_as_hex
     jsr space
+!ifdef VMEM_CLOCK {
+	tya
+	asl
+!ifndef SMALLBLOCK {
+	asl
+}
+	adc #>story_start
+} else {
     lda vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
+}
     jsr print_byte_as_hex
     lda #$30
     jsr streams_print_output
@@ -311,78 +320,80 @@ load_blocks_from_index_using_cache
 
 load_dynamic_memory
     ; load header
-    jsr load_header
-    ; load dynamic memory
-    ; read in chunks of 4 blocks (1 kB)
-    lda story_start + PRELOAD_UNTIL
-    lsr    ; x/4
-;!ifndef SMALLBLOCK {
-    lsr
-;}
-    clc
-    adc #1 ; x/4 + 1
-    asl    ; (x/4 + 1) * 4
-;!ifndef SMALLBLOCK {
-    asl
-;}
-    tay
-    dey    ; skip header
-    ; read blocks
-    lda #>story_start;
-    clc
-    adc #1 ; skip header
-    ldx #$01
-    stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
-    sty readblocks_numblocks
-    sta readblocks_mempos + 1
-    jmp readblocks
+    jmp load_header ; ############################## TEMPORARY? Skip rest of this loading, it is done from config
+
+    ; jsr load_header
+    ; ; load dynamic memory
+    ; ; read in chunks of 4 blocks (1 kB)
+    ; lda story_start + PRELOAD_UNTIL
+    ; lsr    ; x/4
+; ;!ifndef SMALLBLOCK {
+    ; lsr
+; ;}
+    ; clc
+    ; adc #1 ; x/4 + 1
+    ; asl    ; (x/4 + 1) * 4
+; ;!ifndef SMALLBLOCK {
+    ; asl
+; ;}
+    ; tay
+    ; dey    ; skip header
+    ; ; read blocks
+    ; lda #>story_start;
+    ; clc
+    ; adc #1 ; skip header
+    ; ldx #$01
+    ; stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
+    ; sty readblocks_numblocks
+    ; sta readblocks_mempos + 1
+    ; jmp readblocks
 
 prepare_static_high_memory
     ; prepare initial map structure with already loaded
     ; dynamic memory marked as rw (not swappable)
     ; missing blocks will later be loaded as needed
     ; by read_byte_at_z_address
-    lda #>vmem_end
-    sta .zp_maxmem
-    ldy #0
--   tya ; calculate c64 offset
-!ifndef SMALLBLOCK {
-    asl
-}
-    asl ; 1kB bytes each
-    ; check if rw or ro (swappable)
-    cmp story_start + PRELOAD_UNTIL
-    bcs + ; a >= PRELOAD_UNTIL (dyn mem)
-    ; allocated 1kB entry
-    sta vmap_z_l,y ; z offset ($00 -)
-!ifndef VMEM_CLOCK {
-    clc 
-    adc #>story_start
-    sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
-}
-    lda #$c0 ; used, dynamic
-    sta vmap_z_h,y 
-    jmp ++
-+   ; non-allocated 1kB entry
-!ifdef VMEM_CLOCK {
-	lda vmap_first_swappable_index
-	bne .vmap_swappable_set
-	sty vmap_first_swappable_index
-	sty vmap_clock_index
-.vmap_swappable_set
-} else {
-    lda .zp_maxmem
-    sec
-    sbc #vmem_block_pagecount
-    sta .zp_maxmem
-    sta vmap_c64,y
-}
-    lda #0
-    sta vmap_z_h,y
-    sta vmap_z_l,y
-++  iny
-    cpy #vmap_max_length
-    bne -
+    ; lda #>vmem_end
+    ; sta .zp_maxmem
+    ; ldy #0
+; -   tya ; calculate c64 offset
+; !ifndef SMALLBLOCK {
+    ; asl
+; }
+    ; asl ; 1kB bytes each
+    ; ; check if rw or ro (swappable)
+    ; cmp story_start + PRELOAD_UNTIL
+    ; bcs + ; a >= PRELOAD_UNTIL (dyn mem)
+    ; ; allocated 1kB entry
+    ; sta vmap_z_l,y ; z offset ($00 -)
+; !ifndef VMEM_CLOCK {
+    ; clc 
+    ; adc #>story_start
+    ; sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
+; }
+    ; lda #$c0 ; used, dynamic
+    ; sta vmap_z_h,y 
+    ; jmp ++
+; +   ; non-allocated 1kB entry
+; !ifdef VMEM_CLOCK {
+	; ; lda vmap_first_swappable_index
+	; ; bne .vmap_swappable_set
+	; ; sty vmap_first_swappable_index
+	; ; sty vmap_clock_index
+; ; .vmap_swappable_set
+; } else {
+    ; lda .zp_maxmem
+    ; sec
+    ; sbc #vmem_block_pagecount
+    ; sta .zp_maxmem
+    ; sta vmap_c64,y
+; }
+    ; lda #0
+    ; sta vmap_z_h,y
+    ; sta vmap_z_l,y
+; ++  iny
+    ; cpy #vmap_max_length
+    ; bne -
     ;probably not needed since already set to zero
     ;and reinit of vmem shoudn't be necessary
     ;lda #$00
@@ -394,6 +405,103 @@ prepare_static_high_memory
     lda #$ff
     sta zp_pc_h
     sta zp_pc_l
+
+; ############################################################### New section Start
+
+	lda #5
+	clc
+	adc $0404
+	sta zp_temp
+	lda #4
+;	adc #0 ; Not needed if disk info is always <= 249 bytes
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y
+	sta zp_temp + 3 ; # of blocks already loaded
+	dey
+	lda (zp_temp),y ; # of blocks in the list
+	tax
+	cpx #vmap_max_length + 1
+	bcc +
+	ldx #vmap_max_length
++	stx zp_temp + 2  ; Number of bytes to copy
+; Copy to vmap_z_h
+	iny
+-	iny
+	lda (zp_temp),y
+	sta vmap_z_h - 2,y
+
+!ifdef VMEM_CLOCK {
+	and #%01000000 ; Check if non-swappable memory
+	bne .dont_set_vmap_swappable
+	lda vmap_first_swappable_index
+	bne .dont_set_vmap_swappable
+	dey
+	dey
+	sty vmap_first_swappable_index
+;	sty vmap_clock_index
+	iny
+	iny
+.dont_set_vmap_swappable
+}	
+
+	dex
+	bne -
+; Point to lowbyte array	
+	ldy #0
+	lda (zp_temp),y
+	clc
+	adc zp_temp
+	adc #2
+	sta zp_temp
+	ldy zp_temp + 2  ; Number of bytes to copy
+	dey
+; Copy to vmap_z_l
+-	lda (zp_temp),y
+	sta vmap_z_l,y
+	dey
+	bpl -
+
+!ifndef VMEM_CLOCK {
+	iny
+	lda #story_start
+-	sta vmap_c64_offset,y
+	clc
+	adc #vmem_block_pagecount
+	iny
+	cpy zp_temp + 2
+	bcc -
+}
+
+; Load all suggested pages which have not been pre-loaded
+-	lda zp_temp + 3 ; First index which has not been loaded
+	beq ++ ; First block was loaded with header
+	cmp zp_temp + 2 ; Total # of indexes in the list
+	bcs +
+	; jsr dollar
+	sta vmap_index
+	tax
+	; jsr print_byte_as_hex
+	; jsr dollar
+	; lda vmap_z_h,x
+	; jsr print_byte_as_hex
+	; lda vmap_z_l,x
+	; jsr print_byte_as_hex
+	; jsr newline
+	jsr load_blocks_from_index
+++	inc zp_temp + 3
+	bne - ; Always branch
++
+!ifdef VMEM_CLOCK {
+	ldx zp_temp + 2
+	cpx #vmap_max_length
+	bcc +
+	dex
++	stx vmap_clock_index
+}
+
+; ################################################################# New Section End	
+	
 !ifdef TRACE_VM {
     jsr print_vm_map
 }

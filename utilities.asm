@@ -427,11 +427,14 @@ print_byte_as_hex
 	lda .hex_num,x
 	jsr streams_print_output
 	pla
+	pha
 	and #$0f
 	tax
 	lda .hex_num,x
 	ldx .saved_x
-	jmp streams_print_output
+	jsr streams_print_output
+	pla
+	rts
 .hex_num
 	!pet "0123456789abcdef"
 .print_no_more_ops

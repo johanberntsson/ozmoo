@@ -54,10 +54,10 @@ To be added at a later date. A single drive 1571 mode could be used for story fi
 
 Interpreter config
 ------------------
-Interpreter configuration is stored in a file on the boot disk. This file has a load address of $FE00. The boot program has the responsibility to load this file before starting the interpreter.
+Interpreter configuration is stored in two blocks on the boot disk (track 19, sector 0-1). The interpreter loads this information when it starts.
 
 Contents:
-4 bytes: Game signature
+4 bytes: Game signature: A checksum of the story file contents, the build mode and the interpreter version.
 
 --- Disk information block ---
 1 byte: Number of bytes used for disk information, including this byte
@@ -102,6 +102,3 @@ Possible 1571 support:
 	z3 games: No change
 	z4/z5 games: A single disk using only track 1-53 can hold all story data. Disk information will then fit in less than the 84 bytes stated above.
 	z8 games: Disk information for a single drive game will fit in the 110 bytes stated above. Double 1571 drive support is not a high priority. 
-
-	
-	
