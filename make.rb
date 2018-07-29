@@ -262,13 +262,13 @@ def get_story_start(label_file_name)
 	return 0
 end
 
-def build(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
+def build(game, use_compression, d64_file, dynmem_file)
     if use_compression then
         $COMPRESSIONFLAGS = "-DDYNMEM_ALREADY_LOADED=1"
     else
         $COMPRESSIONFLAGS = ""
     end
-    cmd = "acme #{$COMPRESSIONFLAGS} -D#{ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+    cmd = "acme #{$COMPRESSIONFLAGS} -D#{$ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 if !ret
@@ -292,6 +292,35 @@ def play(filename)
     system("#{$X64} #{filename}")
 end
 
+def build_S1(game, d64_file, config_data, vmem_data, use_compression, dynmem_file)
+	max_story_blocks = 9999
+	disk = D64_image.new(game, d64_file, true) # game file to read from, d64 file to create, is boot disk?
+	disk.add_story_data(max_story_blocks)
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
+		exit 0
+	end
+	
+	# Add config data about boot / story disk
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [128, "/".ord, " ".ord, 129, 131, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+	
+	config_data += vmem_data
+
+	#	puts config_data
+	disk.set_config_data(config_data)
+	disk.save()
+	# Add loader and terp to boot / play disk
+	build(game, use_compression, d64_file, dynmem_file)
+	puts "Successfully built game as #{game}.d64"
+	nil # Signal success
+end
+
 def print_usage_and_exit
     puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <ifile>] [-p] <file>"
     puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
@@ -305,7 +334,7 @@ end
 
 i = 0
 use_compression = false
-ztype = ""
+$ztype = ""
 await_initcachefile = false
 initcachefile = nil
 auto_play = false
@@ -323,7 +352,7 @@ begin
 		elsif ARGV[i] =~ /^-i$/i then
 			await_initcachefile = true
 		elsif ARGV[i] =~ /^-Z[3-5]$/i then
-			ztype = ARGV[i].downcase
+			$ztype = ARGV[i].upcase
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -361,7 +390,7 @@ extension = File.extname(file)
 filename = File.basename(file)
 game = File.basename(file, extension)
 if !extension.empty?
-    ztype = extension[1..-1]
+    $ztype = extension[1..-1].upcase
 end
 
 if extension.empty? then
@@ -455,32 +484,8 @@ end
 
 case mode
 when MODE_S1
-	max_story_blocks = 9999
-	disk = D64_image.new(game, d64_file, true) # game file to read from, d64 file to create, is boot disk?
-	disk.add_story_data(max_story_blocks)
-	if $story_file_cursor < $story_file_data.length
-		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
-		exit 0
-	end
-	
-	# Add config data about boot / story disk
-	disk_info_size = 11 + disk.config_track_map.length
-	last_block_plus_1 = 0
-	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
-	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
-		disk.config_track_map.length] + disk.config_track_map
-	config_data += [128, "/".ord, " ".ord, 129, 131, 0]  # Name: "Boot / Story disk"
-	config_data[4] += disk_info_size
-	
-	config_data += vmem_data
-
-	#	puts config_data
-	disk.set_config_data(config_data)
-	disk.save()
-	# Add loader and terp to boot / play disk
-	build(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
-	puts "Successfully built game as #{game}.d64"
-	if auto_play then 
+	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, use_compression, dynmem_file)
+	if !error and auto_play then 
 		play("#{game}.d64")
 	end
 else
