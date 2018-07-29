@@ -262,7 +262,7 @@ def get_story_start(label_file_name)
 	return 0
 end
 
-def build(game, use_compression, d64_file, dynmem_file)
+def build(game, d64_file, use_compression, vmem_contents)
     if use_compression then
         $COMPRESSIONFLAGS = "-DDYNMEM_ALREADY_LOADED=1"
     else
@@ -278,12 +278,26 @@ def build(game, use_compression, d64_file, dynmem_file)
 #    exit 0 if !ret
     if use_compression then
         storystart = get_story_start('acme_labels.txt');
-		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"lda $0400,x sta $d020\" ozmoo #{dynmem_file},#{storystart} -o ozmoo_zip"
+
+		# save memory to be compressed as separate file
+		compmem_filename = "compmem.tmp"
+		begin
+			compmem_filehandle = File.open(compmem_filename, "wb")
+		rescue
+			puts "ERROR: Can't open #{compmem_filename} for writing"
+			exit 0
+		end
+
+
+		compmem_filehandle.write([storystart].pack("v"))
+		compmem_filehandle.write(vmem_contents)
+		compmem_filehandle.close
+		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"lda $0400,x sta $d020\" ozmoo #{compmem_filename},#{storystart} -o ozmoo_zip"
 		puts exomizer_cmd
         system(exomizer_cmd)
-        system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip ozmoo")
+        system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
     else
-        system("#{$C1541} -attach #{game}.d64 -write ozmoo ozmoo")
+        system("#{$C1541} -attach #{game}.d64 -write ozmoo story")
     end
 end
 
@@ -292,7 +306,7 @@ def play(filename)
     system("#{$X64} #{filename}")
 end
 
-def build_S1(game, d64_file, config_data, vmem_data, use_compression, dynmem_file)
+def build_S1(game, d64_file, config_data, vmem_data, use_compression, vmem_contents)
 	max_story_blocks = 9999
 	disk = D64_image.new(game, d64_file, true) # game file to read from, d64 file to create, is boot disk?
 	disk.add_story_data(max_story_blocks)
@@ -316,7 +330,7 @@ def build_S1(game, d64_file, config_data, vmem_data, use_compression, dynmem_fil
 	disk.set_config_data(config_data)
 	disk.save()
 	# Add loader and terp to boot / play disk
-	build(game, use_compression, d64_file, dynmem_file)
+	build(game, d64_file, use_compression, vmem_contents)
 	puts "Successfully built game as #{game}.d64"
 	nil # Signal success
 end
@@ -416,14 +430,6 @@ rescue
 end
 
 
-# save dynmem as separate file
-begin
-	dynmem_filehandle = File.open(dynmem_file, "wb")
-rescue
-	puts "ERROR: Can't open #{dynmem_file} for writing"
-	exit 0
-end
-
 # check header.high_mem_start (size of dynmem + statmem)
 high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
 
@@ -433,11 +439,11 @@ static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # get dynmem size (in 1kb blocks)
 $dynmem_size = 1024 * ((high_mem_start + 512)/1024)
 
-dynmem = $story_file_data[0 .. $dynmem_size - 1]
-# Assume memory starts at $3800
-dynmem_filehandle.write([0x00,0x38].pack("CC"))
-dynmem_filehandle.write(dynmem)
-dynmem_filehandle.close
+# dynmem = $story_file_data[0 .. $dynmem_size - 1]
+# # Assume memory starts at $3800
+# dynmem_filehandle.write([0x00,0x38].pack("CC"))
+# dynmem_filehandle.write(dynmem)
+# dynmem_filehandle.close
 
 
 
@@ -482,9 +488,18 @@ else # No initcache data available
 	vmem_data += lowbytes;
 end
 
+vmem_contents = ""
+vmem_data[1].times do |i|
+	start_address = (vmem_data[3 + i] & 0x07) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
+	puts start_address
+	vmem_contents += $story_file_data[start_address .. start_address + $vmem_blocksize - 1]
+end
+
+puts vmem_contents.length
+
 case mode
 when MODE_S1
-	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, use_compression, dynmem_file)
+	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, use_compression, vmem_contents)
 	if !error and auto_play then 
 		play("#{game}.d64")
 	end
