@@ -407,6 +407,13 @@ prepare_static_high_memory
     sta zp_pc_l
 
 ; ############################################################### New section Start
+	
+; Clear vmap_z_h
+	ldy #vmap_max_length - 1
+	lda #0
+-	sta vmap_z_h,y
+	dey
+	bpl -
 
 	lda #5
 	clc
@@ -454,13 +461,22 @@ prepare_static_high_memory
 	adc zp_temp
 	adc #2
 	sta zp_temp
-	ldy zp_temp + 2  ; Number of bytes to copy
-	dey
-; Copy to vmap_z_l
--	lda (zp_temp),y
-	sta vmap_z_l,y
+	ldy #vmap_max_length - 1
+-	lda #0
+	cpy zp_temp + 2
+	bcs +
+	lda (zp_temp),y
++	sta vmap_z_l,y
 	dey
 	bpl -
+	
+	; ldy zp_temp + 2  ; Number of bytes to copy
+	; dey
+; ; Copy to vmap_z_l
+; -	lda (zp_temp),y
+	; sta vmap_z_l,y
+	; dey
+	; bpl -
 
 !ifndef VMEM_CLOCK {
 	iny

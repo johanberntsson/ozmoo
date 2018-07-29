@@ -3,7 +3,7 @@
 require 'FileUtils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE_x=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
+$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
 MODE_S1 = 1
@@ -388,7 +388,11 @@ config_data = [
 
 # Create config data for vmem
 dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
-all_vmem_blocks = 52 * 1024 / $vmem_blocksize
+if $DEBUGFLAGS =~ /-DBENCHMARK=\d/ then
+	all_vmem_blocks = dynmem_vmem_blocks
+else
+	all_vmem_blocks = 52 * 1024 / $vmem_blocksize
+end
 vmem_data = [
 	3 + 2 * all_vmem_blocks, # Size of vmem data
 	all_vmem_blocks, # Number of suggested blocks
