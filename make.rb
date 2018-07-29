@@ -3,7 +3,7 @@
 require 'FileUtils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE_x=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
+$DEBUGFLAGS = "" #"-DDEBUG=1 -DBENCHMARK_x=1 -DVMEM_OPTIMIZE=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
 MODE_S1 = 1
@@ -13,8 +13,10 @@ MODE_D3 = 4
 
 mode = MODE_S1
 
-$vmem_blocksize = ($VMFLAGS =~ /\s-DSMALLBLOCK=\d+/ ? 512 : 1024)
+$VMEM_BLOCKSIZE = ($VMFLAGS =~ /\s-DSMALLBLOCK=\d+/ ? 512 : 1024)
 $ZEROBYTE = 0.chr
+
+$ALLRAM = $VMFLAGS =~ /-DALLRAM=\d/
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
@@ -253,16 +255,7 @@ end # class D64_image
 
 ################################## END create_d64.rb
 
-
-
-def get_story_start(label_file_name)
-	File.open(label_file_name).each do |line|
-		return $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
-	end
-	return 0
-end
-
-def build(game, d64_file, use_compression, vmem_contents)
+def build_interpreter(use_compression)
     if use_compression then
         $COMPRESSIONFLAGS = "-DDYNMEM_ALREADY_LOADED=1"
     else
@@ -272,13 +265,23 @@ def build(game, d64_file, use_compression, vmem_contents)
 	puts cmd
     ret = system(cmd)
     exit 0 if !ret
+	set_story_start('acme_labels.txt');
+end
+
+def set_story_start(label_file_name)
+	$storystart = 0
+	File.open(label_file_name).each do |line|
+		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
+	end
+end
+
+def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
 #    cmd = "cp #{d64_file} #{game}.d64"
 #    ret = system(cmd)
 #    exit 0 if !ret
-    if use_compression then
-        storystart = get_story_start('acme_labels.txt');
-
+    if vmem_preload_blocks > 0 then
+		
 		# save memory to be compressed as separate file
 		compmem_filename = "compmem.tmp"
 		begin
@@ -288,11 +291,10 @@ def build(game, d64_file, use_compression, vmem_contents)
 			exit 0
 		end
 
-
-		compmem_filehandle.write([storystart].pack("v"))
-		compmem_filehandle.write(vmem_contents)
+		compmem_filehandle.write([$storystart].pack("v"))
+		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
-		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"lda $0400,x sta $d020\" ozmoo #{compmem_filename},#{storystart} -o ozmoo_zip"
+		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"lda $0400,x sta $d020\" ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
 		puts exomizer_cmd
         system(exomizer_cmd)
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
@@ -306,7 +308,14 @@ def play(filename)
     system("#{$X64} #{filename}")
 end
 
-def build_S1(game, d64_file, config_data, vmem_data, use_compression, vmem_contents)
+def limit_vmem_data(vmem_data)
+	vmemsize = ($ALLRAM ? 0x10000 : 0xd000) - $storystart
+	if vmemsize < vmem_data[2] * $VMEM_BLOCKSIZE
+		vmem_data[2] = vmemsize / $VMEM_BLOCKSIZE
+	end
+end
+
+def build_S1(game, d64_file, config_data, vmem_data, vmem_contents)
 	max_story_blocks = 9999
 	disk = D64_image.new(game, d64_file, true) # game file to read from, d64 file to create, is boot disk?
 	disk.add_story_data(max_story_blocks)
@@ -330,7 +339,7 @@ def build_S1(game, d64_file, config_data, vmem_data, use_compression, vmem_conte
 	disk.set_config_data(config_data)
 	disk.save()
 	# Add loader and terp to boot / play disk
-	build(game, d64_file, use_compression, vmem_contents)
+	build(game, d64_file, vmem_data[2], vmem_contents)
 	puts "Successfully built game as #{game}.d64"
 	nil # Signal success
 end
@@ -469,11 +478,11 @@ if initcache_data then
 	end
 	vmem_data += lowbytes;
 else # No initcache data available
-	dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
-	if $DEBUGFLAGS =~ /-DBENCHMARK=\d/ then
+	dynmem_vmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
+	if $DEBUGFLAGS =~ /-DVMEM_OPTIMIZE=\d/ then
 		all_vmem_blocks = dynmem_vmem_blocks
 	else
-		all_vmem_blocks = 52 * 1024 / $vmem_blocksize
+		all_vmem_blocks = 52 * 1024 / $VMEM_BLOCKSIZE
 	end
 	vmem_data = [
 		3 + 2 * all_vmem_blocks, # Size of vmem data
@@ -483,7 +492,7 @@ else # No initcache data available
 	lowbytes = []
 	all_vmem_blocks.times do |i|
 		vmem_data.push(i <= dynmem_vmem_blocks ? 0xc0 : 0x80)
-		lowbytes.push(i * $vmem_blocksize / 256)
+		lowbytes.push(i * $VMEM_BLOCKSIZE / 256)
 	end
 	vmem_data += lowbytes;
 end
@@ -491,15 +500,18 @@ end
 vmem_contents = ""
 vmem_data[1].times do |i|
 	start_address = (vmem_data[3 + i] & 0x07) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
-	puts start_address
-	vmem_contents += $story_file_data[start_address .. start_address + $vmem_blocksize - 1]
+#	puts start_address
+	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
 end
 
-puts vmem_contents.length
+build_interpreter(use_compression)
+limit_vmem_data(vmem_data)
+
+#puts vmem_contents.length
 
 case mode
 when MODE_S1
-	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, use_compression, vmem_contents)
+	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, vmem_contents)
 	if !error and auto_play then 
 		play("#{game}.d64")
 	end
