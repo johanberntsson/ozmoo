@@ -262,7 +262,7 @@ def get_story_start(label_file_name)
 	return 0
 end
 
-def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
+def build(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     if use_compression then
         $COMPRESSIONFLAGS = "-DDYNMEM_ALREADY_LOADED=1"
     else
@@ -285,17 +285,21 @@ def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     else
         system("#{$C1541} -attach #{game}.d64 -write ozmoo ozmoo")
     end
-	puts "#{$X64} #{game}.d64"
-    system("#{$X64} #{game}.d64")
+end
+
+def play(filename)
+	puts "#{$X64} #{filename}"
+    system("#{$X64} #{filename}")
 end
 
 def print_usage_and_exit
-    puts "Usage: make.rb [-S1] [-c] [-i <ifile>] <file> [z3|z5]"
+    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <ifile>] [-p] <file>"
+    puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -c: use compression with exomizer"
     puts "       -i: read initial caching data from ifile"
+    puts "       -p: play game if build succeeds"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
-    puts "       -z3|-z4|-z5: zmachine version, if not clear from filename"
     exit 0
 end
 
@@ -304,11 +308,14 @@ use_compression = false
 ztype = ""
 await_initcachefile = false
 initcachefile = nil
+auto_play = false
 begin
 	while i < ARGV.length
 		if await_initcachefile then
 			await_initcachefile = false
 			initcachefile = ARGV[i]
+		elsif ARGV[i] == "-p" then
+			auto_play = true
 		elsif ARGV[i] == "-c" then
 			use_compression = true
 		elsif ARGV[i] =~ /^-S1$/i then
@@ -471,7 +478,11 @@ when MODE_S1
 	disk.set_config_data(config_data)
 	disk.save()
 	# Add loader and terp to boot / play disk
-	play(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
+	build(game, filename, path, ztype.upcase, use_compression, d64_file, dynmem_file)
+	puts "Successfully built game as #{game}.d64"
+	if auto_play then 
+		play("#{game}.d64")
+	end
 else
 	puts "Unsupported build mode. Currently supported modes: S1."
 end
