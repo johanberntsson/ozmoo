@@ -3,7 +3,7 @@
 require 'FileUtils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
+$DEBUGFLAGS = "-DDEBUG=1 -DBENCHMARK=1 -DVMEM_OPTIMIZE_x=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
 MODE_S1 = 1
@@ -289,15 +289,32 @@ def play(game, filename, path, ztype, use_compression, d64_file, dynmem_file)
     system("#{$X64} #{game}.d64")
 end
 
+def print_usage_and_exit
+    puts "Usage: make.rb [-S1] [-c] [-i <ifile>] <file> [z3|z5]"
+    puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
+    puts "       -c: use compression with exomizer"
+    puts "       -i: read initial caching data from ifile"
+    puts "       filename: path optional (e.g. infocom/zork1.z3)"
+    puts "       -z3|-z4|-z5: zmachine version, if not clear from filename"
+    exit 0
+end
+
 i = 0
 use_compression = false
 ztype = ""
+await_initcachefile = false
+initcachefile = nil
 begin
 	while i < ARGV.length
-		if ARGV[i] == "-c" then
+		if await_initcachefile then
+			await_initcachefile = false
+			initcachefile = ARGV[i]
+		elsif ARGV[i] == "-c" then
 			use_compression = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
+		elsif ARGV[i] =~ /^-i$/i then
+			await_initcachefile = true
 		elsif ARGV[i] =~ /^-Z[3-5]$/i then
 			ztype = ARGV[i].downcase
 		elsif ARGV[i] =~ /^-/i then
@@ -313,12 +330,22 @@ begin
 		exit 0
 	end
 rescue
-    puts "Usage: make.rb [-S1] [-c] <file> [z3|z5]"
-    puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
-    puts "       -c: use compression with exomizer"
-    puts "       filename: path optional (e.g. infocom/zork1.z3)"
-    puts "       -z3|-z4|-z5: zmachine version, if not clear from filename"
-    exit 0
+	print_usage_and_exit()
+end
+
+print_usage_and_exit() if await_initcachefile
+
+initcache_data = nil
+if initcachefile then
+	initcache_raw_data = File.read(initcachefile)
+	vmem_type = $VMFLAGS =~ /-DVMEM_CLOCK=\d/ ? "clock" : "queue"
+	if initcache_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/
+		initcache_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
+		puts "#{initcache_data.length} blocks found for initial caching."
+	else
+		puts "No data found for initial caching (for vmem type \"#{vmem_type}\")."
+		exit 0
+	end
 end
 
 # divide file into path, filename, extension (if possible)
@@ -387,24 +414,37 @@ config_data = [
 ]
 
 # Create config data for vmem
-dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
-if $DEBUGFLAGS =~ /-DBENCHMARK=\d/ then
-	all_vmem_blocks = dynmem_vmem_blocks
-else
-	all_vmem_blocks = 52 * 1024 / $vmem_blocksize
+if initcache_data then
+	vmem_data = [
+		3 + 2 * initcache_data.length, # Size of vmem data
+		initcache_data.length, # Number of suggested blocks
+		use_compression ? initcache_data.length : 0, # Number of preloaded blocks
+		]
+	lowbytes = []
+	initcache_data.each do |block|
+		vmem_data.push(block[0 .. 1].to_i(16))
+		lowbytes.push(block[2 .. 3].to_i(16))
+	end
+	vmem_data += lowbytes;
+else # No initcache data available
+	dynmem_vmem_blocks = $dynmem_size / $vmem_blocksize
+	if $DEBUGFLAGS =~ /-DBENCHMARK=\d/ then
+		all_vmem_blocks = dynmem_vmem_blocks
+	else
+		all_vmem_blocks = 52 * 1024 / $vmem_blocksize
+	end
+	vmem_data = [
+		3 + 2 * all_vmem_blocks, # Size of vmem data
+		all_vmem_blocks, # Number of suggested blocks
+		use_compression ? dynmem_vmem_blocks : 0, # Number of preloaded blocks
+		]
+	lowbytes = []
+	all_vmem_blocks.times do |i|
+		vmem_data.push(i <= dynmem_vmem_blocks ? 0xc0 : 0x80)
+		lowbytes.push(i * $vmem_blocksize / 256)
+	end
+	vmem_data += lowbytes;
 end
-vmem_data = [
-	3 + 2 * all_vmem_blocks, # Size of vmem data
-	all_vmem_blocks, # Number of suggested blocks
-	use_compression ? dynmem_vmem_blocks : 0, # Number of preloaded blocks
-	]
-lowbytes = []
-all_vmem_blocks.times do |i|
-	vmem_data.push(i <= dynmem_vmem_blocks ? 0xc0 : 0x80)
-	lowbytes.push(i * $vmem_blocksize / 256)
-end
-vmem_data += lowbytes;
-
 
 case mode
 when MODE_S1
