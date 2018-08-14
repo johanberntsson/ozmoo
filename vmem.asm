@@ -212,6 +212,20 @@ print_vm_map
 load_blocks_from_index
     ; vmap_index = index to load
     ; side effects: a,y,x,status destroyed
+!ifdef TRACE_FLOPPY {
+	jsr dollar
+	jsr dollar
+	lda vmap_index
+	jsr print_byte_as_hex
+	jsr comma
+	tax
+	lda vmap_z_h,x
+	jsr print_byte_as_hex
+	lda vmap_z_l,x
+	jsr print_byte_as_hex
+}
+
+	
 !ifdef VMEM_CLOCK {
 	lda vmap_index
 	asl
@@ -223,6 +237,10 @@ load_blocks_from_index
 } else {
     ldx vmap_index
     lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
+}
+!ifdef TRACE_FLOPPY {
+	jsr comma
+	jsr print_byte_as_hex
 }
 	tay ; Store in y so we can use it later.
 ;	cmp #$e0
