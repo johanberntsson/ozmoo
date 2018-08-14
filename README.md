@@ -11,17 +11,24 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Motivation
 
-We were looking for a redistrubutable interpreter of Infocom and Inform games that could be used for new interactive fiction works on the C64.
+We were looking for a redistributable interpreter of Infocom and Inform games that could be used for new interactive fiction works on the C64.
 
-While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle.
+While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle.
 
-There are some other implementations, but they have some limitations:
+There are some other implementations, but they have their limitations:
 * [Infocom64](https://github.com/christopherkobayashi/infocom64) is based on assembly code of the original Infocom interpreter so it has the same license issues. Also, it only works with certain setups of hardware or emulation.
 * [Zeugma](https://www.linusakesson.net/software/zeugma/index.php) requires an REU (Ram Expansion Unit) and doesn't support save and restore.
 
 ## Building and running
 
-You need to install the Acme cross-assembler and the Vice C64 emulator. You also need to prepare a C64 floppy with the ZMachine story on. Either use the supplied d64-files in the examples folder, or create your own with the create_d64.rb utility program (requires that Ruby is installed on your computer, and that you have access to a Z-machine story file).
+You need to install:
+* Acme cross-assembler
+* Vice C64 emulator
+* Ruby (Tested with 2.4.2, but most 2.x versions should work fine)
+
+Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, the Vice C64 emulator, and the program "1541" which is also included in the Vice distribution.
+
+To build a game, you run something like "./make.rb game.z5" Add -p to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
 
 ### Linux
 
@@ -30,14 +37,14 @@ Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-
 Vice is available on Debian/Ubuntu with:
 > sudo apt-get install vice
 
-The Makefile includes various targets that will compile the
-z-code interpreter and create a new floppy image containing both
-a story file (Dejavu, if the command is "make dejavu") and the
-interpreter. If there are no errors make will also start vice
-with the new d64 image preloaded for testing.
+Ruby is available on Debian/Ubuntu with:
+> sudo apt-get install ruby
 
 ### Windows
 
-Use the build.ps1 script to build and test the interpreter. Example:
+Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
 
-.\build.ps1 -Type z5 -Run
+Get WinVice from [SourceForge](http://vice-emu.sourceforge.net/)
+
+You can get Ruby from [RubyInstaller](https://rubyinstaller.org/)
+
