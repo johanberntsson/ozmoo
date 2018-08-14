@@ -6,8 +6,6 @@ Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying t
 
 Room description in Top Landing (E, N, E) in HH lacks last ".".
 
-Typing SCORE gives a text with words "pointS" and "turnS".
-
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 
@@ -65,6 +63,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Typing SCORE gives a text with words "pointS" and "turnS".
+
 - the .block range in readblocks need to be increased
 
 Fix random opcode (see notes under Instructions... below)

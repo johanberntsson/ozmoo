@@ -44,10 +44,14 @@ benchmark_read_char
 	rts
 }
 	
-
 z_ins_print_char
+    ; lda #0
+    ; sta .alphabet_offset
+    ; sta .escape_char_counter
+    ; sta .abbreviation_command
     lda z_operand_value_low_arr
-    ;jsr convert_zchar_to_char
+	jsr invert_case
+		jsr translate_zscii_to_petscii
 	jmp streams_print_output
 	
 z_ins_new_line
@@ -363,6 +367,23 @@ z_ins_aread
 	jmp z_store_result
 }
 
+invert_case
+	cmp #$41
+	bcc + ; Lower than ascii A
+	cmp #$7b
+	bcs + ; Higher than ascii z
+	sta .text_tmp
+	and #%00011111
+	cmp #$1
+	bcc ++
+	cmp #$1b
+	bcs ++
+	lda .text_tmp
+	eor #$20
++	rts
+++	lda .text_tmp
+	rts
+	
 convert_zchar_to_char
     ; input: a=zchar
     ; output: a=char

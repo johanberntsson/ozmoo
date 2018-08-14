@@ -329,7 +329,7 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 		compmem_filehandle.write([$storystart].pack("v"))
 		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
-		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"lda $0400,x sta $d020\" ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
+		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"LDA $D012 STA $D020 STA $D418\" ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
 		puts exomizer_cmd
         system(exomizer_cmd)
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
