@@ -3,7 +3,7 @@
 require 'FileUtils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "" #"-DDEBUG=1 -DBENCHMARK_x=1 -DVMEM_OPTIMIZE=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
+$DEBUGFLAGS = "-DDEBUG_x=1 -DBENCHMARK_x=1 -DVMEM_OPTIMIZE_x=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
 $VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
 
 MODE_S1 = 1
@@ -22,7 +22,7 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
 #    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -cartcrt final_cartridge.crt -autostart-delay-random"
-    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp -autostart-delay-random"
+    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
 else
@@ -145,37 +145,72 @@ class D64_image
 	end
 	
 	def add_story_data(max_story_blocks)
-		
+		$INTERLEAVE = 4
+	
 		# preallocate sectors
 		story_data_length = $story_file_data.length - $story_file_cursor
 		num_sectors = [($story_file_data.length.to_f / 256).ceil, max_story_blocks].min
+		if @is_boot_disk then
+			allocate_sector(@config_track, 0)
+			allocate_sector(@config_track, 1)
+		end
 		for track in 1 .. @tracks do
 			print "#{track}:" if $PRINT_DISK_MAP
-			first_story_sector = 0 + 
-				(track == 18 ? @skip_blocks_on_18 : 0) + 
-				(track == @config_track ? @skip_blocks_on_config_track : 0)
-			last_story_sector = -1
-			for sector in 0 .. get_track_length(track) - 1 do
-				print " #{sector}" if $PRINT_DISK_MAP
-				if @is_boot_disk && track == @config_track && sector < 2 then
-					allocate_sector(track, sector)
-				elsif (track != 18 || sector >= @skip_blocks_on_18) &&
-						(!@is_boot_disk || track != @config_track || sector >= @skip_blocks_on_config_track) &&
-						num_sectors > 0 then
+			if num_sectors > 0 then
+				first_story_sector = 0 + 
+					(track == 18 ? @skip_blocks_on_18 : 0) + 
+					(track == @config_track ? @skip_blocks_on_config_track : 0)
+				reserved_sectors = (@is_boot_disk && track == @config_track) ? 2 : (track == 18 ? @skip_blocks_on_18 : 0)
+				sector_count = get_track_length(track)
+				if sector_count - reserved_sectors > num_sectors
+					sector_count = num_sectors + reserved_sectors
+				end
+				track_map = Array.new(sector_count, 0)
+				reserved_sectors.times do |i|
+					track_map[i] = 1
+				end
+				free_sectors_in_track = sector_count - reserved_sectors
+				last_story_sector = sector_count - 1
+	#	Find right sector.
+	#		1. Start at 0
+	#		2. Find next free sector
+	#		3. Decrease blocks to go. If < 0, we are done
+	#		4. Mark sector as used.
+	#		5. Add interleave, go back to 2	
+				sector = 0
+				free_sectors_in_track.times do
+					while track_map[sector] != 0
+						sector = (sector + 1) % sector_count
+					end
+					track_map[sector] = 1
 					allocate_sector(track, sector)
 					add_story_block(track, sector)
-					last_story_sector = sector
 					@free_blocks -= 1
 					num_sectors -= 1
+					sector = (sector + $INTERLEAVE) % sector_count
 				end
-			end
-			if last_story_sector >= first_story_sector then
+			
+				# for sector in 0 .. get_track_length(track) - 1 do
+					# print " #{sector}" if $PRINT_DISK_MAP
+					# if @is_boot_disk && track == @config_track && sector < 2 then
+						# allocate_sector(track, sector)
+					# elsif (track != 18 || sector >= @skip_blocks_on_18) &&
+							# (!@is_boot_disk || track != @config_track || sector >= @skip_blocks_on_config_track) &&
+							# num_sectors > 0 then
+						# allocate_sector(track, sector)
+						# add_story_block(track, sector)
+						# last_story_sector = sector
+						# @free_blocks -= 1
+						# num_sectors -= 1
+					# end
+				# end
 				@config_track_map.push 32 * first_story_sector + last_story_sector - first_story_sector + 1
+#				end
 			else
 				@config_track_map.push 0
-			end
+			end # if num_sectors > 0
 			puts if $PRINT_DISK_MAP
-		end
+		end # for track
 		add_1800()
 		add_1801()
 

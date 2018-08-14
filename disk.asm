@@ -59,6 +59,15 @@ readblock
     ; set values in readblocks_* before calling this function
     ; register a,x,y
 
+!ifdef TRACE_FLOPPY {
+	jsr print_following_string
+	!pet "Readblock: ",0
+	lda readblocks_currentblock
+	jsr print_byte_as_hex
+	lda readblocks_currentblock + 1
+	jsr print_byte_as_hex
+}
+
     ; convert block to track/sector
     lda readblocks_currentblock
 	sta .blocks_to_go
@@ -69,7 +78,8 @@ readblock
 	sta .disks ; # of disks
 	ldx #0 ; Memory index
 	ldy #0 ; Disk id
--	txa
+.check_next_disk	
+	txa
 	clc
 	adc disk_info + 1,x
 	sta .next_disk_index ; x-value where next disk starts
@@ -81,14 +91,16 @@ readblock
 	lda readblocks_currentblock + 1
 	sbc disk_info + 3,x
 	sta .blocks_to_go_tmp
-	bcc + ; Found the right disk!
+	bcc .right_disk_found ; Found the right disk!
 	; This is not the right disk. Save # of blocks to go into next disk.
 	lda .blocks_to_go_tmp
 	sta .blocks_to_go
 	lda .blocks_to_go_tmp + 1
 	sta .blocks_to_go + 1
-	bcs .next_disk ; Not the right disk, keep looking!
-+	lda disk_info + 2,x
+	jmp .next_disk ; Not the right disk, keep looking!
+; Found the right disk
+.right_disk_found
+	lda disk_info + 2,x
 	sta .device
 	lda disk_info + 5,x
 	sta .disk_tracks ; # of tracks which have entries
@@ -98,7 +110,8 @@ readblock
 	; sta zp_temp + 3 ; # highbyte of # of story blocks on disk
 	; lda #0
 	; sta story_blocks_per_disk_l - 1,y
---	lda disk_info + 6,x
+.check_track
+	lda disk_info + 6,x
 	and #%00011111
 	sta .sector
 	lda .blocks_to_go + 1
@@ -108,40 +121,123 @@ readblock
 	lda .blocks_to_go
 	sbc #0
 	sta .blocks_to_go_tmp
-	bcc + ; Found the right track
+	bcc .right_track_found ; Found the right track
 	lda .blocks_to_go_tmp
 	sta .blocks_to_go
 	lda .blocks_to_go_tmp + 1
 	sta .blocks_to_go + 1
 	jmp .next_track
-+	; Add sectors not used at beginning of track
+.track_map 		!fill 21
+.sector_count 	!byte 0
+.skip_sectors 	!byte 0
+.temp_y 		!byte 0
+SECTOR_INTERLEAVE = 4
+
+.right_track_found
+	; Add sectors not used at beginning of track
+	; .blocks_to_go + 1: logical sector#
+	; disk_info + 6,x: # of sectors skipped (3 bits), # of sectors used (5 bits)
+	sty .temp_y
+!ifdef TRACE_FLOPPY {
+	jsr arrow
+	lda .track
+	jsr print_byte_as_hex
+	jsr comma
 	lda .blocks_to_go + 1
-	sta .sector
+	jsr print_byte_as_hex
+}
 	lda disk_info + 6,x
-	cmp #$20
-	bcc .have_set_device_track_sector
-;	and #%11100000
-;	beq .have_set_device_track_sector
 	lsr
 	lsr
 	lsr
 	lsr
 	lsr ; a now holds # of sectors at start of track not in use
+	sta .skip_sectors
+; Initialize track map. Write 0 for sectors not yet used, $ff for sectors used 
+	lda disk_info + 6,x
+	and #%00011111
 	clc
-	adc .blocks_to_go + 1
-	sta .sector
+	adc .skip_sectors
+	sta .sector_count
+	tay
+	dey
+	lda #0
+-	cpy .skip_sectors
+	bcs +
+	lda #$ff
++	sta .track_map,y
+	dey
+	bpl -
+;	Find right sector.
+;		1. Start at 0
+;		2. Find next free sector
+;		3. Decrease blocks to go. If < 0, we are done
+;		4. Mark sector as used.
+;		5. Add interleave, go back to 2	
+; 1
+	lda #0
+; 2
+-	tay
+	lda .track_map,y
+	beq +
+	iny
+	tya
+	cpy .sector_count
+	bcc -
+	lda #0
+	beq - ; Always branch
+; 3
++	dec .blocks_to_go + 1
+	bmi +
+; 4
+	lda #$ff
+	sta .track_map,y
+; 5
+	tya
+	clc
+	adc #SECTOR_INTERLEAVE
+.check_sector_range	
+	cmp .sector_count
+	bcc -
+	sbc .sector_count ; c is already set
+	bcs .check_sector_range ; Always branch
++	sty .sector
+!ifdef TRACE_FLOPPY {
+	jsr comma
+	tya
+	jsr print_byte_as_hex
+}
+; Restore old value of y
+	ldy .temp_y
+	
+	; lda .blocks_to_go + 1
+	; sta .sector
+	; lda disk_info + 6,x
+	; cmp #$20
+	; bcc .have_set_device_track_sector
+; ;	and #%11100000
+; ;	beq .have_set_device_track_sector
+	; lsr
+	; lsr
+	; lsr
+	; lsr
+	; lsr ; a now holds # of sectors at start of track not in use
+	; clc
+	; adc .blocks_to_go + 1
+	; sta .sector
 	jmp .have_set_device_track_sector
 .next_track
 	inx
 	inc .track
 	dec .disk_tracks
-	bne --
+	beq .next_disk
+	jmp .check_track
 .next_disk
 	ldx .next_disk_index
 	iny
 	cpy .disks
 	bcs +
-	jmp -
+	jmp .check_next_disk
 +	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
 	jmp fatalerror
 
