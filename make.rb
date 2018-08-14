@@ -483,6 +483,8 @@ static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # get dynmem size (in 1kb blocks)
 $dynmem_size = 1024 * ((high_mem_start + 512)/1024)
 
+$story_size = $story_file_data.length
+
 # dynmem = $story_file_data[0 .. $dynmem_size - 1]
 # # Assume memory starts at $3800
 # dynmem_filehandle.write([0x00,0x38].pack("CC"))
@@ -514,15 +516,16 @@ if initcache_data then
 	vmem_data += lowbytes;
 else # No initcache data available
 	dynmem_vmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
+	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
 	if $DEBUGFLAGS =~ /-DVMEM_OPTIMIZE=\d/ then
 		all_vmem_blocks = dynmem_vmem_blocks
 	else
-		all_vmem_blocks = 52 * 1024 / $VMEM_BLOCKSIZE
+		all_vmem_blocks = [52 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
 	end
 	vmem_data = [
 		3 + 2 * all_vmem_blocks, # Size of vmem data
 		all_vmem_blocks, # Number of suggested blocks
-		use_compression ? dynmem_vmem_blocks : 0, # Number of preloaded blocks
+		use_compression ? all_vmem_blocks : 0, # Number of preloaded blocks
 		]
 	lowbytes = []
 	all_vmem_blocks.times do |i|
