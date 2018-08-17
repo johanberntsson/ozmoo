@@ -374,9 +374,8 @@ invert_case
 	bcs + ; Higher than ascii z
 	sta .text_tmp
 	and #%00011111
-	cmp #$1
-	bcc ++
-	cmp #$1b
+	beq ++
+	cmp #$1b ; "z" + 1
 	bcs ++
 	lda .text_tmp
 	eor #$20
