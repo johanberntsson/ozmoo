@@ -1,6 +1,6 @@
 # specialised make for Ozmoo
 
-require 'FileUtils'
+require 'fileutils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 $DEBUGFLAGS = "-DDEBUG_x=1 -DBENCHMARK_x=1 -DVMEM_OPTIMIZE_x=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
@@ -21,12 +21,12 @@ $ALLRAM = $VMFLAGS =~ /-DALLRAM=\d/
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
-#    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -cartcrt final_cartridge.crt -autostart-delay-random"
+#    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-delay-random"
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
 else
-    $X64 = "/usr/bin/x64 -cartcrt final_cartridge.crt -autostart-delay-random"
+    $X64 = "/usr/bin/x64 -autostart-delay-random"
     $C1541 = "/usr/bin/c1541"
     $EXOMIZER = "exomizer/src/exomizer"
 end
@@ -296,7 +296,7 @@ def build_interpreter(use_compression)
     else
         $COMPRESSIONFLAGS = ""
     end
-    cmd = "acme #{$COMPRESSIONFLAGS} -D#{$ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+    cmd = "acme/src/acme #{$COMPRESSIONFLAGS} -D#{$ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 if !ret
@@ -329,7 +329,7 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 		compmem_filehandle.write([$storystart].pack("v"))
 		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
-		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \"LDA $D012 STA $D020 STA $D418\" ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
+		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
 		puts exomizer_cmd
         system(exomizer_cmd)
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
@@ -409,8 +409,9 @@ begin
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-i$/i then
 			await_initcachefile = true
-		elsif ARGV[i] =~ /^-Z[3-5]$/i then
-			$ztype = ARGV[i].upcase
+		elsif ARGV[i] =~ /^-z[3-8]$/i then
+			$ztype = ARGV[i].upcase[1..-1]
+			puts $ztype
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -447,10 +448,11 @@ path = File.dirname(file)
 extension = File.extname(file)
 filename = File.basename(file)
 game = File.basename(file, extension)
-if !extension.empty?
-    $ztype = extension[1..-1].upcase
+if $ztype.empty?
+	if !extension.empty?
+	    $ztype = extension[1..-1].upcase
+	end
 end
-
 if extension.empty? then
     puts "ERROR: cannot figure ut zmachine version. Please specify"
     exit 0
