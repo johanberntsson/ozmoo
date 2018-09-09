@@ -34,6 +34,8 @@ To build a game, you run something like "./make.sh game.z5" or "ruby make.rb gam
 
 Acme can be downloaded from [Github](https://github.com/meonwax/acme) and compiled.
 
+Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home) and compiled.
+
 Vice is available on Debian/Ubuntu with:
 > sudo apt-get install vice
 
