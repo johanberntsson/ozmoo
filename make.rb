@@ -25,10 +25,12 @@ if $is_windows then
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
+    $ACME = "acme.exe"
 else
     $X64 = "/usr/bin/x64 -autostart-delay-random"
     $C1541 = "/usr/bin/c1541"
     $EXOMIZER = "exomizer/src/exomizer"
+    $ACME = "acme"
 end
 
 
@@ -296,7 +298,7 @@ def build_interpreter(use_compression)
     else
         $COMPRESSIONFLAGS = ""
     end
-    cmd = "acme/src/acme #{$COMPRESSIONFLAGS} -D#{$ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+    cmd = "#{$ACME} #{$COMPRESSIONFLAGS} -D#{$ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 if !ret
@@ -454,7 +456,7 @@ if $ztype.empty?
 	end
 end
 if extension.empty? then
-    puts "ERROR: cannot figure ut zmachine version. Please specify"
+    puts "ERROR: cannot figure out zmachine version. Please specify"
     exit 0
 end
 
@@ -560,5 +562,4 @@ else
 end
 
 exit 0
-
 
