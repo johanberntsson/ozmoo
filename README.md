@@ -28,11 +28,13 @@ You need to install:
 
 Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, the Vice C64 emulator, and the program "1541" which is also included in the Vice distribution.
 
-To build a game, you run something like "./make.rb game.z5" Add -p to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
+To build a game, you run something like "ruby make.rb game.z5" Add -p to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
 
 ### Linux
 
-Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
+Acme can be downloaded from [Github](https://github.com/meonwax/acme) and compiled.
+
+Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home) and compiled.
 
 Vice is available on Debian/Ubuntu with:
 > sudo apt-get install vice
