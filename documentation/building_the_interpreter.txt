@@ -2,8 +2,6 @@ Flags which can be set on Acme commandline to affect how the interpreter is buil
 
 ALLRAM
 	Utilize all RAM (Not setting it means RAM at $D000-$FFFF will not be used.)
-BENCHMARK
-	When the game starts, replay a number of colon-separated commands which have been stored with the interpreter (in the file text.asm). Charcode 255 in this command sequence means print the number of jiffies since the computer was started.
 DEBUG
 	Print debug information, print descriptive error messages, store a trace of the instructions which have been executed and print them in case of an exception.
 DYNMEM_ALREADY_LOADED
@@ -12,20 +10,38 @@ NEW_MORE_PROMPT
 	Ask for the new MORE prompt, which takes up less screen real-estate.
 OLDANDWORKING
 	Replace the current implementation of print_addr with an older version.
-PRINT_SWAPS
-	Print information whenever a memory block is loaded into memory.
-SMALLBLOCK
-	When using virtual memory, use a blocksize of 512 bytes rather than 1024 bytes.
 SWEDISH_CHARS
 	Map Swedish characters in ZSCII to their PETSCII equivalents.
+SMALLBLOCK
+	When using virtual memory, use a blocksize of 512 bytes rather than 1024 bytes.
+USEVM
+	Utilize virtual memory. Without this, the complete game must fit in C64 RAM.
+VMEM_CLOCK
+	Use the Clock algorithm when deciding on which virtual memory block to overwrite when a new block is to be loaded. If not defined, a queue algorithm is used instead.
+Z3
+	Build the interpreter to run Z-machine version 3 games.
+Z4
+	Build the interpreter to run Z-machine version 4 games.
+Z5
+	Build the interpreter to run Z-machine version 5 games.
+Z8
+	Build the interpreter to run Z-machine version 8 games.
+
+
+Additionally, if DEBUG mode has been specified, these flags also be used:
+	
+BENCHMARK
+	When the game starts, replay a number of colon-separated commands which have been stored with the interpreter (in the file text.asm). Charcode 255 in this command sequence means print the number of jiffies since the computer was started.
+PRINT_SWAPS
+	Print information whenever a memory block is loaded into memory.
 TRACE
-	In DEBUG mode: Print trace information.
+	Print trace information.
 TRACE_ATTR
-	In DEBUG mode: Print trace information for attribute changes.
+	Print trace information for attribute changes.
 TRACE_FLOPPY
-	In DEBUG mode: Print trace information for floppy operations.
+	Print trace information for floppy operations.
 TRACE_FLOPPY_VERBOSE
-	In DEBUG mode: Print verbose trace information for floppy operations.
+	Print verbose trace information for floppy operations.
 TRACE_FROTZ_ATTR
 	?
 TRACE_FROTZ_OBJ
@@ -35,36 +51,24 @@ TRACE_FROTZ_PROP
 TRACE_FROTZ_TREE
 	?
 TRACE_OBJ
-	In DEBUG mode: Print trace information for object changes.
+	Print trace information for object changes.
 TRACE_PRINT_ARRAYS
 	?
 TRACE_PROP
-	In DEBUG mode: Print trace information for property changes.
+	Print trace information for property changes.
 TRACE_READTEXT
-	In DEBUG mode: Print trace information for opcode read/aread/sread.
+	Print trace information for opcode read/aread/sread.
 TRACE_SHOW_DICT_ENTRIES
 	?
 TRACE_TOKENISE
-	In DEBUG mode: Print trace information for the tokenization process.
+	Print trace information for the tokenization process.
 TRACE_TREE
-	In DEBUG mode: Print trace information for object movement.
+	Print trace information for object movement.
 TRACE_VM
-	In DEBUG mode: Print trace information for the virtual memory system.
+	Print trace information for the virtual memory system.
 TRACE_VM_PC
 	?
 TRACE_WINDOW
 	?
-USEVM
-	Utilize virtual memory. Without this, the complete game must fit in C64 RAM.
-VMEM_CLOCK
-	Use the Clock algorithm when deciding on which virtual memory block to overwrite when a new block is to be loaded. If not defined, a queue algorithm is used instead.
 VMEM_OPTIMIZE
 	Built the interpreter in PREOPT mode (used to pick which virtual memory blocks should be preloaded into memory when the game starts).
-Z3
-	Build the interpreter to run Z-machine version 3 games.
-Z4
-	Build the interpreter to run Z-machine version 4 games.
-Z5
-	Build the interpreter to run Z-machine version 5 games.
-Z8
-	Build the interpreter to run Z-machine version 8 games.
