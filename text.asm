@@ -263,6 +263,12 @@ z_ins_sread
     jsr newline
 }
 .sread_done
+!ifdef DEBUG {
+!ifdef PREOPT {
+	jsr print_following_string
+	!pet "[preopt mode. type $$$ to exit early.]",13,0
+}	
+}
     rts
 
 } else {	
@@ -361,6 +367,12 @@ z_ins_aread
     bne -
     lda #$0d
     jsr streams_print_output
+}
+!ifdef DEBUG {
+!ifdef PREOPT {
+	jsr print_following_string
+	!pet "[preopt mode. type $$$ to exit early.]",13,0
+}	
 }
     lda #0
     ldx #13

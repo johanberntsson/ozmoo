@@ -432,7 +432,7 @@ z_init
 !zone {
 
 !ifdef DEBUG {
-!ifdef VMEM_OPTIMIZE {
+!ifdef PREOPT {
 	jsr print_following_string
 	!pet "*** vmem optimization mode ***",13,13,0
 }	

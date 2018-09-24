@@ -9,17 +9,11 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 
-Add a flag (-o or -p ?) to build the terp and game in PREOPT mode. Give reference to the build guide for the details of PREOPT mode.
-
 Write a guide on how to build a game, with two sections: As simple as possible, and with preload optimizations.
-
-Print a line before each prompt in preload optimization mode: "[PREOPT mode. Type $$$ to exit early.]"
 
 Allow PREOPT mode to be ended with a special command ($$$).
 
-Start using the term PREOPT mode to describe the mode which you can use to optimize the blocks which are to be preloaded when the game starts. Change the flag name to PREOPT and make sure this term is used consistently in make.rb and in the docs.
-
-Document all flags which can be used to change how the interpreter is assembled. Figure out if some are no longer useful enough to be kept.
+Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
 - Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
@@ -77,6 +71,14 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Print a line before each prompt in preload optimization mode: "[PREOPT mode. Type $$$ to exit early.]"
+
+Add a flag (-o) to build the terp and game in PREOPT mode. Give reference to the build guide for the details of PREOPT mode.
+
+Start using the term PREOPT mode to describe the mode which you can use to optimize the blocks which are to be preloaded when the game starts. Change the flag name to PREOPT and make sure this term is used consistently in make.rb and in the docs.
+
+Document all flags which can be used to change how the interpreter is assembled. 
+
 Typing SCORE gives a text with words "pointS" and "turnS".
 
 - the .block range in readblocks need to be increased

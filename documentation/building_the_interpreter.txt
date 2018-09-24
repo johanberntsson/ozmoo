@@ -1,29 +1,23 @@
 Flags which can be used to affect how the interpreter is built
 ----
 
-These flags can be set on the Acme commandline using the syntax -D[flag]=1
+The flags described here can be set on the Acme commandline using the syntax -D[flag]=1
 
 
 General flags:
 
-ALLRAM
-	Utilize all RAM (Not setting it means RAM at $D000-$FFFF will not be used.)
 DEBUG
-	Print debug information, print descriptive error messages, store a trace of the instructions which have been executed and print them in case of an exception.
+	Print debug information, print descriptive error messages, store a trace of the instructions which have been executed and print them in case of an exception. Also check section "Debug flags" below.
 DYNMEM_ALREADY_LOADED
 	Tell the interpreter that the dynamic part of Z-machine memory has already been loaded when the interpreter starts.
 NEW_MORE_PROMPT
-	Ask for the new MORE prompt, which takes up less screen real-estate.
+	Use the new MORE prompt, which takes up less screen real-estate.
 OLDANDWORKING
 	Replace the current implementation of print_addr with an older version.
 SWEDISH_CHARS
 	Map Swedish characters in ZSCII to their PETSCII equivalents.
-SMALLBLOCK
-	When using virtual memory, use a blocksize of 512 bytes rather than 1024 bytes.
 USEVM
-	Utilize virtual memory. Without this, the complete game must fit in C64 RAM.
-VMEM_CLOCK
-	Use the Clock algorithm when deciding on which virtual memory block to overwrite when a new block is to be loaded. If not defined, a queue algorithm is used instead.
+	Utilize virtual memory. Without this, the complete game must fit in C64 RAM available above the interpreter and below $D000, all in all about 40 KB. Also check section "Virtual memory flags" below. 
 Z3
 	Build the interpreter to run Z-machine version 3 games.
 Z4
@@ -34,10 +28,22 @@ Z8
 	Build the interpreter to run Z-machine version 8 games.
 
 
+Virtual memory flags
+---
+(These flags don't do anything unless the USEVM flag has been specified.)
+
+ALLRAM
+	Utilize all available RAM for virtual memory buffers (Not setting it means RAM at $D000-$FFFF will not be used.)
+SMALLBLOCK
+	When using virtual memory, use a blocksize of 512 bytes rather than 1024 bytes.
+VMEM_CLOCK
+	Use the Clock algorithm when deciding on which virtual memory block to overwrite when a new block is to be loaded. If not defined, a queue algorithm is used instead.
 
 	
 	
-Additionally, if DEBUG mode has been specified, these flags can also be used:
+Debug flags 
+---
+(These flags don't do anything unless the DEBUG flag has been specified.)
 	
 BENCHMARK
 	When the game starts, replay a number of colon-separated commands which have been stored with the interpreter (in the file text.asm). Charcode 255 in this command sequence means print the number of jiffies since the computer was started.

@@ -82,7 +82,7 @@ vmem_all_blocks_occupied !byte 0
 vmem_temp !byte 0
 
 !ifdef DEBUG {
-!ifdef VMEM_OPTIMIZE {
+!ifdef PREOPT {
 print_optimized_vm_map
 	; x = 0 : Algorithm = queue
 	; x = 1 : Algorithm = clock
@@ -619,7 +619,7 @@ read_byte_at_z_address
 -	lda vmap_z_h,x
 	bpl .block_chosen
 !ifdef DEBUG {
-!ifdef VMEM_OPTIMIZE {
+!ifdef PREOPT {
 	ldx #1
 	jmp print_optimized_vm_map
 }	
@@ -674,7 +674,7 @@ read_byte_at_z_address
 	bne - ; Always branch
 .last_block_used
 !ifdef DEBUG {
-!ifdef VMEM_OPTIMIZE {
+!ifdef PREOPT {
 	ldx #0
 	jmp print_optimized_vm_map
 }	

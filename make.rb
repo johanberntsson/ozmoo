@@ -3,8 +3,43 @@
 require 'fileutils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
-$DEBUGFLAGS = "-DDEBUG_x=1 -DBENCHMARK_x=1 -DVMEM_OPTIMIZE_x=1 -DTRACE_FLOPPY_x=1 -DTRACE_VM_x=1"
-$VMFLAGS = "-DALLRAM=1 -DUSEVM=1 -DSMALLBLOCK=1 -DVMEM_CLOCK=1"
+$GENERALFLAGS = [
+	'NEW_MORE_PROMPT',
+#	'OLDANDWORKING',
+#	'SWEDISH_CHARS',
+]
+
+$DEBUGFLAGS = [
+#	'DEBUG', # If this is commented out, the other debug flags are ignored.
+# Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
+#	'BENCHMARK',
+#	'TRACE_FLOPPY',
+#	'TRACE_VM'
+#	'PRINT_SWAPS',
+#	'TRACE',
+#	'TRACE_ATTR',
+#	'TRACE_FLOPPY_VERBOSE',
+#	'TRACE_FROTZ_ATTR',
+#	'TRACE_FROTZ_OBJ',
+#	'TRACE_FROTZ_PROP',
+#	'TRACE_FROTZ_TREE',
+#	'TRACE_OBJ',
+#	'TRACE_PRINT_ARRAYS',
+#	'TRACE_PROP',
+#	'TRACE_READTEXT',
+#	'TRACE_SHOW_DICT_ENTRIES',
+#	'TRACE_TOKENISE',
+#	'TRACE_TREE',
+#	'TRACE_VM_PC',
+#	'TRACE_WINDOW',
+]
+
+$VMFLAGS = [
+	'USEVM', # If this is commented out, the other virtual memory flags are ignored.
+	'ALLRAM',
+	'SMALLBLOCK',
+	'VMEM_CLOCK',
+]
 
 MODE_S1 = 1
 MODE_S2 = 2
@@ -13,15 +48,14 @@ MODE_D3 = 4
 
 mode = MODE_S1
 
-$VMEM_BLOCKSIZE = ($VMFLAGS =~ /\s-DSMALLBLOCK=\d+/ ? 512 : 1024)
+$VMEM_BLOCKSIZE = $VMFLAGS.include?('SMALLBLOCK') ? 512 : 1024
 $ZEROBYTE = 0.chr
 
-$ALLRAM = $VMFLAGS =~ /-DALLRAM=\d/
+$ALLRAM = $VMFLAGS.include?('ALLRAM')
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
-#    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-delay-random"
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
@@ -293,15 +327,15 @@ end # class D64_image
 ################################## END create_d64.rb
 
 def build_interpreter(use_compression)
-    if use_compression then
-        $COMPRESSIONFLAGS = "-DDYNMEM_ALREADY_LOADED=1"
-    else
-        $COMPRESSIONFLAGS = ""
-    end
-    cmd = "#{$ACME} #{$COMPRESSIONFLAGS} -D#{$ztype}=1 #{$DEBUGFLAGS} #{$VMFLAGS} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
+	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
+	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
+    compressionflags = use_compression ? ' -DDYNMEM_ALREADY_LOADED=1' : ''
+
+    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
 	puts cmd
     ret = system(cmd)
-    exit 0 if !ret
+    exit 0 unless ret
 	set_story_start('acme_labels.txt');
 end
 
@@ -331,7 +365,8 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 		compmem_filehandle.write([$storystart].pack("v"))
 		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
-		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
+#		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
+		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
 		puts exomizer_cmd
         system(exomizer_cmd)
         system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
@@ -341,8 +376,9 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 end
 
 def play(filename)
-	puts "#{$X64} #{filename}"
-    system("#{$X64} #{filename}")
+	command = "#{$X64} #{filename}"
+	puts command
+    system(command)
 end
 
 def limit_vmem_data(vmem_data)
@@ -382,11 +418,12 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents)
 end
 
 def print_usage_and_exit
-    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <ifile>] [-p] <file>"
+    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <ifile>] [-o] [-p] <file>"
     puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -c: use compression with exomizer"
-    puts "       -i: read initial caching data from ifile"
+    puts "       -i: read initial caching data from ifile (previously created with -o)"
+    puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -p: play game if build succeeds"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
     exit 0
@@ -398,11 +435,14 @@ $ztype = ""
 await_initcachefile = false
 initcachefile = nil
 auto_play = false
+optimize = false
 begin
 	while i < ARGV.length
 		if await_initcachefile then
 			await_initcachefile = false
 			initcachefile = ARGV[i]
+		elsif ARGV[i] == "-o" then
+			optimize = true
 		elsif ARGV[i] == "-p" then
 			auto_play = true
 		elsif ARGV[i] == "-c" then
@@ -430,12 +470,22 @@ rescue
 	print_usage_and_exit()
 end
 
+if optimize then
+	if use_compression then
+		puts "Compression (-c) can not be used with -o."
+		exit 0
+	end
+	$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.include?('DEBUG')
+	$DEBUGFLAGS.push('PREOPT')
+end
+
+
 print_usage_and_exit() if await_initcachefile
 
 initcache_data = nil
 if initcachefile then
 	initcache_raw_data = File.read(initcachefile)
-	vmem_type = $VMFLAGS =~ /-DVMEM_CLOCK=\d/ ? "clock" : "queue"
+	vmem_type = $VMFLAGS.include?('VMEM_CLOCK') ? "clock" : "queue"
 	if initcache_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/
 		initcache_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{initcache_data.length} blocks found for initial caching."
@@ -469,6 +519,7 @@ d64_file = "temp1.d64"
 dynmem_file = "temp.dynmem"
 
 begin
+	puts "Reading file #{file}..."
 	$story_file_data = IO.binread(file)
 	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))   
 	$story_file_cursor = 0
@@ -521,7 +572,7 @@ if initcache_data then
 else # No initcache data available
 	dynmem_vmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
 	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
-	if $DEBUGFLAGS =~ /-DVMEM_OPTIMIZE=\d/ then
+	if $DEBUGFLAGS.include?('PREOPT') then
 		all_vmem_blocks = dynmem_vmem_blocks
 	else
 		all_vmem_blocks = [52 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
