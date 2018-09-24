@@ -1,4 +1,10 @@
-Flags which can be set on Acme commandline to affect how the interpreter is built ( -D[flag]=1 ) :
+Flags which can be used to affect how the interpreter is built
+----
+
+These flags can be set on the Acme commandline using the syntax -D[flag]=1
+
+
+General flags:
 
 ALLRAM
 	Utilize all RAM (Not setting it means RAM at $D000-$FFFF will not be used.)
@@ -28,7 +34,10 @@ Z8
 	Build the interpreter to run Z-machine version 8 games.
 
 
-Additionally, if DEBUG mode has been specified, these flags also be used:
+
+	
+	
+Additionally, if DEBUG mode has been specified, these flags can also be used:
 	
 BENCHMARK
 	When the game starts, replay a number of colon-separated commands which have been stored with the interpreter (in the file text.asm). Charcode 255 in this command sequence means print the number of jiffies since the computer was started.
