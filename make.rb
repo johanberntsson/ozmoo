@@ -76,6 +76,7 @@ $ALLRAM = $VMFLAGS.include?('ALLRAM')
 $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 
+$labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 
@@ -342,11 +343,11 @@ def build_interpreter(preload_vm_blocks)
 	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
     compressionflags = preload_vm_blocks ? ' -DDYNMEM_ALREADY_LOADED=1' : ''
 
-    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l acme_labels.txt --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
-	set_story_start('acme_labels.txt');
+	set_story_start($labels_file);
 end
 
 def set_story_start(label_file_name)
