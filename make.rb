@@ -74,6 +74,8 @@ $ZEROBYTE = 0.chr
 $ALLRAM = $VMFLAGS.include?('ALLRAM')
 
 $TEMPDIR = File.join(__dir__, 'temp')
+Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
+
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 
