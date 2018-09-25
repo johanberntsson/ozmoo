@@ -2,6 +2,22 @@
 
 require 'fileutils'
 
+$is_windows = (ENV['OS'] == 'Windows_NT')
+
+if $is_windows then
+	# Paths on Windows
+    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
+    $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
+    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
+    $ACME = "acme.exe"
+else
+	# Paths on Linux
+    $X64 = "/usr/bin/x64 -autostart-delay-random"
+    $C1541 = "/usr/bin/c1541"
+    $EXOMIZER = "exomizer/src/exomizer"
+    $ACME = "acme"
+end
+
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically, none of these flags should be enabled.
@@ -56,22 +72,6 @@ $VMEM_BLOCKSIZE = $VMFLAGS.include?('SMALLBLOCK') ? 512 : 1024
 $ZEROBYTE = 0.chr
 
 $ALLRAM = $VMFLAGS.include?('ALLRAM')
-
-$is_windows = (ENV['OS'] == 'Windows_NT')
-
-if $is_windows then
-    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
-    $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
-    $ACME = "acme.exe"
-else
-    $X64 = "/usr/bin/x64 -autostart-delay-random"
-    $C1541 = "/usr/bin/c1541"
-    $EXOMIZER = "exomizer/src/exomizer"
-    $ACME = "acme"
-end
-
-
 
 ################################## create_d64.rb
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
@@ -355,6 +355,7 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 #    cmd = "cp #{d64_file} #{game}.d64"
 #    ret = system(cmd)
 #    exit 0 if !ret
+	compmem_clause = ""
     if vmem_preload_blocks > 0 then
 		
 		# save memory to be compressed as separate file
@@ -369,14 +370,15 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 		compmem_filehandle.write([$storystart].pack("v"))
 		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
-#		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
-		exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
-		puts exomizer_cmd
-        system(exomizer_cmd)
-        system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
-    else
-        system("#{$C1541} -attach #{game}.d64 -write ozmoo story")
+		compmem_clause = " #{compmem_filename},#{$storystart}"
+ #   else
+ #       system("#{$C1541} -attach #{game}.d64 -write ozmoo story")
     end
+#	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
+	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 ozmoo#{compmem_clause} -o ozmoo_zip"
+	puts exomizer_cmd
+	system(exomizer_cmd)
+	system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
 end
 
 def play(filename)
@@ -422,13 +424,13 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents)
 end
 
 def print_usage_and_exit
-    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <ifile>] [-o] [-p] <file>"
+    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <preloadfile>] [-o] [-p] <file>"
     puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
-    puts "       -c: use compression with exomizer"
-    puts "       -i: read initial caching data from ifile (previously created with -o)"
+    puts "       -p: preload story data into virtual memory cache to make game faster at start"
+    puts "       -c: read preload config from preloadfile (previously created with -o)"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
-    puts "       -p: play game if build succeeds"
+    puts "       -s: start game in Vice if build succeeds"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
     exit 0
 end
@@ -445,15 +447,15 @@ begin
 		if await_initcachefile then
 			await_initcachefile = false
 			initcachefile = ARGV[i]
-		elsif ARGV[i] == "-o" then
+		elsif ARGV[i] =~ /^-o$/i then
 			optimize = true
-		elsif ARGV[i] == "-p" then
+		elsif ARGV[i] =~ /^-s$/i then
 			auto_play = true
-		elsif ARGV[i] == "-c" then
+		elsif ARGV[i] =~ /^-p$/i then
 			use_compression = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
-		elsif ARGV[i] =~ /^-i$/i then
+		elsif ARGV[i] =~ /^-c$/i then
 			await_initcachefile = true
 		elsif ARGV[i] =~ /^-z[3-8]$/i then
 			$ztype = ARGV[i].upcase[1..-1]
