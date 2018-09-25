@@ -79,6 +79,7 @@ Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
+$good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 
 ################################## create_d64.rb
@@ -91,12 +92,12 @@ class D64_image
 		@is_boot_disk = is_boot_disk
 
 		@tracks = forty_tracks ? 40 : 35 # 35 or 40 are useful options
+#		puts "Tracks: #{@tracks}"
 		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@config_track = 19
 		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
-		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 
-			(@tracks > 35 ? 17 * @tracks - 35 : 0) -
-			@skip_blocks_on_config_track
+		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 17 * (@tracks - 35) - @skip_blocks_on_config_track
+		puts "Free disk blocks at start: #{@free_blocks}"
 		@d64_file = nil
 		
 		@config_track_map = []
@@ -374,6 +375,10 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	File.size($zip_file)
 end
 
+def save_good_boot_file()
+	File.rename($zip_file, $good_zip_file)
+end
+
 def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	if vmem_preload_blocks > 0 then
 		begin
@@ -388,13 +393,20 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	end
 
 	max_file_size = free_blocks * 254
-	puts "Max file size is #{max_file_size}."
-	return vmem_preload_blocks if build_specific_boot_file(vmem_preload_blocks, vmem_contents) <= max_file_size
-	return -1 if build_specific_boot_file(0, vmem_contents) > max_file_size
+	puts "Max file size is #{max_file_size} bytes."
+	if build_specific_boot_file(vmem_preload_blocks, vmem_contents) <= max_file_size then
+		save_good_boot_file()
+		return vmem_preload_blocks
+	end
+	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####"
+	base_size = build_specific_boot_file(0, vmem_contents)
+	return -1 if base_size > max_file_size
+	save_good_boot_file()
+	puts "##### Built loader/interpreter with #{0} virtual memory blocks preloaded: OK      #####"
 	
 	done = false
-	max_ok_blocks = 0 # Signal that we don't know if even 0 blocks is possible
 	min_failed_blocks = vmem_preload_blocks
+	max_ok_blocks = [((max_file_size - base_size) / $VMEM_BLOCKSIZE * 0.95).floor.to_i, min_failed_blocks - 1].min  
 	actual_blocks = -1
 	last_build = -2
 	until done
@@ -407,22 +419,24 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 			size = build_specific_boot_file(mid, vmem_contents)
 			last_build = mid
 			if size > max_file_size then
-				puts "Built #{mid} blocks, too big."
+				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: Too big #####"
 				min_failed_blocks = mid
 			else
-				puts "Built #{mid} blocks, ok."
+				save_good_boot_file()
+				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: OK      #####"
 				max_ok_blocks = mid
+				max_ok_blocks = [mid + ((max_file_size - size) / $VMEM_BLOCKSIZE * 0.95).floor.to_i, min_failed_blocks - 1].min  
 			end
 		end
 	end
-	build_specific_boot_file(actual_blocks, vmem_contents) unless last_build == actual_blocks
+#	build_specific_boot_file(actual_blocks, vmem_contents) unless last_build == actual_blocks
 	puts "Picked #{actual_blocks} blocks."
 	actual_blocks
 end
 
 def add_boot_file(game, d64_file)
 	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
-	system("#{$C1541} -attach \"#{game}.d64\" -write \"#{$zip_file}\" story")
+	system("#{$C1541} -attach \"#{game}.d64\" -write \"#{$good_zip_file}\" story")
 end
 
 def play(filename)
@@ -442,7 +456,7 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tra
 	max_story_blocks = 9999
 	disk = D64_image.new(game, d64_file, true, extended_tracks) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
 	free_blocks = disk.add_story_data(max_story_blocks)
-	puts "#{free_blocks} blocks free."
+		puts "Free disk blocks after story data has been written: #{free_blocks}"
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
