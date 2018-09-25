@@ -8,8 +8,7 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-
-Write a guide on how to build a game, with two sections: As simple as possible, and with preload optimizations.
+Don't store dynmem in raw disk sectors if it is part of the preloaded data. (Requires restart opcode to load the loader again)
 
 Allow PREOPT mode to be ended with a special command ($$$).
 
@@ -71,6 +70,10 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Alter make.rb so it can decrease the amount of data to preload, just enough to make a game fit on a disk.
+
+Write a guide on how to build a game, with two sections: As simple as possible, and with preload optimizations.
+
 Print a line before each prompt in preload optimization mode: "[PREOPT mode. Type $$$ to exit early.]"
 
 Add a flag (-o) to build the terp and game in PREOPT mode. Give reference to the build guide for the details of PREOPT mode.

@@ -79,6 +79,7 @@ Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
+$compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 
 ################################## create_d64.rb
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
@@ -362,35 +363,65 @@ def set_story_start(label_file_name)
 	end
 end
 
-def build(game, d64_file, vmem_preload_blocks, vmem_contents)
-	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
-#    cmd = "cp #{d64_file} #{game}.d64"
-#    ret = system(cmd)
-#    exit 0 if !ret
-	compmem_clause = ""
-    if vmem_preload_blocks > 0 then
-		
-		# save memory to be compressed as separate file
-		compmem_filename = File.join($TEMPDIR, "compmem.tmp")
-		begin
-			compmem_filehandle = File.open(compmem_filename, "wb")
-		rescue
-			puts "ERROR: Can't open #{compmem_filename} for writing"
-			exit 0
-		end
+def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
+	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
 
-		compmem_filehandle.write([$storystart].pack("v"))
-		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
-		compmem_filehandle.close
-		compmem_clause = " \"#{compmem_filename}\",#{$storystart}"
- #   else
- #       system("#{$C1541} -attach #{game}.d64 -write ozmoo story")
-    end
-
-#	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
+#	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 	puts exomizer_cmd
 	system(exomizer_cmd)
+#	puts "Building with #{vmem_preload_blocks} blocks gives file size #{File.size($zip_file)}."
+	File.size($zip_file)
+end
+
+def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
+	if vmem_preload_blocks > 0 then
+		begin
+			compmem_filehandle = File.open($compmem_filename, "wb")
+		rescue
+			puts "ERROR: Can't open #{$compmem_filename} for writing"
+			exit 0
+		end
+#		compmem_filehandle.write([$storystart].pack("v"))
+		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
+		compmem_filehandle.close
+	end
+
+	max_file_size = free_blocks * 254
+	puts "Max file size is #{max_file_size}."
+	return vmem_preload_blocks if build_specific_boot_file(vmem_preload_blocks, vmem_contents) <= max_file_size
+	return -1 if build_specific_boot_file(0, vmem_contents) > max_file_size
+	
+	done = false
+	max_ok_blocks = 0 # Signal that we don't know if even 0 blocks is possible
+	min_failed_blocks = vmem_preload_blocks
+	actual_blocks = -1
+	last_build = -2
+	until done
+		if min_failed_blocks - max_ok_blocks < 2
+			actual_blocks = max_ok_blocks
+			done = true
+		else
+			mid = (min_failed_blocks + max_ok_blocks) / 2
+#			puts "Trying #{mid} blocks..."
+			size = build_specific_boot_file(mid, vmem_contents)
+			last_build = mid
+			if size > max_file_size then
+				puts "Built #{mid} blocks, too big."
+				min_failed_blocks = mid
+			else
+				puts "Built #{mid} blocks, ok."
+				max_ok_blocks = mid
+			end
+		end
+	end
+	build_specific_boot_file(actual_blocks, vmem_contents) unless last_build == actual_blocks
+	puts "Picked #{actual_blocks} blocks."
+	actual_blocks
+end
+
+def add_boot_file(game, d64_file)
+	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
 	system("#{$C1541} -attach \"#{game}.d64\" -write \"#{$zip_file}\" story")
 end
 
@@ -410,11 +441,20 @@ end
 def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tracks)
 	max_story_blocks = 9999
 	disk = D64_image.new(game, d64_file, true, extended_tracks) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
-	disk.add_story_data(max_story_blocks)
+	free_blocks = disk.add_story_data(max_story_blocks)
+	puts "#{free_blocks} blocks free."
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
-		exit 0
+		exit 1
 	end
+
+	# Build loader + terp + preloaded vmem blocks as a file
+	vmem_preload_blocks = build_boot_file(vmem_data[2], vmem_contents, free_blocks)
+	if vmem_preload_blocks < 0
+		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
+		exit 1
+	end
+	vmem_data[2] = vmem_preload_blocks
 	
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
@@ -430,8 +470,13 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tra
 	#	puts config_data
 	disk.set_config_data(config_data)
 	disk.save()
-	# Add loader and terp to boot / play disk
-	build(game, d64_file, vmem_data[2], vmem_contents)
+	
+	# Add loader + terp + preloaded vmem blocks file to disk
+	if add_boot_file(game, d64_file) != true
+		puts "ERROR: Failed to write loader/interpreter to disk."
+		exit 1
+	end
+
 	puts "Successfully built game as #{game}.d64"
 	nil # Signal success
 end
@@ -638,4 +683,5 @@ else
 end
 
 exit 0
+
 

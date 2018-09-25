@@ -8,22 +8,22 @@ Build modes
 
 Notes: 
 
-* Initial caching means some or all of memory is filled with suitable parts of the story file, by loading this content from a file as the game starts. Using initial caching speeds up game start for many players since this initial loading sequence can use any fastloader the user may have enabled. It also means gameplay is as fast as it gets, right from the start.
+* Preloading means some or all of memory is filled with suitable parts of the story file, by loading this content from a file as the game starts. Using preloading speeds up game start for many players since this initial loading sequence can use any fastloader the user may have enabled. It also means gameplay is as fast as it gets, right from the start.
 
 * Less RAM available for virtual memory system: This means a smaller part of C64 memory can be used for virtual memory handling, which means the game will need to load sectors from disk more often. This will of course slow the game down.
 
 Modes requiring a single 1541 drive for play:
 ---
 S1: Single 1541 drive, one disk
-	Story file size < ~140 KB: Full initial caching. Full amount of RAM available for virtual memory system.
-	Story file size < ~180 KB: Less initial caching the larger the story file. Full amount of RAM available for virtual memory system.
+	Story file size < ~140 KB: Full preloading. Full amount of RAM available for virtual memory system.
+	Story file size < ~180 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
 
 	Disks used:
 		* Boot / Story disk
 	
 S2: Single 1541 drive, two disks
-	Story file size < ~210 KB: Full initial caching. Full amount of RAM available for virtual memory system.
-	Story file size < ~230 KB: Full initial caching. Less RAM available for virtual memory system the larger the story file.
+	Story file size < ~210 KB: Full preloading. Full amount of RAM available for virtual memory system.
+	Story file size < ~230 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
 
 	Disks used:
 		* Boot disk
@@ -32,16 +32,16 @@ S2: Single 1541 drive, two disks
 Modes requiring two 1541 drives for play:
 ---
 D2: Double 1541 drives, two disks
-	Story file size < ~330 KB: Full initial caching. Full amount of RAM available for virtual memory system.
-	Story file size < ~370 KB: Less initial caching the larger the story file. Full amount of RAM available for virtual memory system.
+	Story file size < ~330 KB: Full preloading. Full amount of RAM available for virtual memory system.
+	Story file size < ~370 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
 
 	Disks used:
 		* Boot disk / Story disk A
 		* Story disk B
 
 D3: Double 1541 drives, three disks
-	Story file size < ~400 KB: Full initial caching. Full amount of RAM available for virtual memory system.
-	Story file size < ~420 KB: Full initial caching. Less RAM available for virtual memory system the larger the story file.
+	Story file size < ~400 KB: Full preloading. Full amount of RAM available for virtual memory system.
+	Story file size < ~420 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
 
 	Disks used:
 		* Boot disk
