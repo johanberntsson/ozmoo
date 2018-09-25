@@ -84,12 +84,12 @@ $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
 
 class D64_image
-	def initialize(disk_title, d64_filename, is_boot_disk)
+	def initialize(disk_title, d64_filename, is_boot_disk, forty_tracks)
 		@disk_title = disk_title
 		@d64_filename = d64_filename
 		@is_boot_disk = is_boot_disk
 
-		@tracks = 40 # 35 or 40 are useful options
+		@tracks = forty_tracks ? 40 : 35 # 35 or 40 are useful options
 		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@config_track = 19
 		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
@@ -196,7 +196,7 @@ class D64_image
 	
 		# preallocate sectors
 		story_data_length = $story_file_data.length - $story_file_cursor
-		num_sectors = [($story_file_data.length.to_f / 256).ceil, max_story_blocks].min
+		num_sectors = [number_of_sectors($story_file_data), max_story_blocks].min
 		if @is_boot_disk then
 			allocate_sector(@config_track, 0)
 			allocate_sector(@config_track, 1)
@@ -258,6 +258,7 @@ class D64_image
 			end # if num_sectors > 0
 			puts if $PRINT_DISK_MAP
 		end # for track
+#		puts num_sectors.to_s
 		add_1800()
 		add_1801()
 
@@ -350,6 +351,10 @@ def build_interpreter(preload_vm_blocks)
 	set_story_start($labels_file);
 end
 
+def number_of_sectors(array)
+	(array.length.to_f / 256).ceil
+end
+
 def set_story_start(label_file_name)
 	$storystart = 0
 	File.open(label_file_name).each do |line|
@@ -402,9 +407,9 @@ def limit_vmem_data(vmem_data)
 	end
 end
 
-def build_S1(game, d64_file, config_data, vmem_data, vmem_contents)
+def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tracks)
 	max_story_blocks = 9999
-	disk = D64_image.new(game, d64_file, true) # game file to read from, d64 file to create, is boot disk?
+	disk = D64_image.new(game, d64_file, true, extended_tracks) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
 	disk.add_story_data(max_story_blocks)
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
@@ -439,6 +444,7 @@ def print_usage_and_exit
     puts "       -c: read preload config from preloadfile, previously created with -o (-c also implies -p)"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -s: start game in Vice if build succeeds"
+    puts "       -x: Use extended tracks (40 instead of 35) on 1541 disk"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
     exit 0
 end
@@ -450,11 +456,15 @@ await_initcachefile = false
 initcachefile = nil
 auto_play = false
 optimize = false
+extended_tracks = false
+
 begin
 	while i < ARGV.length
 		if await_initcachefile then
 			await_initcachefile = false
 			initcachefile = ARGV[i]
+		elsif ARGV[i] =~ /^-x$/i then
+			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/i then
 			optimize = true
 		elsif ARGV[i] =~ /^-s$/i then
@@ -619,7 +629,7 @@ limit_vmem_data(vmem_data)
 
 case mode
 when MODE_S1
-	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, vmem_contents)
+	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, vmem_contents, extended_tracks)
 	if !error and auto_play then 
 		play("#{game}.d64")
 	end
