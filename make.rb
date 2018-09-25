@@ -73,6 +73,10 @@ $ZEROBYTE = 0.chr
 
 $ALLRAM = $VMFLAGS.include?('ALLRAM')
 
+$TEMPDIR = File.join(__dir__, 'temp')
+$ozmoo_file = File.join($TEMPDIR, 'ozmoo')
+$zip_file = File.join($TEMPDIR, 'ozmoo_zip')
+
 ################################## create_d64.rb
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
 
@@ -330,13 +334,13 @@ end # class D64_image
 
 ################################## END create_d64.rb
 
-def build_interpreter(use_compression)
+def build_interpreter(preload_vm_blocks)
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
 	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
-    compressionflags = use_compression ? ' -DDYNMEM_ALREADY_LOADED=1' : ''
+    compressionflags = preload_vm_blocks ? ' -DDYNMEM_ALREADY_LOADED=1' : ''
 
-    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l acme_labels.txt --outfile ozmoo ozmoo.asm"
+    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l acme_labels.txt --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
@@ -359,7 +363,7 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
     if vmem_preload_blocks > 0 then
 		
 		# save memory to be compressed as separate file
-		compmem_filename = "compmem.tmp"
+		compmem_filename = File.join($TEMPDIR, "compmem.tmp")
 		begin
 			compmem_filehandle = File.open(compmem_filename, "wb")
 		rescue
@@ -370,15 +374,16 @@ def build(game, d64_file, vmem_preload_blocks, vmem_contents)
 		compmem_filehandle.write([$storystart].pack("v"))
 		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
-		compmem_clause = " #{compmem_filename},#{$storystart}"
+		compmem_clause = " \"#{compmem_filename}\",#{$storystart}"
  #   else
  #       system("#{$C1541} -attach #{game}.d64 -write ozmoo story")
     end
+
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{compmem_filename},#{$storystart} -o ozmoo_zip"
-	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 ozmoo#{compmem_clause} -o ozmoo_zip"
+	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 	puts exomizer_cmd
 	system(exomizer_cmd)
-	system("#{$C1541} -attach #{game}.d64 -write ozmoo_zip story")
+	system("#{$C1541} -attach \"#{game}.d64\" -write \"#{$zip_file}\" story")
 end
 
 def play(filename)
@@ -428,7 +433,7 @@ def print_usage_and_exit
     puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -p: preload story data into virtual memory cache to make game faster at start"
-    puts "       -c: read preload config from preloadfile (previously created with -o)"
+    puts "       -c: read preload config from preloadfile, previously created with -o (-c also implies -p)"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -s: start game in Vice if build succeeds"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
@@ -436,7 +441,7 @@ def print_usage_and_exit
 end
 
 i = 0
-use_compression = false
+preload_vm_blocks = false
 $ztype = ""
 await_initcachefile = false
 initcachefile = nil
@@ -452,10 +457,11 @@ begin
 		elsif ARGV[i] =~ /^-s$/i then
 			auto_play = true
 		elsif ARGV[i] =~ /^-p$/i then
-			use_compression = true
+			preload_vm_blocks = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-c$/i then
+			preload_vm_blocks = true
 			await_initcachefile = true
 		elsif ARGV[i] =~ /^-z[3-8]$/i then
 			$ztype = ARGV[i].upcase[1..-1]
@@ -470,15 +476,15 @@ begin
 	end
 	if !file
 		raise "error"
-		exit 0
+		exit 1
 	end
 rescue
 	print_usage_and_exit()
 end
 
 if optimize then
-	if use_compression then
-		puts "Compression (-c) can not be used with -o."
+	if preload_vm_blocks then
+		puts "-p (preload story data) can not be used with -o."
 		exit 0
 	end
 	$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.include?('DEBUG')
@@ -496,8 +502,8 @@ if initcachefile then
 		initcache_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{initcache_data.length} blocks found for initial caching."
 	else
-		puts "No data found for initial caching (for vmem type \"#{vmem_type}\")."
-		exit 0
+		puts "No preload config data found (for vmem type \"#{vmem_type}\")."
+		exit 1
 	end
 end
 
@@ -513,7 +519,7 @@ if $ztype.empty?
 end
 if extension.empty? then
     puts "ERROR: cannot figure out zmachine version. Please specify"
-    exit 0
+    exit 1
 end
 
 # if path.empty? || path.length == 1 then
@@ -521,7 +527,7 @@ end
 	# exit 0
 # end
 
-d64_file = "temp1.d64"
+d64_file = File.join($TEMPDIR, "temp1.d64")
 dynmem_file = "temp.dynmem"
 
 begin
@@ -567,7 +573,7 @@ if initcache_data then
 	vmem_data = [
 		3 + 2 * initcache_data.length, # Size of vmem data
 		initcache_data.length, # Number of suggested blocks
-		use_compression ? initcache_data.length : 0, # Number of preloaded blocks
+		preload_vm_blocks ? initcache_data.length : 0, # Number of preloaded blocks
 		]
 	lowbytes = []
 	initcache_data.each do |block|
@@ -586,7 +592,7 @@ else # No initcache data available
 	vmem_data = [
 		3 + 2 * all_vmem_blocks, # Size of vmem data
 		all_vmem_blocks, # Number of suggested blocks
-		use_compression ? all_vmem_blocks : 0, # Number of preloaded blocks
+		preload_vm_blocks ? all_vmem_blocks : 0, # Number of preloaded blocks
 		]
 	lowbytes = []
 	all_vmem_blocks.times do |i|
@@ -603,7 +609,7 @@ vmem_data[1].times do |i|
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
 end
 
-build_interpreter(use_compression)
+build_interpreter(preload_vm_blocks)
 limit_vmem_data(vmem_data)
 
 #puts vmem_contents.length

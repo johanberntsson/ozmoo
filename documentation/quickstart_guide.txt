@@ -27,5 +27,5 @@ To build a game with optimized preloaded virtual memory data (will make the game
 
 4. Create a text file (let's say you call it mygame_optimization.txt), paste the text you just copied from Vice into the file and save it.
 
-5. At a command prompt, type "ruby make.rb -p -c mygame_optimization.txt mygame.z5"
+5. At a command prompt, type "ruby make.rb -c mygame_optimization.txt mygame.z5"
 
