@@ -3,15 +3,18 @@
 require 'fileutils'
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
+
+# Typically, none of these flags should be enabled.
 $GENERALFLAGS = [
-	'NEW_MORE_PROMPT',
+#	'OLD_MORE_PROMPT',
 #	'OLDANDWORKING',
 #	'SWEDISH_CHARS',
 ]
 
+# For a production build, none of these flags should be enabled.
+# Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
 #	'DEBUG', # If this is commented out, the other debug flags are ignored.
-# Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 #	'BENCHMARK',
 #	'TRACE_FLOPPY',
 #	'TRACE_VM'
@@ -34,6 +37,7 @@ $DEBUGFLAGS = [
 #	'TRACE_WINDOW',
 ]
 
+# Typically, all of these flags should be enabled.
 $VMFLAGS = [
 	'USEVM', # If this is commented out, the other virtual memory flags are ignored.
 	'ALLRAM',

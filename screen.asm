@@ -1,6 +1,6 @@
 ; screen update routines
 ; TRACE_WINDOW = 1
-NEW_MORE_PROMPT = 1
+; OLD_MORE_PROMPT = 1
 
 .num_windows !byte 1
 .num_rows !byte 0,0
@@ -311,7 +311,14 @@ increase_num_rows
     ; time to show [More]
     jsr clear_num_rows
     ; print [More]
-!ifdef NEW_MORE_PROMPT {
+!ifdef OLD_MORE_PROMPT {
+    ldx #0
+-   lda .more_text,x
+    beq .printchar_pressanykey
+    jsr $ffd2 ; kernel_printchar
+    inx
+    bne -
+} else {
     lda $07e5 
     sta .more_text_char
     lda $07e6 
@@ -323,13 +330,6 @@ increase_num_rows
     sta $07e5
     sta $07e6
     sta $07e7
-} else {
-    ldx #0
--   lda .more_text,x
-    beq .printchar_pressanykey
-    jsr $ffd2 ; kernel_printchar
-    inx
-    bne -
 }
     ; wait for ENTER
 .printchar_pressanykey
@@ -337,14 +337,7 @@ increase_num_rows
 -   jsr kernel_getchar
     beq -
 }
-!ifdef NEW_MORE_PROMPT {
-    lda .more_text_char
-    sta $07e5
-    lda .more_text_char + 1
-    sta $07e6
-    lda .more_text_char + 2
-    sta $07e7
-} else {
+!ifdef OLD_MORE_PROMPT {
     ; remove [More]
     ldx #0
 -   lda .more_text,x
@@ -353,13 +346,20 @@ increase_num_rows
     jsr $ffd2 ; kernel_printchar
     inx
     bne -
+} else {
+    lda .more_text_char
+    sta $07e5
+    lda .more_text_char + 1
+    sta $07e6
+    lda .more_text_char + 2
+    sta $07e7
 }
 .increase_num_rows_done
     rts
-!ifdef NEW_MORE_PROMPT {
-.more_text_char !byte 0,0,0
-} else {
+!ifdef OLD_MORE_PROMPT {
 .more_text !pet "[More]",0
+} else {
+.more_text_char !byte 0,0,0
 }
 
 printchar_flush
@@ -408,16 +408,16 @@ printchar_buffered
     bne .check_space
     ; newline. Print line and reset the buffer
     jsr printchar_flush
-!ifdef NEW_MORE_PROMPT {
-    ; more on the same line
-    jsr increase_num_rows
-    lda #$0d
-    jsr $ffd2 ; kernel_printchar
-} else {
+!ifdef OLD_MORE_PROMPT {
     ; more on the next line
     lda #$0d
     jsr $ffd2 ; kernel_printchar
     jsr increase_num_rows
+} else {
+    ; more on the same line
+    jsr increase_num_rows
+    lda #$0d
+    jsr $ffd2 ; kernel_printchar
 }
     jmp .printchar_done
 .check_space
@@ -466,16 +466,16 @@ printchar_buffered
 +   sty .buffer_index
     ldy #0
     sty .buffer_last_space
-!ifdef NEW_MORE_PROMPT {
-    ; more on the same line
-    jsr increase_num_rows
-    lda #$0d
-    jsr $ffd2 ; kernel_printchar
-} else {
+!ifdef OLD_MORE_PROMPT {
     ; more on the next line
     lda #$0d
     jsr $ffd2 ; kernel_printchar
     jsr increase_num_rows
+} else {
+    ; more on the same line
+    jsr increase_num_rows
+    lda #$0d
+    jsr $ffd2 ; kernel_printchar
 }
 .printchar_done
     pla
