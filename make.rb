@@ -80,7 +80,7 @@ $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
-$compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
+# $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 
 ################################## create_d64.rb
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
@@ -365,7 +365,7 @@ def set_story_start(label_file_name)
 end
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
+	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$story_file}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
 
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
@@ -376,21 +376,22 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 end
 
 def save_good_boot_file()
+	File.delete($good_zip_file) if File.exist?($good_zip_file)
 	File.rename($zip_file, $good_zip_file)
 end
 
 def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
-	if vmem_preload_blocks > 0 then
-		begin
-			compmem_filehandle = File.open($compmem_filename, "wb")
-		rescue
-			puts "ERROR: Can't open #{$compmem_filename} for writing"
-			exit 0
-		end
-#		compmem_filehandle.write([$storystart].pack("v"))
-		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
-		compmem_filehandle.close
-	end
+	# if vmem_preload_blocks > 0 then
+		# begin
+			# compmem_filehandle = File.open($compmem_filename, "wb")
+		# rescue
+			# puts "ERROR: Can't open #{$compmem_filename} for writing"
+			# exit 0
+		# end
+# #		compmem_filehandle.write([$storystart].pack("v"))
+		# compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
+		# compmem_filehandle.close
+	# end
 
 	max_file_size = free_blocks * 254
 	puts "Max file size is #{max_file_size} bytes."
@@ -399,14 +400,15 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		return vmem_preload_blocks
 	end
 	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####"
-	base_size = build_specific_boot_file(0, vmem_contents)
-	return -1 if base_size > max_file_size
-	save_good_boot_file()
-	puts "##### Built loader/interpreter with #{0} virtual memory blocks preloaded: OK      #####"
+#	base_size = build_specific_boot_file(0, vmem_contents)
+#	return -1 if base_size > max_file_size
+#	save_good_boot_file()
+#	puts "##### Built loader/interpreter with 0 virtual memory blocks preloaded: OK      #####"
+#	max_ok_blocks = [((max_file_size - base_size) / $VMEM_BLOCKSIZE * 0.95).floor.to_i, min_failed_blocks - 1].min  
+	max_ok_blocks = -1 # We we never find a number of blocks which work, -1 will be returned to signal failure.  
 	
 	done = false
 	min_failed_blocks = vmem_preload_blocks
-	max_ok_blocks = [((max_file_size - base_size) / $VMEM_BLOCKSIZE * 0.95).floor.to_i, min_failed_blocks - 1].min  
 	actual_blocks = -1
 	last_build = -2
 	until done
@@ -425,7 +427,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 				save_good_boot_file()
 				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: OK      #####"
 				max_ok_blocks = mid
-				max_ok_blocks = [mid + ((max_file_size - size) / $VMEM_BLOCKSIZE * 0.95).floor.to_i, min_failed_blocks - 1].min  
+#				max_ok_blocks = [mid + (1.25 * (max_file_size - size) / $VMEM_BLOCKSIZE).floor.to_i, min_failed_blocks - 1].min  
 			end
 		end
 	end
@@ -511,17 +513,17 @@ end
 i = 0
 preload_vm_blocks = false
 $ztype = ""
-await_initcachefile = false
-initcachefile = nil
+await_preloadfile = false
+preloadfile = nil
 auto_play = false
 optimize = false
 extended_tracks = false
 
 begin
 	while i < ARGV.length
-		if await_initcachefile then
-			await_initcachefile = false
-			initcachefile = ARGV[i]
+		if await_preloadfile then
+			await_preloadfile = false
+			preloadfile = ARGV[i]
 		elsif ARGV[i] =~ /^-x$/i then
 			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/i then
@@ -534,7 +536,7 @@ begin
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-c$/i then
 			preload_vm_blocks = true
-			await_initcachefile = true
+			await_preloadfile = true
 		elsif ARGV[i] =~ /^-z[3-8]$/i then
 			$ztype = ARGV[i].upcase[1..-1]
 			puts $ztype
@@ -542,11 +544,11 @@ begin
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
 		else 
-			file = ARGV[i]
+			$story_file = ARGV[i]
 		end
 		i = i + 1
 	end
-	if !file
+	if !$story_file
 		raise "error"
 		exit 1
 	end
@@ -564,26 +566,26 @@ if optimize then
 end
 
 
-print_usage_and_exit() if await_initcachefile
+print_usage_and_exit() if await_preloadfile
 
-initcache_data = nil
-if initcachefile then
-	initcache_raw_data = File.read(initcachefile)
+preload_data = nil
+if preloadfile then
+	preload_raw_data = File.read(preloadfile)
 	vmem_type = $VMFLAGS.include?('VMEM_CLOCK') ? "clock" : "queue"
-	if initcache_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/
-		initcache_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
-		puts "#{initcache_data.length} blocks found for initial caching."
+	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/
+		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
+		puts "#{preload_data.length} blocks found for initial caching."
 	else
 		puts "No preload config data found (for vmem type \"#{vmem_type}\")."
 		exit 1
 	end
 end
 
-# divide file into path, filename, extension (if possible)
-path = File.dirname(file)
-extension = File.extname(file)
-filename = File.basename(file)
-game = File.basename(file, extension)
+# divide $story_file into path, filename, extension (if possible)
+path = File.dirname($story_file)
+extension = File.extname($story_file)
+filename = File.basename($story_file)
+game = File.basename($story_file, extension)
 if $ztype.empty?
 	if !extension.empty?
 	    $ztype = extension[1..-1].upcase
@@ -600,15 +602,15 @@ end
 # end
 
 d64_file = File.join($TEMPDIR, "temp1.d64")
-dynmem_file = "temp.dynmem"
+#dynmem_file = "temp.dynmem"
 
 begin
-	puts "Reading file #{file}..."
-	$story_file_data = IO.binread(file)
+	puts "Reading file #{$story_file}..."
+	$story_file_data = IO.binread($story_file)
 	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))   
 	$story_file_cursor = 0
 rescue
-	puts "ERROR: Can't open #{file} for reading"
+	puts "ERROR: Can't open #{$story_file} for reading"
 	exit 0
 end
 
@@ -641,19 +643,19 @@ config_data = [
 ]
 
 # Create config data for vmem
-if initcache_data then
+if preload_data then
 	vmem_data = [
-		3 + 2 * initcache_data.length, # Size of vmem data
-		initcache_data.length, # Number of suggested blocks
-		preload_vm_blocks ? initcache_data.length : 0, # Number of preloaded blocks
+		3 + 2 * preload_data.length, # Size of vmem data
+		preload_data.length, # Number of suggested blocks
+		preload_vm_blocks ? preload_data.length : 0, # Number of preloaded blocks
 		]
 	lowbytes = []
-	initcache_data.each do |block|
+	preload_data.each do |block|
 		vmem_data.push(block[0 .. 1].to_i(16))
 		lowbytes.push(block[2 .. 3].to_i(16))
 	end
 	vmem_data += lowbytes;
-else # No initcache data available
+else # No preload data available
 	dynmem_vmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
 	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
 	if $DEBUGFLAGS.include?('PREOPT') then
