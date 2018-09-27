@@ -8,8 +8,6 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Don't store dynmem in raw disk sectors if it is part of the preloaded data. (Requires restart opcode to load the loader again)
-
 Allow PREOPT mode to be ended with a special command ($$$).
 
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
@@ -70,6 +68,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Don't store dynmem in raw disk sectors if it is part of the preloaded data. (Requires restart opcode to load the loader again)
+
 Alter make.rb so it can decrease the amount of data to preload, just enough to make a game fit on a disk.
 
 Write a guide on how to build a game, with two sections: As simple as possible, and with preload optimizations.

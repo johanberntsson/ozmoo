@@ -12,11 +12,6 @@ The basic way to build a game
 
 
 
-To build a game with preloaded virtual memory data (will make the game faster in the beginning)
----
-1. At a command prompt, type "ruby make.rb -p mygame.z5"
-
-
 To build a game with optimized preloaded virtual memory data (will make the game as fast as possible in the beginning)
 ---
 1. At a command prompt, type "ruby make.rb -o -s mygame.z5"
@@ -25,7 +20,7 @@ To build a game with optimized preloaded virtual memory data (will make the game
 
 3. In Vice, select Edit -> Copy from the menu
 
-4. Create a text file (let's say you call it mygame_optimization.txt), paste the text you just copied from Vice into the file and save it.
+4. Create a text file (let's say you call it mygame_optimization.txt), paste the complete text you just copied from Vice into the file and save it.
 
 5. At a command prompt, type "ruby make.rb -c mygame_optimization.txt mygame.z5"
 

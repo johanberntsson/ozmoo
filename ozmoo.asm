@@ -144,11 +144,12 @@ w1  cmp $d012
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 
-!ifdef DYNMEM_ALREADY_LOADED {
+;!ifdef DYNMEM_ALREADY_LOADED {
 	jsr parse_header
-} else {
-	jsr load_dynamic_memory
-}
+;} 
+; else {
+	; jsr load_dynamic_memory
+; }
 	jsr prepare_static_high_memory
     jsr parse_dictionary
     jsr parse_object_table
@@ -171,21 +172,20 @@ w1  cmp $d012
 
     rts
 
-load_header
-    ; read the header
-!ifdef USEVM {
-	lda #vmem_block_pagecount
-} else {
-	lda #1
-}
-	sta readblocks_numblocks
-    lda #>story_start ; first free memory block
-    ldx #$00    ; first block to read from floppy
-    stx readblocks_currentblock
-    stx readblocks_currentblock + 1
-    sta readblocks_mempos + 1
-    jsr readblocks
-    ;jmp parse_header
+; load_header
+    ; ; read the header
+; !ifdef USEVM {
+	; lda #vmem_block_pagecount
+; } else {
+	; lda #1
+; }
+	; sta readblocks_numblocks
+    ; lda #>story_start ; first free memory block
+    ; ldx #$00    ; first block to read from floppy
+    ; stx readblocks_currentblock
+    ; stx readblocks_currentblock + 1
+    ; sta readblocks_mempos + 1
+    ; jsr readblocks
 
 parse_header ; must follow load_header
     ; check z machine version
@@ -210,6 +210,9 @@ parse_header ; must follow load_header
 	; Check how many vmem_blocks are not stored in raw disk sectors
 !ifdef USEVM {
 	ldy story_start + header_static_mem
+	lda story_start + header_static_mem + 1
+	beq .maybe_inc_nonstored_blocks
+	iny ; Add one page if statmem doesn't start on a new page ($xx00)
 .maybe_inc_nonstored_blocks
 	tya
     and #255 - vmem_blockmask ; keep index into kB chunk
@@ -256,29 +259,29 @@ parse_header ; must follow load_header
 	rts
 
 !ifndef USEVM {
-load_dynamic_memory
-    ; the default case is to simply treat all as dynamic (r/w)
-    jsr load_header
-	; check that the file is not too big
-	ldx fileblocks
-	bne +
-    ldx fileblocks + 1
-    cpx #>($D000 - story_start) ; don't overwrite $d000
-    bcc ++
-+   lda #ERROR_OUT_OF_MEMORY
-    jsr fatalerror
+; load_dynamic_memory
+    ; ; the default case is to simply treat all as dynamic (r/w)
+    ; jsr load_header
+	; ; check that the file is not too big
+	; ldx fileblocks
+	; bne +
+    ; ldx fileblocks + 1
+    ; cpx #>($D000 - story_start) ; don't overwrite $d000
+    ; bcc ++
+; +   lda #ERROR_OUT_OF_MEMORY
+    ; jsr fatalerror
 
-    ; read the rest
-++  ldx #>story_start ; first free memory block
-    inx        ; skip header
-    txa
-    ldx #$01           ; first block to read from floppy
-    ldy fileblocks + 1 ; read the rest of the blocks
-    dey ; skip the header
-    stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
-    sty readblocks_numblocks
-    sta readblocks_mempos + 1
-    jmp readblocks
+    ; ; read the rest
+; ++  ldx #>story_start ; first free memory block
+    ; inx        ; skip header
+    ; txa
+    ; ldx #$01           ; first block to read from floppy
+    ; ldy fileblocks + 1 ; read the rest of the blocks
+    ; dey ; skip the header
+    ; stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
+    ; sty readblocks_numblocks
+    ; sta readblocks_mempos + 1
+    ; jmp readblocks
 
 prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)

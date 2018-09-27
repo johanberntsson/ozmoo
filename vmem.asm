@@ -336,9 +336,9 @@ load_blocks_from_index_using_cache
 }
     rts
 
-load_dynamic_memory
-    ; load header
-    jmp load_header ; ############################## TEMPORARY? Skip rest of this loading, it is done from config
+; load_dynamic_memory
+    ; ; load header
+    ; jmp load_header ; ############################## TEMPORARY? Skip rest of this loading, it is done from config
 
     ; jsr load_header
     ; ; load dynamic memory
