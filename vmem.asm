@@ -172,12 +172,12 @@ print_vm_map
 +   jsr printy
     jsr space
     lda vmap_z_h,y ; zmachine mem offset ($0 - 
-    and #%11000000
+    and #%11100000
     jsr print_byte_as_hex
     jsr space
     jsr dollar
     lda vmap_z_h,y ; zmachine mem offset ($0 - 
-    and #%00111111
+    and #%00011111
     jsr printa
     lda vmap_z_l,y ; zmachine mem offset ($0 - 
     jsr print_byte_as_hex

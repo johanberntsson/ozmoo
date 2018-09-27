@@ -1,9 +1,10 @@
 ;TRACE_FLOPPY = 1
 ;TRACE_FLOPPY_VERBOSE = 1
-
-readblocks_numblocks     !byte 0 
-readblocks_currentblock  !byte 0,0 ; 257 = ff 1
-readblocks_mempos        !byte 0,0 ; $2000 = 00 20
+nonstored_blocks		!byte 0
+readblocks_numblocks	!byte 0 
+readblocks_currentblock	!byte 0,0 ; 257 = ff 1
+readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
+readblocks_mempos		!byte 0,0 ; $2000 = 00 20
 
 ; story_blocks_per_disk_h	!byte 0,0,0
 ; story_blocks_per_disk_l !byte 0,0,0
@@ -62,16 +63,23 @@ readblock
 !ifdef TRACE_FLOPPY {
 	jsr print_following_string
 	!pet "Readblock: ",0
-	lda readblocks_currentblock
-	jsr print_byte_as_hex
 	lda readblocks_currentblock + 1
 	jsr print_byte_as_hex
+	lda readblocks_currentblock
+	jsr print_byte_as_hex
 }
+	lda readblocks_currentblock
+	sec
+	sbc nonstored_blocks
+	sta readblocks_currentblock_adjusted
+	lda readblocks_currentblock + 1
+	sbc #0
+	sta readblocks_currentblock_adjusted + 1
 
     ; convert block to track/sector
-    lda readblocks_currentblock
+    lda readblocks_currentblock_adjusted
 	sta .blocks_to_go
-    lda readblocks_currentblock + 1
+    lda readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
 	
 	lda disk_info
@@ -84,11 +92,11 @@ readblock
 	adc disk_info + 1,x
 	sta .next_disk_index ; x-value where next disk starts
 	; Check if the block we are looking for is on this disk
-	lda readblocks_currentblock
+	lda readblocks_currentblock_adjusted
 	sec
 	sbc disk_info + 4,x
 	sta .blocks_to_go_tmp + 1
-	lda readblocks_currentblock + 1
+	lda readblocks_currentblock_adjusted + 1
 	sbc disk_info + 3,x
 	sta .blocks_to_go_tmp
 	bcc .right_disk_found ; Found the right disk!

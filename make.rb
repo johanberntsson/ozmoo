@@ -33,7 +33,7 @@ $DEBUGFLAGS = [
 #	'DEBUG', # If this is commented out, the other debug flags are ignored.
 #	'BENCHMARK',
 #	'TRACE_FLOPPY',
-#	'TRACE_VM'
+#	'TRACE_VM',
 #	'PRINT_SWAPS',
 #	'TRACE',
 #	'TRACE_ATTR',
@@ -80,7 +80,7 @@ $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
-# $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
+$compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 
 ################################## create_d64.rb
 # copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
@@ -198,7 +198,8 @@ class D64_image
 	
 		# preallocate sectors
 		story_data_length = $story_file_data.length - $story_file_cursor
-		num_sectors = [number_of_sectors($story_file_data), max_story_blocks].min
+#		num_sectors = [number_of_sectors($story_file_data), max_story_blocks].min
+		num_sectors = [story_data_length / 256, max_story_blocks].min
 		if @is_boot_disk then
 			allocate_sector(@config_track, 0)
 			allocate_sector(@config_track, 1)
@@ -340,21 +341,17 @@ end # class D64_image
 
 ################################## END create_d64.rb
 
-def build_interpreter(preload_vm_blocks)
+def build_interpreter()
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
 	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
-    compressionflags = preload_vm_blocks ? ' -DDYNMEM_ALREADY_LOADED=1' : ''
+    compressionflags = ' -DDYNMEM_ALREADY_LOADED=1'
 
     cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
 	set_story_start($labels_file);
-end
-
-def number_of_sectors(array)
-	(array.length.to_f / 256).ceil
 end
 
 def set_story_start(label_file_name)
@@ -365,7 +362,7 @@ def set_story_start(label_file_name)
 end
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$story_file}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
+	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
 
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
@@ -381,17 +378,16 @@ def save_good_boot_file()
 end
 
 def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
-	# if vmem_preload_blocks > 0 then
-		# begin
-			# compmem_filehandle = File.open($compmem_filename, "wb")
-		# rescue
-			# puts "ERROR: Can't open #{$compmem_filename} for writing"
-			# exit 0
-		# end
-# #		compmem_filehandle.write([$storystart].pack("v"))
-		# compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
-		# compmem_filehandle.close
-	# end
+	if vmem_preload_blocks > 0 then
+		begin
+			compmem_filehandle = File.open($compmem_filename, "wb")
+		rescue
+			puts "ERROR: Can't open #{$compmem_filename} for writing"
+			exit 0
+		end
+		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
+		compmem_filehandle.close
+	end
 
 	max_file_size = free_blocks * 254
 	puts "Max file size is #{max_file_size} bytes."
@@ -466,7 +462,10 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tra
 
 	# Build loader + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(vmem_data[2], vmem_contents, free_blocks)
-	if vmem_preload_blocks < 0
+	if vmem_preload_blocks < $dynmem_blocks
+		# #	Temporary: write config_data and save disk, for debugging purposes
+		# disk.set_config_data(config_data)
+		# disk.save()
 		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
 		exit 1
 	end
@@ -498,11 +497,11 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tra
 end
 
 def print_usage_and_exit
-    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c] [-i <preloadfile>] [-o] [-p] <file>"
+    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c <preloadfile>] [-o] [-s] [-x] <file>"
     puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
     puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
-    puts "       -p: preload story data into virtual memory cache to make game faster at start"
-    puts "       -c: read preload config from preloadfile, previously created with -o (-c also implies -p)"
+#    puts "       -p: preload story data into virtual memory cache to make game faster at start"
+    puts "       -c: read preload config from preloadfile, previously created with -o"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -s: start game in Vice if build succeeds"
     puts "       -x: Use extended tracks (40 instead of 35) on 1541 disk"
@@ -511,7 +510,7 @@ def print_usage_and_exit
 end
 
 i = 0
-preload_vm_blocks = false
+#preload_vm_blocks = false
 $ztype = ""
 await_preloadfile = false
 preloadfile = nil
@@ -530,12 +529,12 @@ begin
 			optimize = true
 		elsif ARGV[i] =~ /^-s$/i then
 			auto_play = true
-		elsif ARGV[i] =~ /^-p$/i then
-			preload_vm_blocks = true
+#		elsif ARGV[i] =~ /^-p$/i then
+#			preload_vm_blocks = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-c$/i then
-			preload_vm_blocks = true
+#			preload_vm_blocks = true
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-z[3-8]$/i then
 			$ztype = ARGV[i].upcase[1..-1]
@@ -557,14 +556,13 @@ rescue
 end
 
 if optimize then
-	if preload_vm_blocks then
-		puts "-p (preload story data) can not be used with -o."
+	if preloadfile then
+		puts "-c (preload story data) can not be used with -o."
 		exit 0
 	end
 	$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.include?('DEBUG')
 	$DEBUGFLAGS.push('PREOPT')
 end
-
 
 print_usage_and_exit() if await_preloadfile
 
@@ -608,7 +606,6 @@ begin
 	puts "Reading file #{$story_file}..."
 	$story_file_data = IO.binread($story_file)
 	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))   
-	$story_file_cursor = 0
 rescue
 	puts "ERROR: Can't open #{$story_file} for reading"
 	exit 0
@@ -621,8 +618,12 @@ high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
 # check header.static_mem_start (size of dynmem)
 static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 
-# get dynmem size (in 1kb blocks)
-$dynmem_size = 1024 * ((high_mem_start + 512)/1024)
+# get dynmem size (in vmem blocks)
+$dynmem_blocks = (static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
+
+puts "Dynmem blocks: #{$dynmem_blocks}"
+
+$story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
@@ -647,7 +648,7 @@ if preload_data then
 	vmem_data = [
 		3 + 2 * preload_data.length, # Size of vmem data
 		preload_data.length, # Number of suggested blocks
-		preload_vm_blocks ? preload_data.length : 0, # Number of preloaded blocks
+		preload_data.length, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
 	lowbytes = []
 	preload_data.each do |block|
@@ -656,21 +657,21 @@ if preload_data then
 	end
 	vmem_data += lowbytes;
 else # No preload data available
-	dynmem_vmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
+#	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
 	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
 	if $DEBUGFLAGS.include?('PREOPT') then
-		all_vmem_blocks = dynmem_vmem_blocks
+		all_vmem_blocks = $dynmem_blocks
 	else
 		all_vmem_blocks = [52 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
 	end
 	vmem_data = [
 		3 + 2 * all_vmem_blocks, # Size of vmem data
 		all_vmem_blocks, # Number of suggested blocks
-		preload_vm_blocks ? all_vmem_blocks : 0, # Number of preloaded blocks
+		all_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
 	lowbytes = []
 	all_vmem_blocks.times do |i|
-		vmem_data.push(i <= dynmem_vmem_blocks ? 0xc0 : 0x80)
+		vmem_data.push(i <= $dynmem_blocks ? 0xc0 : 0x80)
 		lowbytes.push(i * $VMEM_BLOCKSIZE / 256)
 	end
 	vmem_data += lowbytes;
@@ -683,7 +684,7 @@ vmem_data[1].times do |i|
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
 end
 
-build_interpreter(preload_vm_blocks)
+build_interpreter()
 limit_vmem_data(vmem_data)
 
 #puts vmem_contents.length

@@ -192,23 +192,36 @@ parse_header ; must follow load_header
     lda story_start + header_version
 !ifdef Z3 {
     cmp #3
-    beq +
 }
 !ifdef Z4 {
     cmp #4
-    beq +
 }
 !ifdef Z5 {
     cmp #5
-    beq +
 }
 !ifdef Z8 {
     cmp #8
-    beq +
 }
+	beq .supported_version
     lda #ERROR_UNSUPPORTED_STORY_VERSION
     jsr fatalerror
+.supported_version
 
+	; Check how many vmem_blocks are not stored in raw disk sectors
+!ifdef USEVM {
+	ldy story_start + header_static_mem
+.maybe_inc_nonstored_blocks
+	tya
+    and #255 - vmem_blockmask ; keep index into kB chunk
+	beq .store_nonstored_blocks
+	iny
+!ifndef SMALLBLOCK {
+	bne .maybe_inc_nonstored_blocks ; Carry should always be clear
+}
+.store_nonstored_blocks
+	sty nonstored_blocks
+}
+	
 +   ; check file length
     ; Start by multiplying file length by 2
 	lda #0
