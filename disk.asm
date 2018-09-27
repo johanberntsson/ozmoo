@@ -6,9 +6,6 @@ readblocks_currentblock	!byte 0,0 ; 257 = ff 1
 readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
 readblocks_mempos		!byte 0,0 ; $2000 = 00 20
 
-; story_blocks_per_disk_h	!byte 0,0,0
-; story_blocks_per_disk_l !byte 0,0,0
-
 disk_info
 !ifdef Z3 {
 	!fill 54
@@ -114,10 +111,6 @@ readblock
 	sta .disk_tracks ; # of tracks which have entries
 	lda #1
 	sta .track
-	; lda #0
-	; sta zp_temp + 3 ; # highbyte of # of story blocks on disk
-	; lda #0
-	; sta story_blocks_per_disk_l - 1,y
 .check_track
 	lda disk_info + 6,x
 	and #%00011111
@@ -248,26 +241,6 @@ SECTOR_INTERLEAVE = 4
 	jmp .check_next_disk
 +	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
 	jmp fatalerror
-
-    ; ; (assuming each tracks has 16 sectors, skipping track18)
-    ; lda readblocks_currentblock
-    ; and #$0f
-    ; sta .sector
-    ; lda readblocks_currentblock
-    ; sta .track
-    ; lda readblocks_currentblock + 1
-    ; ldx #4
-; -   lsr
-    ; ror .track
-    ; dex
-    ; bne -
-    ; inc .track ; tracks are 1..
-    ; lda .track
-	; ldy #8
-    ; cmp #18
-    ; bcc +
-    ; inc .track ; skip track 18
-	; bne + ; Always branch
 
     ; convert track/sector to ascii and update drive command
 read_track_sector

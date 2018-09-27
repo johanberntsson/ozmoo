@@ -1,10 +1,5 @@
 !ifdef USEVM {
 ; virtual memory
-;TRACE_VM = 1
-;TRACE_VM_PC = 1
-;PRELOAD_UNTIL = header_static_mem ; dynmem only
-;PRELOAD_UNTIL = header_dictionary ; dynmen + grammar tables
-PRELOAD_UNTIL = header_high_mem   ; dynmem + statmem
 
 ; virtual memory address space
 ; Z1-Z3: 128 kB (0 - $1ffff)
@@ -328,98 +323,9 @@ load_blocks_from_index_using_cache
 	txa
 	ldx vmem_cache_cnt
     sta vmem_cache_index,x
-	
-!ifdef TRA	CE_VM {
-    ;jsr print_following_string
-    ;!pet "load_blocks (banking) ",0
-    ;jsr print_vm_map
-}
     rts
 
-; load_dynamic_memory
-    ; ; load header
-    ; jmp load_header ; ############################## TEMPORARY? Skip rest of this loading, it is done from config
-
-    ; jsr load_header
-    ; ; load dynamic memory
-    ; ; read in chunks of 4 blocks (1 kB)
-    ; lda story_start + PRELOAD_UNTIL
-    ; lsr    ; x/4
-; ;!ifndef SMALLBLOCK {
-    ; lsr
-; ;}
-    ; clc
-    ; adc #1 ; x/4 + 1
-    ; asl    ; (x/4 + 1) * 4
-; ;!ifndef SMALLBLOCK {
-    ; asl
-; ;}
-    ; tay
-    ; dey    ; skip header
-    ; ; read blocks
-    ; lda #>story_start;
-    ; clc
-    ; adc #1 ; skip header
-    ; ldx #$01
-    ; stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
-    ; sty readblocks_numblocks
-    ; sta readblocks_mempos + 1
-    ; jmp readblocks
-
 prepare_static_high_memory
-    ; prepare initial map structure with already loaded
-    ; dynamic memory marked as rw (not swappable)
-    ; missing blocks will later be loaded as needed
-    ; by read_byte_at_z_address
-    ; lda #>vmem_end
-    ; sta .zp_maxmem
-    ; ldy #0
-; -   tya ; calculate c64 offset
-; !ifndef SMALLBLOCK {
-    ; asl
-; }
-    ; asl ; 1kB bytes each
-    ; ; check if rw or ro (swappable)
-    ; cmp story_start + PRELOAD_UNTIL
-    ; bcs + ; a >= PRELOAD_UNTIL (dyn mem)
-    ; ; allocated 1kB entry
-    ; sta vmap_z_l,y ; z offset ($00 -)
-; !ifndef VMEM_CLOCK {
-    ; clc 
-    ; adc #>story_start
-    ; sta vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
-; }
-    ; lda #$c0 ; used, dynamic
-    ; sta vmap_z_h,y 
-    ; jmp ++
-; +   ; non-allocated 1kB entry
-; !ifdef VMEM_CLOCK {
-	; ; lda vmap_first_swappable_index
-	; ; bne .vmap_swappable_set
-	; ; sty vmap_first_swappable_index
-	; ; sty vmap_clock_index
-; ; .vmap_swappable_set
-; } else {
-    ; lda .zp_maxmem
-    ; sec
-    ; sbc #vmem_block_pagecount
-    ; sta .zp_maxmem
-    ; sta vmap_c64,y
-; }
-    ; lda #0
-    ; sta vmap_z_h,y
-    ; sta vmap_z_l,y
-; ++  iny
-    ; cpy #vmap_max_length
-    ; bne -
-    ;probably not needed since already set to zero
-    ;and reinit of vmem shoudn't be necessary
-    ;lda #$00
-    ;sta vmem_cache_cnt
-    ;sta vmem_cache_index
-    ;sta vmem_cache_index + 1
-    ;sta vmem_cache_index + 2 
-    ;sta vmem_cache_index + 3
     lda #$ff
     sta zp_pc_h
     sta zp_pc_l
@@ -488,14 +394,6 @@ prepare_static_high_memory
 	dey
 	bpl -
 	
-	; ldy zp_temp + 2  ; Number of bytes to copy
-	; dey
-; ; Copy to vmap_z_l
-; -	lda (zp_temp),y
-	; sta vmap_z_l,y
-	; dey
-	; bpl -
-
 !ifndef VMEM_CLOCK {
 	iny
 	lda #story_start
@@ -515,13 +413,6 @@ prepare_static_high_memory
 	; jsr dollar
 	sta vmap_index
 	tax
-	; jsr print_byte_as_hex
-	; jsr dollar
-	; lda vmap_z_h,x
-	; jsr print_byte_as_hex
-	; lda vmap_z_l,x
-	; jsr print_byte_as_hex
-	; jsr newline
 	jsr load_blocks_from_index
 ++	inc zp_temp + 3
 	bne - ; Always branch
@@ -608,10 +499,6 @@ read_byte_at_z_address
     cpy #vmap_max_length
     bne -
     ; no index found, add last
-!ifdef TRACE_VM {
-    ;jsr print_following_string
-    ;!pet "notfound", 13, 0
-}
 
 	; Load 1 KB block into RAM
 !ifdef VMEM_CLOCK {
@@ -775,16 +662,10 @@ read_byte_at_z_address
     lda vmap_c64,x
 }
 	sta vmap_c64_offset
-	; tay
-    ; lda vmap_z_h,x
-    ; ora #%00100000 ; mark as referenced
-    ; sta vmap_z_h,x
-	; tya
 	cmp #first_banked_memory_page
     bcc .unswappable
     ; this is swappable memory
     ; update vmem_cache if needed
-;    lda vmap_c64,x
     clc
     adc vmem_1kb_offset
 	; Check if this page is in cache
@@ -795,9 +676,6 @@ read_byte_at_z_address
     bpl -
 	; The requested page was not found in the cache
     ; copy vmem to vmem_cache (banking as needed)
- ;   lda vmap_c64,x ; start block
- ;   clc
- ;   adc vmem_1kb_offset
     sta .copy_from_vmem_to_cache + 2
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
@@ -843,8 +721,6 @@ read_byte_at_z_address
     clc
     adc #>vmem_cache_start
     sta mempointer + 1
-;    lda vmap_index,y
-;	tax
     ldx vmap_index
     bne .update_page_rank ; always true
 .unswappable
@@ -858,10 +734,6 @@ read_byte_at_z_address
 !ifndef VMEM_CLOCK { 
 	cpx #$00  ; x is index of accesses Z_PC
     beq .return_result
-!ifdef TRACE_VM {
-    ;jsr printx
-    ;jsr newline
-}
     txa
     tay
     dey ; y = index before x
@@ -892,14 +764,8 @@ read_byte_at_z_address
     sta vmap_z_h,x
 .return_result
 }
-!ifdef TRACE_VM {
-    ;pha
-    ;jsr print_vm_map
-    ;pla
-}
     ; return result
     ldy #0
     lda (mempointer),y
     rts
-;}
-
+}

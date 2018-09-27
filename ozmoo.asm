@@ -18,47 +18,22 @@
 	Z5PLUS = 1
 }
 
-; Define DEBUG for additional runtime printouts
-; (usually defined on the acme command line instead)
-;DEBUG = 1
-
 !source "constants.asm"
 
-; Trace information
-z_trace_page 		  = 256 * ((>program_end) + 1)
 !ifdef TRACE {
 	z_trace_size = 256
 } else {
 	z_trace_size = 0
 }
 
-; where to store vmem_caches
-vmem_cache_start = z_trace_page + z_trace_size ; stack_start + stack_size
-vmem_cache_base_count = 4 ; Should be a multiple of 4. Higher values than 4 are not working properly (HH game breaks). Should probably be set to 4 later, when the interpreter is so big that vmem never needs to handle more than 102 blocks.
-!ifdef USEVM {
-!ifdef vmem_cache_start {
-!ifndef vmem_cache_count {
-!if (>vmem_cache_start) & (255 - vmem_blockmask) = 0 {
-    vmem_cache_count = vmem_cache_base_count ; 4 caches
-} else {
-    vmem_cache_count = (vmem_cache_base_count + vmem_block_pagecount - ((>vmem_cache_start) & (255 - vmem_blockmask))) ; 5-7 caches
-}
-} else {
-    vmem_cache_count = 0
-}
-vmem_cache_size = vmem_cache_count * 256 ; 4 caches, 256 bytes each
-
-stack_start = vmem_cache_start + vmem_cache_size
 stack_size = $0400;
-story_start = stack_start + stack_size
 
-vmem_start = story_start
+!ifdef USEVM {
 !ifdef ALLRAM {
 	vmem_end = $10000
 } else {
 	vmem_end = $d000
-}
-}
+}	
 }
 
 
@@ -137,19 +112,14 @@ w1  cmp $d012
 
 	; TEMPORARY: start text output from middle of the screen
 	ldy #0
-	ldx #13
+	ldx #0
 	jsr set_cursor
 
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 
-;!ifdef DYNMEM_ALREADY_LOADED {
 	jsr parse_header
-;} 
-; else {
-	; jsr load_dynamic_memory
-; }
 	jsr prepare_static_high_memory
     jsr parse_dictionary
     jsr parse_object_table
@@ -171,21 +141,6 @@ w1  cmp $d012
 	+set_memory_normal
 
     rts
-
-; load_header
-    ; ; read the header
-; !ifdef USEVM {
-	; lda #vmem_block_pagecount
-; } else {
-	; lda #1
-; }
-	; sta readblocks_numblocks
-    ; lda #>story_start ; first free memory block
-    ; ldx #$00    ; first block to read from floppy
-    ; stx readblocks_currentblock
-    ; stx readblocks_currentblock + 1
-    ; sta readblocks_mempos + 1
-    ; jsr readblocks
 
 parse_header ; must follow load_header
     ; check z machine version
@@ -259,30 +214,6 @@ parse_header ; must follow load_header
 	rts
 
 !ifndef USEVM {
-; load_dynamic_memory
-    ; ; the default case is to simply treat all as dynamic (r/w)
-    ; jsr load_header
-	; ; check that the file is not too big
-	; ldx fileblocks
-	; bne +
-    ; ldx fileblocks + 1
-    ; cpx #>($D000 - story_start) ; don't overwrite $d000
-    ; bcc ++
-; +   lda #ERROR_OUT_OF_MEMORY
-    ; jsr fatalerror
-
-    ; ; read the rest
-; ++  ldx #>story_start ; first free memory block
-    ; inx        ; skip header
-    ; txa
-    ; ldx #$01           ; first block to read from floppy
-    ; ldy fileblocks + 1 ; read the rest of the blocks
-    ; dey ; skip the header
-    ; stx readblocks_currentblock ; currentblock + 1 already 0 in load_header
-    ; sty readblocks_numblocks
-    ; sta readblocks_mempos + 1
-    ; jmp readblocks
-
 prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)
     rts
@@ -290,3 +221,22 @@ prepare_static_high_memory
 
 program_end
 
+	!align 255, 0, 0
+z_trace_page
+	!fill z_trace_size, 0
+
+!ifdef USEVM {
+vmem_cache_start
+	!fill 1024,0 ; 4 pages
+	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
+vmem_cache_size = * - vmem_cache_start
+vmem_cache_count = vmem_cache_size / 256
+}
+
+stack_start
+	!fill stack_size, 0
+
+story_start
+!ifdef USEVM {
+vmem_start
+}

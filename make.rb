@@ -22,6 +22,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically, none of these flags should be enabled.
 $GENERALFLAGS = [
+	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
 #	'OLDANDWORKING',
 #	'SWEDISH_CHARS',
@@ -35,7 +36,6 @@ $DEBUGFLAGS = [
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
-#	'TRACE',
 #	'TRACE_ATTR',
 #	'TRACE_FLOPPY_VERBOSE',
 #	'TRACE_FROTZ_ATTR',

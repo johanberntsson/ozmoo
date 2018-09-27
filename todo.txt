@@ -121,6 +121,8 @@ Possible alternative versions / extensions
 * Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
 * Support for REU
 * C128 version which can use a C1571, additional RAM and 80-column mode.
+* PET version
+* Plus/4 version
 
 
 

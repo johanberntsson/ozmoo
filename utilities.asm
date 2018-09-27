@@ -373,6 +373,7 @@ print_following_string
 }
 
 print_trace
+!ifdef TRACE {
     jsr newline
 	jsr print_following_string
 	!pet "last opcodes: (#, z_pc, opcode)",0
@@ -415,6 +416,9 @@ print_trace
 	cpx #10
 	bcc .print_next_op
 	bcs .print_no_more_ops
+} else {
+	rts ; If TRACE is not enabled, there is no trace info to print
+}
 
 print_byte_as_hex
 	stx .saved_x
