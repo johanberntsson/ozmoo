@@ -22,7 +22,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically, none of these flags should be enabled.
 $GENERALFLAGS = [
-	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
+#	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
 #	'OLDANDWORKING',
 #	'SWEDISH_CHARS',
@@ -432,8 +432,9 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
-def add_boot_file(game, d64_file)
-	ret = FileUtils.cp("#{d64_file}", "#{game}.d64")
+def add_boot_file(game, d64_filename)
+	ret = FileUtils.cp("#{d64_filename}", "#{game}.d64")
+	puts "#{$C1541} -attach \"#{game}.d64\" -write \"#{$good_zip_file}\" story"
 	system("#{$C1541} -attach \"#{game}.d64\" -write \"#{$good_zip_file}\" story")
 end
 
@@ -450,9 +451,9 @@ def limit_vmem_data(vmem_data)
 	end
 end
 
-def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tracks)
+def build_S1(game, d64_filename, config_data, vmem_data, vmem_contents, extended_tracks)
 	max_story_blocks = 9999
-	disk = D64_image.new(game, d64_file, true, extended_tracks) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
+	disk = D64_image.new(game, d64_filename, true, extended_tracks) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
 	free_blocks = disk.add_story_data(max_story_blocks)
 		puts "Free disk blocks after story data has been written: #{free_blocks}"
 	if $story_file_cursor < $story_file_data.length
@@ -487,14 +488,73 @@ def build_S1(game, d64_file, config_data, vmem_data, vmem_contents, extended_tra
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
-	if add_boot_file(game, d64_file) != true
+	if add_boot_file(game, d64_filename) != true
 		puts "ERROR: Failed to write loader/interpreter to disk."
 		exit 1
 	end
 
 	puts "Successfully built game as #{game}.d64"
+	$bootdiskname = game
 	nil # Signal success
 end
+
+def build_S2(game, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, extended_tracks)
+	config_data[5] = 3 # 3 disks used in total
+	outfile1name = "#{game}_boot"
+	outfile2name = "#{game}_story"
+	max_story_blocks = 9999
+	disk1 = D64_image.new(game, d64_filename_1, true, false) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
+	disk2 = D64_image.new(game, d64_filename_2, false, extended_tracks) # game file to read from, d64 file to create, is boot disk?, forty_tracks?
+	free_blocks = disk1.add_story_data(0)
+	free_blocks = disk2.add_story_data(max_story_blocks)
+		puts "Free disk blocks after story data has been written: #{free_blocks}"
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
+		exit 1
+	end
+
+	# Build loader + terp + preloaded vmem blocks as a file
+	vmem_preload_blocks = build_boot_file(vmem_data[2], vmem_contents, 664)
+	vmem_data[2] = vmem_preload_blocks
+	
+	# Add config data about boot disk
+	disk_info_size = 8 + disk1.config_track_map.length
+	last_block_plus_1 = 0
+	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk1.config_track_map.length] + disk1.config_track_map
+	config_data += [128, 131, 0]  # Name: "Boot disk"
+	config_data[4] += disk_info_size
+	
+	# Add config data about story disk
+	disk_info_size = 8 + disk2.config_track_map.length
+	last_block_plus_1 = 0
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	config_data += [disk_info_size, 9, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk2.config_track_map.length] + disk2.config_track_map
+	config_data += [129, 131, 0]  # Name: "Story disk"
+	config_data[4] += disk_info_size
+	
+	config_data += vmem_data
+
+	#	puts config_data
+	disk1.set_config_data(config_data)
+	disk1.save()
+	disk2.save()
+	
+	# Add loader + terp + preloaded vmem blocks file to disk
+	if add_boot_file(outfile1name, d64_filename_1) != true
+		puts "ERROR: Failed to write loader/interpreter to disk."
+		exit 1
+	end
+	File.delete(outfile2name) if File.exist?(outfile2name)
+	File.rename(d64_filename_2, "./#{outfile2name}.d64")
+	
+	puts "Successfully built game as #{outfile1name}.d64 + #{outfile2name}.d64"
+	$bootdiskname = outfile1name
+	nil # Signal success
+end
+
 
 def print_usage_and_exit
     puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c <preloadfile>] [-o] [-s] [-x] <file>"
@@ -533,6 +593,8 @@ begin
 #			preload_vm_blocks = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
+		elsif ARGV[i] =~ /^-S2$/i then
+			mode = MODE_S2
 		elsif ARGV[i] =~ /^-c$/i then
 #			preload_vm_blocks = true
 			await_preloadfile = true
@@ -599,7 +661,6 @@ end
 	# exit 0
 # end
 
-d64_file = File.join($TEMPDIR, "temp1.d64")
 #dynmem_file = "temp.dynmem"
 
 begin
@@ -691,12 +752,20 @@ limit_vmem_data(vmem_data)
 
 case mode
 when MODE_S1
-	error = build_S1(game, d64_file, config_data.dup, vmem_data.dup, vmem_contents, extended_tracks)
+	d64_filename = File.join($TEMPDIR, "temp1.d64")
+	error = build_S1(game, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, extended_tracks)
 	if !error and auto_play then 
 		play("#{game}.d64")
 	end
+when MODE_S2
+	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
+	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
+	error = build_S2(game, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, extended_tracks)
+	if !error and auto_play then 
+		play("#{$bootdiskname}.d64")
+	end
 else
-	puts "Unsupported build mode. Currently supported modes: S1."
+	puts "Unsupported build mode. Currently supported modes: S1, S2."
 end
 
 exit 0
