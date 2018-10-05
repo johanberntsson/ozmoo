@@ -132,7 +132,11 @@ readblock
 .sector_count 	!byte 0
 .skip_sectors 	!byte 0
 .temp_y 		!byte 0
-SECTOR_INTERLEAVE = 4
+!ifdef INTERLEAVE {
+	SECTOR_INTERLEAVE = INTERLEAVE
+} else {
+	SECTOR_INTERLEAVE = 1
+}
 
 .right_track_found
 	; Add sectors not used at beginning of track
