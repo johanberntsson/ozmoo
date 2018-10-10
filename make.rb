@@ -8,7 +8,7 @@ if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.0\\win32\\exomizer.exe"
+    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.1\\win32\\exomizer.exe"
     $ACME = "acme.exe"
 else
 	# Paths on Linux
@@ -31,7 +31,7 @@ $GENERALFLAGS = [
 # For a production build, none of these flags should be enabled.
 # Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
-#	'DEBUG', # If this is commented out, the other debug flags are ignored.
+	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'BENCHMARK',
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
@@ -47,7 +47,7 @@ $DEBUGFLAGS = [
 #	'TRACE_PROP',
 #	'TRACE_READTEXT',
 #	'TRACE_SHOW_DICT_ENTRIES',
-#	'TRACE_TOKENISE',
+	'TRACE_TOKENISE',
 #	'TRACE_TREE',
 #	'TRACE_VM_PC',
 #	'TRACE_WINDOW',
@@ -457,7 +457,7 @@ def limit_vmem_data(vmem_data)
 	end
 end
 
-def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, extended_tracks)
+def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 9999
 	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: true, forty_tracks: extended_tracks)
 #	def initialize(disk_title:, d64_filename:, is_boot_disk:, forty_tracks:)
@@ -471,7 +471,7 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, ext
 	end
 
 	# Build loader + terp + preloaded vmem blocks as a file
-	vmem_preload_blocks = build_boot_file(vmem_data[2], vmem_contents, free_blocks)
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 	if vmem_preload_blocks < $dynmem_blocks
 		# #	Temporary: write config_data and save disk, for debugging purposes
 		# disk.set_config_data(config_data)
@@ -507,7 +507,7 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, ext
 	nil # Signal success
 end
 
-def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, extended_tracks)
+def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 	config_data[5] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story"
@@ -523,7 +523,7 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	end
 
 	# Build loader + terp + preloaded vmem blocks as a file
-	vmem_preload_blocks = build_boot_file(vmem_data[2], vmem_contents, 664)
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
 	vmem_data[2] = vmem_preload_blocks
 	
 	# Add config data about boot disk
@@ -568,8 +568,8 @@ end
 def print_usage_and_exit
     puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c <preloadfile>] [-o] [-s] [-x] <file>"
     puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
-    puts "       -S1: specify build mode. Defaults to S1. Read about build modes in documentation folder."
-#    puts "       -p: preload story data into virtual memory cache to make game faster at start"
+    puts "       -S1|-S2: specify build mode. Defaults to S1. Read about build modes in documentation folder."
+    puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
     puts "       -c: read preload config from preloadfile, previously created with -o"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -s: start game in Vice if build succeeds"
@@ -579,13 +579,13 @@ def print_usage_and_exit
 end
 
 i = 0
-#preload_vm_blocks = false
 $ztype = ""
 await_preloadfile = false
 preloadfile = nil
 auto_play = false
 optimize = false
 extended_tracks = false
+preload_max_vmem_blocks = nil
 
 begin
 	while i < ARGV.length
@@ -598,8 +598,8 @@ begin
 			optimize = true
 		elsif ARGV[i] =~ /^-s$/i then
 			auto_play = true
-#		elsif ARGV[i] =~ /^-p$/i then
-#			preload_vm_blocks = true
+		elsif ARGV[i] =~ /^-p(\d*)$/i then
+			preload_max_vmem_blocks = ($1.length > 0) ? $1.to_i : 0
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/i then
@@ -631,9 +631,11 @@ if optimize then
 		puts "-c (preload story data) can not be used with -o."
 		exit 0
 	end
-	$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.include?('DEBUG')
 	$DEBUGFLAGS.push('PREOPT')
 end
+
+$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
+
 
 print_usage_and_exit() if await_preloadfile
 
@@ -691,8 +693,11 @@ static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = (static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
-
 puts "Dynmem blocks: #{$dynmem_blocks}"
+if preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
+	puts "Max preload blocks adjusted to dynmem size, from #{preload_max_vmem_blocks} to #{$dynmem_blocks}."
+	preload_max_vmem_blocks = $dynmem_blocks
+end
 
 $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
@@ -710,7 +715,7 @@ config_data = [
 0, 0, 0, 0, # Game ID
 10, # Number of bytes used for disk information, including this byte
 2, # Number of disks, change later if wrong
-# Data for save disk: 8 bytes used, device# = 8, Last story data sector + 1 = 0 tracks used for story data, name = "Save disk"
+# Data for save disk: 8 bytes used, device# = 8, Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
 8, 8, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 
 ]
 
@@ -727,6 +732,10 @@ if preload_data then
 		lowbytes.push(block[2 .. 3].to_i(16))
 	end
 	vmem_data += lowbytes;
+	if preload_max_vmem_blocks and preload_max_vmem_blocks > preload_data.length then
+		puts "Max preload blocks adjusted to suggested preload blocks, from #{preload_max_vmem_blocks} to #{preload_data.length}."
+		preload_max_vmem_blocks = preload_data.length
+	end
 else # No preload data available
 #	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
 	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
@@ -763,16 +772,21 @@ end
 
 limit_vmem_data(vmem_data)
 
+if preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] then
+	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[2]}."
+	preload_max_vmem_blocks = vmem_data[2]
+end
+
 #puts vmem_contents.length
 
 case mode
 when MODE_S1
 	d64_filename = File.join($TEMPDIR, "temp1.d64")
-	error = build_S1(storyname, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, extended_tracks)
+	error = build_S1(storyname, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
-	error = build_S2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, extended_tracks)
+	error = build_S2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 else
 	puts "Unsupported build mode. Currently supported modes: S1, S2."
 	exit 1

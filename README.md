@@ -23,6 +23,7 @@ There are some other implementations, but they have their limitations:
 
 You need to install:
 * Acme cross-assembler
+* Exomizer file compression program
 * Vice C64 emulator
 * Ruby (Tested with 2.4.2, but most 2.x versions should work fine)
 
@@ -45,6 +46,8 @@ Ruby is available on Debian/Ubuntu with:
 ### Windows
 
 Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
+
+Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home). The download includes binaries for Windows.
 
 Get WinVice from [SourceForge](http://vice-emu.sourceforge.net/)
 
