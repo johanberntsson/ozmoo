@@ -532,12 +532,10 @@ find_word_in_dictionary
     ; used registers: a,x
     sty .parse_array_index ; store away the index for later
     lda #0
-    sta .zword      ; clear zword buffer
-    sta .zword + 1
-    sta .zword + 2
-    sta .zword + 3
-    sta .zword + 4
-    sta .zword + 5
+	ldx #5
+-	sta .zword,x      ; clear zword buffer
+	dex
+	bpl -
     lda #1
     sta .is_word_found ; assume success until proven otherwise
     jsr encode_text
@@ -568,99 +566,268 @@ find_word_in_dictionary
     jsr printx
     jsr newline
 }
-    ; find entry in dictionary 
-    lda #0
-    sta .dict_cnt     ; loop counter is 2 bytes
-    sta .dict_cnt + 1
-    ldx .dict_entries     ; start address of dictionary
-    lda .dict_entries + 1
-    jsr set_z_address
+    ; find entry in dictionary, using binary search
+	; Step 1: Set start and end of dictionary
+	lda #0
+	sta .final_word
+	lda #0
+	sta .first_word
+	sta .first_word + 1
+	lda dict_num_entries + 1 ; This is stored High-endian
+	tax
+	ora dict_num_entries
+	bne +
+	jmp .no_entry_found
++	txa
+	sec
+	sbc #1
+	sta .last_word
+	lda dict_num_entries
+	sbc #0
+	sta .last_word + 1
+	
+	; Step 2: Calculate the median word
+.loop_check_next_entry
+	lda .last_word
+	cmp .first_word
+	bne .more_than_one_word
+	ldx .last_word + 1
+	cpx .first_word + 1
+	bne .more_than_one_word
+; This is the last possible word that can match
+	dec .final_word ; Signal that this is the last possible word
+.more_than_one_word
+	sec
+	sbc .first_word
+	tax
+	lda .last_word + 1
+	sbc .first_word + 1
+	lsr
+	tay
+	txa
+	ror
+	clc
+	adc .first_word
+	sta .median_word
+	sta multiplicand
+	tya
+	adc .first_word + 1
+	sta .median_word + 1
+	sta multiplicand + 1
+	
+	; Step 3: Set the address of the median word
+	lda dict_len_entries
+	sta multiplier
+	lda #0
+	sta multiplier + 1
+	jsr mult16
+	lda product
+	clc
+	adc .dict_entries
+	tax
+	lda product + 1
+	adc .dict_entries + 1
+    sta .dictionary_address
+    stx .dictionary_address + 1
+	jsr set_z_address
 
-.dictionary_loop
     ; show the dictonary word
 !ifdef TRACE_SHOW_DICT_ENTRIES {
-    ;lda .addr
-    ;pha
+	jsr dollar
+	lda .dictionary_address
+	jsr print_byte_as_hex
+	lda .dictionary_address + 1
+	jsr print_byte_as_hex
+;	lda .addr + 2
+;	jsr print_byte_as_hex
+	jsr space
+
+;	jsr pause
     lda .addr + 1
     pha
     lda .addr + 2
     pha
-    lda .addr+1
-    jsr printa
-    jsr comma
-    lda .addr+2
-    jsr printa
-    ;jsr space
+    ; lda .addr+1
+    ; jsr printa
+    ; jsr comma
+    ; lda .addr+2
+    ; jsr printa
     jsr print_addr
-    ;jsr space
     pla 
     sta .addr + 2
     pla 
     sta .addr + 1
-    ;pla 
-    ;sta .addr
 }
-    ; store address to current entry
-    jsr get_z_address
-    sta .dictionary_address
-    stx .dictionary_address + 1
+
     ; check if correct entry
     ldy #0
-    sty .num_matching_zchars
 .loop_check_entry
     jsr read_next_byte
-!ifdef TRACE_SHOW_DICT_ENTRIES {
-    jsr printa
-    jsr space
-}
+; !ifdef TRACE_SHOW_DICT_ENTRIES {
+    ; jsr printa
+    ; jsr space
+; }
 !ifdef Z4PLUS {
     cmp .zword,y
 } else {
     cmp .zword + 2,y
 }
     bne .zchars_differ
-    inc .num_matching_zchars
-.zchars_differ
     iny
     cpy #ZCHAR_BYTES_PER_ENTRY
     bne .loop_check_entry
+	beq .found_dict_entry ; Always branch
+.zchars_differ
+	php
+	lda .final_word
+	beq .not_final_word
+	plp
+	bne .no_entry_found ; Always branch
+.not_final_word
+	plp
+	bcs .larger_than_sought_word
+; The median word is smaller than the sought word
 !ifdef TRACE_SHOW_DICT_ENTRIES {
-    jsr printy
-    jsr space
-    lda .num_matching_zchars
-    jsr printa
+	lda #60
+	jsr streams_print_output
     jsr newline
 }
-    cpy .num_matching_zchars
-    beq .found_dict_entry ; we found the correct entry!
-    ; skip the extra data bytes
-    lda dict_len_entries
-    sec
-    sbc #ZCHAR_BYTES_PER_ENTRY
-    tay
-.dictionary_extra_bytes
-    jsr read_next_byte
-    dey
-    bne .dictionary_extra_bytes
-    ; increase the loop counter
-    inc .dict_cnt + 1
-    bne .check_high
-    inc .dict_cnt
-    ; counter < dict_num_entries?
-.check_high
-    lda dict_num_entries + 1
-    cmp .dict_cnt + 1
-    bne .dictionary_loop
-    lda dict_num_entries
-    cmp .dict_cnt
-    bne .dictionary_loop
-    ; no entry found
+	lda .median_word
+	clc
+	adc #1
+	sta .first_word
+	lda .median_word + 1
+	adc #0
+	sta .first_word + 1
+	jmp .loop_check_next_entry ; Always branch
+.larger_than_sought_word
+; The median word is larger than the sought word
+!ifdef TRACE_SHOW_DICT_ENTRIES {
+	lda #62
+	jsr streams_print_output
+    jsr newline
+}
+	lda .median_word
+	sec
+	sbc #1
+	sta .last_word
+	lda .median_word + 1
+	sbc #0
+	sta .last_word + 1
+	jmp .loop_check_next_entry ; Always branch
+
+	
+; /////////////////////////// End of new method	 //////////////////////////////////////////
+
+    ; lda #0
+    ; sta .dict_cnt     ; loop counter is 2 bytes
+    ; sta .dict_cnt + 1
+    ; ldx .dict_entries     ; start address of dictionary
+    ; lda .dict_entries + 1
+    ; jsr set_z_address
+
+; .dictionary_loop
+    ; ; show the dictonary word
+; !ifdef TRACE_SHOW_DICT_ENTRIES {
+    ; ;lda .addr
+    ; ;pha
+    ; lda .addr + 1
+    ; pha
+    ; lda .addr + 2
+    ; pha
+    ; lda .addr+1
+    ; jsr printa
+    ; jsr comma
+    ; lda .addr+2
+    ; jsr printa
+    ; ;jsr space
+    ; jsr print_addr
+    ; ;jsr space
+    ; pla 
+    ; sta .addr + 2
+    ; pla 
+    ; sta .addr + 1
+    ; ;pla 
+    ; ;sta .addr
+; }
+    ; ; store address to current entry
+    ; jsr get_z_address
+    ; sta .dictionary_address
+    ; stx .dictionary_address + 1
+    ; ; check if correct entry
+    ; ldy #0
+    ; sty .num_matching_zchars
+; .loop_check_entry
+    ; jsr read_next_byte
+; !ifdef TRACE_SHOW_DICT_ENTRIES {
+    ; jsr printa
+    ; jsr space
+; }
+; !ifdef Z4PLUS {
+    ; cmp .zword,y
+; } else {
+    ; cmp .zword + 2,y
+; }
+    ; bne .zchars_differ
+    ; inc .num_matching_zchars
+; .zchars_differ
+    ; iny
+    ; cpy #ZCHAR_BYTES_PER_ENTRY
+    ; bne .loop_check_entry
+; !ifdef TRACE_SHOW_DICT_ENTRIES {
+    ; jsr printy
+    ; jsr space
+    ; lda .num_matching_zchars
+    ; jsr printa
+    ; jsr newline
+; }
+    ; cpy .num_matching_zchars
+    ; beq .found_dict_entry ; we found the correct entry!
+    ; ; skip the extra data bytes
+    ; lda dict_len_entries
+    ; sec
+    ; sbc #ZCHAR_BYTES_PER_ENTRY
+    ; tay
+; .dictionary_extra_bytes
+    ; jsr read_next_byte
+    ; dey
+    ; bne .dictionary_extra_bytes
+    ; ; increase the loop counter
+    ; inc .dict_cnt + 1
+    ; bne .check_high
+    ; inc .dict_cnt
+    ; ; counter < dict_num_entries?
+; .check_high
+    ; lda dict_num_entries + 1
+    ; cmp .dict_cnt + 1
+    ; bne .dictionary_loop
+    ; lda dict_num_entries
+    ; cmp .dict_cnt
+    ; bne .dictionary_loop
+; no entry found
+.no_entry_found
+!ifdef TRACE_SHOW_DICT_ENTRIES {
+	lda #60
+	jsr streams_print_output
+	lda #62
+	jsr streams_print_output
+    jsr newline
+}
     lda #0
     sta .dictionary_address
     sta .dictionary_address + 1
     sta .is_word_found
+!ifdef TRACE_SHOW_DICT_ENTRIES {
+	beq .store_find_result ; Only needed if TRACE_SHOW_DICT_ENTRIES is set
+}
 .found_dict_entry
     ; store result into parse_array and exit
+!ifdef TRACE_SHOW_DICT_ENTRIES {
+	lda #61
+	jsr streams_print_output
+    jsr newline
+}
+.store_find_result
     ldy .parse_array_index
     lda .dictionary_address
     sta (parse_array),y
@@ -669,15 +836,20 @@ find_word_in_dictionary
     sta (parse_array),y
     iny
     rts
+.first_word 	!byte 0,0
+.last_word		!byte 0,0
+.median_word	!byte 0,0
+.final_word 	!byte 0	
+	
 .is_word_found !byte 0
-.dict_cnt !byte 0,0
+;.dict_cnt !byte 0,0
 .dict_entries !byte 0,0
 .triplet_counter !byte 0
 .last_char_index !byte 0
 .parse_array_index !byte 0
 .dictionary_address !byte 0,0
 .zword !byte 0,0,0,0,0,0
-.num_matching_zchars !byte 0
+;.num_matching_zchars !byte 0
 
 
 init_read_text_timer

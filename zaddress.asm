@@ -70,7 +70,7 @@ read_next_byte
     ; input: 
     ; output: a
     ; side effects: .addr
-    ; used registers: a,x,y
+    ; used registers: a,x
     sty .next_byte_state
     lda .addr
     ldx .addr + 1
