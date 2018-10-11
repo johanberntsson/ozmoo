@@ -460,6 +460,13 @@ convert_char_to_zchar
     adc #6
     rts
 
+!ifdef Z4PLUS {
+    ZCHARS_PER_ENTRY = 9
+} else {
+    ZCHARS_PER_ENTRY = 6
+}
+ZCHAR_BYTES_PER_ENTRY = ZCHARS_PER_ENTRY * 2 / 3
+
 encode_text
     ; input .wordstart
     ; registers: a,x,y
@@ -467,11 +474,7 @@ encode_text
     lda .wordstart  
     clc
     ; truncate the word length to dictionary size
-!ifdef Z4PLUS {
-    adc #9
-} else {
-    adc #6
-}
+    adc #ZCHARS_PER_ENTRY
     sta .last_char_index 
     ; get started!
     lda #1
@@ -572,12 +575,7 @@ find_word_in_dictionary
     ldx .dict_entries     ; start address of dictionary
     lda .dict_entries + 1
     jsr set_z_address
-!ifdef Z4PLUS {
-    lda #6
-} else {
-    lda #4
-}
-    sta .zchars_per_entry
+
 .dictionary_loop
     ; show the dictonary word
 !ifdef TRACE_SHOW_DICT_ENTRIES {
@@ -624,7 +622,7 @@ find_word_in_dictionary
     inc .num_matching_zchars
 .zchars_differ
     iny
-    cpy .zchars_per_entry
+    cpy #ZCHAR_BYTES_PER_ENTRY
     bne .loop_check_entry
 !ifdef TRACE_SHOW_DICT_ENTRIES {
     jsr printy
@@ -638,11 +636,7 @@ find_word_in_dictionary
     ; skip the extra data bytes
     lda dict_len_entries
     sec
-!ifdef Z4PLUS {
-    sbc #6
-} else {
-    sbc #4
-}
+    sbc #ZCHAR_BYTES_PER_ENTRY
     tay
 .dictionary_extra_bytes
     jsr read_next_byte
@@ -683,8 +677,8 @@ find_word_in_dictionary
 .parse_array_index !byte 0
 .dictionary_address !byte 0,0
 .zword !byte 0,0,0,0,0,0
-.zchars_per_entry !byte 0
 .num_matching_zchars !byte 0
+
 
 init_read_text_timer
     lda .read_text_time
