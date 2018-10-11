@@ -22,7 +22,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically, none of these flags should be enabled.
 $GENERALFLAGS = [
-#	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
+	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
 #	'OLDANDWORKING',
 #	'SWEDISH_CHARS',
@@ -585,7 +585,7 @@ preloadfile = nil
 auto_play = false
 optimize = false
 extended_tracks = false
-preload_max_vmem_blocks = nil
+preload_max_vmem_blocks = 1000
 
 begin
 	while i < ARGV.length

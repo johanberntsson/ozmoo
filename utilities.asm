@@ -333,6 +333,27 @@ printa
     plp
     rts
 
+pause
+    ; subroutine: print newline
+    ; input: 
+    ; output:
+    ; used registers:
+    ; side effects:
+    php
+    sta .saved_a
+    stx .saved_x
+    sty .saved_y
+    jsr print_following_string
+	!pet "[Intentional pause. Press ENTER.]",13,0
+    jsr print_trace
+    jsr printchar_flush
+    jsr kernel_readchar   ; read keyboard
+    lda .saved_a
+    ldx .saved_x
+    ldy .saved_y
+    plp
+    rts
+
 print_following_string
     ; print text (implicit argument passing)
     ; input: 
