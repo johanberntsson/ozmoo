@@ -102,6 +102,7 @@ print_optimized_vm_map
 	!pet "clock",13,0
 ++	ldx #0
 -	lda vmap_z_h,x
+	beq +++
 	jsr print_byte_as_hex
 	lda vmap_z_l,x
 	jsr print_byte_as_hex
@@ -118,8 +119,8 @@ print_optimized_vm_map
 	and #vmem_blockmask
 	jsr print_byte_as_hex
 	jsr colon
-
-	jsr newline
+	
++++	jsr newline
 	jsr dollar
 	jsr dollar
 	jsr dollar

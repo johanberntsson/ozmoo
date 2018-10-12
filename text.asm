@@ -266,7 +266,22 @@ z_ins_sread
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!pet "[preopt mode. type $$$ to exit early.]",13,0
+	!pet "[preopt mode. type xxx to exit early.]",13,0
+	ldy #3
+.check_next_preopt_exit_char
+	lda (string_array),y
+	cmp #$58
+	bne .not_preopt_exit
+	dey
+	bne .check_next_preopt_exit_char
+; Exit PREOPT mode
+!ifdef VMEM_CLOCK {
+	ldx #1
+} else {
+	ldx #0
+}
+	jmp print_optimized_vm_map
+.not_preopt_exit	
 }	
 }
     rts
@@ -371,7 +386,23 @@ z_ins_aread
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!pet "[preopt mode. type $$$ to exit early.]",13,0
+	!pet "[preopt mode. type xxx to exit early.]",13,0
+	ldy #4
+.check_next_preopt_exit_char
+	lda (string_array),y
+	cmp #$58
+	bne .not_preopt_exit
+	dey
+	cpy #1
+	bne .check_next_preopt_exit_char
+; Exit PREOPT mode
+!ifdef VMEM_CLOCK {
+	ldx #1
+} else {
+	ldx #0
+}
+	jmp print_optimized_vm_map
+.not_preopt_exit	
 }	
 }
     lda #0
@@ -492,8 +523,10 @@ encode_text
     rol .zword + 4
     rol .zword + 3
     rol .zword + 2
+!ifdef Z4PLUS {
     rol .zword + 1
     rol .zword
+}
     dex
     bne .shift_zchar
     lda #5 ; pad character
@@ -531,11 +564,11 @@ find_word_in_dictionary
     ; side effects:
     ; used registers: a,x
     sty .parse_array_index ; store away the index for later
-    lda #0
-	ldx #5
--	sta .zword,x      ; clear zword buffer
-	dex
-	bpl -
+    ; lda #0
+	; ldx #5
+; -	sta .zword,x      ; clear zword buffer
+	; dex
+	; bpl -
     lda #1
     sta .is_word_found ; assume success until proven otherwise
     jsr encode_text
@@ -717,93 +750,6 @@ find_word_in_dictionary
 	jmp .loop_check_next_entry ; Always branch
 
 	
-; /////////////////////////// End of new method	 //////////////////////////////////////////
-
-    ; lda #0
-    ; sta .dict_cnt     ; loop counter is 2 bytes
-    ; sta .dict_cnt + 1
-    ; ldx .dict_entries     ; start address of dictionary
-    ; lda .dict_entries + 1
-    ; jsr set_z_address
-
-; .dictionary_loop
-    ; ; show the dictonary word
-; !ifdef TRACE_SHOW_DICT_ENTRIES {
-    ; ;lda .addr
-    ; ;pha
-    ; lda .addr + 1
-    ; pha
-    ; lda .addr + 2
-    ; pha
-    ; lda .addr+1
-    ; jsr printa
-    ; jsr comma
-    ; lda .addr+2
-    ; jsr printa
-    ; ;jsr space
-    ; jsr print_addr
-    ; ;jsr space
-    ; pla 
-    ; sta .addr + 2
-    ; pla 
-    ; sta .addr + 1
-    ; ;pla 
-    ; ;sta .addr
-; }
-    ; ; store address to current entry
-    ; jsr get_z_address
-    ; sta .dictionary_address
-    ; stx .dictionary_address + 1
-    ; ; check if correct entry
-    ; ldy #0
-    ; sty .num_matching_zchars
-; .loop_check_entry
-    ; jsr read_next_byte
-; !ifdef TRACE_SHOW_DICT_ENTRIES {
-    ; jsr printa
-    ; jsr space
-; }
-; !ifdef Z4PLUS {
-    ; cmp .zword,y
-; } else {
-    ; cmp .zword + 2,y
-; }
-    ; bne .zchars_differ
-    ; inc .num_matching_zchars
-; .zchars_differ
-    ; iny
-    ; cpy #ZCHAR_BYTES_PER_ENTRY
-    ; bne .loop_check_entry
-; !ifdef TRACE_SHOW_DICT_ENTRIES {
-    ; jsr printy
-    ; jsr space
-    ; lda .num_matching_zchars
-    ; jsr printa
-    ; jsr newline
-; }
-    ; cpy .num_matching_zchars
-    ; beq .found_dict_entry ; we found the correct entry!
-    ; ; skip the extra data bytes
-    ; lda dict_len_entries
-    ; sec
-    ; sbc #ZCHAR_BYTES_PER_ENTRY
-    ; tay
-; .dictionary_extra_bytes
-    ; jsr read_next_byte
-    ; dey
-    ; bne .dictionary_extra_bytes
-    ; ; increase the loop counter
-    ; inc .dict_cnt + 1
-    ; bne .check_high
-    ; inc .dict_cnt
-    ; ; counter < dict_num_entries?
-; .check_high
-    ; lda dict_num_entries + 1
-    ; cmp .dict_cnt + 1
-    ; bne .dictionary_loop
-    ; lda dict_num_entries
-    ; cmp .dict_cnt
-    ; bne .dictionary_loop
 ; no entry found
 .no_entry_found
 !ifdef TRACE_SHOW_DICT_ENTRIES {

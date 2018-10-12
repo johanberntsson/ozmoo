@@ -1,5 +1,9 @@
 Known bugs
 ----------
+Status line covering several lines isn't working correctly (Nord and Bert).
+
+It's impossible to choose scenario at the beginning of Nord and Bert.
+
 TAKE AUNT in HH prints "You can't see !unt here!"
 
 Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
@@ -8,14 +12,11 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Allow PREOPT mode to be ended with a special command ($$$).
-
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
 - Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
-- Optimise find_word_in_dictionary by stopping when searching > word. Possibly also use binary search to search dictionary faster.
 - Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
     Old todo: - reuse index and skip tests if same block as previous call to read_z_*
 - Add fast-loader code?
@@ -32,10 +33,6 @@ save/restore
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
 
 Put first four entries of z_operand_value_(low/high)_arr on zeropage. Saves 200+ bytes and makes all instructions faster.
-
-Figure out how to best place loader, interpreter and different parts of story file on 1, 2 or 3 disk sides.
-Old todo: - rewrite floppy access code to use all available sectors
-Old todo: - support splitting of large files onto two floppies
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
 
@@ -68,6 +65,14 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Allow PREOPT mode to be ended with a special command (xxx).
+
+Use binary search to search dictionary faster.
+
+Figure out how to best place loader, interpreter and different parts of story file on 1, 2 or 3 disk sides.
+Old todo: - rewrite floppy access code to use all available sectors
+Old todo: - support splitting of large files onto two floppies
+
 Don't store dynmem in raw disk sectors if it is part of the preloaded data. (Requires restart opcode to load the loader again)
 
 Alter make.rb so it can decrease the amount of data to preload, just enough to make a game fit on a disk.
