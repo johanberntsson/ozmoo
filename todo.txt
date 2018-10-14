@@ -1,5 +1,13 @@
 Known bugs
 ----------
+Calling print_trace destroys value in $fb. Haven't been able to figure out why.
+
+Clearing screen doesn't always reset the number of rows printed, so a MORE prompt can appear too early. (Run Borderzone, choose part 1)
+
+You can't pick anything up at the beginning of part 1 in Borderzone. "[I beg your pardon?]
+
+Tokenize using a non-ordered dictionary doesn't work.
+
 Status line covering several lines isn't working correctly (Nord and Bert).
 
 It's impossible to choose scenario at the beginning of Nord and Bert.
@@ -12,6 +20,12 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
+
+Make game ask to insert disk X in drive Y at the right times.
+
+Build config utility. Could be in same location as Z-machine stack and accessible on boot.
+
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
@@ -54,7 +68,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; VAR
 ; ---
 ; input_stream
-; copy_table
 ;
 ; EXT
 ; ---

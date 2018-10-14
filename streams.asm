@@ -28,7 +28,7 @@ streams_print_output
 	; Print a character
 	; input:  character in a
 	; output:
-	; side effects: Uses zp_temp (3 bytes)
+	; side effects: -
 	; affected registers: p
 	pha
 	lda streams_output_selected + 2
@@ -38,18 +38,16 @@ streams_print_output
 	jmp printchar_buffered
 .mem_write
 	lda streams_current_entry + 2
-	sta zp_temp
+	sta .print_byte_to_mem + 1
 	lda streams_current_entry + 3
-	sta zp_temp + 1
-	sty zp_temp + 2
-	ldy #0
+	sta .print_byte_to_mem + 2
 	pla
-	sta (zp_temp),y
+.print_byte_to_mem
+	sta $8000 ; Will be modified!
 	inc streams_current_entry + 2
 	bne +
 	inc streams_current_entry + 3
-+	ldy zp_temp + 2
-	rts
++	rts
 
 z_ins_output_stream
 	; Set output stream held in z_operand 0
