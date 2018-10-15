@@ -347,6 +347,7 @@ end # class D64_image
 ################################## END create_d64.rb
 
 def name_to_c64(name)
+	# Convert camel case and underscore to spaces. Remove "The" or "A" at beginning if the name gets too long.
 	c64_name = name.dup
 	camel_case = c64_name =~ /[a-z]/ and c64_name =~ /[A-Z]/ and c64_name !~ / |_/ 
 	if camel_case then
@@ -356,7 +357,7 @@ def name_to_c64(name)
 	c64_name.gsub!(/_+/," ")
 	c64_name.gsub!(/^(the|a) (.*)$/i,'\2') if c64_name.length > 16 
 	
-	[c64_name.length, 16].min.times do |charno|
+	c64_name.length.times do |charno|
 		code = c64_name[charno].ord
 		code &= 0xdf if code >= 0x61 and code <= 0x7a
 		c64_name[charno] = code.chr
