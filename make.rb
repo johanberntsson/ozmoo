@@ -31,7 +31,7 @@ $GENERALFLAGS = [
 # For a production build, none of these flags should be enabled.
 # Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
-	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
+#	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'BENCHMARK',
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
@@ -186,11 +186,10 @@ class D64_image
 		puts "Creating disk image..."
 
 		# Set disk title
+		c64_title = name_to_c64(disk_title)
 		@track1800[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
-		[disk_title.length, 0x10].min.times do |charno|
-			code = disk_title[charno].ord
-			code &= 0xdf if code >= 0x61 and code <= 0x7a
-			@track1800[0x90 + charno] = code 
+		[c64_title.length, 0x10].min.times do |charno|
+			@track1800[0x90 + charno] = c64_title[charno].ord
 		end
 		
 
@@ -346,6 +345,24 @@ class D64_image
 end # class D64_image
 
 ################################## END create_d64.rb
+
+def name_to_c64(name)
+	c64_name = name.dup
+	camel_case = c64_name =~ /[a-z]/ and c64_name =~ /[A-Z]/ and c64_name !~ / |_/ 
+	if camel_case then
+		c64_name.gsub!(/([a-z])([A-Z])/,'\1 \2')
+		c64_name.gsub!(/A([A-Z])/,'A \1')
+	end
+	c64_name.gsub!(/_+/," ")
+	c64_name.gsub!(/^(the|a) (.*)$/i,'\2') if c64_name.length > 16 
+	
+	[c64_name.length, 16].min.times do |charno|
+		code = c64_name[charno].ord
+		code &= 0xdf if code >= 0x61 and code <= 0x7a
+		c64_name[charno] = code.chr
+	end
+	c64_name
+end
 
 def build_interpreter()
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
