@@ -20,6 +20,8 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Don't try preload sizes smaller than dynmem.
+
 Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
 
 Make game ask to insert disk X in drive Y at the right times.
@@ -78,6 +80,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Build auto-config routine, which selects sensible device numbers for all disks which have device# = 0 (auto select).
+
 Allow PREOPT mode to be ended with a special command (xxx).
 
 Use binary search to search dictionary faster.

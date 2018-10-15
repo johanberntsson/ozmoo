@@ -31,7 +31,7 @@ $GENERALFLAGS = [
 # For a production build, none of these flags should be enabled.
 # Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
-#	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
+	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'BENCHMARK',
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
@@ -503,7 +503,8 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	disk_info_size = 11 + disk.config_track_map.length
 	last_block_plus_1 = 0
 	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
-	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk.config_track_map.length] + disk.config_track_map
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
@@ -548,7 +549,8 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk_info_size = 8 + disk1.config_track_map.length
 	last_block_plus_1 = 0
 	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
-	config_data += [disk_info_size, 8, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk1.config_track_map.length] + disk1.config_track_map
 	config_data += [DISKNAME_BOOT, DISKNAME_DISK, 0]  # Name: "Boot disk"
 	config_data[4] += disk_info_size
@@ -557,7 +559,8 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk_info_size = 8 + disk2.config_track_map.length
 	last_block_plus_1 = 0
 	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
-	config_data += [disk_info_size, 9, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk2.config_track_map.length] + disk2.config_track_map
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Story disk"
 	config_data[4] += disk_info_size
@@ -733,8 +736,8 @@ config_data = [
 0, 0, 0, 0, # Game ID
 10, # Number of bytes used for disk information, including this byte
 2, # Number of disks, change later if wrong
-# Data for save disk: 8 bytes used, device# = 8, Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
-8, 8, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 
+# Data for save disk: 8 bytes used, device# = 0 (auto), Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
+8, 0, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 
 ]
 
 # Create config data for vmem

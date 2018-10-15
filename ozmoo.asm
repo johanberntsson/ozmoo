@@ -81,18 +81,29 @@ w1  cmp $d012
 	jsr init_screen_colours;_invisible
 
 ; Read and parse config from boot disk
+	; $BA holds last used device#
+	ldy $ba
+	cpy #8
+	bcc .pick_default_boot_device
+	cpy #12
+	bcc .store_boot_device
+.pick_default_boot_device
+	ldy #8
+.store_boot_device
+	sty boot_device ; Boot device# stored
+
 	lda #0
 	sta readblocks_mempos
 	lda #4
 	sta readblocks_mempos + 1
 	lda #19
 	ldx #0
-	ldy #8
+; No need to load y with boot device#, already in place
 	jsr read_track_sector
 	inc readblocks_mempos + 1
 	lda #19
 	ldx #1
-	ldy #8
+	ldy boot_device
 	jsr read_track_sector
 ;    jsr kernel_readchar   ; read keyboard
 ; Copy game id
@@ -109,12 +120,12 @@ w1  cmp $d012
 	sta disk_info - 1,x
 	dex
 	bne -
+	
+	jsr auto_disk_config
 
-	; TEMPORARY: start text output from middle of the screen
 	ldy #0
 	ldx #0
 	jsr set_cursor
-
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic

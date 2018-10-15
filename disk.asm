@@ -5,6 +5,8 @@ readblocks_numblocks	!byte 0
 readblocks_currentblock	!byte 0,0 ; 257 = ff 1
 readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
 readblocks_mempos		!byte 0,0 ; $2000 = 00 20
+device_map	!byte 0,0,0,0 ; For device# 8,9,10,11
+boot_device !byte 0
 
 disk_info
 !ifdef Z3 {
@@ -18,6 +20,58 @@ disk_info
 }
 !ifdef Z8 {
 	!fill 118
+}
+
+!ifdef INTERLEAVE {
+	SECTOR_INTERLEAVE = INTERLEAVE
+} else {
+	SECTOR_INTERLEAVE = 1
+}
+
+!zone disk_config {
+auto_disk_config
+	
+; Figure out best device# for all disks set to auto device# (value = 0)
+	lda #0
+	tay ; Disk#
+.next_disk
+	tax ; Memory index
+	lda disk_info + 2,x
+	bne .device_selected
+	cpy #2
+	bcs .not_save_or_boot_disk
+	; This is the save or boot disk
+	lda boot_device
+	bne .select_device ; Always branch
+.not_save_or_boot_disk
+	stx zp_temp ; Store current value of x (memory pointer)
+	ldx #8
+-	lda device_map - 8,x
+	beq .use_this_device
+	inx
+	bne - ; Always branch
+.use_this_device
+	txa
+	ldx zp_temp ; Retrieve current value of x (memory pointer)
+.select_device
+	sta disk_info + 2,x
+.device_selected
+	sta zp_temp + 1 ; Store currently selected device#
+	lda disk_info + 5,x
+	beq +
+	; This is a story disk
+	txa ; Save value of x
+	ldx zp_temp + 1 ; Load currently selected device#
+	inc device_map - 8,x ; Mark device as in use by a story disk
+	tax
++	iny
+	cpy disk_info ; # of disks
+	bcs .done
+	txa
+	adc disk_info + 1,x
+	bne .next_disk ; Always branch
+.done
+	rts
 }
 
 readblocks
@@ -80,7 +134,6 @@ readblock
 	sta .blocks_to_go + 1
 	
 	lda disk_info
-	sta .disks ; # of disks
 	ldx #0 ; Memory index
 	ldy #0 ; Disk id
 .check_next_disk	
@@ -128,15 +181,10 @@ readblock
 	lda .blocks_to_go_tmp + 1
 	sta .blocks_to_go + 1
 	jmp .next_track
-.track_map 		!fill 21
+.track_map 		!fill 21 ; Holds a map of the sectors in a single track
 .sector_count 	!byte 0
 .skip_sectors 	!byte 0
 .temp_y 		!byte 0
-!ifdef INTERLEAVE {
-	SECTOR_INTERLEAVE = INTERLEAVE
-} else {
-	SECTOR_INTERLEAVE = 1
-}
 
 .right_track_found
 	; Add sectors not used at beginning of track
@@ -240,7 +288,7 @@ readblock
 .next_disk
 	ldx .next_disk_index
 	iny
-	cpy .disks
+	cpy disk_info ; # of disks
 	bcs +
 	jmp .check_next_disk
 +	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
@@ -357,7 +405,6 @@ uname_len = * - .uname
 .device !byte 0
 .blocks_to_go !byte 0, 0
 .blocks_to_go_tmp !byte 0, 0
-.disks	!byte 0
 .next_disk_index	!byte 0
 .disk_tracks	!byte 0
 
