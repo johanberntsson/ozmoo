@@ -28,52 +28,6 @@ disk_info
 	SECTOR_INTERLEAVE = 1
 }
 
-!zone disk_config {
-auto_disk_config
-	
-; Figure out best device# for all disks set to auto device# (value = 0)
-	lda #0
-	tay ; Disk#
-.next_disk
-	tax ; Memory index
-	lda disk_info + 2,x
-	bne .device_selected
-	cpy #2
-	bcs .not_save_or_boot_disk
-	; This is the save or boot disk
-	lda boot_device
-	bne .select_device ; Always branch
-.not_save_or_boot_disk
-	stx zp_temp ; Store current value of x (memory pointer)
-	ldx #8
--	lda device_map - 8,x
-	beq .use_this_device
-	inx
-	bne - ; Always branch
-.use_this_device
-	txa
-	ldx zp_temp ; Retrieve current value of x (memory pointer)
-.select_device
-	sta disk_info + 2,x
-.device_selected
-	sta zp_temp + 1 ; Store currently selected device#
-	lda disk_info + 5,x
-	beq +
-	; This is a story disk
-	txa ; Save value of x
-	ldx zp_temp + 1 ; Load currently selected device#
-	inc device_map - 8,x ; Mark device as in use by a story disk
-	tax
-+	iny
-	cpy disk_info ; # of disks
-	bcs .done
-	txa
-	adc disk_info + 1,x
-	bne .next_disk ; Always branch
-.done
-	rts
-}
-
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
