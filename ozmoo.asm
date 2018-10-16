@@ -65,6 +65,44 @@ game_id		!byte 0,0,0,0
 !source "objecttable.asm"
 
 .initialize
+	jsr deletable_init
+	jsr prepare_static_high_memory
+    jsr parse_dictionary
+    jsr parse_object_table
+
+	jsr streams_init
+	jsr stack_init
+
+	jsr init_screen_colours
+	
+	; start text output from bottom of the screen
+	ldy #0
+	ldx #24
+	jsr set_cursor
+	
+	jsr z_init
+	jsr z_execute
+
+	; Back to normal memory banks
+	+set_memory_normal
+
+    rts
+
+!ifndef USEVM {
+prepare_static_high_memory
+    ; the default case is to simply treat all as dynamic (r/w)
+    rts
+}
+
+program_end
+
+	!align 255, 0, 0
+z_trace_page
+	!fill z_trace_size, 0
+
+vmem_cache_start
+!zone deletable_init {
+deletable_init
     ; check if PAL or NTSC (needed for read_line timer)
 w0  lda $d012
 w1  cmp $d012
@@ -130,30 +168,7 @@ w1  cmp $d012
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 
-	jsr parse_header
-	jsr prepare_static_high_memory
-    jsr parse_dictionary
-    jsr parse_object_table
-
-	jsr streams_init
-	jsr stack_init
-
-	jsr init_screen_colours
-	
-	; start text output from bottom of the screen
-	ldy #0
-	ldx #24
-	jsr set_cursor
-	
-	jsr z_init
-	jsr z_execute
-
-	; Back to normal memory banks
-	+set_memory_normal
-
-    rts
-
-parse_header ; must follow load_header
+; parse_header section
     ; check z machine version
     lda story_start + header_version
 !ifdef Z3 {
@@ -223,20 +238,8 @@ parse_header ; must follow load_header
 +	sty fileblocks
 	stx fileblocks + 1
 	rts
-
-!ifndef USEVM {
-prepare_static_high_memory
-    ; the default case is to simply treat all as dynamic (r/w)
-    rts
 }
 
-program_end
-
-	!align 255, 0, 0
-z_trace_page
-	!fill z_trace_size, 0
-
-vmem_cache_start
 !zone disk_config {
 auto_disk_config
 ; Figure out best device# for all disks set to auto device# (value = 0)
@@ -282,8 +285,8 @@ auto_disk_config
 	rts
 }
 !ifdef USEVM {
-	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
-	!fill 768,0 ; 3 pages
+;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
+	!fill 1024 - (* - vmem_cache_start),0 ; 4 pages
 	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
 vmem_cache_size = * - vmem_cache_start
 vmem_cache_count = vmem_cache_size / 256
