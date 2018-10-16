@@ -487,7 +487,32 @@ printchar_buffered
 .buffer_index      !byte 0
 .buffer_last_space !byte 0
 .buffer            !fill 41, 0
+.save_x				!byte 0
+.save_y				!byte 0
 
+printchar_raw
+	php
+	stx .save_x
+	sty .save_y
+	jsr kernel_printchar
+	ldy .save_y
+	ldx .save_x
+	plp
+	rts
+
+printstring_raw
+; Parameters: Address in a,x to 0-terminated string
+	stx .read_byte + 1
+	sta .read_byte + 2
+	ldx #0
+.read_byte
+	lda $8000,x
+	beq +
+	jsr printchar_raw
+	inx
+	bne .read_byte
++	rts
+	
 set_cursor
     ; input: y=column (0-39)
     ;        x=row (0-24)

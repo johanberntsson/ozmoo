@@ -74,7 +74,6 @@ For each disk:
 			129: "Story "
 			130: "Save "
 			131: "disk "
-			132: "(1541 disk)"
 
 --- Vmem information block ---
 1 byte: Number of bytes used for vmem information, including this byte

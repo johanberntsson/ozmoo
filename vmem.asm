@@ -342,9 +342,9 @@ prepare_static_high_memory
 
 	lda #5
 	clc
-	adc $0404
+	adc config_load_address + 4
 	sta zp_temp
-	lda #4
+	lda #>config_load_address
 ;	adc #0 ; Not needed if disk info is always <= 249 bytes
 	sta zp_temp + 1
 	ldy #1

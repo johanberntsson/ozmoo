@@ -103,6 +103,7 @@ z_trace_page
 vmem_cache_start
 !zone deletable_init {
 deletable_init
+	cld
     ; check if PAL or NTSC (needed for read_line timer)
 w0  lda $d012
 w1  cmp $d012
@@ -116,7 +117,7 @@ w1  cmp $d012
 	lda #$80
 	sta charset_switchable
 
-	jsr init_screen_colours;_invisible
+	jsr init_screen_colours ; _invisible
 
 ; Read and parse config from boot disk
 	; $BA holds last used device#
@@ -130,9 +131,9 @@ w1  cmp $d012
 .store_boot_device
 	sty boot_device ; Boot device# stored
 
-	lda #0
+	lda #<config_load_address
 	sta readblocks_mempos
-	lda #4
+	lda #>config_load_address
 	sta readblocks_mempos + 1
 	lda #19
 	ldx #0
@@ -146,24 +147,26 @@ w1  cmp $d012
 ;    jsr kernel_readchar   ; read keyboard
 ; Copy game id
 	ldx #0
--	lda $0400,x
+-	lda config_load_address,x
 	sta game_id,x
 	inx
 	cpx #4
 	bcc -
 ; Copy disk info
-	ldx $0404
+	ldx config_load_address + 4
 	dex
--	lda $0404,x
+-	lda config_load_address + 4,x
 	sta disk_info - 1,x
 	dex
 	bne -
 	
 	jsr auto_disk_config
+;	jsr init_screen_colours
+	jsr insert_disks_at_boot
 
-	ldy #0
-	ldx #0
-	jsr set_cursor
+	; ldy #0
+	; ldx #0
+	; jsr set_cursor
 	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
@@ -284,6 +287,43 @@ auto_disk_config
 .done
 	rts
 }
+!zone insert_disks_at_boot {
+insert_disks_at_boot
+;	jsr kernel_readchar
+	lda #0
+	tay ; Disk#
+.next_disk
+	tax ; Memory index
+	cpy #1
+	bcc .dont_need_to_insert_this
+	; Store in current_disks
+	lda disk_info + 2,x
+	stx zp_temp
+	tax
+	lda zp_temp
+	sta current_disks - 8,x
+	tax
+	cpy #2
+	bcc .dont_need_to_insert_this
+;	lda disk_info + 5,x
+;	beq .not_a_story_disk
+	stx zp_temp
+	sty zp_temp + 1
+	ldy zp_temp
+	jsr print_insert_disk_msg
+	ldx zp_temp
+	ldy zp_temp + 1
+.dont_need_to_insert_this
++	iny
+	cpy disk_info ; # of disks
+	bcs .done
+	txa
+	adc disk_info + 1,x
+	bne .next_disk ; Always branch
+.done
+	rts
+}
+
 !ifdef USEVM {
 ;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
 	!fill 1024 - (* - vmem_cache_start),0 ; 4 pages
@@ -300,3 +340,5 @@ story_start
 !ifdef USEVM {
 vmem_start
 }
+
+config_load_address = stack_start + 512

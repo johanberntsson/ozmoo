@@ -7,6 +7,7 @@ readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
 readblocks_mempos		!byte 0,0 ; $2000 = 00 20
 device_map	!byte 0,0,0,0 ; For device# 8,9,10,11
 boot_device !byte 0
+current_disks !byte $ff, $ff, $ff, $ff
 
 disk_info
 !ifdef Z3 {
@@ -28,6 +29,90 @@ disk_info
 	SECTOR_INTERLEAVE = 1
 }
 
+!zone disk_messages {
+print_insert_disk_msg
+; Parameters: y: memory index to start of info for disk in disk_info
+	sty .save_y
+	ldx .print_row
+	ldy #2
+	jsr set_cursor
+	lda #>insert_msg_1
+	ldx #<insert_msg_1
+	jsr printstring_raw
+	ldy .save_y
+; Print disk name
+	lda disk_info + 5,y ; Number of tracks
+	clc
+	adc .save_y
+	tay
+-	lda disk_info + 5,y
+	beq .disk_name_done
+	bmi .special_string
+	jsr printchar_raw
+	iny
+	bne - ; Always branch
+.special_string
+	and #%111
+	tax
+	lda .special_string_low,x
+	sta .save_x
+	lda .special_string_high,x
+	ldx .save_x
+	jsr printstring_raw
+	iny
+	jmp -
+.disk_name_done
+	lda #>insert_msg_2
+	ldx #<insert_msg_2
+	jsr printstring_raw
+	; lda #32
+	; jsr print_char_raw
+	ldy .save_y
+	lda disk_info + 2,y
+	tax
+	cmp #10
+	bcc +
+	lda #$31
+	jsr printchar_raw
+	txa
+	sec
+	sbc #10
++	clc
+	adc #$30
+	jsr printchar_raw
+	lda #>insert_msg_3
+	ldx #<insert_msg_3
+	jsr printstring_raw
+	jsr kernel_readchar
+	lda .print_row
+	clc
+	adc #3
+	sta .print_row
+	rts
+.save_x	!byte 0
+.save_y	!byte 0
+.print_row	!byte 14
+;.device_no	!byte 0
+.special_string_128
+	!pet "Boot ",0
+.special_string_129
+	!pet "Story ",0
+.special_string_130
+	!pet "Save ",0
+.special_string_131
+	!pet "disk ",0
+.special_string_low		!byte <.special_string_128, <.special_string_129, <.special_string_130, <.special_string_131
+.special_string_high	!byte >.special_string_128, >.special_string_129, >.special_string_130, >.special_string_131
+
+
+insert_msg_1
+!pet "Please insert ",0
+insert_msg_2
+!pet 13,"  in drive ",0
+insert_msg_3
+!pet " [ENTER] ",0
+}
+	
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function

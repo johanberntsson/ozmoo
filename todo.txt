@@ -80,6 +80,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Print messages at game start telling player which disks to insert into which drives.
+
 Build auto-config routine, which selects sensible device numbers for all disks which have device# = 0 (auto select).
 
 Allow PREOPT mode to be ended with a special command (xxx).
