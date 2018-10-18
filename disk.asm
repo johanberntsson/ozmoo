@@ -30,12 +30,21 @@ disk_info
 }
 
 !zone disk_messages {
+prepare_for_disk_msgs
+	jsr clear_screen_raw
+	; lda #0
+	; sta .print_row
+	ldx #0
+	tay
+	jsr set_cursor
+	rts
+
 print_insert_disk_msg
 ; Parameters: y: memory index to start of info for disk in disk_info
 	sty .save_y
-	ldx .print_row
-	ldy #2
-	jsr set_cursor
+	; ldx .print_row
+	; ldy #2
+	; jsr set_cursor
 	lda #>insert_msg_1
 	ldx #<insert_msg_1
 	jsr printstring_raw
@@ -45,7 +54,7 @@ print_insert_disk_msg
 	clc
 	adc .save_y
 	tay
--	lda disk_info + 5,y
+-	lda disk_info + 6,y
 	beq .disk_name_done
 	bmi .special_string
 	jsr printchar_raw
@@ -65,8 +74,6 @@ print_insert_disk_msg
 	lda #>insert_msg_2
 	ldx #<insert_msg_2
 	jsr printstring_raw
-	; lda #32
-	; jsr print_char_raw
 	ldy .save_y
 	lda disk_info + 2,y
 	tax
@@ -84,10 +91,11 @@ print_insert_disk_msg
 	ldx #<insert_msg_3
 	jsr printstring_raw
 	jsr kernel_readchar
-	lda .print_row
-	clc
-	adc #3
-	sta .print_row
+	; lda .print_row
+	; clc
+	; adc #3
+	; sta .print_row
+	ldy .save_y
 	rts
 .save_x	!byte 0
 .save_y	!byte 0
@@ -106,7 +114,7 @@ print_insert_disk_msg
 
 
 insert_msg_1
-!pet "Please insert ",0
+!pet 13,13,"  Please insert ",0
 insert_msg_2
 !pet 13,"  in drive ",0
 insert_msg_3
@@ -413,7 +421,7 @@ read_track_sector
     sta (zp_mempos),Y   ; write byte to memory
     iny
     bne -         ; next byte, end when 256 bytes are read
-.close
+close_io
     lda #$0F      ; filenumber 15
     jsr kernel_close ; call CLOSE
 
@@ -426,7 +434,7 @@ read_track_sector
     ; accumulator contains BASIC error code
     ; most likely errors:
     ; A = $05 (DEVICE NOT PRESENT)
-    jsr .close    ; even if OPEN failed, the file has to be closed
+    jsr close_io    ; even if OPEN failed, the file has to be closed
     lda #ERROR_FLOPPY_READ_ERROR
     jsr fatalerror
 .cname !text "#"
@@ -463,10 +471,166 @@ z_ins_save
 	jmp z_store_result
 }
 
+!zone save_restore {
+list_save_files
+	lda #13
+	jsr printchar_raw
+	jsr printchar_raw
+
+    ; open the channel file
+    lda #1
+    ldx #<.dirname
+    ldy #>.dirname
+    jsr kernel_setnam ; call SETNAM
+
+    lda #2      ; file number 2
+    ldx disk_info + 2 ; Device# for save disk
++   ldy #0      ; secondary address 2
+    jsr kernel_setlfs ; call SETLFS
+
+    jsr kernel_open     ; call OPEN
+    bcs .error    ; if carry set, the file could not be opened
+
+    ldx #2      ; filenumber 2
+    jsr kernel_chkin ; call CHKIN (file 2 now used as input)
+
+	; Skip load address and disk title
+	ldy #32
+-	jsr kernel_readchar
+	dey
+	bne -
+
+.read_next_line	
+	lda #0
+	sta zp_temp + 1
+	; Read row pointer
+	jsr kernel_readchar
+	sta zp_temp
+	jsr kernel_readchar
+	ora zp_temp
+	beq .end_of_dir
+
+	jsr kernel_readchar
+	jsr kernel_readchar
+-	jsr kernel_readchar
+	cmp #0
+	beq .read_next_line
+	cmp #$22 ; Charcode for "
+	bne -
+	jsr kernel_readchar
+	cmp #$21 ; charcode for !
+	bne .not_a_save_file
+	jsr kernel_readchar
+	cmp #$30 ; charcode for 0
+	bcc .not_a_save_file
+	cmp #$3a ; (charcode for 9) + 1
+	bcs .not_a_save_file
+	tax
+	sta .occupied_slots - $30,x
+	jsr printchar_raw
+	lda #58
+	jsr printchar_raw
+	lda #32
+	jsr printchar_raw
+	dec zp_temp + 1
+	
+-	jsr kernel_readchar
+.not_a_save_file	
+	cmp #$22 ; Charcode for "
+	beq .end_of_name
+	bit zp_temp + 1
+	bpl - ; Skip printing if not a save file
+	jsr printchar_raw
+	bne - ; Always branch
+.end_of_name
+-	jsr kernel_readchar
+	cmp #0 ; EOL
+	bne -
+	bit zp_temp + 1
+	bpl .read_next_line ; Skip printing if not a save file
+	lda #13
+	jsr printchar_raw
+	bne .read_next_line
+	
+.end_of_dir
+	jsr close_io
+    ; lda #2      ; filenumber 2
+    ; jsr kernel_close ; call CLOSE
+
+    ; jsr kernel_clrchn ; call CLRCHN
+	lda #1 ; Signal success
+    rts
+.error
+    ; accumulator contains BASIC error code
+    ; most likely errors:
+    ; A = $05 (DEVICE NOT PRESENT)
+	sta zp_temp + 1 ; Store error code for printing
+    jsr close_io    ; even if OPEN failed, the file has to be closed
+	lda #>.disk_error_msg
+	ldx #<.disk_error_msg
+	jsr printstring_raw
+	; Add code to print error code!
+    lda #0
+    rts
+	
+.dirname
+	!pet "$"
+.occupied_slots
+	!fill 10,0
+.disk_error_msg
+	!pet 13,"Disk error #",0
+
 save_game
+	ldx disk_info + 2 ; Device# for save disk
+	lda current_disks - 8,x
+	sta .last_disk
+	beq + ; Save disk is already in drive.
+	jsr prepare_for_disk_msgs
+	ldy #0
+	jsr print_insert_disk_msg
++
+	; List files on disk
+	jsr list_save_files
+	beq .save_failed
+
+	; Pick a slot#
+	
+	; Enter a name
+	
+	; Print "Saving..."
+	lda #>.save_msg
+	ldx #<.save_msg
+	jsr printstring_raw
+
+	; Erase old file, if any
+	
+	; Swap in z_pc and stack_ptr
+	
+	; Perform save
+
+	; Swap out z_pc and stack_ptr
+
+	; Ask user to put story disk in again, if applicable
+	ldy .last_disk
+	beq + ; Save disk was in disk before, no need to change
+	bmi + ; The drive was empty before, no need to change disk now
+	jsr print_insert_disk_msg
+	tya
+	ldx disk_info + 2 ; Device# for save disk
+	sta current_disks - 8,x
+
++	jsr clear_screen_raw
+	ldx #24
+	ldy #0
+	jsr set_cursor
+	
+.save_failed
+	; Return failed status
 	lda #0
 	tax
 	rts
-
+.last_disk	!byte 0
+.save_msg	!pet 13,13,13,"  Saving...",0
+}
 
 	

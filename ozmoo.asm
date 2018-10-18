@@ -290,6 +290,7 @@ auto_disk_config
 !zone insert_disks_at_boot {
 insert_disks_at_boot
 ;	jsr kernel_readchar
+	jsr prepare_for_disk_msgs
 	lda #0
 	tay ; Disk#
 .next_disk

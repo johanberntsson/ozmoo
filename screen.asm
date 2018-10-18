@@ -490,6 +490,11 @@ printchar_buffered
 .save_x				!byte 0
 .save_y				!byte 0
 
+clear_screen_raw
+	lda #147
+	jsr kernel_printchar
+	rts
+
 printchar_raw
 	php
 	stx .save_x
