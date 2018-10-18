@@ -472,10 +472,30 @@ z_ins_save
 }
 
 !zone save_restore {
+.error
+    ; accumulator contains BASIC error code
+    ; most likely errors:
+    ; A = $05 (DEVICE NOT PRESENT)
+	sta zp_temp + 1 ; Store error code for printing
+    jsr close_io    ; even if OPEN failed, the file has to be closed
+	lda #>.disk_error_msg
+	ldx #<.disk_error_msg
+	jsr printstring_raw
+	; Add code to print error code!
+    lda #0
+    rts
+	
 list_save_files
 	lda #13
 	jsr printchar_raw
 	jsr printchar_raw
+	lda #0
+	ldx #9
+-	sta .occupied_slots,x
+	dex
+	bpl -
+	jsr get_cursor
+	stx zp_temp + 2 ; Row where first entry is printed
 
     ; open the channel file
     lda #1
@@ -554,32 +574,112 @@ list_save_files
 	
 .end_of_dir
 	jsr close_io
-    ; lda #2      ; filenumber 2
-    ; jsr kernel_close ; call CLOSE
 
-    ; jsr kernel_clrchn ; call CLRCHN
+	; Fill in blanks
+	ldx #0
+-	lda .occupied_slots,x
+	bne +
+	txa
+	ora #$30
+	jsr printchar_raw
+	lda #58
+	jsr printchar_raw
+	lda #13
+	jsr printchar_raw
++	inx
+	cpx #10
+	bcc -
+	; Sort list
+	lda #0
+	ldy #4
+	clc
+-	dec zp_temp + 2
+	bmi +
+	adc #40
+	tax
+	tya
+	adc #0
+	tay
+	txa
+	bcc - ; Always branch
++	sta .base_screen_pos
+	sty .base_screen_pos + 1
+	ldx #1
+	stx .sort_item
+-	jsr .insertion_sort_item
+	inc .sort_item
+	ldx .sort_item
+	cpx #10
+	bcc -
+	
 	lda #1 ; Signal success
     rts
-.error
-    ; accumulator contains BASIC error code
-    ; most likely errors:
-    ; A = $05 (DEVICE NOT PRESENT)
-	sta zp_temp + 1 ; Store error code for printing
-    jsr close_io    ; even if OPEN failed, the file has to be closed
-	lda #>.disk_error_msg
-	ldx #<.disk_error_msg
-	jsr printstring_raw
-	; Add code to print error code!
-    lda #0
-    rts
-	
+
+.insertion_sort_item
+	; Parameters: x, .sort_item: item (1-9)
+	stx .current_item
+--	jsr .calc_screen_address
+	stx zp_temp + 2
+	sta zp_temp + 3
+	ldx .current_item
+	dex
+	jsr .calc_screen_address
+	stx zp_temp
+	sta zp_temp + 1
+	ldy #0
+	lda (zp_temp + 2),y
+	cmp (zp_temp),y
+	bcs .done_sort
+	; Swap items
+	ldy #17
+-	lda (zp_temp),y
+	pha
+	lda (zp_temp + 2),y
+	sta (zp_temp),y
+	pla
+	sta (zp_temp + 2),y
+	dey
+	bpl -
+	dec .current_item
+	ldx .current_item
+	bne --
+.done_sort
+	rts
+.calc_screen_address
+	lda .base_screen_pos
+	ldy .base_screen_pos + 1
+	stx .counter
+	clc
+-	dec .counter
+	bmi +
+	adc #40
+	tax
+	tya
+	adc #0
+	tay
+	txa
+	bcc - ; Always branch
++	tax
+	tya
+	rts		
 .dirname
 	!pet "$"
 .occupied_slots
 	!fill 10,0
 .disk_error_msg
 	!pet 13,"Disk error #",0
-
+.sort_item
+	!byte 0
+.current_item
+	!byte 0
+.counter
+	!byte 0
+.base_screen_pos
+	!byte 0,0
+; .low_screen_pos
+	; !byte 0,0
+; .high_screen_pos
+	; !byte 0,0
 save_game
 	ldx disk_info + 2 ; Device# for save disk
 	lda current_disks - 8,x
