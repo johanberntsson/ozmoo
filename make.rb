@@ -32,7 +32,7 @@ $GENERALFLAGS = [
 # Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
-	'BENCHMARK',
+#	'BENCHMARK',
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
@@ -419,7 +419,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		save_good_boot_file()
 		return vmem_preload_blocks
 	end
-	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####"
+	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####\n\n"
 #	base_size = build_specific_boot_file(0, vmem_contents)
 #	return -1 if base_size > max_file_size
 #	save_good_boot_file()
@@ -435,24 +435,27 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		if min_failed_blocks - max_ok_blocks < 2
 			actual_blocks = max_ok_blocks
 			done = true
+		elsif min_failed_blocks - $dynmem_blocks < 1
+			actual_blocks = max_ok_blocks
+			done = true
 		else
-			mid = (min_failed_blocks + max_ok_blocks) / 2
+			mid = (min_failed_blocks + [max_ok_blocks, $dynmem_blocks].max) / 2
 #			puts "Trying #{mid} blocks..."
 			size = build_specific_boot_file(mid, vmem_contents)
 			last_build = mid
 			if size > max_file_size then
-				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: Too big #####"
+				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: Too big #####\n\n"
 				min_failed_blocks = mid
 			else
 				save_good_boot_file()
-				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: OK      #####"
+				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: OK      #####\n\n"
 				max_ok_blocks = mid
 #				max_ok_blocks = [mid + (1.25 * (max_file_size - size) / $VMEM_BLOCKSIZE).floor.to_i, min_failed_blocks - 1].min  
 			end
 		end
 	end
 #	build_specific_boot_file(actual_blocks, vmem_contents) unless last_build == actual_blocks
-	puts "Picked #{actual_blocks} blocks."
+	puts "Picked #{actual_blocks} blocks." if max_ok_blocks >= 0
 	actual_blocks
 end
 
@@ -599,7 +602,6 @@ def print_usage_and_exit
 end
 
 i = 0
-#$ztype = ""
 await_preloadfile = false
 preloadfile = nil
 auto_play = false
@@ -656,6 +658,7 @@ $DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEB
 
 print_usage_and_exit() if await_preloadfile
 
+# Check for file specifying which blocks to preload
 preload_data = nil
 if preloadfile then
 	preload_raw_data = File.read(preloadfile)
