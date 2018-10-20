@@ -494,8 +494,11 @@ list_save_files
 -	sta .occupied_slots,x
 	dex
 	bpl -
-	jsr get_cursor
-	stx zp_temp + 2 ; Row where first entry is printed
+	; Remember address of row where first entry is printed
+	lda zp_screenline
+	sta .base_screen_pos
+	lda zp_screenline + 1
+	sta .base_screen_pos + 1
 
     ; open the channel file
     lda #1
@@ -546,6 +549,9 @@ list_save_files
 	cmp #$3a ; (charcode for 9) + 1
 	bcs .not_a_save_file
 	tax
+	lda .occupied_slots - $30,x
+	bne .not_a_save_file ; Since there is another save file with the same number, we ignore this file.
+	txa
 	sta .occupied_slots - $30,x
 	jsr printchar_raw
 	lda #58
@@ -590,20 +596,6 @@ list_save_files
 	cpx #10
 	bcc -
 	; Sort list
-	lda #0
-	ldy #4
-	clc
--	dec zp_temp + 2
-	bmi +
-	adc #40
-	tax
-	tya
-	adc #0
-	tay
-	txa
-	bcc - ; Always branch
-+	sta .base_screen_pos
-	sty .base_screen_pos + 1
 	ldx #1
 	stx .sort_item
 -	jsr .insertion_sort_item
