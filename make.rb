@@ -32,7 +32,7 @@ $GENERALFLAGS = [
 # Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
-#	'BENCHMARK',
+	'BENCHMARK',
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
@@ -587,8 +587,7 @@ end
 
 
 def print_usage_and_exit
-    puts "Usage: make.rb [z3|z4|z5|z8] [-S1] [-c <preloadfile>] [-o] [-s] [-x] <file>"
-    puts "       -z3|-z4|-z5|-z8: zmachine version, if not clear from filename"
+    puts "Usage: make.rb [-S1|-S2] [-c <preloadfile>] [-o] [-s] [-x] <file>"
     puts "       -S1|-S2: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
     puts "       -c: read preload config from preloadfile, previously created with -o"
@@ -600,7 +599,7 @@ def print_usage_and_exit
 end
 
 i = 0
-$ztype = ""
+#$ztype = ""
 await_preloadfile = false
 preloadfile = nil
 auto_play = false
@@ -628,9 +627,6 @@ begin
 		elsif ARGV[i] =~ /^-c$/i then
 #			preload_vm_blocks = true
 			await_preloadfile = true
-		elsif ARGV[i] =~ /^-z[3-8]$/i then
-			$ztype = ARGV[i].upcase[1..-1]
-			puts $ztype
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -679,32 +675,17 @@ extension = File.extname($story_file)
 filename = File.basename($story_file)
 storyname = File.basename($story_file, extension)
 #puts "storyname: #{storyname}" 
-if $ztype.empty?
-	if !extension.empty?
-	    $ztype = extension[1..-1].upcase
-	end
-end
-if extension.empty? then
-    puts "ERROR: cannot figure out zmachine version. Please specify"
-    exit 1
-end
-
-# if path.empty? || path.length == 1 then
-	# puts "ERROR: empty path"
-	# exit 0
-# end
-
-#dynmem_file = "temp.dynmem"
 
 begin
 	puts "Reading file #{$story_file}..."
 	$story_file_data = IO.binread($story_file)
-	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))   
+	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))
 rescue
 	puts "ERROR: Can't open #{$story_file} for reading"
 	exit 0
 end
 
+$ztype = "Z#{$story_file_data[0].ord}"
 
 # check header.high_mem_start (size of dynmem + statmem)
 high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
@@ -723,14 +704,6 @@ end
 $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
-
-# dynmem = $story_file_data[0 .. $dynmem_size - 1]
-# # Assume memory starts at $3800
-# dynmem_filehandle.write([0x00,0x38].pack("CC"))
-# dynmem_filehandle.write(dynmem)
-# dynmem_filehandle.close
-
-
 
 config_data = [
 0, 0, 0, 0, # Game ID

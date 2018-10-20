@@ -22,8 +22,6 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-make.rb should figure out the Z-machine version from the story file.
-
 Don't try preload sizes smaller than dynmem.
 
 Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
@@ -80,6 +78,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+make.rb should figure out the Z-machine version from the story file.
+
 Put z_operand_value_(low/high)_arr, z_operand_type_arr and other locals in zmachine.asm on zeropage. Saves 200+ bytes and makes all instructions faster.
 
 Make game ask to insert disk X in drive Y at the right times.
