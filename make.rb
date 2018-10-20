@@ -199,25 +199,41 @@ class D64_image
 		@free_blocks
 	end
 	
-	def add_story_data(max_story_blocks)
+	def add_story_data(max_story_blocks:, add_at_end:)
 	
-		# preallocate sectors
 		story_data_length = $story_file_data.length - $story_file_cursor
-#		num_sectors = [number_of_sectors($story_file_data), max_story_blocks].min
 		num_sectors = [story_data_length / 256, max_story_blocks].min
 		if @is_boot_disk then
 			allocate_sector(@config_track, 0)
 			allocate_sector(@config_track, 1)
 		end
+
+		first_story_track = 1
+		first_story_track_max_sectors = get_track_length(first_story_track)
+		temp_sectors = num_sectors
+		if add_at_end then
+			@tracks.downto(1) do |track|
+				track_sectors = get_track_length(track) - get_reserved_sectors(track)
+				if temp_sectors > track_sectors then
+					temp_sectors -= track_sectors
+				else
+					first_story_track = track
+					first_story_track_max_sectors = temp_sectors
+					break
+				end
+			end
+		end
+
 		for track in 1 .. @tracks do
 			print "#{track}:" if $PRINT_DISK_MAP
 			if num_sectors > 0 then
-				first_story_sector = 0 + 
-					(track == 18 ? @skip_blocks_on_18 : 0) + 
-					(track == @config_track ? @skip_blocks_on_config_track : 0)
-				reserved_sectors = (@is_boot_disk && track == @config_track) ? 2 : (track == 18 ? @skip_blocks_on_18 : 0)
+				reserved_sectors = get_reserved_sectors(track)
 				sector_count = get_track_length(track)
-				if sector_count - reserved_sectors > num_sectors
+				if track < first_story_track then
+					sector_count = reserved_sectors
+				elsif track == first_story_track
+					sector_count = first_story_track_max_sectors + reserved_sectors
+				elsif sector_count - reserved_sectors > num_sectors
 					sector_count = num_sectors + reserved_sectors
 				end
 				track_map = Array.new(sector_count, 0)
@@ -259,7 +275,7 @@ class D64_image
 						# num_sectors -= 1
 					# end
 				# end
-				@config_track_map.push 32 * first_story_sector + last_story_sector - first_story_sector + 1
+				@config_track_map.push(32 * reserved_sectors + last_story_sector - reserved_sectors + 1)
 #				end
 			else
 				@config_track_map.push 0
@@ -323,6 +339,12 @@ class D64_image
 		@track_offset[track + 1] - @track_offset[track]
 	end
 
+	def get_reserved_sectors(track)
+		return 0 + 
+			(track == 18 ? @skip_blocks_on_18 : 0) + 
+			(track == @config_track ? @skip_blocks_on_config_track : 0)
+	end
+	
 	def add_1800()
 		@contents[@track_offset[18] * 256 .. @track_offset[18] * 256 + 255] = @track1800
 	end
@@ -484,7 +506,7 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 #	def initialize(disk_title:, d64_filename:, is_boot_disk:, forty_tracks:)
 
 
-	free_blocks = disk.add_story_data(max_story_blocks)
+	free_blocks = disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
 		puts "Free disk blocks after story data has been written: #{free_blocks}"
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
@@ -536,8 +558,8 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	max_story_blocks = 9999
 	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
-	free_blocks = disk1.add_story_data(0)
-	free_blocks = disk2.add_story_data(max_story_blocks)
+	free_blocks = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
+	free_blocks = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
 		puts "Free disk blocks after story data has been written: #{free_blocks}"
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."

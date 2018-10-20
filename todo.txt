@@ -22,8 +22,6 @@ Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
-
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
@@ -76,6 +74,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
+
 Don't try preload sizes smaller than dynmem.
 
 make.rb should figure out the Z-machine version from the story file.

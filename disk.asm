@@ -11,7 +11,7 @@ current_disks !byte $ff, $ff, $ff, $ff
 
 disk_info
 !ifdef Z3 {
-	!fill 54
+	!fill 69
 }
 !ifdef Z4 {
 	!fill 92
