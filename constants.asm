@@ -7,11 +7,22 @@ zero_processorports   = $01
 z_opcode              = $02
 mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
+z_extended_opcode	  = $07
+z_canonical_opcode	  = $08
 z_opcode_number       = $09
 zp_pc_h               = $0a
 zp_pc_l               = $0b
 z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
+z_operand_count		  = $0d
+z_local_var_count	  = $0e
+z_temp				  = $0f ; 5 bytes
+
 stack_ptr             = $14 ; 2 bytes (08 was bad?)
+
+z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
+z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
+z_operand_type_arr = z_operand_value_low_arr
+
 z_local_vars_ptr      = $26 ; 2 bytes (16 was bad?)
 parse_array           = $41 ; 2 bytes (22 was bad?)
 string_array          = $43 ; 2 bytes (24 was bad?)

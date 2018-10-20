@@ -18,13 +18,15 @@ Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying t
 
 Room description in Top Landing (E, N, E) in HH lacks last ".".
 
+
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+make.rb should figure out the Z-machine version from the story file.
+
 Don't try preload sizes smaller than dynmem.
 
 Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
-
-Make game ask to insert disk X in drive Y at the right times.
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
@@ -47,8 +49,6 @@ save/restore
 	Copy SP and PC to below stack. Save this, stack and dynmem as one file.
 
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
-
-Put first four entries of z_operand_value_(low/high)_arr on zeropage. Saves 200+ bytes and makes all instructions faster.
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
 
@@ -80,6 +80,10 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Put z_operand_value_(low/high)_arr, z_operand_type_arr and other locals in zmachine.asm on zeropage. Saves 200+ bytes and makes all instructions faster.
+
+Make game ask to insert disk X in drive Y at the right times.
+
 Print messages at game start telling player which disks to insert into which drives.
 
 Build auto-config routine, which selects sensible device numbers for all disks which have device# = 0 (auto select).

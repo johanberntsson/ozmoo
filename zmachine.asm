@@ -1,11 +1,11 @@
-z_extended_opcode 	!byte 0
-z_operand_count		!byte 0
-z_canonical_opcode	!byte 0
-z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
-z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
-z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
-z_local_var_count	!byte 0
-z_temp				!byte 0, 0, 0, 0, 0
+; z_extended_opcode 	!byte 0
+; z_operand_count		!byte 0
+; z_canonical_opcode	!byte 0
+; z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
+; z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
+; z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
+; z_local_var_count	!byte 0
+; z_temp				!byte 0, 0, 0, 0, 0
 z_rnd_a				!byte 123
 z_rnd_b				!byte 75
 z_rnd_c				!byte 93
