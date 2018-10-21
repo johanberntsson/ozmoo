@@ -610,10 +610,83 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	nil # Signal success
 end
 
+def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	config_data[5] = 3 # 3 disks used in total
+	outfile1name = "#{storyname}_boot_story_1"
+	outfile2name = "#{storyname}_story_2"
+	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
+	disk2 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+
+	# Figure out how to put story blocks on the disks in optimal way.
+	# Rule 1: Save 160 blocks for loader on boot disk, if possible. 
+	# Rule 2: Spread story data as evenly as possible, so heads will move less.
+	max_story_blocks = 9999
+	total_raw_story_blocks = ($story_size - $story_file_cursor) / 256
+	if disk1.free_blocks() - 160 >= total_raw_story_blocks / 2 and disk2.free_blocks >= disk1.free_blocks
+		max_story_blocks = total_raw_story_blocks / 2
+	elsif disk1.free_blocks() - 160 + disk2.free_blocks >= total_raw_story_blocks
+		max_story_blocks = disk1.free_blocks() - 160
+	else
+		max_story_blocks = total_raw_story_blocks - disk2.free_blocks()
+	end
+	
+	free_blocks_1 = disk1.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
+	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}"
+	free_blocks = disk2.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_1}"
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
+		exit 1
+	end
+
+	# Build loader + terp + preloaded vmem blocks as a file
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks_1)
+	vmem_data[2] = vmem_preload_blocks
+	
+	# Add config data about boot disk / story disk 1
+	disk_info_size = 13 + disk1.config_track_map.length
+#	last_block_plus_1 = $dynmem_blocks * $VMEM_BLOCKSIZE / 256
+	last_block_plus_1 = 0
+	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk1.config_track_map.length] + disk1.config_track_map
+	config_data += [DISKNAME_BOOT, DISKNAME_DISK, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, "1".ord, 0]  # Name: "Boot disk / Story disk 1"
+	config_data[4] += disk_info_size
+	
+	# Add config data about story disk 2
+	disk_info_size = 9 + disk2.config_track_map.length
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk2.config_track_map.length] + disk2.config_track_map
+	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
+	config_data[4] += disk_info_size
+	
+	config_data += vmem_data
+
+	#	puts config_data
+	disk1.set_config_data(config_data)
+	disk1.save()
+	disk2.save()
+	
+	# Add loader + terp + preloaded vmem blocks file to disk
+	if add_boot_file(outfile1name, d64_filename_1) != true
+		puts "ERROR: Failed to write loader/interpreter to disk."
+		exit 1
+	end
+	File.delete(outfile2name) if File.exist?(outfile2name)
+	File.rename(d64_filename_2, "./#{outfile2name}.d64")
+	
+	puts "Successfully built game as #{outfile1name}.d64 + #{outfile2name}.d64"
+	$bootdiskname = outfile1name
+	nil # Signal success
+end
+
 
 def print_usage_and_exit
     puts "Usage: make.rb [-S1|-S2] [-c <preloadfile>] [-o] [-s] [-x] <file>"
-    puts "       -S1|-S2: specify build mode. Defaults to S1. Read about build modes in documentation folder."
+    puts "       -S1|-S2|-D2: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
     puts "       -c: read preload config from preloadfile, previously created with -o"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
@@ -648,6 +721,8 @@ begin
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/i then
 			mode = MODE_S2
+		elsif ARGV[i] =~ /^-D2$/i then
+			mode = MODE_D2
 		elsif ARGV[i] =~ /^-c$/i then
 #			preload_vm_blocks = true
 			await_preloadfile = true
@@ -761,7 +836,7 @@ else # No preload data available
 	if $DEBUGFLAGS.include?('PREOPT') then
 		all_vmem_blocks = $dynmem_blocks
 	else
-		all_vmem_blocks = [52 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
+		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
 	end
 	vmem_data = [
 		3 + 2 * all_vmem_blocks, # Size of vmem data
@@ -806,6 +881,10 @@ when MODE_S2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
 	error = build_S2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+when MODE_D2
+	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
+	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
+	error = build_D2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 else
 	puts "Unsupported build mode. Currently supported modes: S1, S2."
 	exit 1
