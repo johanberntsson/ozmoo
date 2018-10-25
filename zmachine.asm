@@ -1750,7 +1750,7 @@ print_num_unsigned
 	sta z_operand_value_high_arr + 1
 	; Divide by 10 up to four times
 	ldy #0
-	sty zp_temp
+	sty z_temp
 -	lda z_operand_value_low_arr
 	cmp #10
 	bcs +
@@ -1760,19 +1760,19 @@ print_num_unsigned
 +	ldy #0
 	jsr z_divide
 	lda remainder
-	ldy zp_temp
-	sta z_temp,y
-	inc zp_temp
+	ldy z_temp
+	sta z_temp + 1,y
+	inc z_temp
 	lda division_result
 	sta z_operand_value_low_arr
 	lda division_result + 1
 	sta z_operand_value_high_arr
 	jmp -
 .done_dividing
-	ldy zp_temp
+	ldy z_temp
 	txa
-	sta z_temp,y
--	lda z_temp,y
+	sta z_temp + 1,y
+-	lda z_temp + 1,y
 	clc
 	adc #$30
 	jsr streams_print_output

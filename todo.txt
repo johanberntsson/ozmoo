@@ -1,7 +1,5 @@
 Known bugs
 ----------
-Calling print_trace destroys value in $fb. Haven't been able to figure out why.
-
 Clearing screen doesn't always reset the number of rows printed, so a MORE prompt can appear too early. (Run Borderzone, choose part 1)
 
 You can't pick anything up at the beginning of part 1 in Borderzone. "[I beg your pardon?]
@@ -74,6 +72,10 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Support for all possible build modes for one or two 1541 drives.
+
+Calling print_trace destroys value in $fb. Haven't been able to figure out why.
+
 Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
 
 Don't try preload sizes smaller than dynmem.

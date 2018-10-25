@@ -1004,6 +1004,7 @@ read_text
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
+	; Make sure deleted characters are forgotten
     jsr $ffd2 ; kernel_printchar ; print the delete char
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
