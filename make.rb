@@ -61,7 +61,7 @@ $VMFLAGS = [
 	'VMEM_CLOCK',
 ]
 
-$INTERLEAVE = 10 # (1-21)
+$INTERLEAVE = 9 # (1-21)
 
 MODE_S1 = 1
 MODE_S2 = 2
@@ -393,7 +393,7 @@ def build_interpreter()
 	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
     compressionflags = ''
 
-    cmd = "#{$ACME} -D#{$ztype}=1 -DINTERLEAVE=#{$INTERLEAVE}#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
@@ -552,7 +552,7 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 end
 
 def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	config_data[5] = 3 # 3 disks used in total
+	config_data[6] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story"
 	max_story_blocks = 9999
@@ -608,7 +608,7 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	config_data[5] = 3 # 3 disks used in total
+	config_data[6] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot_story_1"
 	outfile2name = "#{storyname}_story_2"
 	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
@@ -681,7 +681,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	config_data[5] = 4 # 3 disks used in total
+	config_data[6] = 4 # 4 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story_1"
 	outfile3name = "#{storyname}_story_2"
@@ -885,7 +885,8 @@ $story_size = $story_file_data.length
 
 config_data = [
 0, 0, 0, 0, # Game ID
-10, # Number of bytes used for disk information, including this byte
+11, # Number of bytes used for disk information, including this byte
+$INTERLEAVE,
 2, # Number of disks, change later if wrong
 # Data for save disk: 8 bytes used, device# = 0 (auto), Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
 8, 0, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 

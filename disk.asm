@@ -11,22 +11,16 @@ current_disks !byte $ff, $ff, $ff, $ff
 
 disk_info
 !ifdef Z3 {
-	!fill 69
+	!fill 70
 }
 !ifdef Z4 {
-	!fill 92
+	!fill 93
 }
 !ifdef Z5 {
-	!fill 92
+	!fill 93
 }
 !ifdef Z8 {
-	!fill 118
-}
-
-!ifdef INTERLEAVE {
-	SECTOR_INTERLEAVE = INTERLEAVE
-} else {
-	SECTOR_INTERLEAVE = 1
+	!fill 119
 }
 
 !zone disk_messages {
@@ -50,11 +44,11 @@ print_insert_disk_msg
 	jsr printstring_raw
 	ldy .save_y
 ; Print disk name
-	lda disk_info + 5,y ; Number of tracks
+	lda disk_info + 6,y ; Number of tracks
 	clc
 	adc .save_y
 	tay
--	lda disk_info + 6,y
+-	lda disk_info + 7,y
 	beq .disk_name_done
 	bmi .special_string
 	jsr printchar_raw
@@ -75,7 +69,7 @@ print_insert_disk_msg
 	ldx #<insert_msg_2
 	jsr printstring_raw
 	ldy .save_y
-	lda disk_info + 2,y
+	lda disk_info + 3,y
 	tax
 	cmp #10
 	bcc +
@@ -180,21 +174,21 @@ readblock
     lda readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
 	
-	lda disk_info
+	lda disk_info + 1 ; Number of disks
 	ldx #0 ; Memory index
 	ldy #0 ; Disk id
 .check_next_disk	
 	txa
 	clc
-	adc disk_info + 1,x
+	adc disk_info + 2,x
 	sta .next_disk_index ; x-value where next disk starts
 	; Check if the block we are looking for is on this disk
 	lda readblocks_currentblock_adjusted
 	sec
-	sbc disk_info + 4,x
+	sbc disk_info + 5,x
 	sta .blocks_to_go_tmp + 1
 	lda readblocks_currentblock_adjusted + 1
-	sbc disk_info + 3,x
+	sbc disk_info + 4,x
 	sta .blocks_to_go_tmp
 	bcc .right_disk_found ; Found the right disk!
 	; This is not the right disk. Save # of blocks to go into next disk.
@@ -205,14 +199,14 @@ readblock
 	jmp .next_disk ; Not the right disk, keep looking!
 ; Found the right disk
 .right_disk_found
-	lda disk_info + 2,x
+	lda disk_info + 3,x
 	sta .device
-	lda disk_info + 5,x
+	lda disk_info + 6,x
 	sta .disk_tracks ; # of tracks which have entries
 	lda #1
 	sta .track
 .check_track
-	lda disk_info + 6,x
+	lda disk_info + 7,x
 	and #%00011111
 	sta .sector
 	lda .blocks_to_go + 1
@@ -236,7 +230,7 @@ readblock
 .right_track_found
 	; Add sectors not used at beginning of track
 	; .blocks_to_go + 1: logical sector#
-	; disk_info + 6,x: # of sectors skipped (3 bits), # of sectors used (5 bits)
+	; disk_info + 7,x: # of sectors skipped (3 bits), # of sectors used (5 bits)
 	sty .temp_y
 !ifdef TRACE_FLOPPY {
 	jsr arrow
@@ -246,7 +240,7 @@ readblock
 	lda .blocks_to_go + 1
 	jsr print_byte_as_hex
 }
-	lda disk_info + 6,x
+	lda disk_info + 7,x
 	lsr
 	lsr
 	lsr
@@ -254,7 +248,7 @@ readblock
 	lsr ; a now holds # of sectors at start of track not in use
 	sta .skip_sectors
 ; Initialize track map. Write 0 for sectors not yet used, $ff for sectors used 
-	lda disk_info + 6,x
+	lda disk_info + 7,x
 	and #%00011111
 	clc
 	adc .skip_sectors
@@ -295,7 +289,7 @@ readblock
 ; 5
 	tya
 	clc
-	adc #SECTOR_INTERLEAVE
+	adc disk_info ; #SECTOR_INTERLEAVE
 .check_sector_range	
 	cmp .sector_count
 	bcc -
@@ -309,22 +303,6 @@ readblock
 }
 ; Restore old value of y
 	ldy .temp_y
-	
-	; lda .blocks_to_go + 1
-	; sta .sector
-	; lda disk_info + 6,x
-	; cmp #$20
-	; bcc .have_set_device_track_sector
-; ;	and #%11100000
-; ;	beq .have_set_device_track_sector
-	; lsr
-	; lsr
-	; lsr
-	; lsr
-	; lsr ; a now holds # of sectors at start of track not in use
-	; clc
-	; adc .blocks_to_go + 1
-	; sta .sector
 	jmp .have_set_device_track_sector
 .next_track
 	inx
@@ -335,7 +313,7 @@ readblock
 .next_disk
 	ldx .next_disk_index
 	iny
-	cpy disk_info ; # of disks
+	cpy disk_info + 1 ; # of disks
 	bcs +
 	jmp .check_next_disk
 +	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
@@ -380,9 +358,6 @@ read_track_sector
     jsr kernel_setnam ; call SETNAM
 
     lda #$02      ; file number 2
-	; TODO: Handle device# smarter!
-;    ldx $BA       ; last used device number
-;    bne +
     ldx .device
 +   ldy #$02      ; secondary address 2
     jsr kernel_setlfs ; call SETLFS
@@ -397,7 +372,6 @@ read_track_sector
     ldy #>.uname
     jsr kernel_setnam ; call SETNAM
     lda #$0F      ; file number 15
-;    ldx $BA       ; last used device number
     ldx .device
     ldy #$0F      ; secondary address 15
     jsr kernel_setlfs ; call SETLFS
@@ -507,7 +481,7 @@ list_save_files
     jsr kernel_setnam ; call SETNAM
 
     lda #2      ; file number 2
-    ldx disk_info + 2 ; Device# for save disk
+    ldx disk_info + 3 ; Device# for save disk
 +   ldy #0      ; secondary address 2
     jsr kernel_setlfs ; call SETLFS
 
@@ -668,12 +642,8 @@ list_save_files
 	!byte 0
 .base_screen_pos
 	!byte 0,0
-; .low_screen_pos
-	; !byte 0,0
-; .high_screen_pos
-	; !byte 0,0
 save_game
-	ldx disk_info + 2 ; Device# for save disk
+	ldx disk_info + 3 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
 	beq + ; Save disk is already in drive.
@@ -708,7 +678,7 @@ save_game
 	bmi + ; The drive was empty before, no need to change disk now
 	jsr print_insert_disk_msg
 	tya
-	ldx disk_info + 2 ; Device# for save disk
+	ldx disk_info + 3 ; Device# for save disk
 	sta current_disks - 8,x
 
 +	jsr clear_screen_raw

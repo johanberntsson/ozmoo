@@ -250,7 +250,7 @@ auto_disk_config
 	tay ; Disk#
 .next_disk
 	tax ; Memory index
-	lda disk_info + 2,x
+	lda disk_info + 3,x
 	bne .device_selected
 	cpy #2
 	bcs .not_save_or_boot_disk
@@ -268,10 +268,10 @@ auto_disk_config
 	txa
 	ldx zp_temp ; Retrieve current value of x (memory pointer)
 .select_device
-	sta disk_info + 2,x
+	sta disk_info + 3,x
 .device_selected
 	sta zp_temp + 1 ; Store currently selected device#
-	lda disk_info + 5,x
+	lda disk_info + 6,x
 	beq +
 	; This is a story disk
 	txa ; Save value of x
@@ -279,10 +279,10 @@ auto_disk_config
 	inc device_map - 8,x ; Mark device as in use by a story disk
 	tax
 +	iny
-	cpy disk_info ; # of disks
+	cpy disk_info + 1 ; # of disks
 	bcs .done
 	txa
-	adc disk_info + 1,x
+	adc disk_info + 2,x
 	bne .next_disk ; Always branch
 .done
 	rts
@@ -298,7 +298,7 @@ insert_disks_at_boot
 	cpy #1
 	bcc .dont_need_to_insert_this
 	; Store in current_disks
-	lda disk_info + 2,x
+	lda disk_info + 3,x
 	stx zp_temp
 	tax
 	lda zp_temp
@@ -306,8 +306,6 @@ insert_disks_at_boot
 	tax
 	cpy #2
 	bcc .dont_need_to_insert_this
-;	lda disk_info + 5,x
-;	beq .not_a_story_disk
 	stx zp_temp
 	sty zp_temp + 1
 	ldy zp_temp
@@ -316,10 +314,10 @@ insert_disks_at_boot
 	ldy zp_temp + 1
 .dont_need_to_insert_this
 +	iny
-	cpy disk_info ; # of disks
+	cpy disk_info + 1 ; # of disks
 	bcs .done
 	txa
-	adc disk_info + 1,x
+	adc disk_info + 2,x
 	bne .next_disk ; Always branch
 .done
 	rts

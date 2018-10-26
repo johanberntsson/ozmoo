@@ -61,6 +61,7 @@ Contents:
 
 --- Disk information block ---
 1 byte: Number of bytes used for disk information, including this byte
+1 byte: Interleave (in range 1-21)
 1 byte: Number of disks used (disk 0 is the save disk(s), disk 1 .. are game disks
 For each disk:
 		1 byte: n: Number of bytes used for this entry, including this byte.
@@ -85,15 +86,15 @@ x bytes: vmap_z_l contents for the suggested blocks
 
 Typical size for a 3-disk ( + save disk) game:
 
-4 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 40 + 5) + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 1 + 1 + 1 + 100 + 100 = 
+4 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 40 + 5) + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 1 + 1 + 1 + 100 + 100 = 
 6 + 2 * 50 + 2 * 8 + 203 = 
 6 + 100 + 16 + 203 = 
-325 bytes
+326 bytes
 
 An interpreter needs to reserve this space for disk information:
-z3: 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + (1 + 1 + 2 + 1 + 40 + 6) = 2 + 2 * 8 + 51 = 69 bytes (Can be decreased to 54 if story data is always stored on track 1-27)
-z4/z5:  1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 2 + 2 * 8 + 2 * 50 = 118 bytes (Can be decreased to 92 if story data is always stored on track 1-27 for double drive games)
-z8: 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 2 + 2 * 8 + 2 * 50 = 118 bytes
+z3: 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + (1 + 1 + 2 + 1 + 40 + 6) = 2 + 2 * 8 + 51 = 70 bytes (Can be decreased to 55 if story data is always stored on track 1-27)
+z4/z5:  1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 2 + 2 * 8 + 2 * 50 = 119 bytes (Can be decreased to 93 if story data is always stored on track 1-27 for double drive games)
+z8: 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 2 + 2 * 8 + 2 * 50 = 119 bytes
 
 Possible 1581 drive support: This system should work, without extending the limits above, using only 31 sectors per track for story data, while allowing z8 games of up to 512 KB in size on a single disk.
 
