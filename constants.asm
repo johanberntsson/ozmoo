@@ -15,6 +15,7 @@ zp_pc_l               = $0b
 z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 z_operand_count		  = $0d
 z_temp				  = $0e ; 6 bytes
+zp_mempos             = $14 ; 2 bytes
 
 z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -37,7 +38,6 @@ stack_has_top_value   = $4d ; !byte 0
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
 z_trace_index		  = $54
 z_exe_mode	  		  = $55
-zp_mempos             = $ae ; 2 bytes
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column
