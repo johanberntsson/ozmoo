@@ -667,10 +667,12 @@ save_game
 	; Erase old file, if any
 	
 	; Swap in z_pc and stack_ptr
+	jsr .swap_pointers_for_save
 	
 	; Perform save
 
 	; Swap out z_pc and stack_ptr
+	jsr .swap_pointers_for_save
 
 	; Ask user to put story disk in again, if applicable
 	ldy .last_disk
@@ -693,6 +695,18 @@ save_game
 	rts
 .last_disk	!byte 0
 .save_msg	!pet 13,13,13,"  Saving...",0
+.swap_pointers_for_save
+	ldx #4
+-	lda stack_ptr,x
+	pha
+	lda stack_start - 5,x
+	sta stack_ptr,x
+	pla
+	sta stack_start - 5,x
+	dex
+	bpl -
+	rts
 }
+
 
 	

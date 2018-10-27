@@ -16,13 +16,18 @@ z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 z_operand_count		  = $0d
 z_temp				  = $0e ; 6 bytes
 
-stack_ptr             = $14 ; 2 bytes (08 was bad?)
-
 z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_type_arr = z_operand_value_low_arr
 
-z_local_vars_ptr      = $26 ; 2 bytes (16 was bad?)
+z_global_vars_start	  = $26 ; 2 bytes
+z_local_vars_ptr      = $28 ; 2 bytes
+z_local_var_count	  = $2a
+stack_ptr             = $2b ; 2 bytes ; MUST BE FOLLOWED BY z_pc 
+z_pc				  = $2d ; 3 bytes (last byte shared with z_pc_mempointer). MUST BE PRECEDED BY stack_ptr
+z_pc_mempointer		  = $2f ; 2 bytes (first byte shared with z_pc)
+z_pc_mempointer_is_unsafe = $31
+
 parse_array           = $41 ; 2 bytes (22 was bad?)
 string_array          = $43 ; 2 bytes (24 was bad?)
 ;terminators_ptr       = $45 ; 2 bytes
@@ -32,11 +37,6 @@ stack_has_top_value   = $4d ; !byte 0
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
 z_trace_index		  = $54
 z_exe_mode	  		  = $55
-z_local_var_count	  = $56
-z_pc_mempointer_is_unsafe = $57
-z_pc				  = $58 ; 3 bytes (last byte shared with z_pc_mempointer)
-z_pc_mempointer		  = $5a ; 2 bytes (first byte shared with z_pc)
-z_global_vars_start	  = $9b ; 2 bytes
 zp_mempos             = $ae ; 2 bytes
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
