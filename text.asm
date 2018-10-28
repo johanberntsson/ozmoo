@@ -605,7 +605,6 @@ find_word_in_dictionary
 	; Step 1: Set start and end of dictionary
 	lda #0
 	sta .final_word
-	lda #0
 	sta .first_word
 	sta .first_word + 1
 	lda dict_num_entries + 1 ; This is stored High-endian
@@ -802,10 +801,10 @@ find_word_in_dictionary
 
 .find_word_in_unordered_dictionary
 ; In the end, jump to either .found_dict_entry or .no_entry_found
-	lda dict_entries
-	sta .dictionary_address
-	ldx dict_entries + 1
-	stx .dictionary_address + 1
+	ldx dict_entries
+	stx .dictionary_address + 1 ; Stored with high-byte first!
+	lda dict_entries + 1
+	sta .dictionary_address ; Stored with high-byte first!
 .unordered_check_next_word
 	jsr set_z_address
 
@@ -813,10 +812,6 @@ find_word_in_dictionary
     ldy #0
 .unordered_loop_check_entry
     jsr read_next_byte
-; !ifdef TRACE_SHOW_DICT_ENTRIES {
-    ; jsr printa
-    ; jsr space
-; }
 !ifdef Z4PLUS {
     cmp .zword,y
 } else {
@@ -836,7 +831,7 @@ find_word_in_dictionary
 +	lda .last_word
 	cmp .first_word
 	lda .last_word + 1
-	sbc .first_word
+	sbc .first_word + 1
 	bcc + ; No more words to check
 	lda .dictionary_address + 1
 	clc
