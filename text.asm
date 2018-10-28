@@ -493,6 +493,19 @@ convert_char_to_zchar
     adc #6
     rts
 
+.first_word = z_temp ;	!byte 0,0
+.last_word = z_temp + 2 ; 	!byte 0,0
+.median_word = z_temp + 4	; !byte 0,0
+.final_word = zp_temp;  	!byte 0	
+	
+.is_word_found = zp_temp + 1 ; !byte 0
+.triplet_counter = zp_temp + 2; !byte 0
+.last_char_index		!byte 0
+.parse_array_index 		!byte 0
+.dictionary_address = zp_temp + 3 ;  !byte 0,0
+.zword !byte 0,0,0,0,0,0
+	
+	
 !ifdef Z4PLUS {
     ZCHARS_PER_ENTRY = 9
 } else {
@@ -579,24 +592,19 @@ find_word_in_dictionary
     jsr newline
     ldx .zword 
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 1
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 2
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 3
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 4
     jsr printx
-    lda #44
-    jsr $ffd2
+    jsr comma
     ldx .zword + 5
     jsr printx
     jsr newline
@@ -620,9 +628,9 @@ find_word_in_dictionary
 	sbc #0
 	sta .last_word + 1
 	lda dict_ordered
-	bmi +
+	bne .loop_check_next_entry
 	jmp .find_word_in_unordered_dictionary
-+		
+		
 	; Step 2: Calculate the median word
 .loop_check_next_entry
 	lda .last_word
@@ -786,18 +794,6 @@ find_word_in_dictionary
     sta (parse_array),y
     iny
     rts
-.first_word 	!byte 0,0
-.last_word		!byte 0,0
-.median_word	!byte 0,0
-.final_word 	!byte 0	
-	
-.is_word_found !byte 0
-.triplet_counter !byte 0
-.last_char_index !byte 0
-.parse_array_index !byte 0
-.dictionary_address !byte 0,0
-.zword !byte 0,0,0,0,0,0
-;.num_matching_zchars !byte 0
 
 .find_word_in_unordered_dictionary
 ; In the end, jump to either .found_dict_entry or .no_entry_found
