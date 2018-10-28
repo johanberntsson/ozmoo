@@ -4,8 +4,6 @@ Clearing screen doesn't always reset the number of rows printed, so a MORE promp
 
 You can't pick anything up at the beginning of part 1 in Borderzone. "[I beg your pardon?]
 
-Tokenize using a non-ordered dictionary doesn't work.
-
 Status line covering several lines isn't working correctly (Nord and Bert).
 
 It's impossible to choose scenario at the beginning of Nord and Bert.
@@ -72,6 +70,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Tokenize using a non-ordered dictionary doesn't work.
+
 Support for all possible build modes for one or two 1541 drives.
 
 Calling print_trace destroys value in $fb. Haven't been able to figure out why.

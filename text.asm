@@ -88,11 +88,6 @@ z_ins_read_char
 
 z_ins_tokenise_text
     ; tokenise text parse dictionary flag
-    ; default dictionary
-    lda dict_entries 
-    sta .dict_entries
-    lda dict_entries + 1
-    sta .dict_entries + 1
     ; setup string_array
     ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
@@ -102,14 +97,23 @@ z_ins_tokenise_text
     sta string_array + 1
     ; setup user dictionary, if supplied
     lda z_operand_value_low_arr + 2
+	tax
 	ora z_operand_value_high_arr + 2
 	beq .no_user_dictionary
+
     ; user dictionary
-    lda z_operand_value_low_arr + 2
-    sta .dict_entries
+
 	lda z_operand_value_high_arr + 2
-    sta .dict_entries + 1
+	jsr parse_dictionary
+	jmp .tokenise_main
+	
 .no_user_dictionary
+    ; default dictionary
+    lda story_start + header_dictionary     ; 05
+    ldx story_start + header_dictionary + 1 ; f3
+	jsr parse_dictionary
+
+.tokenise_main
     ; setup parse_array and flag
     ldx z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr + 1
@@ -234,10 +238,6 @@ z_ins_sread
     ldx z_operand_count
     cpx #2
     bcc .sread_done
-    lda dict_entries
-    sta .dict_entries
-    lda dict_entries + 1
-    sta .dict_entries + 1
     lda z_operand_value_high_arr + 1
     ldx z_operand_value_low_arr + 1
 !ifdef TRACE_TOKENISE {
@@ -329,10 +329,12 @@ z_ins_aread
     ldx z_operand_count
     cpx #2
     bcc .aread_done
-    lda dict_entries
-    sta .dict_entries
-    lda dict_entries + 1
-    sta .dict_entries + 1
+
+    ; Setup default dictionary
+    lda story_start + header_dictionary     ; 05
+    ldx story_start + header_dictionary + 1 ; f3
+	jsr parse_dictionary
+
     lda z_operand_value_high_arr + 1
     ldx z_operand_value_low_arr + 1
 !ifdef TRACE_TOKENISE {
@@ -608,7 +610,7 @@ find_word_in_dictionary
 	sta .first_word + 1
 	lda dict_num_entries + 1 ; This is stored High-endian
 	tax
-	ora dict_num_entries
+	ora dict_num_entries ; This is stored High-endian
 	bne +
 	jmp .no_entry_found
 +	txa
@@ -618,7 +620,10 @@ find_word_in_dictionary
 	lda dict_num_entries
 	sbc #0
 	sta .last_word + 1
-	
+	lda dict_ordered
+	bmi +
+	jmp .find_word_in_unordered_dictionary
++		
 	; Step 2: Calculate the median word
 .loop_check_next_entry
 	lda .last_word
@@ -656,10 +661,10 @@ find_word_in_dictionary
 	jsr mult16
 	lda product
 	clc
-	adc .dict_entries
+	adc dict_entries
 	tax
 	lda product + 1
-	adc .dict_entries + 1
+	adc dict_entries + 1
     sta .dictionary_address
     stx .dictionary_address + 1
 	jsr set_z_address
@@ -788,14 +793,62 @@ find_word_in_dictionary
 .final_word 	!byte 0	
 	
 .is_word_found !byte 0
-;.dict_cnt !byte 0,0
-.dict_entries !byte 0,0
 .triplet_counter !byte 0
 .last_char_index !byte 0
 .parse_array_index !byte 0
 .dictionary_address !byte 0,0
 .zword !byte 0,0,0,0,0,0
 ;.num_matching_zchars !byte 0
+
+.find_word_in_unordered_dictionary
+; In the end, jump to either .found_dict_entry or .no_entry_found
+	lda dict_entries
+	sta .dictionary_address
+	ldx dict_entries + 1
+	stx .dictionary_address + 1
+.unordered_check_next_word
+	jsr set_z_address
+
+    ; check if correct entry
+    ldy #0
+.unordered_loop_check_entry
+    jsr read_next_byte
+; !ifdef TRACE_SHOW_DICT_ENTRIES {
+    ; jsr printa
+    ; jsr space
+; }
+!ifdef Z4PLUS {
+    cmp .zword,y
+} else {
+    cmp .zword + 2,y
+}
+    bne .unordered_not_a_match
+    iny
+    cpy #ZCHAR_BYTES_PER_ENTRY
+    bne .unordered_loop_check_entry
+	beq .found_dict_entry ; Always branch
+	
+	
+.unordered_not_a_match	
+	inc .first_word
+	bne +
+	inc .first_word + 1
++	lda .last_word
+	cmp .first_word
+	lda .last_word + 1
+	sbc .first_word
+	bcc + ; No more words to check
+	lda .dictionary_address + 1
+	clc
+	adc dict_len_entries
+	tax
+	sta .dictionary_address + 1
+	lda .dictionary_address
+	adc #0
+	sta .dictionary_address
+	bcc .unordered_check_next_word ; Always branch
+
++	bcs .no_entry_found ; Always branch
 
 
 init_read_text_timer
@@ -1084,7 +1137,6 @@ tokenise_text
     ; (this will be okay if called immediately after read_text)
     ; a/x should be the address of the parse array
     ; input: - string_array
-    ;        - .dict_entries: set to default (dict_entries or user dictionary)
     ;        - x,a: address of parse_array
     ;        - y: flag (1 = don't add unknown words to parse_array)
     ; output: parse_array

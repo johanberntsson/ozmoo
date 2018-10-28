@@ -67,9 +67,15 @@ game_id		!byte 0,0,0,0
 .initialize
 	jsr deletable_init
 	jsr prepare_static_high_memory
-    jsr parse_dictionary
     jsr parse_object_table
-
+!ifndef Z5PLUS {
+    ; Setup default dictionary
+    lda story_start + header_dictionary     ; 05
+    ldx story_start + header_dictionary + 1 ; f3
+	jsr parse_dictionary
+}
+	
+	
 	jsr streams_init
 	jsr stack_init
 

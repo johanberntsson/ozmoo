@@ -1,12 +1,12 @@
 dict_entries !byte 0, 0
 dict_len_entries !byte 0
 dict_num_entries !byte 0,0
+dict_ordered	!byte 0 ; Holds 0 for false or $ff for true
 num_terminators !byte 0
 terminators !byte 0,0,0,0,0,0,0,0,0,0
 
 parse_dictionary
-    lda story_start + header_dictionary     ; 05
-    ldx story_start + header_dictionary + 1 ; f3
+	; parameters: dictionary address in (a,x)
     jsr set_z_address
     ; read terminators
     jsr read_next_byte
@@ -27,10 +27,28 @@ parse_dictionary
     ; read entries
     jsr read_next_byte
     sta dict_len_entries
+
+	lda #$ff
+	sta dict_ordered
     jsr read_next_byte
     sta dict_num_entries
+	tay
     jsr read_next_byte
     sta dict_num_entries + 1
+; Check if ordered dictionary
+	cpy #$80
+	bcc .ordered
+	inc dict_ordered ; Set to 0
+	; Invert dict_num_entries and add one
+	eor #$ff
+	clc
+	adc #1
+	sta dict_num_entries + 1
+	tya 
+	eor #$ff
+	adc #0
+	sta dict_num_entries
+.ordered	
     jsr get_z_address
     stx dict_entries
     sta dict_entries  + 1
