@@ -29,9 +29,21 @@ z_pc				  = $2d ; 3 bytes (last byte shared with z_pc_mempointer). MUST BE PRECE
 z_pc_mempointer		  = $2f ; 2 bytes (first byte shared with z_pc)
 z_pc_mempointer_is_unsafe = $31
 
+zchars				  = $32 ; 3 bytes
+zchar_triplet_cnt	  = $35
+packed_text			  = $36 ; 2 bytes
+alphabet_offset		  = $38
+escape_char			  = $39
+escape_char_counter	  = $3a
+abbreviation_command  = $40
+
 parse_array           = $41 ; 2 bytes (22 was bad?)
 string_array          = $43 ; 2 bytes (24 was bad?)
 ;terminators_ptr       = $45 ; 2 bytes
+
+z_address			  = $45 ; 3 bytes
+z_address_temp		  = $48
+
 object_tree_ptr       = $49 ; 2 bytes
 stack_top_value 	  = $4b ; 2 bytes !byte 0, 0
 stack_has_top_value   = $4d ; !byte 0
@@ -42,7 +54,7 @@ zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column
 zp_screenrow          = $d6 ; current cursor row
-zp_temp               = $fb ; 4 bytes
+zp_temp               = $fb ; 5 bytes
 
 memory_buffer         =	$02a7
 memory_buffer_length  = 89

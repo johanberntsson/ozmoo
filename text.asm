@@ -46,9 +46,9 @@ benchmark_read_char
 	
 z_ins_print_char
     ; lda #0
-    ; sta .alphabet_offset
-    ; sta .escape_char_counter
-    ; sta .abbreviation_command
+    ; sta alphabet_offset
+    ; sta escape_char_counter
+    ; sta abbreviation_command
     lda z_operand_value_low_arr
 	jsr invert_case
 		jsr translate_zscii_to_petscii
@@ -440,7 +440,7 @@ convert_zchar_to_char
     sec
     sbc #6
     clc
-    adc .alphabet_offset
+    adc alphabet_offset
     tay
     lda .alphabet,y
 translate_zscii_to_petscii
@@ -683,25 +683,25 @@ find_word_in_dictionary
 	jsr print_byte_as_hex
 	lda .dictionary_address + 1
 	jsr print_byte_as_hex
-;	lda .addr + 2
+;	lda z_address + 2
 ;	jsr print_byte_as_hex
 	jsr space
 
 ;	jsr pause
-    lda .addr + 1
+    lda z_address + 1
     pha
-    lda .addr + 2
+    lda z_address + 2
     pha
-    ; lda .addr+1
+    ; lda z_address+1
     ; jsr printa
     ; jsr comma
-    ; lda .addr+2
+    ; lda z_address+2
     ; jsr printa
     jsr print_addr
     pla 
-    sta .addr + 2
+    sta z_address + 2
     pla 
-    sta .addr + 1
+    sta z_address + 1
 }
 
     ; check if correct entry
@@ -1259,62 +1259,62 @@ tokenise_text
 
 init_get_zchar
     ; returns the first zchar in a
-    ; side effects: .addr
-    ; must .addr with set_z_addr or set_z_paddr
+    ; side effects: z_address
+    ; must z_address with set_z_addr or set_z_paddr
     ; used registers: a,x,y
     lda #2
-    sta .zchar_triplet_cnt
+    sta zchar_triplet_cnt
     rts
 
 get_next_zchar
     ; returns the next zchar in a
-    ; side effects: .addr
+    ; side effects: z_address
     ; used registers: a,x,y
-    lda .zchar_triplet_cnt
+    lda zchar_triplet_cnt
     cmp #2
     bne +
     jsr read_next_byte
-    sta .packedtext
+    sta packed_text
     jsr read_next_byte
-    sta .packedtext + 1
+    sta packed_text + 1
     ; extract 3 zchars (5 bits each)
-    ; stop bit remains in .packedtext + 1
+    ; stop bit remains in packed_text + 1
     ldx #0
 .nextzchar_loop
-    lda .packedtext + 1
+    lda packed_text + 1
     and #$1f
-    sta .zchars,x
+    sta zchars,x
     ldy #5
--   lsr .packedtext
-    ror .packedtext+1
+-   lsr packed_text
+    ror packed_text+1
     dey
     bne -
     inx
     cpx #3
     bne .nextzchar_loop
-+   ldx .zchar_triplet_cnt
-    lda .zchars,x
++   ldx zchar_triplet_cnt
+    lda zchars,x
     dex
     cpx #$ff
     bne +
     ldx #2
-+   stx .zchar_triplet_cnt
++   stx zchar_triplet_cnt
     rts
-.zchar_triplet_cnt !byte 0
+; .zchar_triplet_cnt !byte 0
 
 was_last_zchar
     ; only call after a get_next_zchar
     ; returns a=0 if current zchar is the last zchar, else > 0
-    lda .zchar_triplet_cnt ; 0 - 2
+    lda zchar_triplet_cnt ; 0 - 2
     cmp #2
     bne +
-    lda .packedtext + 1
+    lda packed_text + 1
     eor #1
 +   rts
 
 !ifndef OLDANDWORKING {
 get_abbreviation_offset
-    ; abbreviation is 32(.abbreviation_command-1)+a
+    ; abbreviation is 32(abbreviation_command-1)+a
     sta .current_zchar
     dey
     tya
@@ -1332,41 +1332,41 @@ get_abbreviation_offset
 
 print_addr
     ; print zchar-encoded text
-    ; input: (.addr set with set_z_addr or set_z_paddr)
+    ; input: (z_address set with set_z_addr or set_z_paddr)
     ; output: 
-    ; side effects: .addr
+    ; side effects: z_address
     ; used registers: a,x,y
     lda #0
-    sta .alphabet_offset
-    sta .escape_char_counter
-    sta .abbreviation_command
+    sta alphabet_offset
+    sta escape_char_counter
+    sta abbreviation_command
     jsr init_get_zchar
 .print_chars_loop
     jsr get_next_zchar
-    ldy .abbreviation_command
+    ldy abbreviation_command
     beq .l0
     ; handle abbreviation
     jsr get_abbreviation_offset
     ; need to store state before calling print_addr recursively
     txa
     pha
-    lda .addr
+    lda z_address
     pha
-    lda .addr + 1
+    lda z_address + 1
     pha
-    lda .addr + 2
+    lda z_address + 2
     pha
-    lda .zchars
+    lda zchars
     pha
-    lda .zchars + 1
+    lda zchars + 1
     pha
-    lda .zchars + 2
+    lda zchars + 2
     pha
-    lda .packedtext
+    lda packed_text
     pha
-    lda .packedtext + 1
+    lda packed_text + 1
     pha
-    lda .zchar_triplet_cnt
+    lda zchar_triplet_cnt
     pha
     lda story_start + header_abbreviations ; high byte
     ldx story_start + header_abbreviations + 1 ; low byte
@@ -1380,48 +1380,48 @@ print_addr
     pla
     jsr set_z_address
     ; abbreviation index is word, *2 for bytes
-    asl .addr + 2
-    rol .addr + 1 
-    rol .addr 
+    asl z_address + 2
+    rol z_address + 1 
+    rol z_address 
     ; print the abbreviation
     jsr print_addr
     ; restore state
     pla 
-    sta .zchar_triplet_cnt
+    sta zchar_triplet_cnt
     pla
-    sta .packedtext + 1
+    sta packed_text + 1
     pla
-    sta .packedtext
+    sta packed_text
     pla
-    sta .zchars + 2
+    sta zchars + 2
     pla
-    sta .zchars + 1
+    sta zchars + 1
     pla
-    sta .zchars
+    sta zchars
     pla
-    sta .addr + 2
+    sta z_address + 2
     pla
-    sta .addr + 1
+    sta z_address + 1
     pla
-    sta .addr
+    sta z_address
     pla
     tax
     lda #0
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
-.l0 ldy .escape_char_counter
+.l0 ldy escape_char_counter
     beq .l1
     ; handle the two characters that make up an escaped character
     ldy #5
--   asl .escape_char
+-   asl escape_char
     dey
     bne -
-    ora .escape_char
-    sta .escape_char
-    dec .escape_char_counter
+    ora escape_char
+    sta escape_char
+    dec escape_char_counter
     beq +
     jmp .next_zchar
-+   lda .escape_char
++   lda escape_char
 	jsr translate_zscii_to_petscii
     jsr streams_print_output
     jmp .next_zchar
@@ -1431,43 +1431,43 @@ print_addr
     lda #$20
     jsr streams_print_output
     lda #0
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
 .l2 cmp #4
     bne .l3
     ; change to A1
     lda #26
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
 .l3 cmp #5
     bne .l4
     ; change to A2
     lda #52
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
 .l4 ; escape char?
     cmp #6
     bne .l5
-    ldy .alphabet_offset
+    ldy alphabet_offset
     cpy #52
     bne .l5
     lda #0
-    sta .escape_char
-    sta .alphabet_offset
+    sta escape_char
+    sta alphabet_offset
     lda #2
-    sta .escape_char_counter
+    sta escape_char_counter
     jmp .next_zchar
 .l5 ; abbreviation command?
     cmp #4
     bcs .l6
-    sta .abbreviation_command ; 1, 2 or 3
+    sta abbreviation_command ; 1, 2 or 3
     jmp .next_zchar
 .l6 ; normal char
     jsr convert_zchar_to_char
     jsr streams_print_output
     ; change back to A0
     lda #0
-    sta .alphabet_offset
+    sta alphabet_offset
 .next_zchar
     jsr was_last_zchar
     beq +
@@ -1478,28 +1478,28 @@ print_addr
 !ifdef OLDANDWORKING {
 print_addr
     ; print zchar-encoded text
-    ; input: (.addr set with set_z_addr or set_z_paddr)
+    ; input: (z_address set with set_z_addr or set_z_paddr)
     ; output: 
-    ; side effects: .addr
+    ; side effects: z_address
     ; used registers: a,x,y
     lda #0
-    sta .alphabet_offset
-    sta .escape_char_counter
-    sta .abbreviation_command
+    sta alphabet_offset
+    sta escape_char_counter
+    sta abbreviation_command
 .read_triplet_loop
     jsr read_next_byte
-    sta .packedtext
+    sta packed_text
     jsr read_next_byte
-    sta .packedtext + 1
+    sta packed_text + 1
     ; extract 3 zchars (5 bits each)
     ldx #0
 .extract_loop
-    lda .packedtext + 1
+    lda packed_text + 1
     and #$1f
-    sta .zchars,x
+    sta zchars,x
     ldy #5
--   lsr .packedtext
-    ror .packedtext+1
+-   lsr packed_text
+    ror packed_text+1
     dey
     bne -
     inx
@@ -1508,11 +1508,11 @@ print_addr
     ; print the three chars
     ldx #2
 .print_chars_loop
-    lda .zchars,x
-    ldy .abbreviation_command
+    lda zchars,x
+    ldy abbreviation_command
     beq .l0
     ; handle abbreviation
-    ; abbreviation is 32(.abbreviation_command-1)+a
+    ; abbreviation is 32(abbreviation_command-1)+a
     dey
     tya
     asl
@@ -1521,27 +1521,27 @@ print_addr
     asl
     asl
     clc
-    adc .zchars,x
+    adc zchars,x
     asl ; byte -> word 
     tay
     ; need to store state before calling print_addr recursively
     txa
     pha
-    lda .addr
+    lda z_address
     pha
-    lda .addr + 1
+    lda z_address + 1
     pha
-    lda .addr + 2
+    lda z_address + 2
     pha
-    lda .zchars
+    lda zchars
     pha
-    lda .zchars + 1
+    lda zchars + 1
     pha
-    lda .zchars + 2
+    lda zchars + 2
     pha
-    lda .packedtext
+    lda packed_text
     pha
-    lda .packedtext + 1
+    lda packed_text + 1
     pha
     lda story_start + header_abbreviations ; high byte
     ldx story_start + header_abbreviations + 1 ; low byte
@@ -1555,46 +1555,46 @@ print_addr
     pla
     jsr set_z_address
     ; abbreviation index is word, *2 for bytes
-    asl .addr + 2
-    rol .addr + 1 
-    rol .addr 
+    asl z_address + 2
+    rol z_address + 1 
+    rol z_address 
     ; print the abbreviation
     jsr print_addr
     ; restore state
     pla
-    sta .packedtext + 1
+    sta packed_text + 1
     pla
-    sta .packedtext
+    sta packed_text
     pla
-    sta .zchars + 2
+    sta zchars + 2
     pla
-    sta .zchars + 1
+    sta zchars + 1
     pla
-    sta .zchars
+    sta zchars
     pla
-    sta .addr + 2
+    sta z_address + 2
     pla
-    sta .addr + 1
+    sta z_address + 1
     pla
-    sta .addr
+    sta z_address
     pla
     tax
     lda #0
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
-.l0 ldy .escape_char_counter
+.l0 ldy escape_char_counter
     beq .l1
     ; handle the two characters that make up an escaped character
     ldy #5
--   asl .escape_char
+-   asl escape_char
     dey
     bne -
-    ora .escape_char
-    sta .escape_char
-    dec .escape_char_counter
+    ora escape_char
+    sta escape_char
+    dec escape_char_counter
     beq +
     jmp .next_zchar
-+   lda .escape_char
++   lda escape_char
     jsr streams_print_output
     jmp .next_zchar
 .l1 cmp #0
@@ -1603,60 +1603,60 @@ print_addr
     lda #$20
     jsr streams_print_output
     lda #0
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
 .l2 cmp #4
     bne .l3
     ; change to A1
     lda #26
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
 .l3 cmp #5
     bne .l4
     ; change to A2
     lda #52
-    sta .alphabet_offset
+    sta alphabet_offset
     jmp .next_zchar
 .l4 ; escape char?
     cmp #6
     bne .l5
-    ldy .alphabet_offset
+    ldy alphabet_offset
     cpy #52
     bne .l5
     lda #0
-    sta .escape_char
-    sta .alphabet_offset
+    sta escape_char
+    sta alphabet_offset
     lda #2
-    sta .escape_char_counter
+    sta escape_char_counter
     jmp .next_zchar
 .l5 ; abbreviation command?
     cmp #4
     bcs .l6
-    sta .abbreviation_command ; 1, 2 or 3
+    sta abbreviation_command ; 1, 2 or 3
     jmp .next_zchar
 .l6 ; normal char
     jsr convert_zchar_to_char
     jsr streams_print_output
     ; change back to A0
     lda #0
-    sta .alphabet_offset
+    sta alphabet_offset
 .next_zchar
     dex
     ;bpl .print_chars_loop
     bmi +
     jmp .print_chars_loop
-+   lda .packedtext + 1
++   lda packed_text + 1
     bne +
     jmp .read_triplet_loop
 +   rts
 }
-.escape_char !byte 0
-.escape_char_counter !byte 0
-.abbreviation_command !byte 0
+; .escape_char !byte 0
+; .escape_char_counter !byte 0
+; .abbreviation_command !byte 0
 
-.zchars !byte 0,0,0
-.packedtext !byte 0,0
-.alphabet_offset !byte 0
+; .zchars !byte 0,0,0
+; .packedtext !byte 0,0
+; .alphabet_offset !byte 0
 .alphabet ; 26 * 3
     !pet "abcdefghijklmnopqrstuvwxyz"
     !pet "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

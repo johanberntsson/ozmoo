@@ -1,52 +1,52 @@
-.addr !byte 0,0,0
-.next_byte_state !byte 0
+; z_address !byte 0,0,0
+; z_address_temp !byte 0
 
 set_z_address
-    stx .addr + 2
-    sta .addr + 1
+    stx z_address + 2
+    sta z_address + 1
     lda #$0
-    sta .addr
+    sta z_address
     rts
 
 dec_z_address
     pha
-    dec .addr + 2
-    lda .addr + 2
+    dec z_address + 2
+    lda z_address + 2
     cmp #$ff
     bne +
-    dec .addr + 1
-    lda .addr + 1
+    dec z_address + 1
+    lda z_address + 1
     cmp #$ff
     bne +
-    dec .addr
+    dec z_address
 +   pla
     rts
 
 set_z_himem_address
-    stx .addr + 2
-    sta .addr + 1
-    sty .addr
+    stx z_address + 2
+    sta z_address + 1
+    sty z_address
     rts
 
 skip_bytes_z_address
     ; skip <a> bytes
     clc
-    adc .addr + 2
-    sta .addr + 2
-    lda .addr + 1
+    adc z_address + 2
+    sta z_address + 2
+    lda z_address + 1
     adc #0
-    sta .addr + 1
-    lda .addr
+    sta z_address + 1
+    lda z_address
     adc #0
-    sta .addr
+    sta z_address
     rts
 
 !ifdef DEBUG {
 print_z_address
     jsr dollar
-    lda .addr + 1 ; low
+    lda z_address + 1 ; low
     jsr print_byte_as_hex
-    lda .addr + 2 ; high
+    lda z_address + 2 ; high
     jsr print_byte_as_hex
     jmp newline
 }
@@ -56,45 +56,45 @@ get_z_address
     ; output: a,x
     ; side effects: 
     ; used registers: a,x
-    ldx .addr + 2 ; low
-    lda .addr + 1 ; high
+    ldx z_address + 2 ; low
+    lda z_address + 1 ; high
     rts
 
 get_z_himem_address
-    ldx .addr + 2
-    lda .addr + 1
-    ldy .addr
+    ldx z_address + 2
+    lda z_address + 1
+    ldy z_address
     rts
 
 read_next_byte
     ; input: 
     ; output: a
-    ; side effects: .addr
+    ; side effects: z_address
     ; used registers: a,x
-    sty .next_byte_state
-    lda .addr
-    ldx .addr + 1
-    ldy .addr + 2
+    sty z_address_temp
+    lda z_address
+    ldx z_address + 1
+    ldy z_address + 2
     jsr read_byte_at_z_address
-    inc .addr + 2
+    inc z_address + 2
     bne +
-    inc .addr + 1
+    inc z_address + 1
     bne +
-    inc .addr
-+   ldy .next_byte_state
+    inc z_address
++   ldy z_address_temp
     rts
 
 set_z_paddress
-    ; convert a/x to paddr in .addr
+    ; convert a/x to paddr in z_address
     ; input: a,x
     ; output: 
-    ; side effects: .addr
+    ; side effects: z_address
     ; used registers: a,x
     ; example: $031b -> $00, $0c, $6c (Z5)
-    stx .addr + 2
-    sta .addr + 1
+    stx z_address + 2
+    sta z_address + 1
     lda #$0
-    sta .addr
+    sta z_address
 !ifdef Z4 {
     ldx #2
 }
@@ -104,9 +104,9 @@ set_z_paddress
 !ifdef Z8 {
     ldx #3
 }
--   asl .addr+2
-    rol .addr+1
-    rol .addr
+-   asl z_address+2
+    rol z_address+1
+    rol z_address
 !ifndef Z3 {
     dex
     bne -
