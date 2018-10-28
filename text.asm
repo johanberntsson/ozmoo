@@ -1257,49 +1257,53 @@ tokenise_text
 ;jsr print_addr
 ;jsr printchar_flush
 
-init_get_zchar
-    ; returns the first zchar in a
-    ; side effects: z_address
-    ; must z_address with set_z_addr or set_z_paddr
-    ; used registers: a,x,y
-    lda #2
-    sta zchar_triplet_cnt
-    rts
-
 get_next_zchar
     ; returns the next zchar in a
     ; side effects: z_address
     ; used registers: a,x,y
-    lda zchar_triplet_cnt
-    cmp #2
-    bne +
+    ldx zchar_triplet_cnt
+    cpx #2
+    bne .just_read
+    ; extract 3 zchars (5 bits each)
+    ; stop bit remains in packed_text + 1
     jsr read_next_byte
     sta packed_text
     jsr read_next_byte
     sta packed_text + 1
-    ; extract 3 zchars (5 bits each)
-    ; stop bit remains in packed_text + 1
-    ldx #0
-.nextzchar_loop
-    lda packed_text + 1
     and #$1f
-    sta zchars,x
-    ldy #5
--   lsr packed_text
-    ror packed_text+1
-    dey
-    bne -
-    inx
-    cpx #3
-    bne .nextzchar_loop
-+   ldx zchar_triplet_cnt
-    lda zchars,x
+    sta zchars
+	lda packed_text
+	lsr
+	ror packed_text + 1
+	lsr
+	ror packed_text + 1
+	and #$1f
+	sta zchars + 2
+	lda packed_text + 1
+	lsr
+	lsr
+	lsr
+	sta zchars + 1	
+	ldx #0
+	bit packed_text
+	bpl +
+	inx
++	stx packed_text + 1	
+	ldx zchar_triplet_cnt
+.just_read
+	lda zchars,x
     dex
-    cpx #$ff
-    bne +
-    ldx #2
-+   stx zchar_triplet_cnt
-    rts
+    bpl +
+
+init_get_zchar
+	; Setup for reading zchars from packed string
+	; side effects: -
+	; used registers: x
+	ldx #2
++	stx zchar_triplet_cnt
+	rts
+	
+	
 ; .zchar_triplet_cnt !byte 0
 
 was_last_zchar
