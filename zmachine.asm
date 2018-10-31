@@ -604,11 +604,9 @@ z_execute
 	;jsr newline
 	;lda z_opcode
 }
-	lda #z_opcode_opcount_2op
-	sta z_opcode_opcount ; This is the most common case. Adjust value when other case is found.
 	lda z_opcode
-	bit z_opcode
 	bpl .top_bits_are_0x
+	bit z_opcode
 	bvc .top_bits_are_10
 
 	; Top bits are 11. Form = Variable
@@ -616,10 +614,12 @@ z_execute
 	and #%00011111
 	sta z_opcode_number
 	txa
+	ldx #z_opcode_opcount_2op
 	and #%00100000
 	beq + ; This is a 2OP instruction, with up to 4 operands
-	asl z_opcode_opcount ; Set to VAR
-+	jmp .get_4_ops ; Always branch
+	ldx #z_opcode_opcount_var
++	stx z_opcode_opcount
+	jmp .get_4_ops ; Always branch
 
 .top_bits_are_10
 !ifdef Z5PLUS {
@@ -647,14 +647,15 @@ z_execute
 	rol z_operand_type_arr
 	asl
 	rol z_operand_type_arr
-	lsr z_opcode_opcount ; Set to 1OP
-	lda z_operand_type_arr
-	cmp #%11
+	lda #z_opcode_opcount_1op
+	sta z_opcode_opcount
+	ldy z_operand_type_arr
+	cpy #%11
 	bne +
 	dex
 	lda #z_opcode_opcount_0op 
-	sta z_opcode_opcount ; Set to 0OP
 +
+	sta z_opcode_opcount
 	stx z_operand_count
 	jmp .read_operands
 	
@@ -676,22 +677,45 @@ z_execute
 	lda z_opcode
 	and #%00011111
 	sta z_opcode_number
-	jmp .read_operands
+	lda #z_opcode_opcount_2op 
+	sta z_opcode_opcount
+	bne .read_operands
 
 	; Get another byte of operand types
 .get_4_more_ops
+	lda z_temp + 2
+	bne .read_operands
+	inc z_temp + 2
 	ldy #8
-	sty z_operand_count
-	ldy #4
-	ldx #4
-	jsr z_get_op_types
-	jmp .read_operands
-	
+	bne .read_more_op_types
+
 .get_4_ops
-	ldy #4
-	sty z_operand_count
 	ldx #0
-	jsr z_get_op_types
+	ldy #4
+	stx z_temp + 2 ; Meaning: this is the first round
+.read_more_op_types
+	; x = index of first operand (0 or 4), y = index of last operand + 1 (1-8) 
+	sty z_temp
+	+read_next_byte_at_z_pc
+.get_next_op_type
+	asl
+	bcc .optype_0x
+	asl
+	bcs .done ; %11
+	ldy #%10
+	bne .store_optype ; Always branch
+.optype_0x
+	asl
+	ldy #%00
+	bcc .store_optype
+	iny
+.store_optype
+	sty z_operand_type_arr,x
+	inx
+	cpx z_temp
+	bcc .get_next_op_type
+.done
+	stx z_operand_count
 	lda z_opcode
 	cmp #z_opcode_call_vs2
 	beq .get_4_more_ops
@@ -700,7 +724,7 @@ z_execute
 
 .read_operands
 	ldy z_operand_count
-	beq .op_is_omitted
+	beq .perform_instruction
 	ldy #0
 .read_next_operand
 	lda z_operand_type_arr,y
@@ -709,13 +733,11 @@ z_execute
 	+read_next_byte_at_z_pc
 	pha
 	+read_next_byte_at_z_pc
-	ldy z_temp
 	tax
 	pla
-	jmp .store_operand
+	ldy z_temp
+	bpl .store_operand ; Always branch
 .operand_is_not_large_constant
-;	cmp #%11
-;	beq .op_is_omitted  ; Should no longer be needed!
 	tax
 	sty z_temp
 	+read_next_byte_at_z_pc
@@ -735,7 +757,7 @@ z_execute
 	iny
 	cpy z_operand_count
 	bcc .read_next_operand
-.op_is_omitted
+; Operand_is_omitted
 	sty z_operand_count
 	
 .perform_instruction
@@ -750,8 +772,6 @@ z_execute
 }
 	cmp #z_number_of_opcodes_implemented
 	bcs z_not_implemented
-;.have_stored_canonical	
-
 	tax 
 	lda z_jump_low_arr,x
 	sta .jsr_perform + 1
@@ -776,30 +796,6 @@ z_not_implemented
 }
     lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror
-}
-
-z_get_op_types
-	; x = index of first operand (0 or 4), y = number of operands (1-4) 
-!zone {
-	sty z_temp
-	+read_next_byte_at_z_pc
-	sta z_temp + 1
-	ldy z_temp
-.get_next_op_type
-	lda #0
-	asl z_temp + 1
-	rol
-	asl z_temp + 1
-	rol
-	cmp #%11
-	beq .done
-	sta z_operand_type_arr,x
-	inx
-	dey
-	bne .get_next_op_type
-.done
-	stx z_operand_count
-	rts
 }
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
@@ -1356,23 +1352,28 @@ make_branch_true
 	adc zp_temp + 2
 	tax
 	ldy z_pc + 1
-	lda z_pc
 	bcc +
 	inc z_pc_mempointer_is_unsafe
 	iny
 	bne +
+	lda z_pc
 	clc
 	adc #1
 	; Subtract 2
-+	pha
-	txa
+	sta z_pc
++	txa
 	sec
 	sbc #2
 	sta z_pc + 2
-	tya
+	bcc +
+	sty z_pc + 1
+	rts
++	tya
 	sbc #0
 	sta z_pc + 1
-	pla
+	bcc +
+	rts
++	lda z_pc
 	sbc #0
 	sta z_pc
 .done
@@ -1389,18 +1390,14 @@ make_branch_true
 	sta zp_temp + 1
 	lda #$ff
 	sta zp_temp
-	bne .two_byte_check_return ; Always branch
-+	txa
-	sta zp_temp + 1
+	bne z_jump_to_offset_in_zp_temp ; Always branch
++	stx zp_temp + 1
 	lda #0
 	sta zp_temp
 .two_byte_check_return
 	ldx zp_temp + 2
 	cpx #2
-	bcs z_jump_to_offset_in_zp_temp
-	lda zp_temp
-	ora zp_temp + 1
-	beq .return_x
+	bcc .return_x
 z_jump_to_offset_in_zp_temp
 	lda z_pc + 2
 	clc
@@ -1416,17 +1413,20 @@ z_jump_to_offset_in_zp_temp
 	sec
 	sbc #2
 	sta z_pc + 2
-	tya
+	bcc ++
+	pla
+-	sta z_pc
+	cpy z_pc + 1
+	beq +
+	inc z_pc_mempointer_is_unsafe
+	sty z_pc + 1
++	rts
+++	tya
 	sbc #0
 	tay
 	pla
 	sbc #0
-	sta z_pc
-	cpy z_pc + 1
-	beq +
-	inc z_pc_mempointer_is_unsafe
-+	sty z_pc + 1
-	rts
+	bcs - ; Always branch
 
 ; z_ins_jin (moved to objecttable.asm)
 
@@ -2038,6 +2038,7 @@ z_ins_scan_table
 
 ; z_ins_encode_text moved to text.asm
 
+!ifdef Z5PLUS {
 z_ins_copy_table
 	; Copy start addresses to ZP
 	lda z_operand_value_low_arr
@@ -2160,7 +2161,7 @@ z_ins_copy_table
 	bne -
 	dec zp_temp + 3
 +	jmp - ; Always branch
-
+}
 ; z_ins_print_table moved to screen.asm
 
 ; z_ins_check_arg_count moved to stack.asm	
