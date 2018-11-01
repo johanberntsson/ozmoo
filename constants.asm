@@ -45,11 +45,16 @@ z_address			  = $45 ; 3 bytes
 z_address_temp		  = $48
 
 object_tree_ptr       = $49 ; 2 bytes
-stack_top_value 	  = $4b ; 2 bytes !byte 0, 0
-stack_has_top_value   = $4d ; !byte 0
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
 z_trace_index		  = $54
 z_exe_mode	  		  = $55
+
+stack_tmp			  = $56; !byte 0, 0, 0, 0, 0
+stack_pushed_bytes	  = $5b ; !byte 0, 0
+stack_top_value 	  = $5d ; 2 bytes !byte 0, 0
+stack_has_top_value   = $5f ; !byte 0
+; Stack_pushed_values need to be saved?
+
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column

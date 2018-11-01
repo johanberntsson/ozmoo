@@ -604,9 +604,8 @@ z_execute
 	;jsr newline
 	;lda z_opcode
 }
-	lda z_opcode
-	bpl .top_bits_are_0x
 	bit z_opcode
+	bpl .top_bits_are_0x
 	bvc .top_bits_are_10
 
 	; Top bits are 11. Form = Variable
@@ -637,43 +636,41 @@ z_execute
 	; Form = Short
 	and #%00001111
 	sta z_opcode_number
-	ldx #0
-	stx z_operand_type_arr
-	inx
 	lda z_opcode
-	asl
-	asl
-	asl
-	rol z_operand_type_arr
-	asl
-	rol z_operand_type_arr
+	lsr
+	lsr
+	lsr
+	lsr
+	and #%00000011
+	cmp #%11
+	beq .short_0op
+	sta z_operand_type_arr
 	lda #z_opcode_opcount_1op
 	sta z_opcode_opcount
-	ldy z_operand_type_arr
-	cpy #%11
-	bne +
-	dex
-	lda #z_opcode_opcount_0op 
-+
-	sta z_opcode_opcount
+	ldx #1
 	stx z_operand_count
-	jmp .read_operands
+	bne .read_operands
+.short_0op
+	lda #z_opcode_opcount_0op 
+	sta z_opcode_opcount
+	ldx #0
+	stx z_operand_count
+	beq .read_operands
 	
 .top_bits_are_0x
 	; Form = Long
 	asl
-	sta zp_temp
-	ldx #0
--	asl zp_temp
-	lda #%10
+	asl
+	ldy #%10
+	sty z_operand_count
 	bcs +
-	lda #%01
-+	sta z_operand_type_arr,x
-	inx
-	cpx #2
-	bne -
-	stx z_operand_count
-	dex
+	ldy #%01
++	sty z_operand_type_arr
+	asl
+	ldy #%10
+	bcs +
+	ldy #%01
++	sty z_operand_type_arr + 1
 	lda z_opcode
 	and #%00011111
 	sta z_opcode_number
@@ -724,10 +721,11 @@ z_execute
 
 .read_operands
 	ldy z_operand_count
-	beq .perform_instruction
-	ldy #0
+	bne +
+	jmp .perform_instruction
++	ldy #0
 .read_next_operand
-	lda z_operand_type_arr,y
+	ldx z_operand_type_arr,y
 	bne .operand_is_not_large_constant
 	sty z_temp
 	+read_next_byte_at_z_pc
@@ -738,7 +736,6 @@ z_execute
 	ldy z_temp
 	bpl .store_operand ; Always branch
 .operand_is_not_large_constant
-	tax
 	sty z_temp
 	+read_next_byte_at_z_pc
 	ldy z_temp
@@ -746,19 +743,75 @@ z_execute
 	beq .operand_is_var
 	tax
 	lda #0
-	beq .store_operand ; Always branch
-.operand_is_var
-	tax
-	jsr z_get_variable_value
+
 .store_operand
 	sta z_operand_value_high_arr,y
-	txa
-	sta z_operand_value_low_arr,y
+	stx z_operand_value_low_arr,y
 	iny
 	cpy z_operand_count
 	bcc .read_next_operand
-; Operand_is_omitted
-	sty z_operand_count
+	bcs .perform_instruction 
+
+.operand_is_var
+	; Variable# in a
+	sty zp_temp + 3
+	cmp #0
+	beq .read_from_stack
+	cmp #16
+	bcs .read_global_var
+	; Local variable
+	tay
+	dey
+	cpy z_local_var_count
+	bcs .nonexistent_local
+	asl
+	tay
+	iny
+	lda (z_local_vars_ptr),y
+	tax
+	dey
+	lda (z_local_vars_ptr),y
+	ldy zp_temp + 3
+	bcc .store_operand
+.read_from_stack
+	ldy stack_has_top_value
+	beq +
+	lda stack_top_value
+	ldx stack_top_value + 1
+	dec stack_has_top_value
+	ldy zp_temp + 3
+	jmp .store_operand
++	jsr stack_pull_no_top_value
+	ldy zp_temp + 3
+	jmp .store_operand
+.read_global_var
+	cmp #128
+	bcs .read_high_global_var
+	asl
+	tay
+	iny
+	lda (z_global_vars_start),y
+	tax
+	dey
+	lda (z_global_vars_start),y
+	ldy zp_temp + 3
+	bcc .store_operand
+.read_high_global_var
+	inc z_global_vars_start + 1
+	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
+	asl
+	tay
+	iny
+	lda (z_global_vars_start),y
+	tax
+	dey
+	lda (z_global_vars_start),y
+	dec z_global_vars_start + 1
+	ldy zp_temp + 3
+	bcc .store_operand
+.nonexistent_local
+    lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
+	jsr fatalerror
 	
 .perform_instruction
 	lda z_opcode_opcount
@@ -845,36 +898,7 @@ z_get_variable_reference
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 	
-z_get_variable_value
-	; Variable in x
-	; Returns value in a,x
-	sty zp_temp + 3
-	cpx #0
-	beq .read_from_stack
-	txa
-	cmp #16
-	bcs .read_global_var
-	; Local variable
-	tay
-	dey
-	cpy z_local_var_count
-	bcs .nonexistent_local
-	asl
-	tay
-	iny
-	lda (z_local_vars_ptr),y
-	tax
-	dey
-	lda (z_local_vars_ptr),y
-	ldy zp_temp + 3
-	rts
-.read_from_stack
-	jsr stack_pull
-	ldy zp_temp + 3
-	rts
-.read_global_var
-	cmp #128
-	bcs .read_high_global_var
+; z_get_variable_value
 z_get_low_global_variable_value
 	; Read global var 0-111
 	; input: a = variable# + 16 (16-127)
@@ -885,20 +909,6 @@ z_get_low_global_variable_value
 	tax
 	dey
 	lda (z_global_vars_start),y
-	ldy zp_temp + 3
-	rts
-.read_high_global_var
-	inc z_global_vars_start + 1
-	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
-	asl
-	tay
-	iny
-	lda (z_global_vars_start),y
-	tax
-	dey
-	lda (z_global_vars_start),y
-	dec z_global_vars_start + 1
-	ldy zp_temp + 3
 	rts
 	
 z_set_variable

@@ -19,8 +19,8 @@
 
 !zone {
 
-.stack_tmp !byte 0, 0, 0, 0, 0
-stack_pushed_bytes !byte 0, 0
+; stack_tmp !byte 0, 0, 0, 0, 0
+; stack_pushed_bytes !byte 0, 0
 
 stack_init
 	lda #<(stack_start)
@@ -105,7 +105,7 @@ stack_call_routine
 	; y = Does Z_PC point to a variable where return value should be stored (0/1)
 	stx zp_temp
 	sty zp_temp + 1
-	sta .stack_tmp + 4
+	sta stack_tmp + 4
 
 	; TASK: Wrap up current stack frame
 	lda stack_has_top_value
@@ -143,7 +143,7 @@ stack_call_routine
 	; TASK: Save PC. Set new PC. Setup new stack frame.
 	ldy #2
 -	lda z_pc,y
-	sta .stack_tmp,y
+	sta stack_tmp,y
 	dey
 	bpl -
 !ifdef Z4PLUS {
@@ -169,10 +169,10 @@ stack_call_routine
 	sta z_pc + 2
 	
 	; Check if we changed page
-	lda .stack_tmp + 1
+	lda stack_tmp + 1
 	cmp z_pc + 1
 	bne +
-	lda .stack_tmp
+	lda stack_tmp
 	cmp z_pc
 	beq ++
 +	inc z_pc_mempointer_is_unsafe
@@ -194,16 +194,16 @@ stack_call_routine
 -	cpx z_local_var_count
 	bcs .setup_of_local_vars_complete
 !ifndef Z5PLUS {
-	sty .stack_tmp + 3
+	sty stack_tmp + 3
 	+read_next_byte_at_z_pc ; Read first byte of initial var value
-	ldy .stack_tmp + 3
+	ldy stack_tmp + 3
 }
 	cpx zp_temp ; Number of args
 	bcs .store_zero_in_local_var
 !ifndef Z5PLUS {
-	sty .stack_tmp + 3
+	sty stack_tmp + 3
 	+read_next_byte_at_z_pc ; Read second byte of initial var value
-	ldy .stack_tmp + 3
+	ldy stack_tmp + 3
 }
 	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
@@ -221,9 +221,9 @@ stack_call_routine
 	sta (stack_ptr),y
 	iny
 !ifndef Z5PLUS {
-	sty .stack_tmp + 3
+	sty stack_tmp + 3
 	+read_next_byte_at_z_pc ; Read first byte of initial var value
-	ldy .stack_tmp + 3
+	ldy stack_tmp + 3
 }
 	sta (stack_ptr),y
 	iny
@@ -244,15 +244,15 @@ stack_call_routine
 	ora z_local_var_count
 	sta (stack_ptr),y
 	iny
-	lda .stack_tmp + 4 ; Add call mode
+	lda stack_tmp + 4 ; Add call mode
 ;	and #$f8 ; Should not be needed!
-	ora .stack_tmp
+	ora stack_tmp
 	sta (stack_ptr),y
 	iny 
-	lda .stack_tmp + 1
+	lda stack_tmp + 1
 	sta (stack_ptr),y
 	iny
-	lda .stack_tmp + 2
+	lda stack_tmp + 2
 	sta (stack_ptr),y
 
 	; TASK: Set number of pushed bytes to 0
@@ -298,13 +298,13 @@ stack_return_from_routine
 	asl
 	tay
 	lda (z_local_vars_ptr),y
-	sta .stack_tmp ; storebit, argcount, varcount
+	sta stack_tmp ; storebit, argcount, varcount
 	
 	; Copy PC from stack to z_pc
 	iny
 	ldx #0
 -	lda z_pc,x
-	sta .stack_tmp + 1,x
+	sta stack_tmp + 1,x
 	lda (z_local_vars_ptr),y
 	cpx #0
 	bne +
@@ -320,10 +320,10 @@ stack_return_from_routine
 	bcc -
 
 	; Check if we changed page
-	lda .stack_tmp + 2
+	lda stack_tmp + 2
 	cmp z_pc + 1
 	bne +
-	lda .stack_tmp + 1
+	lda stack_tmp + 1
 	cmp z_pc
 	beq ++
 +	inc z_pc_mempointer_is_unsafe
@@ -375,10 +375,10 @@ stack_return_from_routine
 	clc
 	adc #1
 	asl
-	sta .stack_tmp + 2
+	sta stack_tmp + 2
 	lda zp_temp + 2
 	sec
-	sbc .stack_tmp + 2
+	sbc stack_tmp + 2
 	sta z_local_vars_ptr
 	lda zp_temp + 3
 	sbc #0
@@ -394,7 +394,7 @@ stack_return_from_routine
 +
 
 	; Store return value if calling instruction asked for it
-	bit .stack_tmp
+	bit stack_tmp
 	bpl +
 	+read_next_byte_at_z_pc
 	tay
@@ -457,12 +457,13 @@ stack_get_ref_to_top_value
 stack_pull
 	; Pull top value from stack, return in a,x
 	ldy stack_has_top_value
-	beq +
+	beq stack_pull_no_top_value
 	lda stack_top_value
 	ldx stack_top_value + 1
 	dec stack_has_top_value
 	rts
-+	lda stack_pushed_bytes + 1
+stack_pull_no_top_value
+	lda stack_pushed_bytes + 1
 	beq .stack_empty_return_0
 	; Decrease # of bytes on stack
 	sec
