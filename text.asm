@@ -1087,8 +1087,10 @@ read_text
     iny
 }
     pla
+!ifndef Z5PLUS {
     ; convert to lower case
     and #$7f
+}
     sta (string_array),y ; store new character in the array
 !ifndef Z5PLUS {
     iny
