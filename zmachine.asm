@@ -568,8 +568,47 @@ z_execute
 ;	jsr z_ins_sound_effect
 }
 
+!ifdef DEBUG {
+!ifdef PRINTSPEED {
+	lda #0
+	sta $a0
+	sta $a1
+	sta $a2
+	sta $4b
+	sta $4c
+}
+}
+
 .main_loop
 
+!ifdef DEBUG {
+!ifdef PRINTSPEED {
+	lda $a2
+	cmp #60
+	bcc ++
+	bne +
+	lda $a1
+	bne +
+	lda $4c
+	ldx $4b
+	jsr printinteger
+	jsr comma
+	
++	lda #0
+	sta $a0
+	sta $a1
+	sta $a2
+	sta $4b
+	sta $4c
+
+++	inc $4b
+	bne +
+	inc $4c
++
+}
+}
+	
+	
 !ifdef Z4PLUS {
 	lda z_exe_mode
 	bne .return_from_interrupt
@@ -637,13 +676,13 @@ z_execute
 	and #%00001111
 	sta z_opcode_number
 	lda z_opcode
-	lsr
-	lsr
-	lsr
-	lsr
-	and #%00000011
-	cmp #%11
+	and #%00110000
+	cmp #%00110000
 	beq .short_0op
+	lsr
+	lsr
+	lsr
+	lsr
 	sta z_operand_type_arr
 	lda #z_opcode_opcount_1op
 	sta z_opcode_opcount
@@ -750,7 +789,7 @@ z_execute
 	iny
 	cpy z_operand_count
 	bcc .read_next_operand
-	bcs .perform_instruction 
+	bcs .perform_instruction ; Always branch
 
 .operand_is_var
 	; Variable# in a
