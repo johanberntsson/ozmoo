@@ -614,6 +614,22 @@ z_execute
 	bne .return_from_interrupt
 }
 
+!ifdef VICE_TRACE {
+    ; send trace info to $DE00-$DE02, which a patched
+    ; version of Vice can use to trace z_pc onto stderr
+    ; and store on a file. To enable, edit src/c64/c64io.c
+    ; void c64io_de00_store(uint16_t addr, uint8_t value)
+    ; if(addr == 0xde01) fprintf(stderr, "%02x", value);
+    ; if(addr == 0xde02) { fprintf(stderr, "\n"); fflush(stderr); }
+    lda z_pc
+    sta $de01
+    lda z_pc + 1
+    sta $de01
+    lda z_pc + 2
+    sta $de01
+    sta $de02
+}
+
 !ifdef TRACE {
 	; Store z_pc to trace page 
 	ldx #0
