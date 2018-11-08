@@ -55,6 +55,11 @@ stack_top_value 	  = $5d ; 2 bytes !byte 0, 0
 stack_has_top_value   = $5f ; !byte 0
 ; Stack_pushed_values need to be saved?
 
+vmap_quick_index_match= $60
+vmap_next_quick_index = $61
+vmap_quick_index	  = $62 ; Must follow vmap_next_quick_index!
+vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
+
 vmem_temp			  = $92 ; 2 bytes
 
 zp_cursorswitch       = $cc

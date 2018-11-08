@@ -340,6 +340,13 @@ prepare_static_high_memory
 	dey
 	bpl -
 
+; Clear quick index
+	ldx #vmap_quick_index_length
+-	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
+	dex
+	bpl -
+	
+	
 	lda #5
 	clc
 	adc config_load_address + 4
@@ -452,6 +459,8 @@ read_byte_at_z_address
     sta zp_pc_h
 	ora #$80
 	sta vmem_temp + 1
+	lda #0
+	sta vmap_quick_index_match
     txa
     sta zp_pc_l
     and #255 - vmem_blockmask ; keep index into kB chunk
@@ -478,6 +487,28 @@ read_byte_at_z_address
 +
 	pla
 }
+!ifdef VMEM_CLOCK {
+	; Check quick index first
+	ldx #vmap_quick_index_length - 1
+-	ldy vmap_quick_index,x
+    cmp vmap_z_l,y ; zmachine mem offset ($0 -
+	beq .quick_index_candidate
+	dex
+	bpl -
+	bmi .no_quick_index_match
+.quick_index_candidate
+	tya
+	tax
+	lda vmap_z_h,x
+    and #$87
+	cmp vmem_temp + 1
+	bne .no_quick_index_match
+	sta vmap_quick_index_match
+	beq .correct_vmap_index_found
+.no_quick_index_match
+	lda vmem_temp
+}
+
     ; is there a block with this address in map?
     ldx #vmap_max_length - 1
 -   ; compare with low byte
@@ -491,18 +522,27 @@ read_byte_at_z_address
 +   lda vmap_z_h,x
     and #$87
 	cmp vmem_temp + 1
-	beq +
+	beq .correct_vmap_index_found
     lda vmem_temp
     jmp .check_next_block ; next entry if used bit not set
-+
+.correct_vmap_index_found
     ; vm index for this block found
     stx vmap_index
 !ifdef VMEM_CLOCK {
 	lda vmap_z_h,x
 	ora #%00100000 		; Set referenced flag
     sta vmap_z_h,x
-;	txa
-;	ldx next_quick_index
+	ldy vmap_quick_index_match
+	bne ++ ; This is already in the quick index, don't store it again
+	txa
+	ldx vmap_next_quick_index
+	sta vmap_quick_index,x
+	inx
+	cpx #vmap_quick_index_length
+	bcc +
+	ldx #0
++	stx vmap_next_quick_index
+++
 }
     jmp .index_found
 
