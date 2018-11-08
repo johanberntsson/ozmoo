@@ -74,7 +74,7 @@ vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !byte 0,0,0,0,0,0,0
 ;	!fill vmem_cache_count ; cache currently contains this vmap index
 vmem_all_blocks_occupied !byte 0
-vmem_temp !byte 0
+; vmem_temp !byte 0
 
 !ifdef DEBUG {
 !ifdef PREOPT {
@@ -450,11 +450,17 @@ read_byte_at_z_address
     rts
 .read_new_byte
     sta zp_pc_h
+	ora #$80
+	sta vmem_temp + 1
     txa
     sta zp_pc_l
     and #255 - vmem_blockmask ; keep index into kB chunk
     sta vmem_1kb_offset
+	txa
+	and #vmem_blockmask
+	sta vmem_temp
 !ifdef TRACE_VM_PC {
+	pha
     lda zp_pc_l
     cmp #$10
     bcs +
@@ -470,36 +476,38 @@ read_byte_at_z_address
     jsr print_byte_as_hex
     jsr newline
 +
+	pla
 }
     ; is there a block with this address in map?
-    ldy #0
+    ldx #vmap_max_length - 1
 -   ; compare with low byte
-    lda zp_pc_l
-    and #vmem_blockmask ; skip bit 0,1 since kB blocks
-    cmp vmap_z_l,y ; zmachine mem offset ($0 - 
-    bne +
-	; is the block active?
-    lda vmap_z_h,y
-	tax
-    and #$80
-    beq +     ; next entry if used bit not set
-    ; is the high byte correct?
-    txa
-    and #$7
-    cmp zp_pc_h
-    bne +
+    cmp vmap_z_l,x ; zmachine mem offset ($0 - 
+    beq +
+.check_next_block
+	dex
+    bpl -
+	bmi .no_such_block
+	; is the block active and the highbyte correct?
++   lda vmap_z_h,x
+    and #$87
+	cmp vmem_temp + 1
+	beq +
+    lda vmem_temp
+    jmp .check_next_block ; next entry if used bit not set
++
     ; vm index for this block found
+    stx vmap_index
 !ifdef VMEM_CLOCK {
-	txa
+	lda vmap_z_h,x
 	ora #%00100000 		; Set referenced flag
-    sta vmap_z_h,y
+    sta vmap_z_h,x
+;	txa
+;	ldx next_quick_index
 }
-    sty vmap_index
     jmp .index_found
-+   iny
-    cpy #vmap_max_length
-    bne -
-    ; no index found, add last
+
+; no index found, add last
+.no_such_block
 
 	; Load 1 KB block into RAM
 !ifdef VMEM_CLOCK {

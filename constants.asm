@@ -55,6 +55,8 @@ stack_top_value 	  = $5d ; 2 bytes !byte 0, 0
 stack_has_top_value   = $5f ; !byte 0
 ; Stack_pushed_values need to be saved?
 
+vmem_temp			  = $92 ; 2 bytes
+
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column
