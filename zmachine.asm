@@ -441,9 +441,7 @@ z_init
 }
 
 
-	ldy #1
-	sty z_pc_mempointer_is_unsafe
-	dey
+	ldy #0
 	sty z_exe_mode ; 0 = Normal
 	
 !ifdef TRACE {
@@ -504,12 +502,13 @@ z_init
 	lda #0
 	sta story_start + $32 ; major standard revision number which this terp complies to
 	sta story_start + $33 ; minor standard revision number which this terp complies to
+	
 	; Copy z_pc from header
-	sta z_pc
-	lda story_start + header_initial_pc
-	sta z_pc + 1
-	lda story_start + header_initial_pc + 1
-	sta z_pc + 2
+	; a is already 0
+	ldx story_start + header_initial_pc
+	ldy story_start + header_initial_pc + 1
+	jsr set_z_pc
+	jsr get_page_at_z_pc
 
 	; Setup globals pointer
 	lda story_start + header_globals + 1
@@ -1026,7 +1025,8 @@ check_for_routine_0
 	rts
 check_for_routine_0_and_store
 	; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
-	jsr check_for_routine_0
+	lda z_operand_value_high_arr
+	ora z_operand_value_low_arr
 	bne .not_0
 	lda #0
 	tax
@@ -1403,7 +1403,6 @@ make_branch_true
 	; This is a single byte jump
 	lda zp_temp + 1
 	and #%00111111
-	sta zp_temp + 2
 	cmp #2
 	bcs .jump_to_single_byte_offset
 	; Return value (true or false)
@@ -1412,36 +1411,18 @@ make_branch_true
 	lda #0
 	jmp stack_return_from_routine
 .jump_to_single_byte_offset
-	lda z_pc + 2
+	sbc #2 ; Carry is already set
 	clc
-	adc zp_temp + 2
+	adc z_pc + 2
+	bcc +
+	tay
+	lda z_pc + 1
+	adc #0
 	tax
-	ldy z_pc + 1
-	bcc +
-	inc z_pc_mempointer_is_unsafe
-	iny
-	bne +
 	lda z_pc
-	clc
-	adc #1
-	; Subtract 2
-	sta z_pc
-+	txa
-	sec
-	sbc #2
-	sta z_pc + 2
-	bcc +
-	sty z_pc + 1
-	rts
-+	tya
-	sbc #0
-	sta z_pc + 1
-	bcc +
-	rts
-+	lda z_pc
-	sbc #0
-	sta z_pc
-.done
+	adc #0
+	jmp set_z_pc
++	sta z_pc + 2 ; Within same page
 	rts
 .two_byte_jump
 	lda zp_temp + 1
@@ -1467,31 +1448,26 @@ z_jump_to_offset_in_zp_temp
 	lda z_pc + 2
 	clc
 	adc zp_temp + 2
-	tax
+	tay
 	lda z_pc + 1
 	adc zp_temp + 1
-	tay
+	tax
 	lda z_pc
 	adc zp_temp
 	pha
-	txa
+	tya
 	sec
 	sbc #2
-	sta z_pc + 2
-	bcc ++
-	pla
--	sta z_pc
-	cpy z_pc + 1
-	beq +
-	inc z_pc_mempointer_is_unsafe
-	sty z_pc + 1
-+	rts
-++	tya
-	sbc #0
 	tay
+	bcc +
+	pla
+	jmp set_z_pc
++	txa
+	sbc #0
+	tax
 	pla
 	sbc #0
-	bcs - ; Always branch
+	jmp set_z_pc
 
 ; z_ins_jin (moved to objecttable.asm)
 

@@ -171,10 +171,11 @@ z_ins_print
     jsr set_z_himem_address
     jsr print_addr
     jsr get_z_himem_address
-    sty z_pc
-    sta z_pc + 1
-    stx z_pc + 2
-	inc z_pc_mempointer_is_unsafe
+	stx zp_temp
+	tax
+	tya
+	ldy zp_temp
+	jsr set_z_pc
     rts
 
 z_ins_print_ret

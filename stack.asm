@@ -31,18 +31,6 @@ stack_init
 	sta stack_pushed_bytes
 	sta stack_pushed_bytes + 1
 	sta stack_has_top_value
-	; tay
-; -	sta stack_start,y
-	; iny
-	; cpy #4
-	; bcc -
-
-; !ifdef DEBUG {
-	; ldx stack_ptr
-	; lda stack_ptr + 1
-	; jsr printinteger
-	; jsr newline
-; }
 	rts
 
 	
@@ -141,42 +129,35 @@ stack_call_routine
 .current_frame_done
 	
 	; TASK: Save PC. Set new PC. Setup new stack frame.
-	ldy #2
--	lda z_pc,y
-	sta stack_tmp,y
-	dey
-	bpl -
-!ifdef Z4PLUS {
-!ifdef Z8 {
-	ldy #3
-} else {
-	ldy #2
-}
-}
-	lda #0
-	sta z_pc
+	lda z_pc
+	sta stack_tmp
+	lda z_pc + 1
+	sta stack_tmp + 1
+	lda z_pc + 2
+	sta stack_tmp + 2
+
 	lda z_operand_value_high_arr
-	sta z_pc + 1
+	sta zp_temp + 2
 	lda z_operand_value_low_arr
-.rol_again
-	asl
-	rol z_pc + 1
-	rol z_pc
+	sta zp_temp + 3
+	lda #0
+	asl zp_temp + 3
+	rol zp_temp + 2
+	rol
 !ifdef Z4PLUS {
-	dey
-	bne .rol_again
+	asl zp_temp + 3
+	rol zp_temp + 2
+	rol
+!ifdef Z8 {
+	asl zp_temp + 3
+	rol zp_temp + 2
+	rol
 }
-	sta z_pc + 2
+}
+	ldx zp_temp + 2
+	ldy zp_temp + 3
 	
-	; Check if we changed page
-	lda stack_tmp + 1
-	cmp z_pc + 1
-	bne +
-	lda stack_tmp
-	cmp z_pc
-	beq ++
-+	inc z_pc_mempointer_is_unsafe
-++
+	jsr set_z_pc
 	
 	+read_next_byte_at_z_pc
 	sta z_local_var_count
@@ -213,7 +194,6 @@ stack_call_routine
 	iny
 	inx
 	bne -
-	beq .setup_of_local_vars_complete
 .store_zero_in_local_var
 !ifdef Z5PLUS {
 	lda #0
@@ -282,10 +262,6 @@ stack_call_routine
 stack_return_from_routine
 
 	; input: return value in a,x
-	; ldy stack_ptr + 1
-	; cpy #>stack_start
-	; bcs +
-	; jmp .stack_underflow
 
 	; Save input values
 +	sta zp_temp
@@ -302,32 +278,21 @@ stack_return_from_routine
 	
 	; Copy PC from stack to z_pc
 	iny
-	ldx #0
--	lda z_pc,x
-	sta stack_tmp + 1,x
 	lda (z_local_vars_ptr),y
-	cpx #0
-	bne +
-	pha
+	tax
+	and #$07
+	pha ; Top byte of z_pc
+	txa
 	and #$f8
 	sta z_exe_mode
-	pla
-	and #$07
-+	sta z_pc,x
 	iny
-	inx
-	cpx #3
-	bcc -
-
-	; Check if we changed page
-	lda stack_tmp + 2
-	cmp z_pc + 1
-	bne +
-	lda stack_tmp + 1
-	cmp z_pc
-	beq ++
-+	inc z_pc_mempointer_is_unsafe
-++
+	lda (z_local_vars_ptr),y
+	tax
+	iny
+	lda (z_local_vars_ptr),y
+	tay
+	pla
+	jsr set_z_pc
 	
 	; TASK: Set stack_pushed_bytes to new value
 	ldy #0
