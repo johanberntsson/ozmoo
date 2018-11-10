@@ -2030,7 +2030,8 @@ z_ins_scan_table
 	bne + ; This is word compare, so don't perform the following test
 	lda z_operand_value_high_arr
 	bne .scan_not_a_match ; A value > 255 will never be matched by a byte
-+	and #$7f
++	lda zp_temp
+	and #$7f
 	sta zp_temp + 1 ; entry length (1-127)
 	ldx z_operand_value_low_arr + 1
 	stx zp_temp + 2 ; Lowbyte of table address
@@ -2078,8 +2079,8 @@ z_ins_scan_table
 	jsr z_store_result
 	jmp make_branch_false
 .scan_is_a_match
-	lda zp_temp + 2
-	ldx zp_temp + 3
+	lda zp_temp + 3
+	ldx zp_temp + 2
 	jsr z_store_result
 	jmp make_branch_true
 }

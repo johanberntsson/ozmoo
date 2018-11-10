@@ -6,8 +6,6 @@ You can't pick anything up at the beginning of part 1 in Borderzone. "[I beg you
 
 Status line covering several lines isn't working correctly (Nord and Bert).
 
-It's impossible to choose scenario at the beginning of Nord and Bert.
-
 TAKE AUNT in HH prints "You can't see !unt here!"
 
 Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
@@ -67,6 +65,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+It's impossible to choose scenario at the beginning of Nord and Bert.
+
 *** Speed ***
 - Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
 - Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
