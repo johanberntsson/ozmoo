@@ -137,26 +137,26 @@ stack_call_routine
 	lda z_pc + 2
 	sta stack_tmp + 2
 
-	lda z_operand_value_high_arr
-	sta zp_temp + 2
-	lda z_operand_value_low_arr
-	sta zp_temp + 3
+	; lda z_operand_value_high_arr
+	; sta zp_temp + 2
+	; lda z_operand_value_low_arr
+	; sta zp_temp + 3
 	lda #0
-	asl zp_temp + 3
-	rol zp_temp + 2
+	asl z_operand_value_low_arr
+	rol z_operand_value_high_arr
 	rol
 !ifdef Z4PLUS {
-	asl zp_temp + 3
-	rol zp_temp + 2
+	asl z_operand_value_low_arr
+	rol z_operand_value_high_arr
 	rol
 !ifdef Z8 {
-	asl zp_temp + 3
-	rol zp_temp + 2
+	asl z_operand_value_low_arr
+	rol z_operand_value_high_arr
 	rol
 }
 }
-	ldx zp_temp + 2
-	ldy zp_temp + 3
+	ldx z_operand_value_high_arr
+	ldy z_operand_value_low_arr
 	
 	jsr set_z_pc
 	
@@ -172,21 +172,12 @@ stack_call_routine
 	
 	ldx #0 ; Index of first argument to be passed to routine - 1
 	ldy #2 ; Index of first byte to store local variables
-	
--	cpx z_local_var_count
-	bcs .setup_of_local_vars_complete
-!ifndef Z5PLUS {
-	sty stack_tmp + 3
-	+read_next_byte_at_z_pc ; Read first byte of initial var value
-	ldy stack_tmp + 3
-}
-	cpx zp_temp ; Number of args
-	bcs .store_zero_in_local_var
-!ifndef Z5PLUS {
-	sty stack_tmp + 3
-	+read_next_byte_at_z_pc ; Read second byte of initial var value
-	ldy stack_tmp + 3
-}
+
+	; Copy parameter values to local vars
+-	cpx zp_temp ; Number of args
+	bcs .store_default_in_remaining_local_vars
+	cpx z_local_var_count
+	bcs .store_default_in_remaining_local_vars
 	lda z_operand_value_high_arr + 1,x
 	sta (stack_ptr),y
 	iny
@@ -194,13 +185,40 @@ stack_call_routine
 	sta (stack_ptr),y
 	iny
 	inx
-	bne -
-.store_zero_in_local_var
+	bne - ; Always branch
+
+.store_default_in_remaining_local_vars	
+	stx zp_temp + 4
+!ifndef Z5PLUS {
+	; Make z_pc skip over default values
+	txa
+	beq +
+	sty stack_tmp + 3
+	asl
+	adc z_pc + 2 ; Carry is already clear
+	tay
+	lda z_pc + 1
+	adc #0
+	tax
+	lda z_pc
+	adc #0
+	jsr set_z_pc
+	ldy stack_tmp + 3
++	
+}
+
+; Store default values in remaining vars
+	lda z_local_var_count
+	sec
+	sbc zp_temp + 4
+	beq .setup_of_local_vars_complete
+	asl
+	tax ; Number of bytes to init / copy is now in x
+
 !ifdef Z5PLUS {
 	lda #0
 }
-	sta (stack_ptr),y
-	iny
+-
 !ifndef Z5PLUS {
 	sty stack_tmp + 3
 	+read_next_byte_at_z_pc ; Read first byte of initial var value
@@ -208,8 +226,9 @@ stack_call_routine
 }
 	sta (stack_ptr),y
 	iny
-	inx
+	dex
 	bne -
+	
 .setup_of_local_vars_complete
 	
 	; TASK: Store old Z_PC, number of local vars, number of arguments and store-result-bit on stack
