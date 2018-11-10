@@ -665,16 +665,15 @@ z_execute
 	bvc .top_bits_are_10
 
 	; Top bits are 11. Form = Variable
-	tax
 	and #%00011111
 	sta z_opcode_number
-	txa
 	ldx #z_opcode_opcount_2op
+	lda z_opcode
 	and #%00100000
 	beq + ; This is a 2OP instruction, with up to 4 operands
 	ldx #z_opcode_opcount_var
 +	stx z_opcode_opcount
-	jmp .get_4_ops ; Always branch
+	jmp .get_4_op_types ; Always branch
 
 .top_bits_are_10
 !ifdef Z5PLUS {
@@ -686,7 +685,7 @@ z_execute
 	+read_next_byte_at_z_pc
 	sta z_extended_opcode
 	sta z_opcode_number
-	jmp .get_4_ops
+	jmp .get_4_op_types
 }
 .short_form
 	; Form = Short
@@ -705,37 +704,36 @@ z_execute
 	sta z_opcode_opcount
 	ldx #1
 	stx z_operand_count
-	jmp .read_operands
+	bne .read_operands ; Always branch
 .short_0op
 	lda #z_opcode_opcount_0op 
 	sta z_opcode_opcount
-	ldx #0
-	stx z_operand_count
-	jmp .read_operands
+	sta z_operand_count ; Since z_opcode_opcount_0op is 0
+	beq .read_operands ; Always branch
 	
 .top_bits_are_0x
 	; Form = Long
+	and #%00011111
+	sta z_opcode_number
+	lda #z_opcode_opcount_2op 
+	sta z_opcode_opcount
+	lda z_opcode
 	asl
 	asl
 	ldy #%10
 	sty z_operand_count
 	bcs +
-	ldy #%01
+	dey
 +	sty z_operand_type_arr
 	asl
 	ldy #%10
 	bcs +
-	ldy #%01
+	dey
 +	sty z_operand_type_arr + 1
-	lda z_opcode
-	and #%00011111
-	sta z_opcode_number
-	lda #z_opcode_opcount_2op 
-	sta z_opcode_opcount
-	bne .read_operands
+	bne .read_operands ; Always branch
 
 	; Get another byte of operand types
-.get_4_more_ops
+.get_4_more_op_types
 	lda z_temp + 2
 	bne .read_operands
 ;	lda z_temp + 3
@@ -747,7 +745,7 @@ z_execute
 	ldy #8
 	bne .read_more_op_types
 
-.get_4_ops
+.get_4_op_types
 	ldx #0
 	ldy #4
 	stx z_temp + 2 ; Meaning: this is the first round
@@ -779,9 +777,9 @@ z_execute
 	stx z_operand_count
 	lda z_opcode
 	cmp #z_opcode_call_vs2
-	beq .get_4_more_ops
+	beq .get_4_more_op_types
 	cmp #z_opcode_call_vn2
-	beq .get_4_more_ops
+	beq .get_4_more_op_types
 	
 .read_operands
 	ldy z_operand_count
@@ -789,26 +787,25 @@ z_execute
 	jmp .perform_instruction
 +	ldy #0
 .read_next_operand
+	sty z_temp
 	ldx z_operand_type_arr,y
 	bne .operand_is_not_large_constant
-	sty z_temp
 	+read_next_byte_at_z_pc
 	pha
 	+read_next_byte_at_z_pc
 	tax
 	pla
-	ldy z_temp
-	bpl .store_operand ; Always branch
+	jmp .store_operand ; Always branch
 .operand_is_not_large_constant
-	sty z_temp
 	+read_next_byte_at_z_pc
-	ldy z_temp
 	cpx #%10
 	beq .operand_is_var
+	; Operand is small constant
 	tax
 	lda #0
 
 .store_operand
+	ldy z_temp
 	sta z_operand_value_high_arr,y
 	stx z_operand_value_low_arr,y
 	iny
@@ -818,7 +815,6 @@ z_execute
 
 .operand_is_var
 	; Variable# in a
-	sty zp_temp + 3
 	cmp #0
 	beq .read_from_stack
 	cmp #16
@@ -835,19 +831,16 @@ z_execute
 	tax
 	dey
 	lda (z_local_vars_ptr),y
-	ldy zp_temp + 3
-	bcc .store_operand
+	bcc .store_operand ; Always branch
 .read_from_stack
 	ldy stack_has_top_value
 	beq +
 	lda stack_top_value
 	ldx stack_top_value + 1
 	dec stack_has_top_value
-	ldy zp_temp + 3
-	jmp .store_operand
+	beq .store_operand ; Always branch
 +	jsr stack_pull_no_top_value
-	ldy zp_temp + 3
-	jmp .store_operand
+	jmp .store_operand ; Always branch
 .read_global_var
 	cmp #128
 	bcs .read_high_global_var
@@ -858,8 +851,7 @@ z_execute
 	tax
 	dey
 	lda (z_global_vars_start),y
-	ldy zp_temp + 3
-	bcc .store_operand
+	bcc .store_operand ; Always branch
 .read_high_global_var
 	inc z_global_vars_start + 1
 	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
@@ -871,8 +863,7 @@ z_execute
 	dey
 	lda (z_global_vars_start),y
 	dec z_global_vars_start + 1
-	ldy zp_temp + 3
-	bcc .store_operand
+	bne .store_operand ; Always branch
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
@@ -1402,7 +1393,8 @@ make_branch_true
 	+read_next_byte_at_z_pc
 	sta zp_temp + 1
 	bit zp_temp + 1
-	bvs +
+	bvs + ; 1 byte of branch information
+	; 2 bytes of branch information
 	+read_next_byte_at_z_pc
 	sta zp_temp + 2
 	bit zp_temp + 1
@@ -1450,10 +1442,12 @@ make_branch_true
 +	stx zp_temp + 1
 	lda #0
 	sta zp_temp
-.two_byte_check_return
+; two_byte_check_return
 	ldx zp_temp + 2
 	cpx #2
-	bcc .return_x
+	bcs z_jump_to_offset_in_zp_temp
+	lda zp_temp + 1
+	beq .return_x 
 z_jump_to_offset_in_zp_temp
 	lda z_pc + 2
 	clc

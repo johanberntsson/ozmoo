@@ -65,6 +65,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Objects in the room are not shown in minform.z5
+
 It's impossible to choose scenario at the beginning of Nord and Bert.
 
 *** Speed ***
