@@ -151,8 +151,8 @@ z_jump_high_arr
 	!byte >z_ins_pull
 	!byte >z_ins_split_window
 	!byte >z_ins_set_window
-	!byte >z_ins_call_xs
 !ifdef Z4PLUS {
+	!byte >z_ins_call_xs
 	!byte >z_ins_erase_window
 	!byte >z_ins_erase_line
 	!byte >z_ins_set_cursor
@@ -160,6 +160,7 @@ z_jump_high_arr
 	!byte >z_ins_set_text_style
 	!byte >z_ins_buffer_mode
 } else {
+	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -342,8 +343,8 @@ z_jump_low_arr
 	!byte <z_ins_pull
 	!byte <z_ins_split_window
 	!byte <z_ins_set_window
-	!byte <z_ins_call_xs
 !ifdef Z4PLUS {
+	!byte <z_ins_call_xs
 	!byte <z_ins_erase_window
 	!byte <z_ins_erase_line
 	!byte <z_ins_set_cursor
@@ -351,6 +352,7 @@ z_jump_low_arr
 	!byte <z_ins_set_text_style
 	!byte <z_ins_buffer_mode
 } else {
+	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -703,13 +705,13 @@ z_execute
 	sta z_opcode_opcount
 	ldx #1
 	stx z_operand_count
-	bne .read_operands
+	jmp .read_operands
 .short_0op
 	lda #z_opcode_opcount_0op 
 	sta z_opcode_opcount
 	ldx #0
 	stx z_operand_count
-	beq .read_operands
+	jmp .read_operands
 	
 .top_bits_are_0x
 	; Form = Long
@@ -736,6 +738,11 @@ z_execute
 .get_4_more_ops
 	lda z_temp + 2
 	bne .read_operands
+;	lda z_temp + 3
+;	beq +
+;	+read_next_byte_at_z_pc
+;	jmp .read_operands
+;+	
 	inc z_temp + 2
 	ldy #8
 	bne .read_more_op_types
@@ -744,8 +751,9 @@ z_execute
 	ldx #0
 	ldy #4
 	stx z_temp + 2 ; Meaning: this is the first round
+;	stx z_temp + 3 ; Meaning: We have not encountered a missing argument yet
 .read_more_op_types
-	; x = index of first operand (0 or 4), y = index of last operand + 1 (1-8) 
+	; x = index of first operand (0 or 4), y = index of last possible operand + 1 (1-8) 
 	sty z_temp
 	+read_next_byte_at_z_pc
 .get_next_op_type
@@ -765,6 +773,8 @@ z_execute
 	inx
 	cpx z_temp
 	bcc .get_next_op_type
+;.really_done
+;	inc z_temp + 3 ; An argument was empty
 .done
 	stx z_operand_count
 	lda z_opcode
@@ -772,7 +782,7 @@ z_execute
 	beq .get_4_more_ops
 	cmp #z_opcode_call_vn2
 	beq .get_4_more_ops
-
+	
 .read_operands
 	ldy z_operand_count
 	bne +
@@ -2010,41 +2020,42 @@ z_ins_sound_effect
 
 !ifdef Z4PLUS {
 z_ins_scan_table
-	lda z_operand_count
-	cmp #4
-	bcs +
 	lda #$82
-	bne ++
-+	lda z_operand_value_low_arr + 3
-++	sta zp_temp ; form (bit 7 = 1 means words, 0 means bytes)
-	and #$7f
+	ldx z_operand_count
+	cpx #4
+	bcc +
+	lda z_operand_value_low_arr + 3
++	sta zp_temp ; form (bit 7 = 1 means words, 0 means bytes)
+	and #$80
+	bne + ; This is word compare, so don't perform the following test
+	lda z_operand_value_high_arr
+	bne .scan_not_a_match ; A value > 255 will never be matched by a byte
++	and #$7f
 	sta zp_temp + 1 ; entry length (1-127)
-	lda z_operand_value_low_arr + 1
-	sta zp_temp + 2 ; Lowbyte of table address
+	ldx z_operand_value_low_arr + 1
+	stx zp_temp + 2 ; Lowbyte of table address
 	lda z_operand_value_high_arr + 1
 	sta zp_temp + 3 ; Highbyte of table address
-.scan_next	
+.scan_next
 	lda z_operand_value_high_arr + 2
 	ora z_operand_value_low_arr + 2
 	beq .scan_table_false
-	ldy #0
-	lda (zp_temp + 2),y
-	bit zp_temp
+	lda zp_temp + 3
+	ldx zp_temp + 2
+    jsr set_z_address
+	jsr read_next_byte
+	ldx zp_temp
 	bmi .scan_word_compare
 	; Byte compare
 	cmp z_operand_value_low_arr
-	bne .scan_not_a_match
-	lda z_operand_value_high_arr
 	bne .scan_not_a_match
 	beq .scan_is_a_match ; Always branch
 .scan_word_compare
 	cmp z_operand_value_high_arr
 	bne .scan_not_a_match
-	iny
-	lda (zp_temp + 2),y
+	jsr read_next_byte
 	cmp z_operand_value_low_arr
-	bne .scan_not_a_match
-	beq .scan_is_a_match ; Always branch
+	beq .scan_is_a_match
 .scan_not_a_match
 	; Move to next address in table
 	lda zp_temp + 2

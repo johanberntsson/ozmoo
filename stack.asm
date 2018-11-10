@@ -5,7 +5,7 @@
 ; ...
 ; Pushed word 0
 ; ZZZZZZZZ ZZZZZZZZ
-; SPPPLLLL 00000ZZZ
+; SPPPLLLL 0000EZZZ
 ; Local variable k-1
 ; ...
 ; Local variable 0
@@ -13,6 +13,7 @@
 ; S = Does return address point to a a variable where return value should be stored?
 ; PPP = Number of parameters with which this routine was called
 ; LLLL = Number of local variables in this routine
+; E = Execution mode (1 = interrupt, 0 = normal)
 ; ZZZ ZZZZZZZZ ZZZZZZZZ = Z_PC to go to when returning from this routine 
 ;
 ; Stack pointer actually points to last word of current entry (Number of pushed bytes + 4)
@@ -213,8 +214,8 @@ stack_call_routine
 	
 	; TASK: Store old Z_PC, number of local vars, number of arguments and store-result-bit on stack
 
-	lda zp_temp
-	ldx zp_temp + 1
+	lda zp_temp ; Arg count
+	ldx zp_temp + 1 ; Store?
 	beq +
 	ora #%00001000
 +	asl
@@ -225,7 +226,6 @@ stack_call_routine
 	sta (stack_ptr),y
 	iny
 	lda stack_tmp + 4 ; Add call mode
-;	and #$f8 ; Should not be needed!
 	ora stack_tmp
 	sta (stack_ptr),y
 	iny 
@@ -360,17 +360,13 @@ stack_return_from_routine
 
 	; Store return value if calling instruction asked for it
 	bit stack_tmp
-	bpl +
-	+read_next_byte_at_z_pc
+	bmi +
+	rts
++	+read_next_byte_at_z_pc
 	tay
 	lda zp_temp
 	ldx zp_temp + 1
 	jmp z_set_variable	
-+	
-	; lda #ERROR_READ_ABOVE_STATMEM
-	; jmp fatalerror
-
-	rts
 
 stack_push
 	; Push a,x onto stack
