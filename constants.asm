@@ -68,6 +68,8 @@ zp_screencolumn       = $d3 ; current cursor column
 zp_screenrow          = $d6 ; current cursor row
 zp_temp               = $fb ; 5 bytes
 
+print_buffer		  = $100 ; 41 bytes
+
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
 

@@ -369,7 +369,7 @@ printchar_flush
     beq +
     txa ; kernel_printchar/$ffd2 destroys x,y
     pha
-    lda .buffer,x
+    lda print_buffer,x
     jsr $ffd2 ; kernel_printchar
     pla
     tax
@@ -377,7 +377,7 @@ printchar_flush
     bne -
 +   ldx #0
     stx .buffer_index
-    stx .buffer_last_space
+    stx .last_break_char_buffer_pos
     rts
 
 printchar_buffered
@@ -398,14 +398,9 @@ printchar_buffered
     ; update the buffer
 .buffered_window
     lda .buffer_char
-    bne .not_first_space
-    ; skip space if at first position
-    cmp #$20
-    beq .printchar_done
-.not_first_space
     ; add this char to the buffer
     cmp #$0d
-    bne .check_space
+    bne .check_break_char
     ; newline. Print line and reset the buffer
     jsr printchar_flush
 !ifdef OLD_MORE_PROMPT {
@@ -420,75 +415,113 @@ printchar_buffered
     jsr $ffd2 ; kernel_printchar
 }
     jmp .printchar_done
-.check_space
-    cmp #$20
-    bne .not_space
-    ; update index to last space
+.check_break_char
     ldy .buffer_index
-    sty .buffer_last_space
-.not_space
-    cmp #46 ; .
-    bne .add_char
-    ; use period as separator of last resort if no space found
-    sty .buffer_last_space
-    bne .add_char
-    ldy .buffer_index
-    sty .buffer_last_space
+	cpy #40
+	bcs .add_char ; Don't register break chars on last position of buffer.
+    cmp #$20 ; Space
+    beq .break_char
+	cmp #$2d ; -
+	bne .add_char
+.break_char
+    ; update index to last break character
+    sty .last_break_char_buffer_pos
 .add_char
     ldy .buffer_index
-    sta .buffer,y
+    sta print_buffer,y
     inc .buffer_index
     ldy .buffer_index
-    cpy #40
+    cpy #41
     bne .printchar_done
     ; print the line until last space
+	; First calculate max# of characters on line
+	ldx #40
+	ldy .num_rows
+	iny
+	cpy .window_size
+	bcc +
+	dex ; Max 39 chars on last line on screen.
++	stx .max_chars_on_line
+	; Now find the character to break on
+	ldy .last_break_char_buffer_pos
+	beq .print_40 ; If there are no break characters on the line, print all 40 characters
+	; Check if we have a "perfect space" - a space after 40 characters
+	lda print_buffer,x
+	cmp #$20
+	beq .print_40
+	; Check if the break character is a space
+	lda print_buffer,y
+	cmp #$20
+	beq .print_buffer
+	iny
+	bne .store_break_pos ; Always branch
+.print_40
+	ldy .max_chars_on_line
+.store_break_pos
+	sty .last_break_char_buffer_pos
+.print_buffer
     ldx #0
--   cpx .buffer_last_space
+-   cpx .last_break_char_buffer_pos
     beq +
     txa ; kernel_printchar/$ffd2 destroys x,y
     pha
-    lda .buffer,x
+    lda print_buffer,x
     jsr $ffd2 ; kernel_printchar
     pla
     tax
     inx
-    bne -
-    ; move the rest of the line back to the beginning and update indices
-+   inx ; skip the space
-    ldy #0
--   cpx .buffer_index
-    beq +
-    lda .buffer,x
-    sta .buffer,y
+    bne - ; Always branch
+    ; Skip initial spaces, move the rest of the line back to the beginning and update indices
++   ldy #0
+	cpx .buffer_index
+	beq .after_copy_loop
+    lda print_buffer,x
+	cmp #$20
+	bne .copy_loop
+	inx
+.copy_loop
+	cpx .buffer_index
+    beq .after_copy_loop
+    lda print_buffer,x
+    sta print_buffer,y
     iny
     inx
-    bne -
-+   sty .buffer_index
-    ldy #0
-    sty .buffer_last_space
+    bne .copy_loop ; Always branch
+.after_copy_loop
+	sty .buffer_index
 !ifdef OLD_MORE_PROMPT {
     ; more on the next line
+	lda .last_break_char_buffer_pos
+	cmp #40
+	bcs +
     lda #$0d
     jsr $ffd2 ; kernel_printchar
-    jsr increase_num_rows
++	jsr increase_num_rows
 } else {
     ; more on the same line
     jsr increase_num_rows
+	lda .last_break_char_buffer_pos
+	cmp #40
+	bcs +
     lda #$0d
     jsr $ffd2 ; kernel_printchar
++
 }
+    ldy #0
+    sty .last_break_char_buffer_pos
 .printchar_done
     pla
     tay
     pla
     tax
     rts
+.max_chars_on_line !byte 0
 .buffer_char       !byte 0
 .buffer_index      !byte 0
-.buffer_last_space !byte 0
-.buffer            !fill 41, 0
-.save_x				!byte 0
-.save_y				!byte 0
+.last_break_char_buffer_pos !byte 0
+; print_buffer            !fill 41, 0
+.save_x			   !byte 0
+.save_y			   !byte 0
 
 clear_screen_raw
 	lda #147

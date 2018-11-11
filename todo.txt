@@ -2,15 +2,15 @@ Known bugs
 ----------
 Clearing screen doesn't always reset the number of rows printed, so a MORE prompt can appear too early. (Run Borderzone, choose part 1)
 
-You can't pick anything up at the beginning of part 1 in Borderzone. "[I beg your pardon?]
+You can't pick anything up at the beginning of part 1 in Borderzone: "[I beg your pardon?]".
+
+If you try to move around on the train in Borderzone, you get some surprising results: "kill man" is treated like a direction, "w" is confused with "n" etc. 
 
 Status line covering several lines isn't working correctly (Nord and Bert).
 
 TAKE AUNT in HH prints "You can't see !unt here!"
 
 Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
-
-Room description in Top Landing (E, N, E) in HH lacks last ".".
 
 
 
@@ -65,6 +65,10 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Room description in Top Landing (E, N, E) in HH lacks last ".". This may have something to do with the dot being the only character which doesn't fit on the last line. 
+
+Buffered printing should be able to break lines after a dash (-).
+
 Objects in the room are not shown in minform.z5
 
 It's impossible to choose scenario at the beginning of Nord and Bert.
