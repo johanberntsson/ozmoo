@@ -629,6 +629,49 @@ z_execute
     lda z_pc + 2
     sta $de01
     sta $de02
+    ; send a memory dump if at specific address (e.g. $ad30)
+    lda z_pc+1
+    cmp #$ad ; $ad
+    bne +
+    lda z_pc+2
+    cmp #$30 ; $30
+    bne +
+    ; dump dynmem
+    ; first find out how many lines to dump (16 bytes/line)
+dumptovice
+    lda story_start + header_static_mem + 1
+    sta .dyndump + 2
+    lda story_start + header_static_mem 
+    sta .dyndump + 1
+    ldx #4
+-   lsr .dyndump + 2
+    ror .dyndump + 1
+    dex
+    bne -
+    ldy .dyndump + 1
+    iny
+    lda #<story_start
+    sta .dyndump + 1
+    lda #>story_start
+    sta .dyndump + 2
+-   ldx  #0
+.dyndump
+    lda $8000,x
+    sta $de01 ; dump byte
+    inx
+    cpx #16
+    bne .dyndump
+    sta $de02 ; newline in dump
+    clc
+    lda .dyndump + 1
+    adc #16
+    sta .dyndump + 1
+    lda .dyndump + 2
+    adc #0
+    sta .dyndump + 2
+    dey
+    bne -
++
 }
 
 !ifdef TRACE {
