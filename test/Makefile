@@ -1,10 +1,10 @@
-all: make_praxix
+#all: make_praxix
 #all: make_czech
-#all: make_oztest
+all: make_oztest
 
 make_oztest:
-	inform -v3 oztest/oztest.inf oztest.z3
-	../create_d64.rb oztest.z3 oztestz3.d64
+	#inform -v3 oztest/oztest.inf oztest.z3
+	#../create_d64.rb oztest.z3 oztestz3.d64
 	inform -v5 oztest/oztest.inf oztest.z5
 	../create_d64.rb oztest.z5 oztestz5.d64
 

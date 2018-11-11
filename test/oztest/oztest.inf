@@ -1616,6 +1616,17 @@ Object Obj6 "test of an object with a shortname which is about as long as they g
 ! MAIN calls a bunch of subs. Each one runs a set of related tests.
 !---------------------- MAIN
 
+Array words table 2;
+[ test_scantable a b;
+    words-->1 = 'hello';
+    words-->2 = 'johan';
+    a = 'aaa';
+    @scan_table a words 2 -> b ?bad;
+    rtrue;
+    .bad;
+    rtrue;
+];
+
 Property prop8 7;
 Property prop10 10;
 Object RockRoom "Rock Room"
@@ -1641,6 +1652,7 @@ Object -> SouthWall "south wall"
    @print "^Test numbers appear in [brackets].^";
 
    test_dejavu(); @print "^";
+   test_scantable(); @print "^";
 
 
    print "^^Performed ", Testnum, " tests.^";
