@@ -31,7 +31,7 @@ z_ins_erase_window
     cmp #1
     beq .window_1
     cmp #$ff ; clear screen, then; -1 unsplit, -2 keep as is
-    beq .keep_split
+    bne .keep_split
     ldx #0 ; unsplit
     jsr split_window
 .keep_split
@@ -158,6 +158,7 @@ z_ins_print_table
 
 z_ins_buffer_mode 
     ; buffer_mode flag
+    jsr printchar_flush
     ldy #0
     lda z_operand_value_low_arr
     sta is_buffered_window,y ; set window 0 (main screen) to flag
@@ -275,6 +276,7 @@ z_ins_set_cursor
 }
     ldx z_operand_value_low_arr ; line 1..
     dex ; line 0..
+    txa
     ldy .current_window
     bne .top_window
     ; bottom window (add size of top window to x for correct offset)
