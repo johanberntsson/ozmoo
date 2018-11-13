@@ -6,6 +6,21 @@ streams_stack				!fill 60, 0
 streams_stack_items			!byte 0
 streams_buffering			!byte 1,1
 streams_output_selected		!byte 0, 0, 0, 0
+
+.streams_tmp	!byte 0,0,0
+.current_character !byte 0
+character_translation_table
+; Pairs of values (zscii code, petscii code). End with 0,0.
+	!byte $5f, $a4 ; Underscore = underscore-like graphic character
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+!ifdef SWEDISH_CHARS {
+	!byte $e5, $5d ; å = ]
+	!byte $e4, $5b ; ä = [
+	!byte $f6, $5c ; ä = [
+}
+	!byte 0,0
+
+
 	
 streams_init
 	; Setup/Reset streams handling
@@ -34,6 +49,7 @@ streams_print_output
 	lda streams_output_selected + 2
 	bne .mem_write
 	pla
+	jsr translate_zscii_to_petscii
 	;jmp printchar_unbuffered
 	jmp printchar_buffered
 .mem_write
@@ -158,7 +174,42 @@ z_ins_output_stream
 	bpl -
 	rts
 .remove_first_level
-	; Turn off stream 3 output (Acc is always 0 here)
+	; Turn off stream 3 output (A is always 0 here)
 	sta streams_output_selected + 2
 	rts
+
+translate_zscii_to_petscii
+	sty .streams_tmp + 1
+	sta .streams_tmp
+	ldy #0
+-	lda character_translation_table,y
+	beq ++
+	iny
+	cmp .streams_tmp
+	beq +
+	iny
+	bne - ; Always branch
+++	lda .streams_tmp
+	jmp +++
++	lda character_translation_table,y
++++	ldy .streams_tmp + 1
+invert_case
+	cmp #$41
+	bcc + ; Lower than ascii A
+	cmp #$7b
+	bcs + ; Higher than ascii z
+	sta .streams_tmp
+	and #%00011111
+	beq ++
+	cmp #$1b ; "z" + 1
+	bcs ++
+	lda .streams_tmp
+	eor #$20
++	rts
+++	lda .streams_tmp
+	rts
+	
+
+	
+	
 }

@@ -6,18 +6,6 @@
 ;TRACE_PRINT_ARRAYS = 1
 .text_tmp	!byte 0
 .current_character !byte 0
-
-.character_translation_table
-; Pairs of values (zscii code, petscii code). End with 0,0.
-	!byte $5f, $a4 ; Underscore = underscore-like graphic character
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
-!ifdef SWEDISH_CHARS {
-	!byte $e5, $5d ; å = ]
-	!byte $e4, $5b ; ä = [
-	!byte $f6, $5c ; ä = [
-}
-	!byte 0,0
-
 	
 !ifdef BENCHMARK {
 benchmark_commands
@@ -50,8 +38,8 @@ z_ins_print_char
     ; sta escape_char_counter
     ; sta abbreviation_command
     lda z_operand_value_low_arr
-	jsr invert_case
-		jsr translate_zscii_to_petscii
+;	jsr invert_case
+;	jsr translate_zscii_to_petscii
 	jmp streams_print_output
 	
 z_ins_new_line
@@ -86,6 +74,8 @@ z_ins_read_char
     lda #0
 	jmp z_store_result
 
+	
+!ifdef Z5PLUS {	
 z_ins_tokenise_text
     ; tokenise text parse dictionary flag
     ; setup string_array
@@ -150,6 +140,7 @@ z_ins_encode_text
     cpy #6
     bne -
     rts
+}
 
 z_ins_print_addr 
     ldx z_operand_value_low_arr
@@ -413,22 +404,6 @@ z_ins_aread
 	jmp z_store_result
 }
 
-invert_case
-	cmp #$41
-	bcc + ; Lower than ascii A
-	cmp #$7b
-	bcs + ; Higher than ascii z
-	sta .text_tmp
-	and #%00011111
-	beq ++
-	cmp #$1b ; "z" + 1
-	bcs ++
-	lda .text_tmp
-	eor #$20
-+	rts
-++	lda .text_tmp
-	rts
-	
 convert_zchar_to_char
     ; input: a=zchar
     ; output: a=char
@@ -444,29 +419,13 @@ convert_zchar_to_char
     adc alphabet_offset
     tay
     lda .alphabet,y
-translate_zscii_to_petscii
-+	sta .current_character
-	ldy #0
--	lda .character_translation_table,y
-	beq ++
-	iny
-	cmp .current_character
-	beq +
-	iny
-	bne - ; Always branch
-++	lda .current_character
-	rts
-+	lda .character_translation_table,y
 +++	rts
-	
-convert_char_to_zchar
-    ; input: a=char
-    ; output: a=zchar
-    ; side effects:
-    ; used registers: a,x
+
+translate_petscii_to_zscii
+	jsr invert_case
 	sta .current_character
 	ldx #1
--	lda .character_translation_table,x
+-	lda character_translation_table,x
 	beq +
 	cmp .current_character
 	beq ++
@@ -474,10 +433,19 @@ convert_char_to_zchar
 	inx
 	bne - ; Always branch
 ++	dex
-	lda .character_translation_table,x
+	lda character_translation_table,x
 	bne +++ ; Always branch
 +	lda .current_character
-+++	ldx #0
++++	rts
+
+	
+convert_char_to_zchar
+    ; input: a=char
+    ; output: a=zchar
+    ; side effects:
+    ; used registers: a,x
+;	jsr translate_petscii_to_zscii
+	ldx #0
 -   cmp .alphabet,x
     beq +
     inx
@@ -948,6 +916,7 @@ read_char
     jsr kernel_getchar
     cmp #$00
     beq read_char
+	jsr translate_petscii_to_zscii
     rts
 
 turn_on_cursor
@@ -1066,7 +1035,10 @@ read_text
     cmp #29
     beq .readkey ; cursor right
     ; print the allowed char and store in the array
+	pha
+	jsr translate_zscii_to_petscii
     jsr $ffd2; kernel_printchar
+	pla
     pha
     lda zp_screencolumn ; compare with size of keybuffer
     sec
@@ -1090,7 +1062,11 @@ read_text
     pla
 !ifndef Z5PLUS {
     ; convert to lower case
-    and #$7f
+	cmp #$61 ; lowercase A
+	bcs +
+	jsr invert_case
++
+;    and #$7f
 }
     sta (string_array),y ; store new character in the array
 !ifndef Z5PLUS {
@@ -1429,7 +1405,7 @@ print_addr
     beq +
     jmp .next_zchar
 +   lda escape_char
-	jsr translate_zscii_to_petscii
+;	jsr translate_zscii_to_petscii
     jsr streams_print_output
     jmp .next_zchar
 .l1 cmp #0
@@ -1664,7 +1640,8 @@ print_addr
 ; .zchars !byte 0,0,0
 ; .packedtext !byte 0,0
 ; .alphabet_offset !byte 0
+alpha
 .alphabet ; 26 * 3
-    !pet "abcdefghijklmnopqrstuvwxyz"
-    !pet "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    !pet " ",13,"0123456789.,!?_#'",34, "/\-:()"
+    !raw "abcdefghijklmnopqrstuvwxyz"
+    !raw "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    !raw " ",13,"0123456789.,!?_#'",34, "/\-:()"

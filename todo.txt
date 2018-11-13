@@ -8,10 +8,11 @@ If you try to move around on the train in Borderzone, you get some surprising re
 
 Status line covering several lines isn't working correctly (Nord and Bert).
 
-TAKE AUNT in HH prints "You can't see !unt here!"
-
 Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
 
+A message which ends in the last column gets an extra line break.
+
+You can't use uppercase letters in input.
 
 
 Ideas for tasks / subprojects to do next
@@ -65,6 +66,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+TAKE AUNT in HH prints "You can't see !unt here!"
+
 Room description in Top Landing (E, N, E) in HH lacks last ".". This may have something to do with the dot being the only character which doesn't fit on the last line. 
 
 Buffered printing should be able to break lines after a dash (-).
