@@ -393,9 +393,10 @@ def build_interpreter()
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
 	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
+	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
-    cmd = "#{$ACME} -D#{$ztype}=1#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME} --setpc #{$start_address} -D#{$ztype}=1#{fontflag}#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
@@ -412,8 +413,13 @@ end
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
 
+	font_clause = ""
+	if $font_filename then
+#		font_clause = " \"#{$font_filename}\"@$0800,2"
+		font_clause = " \"#{$font_filename}\"@$0800"
+	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
-	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -x1 \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 	puts exomizer_cmd
 	system(exomizer_cmd)
 #	puts "Building with #{vmem_preload_blocks} blocks gives file size #{File.size($zip_file)}."
@@ -763,30 +769,37 @@ end
 
 
 def print_usage_and_exit
-    puts "Usage: make.rb [-S1|-S2] [-c <preloadfile>] [-o] [-s] [-x] <file>"
+    puts "Usage: make.rb [-S1|-S2] [-c <preloadfile>] [-o] [-s] [-x] -f <fontfile> <file>"
     puts "       -S1|-S2|-D2|-D3: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
     puts "       -c: read preload config from preloadfile, previously created with -o"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -s: start game in Vice if build succeeds"
     puts "       -x: Use extended tracks (40 instead of 35) on 1541 disk"
+    puts "       -f: Embed the specified font with the game"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
     exit 0
 end
 
 i = 0
 await_preloadfile = false
+await_fontfile = false
 preloadfile = nil
+$font_filename = nil
 auto_play = false
 optimize = false
 extended_tracks = false
 preload_max_vmem_blocks = 1000
+$start_address = 0x0801
 
 begin
 	while i < ARGV.length
 		if await_preloadfile then
 			await_preloadfile = false
 			preloadfile = ARGV[i]
+		elsif await_fontfile then
+			await_fontfile = false
+			$font_filename = ARGV[i]
 		elsif ARGV[i] =~ /^-x$/i then
 			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/i then
@@ -804,8 +817,10 @@ begin
 		elsif ARGV[i] =~ /^-D3$/i then
 			mode = MODE_D3
 		elsif ARGV[i] =~ /^-c$/i then
-#			preload_vm_blocks = true
 			await_preloadfile = true
+		elsif ARGV[i] =~ /^-f$/i then
+			await_fontfile = true
+			$start_address = 0x1000
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -815,8 +830,7 @@ begin
 		i = i + 1
 	end
 	if !$story_file
-		raise "error"
-		exit 1
+		print_usage_and_exit()
 	end
 rescue
 	print_usage_and_exit()

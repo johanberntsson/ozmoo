@@ -36,10 +36,8 @@ stack_size = $0400;
 }	
 }
 
+;  * = $0801 ; This must now be set on command line: --setpc $0801
 
-; basic program (10 SYS2061)
-!source "basic-boot.asm"
-    +start_at $080d
     jmp .initialize
 
 ; global variables
@@ -118,7 +116,11 @@ w1  cmp $d012
     and #$03
     sta c64_model
     ; enable lower case mode
-    lda #23
+!ifdef CUSTOM_FONT {
+    lda #18
+} else {
+	lda #23
+}
     sta reg_screen_char_mode
 	lda #$80
 	sta charset_switchable

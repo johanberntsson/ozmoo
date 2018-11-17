@@ -15,6 +15,7 @@ A message which ends in the last column gets an extra line break.
 You can't use uppercase letters in input.
 
 
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
@@ -66,6 +67,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+* A possibility to embed a custom font
+
 TAKE AUNT in HH prints "You can't see !unt here!"
 
 Room description in Top Landing (E, N, E) in HH lacks last ".". This may have something to do with the dot being the only character which doesn't fit on the last line. 
@@ -161,6 +164,7 @@ Possible alternative versions / extensions
 * Support for C1581 disks (can hold 3160 blocks of user data)
 * Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
 * Support for REU
+* A build mode where the whole game fits in memory from the start, and load/save will use the same device as the game was loaded from (tape or a disk drive)
 * C128 version which can use a C1571, additional RAM and 80-column mode.
 * PET version
 * Plus/4 version

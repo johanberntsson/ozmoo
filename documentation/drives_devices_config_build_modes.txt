@@ -1,6 +1,6 @@
 Drives and devices
 ------------------
-A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drive devices attached to the C64. The device# which can be used are 8, 9, 10, 11. Two different story disks can not use the same device#.
+A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drive devices attached to the C64. The device numbers which can be used are 8, 9, 10, 11. Two different story disks can not use the same device number.
 
 
 Build modes
