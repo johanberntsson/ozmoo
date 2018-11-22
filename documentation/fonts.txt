@@ -3,9 +3,13 @@ Fonts
 
 When building a game with make.rb, you can choose to embed a font (character set) with the game using the -f option. This will use up 2 KB of memory which would otherwise have been available for game data. The font file should be exactly 2048 bytes long and just hold the raw data for the font, without load address or other extra information.
 
-Included with the Ozmoo distribution is one custom font:
+Included with the Ozmoo distribution are these custom fonts:
 
-* Clairsys, by Paul van der Laan. License: SIL Open Font License.
+* Clairsys, by Paul van der Laan. License: SIL Open Font License 1.1 ( https://opensource.org/licenses/OFL-1.1 )
 
-You are free to use this font in a game you make and distribute, regardless of whether you make any money off the game. You must however include credits for the font, stating the name of the font, the creator of the font, and the license. You strongly suggest you include these credits both in the docs / game distribution and somewhere within the game.
+You are free to use one of these fonts in a game you make and distribute, regardless of whether you make any money off of the game. You must however include credits for the font, stating the name of the font, the creator of the font, and the license. We strongly suggest you include these credits both in the docs / game distribution and somewhere within the game (Some games print "Type ABOUT for information about the game." or something to that effect as the game starts).
+
+
+
+
 
