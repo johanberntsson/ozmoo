@@ -1020,6 +1020,13 @@ read_text
     beq .readkey
 	; Make sure deleted characters are forgotten
     jsr $ffd2 ; kernel_printchar ; print the delete char
+!ifdef Z5PLUS {
+    ldy #1
+    lda (string_array),y ; number of characters in the array
+	sec
+	sbc #1
+	sta (string_array),y
+}
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #14
@@ -1038,8 +1045,6 @@ read_text
 	pha
 	jsr translate_zscii_to_petscii
     jsr $ffd2; kernel_printchar
-	pla
-    pha
     lda zp_screencolumn ; compare with size of keybuffer
     sec
     sbc .read_text_startcolumn
@@ -1049,7 +1054,7 @@ read_text
 }
     ldy #0
     cmp (string_array),y ; max characters in array
-    bcs +
+    bcs .read_buffer_full
     ; keybuffer < maxchars
 !ifdef Z5PLUS {
     iny
@@ -1063,9 +1068,9 @@ read_text
 !ifndef Z5PLUS {
     ; convert to lower case
 	cmp #$61 ; lowercase A
-	bcs +
+	bcs .dont_invert_case
 	jsr invert_case
-+
+.dont_invert_case
 ;    and #$7f
 }
     sta (string_array),y ; store new character in the array
@@ -1075,7 +1080,8 @@ read_text
     sta (string_array),y ; store 0 after last char
 }
     jmp .readkey
-+   ; keybuffer >= maxchars
+.read_buffer_full
+	; keybuffer >= maxchars
 !ifdef Z5PLUS {
     lda (string_array),y ; max characters in array
     sec
@@ -1089,6 +1095,17 @@ read_text
     pha ; return value
     ; turn off blinking cursor
     jsr turn_off_cursor
+!ifndef Z5PLUS {
+	; Store terminating 0, in case characters were deleted at the end.
+    lda zp_screencolumn ; compare with size of keybuffer
+    sec
+    sbc .read_text_startcolumn
+	tay
+	iny
+	lda #0
+	sta (string_array),y
+}	
+	
     pla
     beq +
     jsr $ffd2 ; print final char unless it is 0
