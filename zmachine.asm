@@ -2132,19 +2132,6 @@ z_ins_scan_table
 z_ins_copy_table
 	; copy_table first second size 
 
-	; Copy parameters to ZP vectors
-	; lda 
-	; ldy #2
-	; ldx #5
-; -	lda z_operand_value_high_arr,y
-	; sta z_temp,x
-	; dex
-	; lda z_operand_value_low_arr,y
-	; sta z_temp,x
-	; dex
-	; dey
-	; bpl -
-	
 	lda z_operand_value_low_arr + 1
 	ora z_operand_value_high_arr + 1
 	bne .copy_table_not_zerofill
@@ -2158,9 +2145,13 @@ z_ins_copy_table
 	adc #>story_start
 	sta zp_temp + 1
 
+	; Perform zero-fill
 	ldy #0
 	ldx z_operand_value_low_arr + 2
--	lda #0
+-	txa
+	ora z_operand_value_high_arr + 2
+	beq .copy_all_done
+	lda #0
 	sta (zp_temp),y
 	iny
 	bne +
@@ -2169,9 +2160,8 @@ z_ins_copy_table
 	cpx #$ff
 	bne -
 	dec z_operand_value_high_arr + 2
-	lda z_operand_value_high_arr + 2
-	cmp #$ff 
-	bne -
+	bpl - ; Always branch
+.copy_all_done
 	rts ; We are done
 
 .copy_table_not_zerofill
@@ -2250,160 +2240,42 @@ z_ins_copy_table
 	stx zp_temp + 3
 
 .copy_table_common
+	ldx z_operand_value_high_arr
+	ldy z_operand_value_low_arr
+-	lda z_operand_value_low_arr + 2
+	ora z_operand_value_high_arr + 2
+	beq .copy_all_done
+	lda #0
+	; Read next byte from first table
+	jsr read_byte_at_z_address
+	; Store byte in second table
 	ldy #0
---	lda z_operand_value_high_arr
-	ldx z_operand_value_low_arr
-    jsr set_z_address
--	jsr read_next_byte
 	sta (zp_temp),y
-	ldx zp_temp + 3
-	bmi ++ ; Backwards copy
-	iny
-	bne +
-	inc zp_temp + 1
-+	; Decrease # of bytes left to copy
+	; Increase/decrease pointer to second
+	lda zp_temp
+	clc
+	adc zp_temp + 2
+	sta zp_temp
+	lda zp_temp + 1
+	adc zp_temp + 3
+	sta zp_temp + 1
+	; Increase/decrease pointer to first
+	lda z_operand_value_low_arr
+	clc
+	adc zp_temp + 2
+	sta z_operand_value_low_arr
+	tay
+	lda z_operand_value_high_arr
+	adc zp_temp + 3
+	sta z_operand_value_high_arr
+	tax
+	; Decrease # of bytes left to copy
 	dec z_operand_value_low_arr + 2
 	lda z_operand_value_low_arr + 2
 	cmp #$ff
 	bne -
 	dec z_operand_value_high_arr + 2
-	bpl -
-	rts ; Done
-++	; Copying backwards...
-	dey
-	cpy #$ff
-	bne +
-	dec zp_temp + 1
-+	dec z_operand_value_low_arr
-	lda z_operand_value_low_arr
-	cmp #$ff
-	bne +
-	dec z_operand_value_high_arr
-+	; Decrease # of bytes left to copy
-	dec z_operand_value_low_arr + 2
-	lda z_operand_value_low_arr + 2
-	cmp #$ff
-	bne --
-	dec z_operand_value_high_arr + 2
-	bpl --
-	rts ; Done
-
-	
-
-	; lda z_operand_value_low_arr + 1
-	; sta zp_temp + 2
-	; lda z_operand_value_high_arr + 1
-	; clc
-	; adc #>story_start
-	; sta zp_temp + 3
-	
-	; ; Figure out copying mode
-	; lda #64
-	; sta z_temp ; 32 = fill with zero, 64 = forward, 128 = backward
-	; ldy z_operand_value_high_arr + 2 ; Load in y to use later, if negative
-	; bmi .copy_table_invert_size
-	; lda zp_temp + 2
-	; tay
-	; ora z_operand_value_high_arr + 1
-	; beq .fill_with_0
-	; cpy zp_temp
-	; lda zp_temp + 3
-	; sbc zp_temp + 1
-	; bcc .copy_table_main
-
-	; ; Prepare for backwards copying
-	; ; Add size - 1 to first
-	; lda zp_temp
-	; clc
-	; adc z_operand_value_low_arr + 2
-	; tay
-	; lda zp_temp + 1
-	; adc z_operand_value_high_arr + 2
-	; tax
-	; tya
-	; sec
-	; sbc #1
-	; sta zp_temp
-	; txa
-	; sbc #0
-	; sta zp_temp + 1
-	; ; Add size - 1 to second
-	; lda zp_temp + 2
-	; clc
-	; adc z_operand_value_low_arr + 2
-	; tay
-	; lda zp_temp + 3
-	; adc z_operand_value_high_arr + 2
-	; tax
-	; tya
-	; sec
-	; sbc #1
-	; sta zp_temp + 2
-	; txa
-	; sbc #0
-	; sta zp_temp + 3
-	; ; Set copy mode
-	; asl z_temp ; Set backward mode
-	; bcc .copy_table_main ; Always branch
-
-; .fill_with_0
-	; lsr z_temp ; Set fill with 0 mode
-	; bcc .copy_table_main ; Always branch
-; .copy_table_invert_size
-	; lda z_operand_value_low_arr + 2
-	; sec
-	; sbc #1
-	; eor #$ff
-	; sta z_operand_value_low_arr + 2
-	; tya
-	; sbc #0
-	; eor #$ff
-	; sta z_operand_value_high_arr + 2
-	
-; .copy_table_main
-	; ldy #0
-	; ldx z_operand_value_low_arr + 2 ; Keep track of lowbyte in x
-	; ; Decrease the number of elements left to copy
-; -	dex
-	; cpx #$ff
-	; bne .copy_next_value
-	; dec z_operand_value_high_arr + 2
-	; lda z_operand_value_high_arr + 2
-	; cmp #$ff
-	; bne .copy_next_value
-	; rts
-; .copy_next_value
-	; bit z_temp
-	; bmi .backward_copy
-	; bvs .forward_copy
-	; ; Zero fill
-	; lda #0
-	; sta (zp_temp),y
-	; beq ++
-; .forward_copy
-	; lda (zp_temp),y
-	; sta (zp_temp + 2),y
-; ++	inc zp_temp
-	; bne +
-	; inc zp_temp + 1
-; +	inc zp_temp + 2
-	; bne -
-	; inc zp_temp + 3
-; +	jmp - ; Always branch
-; .backward_copy
-	; lda (zp_temp),y
-	; sta (zp_temp + 2),y
-	; dec zp_temp
-	; lda zp_temp
-	; cmp #$ff
-	; bne +
-	; dec zp_temp + 1
-; +	dec zp_temp + 2
-	; lda zp_temp + 2
-	; cmp #$ff
-	; bne -
-	; dec zp_temp + 3
-; +	jmp - ; Always branch
+	bpl - ; Always branch
 }
 ; z_ins_print_table moved to screen.asm
 

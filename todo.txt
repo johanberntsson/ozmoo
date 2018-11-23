@@ -16,8 +16,6 @@ You can't use uppercase letters in input.
 
 Entering PETSCII graphic characters as player input hangs the terp.
 
-copy_table can't copy from statmem (and maybe it has other bugs as well).
-
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -77,6 +75,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+copy_table can't copy from statmem (and maybe it has other bugs as well).
+
 * A possibility to embed a custom font
 
 TAKE AUNT in HH prints "You can't see !unt here!"
