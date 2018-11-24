@@ -22,7 +22,6 @@ Build config utility. Could be in same location as Z-machine stack and accessibl
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
-- Optimize player input encoding
 - Optimize object manipulation and object tree manipulation
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 - Add fast-loader code?
@@ -69,6 +68,7 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 DONE:
 *** Speed ***
+- Optimize player input encoding
 - Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
 - Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
     Old todo: - reuse index and skip tests if same block as previous call to read_z_*

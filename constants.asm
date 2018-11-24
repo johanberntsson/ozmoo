@@ -14,7 +14,8 @@ zp_pc_h               = $0a
 zp_pc_l               = $0b
 z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 z_operand_count		  = $0d
-z_temp				  = $0e ; 6 bytes
+zword				  = $0e ; 6 bytes
+
 zp_mempos             = $14 ; 2 bytes
 
 z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -59,6 +60,10 @@ vmap_quick_index_match= $60
 vmap_next_quick_index = $61
 vmap_quick_index	  = $62 ; Must follow vmap_next_quick_index!
 vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
+
+z_temp				  = $68 ; 9 bytes
+
+
 
 vmem_temp			  = $92 ; 2 bytes
 

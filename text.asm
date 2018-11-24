@@ -134,7 +134,7 @@ z_ins_encode_text
     adc #>story_start
     sta string_array + 1
     ldy #0
--   lda .zword,y
+-   lda zword,y
     sta (string_array),y
     iny
     cpy #6
@@ -441,10 +441,11 @@ translate_petscii_to_zscii
 	
 convert_char_to_zchar
     ; input: a=char
-    ; output: a=zchar
+    ; output: store zchars in z_temp,x. Increase x. Exit if x >= ZCHARS_PER_ENTRY
     ; side effects:
     ; used registers: a,x
 ;	jsr translate_petscii_to_zscii
+	stx zp_temp + 4
 	ldx #0
 -   cmp .alphabet,x
     beq +
@@ -460,6 +461,9 @@ convert_char_to_zchar
 +   txa
     clc
     adc #6
+	ldx zp_temp + 4
+	sta z_temp,x
+	inx
     rts
 
 .first_word = z_temp ;	!byte 0,0
@@ -472,7 +476,7 @@ convert_char_to_zchar
 .last_char_index		!byte 0
 .parse_array_index 		!byte 0
 .dictionary_address = zp_temp + 3 ;  !byte 0,0
-.zword !byte 0,0,0,0,0,0
+; .zword !byte 0,0,0,0,0,0
 	
 	
 !ifdef Z4PLUS {
@@ -481,58 +485,53 @@ convert_char_to_zchar
     ZCHARS_PER_ENTRY = 6
 }
 ZCHAR_BYTES_PER_ENTRY = ZCHARS_PER_ENTRY * 2 / 3
+ZWORD_OFFSET = 6 - ZCHAR_BYTES_PER_ENTRY
 
 encode_text
     ; input .wordstart
     ; registers: a,x,y
-    ; side effects: .last_char_index, .triplet_counter, .zword
-    lda .wordstart  
-    clc
-    ; truncate the word length to dictionary size
-    adc #ZCHARS_PER_ENTRY
-    sta .last_char_index 
-    ; get started!
-    lda #1
-    sta .triplet_counter ; keep track of triplets to insert extra bit
-    ldy .wordstart
-.encode_chars
-    ldx #5 ; shift 5 times to make place for the next zchar
-    dec .triplet_counter
-    bne .shift_zchar
-    lda #3
-    sta .triplet_counter
-    ldx #6 ; no, make that 6 times (to fill up 3 zchars in 2 bytes)
-.shift_zchar
-    asl .zword + 5
-    rol .zword + 4
-    rol .zword + 3
-    rol .zword + 2
-!ifdef Z4PLUS {
-    rol .zword + 1
-    rol .zword
-}
-    dex
-    bne .shift_zchar
-    lda #5 ; pad character
-    cpy .wordend
-    bcs +
-    lda (string_array),y
-    jsr convert_char_to_zchar
-+   tax
-!ifdef TRACE_TOKENISE {
-    jsr printx ; next zchar to insert into zword
-    jsr space
-}
-    ora .zword + 5
-    sta .zword + 5
-    iny
-    cpy .last_char_index
-    bne .encode_chars
-    ; done. Add stop bit to mark end of string
-    lda .zword + 4
-    ora #$80
-    sta .zword + 4
-    rts
+    ; side effects: .last_char_index, .triplet_counter, zword
+	ldy .wordstart ; Pointer to current character
+	ldx #0 ; Next position in z_temp
+-	lda (string_array),y
+	jsr convert_char_to_zchar
+	cpx #ZCHARS_PER_ENTRY
+	bcs .done_converting_to_zchars
+	iny
+	cpy .wordend
+	bcc -
+	; Pad rest of word
+	lda #5 ; Pad character
+-	sta z_temp,x
+	inx
+	cpx #ZCHARS_PER_ENTRY
+	bcc -
+.done_converting_to_zchars
+	ldx #0 ; x = start of current triplet 
+	ldy #0 ; Pointer to next character in buffer
+-	lda z_temp,y
+	sta zword + ZWORD_OFFSET,x
+	iny
+	lda z_temp,y
+	asl
+	asl
+	asl
+	asl
+	rol zword + ZWORD_OFFSET,x
+	asl
+	rol zword + ZWORD_OFFSET,x
+	iny
+	ora z_temp,y
+	sta zword + ZWORD_OFFSET + 1,x
+	iny
+	inx
+	inx
+	cpx #(2 * (ZCHARS_PER_ENTRY / 3))
+	bcc -
+	lda zword + 4
+	ora #$80
+	sta zword + 4
+	rts
 
 find_word_in_dictionary
     ; convert word to zchars and find it in the dictionary
@@ -559,22 +558,22 @@ find_word_in_dictionary
 !ifdef TRACE_TOKENISE {
     ; print zword (6 or 9 bytes)
     jsr newline
-    ldx .zword 
+    ldx zword 
     jsr printx
     jsr comma
-    ldx .zword + 1
+    ldx zword + 1
     jsr printx
     jsr comma
-    ldx .zword + 2
+    ldx zword + 2
     jsr printx
     jsr comma
-    ldx .zword + 3
+    ldx zword + 3
     jsr printx
     jsr comma
-    ldx .zword + 4
+    ldx zword + 4
     jsr printx
     jsr comma
-    ldx .zword + 5
+    ldx zword + 5
     jsr printx
     jsr newline
 }
@@ -682,9 +681,9 @@ find_word_in_dictionary
     ; jsr space
 ; }
 !ifdef Z4PLUS {
-    cmp .zword,y
+    cmp zword,y
 } else {
-    cmp .zword + 2,y
+    cmp zword + 2,y
 }
     bne .zchars_differ
     iny
@@ -778,9 +777,9 @@ find_word_in_dictionary
 .unordered_loop_check_entry
     jsr read_next_byte
 !ifdef Z4PLUS {
-    cmp .zword,y
+    cmp zword,y
 } else {
-    cmp .zword + 2,y
+    cmp zword + 2,y
 }
     bne .unordered_not_a_match
     iny
