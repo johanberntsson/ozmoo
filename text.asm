@@ -448,22 +448,69 @@ convert_char_to_zchar
 	stx zp_temp + 4
 	ldx #0
 -   cmp .alphabet,x
-    beq +
+    beq .found_char_in_alphabet
     inx
     cpx #26*3
     bne -
-    tax
-!ifdef DEBUG {
-    jsr printx
-}
-    lda #ERROR_INVALID_CHAR
-    jsr fatalerror
-+   txa
-    clc
-    adc #6
+	; Char is not in alphabet
+	pha
+	lda #5
 	ldx zp_temp + 4
 	sta z_temp,x
 	inx
+	lda #6
+	sta z_temp,x
+	inx
+	pla
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	sta z_temp,x
+	pla
+	and #%00011111
+	inx
+	bne .store_last_char
+	
+    ; tax
+; !ifdef DEBUG {
+    ; jsr printx
+; }
+    ; lda #ERROR_INVALID_CHAR
+    ; jsr fatalerror
+.found_char_in_alphabet
+	cpx #26
+	bcc .found_in_a0
+	lda #4 ; Shift to A1
+	cpx #26*2
+	bcc .found_in_a1
+	lda #5 ; Shift to A2
+.found_in_a1
+	stx zp_temp + 3
+	ldx zp_temp + 4
+	sta z_temp,x
+	inx
+	sty zp_temp + 2 ; Remember old Y value
+	tay ; Holds 4 for A1 or 5 for A2
+	lda zp_temp + 3
+-	sec
+	sbc #26
+	dey
+	cpy #4
+	bcs -
+	ldy zp_temp + 2 ; Restore old Y value
+	tax
+.found_in_a0
+	txa
+    clc
+    adc #6
+	ldx zp_temp + 4
+.store_last_char	
+	sta z_temp,x
+	inx
+.convert_return
     rts
 
 .first_word = z_temp ;	!byte 0,0

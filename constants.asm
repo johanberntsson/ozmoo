@@ -61,7 +61,7 @@ vmap_next_quick_index = $61
 vmap_quick_index	  = $62 ; Must follow vmap_next_quick_index!
 vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
-z_temp				  = $68 ; 9 bytes
+z_temp				  = $68 ; 12 bytes (Only dictionary encoding uses more than 6)
 
 
 
