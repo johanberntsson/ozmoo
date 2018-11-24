@@ -332,16 +332,28 @@ read_byte_at_z_address
     ; Returns: value in a
     sty mempointer ; low byte unchanged
     ; same page as before?
-    cmp zp_pc_h
-    bne .read_new_byte
     cpx zp_pc_l
     bne .read_new_byte
+    cmp zp_pc_h
+    bne .read_new_byte
     ; same 256 byte segment, just return
-    ldy #0
-    lda (mempointer),y
-    rts
+-	ldy #0
+	lda (mempointer),y
+	rts
 .read_new_byte
-    sta zp_pc_h
+	cmp #0
+	bne .non_dynmem
+	cpx nonstored_blocks
+	bcs .non_dynmem
+	; Dynmem access
+	sta zp_pc_h
+	txa
+    sta zp_pc_l
+	adc #>story_start
+	sta mempointer + 1
+	bne - ; Always branch
+.non_dynmem
+	sta zp_pc_h
 	ora #$80
 	sta vmem_temp + 1
 	lda #0
@@ -401,7 +413,8 @@ read_byte_at_z_address
     beq +
 .check_next_block
 	dex
-    bpl -
+	cpx vmap_first_swappable_index
+    bcs -
 	bmi .no_such_block
 	; is the block active and the highbyte correct?
 +   lda vmap_z_h,x
@@ -500,7 +513,8 @@ read_byte_at_z_address
 	jmp print_optimized_vm_map
 }	
 }
-	inc vmem_all_blocks_occupied
+	ldx #1
+	stx vmem_all_blocks_occupied
 .replace_block
     ldx #vmap_max_length - 1
 	; Protect block where z_pc currently points

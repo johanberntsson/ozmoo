@@ -187,7 +187,7 @@ w1  cmp $d012
     jsr fatalerror
 .supported_version
 
-	; Check how many vmem_blocks are not stored in raw disk sectors
+	; Check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
 !ifdef USEVM {
 	ldy story_start + header_static_mem
 	lda story_start + header_static_mem + 1
@@ -448,6 +448,126 @@ prepare_static_high_memory
     ; the default case is to simply treat all as dynamic (r/w)
     rts
 }
+
+
+z_init
+!zone z_init {
+
+!ifdef DEBUG {
+!ifdef PREOPT {
+	jsr print_following_string
+	!pet "*** vmem optimization mode ***",13,13,0
+}	
+}
+
+
+	ldy #0
+	sty z_exe_mode ; 0 = Normal
+	
+!ifdef TRACE {
+	; Setup trace
+	lda #0
+	sta z_trace_index
+	tay
+-	sta z_trace_page,y
+	iny
+	bne -
+}
+	
+	; Modify header to tell game about terp capabilities
+!ifdef Z3 {
+	lda story_start + 1
+	and #(255 - 16 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
+	sta story_start + 1
+} else {
+!ifdef Z4 {
+	lda story_start + 1
+	and #(255 - 4 - 8) ; bold font, italic font, timed input not available
+	ora #(16 + 128) ; Fixed-space style, timed input available
+	sta story_start + 1
+} else { ; Z5PLUS
+	lda story_start + 1
+	and #(255 - 1 - 4 - 8) ; colours, bold font, italic font
+	ora #(16 + 128) ; Fixed-space style, timed input available
+	sta story_start + 1
+	lda story_start + $11
+	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
+	sta story_start + $11
+}
+}
+!ifdef Z4PLUS {
+	lda #8
+	sta story_start + $1e ; Interpreter number (8 = C64)
+	lda #64
+	sta story_start + $1f ; Interpreter number. Usually ASCII code for a capital letter (We use @ until the terp is ready for release)
+	lda #25
+	sta story_start + $20 ; Screen lines
+	lda #40
+	sta story_start + $21 ; Screen columns
+}
+!ifdef Z5PLUS {
+	lda #>320
+	sta story_start + $22 ; Screen width in units
+	lda #<320
+	sta story_start + $23 ; Screen width in units
+	lda #>200
+	sta story_start + $24 ; Screen height in units
+	lda #<200
+	sta story_start + $25 ; Screen height in units
+	lda #8
+	sta story_start + $26 ; Font width in units
+	sta story_start + $27 ; Font height in units
+	; TODO: Store default background and foreground color in 2c, 2d (or comply to game's wish?)
+}
+	lda #0
+	sta story_start + $32 ; major standard revision number which this terp complies to
+	sta story_start + $33 ; minor standard revision number which this terp complies to
+	
+	; Copy z_pc from header
+	; a is already 0
+	ldx story_start + header_initial_pc
+	ldy story_start + header_initial_pc + 1
+	jsr set_z_pc
+	jsr get_page_at_z_pc
+
+	; Setup globals pointer
+	lda story_start + header_globals + 1
+	clc
+	adc #<(story_start - 32)
+	sta z_global_vars_start
+	lda story_start + header_globals
+	adc #>(story_start - 32)
+	sta z_global_vars_start + 1
+
+	; Init sound
+	lda #0
+	ldx #$18
+-	sta $d400,x
+	dex
+	bpl -
+	lda #$f
+	sta $d418
+	lda #$00
+	sta $d405
+	lda #$f2
+	sta $d406
+	
+	; Init randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	ldx #$80
+	stx $d412
+!ifdef BENCHMARK {
+	ldy #1
+	jmp z_rnd_init
+} else {
+	jmp z_rnd_init_random
+}
+}
+
+
+
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 

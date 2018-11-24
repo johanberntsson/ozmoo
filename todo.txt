@@ -22,7 +22,6 @@ Build config utility. Could be in same location as Z-machine stack and accessibl
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
-- Optimize finding memory blocks in dynmem (predictable position) / not in dynmem. Figure out if quick-access table should be used for both or just for non-dynmem
 - Optimize player input encoding
 - Optimize object manipulation and object tree manipulation
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
@@ -69,6 +68,12 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+*** Speed ***
+- Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
+- Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
+    Old todo: - reuse index and skip tests if same block as previous call to read_z_*
+- Optimize finding memory blocks in dynmem (predictable position) / not in dynmem. Figure out if quick-access table should be used for both or just for non-dynmem
+
 Move config information to location in memory where it is now loaded on game start. Keep in temp directory to aid debugging. (Didn't do, since this would make it impossible to write a config utility)
 
 Simplify code to find sector if interleave = 1. (Tried it, but with no apparent gain in speed)
@@ -88,11 +93,6 @@ Buffered printing should be able to break lines after a dash (-).
 Objects in the room are not shown in minform.z5
 
 It's impossible to choose scenario at the beginning of Nord and Bert.
-
-*** Speed ***
-- Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
-- Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
-    Old todo: - reuse index and skip tests if same block as previous call to read_z_*
 
 Tokenize using a non-ordered dictionary doesn't work.
 
