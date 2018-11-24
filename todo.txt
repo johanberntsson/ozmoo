@@ -17,10 +17,6 @@ Entering uppercase letters or PETSCII graphic characters as player input results
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Move config information to location in memory where it is now loaded on game start. Keep in temp directory to aid debugging.
-
-Simplify code to find sector if interleave = 1.
-
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
@@ -73,6 +69,10 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Move config information to location in memory where it is now loaded on game start. Keep in temp directory to aid debugging. (Didn't do, since this would make it impossible to write a config utility)
+
+Simplify code to find sector if interleave = 1. (Tried it, but with no apparent gain in speed)
+
 Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
 
 copy_table can't copy from statmem (and maybe it has other bugs as well).

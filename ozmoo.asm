@@ -28,13 +28,6 @@
 
 stack_size = $0400;
 
-!ifdef USEVM {
-!ifdef ALLRAM {
-	vmem_end = $10000
-} else {
-	vmem_end = $d000
-}	
-}
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
@@ -53,10 +46,10 @@ game_id		!byte 0,0,0,0
 !source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
-!source "zmachine.asm"
 !ifdef USEVM {
 !source "vmem.asm"
 }
+!source "zmachine.asm"
 !source "zaddress.asm"
 !source "text.asm"
 !source "dictionary.asm"
@@ -92,12 +85,6 @@ game_id		!byte 0,0,0,0
 
     rts
 
-!ifndef USEVM {
-prepare_static_high_memory
-    ; the default case is to simply treat all as dynamic (r/w)
-    rts
-}
-
 program_end
 
 	!align 255, 0, 0
@@ -105,6 +92,7 @@ z_trace_page
 	!fill z_trace_size, 0
 
 vmem_cache_start
+
 !zone deletable_init {
 deletable_init
 	cld
@@ -341,11 +329,144 @@ vmem_cache_count = vmem_cache_size / 256
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
 stack_start
-	!fill stack_size, 0
+!ifdef USEVM {
+prepare_static_high_memory
+    lda #$ff
+    sta zp_pc_h
+    sta zp_pc_l
+
+; ############################################################### New section Start
+	
+; Clear vmap_z_h
+	ldy #vmap_max_length - 1
+	lda #0
+-	sta vmap_z_h,y
+	dey
+	bpl -
+
+; Clear quick index
+	ldx #vmap_quick_index_length
+-	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
+	dex
+	bpl -
+	
+	
+	lda #5
+	clc
+	adc config_load_address + 4
+	sta zp_temp
+	lda #>config_load_address
+;	adc #0 ; Not needed if disk info is always <= 249 bytes
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y
+	sta zp_temp + 3 ; # of blocks already loaded
+	dey
+	lda (zp_temp),y ; # of blocks in the list
+	tax
+	cpx #vmap_max_length + 1
+	bcc +
+	ldx #vmap_max_length
++	stx zp_temp + 2  ; Number of bytes to copy
+; Copy to vmap_z_h
+	iny
+-	iny
+	lda (zp_temp),y
+	sta vmap_z_h - 2,y
+
+!ifdef VMEM_CLOCK {
+	and #%01000000 ; Check if non-swappable memory
+	bne .dont_set_vmap_swappable
+	lda vmap_first_swappable_index
+	bne .dont_set_vmap_swappable
+	dey
+	dey
+	sty vmap_first_swappable_index
+;	sty vmap_clock_index
+	iny
+	iny
+.dont_set_vmap_swappable
+}	
+
+	dex
+	bne -
+; Point to lowbyte array	
+	ldy #0
+	lda (zp_temp),y
+	clc
+	adc zp_temp
+	adc #2
+	sta zp_temp
+	ldy #vmap_max_length - 1
+-	lda #0
+	cpy zp_temp + 2
+	bcs +
+	lda (zp_temp),y
++	sta vmap_z_l,y
+	dey
+	bpl -
+	
+!ifndef VMEM_CLOCK {
+	iny
+	lda #story_start
+-	sta vmap_c64_offset,y
+	clc
+	adc #vmem_block_pagecount
+	iny
+	cpy zp_temp + 2
+	bcc -
+}
+
+; Load all suggested pages which have not been pre-loaded
+-	lda zp_temp + 3 ; First index which has not been loaded
+	beq ++ ; First block was loaded with header
+	cmp zp_temp + 2 ; Total # of indexes in the list
+	bcs +
+	; jsr dollar
+	sta vmap_index
+	tax
+	jsr load_blocks_from_index
+++	inc zp_temp + 3
+	bne - ; Always branch
++
+!ifdef VMEM_CLOCK {
+	ldx zp_temp + 2
+	cpx #vmap_max_length
+	bcc +
+	dex
++	stx vmap_clock_index
+}
+
+; ################################################################# New Section End	
+	
+!ifdef TRACE_VM {
+    jsr print_vm_map
+}
+    rts
+} else {
+prepare_static_high_memory
+    ; the default case is to simply treat all as dynamic (r/w)
+    rts
+}
+
+	!fill stack_size - (* - stack_start),0 ; 4 pages
 
 story_start
 !ifdef USEVM {
 vmem_start
+
+!ifdef ALLRAM {
+
+!if $10000 - vmem_start > $cc00 {
+	vmem_end = vmem_start + $cc00
+} else {
+	vmem_end = $10000
+}
+
+} else {
+	vmem_end = $d000
+}	
+
 }
 
 config_load_address = stack_start + 512
