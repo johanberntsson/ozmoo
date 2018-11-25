@@ -6,6 +6,7 @@
 ;TRACE_PRINT_ARRAYS = 1
 .text_tmp	!byte 0
 .current_character !byte 0
+.petscii_char_read = zp_temp
 	
 !ifdef BENCHMARK {
 benchmark_commands
@@ -19,6 +20,7 @@ benchmark_read_char
 	inc benchmark_read_char + 2
 +	cmp #255
 	beq ++
+	sta .petscii_char_read
 	jsr translate_petscii_to_zscii
 +++	rts
 ++	jsr dollar
@@ -984,6 +986,7 @@ read_char
     jsr kernel_getchar
     cmp #$00
     beq read_char
+	sta .petscii_char_read
 	jsr translate_petscii_to_zscii
     rts
 
@@ -1080,12 +1083,13 @@ read_text
     bne +
     lda #13 ; return 13
     jmp .read_text_done
-+   cmp #20
++   cmp #8
     bne +
     ; allow delete if anything in the buffer
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
+	lda .petscii_char_read
     jsr $ffd2 ; kernel_printchar ; print the delete char
 !ifdef Z5PLUS {
     ldy #1
@@ -1096,21 +1100,25 @@ read_text
 }
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
-    cmp #14
-    beq .readkey ; big/small
-    cmp #19
-    beq .readkey ; home
-    cmp #145
-    beq .readkey ; cursor up
-    cmp #17
-    beq .readkey ; cursor down
-    cmp #157
-    beq .readkey ; cursor left
-    cmp #29
-    beq .readkey ; cursor right
+    cmp #32
+    bcc .readkey ; big/small
+    cmp #127
+    bcs .readkey ; big/small
+    ; cmp #19
+    ; beq .readkey ; home
+    ; cmp #145
+    ; beq .readkey ; cursor up
+    ; cmp #17
+    ; beq .readkey ; cursor down
+    ; cmp #157
+    ; beq .readkey ; cursor left
+    ; cmp #29
+    ; beq .readkey ; cursor right
+	
     ; print the allowed char and store in the array	
 +	pha
-	jsr translate_zscii_to_petscii
+;	jsr translate_zscii_to_petscii
+	lda .petscii_char_read
     jsr $ffd2; kernel_printchar
     lda zp_screencolumn ; compare with size of keybuffer
     sec

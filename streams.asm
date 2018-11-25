@@ -11,6 +11,11 @@ streams_output_selected		!byte 0, 0, 0, 0
 .current_character !byte 0
 character_translation_table
 ; Pairs of values (zscii code, petscii code). End with 0,0.
+	!byte $8, $14 ; Backspace
+	!byte 129, 145 ; Cursor up
+	!byte 130, 17 ; Cursor down
+	!byte 131, 157 ; Cursor left
+	!byte 132, 29 ; Cursor right
 	!byte $5f, $a4 ; Underscore = underscore-like graphic character
 	!byte $7c, $7d ; Pipe = pipe-like graphic character
 !ifdef SWEDISH_CHARS {
