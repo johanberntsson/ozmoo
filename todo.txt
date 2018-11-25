@@ -12,8 +12,9 @@ Status line covering several lines isn't working correctly (Nord and Bert).
 
 A message which ends in the last column gets an extra line break.
 
-Entering uppercase letters or PETSCII graphic characters as player input results in a fatal error.
+Ending player input with Commodore-Enter puts the game in a state where it doesn't register player input, and thus becomes unplayable.
 
+Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -67,6 +68,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+Entering uppercase letters or PETSCII graphic characters as player input results in a fatal error.
+
 *** Speed ***
 - Optimize player input encoding
 - Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.

@@ -193,20 +193,22 @@ translate_zscii_to_petscii
 	jmp +++
 +	lda character_translation_table,y
 +++	ldy .streams_tmp + 1
-invert_case
+; case conversion
 	cmp #$41
-	bcc + ; Lower than ascii A
+	bcc .case_conversion_done
+	cmp #$5b
+	bcs .not_upper_case
+	; Upper case. $41 -> $c1
+	ora #$80
+	bcc .case_conversion_done
+.not_upper_case
+	cmp #$61
+	bcc .case_conversion_done
 	cmp #$7b
-	bcs + ; Higher than ascii z
-	sta .streams_tmp
-	and #%00011111
-	beq ++
-	cmp #$1b ; "z" + 1
-	bcs ++
-	lda .streams_tmp
-	eor #$20
-+	rts
-++	lda .streams_tmp
+	bcs .case_conversion_done
+	; Lower case. $61 -> $41
+	and #$df
+.case_conversion_done
 	rts
 	
 

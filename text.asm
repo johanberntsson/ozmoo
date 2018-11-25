@@ -19,6 +19,7 @@ benchmark_read_char
 	inc benchmark_read_char + 2
 +	cmp #255
 	beq ++
+	jsr translate_petscii_to_zscii
 +++	rts
 ++	jsr dollar
 	lda $a0
@@ -422,7 +423,28 @@ convert_zchar_to_char
 +++	rts
 
 translate_petscii_to_zscii
-	jsr invert_case
+	cmp #$60
+	bcc .no_shadow
+	cmp #$80
+	bcs .no_shadow
+	eor #$a0
+.no_shadow
+	cmp #$41
+	bcc .case_conversion_done
+	cmp #$5b
+	bcs .not_lower_case
+	; Lower case. $41 -> $61
+	ora #$20
+	bcc .case_conversion_done
+.not_lower_case
+	cmp #$c1
+	bcc .case_conversion_done
+	cmp #$db
+	bcs .case_conversion_done
+	; Upper case. $c1 -> $41
+	and #$7f
+;	jsr invert_case
+.case_conversion_done
 	sta .current_character
 	ldx #1
 -	lda character_translation_table,x
@@ -1064,7 +1086,6 @@ read_text
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
-	; Make sure deleted characters are forgotten
     jsr $ffd2 ; kernel_printchar ; print the delete char
 !ifdef Z5PLUS {
     ldy #1
@@ -1087,8 +1108,8 @@ read_text
     beq .readkey ; cursor left
     cmp #29
     beq .readkey ; cursor right
-    ; print the allowed char and store in the array
-	pha
+    ; print the allowed char and store in the array	
++	pha
 	jsr translate_zscii_to_petscii
     jsr $ffd2; kernel_printchar
     lda zp_screencolumn ; compare with size of keybuffer
@@ -1111,14 +1132,15 @@ read_text
     iny
 }
     pla
-!ifndef Z5PLUS {
     ; convert to lower case
-	cmp #$61 ; lowercase A
+	cmp #$41
+	bcc .dont_invert_case
+	cmp #$5b
 	bcs .dont_invert_case
-	jsr invert_case
+	ora #$20
+
 .dont_invert_case
 ;    and #$7f
-}
     sta (string_array),y ; store new character in the array
 !ifndef Z5PLUS {
     iny
