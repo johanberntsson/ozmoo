@@ -1101,9 +1101,13 @@ read_text
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #32
-    bcc .readkey ; big/small
-    cmp #127
-    bcs .readkey ; big/small
+    bcc .readkey
+    cmp #128
+    bcc .char_is_ok
+	cmp #155
+	bcc .readkey
+	cmp #252
+	bcs .readkey
     ; cmp #19
     ; beq .readkey ; home
     ; cmp #145
@@ -1115,8 +1119,9 @@ read_text
     ; cmp #29
     ; beq .readkey ; cursor right
 	
-    ; print the allowed char and store in the array	
-+	pha
+    ; print the allowed char and store in the array
+.char_is_ok	
+	pha
 ;	jsr translate_zscii_to_petscii
 	lda .petscii_char_read
     jsr $ffd2; kernel_printchar

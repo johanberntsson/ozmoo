@@ -19,9 +19,12 @@ character_translation_table
 	!byte $5f, $a4 ; Underscore = underscore-like graphic character
 	!byte $7c, $7d ; Pipe = pipe-like graphic character
 !ifdef SWEDISH_CHARS {
-	!byte $e5, $5d ; å = ]
-	!byte $e4, $5b ; ä = [
-	!byte $f6, $5c ; ä = [
+	!byte $c9, $5d ; å = ]
+	!byte $9b, $5b ; ä = [
+	!byte $9c, $5c ; ö = £
+	!byte $ca, $7d ; Å = ]
+	!byte $9e, $7b ; Ä = [
+	!byte $9f, $7c ; Ö = £
 }
 	!byte 0,0
 
@@ -184,7 +187,10 @@ z_ins_output_stream
 	rts
 
 translate_zscii_to_petscii
-	sty .streams_tmp + 1
+	cmp #$5e
+	bne +
+	lda #$0d
++	sty .streams_tmp + 1
 	sta .streams_tmp
 	ldy #0
 -	lda character_translation_table,y
