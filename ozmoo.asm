@@ -523,8 +523,25 @@ z_init
 	sta story_start + $32 ; major standard revision number which this terp complies to
 	sta story_start + $33 ; minor standard revision number which this terp complies to
 	
+	; Copy alphabet pointer from header, or default
+	ldx #<default_alphabet
+	ldy #>default_alphabet
+!ifdef Z5PLUS {
+	lda story_start + header_alphabet_table
+	ora story_start + header_alphabet_table + 1
+	beq .no_custom_alphabet
+	ldx story_start + header_alphabet_table + 1
+	lda story_start + header_alphabet_table
+	clc
+	adc #>story_start
+	tay
+.no_custom_alphabet
+}
+	stx alphabet_table
+	sty alphabet_table + 1
+	
 	; Copy z_pc from header
-	; a is already 0
+	lda #0
 	ldx story_start + header_initial_pc
 	ldy story_start + header_initial_pc + 1
 	jsr set_z_pc

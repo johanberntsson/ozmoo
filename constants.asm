@@ -66,6 +66,7 @@ z_temp				  = $68 ; 12 bytes (Only dictionary encoding uses more than 6)
 
 
 vmem_temp			  = $92 ; 2 bytes
+alphabet_table		  = $96 ; 2 bytes
 
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)

@@ -421,7 +421,7 @@ convert_zchar_to_char
     clc
     adc alphabet_offset
     tay
-    lda .alphabet,y
+    lda (alphabet_table),y
 +++	rts
 
 translate_petscii_to_zscii
@@ -469,17 +469,16 @@ convert_char_to_zchar
     ; side effects:
     ; used registers: a,x
 ;	jsr translate_petscii_to_zscii
-	stx zp_temp + 4
-	ldx #0
--   cmp .alphabet,x
+	sty zp_temp + 4
+	ldy #0
+-   cmp (alphabet_table),y
     beq .found_char_in_alphabet
-    inx
-    cpx #26*3
+    iny
+    cpy #26*3
     bne -
 	; Char is not in alphabet
 	pha
 	lda #5
-	ldx zp_temp + 4
 	sta z_temp,x
 	inx
 	lda #6
@@ -496,7 +495,7 @@ convert_char_to_zchar
 	pla
 	and #%00011111
 	inx
-	bne .store_last_char
+	bne .store_last_char ; Always branch
 	
     ; tax
 ; !ifdef DEBUG {
@@ -505,36 +504,37 @@ convert_char_to_zchar
     ; lda #ERROR_INVALID_CHAR
     ; jsr fatalerror
 .found_char_in_alphabet
-	cpx #26
+	cpy #26
 	bcc .found_in_a0
 	lda #4 ; Shift to A1
-	cpx #26*2
+	cpy #26*2
 	bcc .found_in_a1
 	lda #5 ; Shift to A2
 .found_in_a1
-	stx zp_temp + 3
-	ldx zp_temp + 4
+;	stx zp_temp + 3
+;	ldx zp_temp + 4
 	sta z_temp,x
 	inx
 	sty zp_temp + 2 ; Remember old Y value
 	tay ; Holds 4 for A1 or 5 for A2
-	lda zp_temp + 3
+	lda zp_temp + 2
 -	sec
 	sbc #26
 	dey
 	cpy #4
 	bcs -
-	ldy zp_temp + 2 ; Restore old Y value
-	tax
+;	ldy zp_temp + 2 ; Restore old Y value
+	tay
 .found_in_a0
-	txa
+	tya
     clc
     adc #6
-	ldx zp_temp + 4
+;	ldx zp_temp + 4
 .store_last_char	
 	sta z_temp,x
 	inx
 .convert_return
+	ldy zp_temp + 4
     rts
 
 .first_word = z_temp ;	!byte 0,0
@@ -1733,8 +1733,7 @@ print_addr
 ; .zchars !byte 0,0,0
 ; .packedtext !byte 0,0
 ; .alphabet_offset !byte 0
-alpha
-.alphabet ; 26 * 3
+default_alphabet ; 26 * 3
     !raw "abcdefghijklmnopqrstuvwxyz"
     !raw "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     !raw " ",13,"0123456789.,!?_#'",34, "/\-:()"

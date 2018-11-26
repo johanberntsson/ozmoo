@@ -25,8 +25,6 @@ Figure out if some commandline flags to Acme are no longer useful enough to be k
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 - Add fast-loader code?
 
-- support custom alphabets in Z5 onwards
-
 Color support
 
 Output transcript to printer support.
@@ -66,6 +64,8 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 
 DONE:
+- support custom alphabets in Z5 onwards
+
 Ending player input with Commodore-Enter puts the game in a state where it doesn't register player input, and thus becomes unplayable.
 
 Entering uppercase letters or PETSCII graphic characters as player input results in a fatal error.
