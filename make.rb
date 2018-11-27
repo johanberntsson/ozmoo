@@ -416,7 +416,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	font_clause = ""
 	if $font_filename then
 #		font_clause = " \"#{$font_filename}\"@$0800,2"
-		font_clause = " \"#{$font_filename}\"@$0800"
+		font_clause = " \"#{$font_filename}\"@2048"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
