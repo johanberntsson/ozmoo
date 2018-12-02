@@ -448,19 +448,19 @@ translate_petscii_to_zscii
 ;	jsr invert_case
 .case_conversion_done
 	sta .current_character
-	ldx #1
--	lda character_translation_table,x
-	beq +
+	ldx #character_translation_table_out - character_translation_table_in - 1
+-	lda character_translation_table_in,x
 	cmp .current_character
-	beq ++
-	inx
-	inx
-	bne - ; Always branch
-++	dex
-	lda character_translation_table,x
-	bne +++ ; Always branch
-+	lda .current_character
-+++	rts
+	beq .translation_match
+	dex
+	dex
+	bpl -
+	lda .current_character
+	rts
+.translation_match
+	dex
+	lda character_translation_table_in,x
+	rts
 
 	
 convert_char_to_zchar
@@ -1491,7 +1491,7 @@ print_addr
     sta alphabet_offset
     jmp .next_zchar
 .l0 ldy escape_char_counter
-    beq .l1
+    beq .l0a
     ; handle the two characters that make up an escaped character
     ldy #5
 -   asl escape_char
@@ -1506,7 +1506,20 @@ print_addr
 ;	jsr translate_zscii_to_petscii
     jsr streams_print_output
     jmp .next_zchar
-.l1 cmp #0
+.l0a ; escape char?
+    cmp #6
+    bne .l1
+    ldy alphabet_offset
+    cpy #52
+    bne .l6
+    lda #0
+    sta escape_char
+    sta alphabet_offset
+    lda #2
+    sta escape_char_counter
+    jmp .next_zchar
+.l1 bcs .l6 ; Shortcut for all regular characters
+	cmp #0
     bne .l2
     ; space
     lda #$20
@@ -1515,32 +1528,23 @@ print_addr
     sta alphabet_offset
     jmp .next_zchar
 .l2 cmp #4
+	bcc .abbreviation
     bne .l3
     ; change to A1
     lda #26
     sta alphabet_offset
     jmp .next_zchar
-.l3 cmp #5
-    bne .l4
+.l3 ; This can only be #5: Change to A2
+	; cmp #5
+    ; bne .l6
     ; change to A2
     lda #52
     sta alphabet_offset
     jmp .next_zchar
-.l4 ; escape char?
-    cmp #6
-    bne .l5
-    ldy alphabet_offset
-    cpy #52
-    bne .l5
-    lda #0
-    sta escape_char
-    sta alphabet_offset
-    lda #2
-    sta escape_char_counter
-    jmp .next_zchar
 .l5 ; abbreviation command?
-    cmp #4
-    bcs .l6
+.abbreviation
+    ; cmp #4
+    ; bcs .l6
     sta abbreviation_command ; 1, 2 or 3
     jmp .next_zchar
 .l6 ; normal char

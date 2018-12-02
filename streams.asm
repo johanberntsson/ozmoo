@@ -9,13 +9,15 @@ streams_output_selected		!byte 0, 0, 0, 0
 
 .streams_tmp	!byte 0,0,0
 .current_character !byte 0
-character_translation_table
+character_translation_table_in
 ; Pairs of values (zscii code, petscii code). End with 0,0.
+	!byte 32, 160 ; Convert shift-space to regular space
 	!byte $8, $14 ; Backspace
 	!byte 129, 145 ; Cursor up
 	!byte 130, 17 ; Cursor down
 	!byte 131, 157 ; Cursor left
 	!byte 132, 29 ; Cursor right
+character_translation_table_in_out
 	!byte $5f, $a4 ; Underscore = underscore-like graphic character
 	!byte $7c, $7d ; Pipe = pipe-like graphic character
 !ifdef SWEDISH_CHARS {
@@ -26,8 +28,8 @@ character_translation_table
 	!byte $9e, $7b ; Ä = [
 	!byte $9f, $7c ; Ö = £
 }
-	!byte 0,0
-
+character_translation_table_out
+character_translation_table_end
 
 	
 streams_init
@@ -192,18 +194,16 @@ translate_zscii_to_petscii
 	lda #$0d
 +	sty .streams_tmp + 1
 	sta .streams_tmp
-	ldy #0
--	lda character_translation_table,y
-	beq ++
-	iny
+	ldy #character_translation_table_end - character_translation_table_in_out - 2
+-	lda character_translation_table_in_out,y
 	cmp .streams_tmp
-	beq +
-	iny
-	bne - ; Always branch
-++	lda .streams_tmp
-	jmp +++
-+	lda character_translation_table,y
-+++	ldy .streams_tmp + 1
+	beq .match
+	dey
+	dey
+	bpl -
+	lda .streams_tmp
+.case_conversion
+	ldy .streams_tmp + 1
 ; case conversion
 	cmp #$41
 	bcc .case_conversion_done
@@ -221,6 +221,13 @@ translate_zscii_to_petscii
 	and #$df
 .case_conversion_done
 	rts
+.match
+	iny
+	lda character_translation_table_in_out,y
+	ldy .streams_tmp + 1
+	rts
+; Should we in fact do a case conversion?
+;	jmp .case_conversion
 	
 
 	

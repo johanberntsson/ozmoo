@@ -71,7 +71,7 @@ vmap_index !byte 0              ; current vmap index matching the z pointer
 vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
 vmem_cache_cnt !byte 0         ; current execution cache
-vmem_cache_index !byte 0,0,0,0,0,0,0
+vmem_cache_index !byte 0,0,0,0,0,0,0,0
 ;	!fill vmem_cache_count ; cache currently contains this vmap index
 vmem_all_blocks_occupied !byte 0
 ; vmem_temp !byte 0

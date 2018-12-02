@@ -321,7 +321,7 @@ insert_disks_at_boot
 
 !ifdef USEVM {
 ;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
-	!fill 1024 - (* - vmem_cache_start),0 ; 4 pages
+	!fill 4 * 256 - (* - vmem_cache_start),0 ; 4 pages
 	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
 vmem_cache_size = * - vmem_cache_start
 vmem_cache_count = vmem_cache_size / 256
