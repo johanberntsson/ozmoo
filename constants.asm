@@ -22,15 +22,20 @@ z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_type_arr = z_operand_value_low_arr
 
-z_global_vars_start	  = $26 ; 2 bytes
-z_local_vars_ptr      = $28 ; 2 bytes
-z_local_var_count	  = $2a
-stack_ptr             = $2b ; 2 bytes ; MUST BE FOLLOWED BY z_pc 
-z_pc				  = $2d ; 3 bytes (last byte shared with z_pc_mempointer). MUST BE PRECEDED BY stack_ptr
-z_pc_mempointer		  = $2f ; 2 bytes (first byte shared with z_pc)
-z_pc_mempointer_is_unsafe = $31
+; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
+z_local_vars_ptr      = $26 ; 2 bytes
+z_local_var_count	  = $28
+stack_pushed_bytes	  = $29 ; !byte 0, 0
+stack_ptr             = $2b ; 2 bytes
+stack_top_value 	  = $2d ; 2 bytes !byte 0, 0
+stack_has_top_value   = $2f ; !byte 0
+z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
+z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
+z_pc_mempointer_is_unsafe = $34
 
-zchars				  = $32 ; 3 bytes
+zp_save_start = z_local_vars_ptr
+zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
+
 zchar_triplet_cnt	  = $35
 packed_text			  = $36 ; 2 bytes
 alphabet_offset		  = $38
@@ -51,10 +56,8 @@ z_trace_index		  = $54
 z_exe_mode	  		  = $55
 
 stack_tmp			  = $56; !byte 0, 0, 0, 0, 0
-stack_pushed_bytes	  = $5b ; !byte 0, 0
-stack_top_value 	  = $5d ; 2 bytes !byte 0, 0
-stack_has_top_value   = $5f ; !byte 0
-; Stack_pushed_values need to be saved?
+z_global_vars_start	  = $5b ; 2 bytes
+zchars				  = $5d ; 3 bytes
 
 vmap_quick_index_match= $60
 vmap_next_quick_index = $61

@@ -746,12 +746,14 @@ restore_game
 	ldx #<.restore_msg
 	jsr printstring_raw
 
+	jsr .swap_pointers_for_save
+	
 	; Perform restore
 	jsr do_restore
     bcs .restore_failed    ; if carry set, a file error has happened
 
 	; Swap in z_pc and stack_ptr
-	; TODO!!!!
+	jsr .swap_pointers_for_save
 
     jsr .insert_story_disk
 	lda #1
@@ -803,10 +805,8 @@ save_game
     ldy #>.erase_cmd
     jsr kernel_setnam
     lda #$0f      ; file number 15
-    ldx $ba       ; last used device number
-    bne +
-    ldx #$08      ; default to device 8
-+   ldy #$0f      ; secondary address 15
+    ldx disk_info + 3 ; Device# for save disk
+	ldy #$0f      ; secondary address 15
     jsr kernel_setlfs
     jsr kernel_open ; open command channel and send delete command)
     bcs .save_failed  ; if carry set, the file could not be opened
@@ -814,11 +814,7 @@ save_game
     jsr kernel_close
 	
 	; Swap in z_pc and stack_ptr
-    ; First wrap up current stack frame
-    lda stack_has_top_value
-    beq +
-    jsr stack_push_top_value
-+   jsr .swap_pointers_for_save
+	jsr .swap_pointers_for_save
 	
 	; Perform save
 	jsr do_save
@@ -844,10 +840,8 @@ do_restore
     ldy #>.restore_filename
     jsr kernel_setnam
     lda #$01      ; file number
-    ldx $ba       ; last used device number
-    bne +
-    ldx #$08      ; default to device 8
-+   ldy #$01      ; not $01 means: load to address stored in file
+    ldx disk_info + 3 ; Device# for save disk
+	ldy #$01      ; not $01 means: load to address stored in file
     jsr kernel_setlfs
     lda #$00      ; $00 means: load to memory (not verify)
     jsr kernel_load
@@ -865,14 +859,12 @@ do_save
     ldy #>.filename
     jsr kernel_setnam
     lda #$00      ; device 0
-    ldx $ba       ; last used device number
-    bne +
-    ldx #$08      ; default to device 8
-+   ldy #$00
+    ldx disk_info + 3 ; Device# for save disk
+	ldy #$00
     jsr kernel_setlfs
-    lda #<(stack_start - 5)
+    lda #<(stack_start - zp_bytes_to_save)
     sta $c1
-    lda #>(stack_start - 5)
+    lda #>(stack_start - zp_bytes_to_save)
     sta $c2
     clc
     lda story_start + header_static_mem + 1
@@ -892,22 +884,19 @@ do_save
 .saveslot !byte 0
 .saveslot_msg	!pet "Slot (0-9, RETURN=cancel): ",0
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
-.save_msg	!pet 13,13,13,"  Saving...",0
-.restore_msg	!pet 13,13,13,"  Restoring...",0
+.save_msg	!pet 13,13,"  Saving...",0
+.restore_msg	!pet 13,13,"  Restoring...",0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
-	ldx #4
--	lda stack_ptr,x
-	pha
-	lda stack_start - 5,x
-	sta stack_ptr,x
-	pla
-	sta stack_start - 5,x
+	ldx #zp_bytes_to_save - 1
+-	lda zp_save_start,x
+	ldy stack_start - zp_bytes_to_save,x
+	sta stack_start - zp_bytes_to_save,x
+	sty zp_save_start,x
 	dex
 	bpl -
 	rts
-
 }
 
 

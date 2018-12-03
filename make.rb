@@ -77,6 +77,8 @@ DISKNAME_STORY = 129
 DISKNAME_SAVE = 130
 DISKNAME_DISK = 131
 
+$BUILD_ID = Random.rand(0 .. 2**32-1)
+
 $VMEM_BLOCKSIZE = $VMFLAGS.include?('SMALLBLOCK') ? 512 : 1024
 $ZEROBYTE = 0.chr
 
@@ -899,8 +901,10 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
-config_data = [
-0, 0, 0, 0, # Game ID
+config_data = 
+[$BUILD_ID].pack("I>").unpack("CCCC") + 
+[
+# 0, 0, 0, 0, # Game ID
 11, # Number of bytes used for disk information, including this byte
 $INTERLEAVE,
 2, # Number of disks, change later if wrong
