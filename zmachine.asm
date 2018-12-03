@@ -213,8 +213,8 @@ z_opcount_ext_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_ins_save_restore_undo
 	!byte >z_ins_save_restore_undo
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >z_ins_print_unicode
+	!byte >z_ins_check_unicode
 	!byte >z_ins_set_true_colour
 }
 
@@ -405,8 +405,8 @@ z_opcount_ext_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_ins_save_restore_undo
 	!byte <z_ins_save_restore_undo
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <z_ins_print_unicode
+	!byte <z_ins_check_unicode
 	!byte <z_ins_set_true_colour
 }
 

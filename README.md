@@ -6,12 +6,12 @@ A Z-machine interpreter for the Commodore 64
 
 Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
-![Minizork running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
+![Curses running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/curses.png)
 
 
 ## Status
 
-Ozmoo is not ready for release or production use. Some features are missing, most notably save and restore functionality. There are also numerous bugs.
+Ozmoo is not ready for release or production use. A few features are missing, most notably the restart instruction. There are also numerous bugs.
 
 If you want to start using Ozmoo once it's more mature, we recommend you to star the project, or just return every once in a while to see what's happening.
 
@@ -34,6 +34,12 @@ The longer answer:
 * A Z-code file always starts with a section called dynamic memory. Ozmoo will not be able to handle games with more than roughly 35 KB of dynamic memory.
 * If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 191.5 KB. This typically means the game file can be about 210 KB in size.
 * Some Inform 6 games and pretty much all Inform 7 games will never be fast enough to be any fun on Ozmoo. In general, Infocom games are faster than Inform games.
+
+## Nice-to-have features
+
+* Supports embedding a custom font. Currently one font is included in the distribution, but there will be more. And you can supply your own font.
+* Supports custom alphabets in Z-machine version 5 and 8.
+* Supports custom character mappings, allowing for games using accented characters.
 
 ## Building and running
 

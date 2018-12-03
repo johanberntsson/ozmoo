@@ -32,9 +32,11 @@ z_ins_erase_window
     beq .window_1
     cmp #$ff ; clear screen, then; -1 unsplit, -2 keep as is
     bne .keep_split
+	jsr clear_num_rows
     ldx #0 ; unsplit
     jsr split_window
 .keep_split
+	jsr clear_num_rows
     lda #147 ; clear screen
     jmp $ffd2 ; kernel_printchar
 .window_0

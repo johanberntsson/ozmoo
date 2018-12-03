@@ -407,6 +407,20 @@ z_ins_aread
 	jmp z_store_result
 }
 
+z_ins_check_unicode
+	lda #0
+	tax
+	jmp z_store_result
+	
+z_ins_print_unicode
+	lda #$28 ; (
+	jsr streams_print_output
+	lda #$23 ; #
+	jsr streams_print_output
+	jsr print_num_unsigned
+	lda #$29 ; )
+	jmp streams_print_output
+
 convert_zchar_to_char
     ; input: a=zchar
     ; output: a=char

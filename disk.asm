@@ -437,11 +437,15 @@ z_ins_restore
 }
 !ifdef Z4 {
 	jsr restore_game
-	jmp z_store_result
+	beq +
+	inx
++	jmp z_store_result
 }
 !ifdef Z5PLUS {
 	jsr restore_game
-	jmp z_store_result
+	beq +
+	inx
++	jmp z_store_result
 }
 
 z_ins_save
@@ -756,8 +760,9 @@ restore_game
 	jsr .swap_pointers_for_save
 
     jsr .insert_story_disk
-	lda #1
-	tax
+	lda #0
+	ldx #1
+	stx z_pc_mempointer_is_unsafe
 	rts
 .restore_failed
     jsr .insert_story_disk
@@ -824,8 +829,8 @@ save_game
 	jsr .swap_pointers_for_save
 
     jsr .insert_story_disk
-	lda #1
-	tax
+	lda #0
+	ldx #1
 	rts
 .save_failed
     jsr .insert_story_disk
@@ -866,11 +871,9 @@ do_save
     sta $c1
     lda #>(stack_start - zp_bytes_to_save)
     sta $c2
-    clc
-    lda story_start + header_static_mem + 1
-    adc #<story_start
-    tax
+    ldx story_start + header_static_mem + 1
     lda story_start + header_static_mem
+    clc
     adc #>story_start
     tay
     lda #$c1      ; start address located in $C1/$C2

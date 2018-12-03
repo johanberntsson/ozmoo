@@ -421,7 +421,8 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 		font_clause = " \"#{$font_filename}\"@2048"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+#	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 	puts exomizer_cmd
 	system(exomizer_cmd)
 #	puts "Building with #{vmem_preload_blocks} blocks gives file size #{File.size($zip_file)}."

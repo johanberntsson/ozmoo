@@ -1,7 +1,5 @@
 Known bugs
 ----------
-Clearing screen doesn't always reset the number of rows printed, so a MORE prompt can appear too early. (Run Borderzone, choose part 1)
-
 If you hit enter at the more-prompt when the game asks you to choose a chapter in Borderzone, it is interpreted as a choice (which is invalid).
 
 You can't pick anything up at the beginning of part 1 in Borderzone: "[I beg your pardon?]".
@@ -29,9 +27,6 @@ Color support
 
 Output transcript to printer support.
 
-save/restore
-	Copy SP and PC (and stack_pushed_bytes?) to below stack. Save this, stack and dynmem as one file.
-
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
@@ -40,8 +35,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; ------------------------------------------------------
 ; 0OP
 ; ---
-; save
-; restore
 ; restart
 ;
 ; 1OP
@@ -57,13 +50,16 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ;
 ; EXT
 ; ---
-; save
-; restore
-; print_unicode
-; check_unicode
+; save			; Save game state works. Save a memory area doesn't. Parameters are ignored.
+; restore		; Restore game state works. Restore a memory area doesn't. Parameters are ignored.
 
 
 DONE:
+Clearing screen doesn't always reset the number of rows printed, so a MORE prompt can appear too early. (Run Borderzone, choose part 1)
+
+save/restore
+	Copy SP and PC (and stack_pushed_bytes?) to below stack. Save this, stack and dynmem as one file.
+
 - support custom alphabets in Z5 onwards
 
 Ending player input with Commodore-Enter puts the game in a state where it doesn't register player input, and thus becomes unplayable.
