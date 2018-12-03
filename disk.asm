@@ -8,7 +8,6 @@ readblocks_mempos		!byte 0,0 ; $2000 = 00 20
 device_map	!byte 0,0,0,0 ; For device# 8,9,10,11
 boot_device !byte 0
 current_disks !byte $ff, $ff, $ff, $ff
-
 disk_info
 !ifdef Z3 {
 	!fill 70
@@ -429,6 +428,22 @@ uname_len = * - .uname
 .next_disk_index	!byte 0
 .disk_tracks	!byte 0
 
+z_ins_restore
+!ifdef Z3 {
+	jsr restore_game
+	beq +
+	jmp make_branch_true
++	jmp make_branch_false
+}
+!ifdef Z4 {
+	jsr restore_game
+	jmp z_store_result
+}
+!ifdef Z5PLUS {
+	jsr restore_game
+	jmp z_store_result
+}
+
 z_ins_save
 !ifdef Z3 {
 	jsr save_game
@@ -446,6 +461,47 @@ z_ins_save
 }
 
 !zone save_restore {
+.inputlen !byte 0
+.filename !pet "!0" ; 0 is changed to slot number
+.inputstring !fill 15 ; filename max 16 chars (fileprefix + 14)
+.input_alphanum
+    ; read a string with only alphanumeric characters into .inputstring
+    ; return: x = number of characters read
+    ;         .inputstring: null terminated string read (max 20 characters)
+    ; modifies a,x,y
+    lda #0
+    sta .inputlen
+-   jsr $ffe4
+    cmp #$14 ; delete
+    bne +
+    ldx .inputlen
+    beq -
+    dec .inputlen
+    jsr $ffd2
+    jmp -
++   cmp #$0d ; enter
+    beq +
+    sec
+    sbc #$30
+    cmp #$5B-$30
+    bcs -
+    sbc #$09 ;actually -$0a because C=0
+    cmp #$41-$3a
+    bcc -
+    adc #$39 ;actually +$3a because C=1
+    ldx .inputlen
+    cpx #14
+    bpl -
+    sta .inputstring,x
+    inc .inputlen
+    jsr $ffd2
+    jmp -
++   jsr $ffd2 ; return
+    ldx .inputlen
+    lda #0
+    sta .inputstring,x
+    rts
+
 .error
     ; accumulator contains BASIC error code
     ; most likely errors:
@@ -642,7 +698,7 @@ list_save_files
 	!byte 0
 .base_screen_pos
 	!byte 0,0
-save_game
+.insert_save_disk
 	ldx disk_info + 3 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
@@ -650,31 +706,9 @@ save_game
 	jsr prepare_for_disk_msgs
 	ldy #0
 	jsr print_insert_disk_msg
-+
-	; List files on disk
-	jsr list_save_files
-	beq .save_failed
++   rts
 
-	; Pick a slot#
-	
-	; Enter a name
-	
-	; Print "Saving..."
-	lda #>.save_msg
-	ldx #<.save_msg
-	jsr printstring_raw
-
-	; Erase old file, if any
-	
-	; Swap in z_pc and stack_ptr
-	jsr .swap_pointers_for_save
-	
-	; Perform save
-
-	; Swap out z_pc and stack_ptr
-	jsr .swap_pointers_for_save
-
-	; Ask user to put story disk in again, if applicable
+.insert_story_disk
 	ldy .last_disk
 	beq + ; Save disk was in disk before, no need to change
 	bmi + ; The drive was empty before, no need to change disk now
@@ -686,15 +720,182 @@ save_game
 +	jsr clear_screen_raw
 	ldx #24
 	ldy #0
-	jsr set_cursor
-	
-.save_failed
+	jmp set_cursor
+
+restore_game
+    jsr .insert_save_disk
+
+	; List files on disk
+	jsr list_save_files
+	beq .restore_failed
+
+	; Pick a slot#
+	lda #>.saveslot_msg ; high
+	ldx #<.saveslot_msg ; low
+	jsr printstring_raw
+	jsr .input_alphanum
+	cpx #1
+	bne .restore_failed
+	lda .inputstring
+	cmp #$41
+	bpl .restore_failed ; not a number (0-9)
+	sta .restore_filename + 1
+
+	; Print "Restoring..."
+	lda #>.restore_msg
+	ldx #<.restore_msg
+	jsr printstring_raw
+
+	; Perform restore
+	jsr do_restore
+    bcs .restore_failed    ; if carry set, a file error has happened
+
+	; Swap in z_pc and stack_ptr
+	; TODO!!!!
+
+    jsr .insert_story_disk
+	lda #1
+	tax
+	rts
+.restore_failed
+    jsr .insert_story_disk
 	; Return failed status
 	lda #0
 	tax
 	rts
+
+save_game
+    jsr .insert_save_disk
+
+	; List files on disk
+	jsr list_save_files
+	beq .save_failed
+
+	; Pick a slot#
+	lda #>.saveslot_msg ; high
+	ldx #<.saveslot_msg ; low
+	jsr printstring_raw
+	jsr .input_alphanum
+	cpx #1
+	bne .save_failed
+	lda .inputstring
+	cmp #$41
+	bpl .save_failed ; not a number (0-9)
+	sta .filename + 1
+	sta .erase_cmd + 3
+	
+	; Enter a name
+	lda #>.savename_msg ; high
+	ldx #<.savename_msg ; low
+	jsr printstring_raw
+	jsr .input_alphanum
+	cpx #0
+	beq .save_failed
+	
+	; Print "Saving..."
+	lda #>.save_msg
+	ldx #<.save_msg
+	jsr printstring_raw
+
+	; Erase old file, if any
+    lda #5
+    ldx #<.erase_cmd
+    ldy #>.erase_cmd
+    jsr kernel_setnam
+    lda #$0f      ; file number 15
+    ldx $ba       ; last used device number
+    bne +
+    ldx #$08      ; default to device 8
++   ldy #$0f      ; secondary address 15
+    jsr kernel_setlfs
+    jsr kernel_open ; open command channel and send delete command)
+    bcs .save_failed  ; if carry set, the file could not be opened
+    lda #$0f      ; filenumber 15
+    jsr kernel_close
+	
+	; Swap in z_pc and stack_ptr
+    ; First wrap up current stack frame
+    lda stack_has_top_value
+    beq +
+    jsr stack_push_top_value
++   jsr .swap_pointers_for_save
+	
+	; Perform save
+	jsr do_save
+    bcs .save_failed    ; if carry set, a save error has happened
+
+	; Swap out z_pc and stack_ptr
+	jsr .swap_pointers_for_save
+
+    jsr .insert_story_disk
+	lda #1
+	tax
+	rts
+.save_failed
+    jsr .insert_story_disk
+	; Return failed status
+	lda #0
+	tax
+	rts
+
+do_restore
+    lda #3
+    ldx #<.restore_filename
+    ldy #>.restore_filename
+    jsr kernel_setnam
+    lda #$01      ; file number
+    ldx $ba       ; last used device number
+    bne +
+    ldx #$08      ; default to device 8
++   ldy #$01      ; not $01 means: load to address stored in file
+    jsr kernel_setlfs
+    lda #$00      ; $00 means: load to memory (not verify)
+    jsr kernel_load
+    php ; store c flag so error can be checked by calling routine
+    lda #$01 
+    jsr kernel_close
+    plp ; restore c flag
+    rts
+
+do_save
+    lda .inputlen
+    clc
+    adc #2 ; add 2 bytes for prefix
+    ldx #<.filename
+    ldy #>.filename
+    jsr kernel_setnam
+    lda #$00      ; device 0
+    ldx $ba       ; last used device number
+    bne +
+    ldx #$08      ; default to device 8
++   ldy #$00
+    jsr kernel_setlfs
+    lda #<(stack_start - 5)
+    sta $c1
+    lda #>(stack_start - 5)
+    sta $c2
+    clc
+    lda story_start + header_static_mem + 1
+    adc #<story_start
+    tax
+    lda story_start + header_static_mem
+    adc #>story_start
+    tay
+    lda #$c1      ; start address located in $C1/$C2
+    jsr kernel_save
+    php ; store c flag so error can be checked by calling routine
+    lda #$00 
+    jsr kernel_close
+    plp ; restore c flag
+    rts
 .last_disk	!byte 0
+.saveslot !byte 0
+.saveslot_msg	!pet "Slot (0-9, RETURN=cancel): ",0
+.savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,13,13,"  Saving...",0
+.restore_msg	!pet 13,13,13,"  Restoring...",0
+.restore_filename !pet "!0*" ; 0 will be changed to selected slot
+.erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
 	ldx #4
 -	lda stack_ptr,x
@@ -706,6 +907,7 @@ save_game
 	dex
 	bpl -
 	rts
+
 }
 
 

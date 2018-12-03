@@ -37,7 +37,7 @@ z_jump_high_arr
 	!byte >z_ins_nop
 !ifndef Z5PLUS {
 	!byte >z_ins_save
-	!byte >z_not_implemented
+	!byte >z_ins_restore
 } else {
 	!byte >z_not_implemented
 	!byte >z_not_implemented
@@ -203,7 +203,7 @@ z_jump_high_arr
 z_opcount_ext_jump_high_arr
 !ifdef Z5PLUS {
 	!byte >z_ins_save
-	!byte >z_not_implemented
+	!byte >z_ins_restore
 	!byte >z_ins_log_shift
 	!byte >z_ins_art_shift
 	!byte >z_ins_set_font
@@ -229,7 +229,7 @@ z_jump_low_arr
 	!byte <z_ins_nop
 !ifndef Z5PLUS {
 	!byte <z_ins_save
-	!byte <z_not_implemented
+	!byte <z_ins_restore
 } else {
 	!byte <z_not_implemented
 	!byte <z_not_implemented
@@ -395,7 +395,7 @@ z_jump_low_arr
 z_opcount_ext_jump_low_arr
 !ifdef Z5PLUS {
 	!byte <z_ins_save
-	!byte <z_not_implemented
+	!byte <z_ins_restore
 	!byte <z_ins_log_shift
 	!byte <z_ins_art_shift
 	!byte <z_ins_set_font
