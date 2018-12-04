@@ -25,7 +25,6 @@ $GENERALFLAGS = [
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
-#	'OLDANDWORKING',
 #	'SWEDISH_CHARS',
 ]
 
@@ -59,8 +58,7 @@ $DEBUGFLAGS = [
 $VMFLAGS = [
 	'USEVM', # If this is commented out, the other virtual memory flags are ignored.
 	'ALLRAM',
-	'SMALLBLOCK',
-	'VMEM_CLOCK',
+	'SMALLBLOCK', # If set, use 512 byte blocks instead of 1024 bytes blocks for vmem
 ]
 
 $INTERLEAVE = 9 # (1-21)

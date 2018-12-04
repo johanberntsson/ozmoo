@@ -337,8 +337,6 @@ prepare_static_high_memory
     sta zp_pc_h
     sta zp_pc_l
 
-; ############################################################### New section Start
-	
 ; Clear vmap_z_h
 	ldy #vmap_max_length - 1
 	lda #0
@@ -376,7 +374,6 @@ prepare_static_high_memory
 	lda (zp_temp),y
 	sta vmap_z_h - 2,y
 
-!ifdef VMEM_CLOCK {
 	and #%01000000 ; Check if non-swappable memory
 	bne .dont_set_vmap_swappable
 	lda vmap_first_swappable_index
@@ -384,11 +381,9 @@ prepare_static_high_memory
 	dey
 	dey
 	sty vmap_first_swappable_index
-;	sty vmap_clock_index
 	iny
 	iny
 .dont_set_vmap_swappable
-}	
 
 	dex
 	bne -
@@ -408,17 +403,6 @@ prepare_static_high_memory
 	dey
 	bpl -
 	
-!ifndef VMEM_CLOCK {
-	iny
-	lda #story_start
--	sta vmap_c64_offset,y
-	clc
-	adc #vmem_block_pagecount
-	iny
-	cpy zp_temp + 2
-	bcc -
-}
-
 ; Load all suggested pages which have not been pre-loaded
 -	lda zp_temp + 3 ; First index which has not been loaded
 	beq ++ ; First block was loaded with header
@@ -431,16 +415,12 @@ prepare_static_high_memory
 ++	inc zp_temp + 3
 	bne - ; Always branch
 +
-!ifdef VMEM_CLOCK {
 	ldx zp_temp + 2
 	cpx #vmap_max_length
 	bcc +
 	dex
 +	stx vmap_clock_index
-}
 
-; ################################################################# New Section End	
-	
 !ifdef TRACE_VM {
     jsr print_vm_map
 }

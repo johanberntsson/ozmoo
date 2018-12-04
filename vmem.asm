@@ -56,15 +56,7 @@ vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_length
 
-!ifndef VMEM_CLOCK {
-!ifdef SMALLBLOCK {
-vmap_c64 !fill 100 ; Arrghh... This hardcoded value is not nice.
-} else {
-vmap_c64 = vmap_z_l + vmap_max_length
-}
-} else {
 vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
-}
 
 vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
@@ -79,13 +71,7 @@ vmem_all_blocks_occupied !byte 0
 !ifdef DEBUG {
 !ifdef PREOPT {
 print_optimized_vm_map
-	; x = 0 : Algorithm = queue
-	; x = 1 : Algorithm = clock
-	txa
-	pha
 	jsr printchar_flush
-	pla
-	tax
 	lda #0
 	sta streams_output_selected + 2
 	sta is_buffered_window
@@ -93,14 +79,9 @@ print_optimized_vm_map
 	jsr dollar
 	jsr dollar
 	jsr dollar
-	cpx #0
-	bne +
 	jsr print_following_string
-	!pet "queue",13,0
-	jmp ++
-+	jsr print_following_string
 	!pet "clock",13,0
-++	ldx #0
+	ldx #0
 -	lda vmap_z_h,x
 	beq +++
 	jsr print_byte_as_hex
@@ -180,16 +161,12 @@ print_vm_map
     lda #0 ; add 00
     jsr print_byte_as_hex
     jsr space
-!ifdef VMEM_CLOCK {
 	tya
 	asl
 !ifndef SMALLBLOCK {
 	asl
 }
 	adc #>story_start
-} else {
-    lda vmap_c64,y ; c64 mem offset ($20 -, for $2000-)
-}
     jsr print_byte_as_hex
     lda #$30
     jsr streams_print_output
@@ -221,8 +198,6 @@ load_blocks_from_index
 	jsr print_byte_as_hex
 }
 
-	
-!ifdef VMEM_CLOCK {
 	lda vmap_index
 	asl
 !ifndef SMALLBLOCK {
@@ -230,10 +205,7 @@ load_blocks_from_index
 }
 	; Carry is already clear
 	adc #>story_start
-} else {
-    ldx vmap_index
-    lda vmap_c64,x ; c64 mem offset ($20 -, for $2000-)
-}
+
 !ifdef TRACE_FLOPPY {
 	jsr comma
 	jsr print_byte_as_hex
@@ -384,7 +356,6 @@ read_byte_at_z_address
 +
 	pla
 }
-!ifdef VMEM_CLOCK {
 	; Check quick index first
 	ldx #vmap_quick_index_length - 1
 -	ldy vmap_quick_index,x
@@ -404,7 +375,6 @@ read_byte_at_z_address
 	beq .correct_vmap_index_found
 .no_quick_index_match
 	lda vmem_temp
-}
 
     ; is there a block with this address in map?
     ldx #vmap_max_length - 1
@@ -426,7 +396,7 @@ read_byte_at_z_address
 .correct_vmap_index_found
     ; vm index for this block found
     stx vmap_index
-!ifdef VMEM_CLOCK {
+
 	lda vmap_z_h,x
 	ora #%00100000 		; Set referenced flag
     sta vmap_z_h,x
@@ -440,21 +410,17 @@ read_byte_at_z_address
 	bcc +
 	ldx #0
 +	stx vmap_next_quick_index
-++
-}
-    jmp .index_found
+++	jmp .index_found
 
 ; no index found, add last
 .no_such_block
 
 	; Load 1 KB block into RAM
-!ifdef VMEM_CLOCK {
 	ldx vmap_clock_index
 -	lda vmap_z_h,x
 	bpl .block_chosen
 !ifdef DEBUG {
 !ifdef PREOPT {
-	ldx #1
 	jmp print_optimized_vm_map
 }	
 }
@@ -496,41 +462,6 @@ read_byte_at_z_address
 	ldy vmap_first_swappable_index
 .not_max_index
 	sty vmap_clock_index
-} else {
-	lda vmem_all_blocks_occupied
-	bne .replace_block
-    ldx #vmap_max_length - 1
--	lda vmap_z_h,x
-	bpl .block_chosen
-	and #$40
-	bne .last_block_used ; We have scanned down to dynmem. Give up.
-	dex 
-	bne - ; Always branch
-.last_block_used
-!ifdef DEBUG {
-!ifdef PREOPT {
-	ldx #0
-	jmp print_optimized_vm_map
-}	
-}
-	ldx #1
-	stx vmem_all_blocks_occupied
-.replace_block
-    ldx #vmap_max_length - 1
-	; Protect block where z_pc currently points
-	lda vmap_z_h + vmap_max_length - 1
-	and #%111
-	cmp z_pc
-	bne .block_chosen
-	lda z_pc + 1
-	and #vmem_blockmask
-	cmp vmap_z_l,x
-	bne .block_chosen
-	dex
-.block_chosen
-	lda vmap_c64,x
-	sta vmap_c64_offset
-}
 
 	; We have now decided on a map position where we will store the requested block. Position is held in x.
 !ifdef DEBUG {
@@ -595,7 +526,6 @@ read_byte_at_z_address
     jsr load_blocks_from_index
 .index_found
     ; index x found
-!ifdef VMEM_CLOCK {
     lda vmap_index
 	tax
 	asl
@@ -604,11 +534,6 @@ read_byte_at_z_address
 }
 	; Carry is already clear
 	adc #>story_start
-} else {
-    ldx vmap_index
-    ; check if swappable memory
-    lda vmap_c64,x
-}
 	sta vmap_c64_offset
 	cmp #first_banked_memory_page
     bcc .unswappable
@@ -670,49 +595,14 @@ read_byte_at_z_address
     adc #>vmem_cache_start
     sta mempointer + 1
     ldx vmap_index
-    bne .update_page_rank ; always true
+    bne .return_result ; always true
 .unswappable
     ; update memory pointer
     lda vmem_1kb_offset
     clc
     adc vmap_c64_offset
     sta mempointer + 1
-.update_page_rank
-    ; update page rank
-!ifndef VMEM_CLOCK { 
-	cpx #$00  ; x is index of accesses Z_PC
-    beq .return_result
-    txa
-    tay
-    dey ; y = index before x
-    ; check if map[y] is dynamic
-    lda vmap_z_h,y
-    and #$40
-    bne .return_result
-    ; not dynamic, let's bubble this index up (swap x and y)
-    ; swap vmap entries at <x> and <y>
-.swap_x_and_y
-    lda vmap_z_h,y
-    pha
-    lda vmap_z_l,y
-    pha
-    lda vmap_c64,y
-    pha
-    lda vmap_z_h,x
-    sta vmap_z_h,y
-    lda vmap_z_l,x
-    sta vmap_z_l,y
-    lda vmap_c64,x
-    sta vmap_c64,y
-    pla
-    sta vmap_c64,x
-    pla
-    sta vmap_z_l,x
-    pla
-    sta vmap_z_h,x
 .return_result
-}
-    ; return result
     ldy #0
     lda (mempointer),y
     rts

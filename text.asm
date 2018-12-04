@@ -271,11 +271,6 @@ z_ins_sread
 	dey
 	bne .check_next_preopt_exit_char
 ; Exit PREOPT mode
-!ifdef VMEM_CLOCK {
-	ldx #1
-} else {
-	ldx #0
-}
 	jmp print_optimized_vm_map
 .not_preopt_exit	
 }	
@@ -394,11 +389,6 @@ z_ins_aread
 	cpy #1
 	bne .check_next_preopt_exit_char
 ; Exit PREOPT mode
-!ifdef VMEM_CLOCK {
-	ldx #1
-} else {
-	ldx #0
-}
 	jmp print_optimized_vm_map
 .not_preopt_exit	
 }	
@@ -1343,14 +1333,6 @@ tokenise_text
 .wordend    !byte 0 
 .ignore_unknown_words !byte 0 
 
-;OLDANDWORKING = 1
-; print test (dragontroll.z5)
-;ldx #$e9
-;lda #$06
-;jsr set_z_paddress
-;jsr print_addr
-;jsr printchar_flush
-
 get_next_zchar
     ; returns the next zchar in a
     ; side effects: z_address
@@ -1410,7 +1392,6 @@ was_last_zchar
     eor #1
 +   rts
 
-!ifndef OLDANDWORKING {
 get_abbreviation_offset
     ; abbreviation is 32(abbreviation_command-1)+a
     sta .current_zchar
@@ -1575,183 +1556,7 @@ print_addr
     beq +
     jmp .print_chars_loop
 +   rts
-}
 
-!ifdef OLDANDWORKING {
-print_addr
-    ; print zchar-encoded text
-    ; input: (z_address set with set_z_addr or set_z_paddr)
-    ; output: 
-    ; side effects: z_address
-    ; used registers: a,x,y
-    lda #0
-    sta alphabet_offset
-    sta escape_char_counter
-    sta abbreviation_command
-.read_triplet_loop
-    jsr read_next_byte
-    sta packed_text
-    jsr read_next_byte
-    sta packed_text + 1
-    ; extract 3 zchars (5 bits each)
-    ldx #0
-.extract_loop
-    lda packed_text + 1
-    and #$1f
-    sta zchars,x
-    ldy #5
--   lsr packed_text
-    ror packed_text+1
-    dey
-    bne -
-    inx
-    cpx #3
-    bne .extract_loop
-    ; print the three chars
-    ldx #2
-.print_chars_loop
-    lda zchars,x
-    ldy abbreviation_command
-    beq .l0
-    ; handle abbreviation
-    ; abbreviation is 32(abbreviation_command-1)+a
-    dey
-    tya
-    asl
-    asl
-    asl
-    asl
-    asl
-    clc
-    adc zchars,x
-    asl ; byte -> word 
-    tay
-    ; need to store state before calling print_addr recursively
-    txa
-    pha
-    lda z_address
-    pha
-    lda z_address + 1
-    pha
-    lda z_address + 2
-    pha
-    lda zchars
-    pha
-    lda zchars + 1
-    pha
-    lda zchars + 2
-    pha
-    lda packed_text
-    pha
-    lda packed_text + 1
-    pha
-    lda story_start + header_abbreviations ; high byte
-    ldx story_start + header_abbreviations + 1 ; low byte
-    jsr set_z_address
-    tya
-    jsr skip_bytes_z_address
-    jsr read_next_byte ; 0
-    pha
-    jsr read_next_byte ; 33
-    tax
-    pla
-    jsr set_z_address
-    ; abbreviation index is word, *2 for bytes
-    asl z_address + 2
-    rol z_address + 1 
-    rol z_address 
-    ; print the abbreviation
-    jsr print_addr
-    ; restore state
-    pla
-    sta packed_text + 1
-    pla
-    sta packed_text
-    pla
-    sta zchars + 2
-    pla
-    sta zchars + 1
-    pla
-    sta zchars
-    pla
-    sta z_address + 2
-    pla
-    sta z_address + 1
-    pla
-    sta z_address
-    pla
-    tax
-    lda #0
-    sta alphabet_offset
-    jmp .next_zchar
-.l0 ldy escape_char_counter
-    beq .l1
-    ; handle the two characters that make up an escaped character
-    ldy #5
--   asl escape_char
-    dey
-    bne -
-    ora escape_char
-    sta escape_char
-    dec escape_char_counter
-    beq +
-    jmp .next_zchar
-+   lda escape_char
-    jsr streams_print_output
-    jmp .next_zchar
-.l1 cmp #0
-    bne .l2
-    ; space
-    lda #$20
-    jsr streams_print_output
-    lda #0
-    sta alphabet_offset
-    jmp .next_zchar
-.l2 cmp #4
-    bne .l3
-    ; change to A1
-    lda #26
-    sta alphabet_offset
-    jmp .next_zchar
-.l3 cmp #5
-    bne .l4
-    ; change to A2
-    lda #52
-    sta alphabet_offset
-    jmp .next_zchar
-.l4 ; escape char?
-    cmp #6
-    bne .l5
-    ldy alphabet_offset
-    cpy #52
-    bne .l5
-    lda #0
-    sta escape_char
-    sta alphabet_offset
-    lda #2
-    sta escape_char_counter
-    jmp .next_zchar
-.l5 ; abbreviation command?
-    cmp #4
-    bcs .l6
-    sta abbreviation_command ; 1, 2 or 3
-    jmp .next_zchar
-.l6 ; normal char
-    jsr convert_zchar_to_char
-    jsr streams_print_output
-    ; change back to A0
-    lda #0
-    sta alphabet_offset
-.next_zchar
-    dex
-    ;bpl .print_chars_loop
-    bmi +
-    jmp .print_chars_loop
-+   lda packed_text + 1
-    bne +
-    jmp .read_triplet_loop
-+   rts
-}
 ; .escape_char !byte 0
 ; .escape_char_counter !byte 0
 ; .abbreviation_command !byte 0
