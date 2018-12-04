@@ -243,12 +243,22 @@ w1  cmp $d012
 
 !zone disk_config {
 auto_disk_config
+; Limit # of save slots to no more than 10
+	lda disk_info + 1
+	cmp #11
+	bcc +
+	lda #10
+	sta disk_info + 1
+	clc
++	adc #$30
+	sta first_unavailable_save_slot_charcode 
+
 ; Figure out best device# for all disks set to auto device# (value = 0)
 	lda #0
 	tay ; Disk#
 .next_disk
 	tax ; Memory index
-	lda disk_info + 3,x
+	lda disk_info + 4,x
 	bne .device_selected
 	cpy #2
 	bcs .not_save_or_boot_disk
@@ -266,10 +276,10 @@ auto_disk_config
 	txa
 	ldx zp_temp ; Retrieve current value of x (memory pointer)
 .select_device
-	sta disk_info + 3,x
+	sta disk_info + 4,x
 .device_selected
 	sta zp_temp + 1 ; Store currently selected device#
-	lda disk_info + 6,x
+	lda disk_info + 7,x
 	beq +
 	; This is a story disk
 	txa ; Save value of x
@@ -277,10 +287,10 @@ auto_disk_config
 	inc device_map - 8,x ; Mark device as in use by a story disk
 	tax
 +	iny
-	cpy disk_info + 1 ; # of disks
+	cpy disk_info + 2 ; # of disks
 	bcs .done
 	txa
-	adc disk_info + 2,x
+	adc disk_info + 3,x
 	bne .next_disk ; Always branch
 .done
 	rts
@@ -296,7 +306,7 @@ insert_disks_at_boot
 	cpy #1
 	bcc .dont_need_to_insert_this
 	; Store in current_disks
-	lda disk_info + 3,x
+	lda disk_info + 4,x
 	stx zp_temp
 	tax
 	lda zp_temp
@@ -312,10 +322,10 @@ insert_disks_at_boot
 	ldy zp_temp + 1
 .dont_need_to_insert_this
 +	iny
-	cpy disk_info + 1 ; # of disks
+	cpy disk_info + 2 ; # of disks
 	bcs .done
 	txa
-	adc disk_info + 2,x
+	adc disk_info + 3,x
 	bne .next_disk ; Always branch
 .done
 	rts

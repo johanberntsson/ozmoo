@@ -40,6 +40,8 @@ The longer answer:
 * Supports embedding a custom font. Currently one font is included in the distribution, but there will be more. And you can supply your own font.
 * Supports custom alphabets in Z-machine version 5 and 8.
 * Supports custom character mappings, allowing for games using accented characters.
+* Supports up to ten save slots on a save disk (and most games will get the full ten slots).
+* Supports writing a name for a save
 
 ## Building and running
 

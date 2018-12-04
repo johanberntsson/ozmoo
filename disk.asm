@@ -10,17 +10,18 @@ boot_device !byte 0
 current_disks !byte $ff, $ff, $ff, $ff
 disk_info
 !ifdef Z3 {
-	!fill 70
+	!fill 71
 }
 !ifdef Z4 {
-	!fill 93
+	!fill 94
 }
 !ifdef Z5 {
-	!fill 93
+	!fill 94
 }
 !ifdef Z8 {
-	!fill 119
+	!fill 120
 }
+first_unavailable_save_slot_charcode	!byte 0
 
 !zone disk_messages {
 prepare_for_disk_msgs
@@ -43,11 +44,11 @@ print_insert_disk_msg
 	jsr printstring_raw
 	ldy .save_y
 ; Print disk name
-	lda disk_info + 6,y ; Number of tracks
+	lda disk_info + 7,y ; Number of tracks
 	clc
 	adc .save_y
 	tay
--	lda disk_info + 7,y
+-	lda disk_info + 8,y
 	beq .disk_name_done
 	bmi .special_string
 	jsr printchar_raw
@@ -68,7 +69,7 @@ print_insert_disk_msg
 	ldx #<insert_msg_2
 	jsr printstring_raw
 	ldy .save_y
-	lda disk_info + 3,y
+	lda disk_info + 4,y
 	tax
 	cmp #10
 	bcc +
@@ -173,21 +174,21 @@ readblock
     lda readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
 	
-	lda disk_info + 1 ; Number of disks
+	lda disk_info + 2 ; Number of disks
 	ldx #0 ; Memory index
 	ldy #0 ; Disk id
 .check_next_disk	
 	txa
 	clc
-	adc disk_info + 2,x
+	adc disk_info + 3,x
 	sta .next_disk_index ; x-value where next disk starts
 	; Check if the block we are looking for is on this disk
 	lda readblocks_currentblock_adjusted
 	sec
-	sbc disk_info + 5,x
+	sbc disk_info + 6,x
 	sta .blocks_to_go_tmp + 1
 	lda readblocks_currentblock_adjusted + 1
-	sbc disk_info + 4,x
+	sbc disk_info + 5,x
 	sta .blocks_to_go_tmp
 	bcc .right_disk_found ; Found the right disk!
 	; This is not the right disk. Save # of blocks to go into next disk.
@@ -198,14 +199,14 @@ readblock
 	jmp .next_disk ; Not the right disk, keep looking!
 ; Found the right disk
 .right_disk_found
-	lda disk_info + 3,x
+	lda disk_info + 4,x
 	sta .device
-	lda disk_info + 6,x
+	lda disk_info + 7,x
 	sta .disk_tracks ; # of tracks which have entries
 	lda #1
 	sta .track
 .check_track
-	lda disk_info + 7,x
+	lda disk_info + 8,x
 	and #%00011111
 	sta .sector
 	lda .blocks_to_go + 1
@@ -229,7 +230,7 @@ readblock
 .right_track_found
 	; Add sectors not used at beginning of track
 	; .blocks_to_go + 1: logical sector#
-	; disk_info + 7,x: # of sectors skipped (3 bits), # of sectors used (5 bits)
+	; disk_info + 8,x: # of sectors skipped (3 bits), # of sectors used (5 bits)
 	sty .temp_y
 !ifdef TRACE_FLOPPY {
 	jsr arrow
@@ -239,7 +240,7 @@ readblock
 	lda .blocks_to_go + 1
 	jsr print_byte_as_hex
 }
-	lda disk_info + 7,x
+	lda disk_info + 8,x
 	lsr
 	lsr
 	lsr
@@ -247,7 +248,7 @@ readblock
 	lsr ; a now holds # of sectors at start of track not in use
 	sta .skip_sectors
 ; Initialize track map. Write 0 for sectors not yet used, $ff for sectors used 
-	lda disk_info + 7,x
+	lda disk_info + 8,x
 	and #%00011111
 	clc
 	adc .skip_sectors
@@ -312,7 +313,7 @@ readblock
 .next_disk
 	ldx .next_disk_index
 	iny
-	cpy disk_info + 1 ; # of disks
+	cpy disk_info + 2 ; # of disks
 	bcs +
 	jmp .check_next_disk
 +	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
@@ -520,11 +521,15 @@ z_ins_save
     rts
 	
 list_save_files
+	ldx	first_unavailable_save_slot_charcode
+	dex
+	stx .saveslot_msg + 8
 	lda #13
 	jsr printchar_raw
 	jsr printchar_raw
 	lda #0
-	ldx #9
+	ldx disk_info + 1 ; # of save slots
+	dex
 -	sta .occupied_slots,x
 	dex
 	bpl -
@@ -541,7 +546,7 @@ list_save_files
     jsr kernel_setnam ; call SETNAM
 
     lda #2      ; file number 2
-    ldx disk_info + 3 ; Device# for save disk
+    ldx disk_info + 4 ; Device# for save disk
 +   ldy #0      ; secondary address 2
     jsr kernel_setlfs ; call SETLFS
 
@@ -580,7 +585,8 @@ list_save_files
 	jsr kernel_readchar
 	cmp #$30 ; charcode for 0
 	bcc .not_a_save_file
-	cmp #$3a ; (charcode for 9) + 1
+	cmp first_unavailable_save_slot_charcode
+;	cmp #$3a ; (charcode for 9) + 1
 	bcs .not_a_save_file
 	tax
 	lda .occupied_slots - $30,x
@@ -627,7 +633,7 @@ list_save_files
 	lda #13
 	jsr printchar_raw
 +	inx
-	cpx #10
+	cpx disk_info + 1 ; # of save slots
 	bcc -
 	; Sort list
 	ldx #1
@@ -635,7 +641,7 @@ list_save_files
 -	jsr .insertion_sort_item
 	inc .sort_item
 	ldx .sort_item
-	cpx #10
+	cpx disk_info + 1; # of save slots
 	bcc -
 	
 	lda #1 ; Signal success
@@ -703,7 +709,7 @@ list_save_files
 .base_screen_pos
 	!byte 0,0
 .insert_save_disk
-	ldx disk_info + 3 ; Device# for save disk
+	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
 	beq + ; Save disk is already in drive.
@@ -718,7 +724,7 @@ list_save_files
 	bmi + ; The drive was empty before, no need to change disk now
 	jsr print_insert_disk_msg
 	tya
-	ldx disk_info + 3 ; Device# for save disk
+	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
 
 +	jsr clear_screen_raw
@@ -741,7 +747,7 @@ restore_game
 	cpx #1
 	bne .restore_failed
 	lda .inputstring
-	cmp #$41
+	cmp first_unavailable_save_slot_charcode
 	bpl .restore_failed ; not a number (0-9)
 	sta .restore_filename + 1
 
@@ -786,7 +792,7 @@ save_game
 	cpx #1
 	bne .save_failed
 	lda .inputstring
-	cmp #$41
+	cmp first_unavailable_save_slot_charcode
 	bpl .save_failed ; not a number (0-9)
 	sta .filename + 1
 	sta .erase_cmd + 3
@@ -810,7 +816,7 @@ save_game
     ldy #>.erase_cmd
     jsr kernel_setnam
     lda #$0f      ; file number 15
-    ldx disk_info + 3 ; Device# for save disk
+    ldx disk_info + 4 ; Device# for save disk
 	ldy #$0f      ; secondary address 15
     jsr kernel_setlfs
     jsr kernel_open ; open command channel and send delete command)
@@ -844,14 +850,14 @@ do_restore
     ldx #<.restore_filename
     ldy #>.restore_filename
     jsr kernel_setnam
-    lda #$01      ; file number
-    ldx disk_info + 3 ; Device# for save disk
-	ldy #$01      ; not $01 means: load to address stored in file
+    lda #1      ; file number
+    ldx disk_info + 4 ; Device# for save disk
+	ldy #1      ; not $01 means: load to address stored in file
     jsr kernel_setlfs
     lda #$00      ; $00 means: load to memory (not verify)
     jsr kernel_load
     php ; store c flag so error can be checked by calling routine
-    lda #$01 
+    lda #1 
     jsr kernel_close
     plp ; restore c flag
     rts
@@ -863,9 +869,9 @@ do_save
     ldx #<.filename
     ldy #>.filename
     jsr kernel_setnam
-    lda #$00      ; device 0
-    ldx disk_info + 3 ; Device# for save disk
-	ldy #$00
+    lda #1      ; file# 1
+    ldx disk_info + 4 ; Device# for save disk
+	ldy #1
     jsr kernel_setlfs
     lda #<(stack_start - zp_bytes_to_save)
     sta $c1
@@ -879,13 +885,13 @@ do_save
     lda #$c1      ; start address located in $C1/$C2
     jsr kernel_save
     php ; store c flag so error can be checked by calling routine
-    lda #$00 
+    lda #1 
     jsr kernel_close
     plp ; restore c flag
     rts
 .last_disk	!byte 0
 .saveslot !byte 0
-.saveslot_msg	!pet "Slot (0-9, RETURN=cancel): ",0
+.saveslot_msg	!pet "Slot (0-9, RETURN=cancel): ",0 ; Will be modified to say highest available slot #
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,13,"  Saving...",0
 .restore_msg	!pet 13,13,"  Restoring...",0

@@ -513,6 +513,7 @@ end
 
 def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 9999
+	
 	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: true, forty_tracks: extended_tracks)
 #	def initialize(disk_title:, d64_filename:, is_boot_disk:, forty_tracks:)
 
@@ -889,10 +890,10 @@ $ztype = "Z#{$story_file_data[0].ord}"
 high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
 
 # check header.static_mem_start (size of dynmem)
-static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
+$static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 
 # get dynmem size (in vmem blocks)
-$dynmem_blocks = (static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
+$dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
 puts "Dynmem blocks: #{$dynmem_blocks}"
 if preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
 	puts "Max preload blocks adjusted to dynmem size, from #{preload_max_vmem_blocks} to #{$dynmem_blocks}."
@@ -903,12 +904,18 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
+save_slots = [255, 664 / (($static_mem_start.to_f + 1024 + 20) / 254).ceil.to_i].min
+puts "Static mem start: #{$static_mem_start}"
+puts "Save blocks: #{(($static_mem_start.to_f + 1024 + 20) / 254).ceil.to_i}"
+puts "Save slots: #{save_slots}"
+
 config_data = 
 [$BUILD_ID].pack("I>").unpack("CCCC") + 
 [
 # 0, 0, 0, 0, # Game ID
-11, # Number of bytes used for disk information, including this byte
-$INTERLEAVE,
+12, # Number of bytes used for disk information, including this byte
+$INTERLEAVE, 
+save_slots, # Save slots, change later if wrong
 2, # Number of disks, change later if wrong
 # Data for save disk: 8 bytes used, device# = 0 (auto), Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
 8, 0, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 
