@@ -200,7 +200,6 @@ z_jump_high_arr
 
 ; EXT
 
-z_opcount_ext_jump_high_arr
 !ifdef Z5PLUS {
 	!byte >z_ins_save
 	!byte >z_ins_restore
@@ -419,9 +418,13 @@ z_number_of_opcodes_implemented = * - z_jump_low_arr
 ; z_opcode_number
 ; z_opcode_opcount ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 
+!ifdef Z5PLUS {
 z_opcode_extended = 190
-z_opcode_call_vs2 = 236
 z_opcode_call_vn2 = 250
+}
+!ifdef Z4PLUS {
+z_opcode_call_vs2 = 236
+}
 
 z_opcode_opcount_0op = 0
 z_opcode_opcount_1op = 16
@@ -659,18 +662,15 @@ dumptovice
 +	sty z_operand_type_arr + 1
 	bne .read_operands ; Always branch
 
+!ifdef Z4PLUS {	
 	; Get another byte of operand types
 .get_4_more_op_types
 	lda z_temp + 2
 	bne .read_operands
-;	lda z_temp + 3
-;	beq +
-;	+read_next_byte_at_z_pc
-;	jmp .read_operands
-;+	
 	inc z_temp + 2
 	ldy #8
-	bne .read_more_op_types
+	bne .read_more_op_types ; Always branch
+}
 
 .get_4_op_types
 	ldx #0
@@ -702,11 +702,15 @@ dumptovice
 ;	inc z_temp + 3 ; An argument was empty
 .done
 	stx z_operand_count
+!ifdef Z4PLUS {	
 	lda z_opcode
 	cmp #z_opcode_call_vs2
 	beq .get_4_more_op_types
+!ifdef Z5PLUS {
 	cmp #z_opcode_call_vn2
 	beq .get_4_more_op_types
+}
+}
 	
 .read_operands
 	ldy z_operand_count
@@ -1663,6 +1667,7 @@ z_ins_mod
 	adc #0
 	jmp z_store_result
 	
+!ifdef Z5PLUS {
 z_ins_call_xn
 	jsr check_for_routine_0
 	bne +
@@ -1672,7 +1677,8 @@ z_ins_call_xn
 	ldy #0 ; Don't store result
 	tya ; Normal call mode
 	jmp stack_call_routine
-
+}
+	
 ; z_ins_throw (moved to stack.asm)
 
 	
@@ -1750,7 +1756,9 @@ print_num_unsigned
 	jsr streams_print_output
 	dey
 	bpl -
+!ifdef Z5PLUS {
 z_ins_set_true_colour
+}
 	rts
 
 z_ins_random	

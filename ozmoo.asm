@@ -31,6 +31,8 @@ stack_size = $0400;
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
+program_start
+
     jmp .initialize
 
 ; global variables

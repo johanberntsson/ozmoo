@@ -48,7 +48,8 @@ z_ins_print_char
 z_ins_new_line
 	lda #13
 	jmp streams_print_output
-	
+
+!ifdef Z4PLUS {	
 z_ins_read_char
     ; read_char 1 [time routine] -> (result)
     ; ignore argument 0 (always 1)
@@ -76,7 +77,7 @@ z_ins_read_char
 +   tax
     lda #0
 	jmp z_store_result
-
+}
 	
 !ifdef Z5PLUS {	
 z_ins_tokenise_text
@@ -407,6 +408,7 @@ z_ins_aread
 	jmp z_store_result
 }
 
+!ifdef Z5PLUS {
 z_ins_check_unicode
 	lda #0
 	tax
@@ -420,7 +422,8 @@ z_ins_print_unicode
 	jsr print_num_unsigned
 	lda #$29 ; )
 	jmp streams_print_output
-
+}
+	
 convert_zchar_to_char
     ; input: a=zchar
     ; output: a=char

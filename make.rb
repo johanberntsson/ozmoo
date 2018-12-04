@@ -402,13 +402,15 @@ def build_interpreter()
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
-	set_story_start($labels_file);
+	read_labels($labels_file);
+	puts "Interpreter size: #{$program_end_address - $start_address} bytes."
 end
 
-def set_story_start(label_file_name)
+def read_labels(label_file_name)
 	$storystart = 0
 	File.open(label_file_name).each do |line|
 		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
+		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
 	end
 end
 
@@ -794,6 +796,7 @@ optimize = false
 extended_tracks = false
 preload_max_vmem_blocks = 1000
 $start_address = 0x0801
+$program_end_address = 0x10000
 
 begin
 	while i < ARGV.length
