@@ -55,6 +55,7 @@ z_ins_read_char
     ; ignore argument 0 (always 1)
     ; ldy z_operand_value_low_arr
     ; optional time routine arguments
+	jsr printchar_flush
     ldy #0
     sty .read_text_time
     ldy z_operand_count
@@ -287,8 +288,13 @@ z_ins_aread
     sty .read_text_time
     ; time routine arguments
     ldy z_operand_count
+	sty .read_text_operand_count
     cpy #4
     bne +
+    ldy z_operand_value_low_arr + 1
+    sty .read_text_buffer
+    ldy z_operand_value_high_arr + 1
+    sty .read_text_buffer + 1
     ldy z_operand_value_low_arr + 2
     sty .read_text_time
     ldy z_operand_value_high_arr + 3
@@ -317,7 +323,7 @@ z_ins_aread
     jsr newline
 }
     ; parse it as well?
-    ldx z_operand_count
+    ldx .read_text_operand_count
     cpx #2
     bcc .aread_done
 
@@ -326,8 +332,10 @@ z_ins_aread
     ldx story_start + header_dictionary + 1 ; f3
 	jsr parse_dictionary
 
-    lda z_operand_value_high_arr + 1
-    ldx z_operand_value_low_arr + 1
+;    lda z_operand_value_high_arr + 1
+;    ldx z_operand_value_low_arr + 1
+    lda .read_text_buffer + 1
+    ldx .read_text_buffer
 !ifdef TRACE_TOKENISE {
     jsr print_following_string
     !pet "tokenise_text ",0
@@ -958,11 +966,13 @@ read_char
 .call_routine	
     ; current time >= .read_text_jiffy. Time to call routine
     jsr turn_off_cursor
+
 	; Turn off buffering
-	lda is_buffered_window
-	sta .text_tmp
-	lda #0
-	sta is_buffered_window
+	; lda is_buffered_window
+	; sta .text_tmp
+	; lda #0
+	; sta is_buffered_window
+
 	; stx z_operand_value_low_arr
 	; jsr z_ins_buffer_mode
 	lda .read_text_routine
@@ -975,9 +985,13 @@ read_char
 	jsr stack_call_routine
 	; let the interrupt routine start, so we need to rts.
 	jsr z_execute
+
 	; Restore buffering setting
-	lda .text_tmp
-	sta is_buffered_window
+	; lda .text_tmp
+	; sta is_buffered_window
+	jsr printchar_flush
+
+	jsr turn_on_cursor
 	; Interrupt routine has been executed, with value in word
 	; z_interrupt_return_value
 	; set up next time out
@@ -1055,6 +1069,11 @@ read_text
     beq .readkey
     ; text changed, redraw input line
 !ifdef Z5PLUS {
+    jsr clear_num_rows
+	lda #$0d ; Enter
+	jsr $ffd2
+	lda #$3e ; ">"
+	jsr $ffd2
     ldy #1
     lda (string_array),y
     tax
@@ -1062,6 +1081,7 @@ read_text
     beq .p1
     iny
     lda (string_array),y
+	jsr translate_zscii_to_petscii
     jsr $ffd2
     dex
     jmp .p0
@@ -1088,7 +1108,7 @@ read_text
     jmp .read_text_done
 +   cmp #$0d
     bne +
-    lda #13 ; return 13
+;    lda #13 ; return 13
     jmp .read_text_done
 +   cmp #8
     bne +
@@ -1114,7 +1134,8 @@ read_text
 	cmp #155
 	bcc .readkey
 	cmp #252
-	bcs .readkey
+	bcc .char_is_ok
+	jmp .readkey
     ; cmp #19
     ; beq .readkey ; home
     ; cmp #145
@@ -1198,6 +1219,7 @@ read_text
     beq +
     jsr $ffd2 ; print final char unless it is 0
 +   rts
+.read_text_buffer !byte 0,0
 .read_text_cursor !byte 0,0
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
@@ -1205,6 +1227,7 @@ read_text
 .read_text_time_jiffy !byte 0 ; update interval in jiffys
 .read_text_routine !byte 0, 0 ; called with .read_text_time intervals
 .read_text_jiffy !byte 0, 0, 0  ; current time
+.read_text_operand_count !byte 0
 
 tokenise_text
     ; divide read_line input into words and look up them in the dictionary
