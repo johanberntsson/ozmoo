@@ -6,8 +6,12 @@ A message which ends in the last column gets an extra line break.
 
 Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
 
+AMFV: Status line updates are printed in the main window.
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Variable stack size. A 256 word stack can be made faster and with simpler code to access it.
+
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
@@ -47,6 +51,17 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; save			; Save game state works. Save a memory area doesn't. Parameters are ignored.
 ; restore		; Restore game state works. Restore a memory area doesn't. Parameters are ignored.
 
+
+Possible alternative versions / extensions
+------------------------------------------
+* Support for C1581 disks (can hold 3160 blocks of user data)
+* Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
+* Support for REU
+* A build mode where the whole game fits in memory from the start, and load/save will use the same device as the game was loaded from (tape or a disk drive)
+* C128 version which can use a C1571, additional RAM and 80-column mode.
+* PET version
+* Plus/4 version
+* Apple II version
 
 DONE:
 If you hit enter at the more-prompt when the game asks you to choose a chapter in Borderzone, it is interpreted as a choice (which is invalid).
@@ -168,15 +183,6 @@ System to enable support for Swedish, German, French games etc. Maybe with optio
 
 
 
-Possible alternative versions / extensions
-------------------------------------------
-* Support for C1581 disks (can hold 3160 blocks of user data)
-* Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
-* Support for REU
-* A build mode where the whole game fits in memory from the start, and load/save will use the same device as the game was loaded from (tape or a disk drive)
-* C128 version which can use a C1571, additional RAM and 80-column mode.
-* PET version
-* Plus/4 version
 
 
 

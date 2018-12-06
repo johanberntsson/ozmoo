@@ -564,7 +564,7 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 end
 
 def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	config_data[6] = 3 # 3 disks used in total
+	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story"
 	max_story_blocks = 9999
@@ -620,7 +620,7 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	config_data[6] = 3 # 3 disks used in total
+	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot_story_1"
 	outfile2name = "#{storyname}_story_2"
 	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
@@ -693,7 +693,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	config_data[6] = 4 # 4 disks used in total
+	config_data[7] = 4 # 4 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story_1"
 	outfile3name = "#{storyname}_story_2"
