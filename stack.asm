@@ -301,9 +301,11 @@ stack_return_from_routine
 	tax
 	and #$07
 	pha ; Top byte of z_pc
+!ifdef Z4PLUS {
 	txa
 	and #$f8
 	sta z_exe_mode
+}
 	iny
 	lda (z_local_vars_ptr),y
 	tax
@@ -367,7 +369,8 @@ stack_return_from_routine
 	lda zp_temp + 3
 	sbc #0
 	sta z_local_vars_ptr + 1
-	
+
+!ifdef Z4PLUS {	
 	; Set interrupt return value, if this was a return from an interrupt
 	lda z_exe_mode
 	beq +
@@ -376,6 +379,7 @@ stack_return_from_routine
 	lda zp_temp + 1
 	sta z_interrupt_return_value + 1
 +
+}
 
 	; Store return value if calling instruction asked for it
 	bit stack_tmp

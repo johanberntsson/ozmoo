@@ -23,21 +23,6 @@ read_byte_at_z_address
 }
 }
 
-get_page_at_z_pc
-!zone {
-	stx mem_temp
-	lda z_pc	
-	ldx z_pc + 1
-	ldy z_pc + 2
-	jsr read_byte_at_z_address
-	ldy mempointer + 1
-	sty z_pc_mempointer + 1
-	ldy #0 ; Important: y should always be 0 when exiting this routine!
-	sty z_pc_mempointer_is_unsafe
-	ldx mem_temp
-	rts
-}
-
 inc_z_pc_page
 !zone {
 	inc z_pc_mempointer + 1
@@ -52,11 +37,29 @@ inc_z_pc_page
 	cmp #>story_start
 	bcs .safe
 .unsafe
-	inc z_pc_mempointer_is_unsafe
+	jmp get_page_at_z_pc_did_pha
 .safe
 	pla
 	rts
 }
+
+get_page_at_z_pc
+!zone {
+	pha
+get_page_at_z_pc_did_pha
+	stx mem_temp
+	lda z_pc	
+	ldx z_pc + 1
+	ldy z_pc + 2
+	jsr read_byte_at_z_address
+	ldy mempointer + 1
+	sty z_pc_mempointer + 1
+	ldy #0 ; Important: y should always be 0 when exiting this routine!
+	ldx mem_temp
+	pla
+	rts
+}
+
 
 set_z_pc
 ; Sets new value of z_pc, and figures out if z_pc_mempointer is still valid.
@@ -97,7 +100,7 @@ set_z_pc
 	sta z_pc
 .unsafe_2
 	stx z_pc + 1
-	inc z_pc_mempointer_is_unsafe
+	jsr get_page_at_z_pc
 	rts
 }
 

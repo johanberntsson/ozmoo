@@ -31,7 +31,7 @@ stack_top_value 	  = $2d ; 2 bytes !byte 0, 0
 stack_has_top_value   = $2f ; !byte 0
 z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
 z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
-z_pc_mempointer_is_unsafe = $34
+; z_pc_mempointer_is_unsafe = $34
 
 zp_save_start = z_local_vars_ptr
 zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr

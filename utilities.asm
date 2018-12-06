@@ -43,9 +43,7 @@
 }
 
 !macro read_next_byte_at_z_pc {
-	ldy z_pc_mempointer_is_unsafe
-	beq +
-	jsr get_page_at_z_pc	
+	ldy #0
 +	lda (z_pc_mempointer),y
 	inc z_pc_mempointer ; Also increases z_pc
 	bne ++

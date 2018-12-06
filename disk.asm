@@ -324,7 +324,7 @@ read_track_sector
 	; input: a: track, x: sector, y: device#, Word at readblocks_mempos holds storage address
 	sta .track
 	stx .sector
-+   sty .device
+	sty .device
 .have_set_device_track_sector
 	lda .track
     jsr conv2dec
@@ -766,9 +766,8 @@ restore_game
 	jsr .swap_pointers_for_save
 
     jsr .insert_story_disk
+	jsr get_page_at_z_pc
 	lda #0
-	ldx #1
-	stx z_pc_mempointer_is_unsafe
 	rts
 .restore_failed
     jsr .insert_story_disk
