@@ -8,6 +8,10 @@ Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up
 
 AMFV: Status line updates are printed in the main window.
 
+Borderzone shows bad random phrases in the intro text
+"He will... greet you with the words 'mk'...", or similar, should be
+"Pardon me" or similar instead of mk
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Optionally limit stack to allow no more than 127 values pushed in a single frame. This would make code faster and smaller.
