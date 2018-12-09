@@ -43,6 +43,7 @@ game_id		!byte 0,0,0,0
 
 ; include other assembly files
 !source "utilities.asm"
+!source "screenkernal.asm"
 !source "streams.asm"
 !source "disk.asm"
 !source "screen.asm"
@@ -58,6 +59,9 @@ game_id		!byte 0,0,0,0
 !source "objecttable.asm"
 
 .initialize
+!ifdef TESTSCREEN {
+    jmp testscreen
+}
 	jsr deletable_init
 	jsr prepare_static_high_memory
     jsr parse_object_table
