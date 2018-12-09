@@ -22,6 +22,12 @@
 
 ; stack_tmp !byte 0, 0, 0, 0, 0
 ; stack_pushed_bytes !byte 0, 0
+!ifdef VIEW_STACK_RECORDS {
+.stack_pushed_bytes_record 	!byte 0,0
+.stack_size_record		!byte 0,0
+.stack_size				!byte 0,0
+}
+
 
 stack_init
 	lda #<(stack_start)
@@ -57,7 +63,47 @@ stack_push_top_value
 	bne .top_done
 	inc stack_pushed_bytes
 .top_done
-+	lda stack_pushed_bytes
++	
+!ifdef VIEW_STACK_RECORDS {
+	lda .stack_pushed_bytes_record + 1
+	cmp stack_pushed_bytes + 1
+	lda .stack_pushed_bytes_record
+	sbc stack_pushed_bytes
+	bcs .not_push_record
+	jsr print_following_string
+!pet 13,"=== Pushed bytes record: ",0 
+	lda stack_pushed_bytes
+	sta .stack_pushed_bytes_record
+	ldx stack_pushed_bytes + 1
+	stx .stack_pushed_bytes_record + 1
+	jsr printinteger
+	jsr newline
+.not_push_record
+	lda stack_ptr
+	clc
+	adc stack_pushed_bytes + 1
+	sta .stack_size + 1
+	lda stack_ptr + 1
+	adc stack_pushed_bytes
+	sec
+	sbc #>stack_start
+	sta .stack_size
+	lda .stack_size_record + 1
+	cmp .stack_size + 1
+	lda .stack_size_record
+	sbc .stack_size
+	bcs .no_size_record
+	jsr print_following_string
+!pet 13,"### Stack size record: ",0 
+	lda .stack_size
+	sta .stack_size_record
+	ldx .stack_size + 1
+	stx .stack_size_record + 1
+	jsr printinteger
+	jsr newline
+.no_size_record	
+}
+	lda stack_pushed_bytes
 	cmp #>(stack_start + stack_size - 256)
 	bcs .push_check_room
 -	rts
@@ -271,7 +317,29 @@ stack_call_routine
 	sta stack_ptr + 1
 	cmp #>(stack_start + stack_size)
 	bcs .stack_full
-	
+
+!ifdef VIEW_STACK_RECORDS {
+	lda stack_ptr
+	sta .stack_size + 1
+	lda stack_ptr + 1
+	sec
+	sbc #>stack_start
+	sta .stack_size
+	lda .stack_size_record + 1
+	cmp .stack_size + 1
+	lda .stack_size_record
+	sbc .stack_size
+	bcs .no_size_record_2
+	jsr print_following_string
+!pet 13,"### Stack size record: ",0 
+	lda .stack_size
+	sta .stack_size_record
+	ldx .stack_size + 1
+	stx .stack_size_record + 1
+	jsr printinteger
+	jsr newline
+.no_size_record_2
+}
 	rts
 
 .stack_full

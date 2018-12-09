@@ -286,11 +286,9 @@ z_ins_aread
     ; read input
     ldy #0
     sty .read_text_time
-    ; time routine arguments
+    ; arguments that need to be copied to their own locations because there *may* be a timed interrupt call
     ldy z_operand_count
 	sty .read_text_operand_count
-    cpy #4
-    bne +
     ldy z_operand_value_low_arr + 1
     sty .read_text_buffer
     ldy z_operand_value_high_arr + 1
@@ -301,8 +299,8 @@ z_ins_aread
     sty .read_text_routine
     ldy z_operand_value_low_arr + 3
     sty .read_text_routine + 1
-+   lda z_operand_value_high_arr
-    ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
     jsr read_text
 !ifdef TRACE_READTEXT {
     jsr print_following_string
@@ -339,8 +337,8 @@ z_ins_aread
 !ifdef TRACE_TOKENISE {
     jsr print_following_string
     !pet "tokenise_text ",0
-    ldx z_operand_value_low_arr + 1
-    lda z_operand_value_high_arr + 1
+    lda .read_text_buffer + 1
+    ldx .read_text_buffer
     jsr printx
     jsr space
     jsr printa

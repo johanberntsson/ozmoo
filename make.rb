@@ -32,6 +32,7 @@ $GENERALFLAGS = [
 # Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
+#	'VIEW_STACK_RECORDS',
 #	'PRINTSPEED'
 #	'BENCHMARK',
 #	'TRACE_FLOPPY',

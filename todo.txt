@@ -10,6 +10,8 @@ AMFV: Status line updates are printed in the main window.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Optionally limit stack to allow no more than 127 values pushed in a single frame. This would make code faster and smaller.
+
 Variable stack size. A 256 word stack can be made faster and with simpler code to access it.
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
@@ -64,6 +66,10 @@ Possible alternative versions / extensions
 * Apple II version
 
 DONE:
+Option to display whenever then stack size hits a new record, either in total bytes used, or in bytes pushed onto the stack in a single frame.
+
+Bug in Ad Verbum: No words are understood.
+
 If you hit enter at the more-prompt when the game asks you to choose a chapter in Borderzone, it is interpreted as a choice (which is invalid).
 
 You can't pick anything up at the beginning of part 1 in Borderzone: "[I beg your pardon?]".
