@@ -164,15 +164,13 @@ readblock
 	sec
 	sbc nonstored_blocks
 	sta readblocks_currentblock_adjusted
+	sta .blocks_to_go
 	lda readblocks_currentblock + 1
 	sbc #0
 	sta readblocks_currentblock_adjusted + 1
+	sta .blocks_to_go + 1
 
     ; convert block to track/sector
-    lda readblocks_currentblock_adjusted
-	sta .blocks_to_go
-    lda readblocks_currentblock_adjusted + 1
-	sta .blocks_to_go + 1
 	
 	lda disk_info + 2 ; Number of disks
 	ldx #0 ; Memory index
@@ -207,6 +205,7 @@ readblock
 	sta .track
 .check_track
 	lda disk_info + 8,x
+	beq .next_track
 	and #%00011111
 	sta .sector
 	lda .blocks_to_go + 1
@@ -217,15 +216,25 @@ readblock
 	sbc #0
 	sta .blocks_to_go_tmp
 	bcc .right_track_found ; Found the right track
-	lda .blocks_to_go_tmp
 	sta .blocks_to_go
 	lda .blocks_to_go_tmp + 1
 	sta .blocks_to_go + 1
-	jmp .next_track
-.track_map 		!fill 21 ; Holds a map of the sectors in a single track
-.sector_count 	!byte 0
-.skip_sectors 	!byte 0
-.temp_y 		!byte 0
+.next_track
+	inx
+	inc .track
+	dec .disk_tracks
+	bne .check_track
+; Broken config
++	lda #ERROR_CONFIG ; Config info must be incorrect if we get here
+	jmp fatalerror
+.next_disk
+	ldx .next_disk_index
+	iny
+	cpy disk_info + 2 ; # of disks
+	bcs +
+	jmp .check_next_disk
++	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
+	jmp fatalerror
 
 .right_track_found
 	; Add sectors not used at beginning of track
@@ -304,20 +313,12 @@ readblock
 ; Restore old value of y
 	ldy .temp_y
 	jmp .have_set_device_track_sector
-.next_track
-	inx
-	inc .track
-	dec .disk_tracks
-	beq .next_disk
-	jmp .check_track
-.next_disk
-	ldx .next_disk_index
-	iny
-	cpy disk_info + 2 ; # of disks
-	bcs +
-	jmp .check_next_disk
-+	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
-	jmp fatalerror
+
+.track_map 		!fill 21 ; Holds a map of the sectors in a single track
+.sector_count 	!byte 0
+.skip_sectors 	!byte 0
+.temp_y 		!byte 0
+
 
     ; convert track/sector to ascii and update drive command
 read_track_sector
@@ -359,7 +360,7 @@ read_track_sector
 
     lda #$02      ; file number 2
     ldx .device
-+   ldy #$02      ; secondary address 2
+	tay      ; secondary address 2
     jsr kernel_setlfs ; call SETLFS
 
     jsr kernel_open     ; call OPEN
@@ -373,7 +374,7 @@ read_track_sector
     jsr kernel_setnam ; call SETNAM
     lda #$0F      ; file number 15
     ldx .device
-    ldy #$0F      ; secondary address 15
+    tay      ; secondary address 15
     jsr kernel_setlfs ; call SETLFS
 
     jsr kernel_open ; call OPEN (open command channel and send U1 command)
@@ -768,6 +769,7 @@ restore_game
     jsr .insert_story_disk
 	jsr get_page_at_z_pc
 	lda #0
+	ldx #1
 	rts
 .restore_failed
     jsr .insert_story_disk

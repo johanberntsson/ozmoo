@@ -504,7 +504,10 @@ read_byte_at_z_address
 }
 }
 	
-	; Forget any cache pages belonging to the old block at this position. 
+	; Forget any cache pages belonging to the old block at this position.
+	lda vmap_c64_offset
+	cmp #first_banked_memory_page
+	bcc .cant_be_in_cache
 	ldy #vmem_cache_count - 1
 -	lda vmem_cache_index,y
 	and #vmem_blockmask
@@ -514,6 +517,7 @@ read_byte_at_z_address
 	sta vmem_cache_index,y
 +	dey
 	bpl -
+.cant_be_in_cache	
 
 	; Store address of 1 KB block to load, then load it
 	lda zp_pc_h

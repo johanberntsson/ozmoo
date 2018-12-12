@@ -91,25 +91,23 @@ set_z_paddress
     ; side effects: z_address
     ; used registers: a,x
     ; example: $031b -> $00, $0c, $6c (Z5)
-    stx z_address + 2
     sta z_address + 1
+	txa
+	asl
+    sta z_address + 2
+    rol z_address + 1
     lda #$0
-    sta z_address
-!ifdef Z4 {
-    ldx #2
-}
-!ifdef Z5 {
-    ldx #2
+    rol
+!ifdef Z4PLUS {
+    asl z_address + 2
+    rol z_address + 1
+    rol
 }
 !ifdef Z8 {
-    ldx #3
+    asl z_address + 2
+    rol z_address + 1
+    rol
 }
--   asl z_address+2
-    rol z_address+1
-    rol z_address
-!ifndef Z3 {
-    dex
-    bne -
-}
+	sta z_address
     rts
 

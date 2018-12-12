@@ -52,7 +52,7 @@
 }
 
 ERROR_UNSUPPORTED_STREAM = 1
-ERROR_INVALID_CHAR = 2
+ERROR_CONFIG = 2
 ERROR_STREAM_NESTING_ERROR = 3
 ERROR_FLOPPY_READ_ERROR = 4
 ERROR_MEMORY_OVER_64KB = 5
@@ -69,7 +69,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
 
 !ifdef DEBUG {
 .error_unsupported_stream !pet "unsupported stream#",0
-.error_invalid_char !pet "invalid char",0
+.error_config !pet "broken config",0
 .error_stream_nesting_error !pet "stream nesting error",0
 .error_floppy_read_error !pet "floppy read error", 0
 .error_memory_over_64kb !pet "tried to access z-machine memory over 64kb", 0
@@ -86,7 +86,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
 
 .error_message_high_arr
     !byte >.error_unsupported_stream
-    !byte >.error_invalid_char
+    !byte >.error_config
     !byte >.error_stream_nesting_error
     !byte >.error_floppy_read_error
     !byte >.error_memory_over_64kb
@@ -103,7 +103,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
 
 .error_message_low_arr
     !byte <.error_unsupported_stream
-    !byte <.error_invalid_char
+    !byte <.error_config
     !byte <.error_stream_nesting_error
     !byte <.error_floppy_read_error
     !byte <.error_memory_over_64kb

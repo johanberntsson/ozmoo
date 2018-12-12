@@ -65,6 +65,7 @@ stack_push_top_value
 .top_done
 +	
 !ifdef VIEW_STACK_RECORDS {
+	stx zp_temp + 4
 	lda .stack_pushed_bytes_record + 1
 	cmp stack_pushed_bytes + 1
 	lda .stack_pushed_bytes_record
@@ -102,20 +103,19 @@ stack_push_top_value
 	jsr printinteger
 	jsr newline
 .no_size_record	
+	ldx zp_temp + 4
 }
-	lda stack_pushed_bytes
-	cmp #>(stack_start + stack_size - 256)
-	bcs .push_check_room
--	rts
-.push_check_room
+
+; push_check_room
 	lda stack_ptr
 	clc
 	adc stack_pushed_bytes + 1
 	lda stack_ptr + 1
 	adc stack_pushed_bytes
 	cmp #>(stack_start + stack_size)
-	bcc -
+	bcc +
 	jmp .stack_full
++	rts
 
 ; This is used by stack_call_routine	
 .many_pushed_bytes
@@ -147,18 +147,16 @@ stack_call_routine
 	beq +
 	jsr stack_push_top_value
 +
-;	lda stack_ptr + 1
-;	cmp #>stack_start
-;	bcc .current_frame_done ; There is no current frame, so no need to close it either
 	lda stack_pushed_bytes
 	bne .many_pushed_bytes
 	; Frame has < 256 bytes pushed
 	ldy stack_pushed_bytes + 1
-	beq .no_pushed_bytes
 	sta (stack_ptr),y
 	tya
 	iny
 	sta (stack_ptr),y
+	cpy #1
+	beq .current_frame_done
 .move_stack_ptr_to_last_word_of_frame
 	lda stack_ptr
 	clc
@@ -167,12 +165,7 @@ stack_call_routine
 	lda stack_ptr + 1
 	adc stack_pushed_bytes
 	sta stack_ptr + 1
-	bne .current_frame_done ; Always branch
-.no_pushed_bytes
-	sta (stack_ptr),y
-	tya
-	iny
-	sta (stack_ptr),y
+
 .current_frame_done
 	
 	; TASK: Save PC. Set new PC. Setup new stack frame.
@@ -183,10 +176,6 @@ stack_call_routine
 	lda z_pc + 2
 	sta stack_tmp + 2
 
-	; lda z_operand_value_high_arr
-	; sta zp_temp + 2
-	; lda z_operand_value_low_arr
-	; sta zp_temp + 3
 	lda #0
 	asl z_operand_value_low_arr
 	rol z_operand_value_high_arr
