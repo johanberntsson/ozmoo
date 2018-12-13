@@ -6,6 +6,12 @@
 ;Z5 = 1
 ;Z8 = 1
 
+!ifdef USEVM {
+!ifndef ALLRAM {
+	ALLRAM = 1
+}
+}
+
 !ifdef Z4 {
 	Z4PLUS = 1
 }
@@ -26,7 +32,11 @@
 	z_trace_size = 0
 }
 
-stack_size = $0400;
+!ifdef STACK_PAGES {
+	stack_size = STACK_PAGES * $100;
+} else {
+	stack_size = $0400;
+}
 
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
@@ -49,9 +59,9 @@ game_id		!byte 0,0,0,0
 !source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
-!ifdef USEVM {
+;##!ifdef USEVM {
 !source "vmem.asm"
-}
+;##}
 !source "zmachine.asm"
 !source "zaddress.asm"
 !source "text.asm"
@@ -98,6 +108,257 @@ z_trace_page
 	!fill z_trace_size, 0
 
 vmem_cache_start
+
+!ifdef ALLRAM {
+;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
+	!fill 4 * 256 - (* - vmem_cache_start),0 ; 4 pages
+!ifdef USEVM {
+;	!align 256 * (1 - ((>stack_size) % 1)) * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
+	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
+} 
+
+vmem_cache_size = * - vmem_cache_start
+vmem_cache_count = vmem_cache_size / 256
+}
+!align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
+
+stack_start
+!ifdef USEVM {
+prepare_static_high_memory
+    lda #$ff
+    sta zp_pc_h
+    sta zp_pc_l
+
+; Clear vmap_z_h
+	ldy #vmap_max_length - 1
+	lda #0
+-	sta vmap_z_h,y
+	dey
+	bpl -
+
+; Clear quick index
+	ldx #vmap_quick_index_length
+-	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
+	dex
+	bpl -
+	
+	
+	lda #5
+	clc
+	adc config_load_address + 4
+	sta zp_temp
+	lda #>config_load_address
+;	adc #0 ; Not needed if disk info is always <= 249 bytes
+	sta zp_temp + 1
+	ldy #1
+	lda (zp_temp),y
+	sta zp_temp + 3 ; # of blocks already loaded
+	dey
+	lda (zp_temp),y ; # of blocks in the list
+	tax
+	cpx #vmap_max_length + 1
+	bcc +
+	ldx #vmap_max_length
++	stx zp_temp + 2  ; Number of bytes to copy
+; Copy to vmap_z_h
+	iny
+-	iny
+	lda (zp_temp),y
+	sta vmap_z_h - 2,y
+
+	and #%01000000 ; Check if non-swappable memory
+	bne .dont_set_vmap_swappable
+	lda vmap_first_swappable_index
+	bne .dont_set_vmap_swappable
+	dey
+	dey
+	sty vmap_first_swappable_index
+	iny
+	iny
+.dont_set_vmap_swappable
+
+	dex
+	bne -
+; Point to lowbyte array	
+	ldy #0
+	lda (zp_temp),y
+	clc
+	adc zp_temp
+	adc #2
+	sta zp_temp
+	ldy #vmap_max_length - 1
+-	lda #0
+	cpy zp_temp + 2
+	bcs +
+	lda (zp_temp),y
++	sta vmap_z_l,y
+	dey
+	bpl -
+	
+; Load all suggested pages which have not been pre-loaded
+-	lda zp_temp + 3 ; First index which has not been loaded
+	beq ++ ; First block was loaded with header
+	cmp zp_temp + 2 ; Total # of indexes in the list
+	bcs +
+	; jsr dollar
+	sta vmap_index
+	tax
+	jsr load_blocks_from_index
+++	inc zp_temp + 3
+	bne - ; Always branch
++
+	ldx zp_temp + 2
+	cpx #vmap_max_length
+	bcc +
+	dex
++	stx vmap_clock_index
+
+!ifdef TRACE_VM {
+    jsr print_vm_map
+}
+    rts
+} else {
+prepare_static_high_memory
+    ; the default case is to simply treat all as dynamic (r/w)
+    rts
+}
+
+
+z_init
+!zone z_init {
+
+!ifdef DEBUG {
+!ifdef PREOPT {
+	jsr print_following_string
+	!pet "*** vmem optimization mode ***",13,13,0
+}	
+}
+
+
+	ldy #0
+	sty z_exe_mode ; 0 = Normal
+	
+!ifdef TRACE {
+	; Setup trace
+	lda #0
+	sta z_trace_index
+	tay
+-	sta z_trace_page,y
+	iny
+	bne -
+}
+	
+	; Modify header to tell game about terp capabilities
+!ifdef Z3 {
+	lda story_start + 1
+	and #(255 - 16 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
+	sta story_start + 1
+} else {
+!ifdef Z4 {
+	lda story_start + 1
+	and #(255 - 4 - 8) ; bold font, italic font, timed input not available
+	ora #(16 + 128) ; Fixed-space style, timed input available
+	sta story_start + 1
+} else { ; Z5PLUS
+	lda story_start + 1
+	and #(255 - 1 - 4 - 8) ; colours, bold font, italic font
+	ora #(16 + 128) ; Fixed-space style, timed input available
+	sta story_start + 1
+	lda story_start + $11
+	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
+	sta story_start + $11
+}
+}
+!ifdef Z4PLUS {
+	lda #8
+	sta story_start + $1e ; Interpreter number (8 = C64)
+	lda #64
+	sta story_start + $1f ; Interpreter number. Usually ASCII code for a capital letter (We use @ until the terp is ready for release)
+	lda #25
+	sta story_start + $20 ; Screen lines
+	lda #40
+	sta story_start + $21 ; Screen columns
+}
+!ifdef Z5PLUS {
+	lda #>320
+	sta story_start + $22 ; Screen width in units
+	lda #<320
+	sta story_start + $23 ; Screen width in units
+	lda #>200
+	sta story_start + $24 ; Screen height in units
+	lda #<200
+	sta story_start + $25 ; Screen height in units
+	lda #8
+	sta story_start + $26 ; Font width in units
+	sta story_start + $27 ; Font height in units
+	; TODO: Store default background and foreground color in 2c, 2d (or comply to game's wish?)
+}
+	lda #0
+	sta story_start + $32 ; major standard revision number which this terp complies to
+	sta story_start + $33 ; minor standard revision number which this terp complies to
+	
+	; Copy alphabet pointer from header, or default
+	ldx #<default_alphabet
+	ldy #>default_alphabet
+!ifdef Z5PLUS {
+	lda story_start + header_alphabet_table
+	ora story_start + header_alphabet_table + 1
+	beq .no_custom_alphabet
+	ldx story_start + header_alphabet_table + 1
+	lda story_start + header_alphabet_table
+	clc
+	adc #>story_start
+	tay
+.no_custom_alphabet
+}
+	stx alphabet_table
+	sty alphabet_table + 1
+	
+	; Copy z_pc from header
+	lda #0
+	ldx story_start + header_initial_pc
+	ldy story_start + header_initial_pc + 1
+!ifndef USEVM {
+	sta z_pc
+}
+	jsr set_z_pc
+	jsr get_page_at_z_pc
+
+	; Setup globals pointer
+	lda story_start + header_globals + 1
+	clc
+	adc #<(story_start - 32)
+	sta z_global_vars_start
+	lda story_start + header_globals
+	adc #>(story_start - 32)
+	sta z_global_vars_start + 1
+
+	; Init sound
+	lda #0
+	ldx #$18
+-	sta $d400,x
+	dex
+	bpl -
+	lda #$f
+	sta $d418
+	lda #$00
+	sta $d405
+	lda #$f2
+	sta $d406
+	
+	; Init randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	ldx #$80
+	stx $d412
+!ifdef BENCHMARK {
+	ldy #1
+	jmp z_rnd_init
+} else {
+	jmp z_rnd_init_random
+}
+}
 
 !zone deletable_init {
 deletable_init
@@ -335,252 +596,6 @@ insert_disks_at_boot
 	rts
 }
 
-!ifdef USEVM {
-;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
-	!fill 4 * 256 - (* - vmem_cache_start),0 ; 4 pages
-	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
-vmem_cache_size = * - vmem_cache_start
-vmem_cache_count = vmem_cache_size / 256
-}
-!align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
-
-stack_start
-!ifdef USEVM {
-prepare_static_high_memory
-    lda #$ff
-    sta zp_pc_h
-    sta zp_pc_l
-
-; Clear vmap_z_h
-	ldy #vmap_max_length - 1
-	lda #0
--	sta vmap_z_h,y
-	dey
-	bpl -
-
-; Clear quick index
-	ldx #vmap_quick_index_length
--	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
-	dex
-	bpl -
-	
-	
-	lda #5
-	clc
-	adc config_load_address + 4
-	sta zp_temp
-	lda #>config_load_address
-;	adc #0 ; Not needed if disk info is always <= 249 bytes
-	sta zp_temp + 1
-	ldy #1
-	lda (zp_temp),y
-	sta zp_temp + 3 ; # of blocks already loaded
-	dey
-	lda (zp_temp),y ; # of blocks in the list
-	tax
-	cpx #vmap_max_length + 1
-	bcc +
-	ldx #vmap_max_length
-+	stx zp_temp + 2  ; Number of bytes to copy
-; Copy to vmap_z_h
-	iny
--	iny
-	lda (zp_temp),y
-	sta vmap_z_h - 2,y
-
-	and #%01000000 ; Check if non-swappable memory
-	bne .dont_set_vmap_swappable
-	lda vmap_first_swappable_index
-	bne .dont_set_vmap_swappable
-	dey
-	dey
-	sty vmap_first_swappable_index
-	iny
-	iny
-.dont_set_vmap_swappable
-
-	dex
-	bne -
-; Point to lowbyte array	
-	ldy #0
-	lda (zp_temp),y
-	clc
-	adc zp_temp
-	adc #2
-	sta zp_temp
-	ldy #vmap_max_length - 1
--	lda #0
-	cpy zp_temp + 2
-	bcs +
-	lda (zp_temp),y
-+	sta vmap_z_l,y
-	dey
-	bpl -
-	
-; Load all suggested pages which have not been pre-loaded
--	lda zp_temp + 3 ; First index which has not been loaded
-	beq ++ ; First block was loaded with header
-	cmp zp_temp + 2 ; Total # of indexes in the list
-	bcs +
-	; jsr dollar
-	sta vmap_index
-	tax
-	jsr load_blocks_from_index
-++	inc zp_temp + 3
-	bne - ; Always branch
-+
-	ldx zp_temp + 2
-	cpx #vmap_max_length
-	bcc +
-	dex
-+	stx vmap_clock_index
-
-!ifdef TRACE_VM {
-    jsr print_vm_map
-}
-    rts
-} else {
-prepare_static_high_memory
-    ; the default case is to simply treat all as dynamic (r/w)
-    rts
-}
-
-
-z_init
-!zone z_init {
-
-!ifdef DEBUG {
-!ifdef PREOPT {
-	jsr print_following_string
-	!pet "*** vmem optimization mode ***",13,13,0
-}	
-}
-
-
-	ldy #0
-	sty z_exe_mode ; 0 = Normal
-	
-!ifdef TRACE {
-	; Setup trace
-	lda #0
-	sta z_trace_index
-	tay
--	sta z_trace_page,y
-	iny
-	bne -
-}
-	
-	; Modify header to tell game about terp capabilities
-!ifdef Z3 {
-	lda story_start + 1
-	and #(255 - 16 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
-	sta story_start + 1
-} else {
-!ifdef Z4 {
-	lda story_start + 1
-	and #(255 - 4 - 8) ; bold font, italic font, timed input not available
-	ora #(16 + 128) ; Fixed-space style, timed input available
-	sta story_start + 1
-} else { ; Z5PLUS
-	lda story_start + 1
-	and #(255 - 1 - 4 - 8) ; colours, bold font, italic font
-	ora #(16 + 128) ; Fixed-space style, timed input available
-	sta story_start + 1
-	lda story_start + $11
-	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
-	sta story_start + $11
-}
-}
-!ifdef Z4PLUS {
-	lda #8
-	sta story_start + $1e ; Interpreter number (8 = C64)
-	lda #64
-	sta story_start + $1f ; Interpreter number. Usually ASCII code for a capital letter (We use @ until the terp is ready for release)
-	lda #25
-	sta story_start + $20 ; Screen lines
-	lda #40
-	sta story_start + $21 ; Screen columns
-}
-!ifdef Z5PLUS {
-	lda #>320
-	sta story_start + $22 ; Screen width in units
-	lda #<320
-	sta story_start + $23 ; Screen width in units
-	lda #>200
-	sta story_start + $24 ; Screen height in units
-	lda #<200
-	sta story_start + $25 ; Screen height in units
-	lda #8
-	sta story_start + $26 ; Font width in units
-	sta story_start + $27 ; Font height in units
-	; TODO: Store default background and foreground color in 2c, 2d (or comply to game's wish?)
-}
-	lda #0
-	sta story_start + $32 ; major standard revision number which this terp complies to
-	sta story_start + $33 ; minor standard revision number which this terp complies to
-	
-	; Copy alphabet pointer from header, or default
-	ldx #<default_alphabet
-	ldy #>default_alphabet
-!ifdef Z5PLUS {
-	lda story_start + header_alphabet_table
-	ora story_start + header_alphabet_table + 1
-	beq .no_custom_alphabet
-	ldx story_start + header_alphabet_table + 1
-	lda story_start + header_alphabet_table
-	clc
-	adc #>story_start
-	tay
-.no_custom_alphabet
-}
-	stx alphabet_table
-	sty alphabet_table + 1
-	
-	; Copy z_pc from header
-	lda #0
-	ldx story_start + header_initial_pc
-	ldy story_start + header_initial_pc + 1
-	jsr set_z_pc
-	jsr get_page_at_z_pc
-
-	; Setup globals pointer
-	lda story_start + header_globals + 1
-	clc
-	adc #<(story_start - 32)
-	sta z_global_vars_start
-	lda story_start + header_globals
-	adc #>(story_start - 32)
-	sta z_global_vars_start + 1
-
-	; Init sound
-	lda #0
-	ldx #$18
--	sta $d400,x
-	dex
-	bpl -
-	lda #$f
-	sta $d418
-	lda #$00
-	sta $d405
-	lda #$f2
-	sta $d406
-	
-	; Init randomization
-	lda #$ff
-	sta $d40e
-	sta $d40f
-	ldx #$80
-	stx $d412
-!ifdef BENCHMARK {
-	ldy #1
-	jmp z_rnd_init
-} else {
-	jmp z_rnd_init_random
-}
-}
-
-
-
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 
@@ -602,4 +617,11 @@ vmem_start
 
 }
 
-config_load_address = stack_start + 512
+!ifdef vmem_cache_size {
+!if vmem_cache_size >= $200 {
+	config_load_address = vmem_cache_start
+}
+}
+!ifndef config_load_address {
+	config_load_address = $0400
+}

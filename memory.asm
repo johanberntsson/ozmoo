@@ -1,46 +1,50 @@
 ; Routines to handle memory
 
-!ifndef USEVM {
-!zone {
-read_byte_at_z_address
-	; Subroutine: Read the contents of a byte address in the Z-machine
-	; a,x,y (high, mid, low) contains address.
-	; Returns: value in a
-	cmp #0
-	bne .too_high
-	sty mempointer
-	txa
-	clc
-	adc #>story_start
-	sta mempointer + 1
-	ldy #0
-	lda (mempointer),y
-	rts
-.too_high
-    lda #ERROR_MEMORY_OVER_64KB
-	jsr fatalerror
+; !ifndef USEVM {
+; !zone {
+; read_byte_at_z_address
+	; ; Subroutine: Read the contents of a byte address in the Z-machine
+	; ; a,x,y (high, mid, low) contains address.
+	; ; Returns: value in a
+	; sty mempointer
+	; txa
+	; clc
+	; adc #>story_start
+	; sta mempointer + 1
+	; ldy #0
+	; lda (mempointer),y
+	; rts
+; .too_high
+    ; lda #ERROR_MEMORY_OVER_64KB
+	; jsr fatalerror
 
-}
-}
+; }
+; }
 
 inc_z_pc_page
 !zone {
+	pha
 	inc z_pc_mempointer + 1
 	inc z_pc + 1
+!ifdef USEVM {
 	bne +
 	inc z_pc
-+	pha
-	lda z_pc + 1
++	lda z_pc + 1
 	and #255-vmem_blockmask
-	beq .unsafe
+	beq get_page_at_z_pc_did_pha
 	lda z_pc_mempointer + 1
 	cmp #>story_start
-	bcs .safe
-.unsafe
-	jmp get_page_at_z_pc_did_pha
-.safe
+	bcc get_page_at_z_pc_did_pha
+} else {
+; No vmem
+	lda z_pc + 1
+	cmp #(first_banked_memory_page - (>story_start))
+	bcs get_page_at_z_pc_did_pha
+}
+; safe
 	pla
 	rts
+
 }
 
 get_page_at_z_pc
@@ -48,7 +52,9 @@ get_page_at_z_pc
 	pha
 get_page_at_z_pc_did_pha
 	stx mem_temp
-	lda z_pc	
+!ifdef ALLRAM {
+	lda z_pc
+}
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address
@@ -62,15 +68,19 @@ get_page_at_z_pc_did_pha
 
 
 set_z_pc
-; Sets new value of z_pc, and figures out if z_pc_mempointer is still valid.
+; Sets new value of z_pc, and makes sure z_pc_mempointer points to the right memory
 ; Parameters: New value of z_pc in a,x,y
 !zone {
 	sty z_pc + 2
+!ifdef USEVM {
 	cmp z_pc
 	bne .unsafe_1
+}
 	cpx z_pc + 1
-	beq + 
-	; Different page. Let's find out if it's the same vmem block.
+	beq .same_page 
+	; Different page.
+!ifdef USEVM {	
+	; Let's find out if it's the same vmem block.
 	txa
 	eor z_pc + 1
 	and #vmem_blockmask
@@ -95,7 +105,18 @@ set_z_pc
 	adc mem_temp
 	sta z_pc_mempointer + 1
 }
-+	rts
+} else {
+; No vmem 
+	cpx #(first_banked_memory_page - (>story_start))
+	bcs .unsafe_2
+	stx z_pc + 1
+	txa
+	clc
+	adc #>story_start
+	sta z_pc_mempointer + 1
+}
+.same_page
+	rts
 .unsafe_1
 	sta z_pc
 .unsafe_2

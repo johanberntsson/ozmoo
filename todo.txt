@@ -10,9 +10,7 @@ AMFV: Status line updates are printed in the main window.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Optionally limit stack to allow no more than 127 values pushed in a single frame. This would make code faster and smaller.
-
-Variable stack size. A 256 word stack can be made faster and with simpler code to access it.
+Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
@@ -66,7 +64,17 @@ Possible alternative versions / extensions
 * Apple II version
 
 DONE:
-Restore prints Restore failed in Borderzone, even if the restore succeeded.
+Make non vmem mode work, and build exactly the code that is needed.
+
+Make non all_ram mode work, and build exactly the code that is needed.
+
+Variable stack size. 
+
+Optionally limit stack to allow no more than 127 values pushed in a single frame. This would make code faster and smaller. -- Tried this.
+
+A 256 word stack, which can be made faster and with simpler code to access it. -- Tried this, and it gave very small gains in both speed and size. Also, some games definitely need a bigger stack. Will not do.
+
+Restore prints "Restore failed." in Borderzone, even if the restore succeeded.
 
 Borderzone shows bad random phrases in the intro text
 "He will... greet you with the words 'mk'...", or similar, should be

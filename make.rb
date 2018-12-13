@@ -20,12 +20,19 @@ end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
-# Typically, none of these flags should be enabled.
+# Typically, none of these flags except ALLRAM should be enabled.
 $GENERALFLAGS = [
+	'ALLRAM', # THIS SHOULD NORMALLY BE ENABLED! Will also be enabled automatically if USEVM is enabled.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
 #	'SWEDISH_CHARS',
+]
+
+# Typically, all of these flags should be enabled.
+$VMFLAGS = [
+	'USEVM', # If this is commented out, the other virtual memory flags are ignored.
+	'SMALLBLOCK', # If set, use 512 byte blocks instead of 1024 bytes blocks for vmem
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -55,14 +62,9 @@ $DEBUGFLAGS = [
 #	'TRACE_WINDOW',
 ]
 
-# Typically, all of these flags should be enabled.
-$VMFLAGS = [
-	'USEVM', # If this is commented out, the other virtual memory flags are ignored.
-	'ALLRAM',
-	'SMALLBLOCK', # If set, use 512 byte blocks instead of 1024 bytes blocks for vmem
-]
-
 $INTERLEAVE = 9 # (1-21)
+
+$STACK_PAGES = 4 # Should normally be 2, 4 or 6. Use 4 unless you have a good reason not to.
 
 MODE_S1 = 1
 MODE_S2 = 2
@@ -397,7 +399,7 @@ def build_interpreter()
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
-    cmd = "#{$ACME} --setpc #{$start_address} -D#{$ztype}=1#{fontflag}#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME} --setpc #{$start_address} -DSTACK_PAGES=#{$STACK_PAGES} -D#{$ztype}=1#{fontflag}#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret

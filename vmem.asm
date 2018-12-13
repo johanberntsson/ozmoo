@@ -1,4 +1,124 @@
-!ifdef USEVM {
+
+!ifdef ALLRAM {
+vmem_cache_cnt !byte 0         ; current execution cache
+vmem_cache_index !byte 0,0,0,0,0,0,0,0
+}
+
+!ifndef USEVM {
+; Non-virtual memory
+
+!ifndef ALLRAM {
+read_byte_at_z_address
+    ; Subroutine: Read the contents of a byte address in the Z-machine
+    ; x,y (high, low) contains address.
+    ; Returns: value in a
+    sty mempointer ; low byte unchanged
+    ; same page as before?
+    cpx zp_pc_l
+    bne .read_new_byte
+    ; same 256 byte segment, just return
+-	ldy #0
+	lda (mempointer),y
+	rts
+.read_new_byte
+	txa
+    sta zp_pc_l
+	clc
+	adc #>story_start
+	sta mempointer + 1
+	bne - ; Always branch
+} else {
+; No vmem, but ALLRAM 
+
+read_byte_at_z_address
+    ; Subroutine: Read the contents of a byte address in the Z-machine
+    ; a,x,y (high, mid, low) contains address.
+    ; Returns: value in a
+    sty mempointer ; low byte unchanged
+    ; same page as before?
+    cpx zp_pc_l
+    bne .read_new_byte
+    ; same 256 byte segment, just return
+.return_result
+	ldy #0
+	lda (mempointer),y
+	rts
+.read_new_byte
+	txa
+    sta zp_pc_l
+	clc
+	adc #>story_start
+	sta mempointer + 1
+	cmp #first_banked_memory_page
+	bcc .return_result ; Always branch
+; swapped memory
+	; ; Carry is already clear
+	; adc #>story_start
+	; sta vmap_c64_offset
+	; cmp #first_banked_memory_page
+    ; bcc .unswappable
+    ; this is swappable memory
+    ; update vmem_cache if needed
+	; Check if this page is in cache
+    ldx #vmem_cache_count - 1
+-   cmp vmem_cache_index,x
+    beq .cache_updated
+    dex
+    bpl -
+	; The requested page was not found in the cache
+    ; copy vmem to vmem_cache (banking as needed)
+    sta .copy_from_vmem_to_cache + 2
+	ldx vmem_cache_cnt
+	; Protect page held in z_pc_mempointer + 1
+	pha
+	txa
+	clc
+	adc #>vmem_cache_start
+	cmp z_pc_mempointer + 1
+	bne +
+	inx
+	cpx #vmem_cache_count
+	bcc ++
+	ldx #0
+++	stx vmem_cache_cnt
+
++	pla
+	sta vmem_cache_index,x
+    lda #>vmem_cache_start ; start of cache
+    clc
+    adc vmem_cache_cnt
+    sta .copy_from_vmem_to_cache + 5
+    sei
+    +set_memory_all_ram
+-   ldy #0
+.copy_from_vmem_to_cache
+    lda $8000,y
+    sta $8000,y
+    iny
+    bne .copy_from_vmem_to_cache
+    +set_memory_no_basic
+    cli
+    ; set next cache to use when needed
+	inx
+	txa
+	dex
+	cmp #vmem_cache_count
+	bcc ++
+	lda #0
+++	sta vmem_cache_cnt
+.cache_updated
+    ; x is now vmem_cache (0-4) where we want to read
+    txa
+    clc
+    adc #>vmem_cache_start
+    sta mempointer + 1
+	bne .return_result 
+    ; ldy #0
+    ; lda (mempointer),y
+    ; rts
+} ; End of block for ALLRAM=1
+	
+} else {
 ; virtual memory
 
 ; virtual memory address space
@@ -6,43 +126,15 @@
 ; Z4-Z5: 256 kB (0 - $3ffff)
 ; Z6-Z8: 512 kB (0 - $7ffff)
 ;
-; map structure: one entry for each kB of available virtual memory
+; map structure: one entry for each block (512 bytes) of available virtual memory
 ; each map entry is:
-; 1 byte: ZMachine offset high byte (bitmask: $F0=used, $80=dynamic (rw))
+; 1 byte: ZMachine offset high byte (bitmask: $80=used, $40=dynamic (rw), $20=referenced)
 ; 1 byte: ZMachine offset low byte
 ; 1 byte: C64 offset ($30 - $cf for $3000-$D000)
 ;
-; need 44*3=132 bytes for $3000-$D000
+; needs 102*2=204 bytes for $3400-$FFFF
 ; will store in datasette_buffer
 ;
-; Example: dejavu.z3
-; abbrevations: $0042
-; object_table: $0102
-; globals: $0636
-; static memory: $0a4a
-; dictionary: $1071
-; high memory: $1764
-; initial PC: $1765
-; filelength: $57e4 
-;
-;  vmap_max_length = 5
-;  initial vmap_length = 3
-;  final   vmap_length = 5
-;  entry   zoffset   c64offset
-;    0     $00 $00     $30
-;    1     $00 $04     $34
-;    2     $00 $08     $38 <- static_mem_start = $0a4a, index 2
-;    3     $00 $0b     $3b
-;    4     $00 $10     $40
-;          $00 $14     $44 <- pc $1765, index 5
-;          $00 $18     $48
-;          $00 $1b     $4b
-;          $00 $20     $50
-; ...
-;          $00 $57         <- filelength $57e4
-; 
-; swapping: bubble up latest used frame, remove from end of mapping array
-;           (do not swap or move dynamic frames)
 
 !ifdef SMALLBLOCK {
 	vmem_blocksize = 512
@@ -62,9 +154,6 @@ vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
 vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
-vmem_cache_cnt !byte 0         ; current execution cache
-vmem_cache_index !byte 0,0,0,0,0,0,0,0
-;	!fill vmem_cache_count ; cache currently contains this vmap index
 vmem_all_blocks_occupied !byte 0
 ; vmem_temp !byte 0
 
