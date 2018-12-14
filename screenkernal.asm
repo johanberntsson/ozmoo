@@ -16,6 +16,7 @@
 ; Uncomment TESTSCREEN and call testscreen for a demo.
 
 s_screenpos = $c9 ; c9/ca = pointer to screen
+s_screentmp = $a7 ; a7/a8 = temp buffer during scroll
 
 ;TESTSCREEN = 1
 
@@ -103,11 +104,27 @@ s_printchar
     ldx .row
     cpx .current_screenpos_row
     beq +
+    ; need to recalculate s_screenpos
     stx .current_screenpos_row
--   lda .screen_l,x
-    sta s_screenpos
-    lda .screen_h,x
+    stx s_screenpos
+    ; use the fact that .row * 40 = .row * (32+8)
+    lda #0
     sta s_screenpos + 1
+    asl s_screenpos ; *2 no need to rol s_screenpos + 1 since 0 < .row < 24
+    asl s_screenpos ; *4
+    asl s_screenpos ; *8
+    ldx s_screenpos ; store *8 for later
+    asl s_screenpos ; *16
+    rol s_screenpos + 1
+    asl s_screenpos ; *32
+    rol s_screenpos + 1  ; *32
+    txa
+    clc
+    adc s_screenpos ; add *8
+    sta s_screenpos
+    lda s_screenpos + 1
+    adc #$04        ; add screen start ($0400)
+    sta s_screenpos +1
 +   rts
 
 .erase_line
@@ -135,33 +152,29 @@ s_printchar
     sta .col
     rts
 
-.scroll_buffer
-    rts
-
 .s_scroll
     lda .row
     cmp #25
     bpl +
     rts
-+   ldy #1 ; how many top lines to protect
--   lda .screen_l,y
-    sta .sl + 4
-    lda .screen_h,y
-    sta .sl + 5
++   ldx #1 ; how many top lines to protect
+    stx .row
+-   jsr .update_screenpos
+    lda s_screenpos
+    sta s_screentmp
+    lda s_screenpos + 1
+    sta s_screentmp + 1
+    inc .row
+    jsr .update_screenpos
+    ldy #0
+--  lda (s_screenpos),y ; .row
+    sta (s_screentmp),y ; .row - 1
     iny
-    lda .screen_l,y
-    sta .sl + 1
-    lda .screen_h,y
-    sta .sl + 2
-    ldx #0
-.sl lda $0428,x
-    sta $0400,x
-    inx
-    cpx #40
-    bne .sl
-    cpy #24
+    cpy #40
+    bne --
+    lda .row
+    cmp #24
     bne -
-    sty .row
     jmp .erase_line
 
 .row !byte 0
@@ -171,25 +184,13 @@ s_printchar
 .stored_y !byte 0
 .current_screenpos_row !byte 0
 
-.screen_h 
-    !byte $04,$04,$04,$04,$04
-    !byte $04,$04,$05,$05,$05
-    !byte $05,$05,$05,$06,$06
-    !byte $06,$06,$06,$06,$06
-    !byte $07,$07,$07,$07,$07
-.screen_l 
-    !byte $00,$28,$50,$78,$a0
-    !byte $c8,$f0,$18,$40,$68
-    !byte $90,$b8,$e0,$08,$30
-    !byte $58,$80,$a8,$d0,$f8
-    !byte $20,$48,$70,$98,$c0
-
 !ifdef TESTSCREEN {
 
 .testtext !pet 147,146,"Status Line 123         ",18,13
           !pet "test aA@! ",146,"Test aA@!",18,13
           !pet "third line",13
-          !pet 13,13,13,13,13,13,13
+          !pet "fourth line",13
+          !pet 13,13,13,13,13,13
           !pet 13,13,13,13,13,13,13
           !pet 13,13,13,13,13,13,13
           !pet "last line",1
