@@ -16,7 +16,7 @@
 ; Uncomment TESTSCREEN and call testscreen for a demo.
 
 s_screenpos = $c9 ; c9/ca = pointer to screen
-s_screentmp = $a7 ; a7/a8 = temp buffer during scroll
+s_screencol = $a7 ; a7/a8 = pointer to color; temp buffer during scroll
 
 ;TESTSCREEN = 1
 
@@ -31,6 +31,8 @@ s_init
     sta .current_screenpos_row ; force recalculation first time
     rts
 
+.colors !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+
 s_printchar
     ; replacement for CHROUT ($ffd2)
     ; input: A = byte to write (PETASCII)
@@ -38,6 +40,16 @@ s_printchar
     ; used registers: -
     stx .stored_x
     sty .stored_y
+    ; check if colour code
+    ldx #0
+-   cmp .colors,x
+    bne +
+    ; color <x> found
+    stx .color
+    jmp .printchar_end
++   inx
+    cpx #16
+    bne -
     cmp #$0d
     bne +
     ; newline/enter/return
@@ -83,9 +95,17 @@ s_printchar
     adc .reverse
     pha
     jsr .update_screenpos
+    lda s_screenpos
+    sta s_screencol
+    lda s_screenpos + 1
+    clc
+    adc #$d4
+    sta s_screencol + 1
     ldy .col
     pla
     sta (s_screenpos),y
+    lda .color
+    sta (s_screencol),y
     iny
     sty .col
     cpy #40
@@ -161,17 +181,36 @@ s_printchar
     stx .row
 -   jsr .update_screenpos
     lda s_screenpos
-    sta s_screentmp
+    sta s_screencol
     lda s_screenpos + 1
-    sta s_screentmp + 1
+    sta s_screencol + 1
     inc .row
     jsr .update_screenpos
+    ; move characters
     ldy #0
 --  lda (s_screenpos),y ; .row
-    sta (s_screentmp),y ; .row - 1
+    sta (s_screencol),y ; .row - 1
     iny
     cpy #40
     bne --
+    ; move color info
+    lda s_screenpos + 1
+    pha
+    clc
+    adc #$d4
+    sta s_screenpos + 1
+    lda s_screencol + 1
+    clc
+    adc #$d4
+    sta s_screencol + 1
+    ldy #0
+--  lda (s_screenpos),y ; .row
+    sta (s_screencol),y ; .row - 1
+    iny
+    cpy #40
+    bne --
+    pla
+    sta s_screenpos + 1
     lda .row
     cmp #24
     bne -
@@ -179,16 +218,17 @@ s_printchar
 
 .row !byte 0
 .col !byte 0
+.color !byte 254 ; light blue as default
 .reverse !byte 0
 .stored_x !byte 0
 .stored_y !byte 0
-.current_screenpos_row !byte 0
+.current_screenpos_row !byte $ff
 
 !ifdef TESTSCREEN {
 
-.testtext !pet 147,146,"Status Line 123         ",18,13
-          !pet "test aA@! ",146,"Test aA@!",18,13
-          !pet "third line",13
+.testtext !pet 147,146,5,"Status Line 123         ",18,13
+          !pet 28,"test aA@! ",146,"Test aA@!",18,13
+          !pet 155,"third line",13
           !pet "fourth line",13
           !pet 13,13,13,13,13,13
           !pet 13,13,13,13,13,13,13
