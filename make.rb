@@ -83,7 +83,7 @@ $BUILD_ID = Random.rand(0 .. 2**32-1)
 $VMEM_BLOCKSIZE = $VMFLAGS.include?('SMALLBLOCK') ? 512 : 1024
 $ZEROBYTE = 0.chr
 
-$ALLRAM = $VMFLAGS.include?('ALLRAM')
+$ALLRAM = $GENERALFLAGS.include?('ALLRAM')
 
 $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
