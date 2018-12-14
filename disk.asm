@@ -1,3 +1,13 @@
+first_unavailable_save_slot_charcode	!byte 0
+current_disks !byte $ff, $ff, $ff, $ff
+boot_device !byte 0
+
+!ifndef USEVM {
+disk_info
+	!byte 0, 0, 1  ; Interleave, save slots, # of disks
+	!byte 8, 8, 0, 0, 0, 130, 131, 0 
+} else {
+
 ;TRACE_FLOPPY = 1
 ;TRACE_FLOPPY_VERBOSE = 1
 nonstored_blocks		!byte 0
@@ -6,8 +16,6 @@ readblocks_currentblock	!byte 0,0 ; 257 = ff 1
 readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
 readblocks_mempos		!byte 0,0 ; $2000 = 00 20
 device_map	!byte 0,0,0,0 ; For device# 8,9,10,11
-boot_device !byte 0
-current_disks !byte $ff, $ff, $ff, $ff
 disk_info
 !ifdef Z3 {
 	!fill 71
@@ -21,100 +29,7 @@ disk_info
 !ifdef Z8 {
 	!fill 120
 }
-first_unavailable_save_slot_charcode	!byte 0
 
-!zone disk_messages {
-prepare_for_disk_msgs
-	jsr clear_screen_raw
-	; lda #0
-	; sta .print_row
-	ldx #0
-	tay
-	jsr set_cursor
-	rts
-
-print_insert_disk_msg
-; Parameters: y: memory index to start of info for disk in disk_info
-	sty .save_y
-	; ldx .print_row
-	; ldy #2
-	; jsr set_cursor
-	lda #>insert_msg_1
-	ldx #<insert_msg_1
-	jsr printstring_raw
-	ldy .save_y
-; Print disk name
-	lda disk_info + 7,y ; Number of tracks
-	clc
-	adc .save_y
-	tay
--	lda disk_info + 8,y
-	beq .disk_name_done
-	bmi .special_string
-	jsr printchar_raw
-	iny
-	bne - ; Always branch
-.special_string
-	and #%111
-	tax
-	lda .special_string_low,x
-	sta .save_x
-	lda .special_string_high,x
-	ldx .save_x
-	jsr printstring_raw
-	iny
-	jmp -
-.disk_name_done
-	lda #>insert_msg_2
-	ldx #<insert_msg_2
-	jsr printstring_raw
-	ldy .save_y
-	lda disk_info + 4,y
-	tax
-	cmp #10
-	bcc +
-	lda #$31
-	jsr printchar_raw
-	txa
-	sec
-	sbc #10
-+	clc
-	adc #$30
-	jsr printchar_raw
-	lda #>insert_msg_3
-	ldx #<insert_msg_3
-	jsr printstring_raw
-	jsr kernel_readchar
-	; lda .print_row
-	; clc
-	; adc #3
-	; sta .print_row
-	ldy .save_y
-	rts
-.save_x	!byte 0
-.save_y	!byte 0
-.print_row	!byte 14
-;.device_no	!byte 0
-.special_string_128
-	!pet "Boot ",0
-.special_string_129
-	!pet "Story ",0
-.special_string_130
-	!pet "Save ",0
-.special_string_131
-	!pet "disk ",0
-.special_string_low		!byte <.special_string_128, <.special_string_129, <.special_string_130, <.special_string_131
-.special_string_high	!byte >.special_string_128, >.special_string_129, >.special_string_130, >.special_string_131
-
-
-insert_msg_1
-!pet 13,13,"  Please insert ",0
-insert_msg_2
-!pet 13,"  in drive ",0
-insert_msg_3
-!pet " [ENTER] ",0
-}
-	
 readblocks
     ; read <n> blocks (each 256 bytes) from disc to memory
     ; set values in readblocks_* before calling this function
@@ -396,15 +311,6 @@ read_track_sector
     sta (zp_mempos),Y   ; write byte to memory
     iny
     bne -         ; next byte, end when 256 bytes are read
-close_io
-    lda #$0F      ; filenumber 15
-    jsr kernel_close ; call CLOSE
-
-    lda #$02      ; filenumber 2
-    jsr kernel_close ; call CLOSE
-
-    jsr kernel_clrchn ; call CLRCHN
-    rts
 .error
     ; accumulator contains BASIC error code
     ; most likely errors:
@@ -429,6 +335,110 @@ uname_len = * - .uname
 .blocks_to_go_tmp !byte 0, 0
 .next_disk_index	!byte 0
 .disk_tracks	!byte 0
+} ; End of !ifdef USEVM
+
+close_io
+    lda #$0F      ; filenumber 15
+    jsr kernel_close ; call CLOSE
+
+    lda #$02      ; filenumber 2
+    jsr kernel_close ; call CLOSE
+
+    jsr kernel_clrchn ; call CLRCHN
+    rts
+
+!zone disk_messages {
+prepare_for_disk_msgs
+	jsr clear_screen_raw
+	; lda #0
+	; sta .print_row
+	ldx #0
+	tay
+	jsr set_cursor
+	rts
+
+print_insert_disk_msg
+; Parameters: y: memory index to start of info for disk in disk_info
+	sty .save_y
+	; ldx .print_row
+	; ldy #2
+	; jsr set_cursor
+	lda #>insert_msg_1
+	ldx #<insert_msg_1
+	jsr printstring_raw
+	ldy .save_y
+; Print disk name
+	lda disk_info + 7,y ; Number of tracks
+	clc
+	adc .save_y
+	tay
+-	lda disk_info + 8,y
+	beq .disk_name_done
+	bmi .special_string
+	jsr printchar_raw
+	iny
+	bne - ; Always branch
+.special_string
+	and #%111
+	tax
+	lda .special_string_low,x
+	sta .save_x
+	lda .special_string_high,x
+	ldx .save_x
+	jsr printstring_raw
+	iny
+	jmp -
+.disk_name_done
+	lda #>insert_msg_2
+	ldx #<insert_msg_2
+	jsr printstring_raw
+	ldy .save_y
+	lda disk_info + 4,y
+	tax
+	cmp #10
+	bcc +
+	lda #$31
+	jsr printchar_raw
+	txa
+	sec
+	sbc #10
++	clc
+	adc #$30
+	jsr printchar_raw
+	lda #>insert_msg_3
+	ldx #<insert_msg_3
+	jsr printstring_raw
+	jsr kernel_readchar
+	; lda .print_row
+	; clc
+	; adc #3
+	; sta .print_row
+	ldy .save_y
+	rts
+.save_x	!byte 0
+.save_y	!byte 0
+.print_row	!byte 14
+;.device_no	!byte 0
+.special_string_128
+	!pet "Boot ",0
+.special_string_129
+	!pet "Story ",0
+.special_string_130
+	!pet "Save ",0
+.special_string_131
+	!pet "disk ",0
+.special_string_low		!byte <.special_string_128, <.special_string_129, <.special_string_130, <.special_string_131
+.special_string_high	!byte >.special_string_128, >.special_string_129, >.special_string_130, >.special_string_131
+
+
+insert_msg_1
+!pet 13,13,"  Please insert ",0
+insert_msg_2
+!pet 13,"  in drive ",0
+insert_msg_3
+!pet " [ENTER] ",0
+}
+
 
 z_ins_restore
 !ifdef Z3 {
@@ -719,6 +729,7 @@ list_save_files
 	jsr print_insert_disk_msg
 +   rts
 
+!ifdef USEVM {
 .insert_story_disk
 	ldy .last_disk
 	beq + ; Save disk was in disk before, no need to change
@@ -732,6 +743,7 @@ list_save_files
 	ldx #24
 	ldy #0
 	jmp set_cursor
+}
 
 restore_game
     jsr .insert_save_disk
@@ -766,13 +778,17 @@ restore_game
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
+!ifdef USEVM {
     jsr .insert_story_disk
+}
 	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
 	rts
 .restore_failed
+!ifdef USEVM {
     jsr .insert_story_disk
+}
 	; Return failed status
 	lda #0
 	tax
@@ -835,12 +851,16 @@ save_game
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
+!ifdef USEVM {
     jsr .insert_story_disk
+}
 	lda #0
 	ldx #1
 	rts
 .save_failed
+!ifdef USEVM {
     jsr .insert_story_disk
+}
 	; Return failed status
 	lda #0
 	tax

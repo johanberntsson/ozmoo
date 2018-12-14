@@ -382,6 +382,7 @@ w1  cmp $d012
 
 	jsr init_screen_colours ; _invisible
 
+!ifdef USEVM {
 ; Read and parse config from boot disk
 	; $BA holds last used device#
 	ldy $ba
@@ -426,6 +427,10 @@ w1  cmp $d012
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 	jsr insert_disks_at_boot
+} else { ; End of !ifdef USEVM
+	lda #$34
+	sta first_unavailable_save_slot_charcode
+}
 
 	; ldy #0
 	; ldx #0
@@ -470,8 +475,8 @@ w1  cmp $d012
 }
 .store_nonstored_blocks
 	sty nonstored_blocks
-}
-	
+} ; End of !ifdef USEVM
+
 +   ; check file length
     ; Start by multiplying file length by 2
 	lda #0
@@ -506,6 +511,7 @@ w1  cmp $d012
 	rts
 }
 
+!ifdef USEVM {
 !zone disk_config {
 auto_disk_config
 ; Limit # of save slots to no more than 10
@@ -595,7 +601,7 @@ insert_disks_at_boot
 .done
 	rts
 }
-
+} ; End if !ifdef USEVM
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 
