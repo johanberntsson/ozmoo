@@ -412,7 +412,7 @@ def read_labels(label_file_name)
 end
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{[vmem_preload_blocks * $VMEM_BLOCKSIZE, $story_size].min}" : ''
+	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{[vmem_preload_blocks * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}" : ''
 
 	font_clause = ""
 	if $font_filename then
@@ -514,6 +514,11 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	max_story_blocks = $VMEM ? 9999 : 0
 	
 	boot_disk = $VMEM
+	
+	if !$VMEM and File.size($compmem_filename) < $story_size
+		puts "ERROR: The whole story doesn't fit in memory. Please enable VMEM in make.rb."
+		exit 1
+	end
 	
 	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
