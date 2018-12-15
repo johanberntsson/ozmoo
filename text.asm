@@ -278,27 +278,28 @@ z_ins_sread
 }
     rts
 
-} else {	
+} else {	; End of !ifndef Z5PLUS
 
 z_ins_aread
     ; aread text parse time routine -> (result)
     jsr printchar_flush
     ; read input
-    ldy #0
-    sty .read_text_time
     ; arguments that need to be copied to their own locations because there *may* be a timed interrupt call
-    ldy z_operand_count
-	sty .read_text_operand_count
+    ldx z_operand_count
+	stx .read_text_operand_count
     ldy z_operand_value_low_arr + 1
     sty .read_text_buffer
     ldy z_operand_value_high_arr + 1
     sty .read_text_buffer + 1
-    ldy z_operand_value_low_arr + 2
-    sty .read_text_time
+    ldy #0
+	cpx #3
+	bcc +
     ldy z_operand_value_high_arr + 3
     sty .read_text_routine
     ldy z_operand_value_low_arr + 3
     sty .read_text_routine + 1
+    ldy z_operand_value_low_arr + 2
++	sty .read_text_time
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
     jsr read_text

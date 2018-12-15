@@ -311,6 +311,7 @@ read_track_sector
     sta (zp_mempos),Y   ; write byte to memory
     iny
     bne -         ; next byte, end when 256 bytes are read
+	jmp close_io
 .error
     ; accumulator contains BASIC error code
     ; most likely errors:
