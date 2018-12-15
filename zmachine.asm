@@ -42,7 +42,7 @@ z_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
-	!byte >z_not_implemented
+	!byte >z_ins_restart
 	!byte >z_ins_ret_popped
 !ifndef Z5PLUS {
 	!byte >stack_pull ; z_ins_pop
@@ -233,7 +233,7 @@ z_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
-	!byte <z_not_implemented
+	!byte <z_ins_restart
 	!byte <z_ins_ret_popped
 !ifndef Z5PLUS {
 	!byte <stack_pull ; z_ins_pop
@@ -434,18 +434,20 @@ z_opcode_opcount_ext = 96
 
 z_exe_mode_normal = $0
 z_exe_mode_return_from_read_interrupt = $80
-
+z_exe_mode_exit = $ff
 
 
 !zone z_execute {
 
+.not_normal_exe_mode
 !ifdef Z4PLUS {
-.return_from_interrupt
+	cmp #z_exe_mode_return_from_read_interrupt
+	bne .return_from_z_execute
 	lda #z_exe_mode_normal
 	sta z_exe_mode
-	; jsr read_routine_callback
-	rts
 }
+.return_from_z_execute
+	rts
 
 z_execute
 
@@ -497,10 +499,8 @@ z_execute
 }
 	
 	
-!ifdef Z4PLUS {
 	lda z_exe_mode
-	bne .return_from_interrupt
-}
+	bne .not_normal_exe_mode
 
 !ifdef VICE_TRACE {
     ; send trace info to $DE00-$DE02, which a patched
@@ -1135,6 +1135,24 @@ z_ins_rfalse
 z_ins_quit
 	jmp kernel_reset
 
+z_ins_restart
+	rts ; Not currently working, so let's just return and go on with our business
+	
+	ldx #0
+-	lda .restart_keys,x
+	beq +
+	sta 631,x
+	inx
+	bne - ; Always branch
++	stx 198
+	lda #147
+	jsr $ffd2
+	lda #z_exe_mode_exit
+	sta z_exe_mode
+	rts
+.restart_keys
+	!pet "lO",34,"*",34,"8:",131,0
+	
 z_ins_ret_popped
 	jsr stack_pull
 	jmp stack_return_from_routine
