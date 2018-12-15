@@ -1,5 +1,4 @@
 ; replacement for these C64 kernal routines and their variables:
-; setcursor $e50c
 ; printchar $ffd2
 ; plot      $fff0
 ; zp_cursorswitch $cc
@@ -15,8 +14,9 @@
 ; $ffd2 with s_printchar and so on.
 ; Uncomment TESTSCREEN and call testscreen for a demo.
 
-s_screenpos = $c9 ; c9/ca = pointer to screen
-s_screencol = $a7 ; a7/a8 = pointer to color; temp buffer during scroll
+s_screenpos = $a7 ; pointer to screen (2 bytes)
+s_screencol = $a9 ; pointer to color; temp during scroll (2 bytes)
+s_scrollstart = $ab ; scroll from line (keep lines above untouched)
 
 ;TESTSCREEN = 1
 
@@ -29,9 +29,22 @@ s_init
     sta .reverse
     lda #$ff
     sta .current_screenpos_row ; force recalculation first time
+    ldx #1
+    stx s_scrollstart ; how many top lines to protect
     rts
 
-.colors !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+s_plot
+    ; y=column (0-39)
+    ; x=row (0-24)
+    bcc +
+    ; get_cursor
+    ldx .row
+    ldy .col
+    rts
++   ; set_cursor
+    stx .row
+    sty .col
+    rts
 
 s_printchar
     ; replacement for CHROUT ($ffd2)
@@ -50,7 +63,14 @@ s_printchar
 +   inx
     cpx #16
     bne -
-    cmp #$0d
+    cmp #20
+    bne +
+    ; delete
+    dec .col ; move back
+    bpl ++
+    inc .col ; return to 0 if < 0
+++  jmp .printchar_end
++   cmp #$0d
     bne +
     ; newline/enter/return
     lda #0
@@ -177,7 +197,7 @@ s_printchar
     cmp #25
     bpl +
     rts
-+   ldx #1 ; how many top lines to protect
++   ldx s_scrollstart ; how many top lines to protect
     stx .row
 -   jsr .update_screenpos
     lda s_screenpos
@@ -223,11 +243,12 @@ s_printchar
 .stored_x !byte 0
 .stored_y !byte 0
 .current_screenpos_row !byte $ff
+.colors !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 
 !ifdef TESTSCREEN {
 
 .testtext !pet 147,146,5,"Status Line 123         ",18,13
-          !pet 28,"test aA@! ",146,"Test aA@!",18,13
+          !pet 28,"tesx",20,"t aA@! ",146,"Test aA@!",18,13
           !pet 155,"third line",13
           !pet "fourth line",13
           !pet 13,13,13,13,13,13
