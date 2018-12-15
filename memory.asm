@@ -1,6 +1,6 @@
 ; Routines to handle memory
 
-; !ifndef USEVM {
+; !ifndef VMEM {
 ; !zone {
 ; read_byte_at_z_address
 	; ; Subroutine: Read the contents of a byte address in the Z-machine
@@ -26,7 +26,7 @@ inc_z_pc_page
 	pha
 	inc z_pc_mempointer + 1
 	inc z_pc + 1
-!ifdef USEVM {
+!ifdef VMEM {
 	bne +
 	inc z_pc
 +	lda z_pc + 1
@@ -72,14 +72,14 @@ set_z_pc
 ; Parameters: New value of z_pc in a,x,y
 !zone {
 	sty z_pc + 2
-!ifdef USEVM {
+!ifdef VMEM {
 	cmp z_pc
 	bne .unsafe_1
 }
 	cpx z_pc + 1
 	beq .same_page 
 	; Different page.
-!ifdef USEVM {	
+!ifdef VMEM {	
 	; Let's find out if it's the same vmem block.
 	txa
 	eor z_pc + 1

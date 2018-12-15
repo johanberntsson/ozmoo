@@ -20,19 +20,15 @@ end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
-# Typically, none of these flags except ALLRAM should be enabled.
+# Typically only ALLRAM, VMEM and SMALLBLOCK should be enabled.
 $GENERALFLAGS = [
-	'ALLRAM', # THIS SHOULD NORMALLY BE ENABLED! Will also be enabled automatically if USEVM is enabled.
+	'ALLRAM', # THIS SHOULD NORMALLY BE ENABLED! Will also be enabled automatically if VMEM is enabled.
+	'VMEM', # Use virtual memory. Without this, the entire game has to fit in RAM all at once.
+	'SMALLBLOCK', # If VMEM is set, and SMALLBLOCK is set, use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
 #	'SWEDISH_CHARS',
-]
-
-# Typically, all of these flags should be enabled.
-$VMFLAGS = [
-	'USEVM', # If this is commented out, the other virtual memory flags are ignored.
-	'SMALLBLOCK', # If set, use 512 byte blocks instead of 1024 bytes blocks for vmem
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -80,10 +76,11 @@ DISKNAME_DISK = 131
 
 $BUILD_ID = Random.rand(0 .. 2**32-1)
 
-$VMEM_BLOCKSIZE = $VMFLAGS.include?('SMALLBLOCK') ? 512 : 1024
-$ZEROBYTE = 0.chr
-
 $ALLRAM = $GENERALFLAGS.include?('ALLRAM')
+$VMEM = $GENERALFLAGS.include?('VMEM')
+$VMEM_BLOCKSIZE = $GENERALFLAGS.include?('SMALLBLOCK') ? 512 : 1024
+
+$ZEROBYTE = 0.chr
 
 $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
@@ -395,11 +392,10 @@ end
 def build_interpreter()
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
-	vmflags = $VMFLAGS.empty? ? '' : " -D#{$VMFLAGS.join('=1 -D')}=1"
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
-    cmd = "#{$ACME} --setpc #{$start_address} -DSTACK_PAGES=#{$STACK_PAGES} -D#{$ztype}=1#{fontflag}#{generalflags}#{vmflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME} --setpc #{$start_address} -DSTACK_PAGES=#{$STACK_PAGES} -D#{$ztype}=1#{fontflag}#{generalflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
@@ -416,7 +412,7 @@ def read_labels(label_file_name)
 end
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{vmem_preload_blocks * $VMEM_BLOCKSIZE}" : ''
+	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{[vmem_preload_blocks * $VMEM_BLOCKSIZE, $story_size].min}" : ''
 
 	font_clause = ""
 	if $font_filename then
@@ -515,22 +511,25 @@ def limit_vmem_data(vmem_data)
 end
 
 def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	max_story_blocks = 9999
+	max_story_blocks = $VMEM ? 9999 : 0
 	
-	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: true, forty_tracks: extended_tracks)
-#	def initialize(disk_title:, d64_filename:, is_boot_disk:, forty_tracks:)
+	boot_disk = $VMEM
+	
+	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
-
-	free_blocks = disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
-		puts "Free disk blocks after story data has been written: #{free_blocks}"
-	if $story_file_cursor < $story_file_data.length
+	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
+	if $VMEM and $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
 	end
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}"
 
 	# Build loader + terp + preloaded vmem blocks as a file
+#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 	if vmem_preload_blocks < $dynmem_blocks
+#		puts "#{vmem_preload_blocks} < #{$dynmem_blocks}"
 		# #	Temporary: write config_data and save disk, for debugging purposes
 		# disk.set_config_data(config_data)
 		# disk.save()
@@ -538,21 +537,24 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 		exit 1
 	end
 	vmem_data[2] = vmem_preload_blocks
-	
-	# Add config data about boot / story disk
-	disk_info_size = 11 + disk.config_track_map.length
-	last_block_plus_1 = 0
-	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
-# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
-	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
-		disk.config_track_map.length] + disk.config_track_map
-	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
-	config_data[4] += disk_info_size
-	
-	config_data += vmem_data
 
-	#	puts config_data
-	disk.set_config_data(config_data)
+	if $VMEM then
+		# Add config data about boot / story disk
+		disk_info_size = 11 + disk.config_track_map.length
+		last_block_plus_1 = 0
+		disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+		config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+			disk.config_track_map.length] + disk.config_track_map
+		config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
+		config_data[4] += disk_info_size
+		
+		config_data += vmem_data
+
+		#	puts config_data
+		disk.set_config_data(config_data)
+	end
+	
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
@@ -796,7 +798,8 @@ $font_filename = nil
 auto_play = false
 optimize = false
 extended_tracks = false
-preload_max_vmem_blocks = 1000
+preload_max_vmem_blocks = 2**16 / $VMEM_BLOCKSIZE
+limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
 
@@ -816,6 +819,7 @@ begin
 			auto_play = true
 		elsif ARGV[i] =~ /^-p(\d*)$/i then
 			preload_max_vmem_blocks = ($1.length > 0) ? $1.to_i : 0
+			limit_preload_vmem_blocks = true
 		elsif ARGV[i] =~ /^-S1$/i then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/i then
@@ -844,6 +848,21 @@ rescue
 	print_usage_and_exit()
 end
 
+if mode != MODE_S1 and !$VMEM
+	puts "VMEM (Virtual memory) has been disabled in make.rb. VMEM must be enabled to use this build mode."
+	exit 0
+end
+
+if limit_preload_vmem_blocks and !$VMEM
+	puts "VMEM (Virtual memory) has been disabled in make.rb. VMEM must be enabled to use option -p."
+	exit 0
+end
+
+if extended_tracks and !$VMEM
+	puts "VMEM (Virtual memory) has been disabled in make.rb. VMEM must be enabled to use option -x."
+	exit 0
+end
+
 if optimize then
 	if preloadfile then
 		puts "-c (preload story data) can not be used with -o."
@@ -861,7 +880,7 @@ print_usage_and_exit() if await_preloadfile
 preload_data = nil
 if preloadfile then
 	preload_raw_data = File.read(preloadfile)
-	vmem_type = $VMFLAGS.include?('VMEM_CLOCK') ? "clock" : "queue"
+	vmem_type = "clock"
 	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{preload_data.length} blocks found for initial caching."
@@ -898,7 +917,7 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
 puts "Dynmem blocks: #{$dynmem_blocks}"
-if preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
+if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
 	puts "Max preload blocks adjusted to dynmem size, from #{preload_max_vmem_blocks} to #{$dynmem_blocks}."
 	preload_max_vmem_blocks = $dynmem_blocks
 end
@@ -977,7 +996,7 @@ end
 
 limit_vmem_data(vmem_data)
 
-if preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] then
+if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] then
 	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[2]}."
 	preload_max_vmem_blocks = vmem_data[2]
 end

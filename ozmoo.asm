@@ -6,7 +6,7 @@
 ;Z5 = 1
 ;Z8 = 1
 
-!ifdef USEVM {
+!ifdef VMEM {
 !ifndef ALLRAM {
 	ALLRAM = 1
 }
@@ -59,7 +59,7 @@ game_id		!byte 0,0,0,0
 !source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
-;##!ifdef USEVM {
+;##!ifdef VMEM {
 !source "vmem.asm"
 ;##}
 !source "zmachine.asm"
@@ -112,7 +112,7 @@ vmem_cache_start
 !ifdef ALLRAM {
 ;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
 	!fill 4 * 256 - (* - vmem_cache_start),0 ; 4 pages
-!ifdef USEVM {
+!ifdef VMEM {
 ;	!align 256 * (1 - ((>stack_size) % 1)) * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
 	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
 } 
@@ -123,7 +123,7 @@ vmem_cache_count = vmem_cache_size / 256
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
 stack_start
-!ifdef USEVM {
+!ifdef VMEM {
 prepare_static_high_memory
     lda #$ff
     sta zp_pc_h
@@ -318,7 +318,7 @@ z_init
 	lda #0
 	ldx story_start + header_initial_pc
 	ldy story_start + header_initial_pc + 1
-!ifndef USEVM {
+!ifndef VMEM {
 	sta z_pc
 }
 	jsr set_z_pc
@@ -382,7 +382,7 @@ w1  cmp $d012
 
 	jsr init_screen_colours ; _invisible
 
-!ifdef USEVM {
+!ifdef VMEM {
 ; Read and parse config from boot disk
 	; $BA holds last used device#
 	ldy $ba
@@ -427,7 +427,7 @@ w1  cmp $d012
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 	jsr insert_disks_at_boot
-} else { ; End of !ifdef USEVM
+} else { ; End of !ifdef VMEM
 	lda #$34
 	sta first_unavailable_save_slot_charcode
 }
@@ -460,7 +460,7 @@ w1  cmp $d012
 .supported_version
 
 	; Check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
-!ifdef USEVM {
+!ifdef VMEM {
 	ldy story_start + header_static_mem
 	lda story_start + header_static_mem + 1
 	beq .maybe_inc_nonstored_blocks
@@ -475,7 +475,7 @@ w1  cmp $d012
 }
 .store_nonstored_blocks
 	sty nonstored_blocks
-} ; End of !ifdef USEVM
+} ; End of !ifdef VMEM
 
 +   ; check file length
     ; Start by multiplying file length by 2
@@ -511,7 +511,7 @@ w1  cmp $d012
 	rts
 }
 
-!ifdef USEVM {
+!ifdef VMEM {
 !zone disk_config {
 auto_disk_config
 ; Limit # of save slots to no more than 10
@@ -601,12 +601,12 @@ insert_disks_at_boot
 .done
 	rts
 }
-} ; End if !ifdef USEVM
+} ; End if !ifdef VMEM
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 
 story_start
-!ifdef USEVM {
+!ifdef VMEM {
 vmem_start
 
 !ifdef ALLRAM {

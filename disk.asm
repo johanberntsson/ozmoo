@@ -2,7 +2,7 @@ first_unavailable_save_slot_charcode	!byte 0
 current_disks !byte $ff, $ff, $ff, $ff
 boot_device !byte 0
 
-!ifndef USEVM {
+!ifndef VMEM {
 disk_info
 	!byte 0, 0, 1  ; Interleave, save slots, # of disks
 	!byte 8, 8, 0, 0, 0, 130, 131, 0 
@@ -336,7 +336,7 @@ uname_len = * - .uname
 .blocks_to_go_tmp !byte 0, 0
 .next_disk_index	!byte 0
 .disk_tracks	!byte 0
-} ; End of !ifdef USEVM
+} ; End of !ifdef VMEM
 
 close_io
     lda #$0F      ; filenumber 15
@@ -730,7 +730,7 @@ list_save_files
 	jsr print_insert_disk_msg
 +   rts
 
-!ifdef USEVM {
+!ifdef VMEM {
 .insert_story_disk
 	ldy .last_disk
 	beq + ; Save disk was in disk before, no need to change
@@ -779,7 +779,7 @@ restore_game
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
-!ifdef USEVM {
+!ifdef VMEM {
     jsr .insert_story_disk
 }
 	jsr get_page_at_z_pc
@@ -787,7 +787,7 @@ restore_game
 	ldx #1
 	rts
 .restore_failed
-!ifdef USEVM {
+!ifdef VMEM {
     jsr .insert_story_disk
 }
 	; Return failed status
@@ -852,14 +852,14 @@ save_game
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
-!ifdef USEVM {
+!ifdef VMEM {
     jsr .insert_story_disk
 }
 	lda #0
 	ldx #1
 	rts
 .save_failed
-!ifdef USEVM {
+!ifdef VMEM {
     jsr .insert_story_disk
 }
 	; Return failed status

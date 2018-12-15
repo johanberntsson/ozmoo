@@ -4,7 +4,7 @@ vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !byte 0,0,0,0,0,0,0,0
 }
 
-!ifndef USEVM {
+!ifndef VMEM {
 ; Non-virtual memory
 
 !ifndef ALLRAM {
