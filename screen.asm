@@ -13,14 +13,15 @@ init_screen_colours_invisible
     lda #151 ; dark grey
 	bne +
 init_screen_colours
+    jsr s_init
     lda #155 ; light grey
-+	jsr $ffd2 ; kernel_printchar
++	jsr s_printchar
     lda #$0f
     sta $d020
     lda #$0b
     sta $d021
     lda #147 ; clear screen
-    jmp $ffd2 ; kernel_printchar
+    jmp s_printchar
 
 !ifdef Z4PLUS {
 z_ins_erase_window
@@ -38,7 +39,7 @@ z_ins_erase_window
 .keep_split
 	jsr clear_num_rows
     lda #147 ; clear screen
-    jmp $ffd2 ; kernel_printchar
+    jmp s_printchar
 .window_0
     ldx .window_size + 1
 -   jsr erase_line
@@ -58,7 +59,7 @@ z_ins_erase_line
     ; erase_line value
     ; clear current line (where the cursor is)
     sec
-    jsr kernel_plot
+    jsr s_plot
     jmp erase_line
 
 erase_line
@@ -233,11 +234,11 @@ z_ins_set_text_style
     bne .t0
     ; roman
     lda #146 ; reverse off
-    jmp $ffd2 ; kernel_printchar
+    jmp s_printchar
 .t0 cmp #1
     bne .t1
     lda #18 ; reverse on
-    jmp $ffd2 ; kernel_printchar
+    jmp s_printchar
 .t1 rts
 
 z_ins_get_cursor
@@ -319,7 +320,7 @@ increase_num_rows
     ldx #0
 -   lda .more_text,x
     beq .printchar_pressanykey
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     inx
     bne -
 } else {
@@ -347,7 +348,7 @@ increase_num_rows
 -   lda .more_text,x
     beq .increase_num_rows_done
     lda #20 ; delete
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     inx
     bne -
 } else {
@@ -371,10 +372,10 @@ printchar_flush
     ldx #0
 -   cpx .buffer_index
     beq +
-    txa ; kernel_printchar/$ffd2 destroys x,y
+    txa ; kernel_printchar destroys x,y
     pha
     lda print_buffer,x
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     pla
     tax
     inx
@@ -397,7 +398,7 @@ printchar_buffered
     lda is_buffered_window,x
     bne .buffered_window
     lda .buffer_char
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     jmp .printchar_done
     ; update the buffer
 .buffered_window
@@ -410,13 +411,13 @@ printchar_buffered
 !ifdef OLD_MORE_PROMPT {
     ; more on the next line
     lda #$0d
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     jsr increase_num_rows
 } else {
     ; more on the same line
     jsr increase_num_rows
     lda #$0d
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
 }
     jmp .printchar_done
 .check_break_char
@@ -467,10 +468,10 @@ printchar_buffered
     ldx #0
 -   cpx .last_break_char_buffer_pos
     beq +
-    txa ; kernel_printchar/$ffd2 destroys x,y
+    txa ; kernel_printchar destroys x,y
     pha
     lda print_buffer,x
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     pla
     tax
     inx
@@ -499,7 +500,7 @@ printchar_buffered
 	cmp #40
 	bcs +
     lda #$0d
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
 +	jsr increase_num_rows
 } else {
     ; more on the same line
@@ -508,7 +509,7 @@ printchar_buffered
 	cmp #40
 	bcs +
     lda #$0d
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
 +
 }
     ldy #0
@@ -529,14 +530,14 @@ printchar_buffered
 
 clear_screen_raw
 	lda #147
-	jsr kernel_printchar
+	jsr s_printchar
 	rts
 
 printchar_raw
 	php
 	stx .save_x
 	sty .save_y
-	jsr kernel_printchar
+	jsr s_printchar
 	ldy .save_y
 	ldx .save_x
 	plp
@@ -559,13 +560,13 @@ set_cursor
     ; input: y=column (0-39)
     ;        x=row (0-24)
     clc
-    jmp kernel_plot
+    jmp s_plot
 
 get_cursor
     ; output: y=column (0-39)
     ;         x=row (0-24)
     sec
-    jmp kernel_plot
+    jmp s_plot
 
 save_cursor
     jsr get_cursor
@@ -602,7 +603,7 @@ draw_status_line
     ldy #0
     jsr set_cursor
     lda #18 ; reverse on
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     ;
     ; Room name
     ; 
@@ -618,7 +619,7 @@ draw_status_line
     cmp #40
     beq +
     lda #$20
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     jmp -
     ;
     ; score or time game?
@@ -633,7 +634,7 @@ draw_status_line
     ldy #0
 -   lda .score_str,y
     beq +
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     iny
     bne -
 +   lda #17
@@ -642,7 +643,7 @@ draw_status_line
     sta z_operand_value_high_arr
     jsr z_ins_print_num
     lda #47
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     lda #18
     jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
@@ -657,7 +658,7 @@ draw_status_line
     ldy #0
 -   lda .time_str,y
     beq +
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
 	iny
     bne -
 +   lda #17 ; hour
@@ -666,7 +667,7 @@ draw_status_line
     sta z_operand_value_high_arr
     jsr z_ins_print_num
     lda #58 ; :
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     lda #18 ; minute
     jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
@@ -674,7 +675,7 @@ draw_status_line
     jsr z_ins_print_num
 .statusline_done
     lda #146 ; reverse off
-    jsr $ffd2 ; kernel_printchar
+    jsr s_printchar
     lda #0
     sta .current_window
     pla

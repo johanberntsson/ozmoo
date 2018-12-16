@@ -14,11 +14,9 @@
 ; $ffd2 with s_printchar and so on.
 ; Uncomment TESTSCREEN and call testscreen for a demo.
 
-s_screenpos = $a7 ; pointer to screen (2 bytes)
-s_screencol = $a9 ; pointer to color; temp during scroll (2 bytes)
-s_scrollstart = $ab ; scroll from line (keep lines above untouched)
-
 ;TESTSCREEN = 1
+
+ASSERTCHAR = 1
 
 !zone screenkernal {
 s_init
@@ -34,6 +32,7 @@ s_init
     rts
 
 s_plot
+    jmp kernel_plot
     ; y=column (0-39)
     ; x=row (0-24)
     bcc +
@@ -47,6 +46,11 @@ s_plot
     rts
 
 s_printchar
+!ifdef ASSERTCHAR {
+    sta $de01
+    sta $de02
+}
+    jmp $ffd2
     ; replacement for CHROUT ($ffd2)
     ; input: A = byte to write (PETASCII)
     ; output: -
@@ -86,7 +90,7 @@ s_printchar
     sta .row
     jsr .erase_window
     jmp .printchar_end
-+   cmp #146
++   cmp #146 ; $92
     bne +
     ; reverse on
     lda #128
@@ -99,20 +103,33 @@ s_printchar
     sta .reverse
     jmp .printchar_end
 +   ; covert from pet ascii to screen code
+!ifdef ASSERTCHAR {
+    cmp #$20
+    bpl +
+    sta $de01 ; < $20 (control chars)
+    sta $de02
++   cmp #$7a
+    bcc +
+    sta $de01 ; > $7a (control chars)
+    sta $de02
++
+}
     cmp #$40
     bcc ++    ; no change if numbers or special chars
     cmp #$60
-    bcc +
-    ; upper case letters (A - Z)
-    sec
-    sbc #128
-    bne ++
-+   ; lower case letters (a - z)
+    bpl +
     sec
     sbc #64
+    bne ++ ; always jump
++   cmp #$80
+    bpl +
+    sec
+    sbc #32
+    bne ++ ; always jump
++   sec
+    sbc #128
 ++  ; print the char
-    clc
-    adc .reverse
+;    and .reverse
     pha
     jsr .update_screenpos
     lda s_screenpos

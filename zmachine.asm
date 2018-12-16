@@ -1146,7 +1146,7 @@ z_ins_restart
 	bne - ; Always branch
 +	stx 198
 	lda #147
-	jsr $ffd2
+	jsr s_printchar
 	lda #z_exe_mode_exit
 	sta z_exe_mode
 	rts

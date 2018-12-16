@@ -1070,9 +1070,9 @@ read_text
 !ifdef Z5PLUS {
     jsr clear_num_rows
 	lda #$0d ; Enter
-	jsr $ffd2
+	jsr s_printchar
 	lda #$3e ; ">"
-	jsr $ffd2
+	jsr s_printchar
     ldy #1
     lda (string_array),y
     tax
@@ -1081,7 +1081,7 @@ read_text
     iny
     lda (string_array),y
 	jsr translate_zscii_to_petscii
-    jsr $ffd2
+	jsr s_printchar
     dex
     jmp .p0
 .p1   
@@ -1089,7 +1089,7 @@ read_text
     ldy #1
 .p0 lda (string_array),y ; default is empty string (0 in pos 1)
     beq .p1
-    jsr $ffd2
+    jsr s_printchar
     iny
     jmp .p0
 .p1
@@ -1116,7 +1116,7 @@ read_text
     cpy .read_text_startcolumn
     beq .readkey
 	lda .petscii_char_read
-    jsr $ffd2 ; kernel_printchar ; print the delete char
+    jsr s_printchar ; print the delete char
 !ifdef Z5PLUS {
     ldy #1
     lda (string_array),y ; number of characters in the array
@@ -1151,7 +1151,7 @@ read_text
 	pha
 ;	jsr translate_zscii_to_petscii
 	lda .petscii_char_read
-    jsr $ffd2; kernel_printchar
+    jsr s_printchar
     lda zp_screencolumn ; compare with size of keybuffer
     sec
     sbc .read_text_startcolumn
@@ -1216,7 +1216,7 @@ read_text
 	
     pla
     beq +
-    jsr $ffd2 ; print final char unless it is 0
+    jsr s_printchar; print final char unless it is 0
 +   rts
 .read_text_buffer !byte 0,0
 .read_text_cursor !byte 0,0

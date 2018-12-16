@@ -558,11 +558,11 @@ read_byte_at_z_address
 	lda streams_output_selected + 2
 	beq +
 	lda #20
-	jsr $ffd2
+	jsr s_printchar
 	lda #64
-	jsr $ffd2
+	jsr s_printchar
 	lda #20
-	jsr $ffd2
+	jsr s_printchar
 	jmp ++
 +	jsr space
 	jsr dollar

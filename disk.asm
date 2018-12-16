@@ -494,7 +494,7 @@ z_ins_save
     ldx .inputlen
     beq -
     dec .inputlen
-    jsr $ffd2
+    jsr s_printchar
     jmp -
 +   cmp #$0d ; enter
     beq +
@@ -511,9 +511,9 @@ z_ins_save
     bpl -
     sta .inputstring,x
     inc .inputlen
-    jsr $ffd2
+    jsr s_printchar
     jmp -
-+   jsr $ffd2 ; return
++   jsr s_printchar ; return
     ldx .inputlen
     lda #0
     sta .inputstring,x

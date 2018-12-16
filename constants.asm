@@ -71,6 +71,10 @@ z_temp				  = $68 ; 12 bytes (Only dictionary encoding uses more than 6)
 vmem_temp			  = $92 ; 2 bytes
 alphabet_table		  = $96 ; 2 bytes
 
+s_screenpos = $a7 ; pointer to screen (2 bytes)
+s_screencol = $a9 ; pointer to color; temp during scroll (2 bytes)
+s_scrollstart = $ab ; scroll from line (keep lines above untouched)
+
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column
