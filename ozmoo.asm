@@ -107,11 +107,19 @@ z_trace_page
 vmem_cache_start
 
 !ifdef ALLRAM {
+
+!ifdef CACHE_PAGES {
+	cache_pages = CACHE_PAGES
+} else {
+	cache_pages = 4
+}
+
 ;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
-	!fill 4 * 256 - (* - vmem_cache_start),0 ; 4 pages
+	!fill cache_pages * 256,0 ; typically 4 pages
 !ifdef VMEM {
-;	!align 256 * (1 - ((>stack_size) % 1)) * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
-	!align 256 * (255 - vmem_blockmask) + 255, 0, 0 ; 0-1 pages with SMALLBLOCK, 0-3 pages without
+!if (stack_size + *) & 256 {
+	!fill 256,0 ; Add one page to avoid vmem alignment issues
+}
 } 
 
 vmem_cache_size = * - vmem_cache_start
@@ -425,8 +433,29 @@ w1  cmp $d012
 ;	jsr init_screen_colours
 	jsr insert_disks_at_boot
 } else { ; End of !ifdef VMEM
-	lda #$34
-	sta first_unavailable_save_slot_charcode
+	ldx #$30 ; First unavailable slot
+	lda story_start + header_static_mem
+	clc
+	adc #(>stack_size) + 4
+	sta zp_temp
+	lda #>664
+	sta zp_temp + 1
+	lda #<664
+.one_more_slot
+	sec
+	sbc zp_temp
+	tay
+	lda zp_temp + 1
+	sbc #0
+	sta zp_temp + 1
+	bmi .no_more_slots
+	inx
+	cpx #$3a
+	bcs .no_more_slots
+	tya
+	bcc .one_more_slot ; Always branch
+.no_more_slots
+	stx first_unavailable_save_slot_charcode
 }
 
 	; ldy #0

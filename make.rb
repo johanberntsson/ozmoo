@@ -60,7 +60,9 @@ $DEBUGFLAGS = [
 
 $INTERLEAVE = 9 # (1-21)
 
-$STACK_PAGES = 4 # Should normally be 2, 4 or 6. Use 4 unless you have a good reason not to.
+$CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.
+
+$STACK_PAGES = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
 
 MODE_S1 = 1
 MODE_S2 = 2
@@ -390,12 +392,14 @@ def name_to_c64(name)
 end
 
 def build_interpreter()
+	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$STACK_PAGES} -D#{$ztype}=1"
+	necessarysettings +=  " --cpu 6510 --format cbm"
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
-    cmd = "#{$ACME} --setpc #{$start_address} -DSTACK_PAGES=#{$STACK_PAGES} -D#{$ztype}=1#{fontflag}#{generalflags}#{debugflags}#{compressionflags} --cpu 6510 --format cbm -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME}#{necessarysettings}#{fontflag}#{generalflags}#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
@@ -504,9 +508,8 @@ def play(filename)
 end
 
 def limit_vmem_data(vmem_data)
-	vmemsize = ($ALLRAM ? 0x10000 : 0xd000) - $storystart
-	if vmemsize < vmem_data[2] * $VMEM_BLOCKSIZE
-		vmem_data[2] = vmemsize / $VMEM_BLOCKSIZE
+	if $vmem_size < vmem_data[2] * $VMEM_BLOCKSIZE
+		vmem_data[2] = $vmem_size / $VMEM_BLOCKSIZE
 	end
 end
 
@@ -515,8 +518,11 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	
 	boot_disk = $VMEM
 	
-	if !$VMEM and File.size($compmem_filename) < $story_size
-		puts "ERROR: The whole story doesn't fit in memory. Please enable VMEM in make.rb."
+#	if !$VMEM and preload_max_vmem_blocks * $VMEM_BLOCKSIZE < $story_size
+#		puts "#{preload_max_vmem_blocks * $VMEM_BLOCKSIZE} < #{$story_size}"
+	if !$VMEM and $vmem_size < $story_size
+		puts "#{$vmem_size} < #{$story_size}"
+		puts "ERROR: The whole story doesn't fit in memory. Please enable ALLRAM and/or VMEM in make.rb."
 		exit 1
 	end
 	
@@ -994,6 +1000,9 @@ vmem_data[1].times do |i|
 end
 
 build_interpreter()
+
+$vmem_size = ($ALLRAM ? 0x10000 : 0xd000) - $storystart
+
 if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > 0xd000 then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass $D000. Maximum dynmem size is #{0xd000 - $storystart} bytes." 
 	exit 1
