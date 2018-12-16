@@ -2,7 +2,7 @@
 ; printchar $ffd2
 ; plot      $fff0
 ; zp_cursorswitch $cc
-; zp_screenline $d1
+; zp_screenline $d1-$d2
 ; zp_screencolumn $d3
 ; zp_screenrow $d6
 ;
@@ -16,41 +16,34 @@
 
 ;TESTSCREEN = 1
 
-ASSERTCHAR = 1
-
 !zone screenkernal {
+
 s_init
     ; init cursor
     lda #0
-    sta .col
-    sta .row
+    sta zp_screencolumn
+    sta zp_screenrow
     sta .reverse
     lda #$ff
     sta .current_screenpos_row ; force recalculation first time
-    ldx #1
+    ldx #0
     stx s_scrollstart ; how many top lines to protect
     rts
 
 s_plot
-    jmp kernel_plot
     ; y=column (0-39)
     ; x=row (0-24)
     bcc +
     ; get_cursor
-    ldx .row
-    ldy .col
+    ldx zp_screenrow
+    ldy zp_screencolumn
     rts
 +   ; set_cursor
-    stx .row
-    sty .col
+    stx zp_screenrow
+    sty zp_screencolumn
     rts
 
 s_printchar
-!ifdef ASSERTCHAR {
-    sta $de01
-    sta $de02
-}
-    jmp $ffd2
     ; replacement for CHROUT ($ffd2)
     ; input: A = byte to write (PETASCII)
     ; output: -
@@ -70,50 +63,39 @@ s_printchar
     cmp #20
     bne +
     ; delete
-    dec .col ; move back
+    dec zp_screencolumn ; move back
     bpl ++
-    inc .col ; return to 0 if < 0
+    inc zp_screencolumn ; return to 0 if < 0
 ++  jmp .printchar_end
 +   cmp #$0d
     bne +
     ; newline/enter/return
     lda #0
-    sta .col
-    inc .row
+    sta zp_screencolumn
+    inc zp_screenrow
     jsr .s_scroll
     jmp .printchar_end
 +   cmp #$93 
     bne +
     ; clr (clear screen)
     lda #0
-    sta .col
-    sta .row
-    jsr .erase_window
+    sta zp_screencolumn
+    sta zp_screenrow
+    jsr s_erase_window
     jmp .printchar_end
-+   cmp #146 ; $92
++   cmp #$12 ; 18
     bne +
     ; reverse on
-    lda #128
-    sta .reverse
+    ldx #$80
+    stx .reverse
     jmp .printchar_end
-+   cmp #18
++   cmp #$92 ; 146
     bne +
     ; reverse off
-    lda #0
-    sta .reverse
+    ldx #0
+    stx .reverse
     jmp .printchar_end
 +   ; covert from pet ascii to screen code
-!ifdef ASSERTCHAR {
-    cmp #$20
-    bpl +
-    sta $de01 ; < $20 (control chars)
-    sta $de02
-+   cmp #$7a
-    bcc +
-    sta $de01 ; > $7a (control chars)
-    sta $de02
-+
-}
     cmp #$40
     bcc ++    ; no change if numbers or special chars
     cmp #$60
@@ -129,132 +111,132 @@ s_printchar
 +   sec
     sbc #128
 ++  ; print the char
-;    and .reverse
+    clc
+    adc .reverse
     pha
     jsr .update_screenpos
-    lda s_screenpos
-    sta s_screencol
-    lda s_screenpos + 1
+    lda zp_screenline
+    sta zp_colorline
+    lda zp_screenline + 1
     clc
     adc #$d4
-    sta s_screencol + 1
-    ldy .col
+    sta zp_colorline + 1
+    ldy zp_screencolumn
     pla
-    sta (s_screenpos),y
+    sta (zp_screenline),y
     lda .color
-    sta (s_screencol),y
+    sta (zp_colorline),y
     iny
-    sty .col
+    sty zp_screencolumn
     cpy #40
     bcc .printchar_end
     lda #0
-    sta .col
-    inc .row
+    sta zp_screencolumn
+    inc zp_screenrow
     jsr .s_scroll
 .printchar_end
     ldx .stored_x
     ldy .stored_y
     rts
 
-.update_screenpos
-    ; set screenpos (current line) using row
-    ldx .row
-    cpx .current_screenpos_row
-    beq +
-    ; need to recalculate s_screenpos
-    stx .current_screenpos_row
-    stx s_screenpos
-    ; use the fact that .row * 40 = .row * (32+8)
+s_erase_line
+    ; registers: a,x,y
     lda #0
-    sta s_screenpos + 1
-    asl s_screenpos ; *2 no need to rol s_screenpos + 1 since 0 < .row < 24
-    asl s_screenpos ; *4
-    asl s_screenpos ; *8
-    ldx s_screenpos ; store *8 for later
-    asl s_screenpos ; *16
-    rol s_screenpos + 1
-    asl s_screenpos ; *32
-    rol s_screenpos + 1  ; *32
-    txa
-    clc
-    adc s_screenpos ; add *8
-    sta s_screenpos
-    lda s_screenpos + 1
-    adc #$04        ; add screen start ($0400)
-    sta s_screenpos +1
-+   rts
-
-.erase_line
-    lda #0
-    sta .col
+    sta zp_screencolumn
     jsr .update_screenpos
     ldy #0
     lda #$20
--   sta (s_screenpos),y
+-   sta (zp_screenline),y
     iny
     cpy #40
     bne -
     rts
     
-.erase_window
+s_erase_window
     lda #0
-    sta .row
--   jsr .erase_line
-    inc .row
-    lda .row
+    sta zp_screenrow
+-   jsr s_erase_line
+    inc zp_screenrow
+    lda zp_screenrow
     cmp #25
     bne -
     lda #0
-    sta .row
-    sta .col
+    sta zp_screenrow
+    sta zp_screencolumn
     rts
 
+.update_screenpos
+    ; set screenpos (current line) using row
+    ldx zp_screenrow
+    cpx .current_screenpos_row
+    beq +
+    ; need to recalculate zp_screenline
+    stx .current_screenpos_row
+    stx zp_screenline
+    ; use the fact that zp_screenrow * 40 = zp_screenrow * (32+8)
+    lda #0
+    sta zp_screenline + 1
+    asl zp_screenline ; *2 no need to rol zp_screenline + 1 since 0 < zp_screenrow < 24
+    asl zp_screenline ; *4
+    asl zp_screenline ; *8
+    ldx zp_screenline ; store *8 for later
+    asl zp_screenline ; *16
+    rol zp_screenline + 1
+    asl zp_screenline ; *32
+    rol zp_screenline + 1  ; *32
+    txa
+    clc
+    adc zp_screenline ; add *8
+    sta zp_screenline
+    lda zp_screenline + 1
+    adc #$04        ; add screen start ($0400)
+    sta zp_screenline +1
++   rts
+
 .s_scroll
-    lda .row
+    lda zp_screenrow
     cmp #25
     bpl +
     rts
 +   ldx s_scrollstart ; how many top lines to protect
-    stx .row
+    stx zp_screenrow
 -   jsr .update_screenpos
-    lda s_screenpos
-    sta s_screencol
-    lda s_screenpos + 1
-    sta s_screencol + 1
-    inc .row
+    lda zp_screenline
+    sta zp_colorline
+    lda zp_screenline + 1
+    sta zp_colorline + 1
+    inc zp_screenrow
     jsr .update_screenpos
     ; move characters
     ldy #0
---  lda (s_screenpos),y ; .row
-    sta (s_screencol),y ; .row - 1
+--  lda (zp_screenline),y ; zp_screenrow
+    sta (zp_colorline),y ; zp_screenrow - 1
     iny
     cpy #40
     bne --
     ; move color info
-    lda s_screenpos + 1
+    lda zp_screenline + 1
     pha
     clc
     adc #$d4
-    sta s_screenpos + 1
-    lda s_screencol + 1
+    sta zp_screenline + 1
+    lda zp_colorline + 1
     clc
     adc #$d4
-    sta s_screencol + 1
+    sta zp_colorline + 1
     ldy #0
---  lda (s_screenpos),y ; .row
-    sta (s_screencol),y ; .row - 1
+--  lda (zp_screenline),y ; zp_screenrow
+    sta (zp_colorline),y ; zp_screenrow - 1
     iny
     cpy #40
     bne --
     pla
-    sta s_screenpos + 1
-    lda .row
+    sta zp_screenline + 1
+    lda zp_screenrow
     cmp #24
     bne -
-    jmp .erase_line
+    jmp s_erase_line
 
-.row !byte 0
-.col !byte 0
 .color !byte 254 ; light blue as default
 .reverse !byte 0
 .stored_x !byte 0
@@ -282,6 +264,8 @@ testscreen
     lda #23 ; 23 upper/lower, 21 = upper/special (22/20 also ok)
     sta $d018 ; reg_screen_char_mode
     jsr s_init
+    lda #1
+    sta s_scrollstart
     ldx #0
 -   lda .testtext,x
     bne +

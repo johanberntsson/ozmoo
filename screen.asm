@@ -26,6 +26,8 @@ init_screen_colours
 !ifdef Z4PLUS {
 z_ins_erase_window
     ; erase_window window
+    lda zp_screenrow
+    pha
     lda z_operand_value_low_arr
     cmp #0
     beq .window_0
@@ -39,57 +41,38 @@ z_ins_erase_window
 .keep_split
 	jsr clear_num_rows
     lda #147 ; clear screen
-    jmp s_printchar
+    jsr s_printchar
+    jmp .end_erase
 .window_0
-    ldx .window_size + 1
--   jsr erase_line
-    inx
-    cpx #25
+    lda zp_screenrow
+    pha
+    lda .window_size + 1
+    sta zp_screenrow
+-   jsr s_erase_line
+    inc zp_screenrow
+    lda zp_screenrow
+    cmp #25
     bne -
-    rts
+    beq .end_erase ; always branch
 .window_1
-    ldx #0
--   jsr erase_line
-    inx
-    cpx .window_size + 1
+    lda zp_screenrow
+    pha
+    lda #0
+    sta zp_screenrow
+-   jsr s_erase_line
+    inc zp_screenrow
+    lda zp_screenrow
+    cmp .window_size + 1
     bne -
+.end_erase
+    pla
+    sta zp_screenrow
     rts
 
 z_ins_erase_line
     ; erase_line value
     ; clear current line (where the cursor is)
-    sec
-    jsr s_plot
-    jmp erase_line
-
-erase_line
-    ; clear line <x>  (0-24)
-    ; registers: a,y
-    ; note: self modifying code
-    txa
-    tay
-    lda #$04
-    sta .erase_line_loop + 2
-    lda #$00
-    sta .erase_line_loop + 1
-    cpy #0
-    beq +
--   lda .erase_line_loop + 2
-    clc
-    adc #40
-    sta .erase_line_loop + 1
-    lda .erase_line_loop + 2
-    adc #0
-    sta .erase_line_loop + 2
-    dey
-    bne -
-+   lda #$20 ; y=0 here
-.erase_line_loop
-    sta $8000,y
-    iny
-    cpy #40
-    bne .erase_line_loop
-    rts
+    jmp s_erase_line
 
 !ifdef Z5PLUS {
 z_ins_print_table
@@ -189,11 +172,13 @@ split_window
     sta .window_size
     lda #0
     sta .window_size + 1
+    sta s_scrollstart
     lda #1
     sta .num_windows
     rts
 .split_window
     stx .window_size + 1
+    stx s_scrollstart
     lda #25
     sec
     sbc .window_size + 1
