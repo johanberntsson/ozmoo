@@ -11,7 +11,7 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
-Ozmoo is not ready for release or production use. A few features are missing, most notably the restart instruction. There are also numerous bugs.
+Ozmoo is not quite ready for release or production use yet. A few minor features are missing, like the ability to choose text color and background color. There are also some bugs. Most games should run just fine though.
 
 If you want to start using Ozmoo once it's more mature, we recommend you to star the project, or just return every once in a while to see what's happening.
 
@@ -42,6 +42,7 @@ The longer answer:
 * Supports custom character mappings, allowing for games using accented characters.
 * Supports up to ten save slots on a save disk (and most games will get the full ten slots).
 * Supports writing a name for a save
+* Supports building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/resore to tape in the future.
 
 ## Building and running
 
