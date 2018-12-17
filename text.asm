@@ -1011,18 +1011,18 @@ read_char
     rts
 
 turn_on_cursor
-    lda #0
-    sta zp_cursorswitch
+    ;lda #0
+    ;sta zp_cursorswitch
     rts
 
 turn_off_cursor
-    lda #$ff
-    sta zp_cursorswitch
-    ; hide cursor if still visible
-    ldy zp_screencolumn
-    lda (zp_screenline),y
-    and #$7f
-    sta (zp_screenline),y
+    ;lda #$ff
+    ;sta zp_cursorswitch
+    ;; hide cursor if still visible
+    ;ldy zp_screencolumn
+    ;lda (zp_screenline),y
+    ;and #$7f
+    ;sta (zp_screenline),y
     rts
 
 read_text

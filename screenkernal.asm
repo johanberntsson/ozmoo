@@ -69,7 +69,13 @@ s_printchar
     dec zp_screencolumn ; move back
     bpl ++
     inc zp_screencolumn ; return to 0 if < 0
-++  jmp .printchar_end
+++  jsr .update_screenpos
+    lda #$20
+    ldy zp_screencolumn
+    sta (zp_screenline),y
+    lda .color
+    sta (zp_colorline),y
+    jmp .printchar_end
 +   cmp #$0d
     bne +
     ; newline/enter/return
@@ -254,7 +260,7 @@ s_erase_window
 
 .testtext !pet 5,147,18,"Status Line 123         ",146,13
           !pet 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13
-          !pet 155,"third line",13
+          !pet 155,"third",20,13
           !pet "fourth line",13
           !pet 13,13,13,13,13,13
           !pet 13,13,13,13,13,13,13
