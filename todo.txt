@@ -8,11 +8,11 @@ Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up
 
 BZ: flush toilet twice with the document and the towel inside goes wrong. First the document disappears, but a shred of the document remains. However, the toilet is empty.
 
-Restore doesn't list files in non-vmem game.
-
 No words are recognized in Tethered.
 
 Statusline longer than 40 characters overflows into main window.
+
+Statusline messed up after restore in BZ.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -74,6 +74,14 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Files are listen in the wrong order in save/restore.
+
+Restore doesn't list files in non-vmem game.
+
+Restoring from an empty save slot crashes the game.
+
+Player gets no chance to read message printed just before save, as used in HH and Planetfall.
+
 Status line covering several lines isn't working correctly (Nord and Bert).
 
 AMFV: Status line updates are printed in the main window.

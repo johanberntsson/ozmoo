@@ -83,6 +83,7 @@ s_printchar
     sta zp_screencolumn
     inc zp_screenrow
     jsr .s_scroll
+    jsr .update_screenpos
     jmp .printchar_end
 +   cmp #$93 
     bne +

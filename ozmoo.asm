@@ -465,6 +465,9 @@ w1  cmp $d012
 	bcc .one_more_slot ; Always branch
 .no_more_slots
 	stx first_unavailable_save_slot_charcode
+	txa
+	and #$0f
+	sta disk_info + 1 ; # of save slots
 }
 
 	; ldy #0

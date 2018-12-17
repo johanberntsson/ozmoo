@@ -345,8 +345,7 @@ close_io
     lda #$02      ; filenumber 2
     jsr kernel_close ; call CLOSE
 
-    jsr kernel_clrchn ; call CLRCHN
-    rts
+    jmp kernel_clrchn ; call CLRCHN
 
 !zone disk_messages {
 prepare_for_disk_msgs
@@ -355,8 +354,7 @@ prepare_for_disk_msgs
 	; sta .print_row
 	ldx #0
 	tay
-	jsr set_cursor
-	rts
+	jmp set_cursor
 
 print_insert_disk_msg
 ; Parameters: y: memory index to start of info for disk in disk_info
@@ -533,18 +531,18 @@ z_ins_save
     rts
 	
 list_save_files
+	lda #13
+	jsr printchar_raw
+	lda #13
+	jsr printchar_raw
 	ldx	first_unavailable_save_slot_charcode
 	dex
 	stx .saveslot_msg + 8
-	lda #13
-	jsr printchar_raw
-	jsr printchar_raw
-	lda #0
 	ldx disk_info + 1 ; # of save slots
+	lda #0
+-	sta .occupied_slots - 1,x
 	dex
--	sta .occupied_slots,x
-	dex
-	bpl -
+	bne -
 	; Remember address of row where first entry is printed
 	lda zp_screenline
 	sta .base_screen_pos
@@ -732,8 +730,8 @@ list_save_files
 	ldy #0
 	jmp print_insert_disk_msg
 
-!ifdef VMEM {
 .insert_story_disk
+!ifdef VMEM { ; If not VMEM, there isn't a story disk.
 	ldy .last_disk
 	beq + ; Save disk was in disk before, no need to change
 	bmi + ; The drive was empty before, no need to change disk now
@@ -741,12 +739,12 @@ list_save_files
 	tya
 	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
-
-+	jsr clear_screen_raw
++
+}
+	jsr clear_screen_raw
 	ldx #24
 	ldy #0
 	jmp set_cursor
-}
 
 restore_game
     jsr .insert_save_disk
@@ -765,6 +763,9 @@ restore_game
 	lda .inputstring
 	cmp first_unavailable_save_slot_charcode
 	bpl .restore_failed ; not a number (0-9)
+	tax
+	lda .occupied_slots - $30,x
+	beq .restore_failed ; If the slot is unoccupied, fail.
 	sta .restore_filename + 1
 
 	; Print "Restoring..."
@@ -780,29 +781,32 @@ restore_game
 
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
-
-!ifdef VMEM {
     jsr .insert_story_disk
-}
 	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
 	rts
 .restore_failed
-!ifdef VMEM {
     jsr .insert_story_disk
-}
 	; Return failed status
 	lda #0
 	tax
 	rts
 
 save_game
+	ldx #0
+	ldy #4
+-	jsr $eeb3
+	dex
+	bne -
+	dey
+	bne -
+
     jsr .insert_save_disk
 
 	; List files on disk
 	jsr list_save_files
-	beq .save_failed
+	beq .restore_failed
 
 	; Pick a slot#
 	lda #>.saveslot_msg ; high
@@ -810,10 +814,10 @@ save_game
 	jsr printstring_raw
 	jsr .input_alphanum
 	cpx #1
-	bne .save_failed
+	bne .restore_failed
 	lda .inputstring
 	cmp first_unavailable_save_slot_charcode
-	bpl .save_failed ; not a number (0-9)
+	bpl .restore_failed ; not a number (0-9)
 	sta .filename + 1
 	sta .erase_cmd + 3
 	
@@ -823,7 +827,7 @@ save_game
 	jsr printstring_raw
 	jsr .input_alphanum
 	cpx #0
-	beq .save_failed
+	beq .restore_failed
 	
 	; Print "Saving..."
 	lda #>.save_msg
@@ -840,7 +844,7 @@ save_game
 	ldy #$0f      ; secondary address 15
     jsr kernel_setlfs
     jsr kernel_open ; open command channel and send delete command)
-    bcs .save_failed  ; if carry set, the file could not be opened
+    bcs .restore_failed  ; if carry set, the file could not be opened
     lda #$0f      ; filenumber 15
     jsr kernel_close
 	
@@ -849,24 +853,14 @@ save_game
 	
 	; Perform save
 	jsr do_save
-    bcs .save_failed    ; if carry set, a save error has happened
+    bcs .restore_failed    ; if carry set, a save error has happened
 
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
-!ifdef VMEM {
     jsr .insert_story_disk
-}
 	lda #0
 	ldx #1
-	rts
-.save_failed
-!ifdef VMEM {
-    jsr .insert_story_disk
-}
-	; Return failed status
-	lda #0
-	tax
 	rts
 
 do_restore
