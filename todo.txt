@@ -8,16 +8,6 @@ Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up
 
 BZ: flush toilet twice with the document and the towel inside goes wrong. first the document disappears, but a sheed of the document remains. However, the toilet is empty.
 
-Can't write @ with new screenkernal
-
-Fixed bugs
-----------
-Status line covering several lines isn't working correctly (Nord and Bert).
-
-AMFV: Status line updates are printed in the main window.
-- works, but AMFV is designed for 80 characters, so the status line still
-looks strange. This can't be fixed.
-
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
@@ -43,7 +33,6 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 ; ------------------------------------------------------
 ; 0OP
 ; ---
-; restart
 ;
 ; 1OP
 ; ---
@@ -73,7 +62,17 @@ Possible alternative versions / extensions
 * Plus/4 version
 * Apple II version
 
-DONE:
+
+DONE (Implemented features and fixed bugs)
+------------------------------------------
+Status line covering several lines isn't working correctly (Nord and Bert).
+
+AMFV: Status line updates are printed in the main window.
+- works, but AMFV is designed for 80 characters, so the status line still
+looks strange. This can't be fixed.
+
+Can't write @ with new screenkernal
+
 Make non vmem mode work, and build exactly the code that is needed.
 
 Make non all_ram mode work, and build exactly the code that is needed.

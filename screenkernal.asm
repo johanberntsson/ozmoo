@@ -111,7 +111,7 @@ s_printchar
     bpl +
     sec
     sbc #64
-    bne ++ ; always jump
+    bcs ++ ; always jump
 +   cmp #$80
     bpl +
     sec
