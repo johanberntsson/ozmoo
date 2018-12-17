@@ -1,7 +1,7 @@
 
 !ifdef ALLRAM {
 vmem_cache_cnt !byte 0         ; current execution cache
-vmem_cache_index !byte 0,0,0,0,0,0,0,0
+vmem_cache_index !fill cache_pages + 1, 0
 }
 
 !ifndef VMEM {

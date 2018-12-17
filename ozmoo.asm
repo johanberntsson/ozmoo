@@ -12,6 +12,14 @@
 }
 }
 
+!ifdef ALLRAM {
+!ifdef CACHE_PAGES {
+	cache_pages = CACHE_PAGES ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
+} else {
+	cache_pages = 4 ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
+}
+}
+
 !ifdef Z4 {
 	Z4PLUS = 1
 }
@@ -114,12 +122,6 @@ z_trace_page
 vmem_cache_start
 
 !ifdef ALLRAM {
-
-!ifdef CACHE_PAGES {
-	cache_pages = CACHE_PAGES
-} else {
-	cache_pages = 4
-}
 
 ;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
 	!fill cache_pages * 256,0 ; typically 4 pages
@@ -394,7 +396,6 @@ w1  cmp $d012
 
 	jsr init_screen_colours ; _invisible
 
-!ifdef VMEM {
 ; Read and parse config from boot disk
 	; $BA holds last used device#
 	ldy $ba
@@ -406,7 +407,7 @@ w1  cmp $d012
 	ldy #8
 .store_boot_device
 	sty boot_device ; Boot device# stored
-
+!ifdef VMEM {
 	lda #<config_load_address
 	sta readblocks_mempos
 	lda #>config_load_address
@@ -440,6 +441,7 @@ w1  cmp $d012
 ;	jsr init_screen_colours
 	jsr insert_disks_at_boot
 } else { ; End of !ifdef VMEM
+	sty disk_info + 4
 	ldx #$30 ; First unavailable slot
 	lda story_start + header_static_mem
 	clc

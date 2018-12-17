@@ -20,9 +20,9 @@ end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
-# Typically only ALLRAM, VMEM and SMALLBLOCK should be enabled.
+# Typically only ALLRAM, VMEM and SMALLBLOCK should be enabled. If VMEM is enabled, so is ALLRAM.
 $GENERALFLAGS = [
-	'ALLRAM', # THIS SHOULD NORMALLY BE ENABLED! Will also be enabled automatically if VMEM is enabled.
+	'ALLRAM', # Use all available RAM. With this turned off, only RAM up to $CFFF is used. 
 	'VMEM', # Use virtual memory. Without this, the entire game has to fit in RAM all at once.
 	'SMALLBLOCK', # If VMEM is set, and SMALLBLOCK is set, use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging

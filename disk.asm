@@ -388,7 +388,7 @@ print_insert_disk_msg
 	ldx .save_x
 	jsr printstring_raw
 	iny
-	jmp -
+	bne - ; Always branch
 .disk_name_done
 	lda #>insert_msg_2
 	ldx #<insert_msg_2
@@ -705,7 +705,8 @@ list_save_files
 	bcc - ; Always branch
 +	tax
 	tya
-	rts		
+.return
+	rts
 .dirname
 	!pet "$"
 .occupied_slots
@@ -721,14 +722,15 @@ list_save_files
 .base_screen_pos
 	!byte 0,0
 .insert_save_disk
+!ifdef VMEM {
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
-	beq + ; Save disk is already in drive.
+	beq .return ; Save disk is already in drive.
+}
 	jsr prepare_for_disk_msgs
 	ldy #0
-	jsr print_insert_disk_msg
-+   rts
+	jmp print_insert_disk_msg
 
 !ifdef VMEM {
 .insert_story_disk

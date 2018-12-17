@@ -6,7 +6,13 @@ long enough to reach the last column there will be an extra newline
 
 Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
 
-BZ: flush toilet twice with the document and the towel inside goes wrong. first the document disappears, but a sheed of the document remains. However, the toilet is empty.
+BZ: flush toilet twice with the document and the towel inside goes wrong. First the document disappears, but a shred of the document remains. However, the toilet is empty.
+
+Restore doesn't list files in non-vmem game.
+
+No words are recognized in Tethered.
+
+Statusline longer than 40 characters overflows into main window.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -18,6 +24,7 @@ Figure out if some commandline flags to Acme are no longer useful enough to be k
 
 *** Speed ***
 - Optimize object manipulation and object tree manipulation
+- Optimize screen kernal
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 - Add fast-loader code?
 
@@ -28,6 +35,8 @@ Output transcript to printer support.
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
+
+Support REU for caching.
 
 ; Instructions which have not yet been fully implemented
 ; ------------------------------------------------------
