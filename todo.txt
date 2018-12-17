@@ -1,10 +1,14 @@
 Known bugs
 ----------
-Status line covering several lines isn't working correctly (Nord and Bert).
-
 A message which ends in the last column gets an extra line break.
 
 Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
+
+BZ: flush toilet twice with the document and the towel inside goes wrong. first the document disappears, but a sheed of the document remains. However, the toilet is empty.
+
+Fixed bugs
+----------
+Status line covering several lines isn't working correctly (Nord and Bert).
 
 AMFV: Status line updates are printed in the main window.
 
