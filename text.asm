@@ -1010,19 +1010,30 @@ read_char
 	jsr translate_petscii_to_zscii
     rts
 
+s_cursorswitch !byte 0
 turn_on_cursor
-    ;lda #0
-    ;sta zp_cursorswitch
-    rts
+    lda #1
+    sta s_cursorswitch
+    bne update_cursor ; always branch
 
 turn_off_cursor
-    ;lda #$ff
-    ;sta zp_cursorswitch
-    ;; hide cursor if still visible
-    ;ldy zp_screencolumn
-    ;lda (zp_screenline),y
-    ;and #$7f
-    ;sta (zp_screenline),y
+    lda #0
+    sta s_cursorswitch
+    ; beq update_cursor ; always branch
+
+update_cursor
+    ldy zp_screencolumn
+    lda s_cursorswitch
+    bne +
+    ; no cursor
+    lda (zp_screenline),y
+    and #$7f
+    sta (zp_screenline),y
+    rts
++   ; cursor
+    lda (zp_screenline),y
+    ora #$80
+    sta (zp_screenline),y
     rts
 
 read_text
@@ -1115,8 +1126,10 @@ read_text
     ldy zp_screencolumn
     cpy .read_text_startcolumn
     beq .readkey
+	jsr turn_off_cursor
 	lda .petscii_char_read
     jsr s_printchar ; print the delete char
+	jsr turn_on_cursor
 !ifdef Z5PLUS {
     ldy #1
     lda (string_array),y ; number of characters in the array
@@ -1131,8 +1144,9 @@ read_text
     cmp #128
     bcc .char_is_ok
 	cmp #155
-	bcc .readkey
-	cmp #252
+	bpl +
+	jmp .readkey
++	cmp #252
 	bcc .char_is_ok
 	jmp .readkey
     ; cmp #19
@@ -1152,6 +1166,7 @@ read_text
 ;	jsr translate_zscii_to_petscii
 	lda .petscii_char_read
     jsr s_printchar
+    jsr update_cursor
     lda zp_screencolumn ; compare with size of keybuffer
     sec
     sbc .read_text_startcolumn
