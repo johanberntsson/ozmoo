@@ -69,6 +69,9 @@ game_id		!byte 0,0,0,0
 !source "objecttable.asm"
 
 .initialize
+!ifdef TESTSCREEN {
+    jmp testscreen
+}
 	jsr deletable_init
 	jsr prepare_static_high_memory
     jsr parse_object_table

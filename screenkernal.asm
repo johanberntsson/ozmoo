@@ -5,6 +5,7 @@
 ; zp_screenline $d1-$d2
 ; zp_screencolumn $d3
 ; zp_screenrow $d6
+; zp_colorline $f3-$f4
 ;
 ; needed to be able to customize the text scrolling to
 ; not include status lines, especially big ones used in
@@ -12,6 +13,8 @@
 ;
 ; usage: first call s_init, then replace
 ; $ffd2 with s_printchar and so on.
+; s_scrollstart is set to the number of top lines to keep when scrolling
+;
 ; Uncomment TESTSCREEN and call testscreen for a demo.
 
 ;TESTSCREEN = 1
@@ -115,14 +118,8 @@ s_printchar
     adc .reverse
     pha
     jsr .update_screenpos
-    lda zp_screenline
-    sta zp_colorline
-    lda zp_screenline + 1
-    clc
-    adc #$d4
-    sta zp_colorline + 1
-    ldy zp_screencolumn
     pla
+    ldy zp_screencolumn
     sta (zp_screenline),y
     lda .color
     sta (zp_colorline),y
@@ -145,8 +142,10 @@ s_erase_line
     sta zp_screencolumn
     jsr .update_screenpos
     ldy #0
-    lda #$20
--   sta (zp_screenline),y
+-   lda #$20
+    sta (zp_screenline),y
+    lda .color
+    sta (zp_colorline),y
     iny
     cpy #40
     bne -
@@ -188,9 +187,12 @@ s_erase_window
     clc
     adc zp_screenline ; add *8
     sta zp_screenline
+    sta zp_colorline
     lda zp_screenline + 1
-    adc #$04        ; add screen start ($0400)
+    adc #$04 ; add screen start ($0400)
     sta zp_screenline +1
+    adc #$d4 ; add color start ($d800)
+    sta zp_colorline + 1
 +   rts
 
 .s_scroll
@@ -202,11 +204,15 @@ s_erase_window
     stx zp_screenrow
 -   jsr .update_screenpos
     lda zp_screenline
-    sta zp_colorline
+    pha
     lda zp_screenline + 1
-    sta zp_colorline + 1
+    pha
     inc zp_screenrow
     jsr .update_screenpos
+    pla
+    sta zp_colorline + 1
+    pla
+    sta zp_colorline
     ; move characters
     ldy #0
 --  lda (zp_screenline),y ; zp_screenrow
@@ -246,8 +252,8 @@ s_erase_window
 
 !ifdef TESTSCREEN {
 
-.testtext !pet 147,146,5,"Status Line 123         ",18,13
-          !pet 28,"tesx",20,"t aA@! ",146,"Test aA@!",18,13
+.testtext !pet 5,147,18,"Status Line 123         ",146,13
+          !pet 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13
           !pet 155,"third line",13
           !pet "fourth line",13
           !pet 13,13,13,13,13,13

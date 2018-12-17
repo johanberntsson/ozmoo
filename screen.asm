@@ -601,7 +601,6 @@ draw_status_line
     ; fill the rest of the line with spaces
     ;
 -   lda zp_screencolumn
-    cmp #40
     beq +
     lda #$20
     jsr s_printchar
