@@ -99,7 +99,11 @@ game_id		!byte 0,0,0,0
 	; Back to normal memory banks
 	+set_memory_normal
 
-    rts
+	jsr $fda3 ; init I/O
+	;jsr $fd50 ; init memory
+	jsr $fd15 ; set I/O vectors
+	jsr $ff5b ; more init
+    jmp ($a000)
 
 program_end
 
