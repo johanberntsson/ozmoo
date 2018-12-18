@@ -179,25 +179,17 @@ prepare_static_high_memory
 -	iny
 	lda (zp_temp),y
 	sta vmap_z_h - 2,y
-
-	and #%01000000 ; Check if non-swappable memory
-	bne .dont_set_vmap_swappable
-	lda vmap_first_swappable_index
-	bne .dont_set_vmap_swappable
-	dey
-	dey
-	sty vmap_first_swappable_index
-	iny
-	iny
-.dont_set_vmap_swappable
 	dex
 	bne -
-; 	
-	lda vmap_first_swappable_index
-	bne .dont_set_vmap_swappable_2
-	dey
+	
+	ldy #vmap_max_length - 1
+-	lda vmap_z_h,y
+	and #%01000000 ; Check if non-swappable memory
+	bne .dont_set
 	sty vmap_first_swappable_index
-.dont_set_vmap_swappable_2
+	dey
+	bpl -
+.dont_set
 	
 ; Point to lowbyte array	
 	ldy #0

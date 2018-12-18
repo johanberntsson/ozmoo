@@ -192,11 +192,9 @@ z_ins_sread
     ;jsr print_vm_map
 }
     ; read input
-    ldy #0
-    sty .read_text_time
-!ifndef Z4 {
-    jsr draw_status_line
-}
+; !ifndef Z4 {
+    ; jsr draw_status_line
+; }
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
 !ifdef Z4 {
@@ -895,6 +893,7 @@ find_word_in_dictionary
 +	bcs .no_entry_found ; Always branch
 
 
+!ifdef Z4PLUS {
 init_read_text_timer
     lda .read_text_time
     sta .read_text_time_jiffy
@@ -932,6 +931,7 @@ update_read_text_timer
     adc #0
     sta .read_text_jiffy + 2
     rts
+}
 
 read_char
 	; return: 0,1: return value of routine (false, true)
@@ -1049,8 +1049,10 @@ read_text
     sta string_array + 1
     ; clear [More] counter
     jsr clear_num_rows
+!ifdef Z4PLUS {
     ; check timer usage
     jsr init_read_text_timer
+}
 .init_read_text
     ; turn on blinking cursor
     jsr turn_on_cursor
@@ -1237,11 +1239,13 @@ read_text
 .read_text_cursor !byte 0,0
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
+.read_text_operand_count !byte 0
+!ifdef Z4PLUS {
 .read_text_time !byte 0 ; update interval in 1/10 seconds
 .read_text_time_jiffy !byte 0 ; update interval in jiffys
 .read_text_routine !byte 0, 0 ; called with .read_text_time intervals
 .read_text_jiffy !byte 0, 0, 0  ; current time
-.read_text_operand_count !byte 0
+}
 
 tokenise_text
     ; divide read_line input into words and look up them in the dictionary

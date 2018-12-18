@@ -4,8 +4,6 @@ A message which ends in the last column gets an extra line break.
 - test by writing a long unknown word in BZ. If the error message is just
 long enough to reach the last column there will be an extra newline
 
-Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
-
 No words are recognized in Tethered.
 
 Statusline longer than 40 characters overflows into main window.
@@ -76,6 +74,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
+
 BZ: flush toilet twice with the document and the towel inside goes wrong. First the document disappears, but a shred of the document remains. However, the toilet is empty. -- EXAMINE TOILET says the toilet is empty, but SEARCH TOILET reveals the shred. Works the same in Infocoms C64 terp.
 
 Vmem optimization  mode ( -o ) is not working. Game freezes after the initial message has been printed.

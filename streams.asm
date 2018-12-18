@@ -55,6 +55,8 @@ streams_print_output
 	; output:
 	; side effects: -
 	; affected registers: p
+	cmp #0
+	beq .return
 	pha
 	lda streams_output_selected + 2
 	bne .mem_write
@@ -71,9 +73,10 @@ streams_print_output
 .print_byte_to_mem
 	sta $8000 ; Will be modified!
 	inc streams_current_entry + 2
-	bne +
+	bne .return
 	inc streams_current_entry + 3
-+	rts
+.return
+	rts
 
 z_ins_output_stream
 	; Set output stream held in z_operand 0
