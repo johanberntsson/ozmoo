@@ -10,8 +10,6 @@ Statusline longer than 40 characters overflows into main window.
 
 Statusline messed up after restore in BZ.
 
-Timed input using an interval of more than 255 tenths of a second hasn't been implemented properly.
-
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
@@ -72,6 +70,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Timed input using an interval of more than 255 tenths of a second hasn't been implemented properly.
+
 Timing during timed input is off on NTSC computers.
 
 Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
