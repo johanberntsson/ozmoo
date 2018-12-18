@@ -905,19 +905,16 @@ init_read_text_timer
     sta multiplicand + 1
     lda .read_text_time
     sta multiplier
-    lda #5
+    lda #6
     sta multiplicand ; t*5 for NTSC
-    lda c64_model
-    cmp #3
-    bne .is_ntsc
-    inc multiplicand ; t*6 for PAL
-.is_ntsc
+    ; lda c64_model
+    ; cmp #3
+    ; bne .is_ntsc
+    ; inc multiplicand ; t*6 for PAL
+; .is_ntsc
     jsr mult16
     lda product
     sta .read_text_time_jiffy
-    ;jmp update_read_text_timer
-    ; update_read_text_timer must follow below to save a few bytes
-
 update_read_text_timer
     ; prepare time for next routine call (current time + time_jiffy)
     jsr kernel_readtime  ; read current time (in jiffys)

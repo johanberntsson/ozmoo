@@ -10,8 +10,6 @@ Statusline longer than 40 characters overflows into main window.
 
 Statusline messed up after restore in BZ.
 
-Timing during timed input may be off on NTSC computers.
-
 Timed input using an interval of more than 255 tenths of a second hasn't been implemented properly.
 
 Ideas for tasks / subprojects to do next
@@ -74,6 +72,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Timing during timed input is off on NTSC computers.
+
 Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
 
 BZ: flush toilet twice with the document and the towel inside goes wrong. First the document disappears, but a shred of the document remains. However, the toilet is empty. -- EXAMINE TOILET says the toilet is empty, but SEARCH TOILET reveals the shred. Works the same in Infocoms C64 terp.

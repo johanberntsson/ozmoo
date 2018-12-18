@@ -56,7 +56,7 @@ program_start
 ; global variables
 filelength !byte 0, 0, 0
 fileblocks !byte 0, 0
-c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
+; c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
 game_id		!byte 0,0,0,0
 
 ; include other assembly files
@@ -375,13 +375,13 @@ z_init
 !zone deletable_init {
 deletable_init
 	cld
-    ; check if PAL or NTSC (needed for read_line timer)
-w0  lda $d012
-w1  cmp $d012
-    beq w1
-    bmi w0
-    and #$03
-    sta c64_model
+    ; ; check if PAL or NTSC (needed for read_line timer)
+; w0  lda $d012
+; w1  cmp $d012
+    ; beq w1
+    ; bmi w0
+    ; and #$03
+    ; sta c64_model
     ; enable lower case mode
 !ifdef CUSTOM_FONT {
     lda #18
