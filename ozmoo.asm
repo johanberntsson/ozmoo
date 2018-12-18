@@ -190,9 +190,15 @@ prepare_static_high_memory
 	iny
 	iny
 .dont_set_vmap_swappable
-
 	dex
 	bne -
+; 	
+	lda vmap_first_swappable_index
+	bne .dont_set_vmap_swappable_2
+	dey
+	sty vmap_first_swappable_index
+.dont_set_vmap_swappable_2
+	
 ; Point to lowbyte array	
 	ldy #0
 	lda (zp_temp),y

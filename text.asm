@@ -267,7 +267,7 @@ z_ins_sread
 	ldy #3
 .check_next_preopt_exit_char
 	lda (string_array),y
-	cmp #$58
+	cmp #$78
 	bne .not_preopt_exit
 	dey
 	bne .check_next_preopt_exit_char

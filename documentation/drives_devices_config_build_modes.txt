@@ -12,6 +12,16 @@ Notes:
 
 * Less RAM available for virtual memory system: This means a smaller part of C64 memory can be used for virtual memory handling, which means the game will need to load sectors from disk more often. This will of course slow the game down.
 
+Modes not requiring a disk drive for play:
+---
+P: Program file
+	Story file size < ~51 KB: Using full amount of RAM.
+	Story file size < ~40 KB: You may use flag -r to only use RAM up to $CFFF. This means all RAM can be accessed directly without buffers, which makes the interpreter smaller and the game faster.
+
+	Disks used:
+		* Boot / Story disk. This contains a single file, which may be moved to any other medium, like another disk image or a tape image.
+
+
 Modes requiring a single 1541 drive for play:
 ---
 S1: Single 1541 drive, one disk

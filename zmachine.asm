@@ -950,11 +950,13 @@ z_set_variable
 }
 
 !zone {
+!ifdef Z5PLUS {
 check_for_routine_0
-	; If value in argument 0 is 0, set status flag Z to 1 and return 
+	; If value in argument 0 is 0, set status flag Z to 1, otherwise set to 0, and return. 
 	lda z_operand_value_high_arr
 	ora z_operand_value_low_arr
 	rts
+}
 check_for_routine_0_and_store
 	; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
 	lda z_operand_value_high_arr

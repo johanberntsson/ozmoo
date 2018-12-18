@@ -20,11 +20,9 @@ end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
-# Typically only ALLRAM, VMEM and SMALLBLOCK should be enabled. If VMEM is enabled, so is ALLRAM.
+# Typically only SMALLBLOCK should be enabled.
 $GENERALFLAGS = [
-	'ALLRAM', # Use all available RAM. With this turned off, only RAM up to $CFFF is used. 
-	'VMEM', # Use virtual memory. Without this, the entire game has to fit in RAM all at once.
-	'SMALLBLOCK', # If VMEM is set, and SMALLBLOCK is set, use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
+	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'OLD_MORE_PROMPT',
@@ -32,7 +30,6 @@ $GENERALFLAGS = [
 ]
 
 # For a production build, none of these flags should be enabled.
-# Note: PREOPT is not part of this list, since it is controlled by the -o commandline switch
 $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'VIEW_STACK_RECORDS',
@@ -64,10 +61,11 @@ $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason n
 
 $STACK_PAGES = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
 
-MODE_S1 = 1
-MODE_S2 = 2
-MODE_D2 = 3
-MODE_D3 = 4
+MODE_P = 1
+MODE_S1 = 2
+MODE_S2 = 3
+MODE_D2 = 4
+MODE_D3 = 5
 
 mode = MODE_S1
 
@@ -78,8 +76,6 @@ DISKNAME_DISK = 131
 
 $BUILD_ID = Random.rand(0 .. 2**32-1)
 
-$ALLRAM = $GENERALFLAGS.include?('ALLRAM')
-$VMEM = $GENERALFLAGS.include?('VMEM')
 $VMEM_BLOCKSIZE = $GENERALFLAGS.include?('SMALLBLOCK') ? 512 : 1024
 
 $ZEROBYTE = 0.chr
@@ -456,11 +452,6 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		return vmem_preload_blocks
 	end
 	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####\n\n"
-#	base_size = build_specific_boot_file(0, vmem_contents)
-#	return -1 if base_size > max_file_size
-#	save_good_boot_file()
-#	puts "##### Built loader/interpreter with 0 virtual memory blocks preloaded: OK      #####"
-#	max_ok_blocks = [((max_file_size - base_size) / $VMEM_BLOCKSIZE * 0.95).floor.to_i, min_failed_blocks - 1].min  
 	max_ok_blocks = -1 # We we never find a number of blocks which work, -1 will be returned to signal failure.  
 	
 	done = false
@@ -513,23 +504,60 @@ def limit_vmem_data(vmem_data)
 	end
 end
 
-def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
-	max_story_blocks = $VMEM ? 9999 : 0
+def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	max_story_blocks = 0
 	
-	boot_disk = $VMEM
+	boot_disk = false
 	
-#	if !$VMEM and preload_max_vmem_blocks * $VMEM_BLOCKSIZE < $story_size
-#		puts "#{preload_max_vmem_blocks * $VMEM_BLOCKSIZE} < #{$story_size}"
-	if !$VMEM and $vmem_size < $story_size
+	if $VMEM
+		puts "ERROR: Tried to use build mode -P with VMEM."
+		exit 0
+	end
+	
+	if $vmem_size < $story_size
 		puts "#{$vmem_size} < #{$story_size}"
-		puts "ERROR: The whole story doesn't fit in memory. Please enable ALLRAM and/or VMEM in make.rb."
+		puts "ERROR: The whole story doesn't fit in memory. Please try another build mode."
 		exit 1
 	end
 	
 	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
+	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks) # Has to be run to finalize the disk
+
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}"
+
+	# Build loader + terp + preloaded vmem blocks as a file
+#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
+	build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
+	
+	disk.save()
+	
+	# Add loader + terp + preloaded vmem blocks file to disk
+	if add_boot_file(storyname, d64_filename) != true
+		puts "ERROR: Failed to write loader/interpreter to disk."
+		exit 1
+	end
+
+	puts "Successfully built game as #{storyname}.d64"
+	$bootdiskname = storyname
+	nil # Signal success
+end
+
+def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	max_story_blocks = 9999
+	
+	boot_disk = true
+
+	unless $VMEM
+		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+		exit 0
+	end
+	
+	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
-	if $VMEM and $story_file_cursor < $story_file_data.length
+	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
 	end
@@ -549,22 +577,20 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	end
 	vmem_data[2] = vmem_preload_blocks
 
-	if $VMEM then
-		# Add config data about boot / story disk
-		disk_info_size = 11 + disk.config_track_map.length
-		last_block_plus_1 = 0
-		disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
-	# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
-		config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
-			disk.config_track_map.length] + disk.config_track_map
-		config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
-		config_data[4] += disk_info_size
-		
-		config_data += vmem_data
+	# Add config data about boot / story disk
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+	
+	config_data += vmem_data
 
-		#	puts config_data
-		disk.set_config_data(config_data)
-	end
+	#	puts config_data
+	disk.set_config_data(config_data)
 	
 	disk.save()
 	
@@ -580,6 +606,12 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 end
 
 def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+
+	unless $VMEM
+		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+		exit 0
+	end
+
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story"
@@ -636,6 +668,12 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+
+	unless $VMEM
+		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+		exit 0
+	end
+
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot_story_1"
 	outfile2name = "#{storyname}_story_2"
@@ -709,6 +747,12 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+
+	unless $VMEM
+		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+		exit 0
+	end
+
 	config_data[7] = 4 # 4 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story_1"
@@ -789,19 +833,21 @@ end
 
 
 def print_usage_and_exit
-    puts "Usage: make.rb [-S1|-S2] [-c <preloadfile>] [-o] [-s] [-x] -f <fontfile> <file>"
-    puts "       -S1|-S2|-D2|-D3: specify build mode. Defaults to S1. Read about build modes in documentation folder."
+    puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-c <preloadfile>] [-o] [-s] [-x] [-r] -f <fontfile> <file>"
+    puts "       -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
     puts "       -c: read preload config from preloadfile, previously created with -o"
     puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
     puts "       -s: start game in Vice if build succeeds"
     puts "       -x: Use extended tracks (40 instead of 35) on 1541 disk"
+    puts "       -r: Use reduced amount of RAM (-$CFFF). Only with -P."
     puts "       -f: Embed the specified font with the game"
     puts "       filename: path optional (e.g. infocom/zork1.z3)"
     exit 0
 end
 
 i = 0
+reduced_ram = false
 await_preloadfile = false
 await_fontfile = false
 preloadfile = nil
@@ -822,26 +868,30 @@ begin
 		elsif await_fontfile then
 			await_fontfile = false
 			$font_filename = ARGV[i]
-		elsif ARGV[i] =~ /^-x$/i then
+		elsif ARGV[i] =~ /^-x$/ then
 			extended_tracks = true
-		elsif ARGV[i] =~ /^-o$/i then
+		elsif ARGV[i] =~ /^-o$/ then
 			optimize = true
-		elsif ARGV[i] =~ /^-s$/i then
+		elsif ARGV[i] =~ /^-s$/ then
 			auto_play = true
-		elsif ARGV[i] =~ /^-p(\d*)$/i then
+		elsif ARGV[i] =~ /^-r$/ then
+			reduced_ram = true
+		elsif ARGV[i] =~ /^-p(\d*)$/ then
 			preload_max_vmem_blocks = ($1.length > 0) ? $1.to_i : 0
 			limit_preload_vmem_blocks = true
-		elsif ARGV[i] =~ /^-S1$/i then
+		elsif ARGV[i] =~ /^-P$/ then
+			mode = MODE_P
+		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
-		elsif ARGV[i] =~ /^-S2$/i then
+		elsif ARGV[i] =~ /^-S2$/ then
 			mode = MODE_S2
-		elsif ARGV[i] =~ /^-D2$/i then
+		elsif ARGV[i] =~ /^-D2$/ then
 			mode = MODE_D2
-		elsif ARGV[i] =~ /^-D3$/i then
+		elsif ARGV[i] =~ /^-D3$/ then
 			mode = MODE_D3
-		elsif ARGV[i] =~ /^-c$/i then
+		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
-		elsif ARGV[i] =~ /^-f$/i then
+		elsif ARGV[i] =~ /^-f$/ then
 			await_fontfile = true
 			$start_address = 0x1000
 		elsif ARGV[i] =~ /^-/i then
@@ -859,18 +909,32 @@ rescue
 	print_usage_and_exit()
 end
 
-if mode != MODE_S1 and !$VMEM
-	puts "VMEM (Virtual memory) has been disabled in make.rb. VMEM must be enabled to use this build mode."
+$VMEM = (mode != MODE_P)
+
+$GENERALFLAGS.push('VMEM') if $VMEM
+
+$GENERALFLAGS.push('ALLRAM') unless reduced_ram
+
+$ALLRAM = $GENERALFLAGS.include?('ALLRAM')
+
+
+if reduced_ram and mode != MODE_P
+	puts "Option -r can't be used with this build mode."
+	exit 0
+end
+
+if optimize and mode == MODE_P
+	puts "Option -o can't be used with this build mode."
 	exit 0
 end
 
 if limit_preload_vmem_blocks and !$VMEM
-	puts "VMEM (Virtual memory) has been disabled in make.rb. VMEM must be enabled to use option -p."
+	puts "Option -p can't be used with this build mode."
 	exit 0
 end
 
 if extended_tracks and !$VMEM
-	puts "VMEM (Virtual memory) has been disabled in make.rb. VMEM must be enabled to use option -x."
+	puts "Option -x can't be used with this build mode."
 	exit 0
 end
 
@@ -892,7 +956,7 @@ preload_data = nil
 if preloadfile then
 	preload_raw_data = File.read(preloadfile)
 	vmem_type = "clock"
-	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/
+	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/i
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{preload_data.length} blocks found for initial caching."
 	else
@@ -1015,9 +1079,10 @@ if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] 
 	preload_max_vmem_blocks = vmem_data[2]
 end
 
-#puts vmem_contents.length
-
 case mode
+when MODE_P
+	d64_filename = File.join($TEMPDIR, "temp1.d64")
+	error = build_P(storyname, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S1
 	d64_filename = File.join($TEMPDIR, "temp1.d64")
 	error = build_S1(storyname, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
