@@ -53,6 +53,13 @@ s_printchar
     ; used registers: -
     stx .stored_x
     sty .stored_y
+	
+	; Fastlane for the most common characters
+	cmp #$20
+	bcc +
+	cmp #$80
+	bcc .normal_char
++	
     ; check if colour code
     ldx #0
 -   cmp .colours,x
@@ -100,12 +107,13 @@ s_printchar
     stx .reverse
     jmp .printchar_end
 +   cmp #$92 ; 146
-    bne +
+    bne .normal_char
     ; reverse off
     ldx #0
     stx .reverse
     jmp .printchar_end
-+   ; covert from pet ascii to screen code
+.normal_char
+   ; convert from pet ascii to screen code
     cmp #$40
     bcc ++    ; no change if numbers or special chars
     cmp #$60
