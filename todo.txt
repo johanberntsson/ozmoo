@@ -28,8 +28,6 @@ Color support
 
 Output transcript to printer support.
 
-Create our own screen handling routines to give us full control, including not scrolling status line off screen.
-
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
 
 Support REU for caching.
@@ -44,7 +42,6 @@ Support REU for caching.
 ;
 ; 2OP
 ; ---
-; set_colour
 ;
 ; VAR
 ; ---
@@ -70,6 +67,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+set_colour implemented
+
+Create our own screen handling routines to give us full control, including not scrolling status line off screen.
+
 Timed input using an interval of more than 255 tenths of a second hasn't been implemented properly.
 
 Timing during timed input is off on NTSC computers.

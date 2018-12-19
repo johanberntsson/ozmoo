@@ -256,6 +256,29 @@ s_erase_window
 .stored_y !byte 0
 .current_screenpos_row !byte $ff
 .colors !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+.zcolors !byte 0,0 ; current/default color
+         !byte 0,2,5,7  ; black, red, green, yellow
+         !byte 6,4,3,1  ; blue, magenta, cyan, white
+!ifdef Z6 {
+         !byte 15,12,11 ; lgrey, mgrey, dgrey
+}
+
+z_ins_set_colour
+    ; set_colour foreground background [window]
+    ; (window is not used in Ozmoo)
+    ldx z_operand_value_low_arr 
+    lda .zcolors,x
+    bne +
+    lda story_start + $2d ; default colour
++   tax
+    lda .colors,x ; get pet ascii for this color
+    jsr s_printchar ; change foreground color
+    ldx z_operand_value_low_arr + 1
+    lda .zcolors,x
+    bne +
+    lda story_start + $2c ; default colour
++   sta $d021
+    rts
 
 !ifdef TESTSCREEN {
 

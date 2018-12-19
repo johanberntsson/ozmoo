@@ -126,7 +126,7 @@ z_jump_high_arr
 	!byte >z_not_implemented
 } else {
 	!byte >z_ins_call_xn
-	!byte >z_not_implemented
+	!byte >z_ins_set_colour
 	!byte >z_ins_throw
 }
 	!byte >z_not_implemented
@@ -317,7 +317,7 @@ z_jump_low_arr
 	!byte <z_not_implemented
 } else {
 	!byte <z_ins_call_xn
-	!byte <z_not_implemented
+	!byte <z_ins_set_colour
 	!byte <z_ins_throw
 }
 	!byte <z_not_implemented
@@ -1699,6 +1699,8 @@ z_ins_call_xn
 	jmp stack_call_routine
 }
 	
+; z_ins_set_colour (moved to screenkernal.asm)
+
 ; z_ins_throw (moved to stack.asm)
 
 	

@@ -20,6 +20,13 @@ init_screen_colours
     sta $d020
     lda #$0b
     sta $d021
+!ifdef Z5PLUS {
+    ; store default colours in header
+    lda #6 ; blue
+    sta story_start + $2c
+    lda #9 ; white
+    sta story_start + $2d
+}
     lda #147 ; clear screen
     jmp s_printchar
 
