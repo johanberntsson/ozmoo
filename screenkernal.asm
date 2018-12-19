@@ -59,17 +59,19 @@ s_printchar
 	bcc +
 	cmp #$80
 	bcc .normal_char
+	cmp #$a0
+	bcs .normal_char
 +	
-    ; check if colour code
-    ldx #0
--   cmp .colours,x
+	cmp #$0d
     bne +
-    ; colour <x> found
-    stx .colour
+    ; newline/enter/return
+    lda #0
+    sta zp_screencolumn
+    inc zp_screenrow
+    jsr .s_scroll
+    jsr .update_screenpos
     jmp .printchar_end
-+   inx
-    cpx #16
-    bne -
++   
     cmp #20
     bne +
     ; delete
@@ -82,15 +84,6 @@ s_printchar
     sta (zp_screenline),y
     lda .colour
     sta (zp_colourline),y
-    jmp .printchar_end
-+   cmp #$0d
-    bne +
-    ; newline/enter/return
-    lda #0
-    sta zp_screencolumn
-    inc zp_screenrow
-    jsr .s_scroll
-    jsr .update_screenpos
     jmp .printchar_end
 +   cmp #$93 
     bne +
@@ -107,27 +100,36 @@ s_printchar
     stx .reverse
     jmp .printchar_end
 +   cmp #$92 ; 146
-    bne .normal_char
+    bne +
     ; reverse off
     ldx #0
     stx .reverse
-    jmp .printchar_end
+    beq .printchar_end ; Always jump
++
+	; check if colour code
+	ldx #15
+-	cmp .colours,x
+	beq ++
+	dex
+	bpl -
+	bmi .normal_char
+++	; colour <x> found
+	stx .colour
+	beq .printchar_end ; Always jump
+	
 .normal_char
    ; convert from pet ascii to screen code
-    cmp #$40
-    bcc ++    ; no change if numbers or special chars
-    cmp #$60
-    bpl +
-    sec
-    sbc #64
-    bcs ++ ; always jump
+	cmp #$40
+	bcc ++    ; no change if numbers or special chars
+	cmp #$60
+	bcs +
+	and #%00111111
+	bcc ++ ; always jump
 +   cmp #$80
-    bpl +
-    sec
-    sbc #32
-    bne ++ ; always jump
-+   sec
-    sbc #128
+    bcs +
+	and #%11011111
+    bcc ++ ; always jump
++	and #%01111111
 ++  ; print the char
     clc
     adc .reverse
