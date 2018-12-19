@@ -268,13 +268,13 @@ z_init
 } else {
 !ifdef Z4 {
 	lda story_start + header_flags_1
-	and #(255 - 4 - 8) ; bold font, italic font, timed input not available
+	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(16 + 128) ; Fixed-space style, timed input available
 	sta story_start + header_flags_1
 } else { ; Z5PLUS
 	lda story_start + header_flags_1
 	and #(255 - 4 - 8) ; bold font, italic font not available
-	ora #(16 + 128) ; Fixed-space style, timed input available
+	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 	sta story_start + header_flags_1
 	lda story_start + $11
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
