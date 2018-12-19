@@ -271,14 +271,14 @@ read_track_sector
     lda #cname_len
     ldx #<.cname
     ldy #>.cname
-    jsr kernel_setnam ; call SETNAM
+    jsr kernal_setnam ; call SETNAM
 
     lda #$02      ; file number 2
     ldx .device
 	tay      ; secondary address 2
-    jsr kernel_setlfs ; call SETLFS
+    jsr kernal_setlfs ; call SETLFS
 
-    jsr kernel_open     ; call OPEN
+    jsr kernal_open     ; call OPEN
     bcs .error    ; if carry set, the file could not be opened
 
     ; open the command channel
@@ -286,20 +286,20 @@ read_track_sector
     lda #uname_len
     ldx #<.uname
     ldy #>.uname
-    jsr kernel_setnam ; call SETNAM
+    jsr kernal_setnam ; call SETNAM
     lda #$0F      ; file number 15
     ldx .device
     tay      ; secondary address 15
-    jsr kernel_setlfs ; call SETLFS
+    jsr kernal_setlfs ; call SETLFS
 
-    jsr kernel_open ; call OPEN (open command channel and send U1 command)
+    jsr kernal_open ; call OPEN (open command channel and send U1 command)
     bcs .error    ; if carry set, the file could not be opened
 
     ; check drive error channel here to test for
     ; FILE NOT FOUND error etc.
 
     ldx #$02      ; filenumber 2
-    jsr kernel_chkin ; call CHKIN (file 2 now used as input)
+    jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
     lda readblocks_mempos
     sta zp_mempos
@@ -307,7 +307,7 @@ read_track_sector
     sta zp_mempos + 1
 
     ldy #$00
--   jsr kernel_readchar ; call CHRIN (get a byte from file)
+-   jsr kernal_readchar ; call CHRIN (get a byte from file)
     sta (zp_mempos),Y   ; write byte to memory
     iny
     bne -         ; next byte, end when 256 bytes are read
@@ -340,16 +340,16 @@ uname_len = * - .uname
 
 close_io
     lda #$0F      ; filenumber 15
-    jsr kernel_close ; call CLOSE
+    jsr kernal_close ; call CLOSE
 
     lda #$02      ; filenumber 2
-    jsr kernel_close ; call CLOSE
+    jsr kernal_close ; call CLOSE
 
-    jmp kernel_clrchn ; call CLRCHN
+    jmp kernal_clrchn ; call CLRCHN
 
 !zone disk_messages {
 prepare_for_disk_msgs
-	jsr clear_screen_raw
+	;jsr clear_screen_raw
 	; lda #0
 	; sta .print_row
 	ldx #0
@@ -407,7 +407,7 @@ print_insert_disk_msg
 	lda #>insert_msg_3
 	ldx #<insert_msg_3
 	jsr printstring_raw
-	jsr kernel_readchar
+	jsr kernal_readchar
 	; lda .print_row
 	; clc
 	; adc #3
@@ -486,7 +486,7 @@ z_ins_save
     ; modifies a,x,y
     lda #0
     sta .inputlen
--   jsr $ffe4
+-   jsr kernal_getchar
     cmp #$14 ; delete
     bne +
     ldx .inputlen
@@ -553,22 +553,22 @@ list_save_files
     lda #1
     ldx #<.dirname
     ldy #>.dirname
-    jsr kernel_setnam ; call SETNAM
+    jsr kernal_setnam ; call SETNAM
 
     lda #2      ; file number 2
     ldx disk_info + 4 ; Device# for save disk
 +   ldy #0      ; secondary address 2
-    jsr kernel_setlfs ; call SETLFS
+    jsr kernal_setlfs ; call SETLFS
 
-    jsr kernel_open     ; call OPEN
+    jsr kernal_open     ; call OPEN
     bcs .error    ; if carry set, the file could not be opened
 
     ldx #2      ; filenumber 2
-    jsr kernel_chkin ; call CHKIN (file 2 now used as input)
+    jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
 	; Skip load address and disk title
 	ldy #32
--	jsr kernel_readchar
+-	jsr kernal_readchar
 	dey
 	bne -
 
@@ -576,23 +576,23 @@ list_save_files
 	lda #0
 	sta zp_temp + 1
 	; Read row pointer
-	jsr kernel_readchar
+	jsr kernal_readchar
 	sta zp_temp
-	jsr kernel_readchar
+	jsr kernal_readchar
 	ora zp_temp
 	beq .end_of_dir
 
-	jsr kernel_readchar
-	jsr kernel_readchar
--	jsr kernel_readchar
+	jsr kernal_readchar
+	jsr kernal_readchar
+-	jsr kernal_readchar
 	cmp #0
 	beq .read_next_line
 	cmp #$22 ; Charcode for "
 	bne -
-	jsr kernel_readchar
+	jsr kernal_readchar
 	cmp #$21 ; charcode for !
 	bne .not_a_save_file
-	jsr kernel_readchar
+	jsr kernal_readchar
 	cmp #$30 ; charcode for 0
 	bcc .not_a_save_file
 	cmp first_unavailable_save_slot_charcode
@@ -610,7 +610,7 @@ list_save_files
 	jsr printchar_raw
 	dec zp_temp + 1
 	
--	jsr kernel_readchar
+-	jsr kernal_readchar
 .not_a_save_file	
 	cmp #$22 ; Charcode for "
 	beq .end_of_name
@@ -619,7 +619,7 @@ list_save_files
 	jsr printchar_raw
 	bne - ; Always branch
 .end_of_name
--	jsr kernel_readchar
+-	jsr kernal_readchar
 	cmp #0 ; EOL
 	bne -
 	bit zp_temp + 1
@@ -796,7 +796,7 @@ restore_game
 save_game
 	ldx #0
 	ldy #4
--	jsr $eeb3
+-	jsr kernal_delay_1ms
 	dex
 	bne -
 	dey
@@ -838,15 +838,15 @@ save_game
     lda #5
     ldx #<.erase_cmd
     ldy #>.erase_cmd
-    jsr kernel_setnam
+    jsr kernal_setnam
     lda #$0f      ; file number 15
     ldx disk_info + 4 ; Device# for save disk
 	ldy #$0f      ; secondary address 15
-    jsr kernel_setlfs
-    jsr kernel_open ; open command channel and send delete command)
+    jsr kernal_setlfs
+    jsr kernal_open ; open command channel and send delete command)
     bcs .restore_failed  ; if carry set, the file could not be opened
     lda #$0f      ; filenumber 15
-    jsr kernel_close
+    jsr kernal_close
 	
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
@@ -867,16 +867,16 @@ do_restore
     lda #3
     ldx #<.restore_filename
     ldy #>.restore_filename
-    jsr kernel_setnam
+    jsr kernal_setnam
     lda #1      ; file number
     ldx disk_info + 4 ; Device# for save disk
 	ldy #1      ; not $01 means: load to address stored in file
-    jsr kernel_setlfs
+    jsr kernal_setlfs
     lda #$00      ; $00 means: load to memory (not verify)
-    jsr kernel_load
+    jsr kernal_load
     php ; store c flag so error can be checked by calling routine
     lda #1 
-    jsr kernel_close
+    jsr kernal_close
     plp ; restore c flag
     rts
 
@@ -886,11 +886,11 @@ do_save
     adc #2 ; add 2 bytes for prefix
     ldx #<.filename
     ldy #>.filename
-    jsr kernel_setnam
+    jsr kernal_setnam
     lda #1      ; file# 1
     ldx disk_info + 4 ; Device# for save disk
 	ldy #1
-    jsr kernel_setlfs
+    jsr kernal_setlfs
     lda #<(stack_start - zp_bytes_to_save)
     sta $c1
     lda #>(stack_start - zp_bytes_to_save)
@@ -901,10 +901,10 @@ do_save
     adc #>story_start
     tay
     lda #$c1      ; start address located in $C1/$C2
-    jsr kernel_save
+    jsr kernal_save
     php ; store c flag so error can be checked by calling routine
     lda #1 
-    jsr kernel_close
+    jsr kernal_close
     plp ; restore c flag
     rts
 .last_disk	!byte 0

@@ -195,8 +195,8 @@ print_optimized_vm_map
 	jsr dollar
 	jsr dollar
 	jsr newline
-    jsr kernel_readchar   ; read keyboard
-    jmp kernel_reset      ; reset
+    jsr kernal_readchar   ; read keyboard
+    jmp kernal_reset      ; reset
 }
 
 !ifdef TRACE_VM {

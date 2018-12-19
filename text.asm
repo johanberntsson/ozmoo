@@ -926,7 +926,7 @@ init_read_text_timer
     sta .read_text_time_jiffy
 update_read_text_timer
     ; prepare time for next routine call (current time + time_jiffy)
-    jsr kernel_readtime  ; read current time (in jiffys)
+    jsr kernal_readtime  ; read current time (in jiffys)
     clc
     adc .read_text_time_jiffy + 2
     sta .read_text_jiffy + 2
@@ -960,7 +960,7 @@ read_char
     lda .read_text_time
 	ora .read_text_time + 1
     beq .no_timer
-    jsr kernel_readtime   ; read start time (in jiffys) in a,x,y (low to high)
+    jsr kernal_readtime   ; read start time (in jiffys) in a,x,y (low to high)
 	cmp .read_text_jiffy + 2
 	txa
 	sbc .read_text_jiffy + 1
@@ -1016,7 +1016,7 @@ read_char
 +	rts
 }
 .no_timer
-    jsr kernel_getchar
+    jsr kernal_getchar
     cmp #$00
     beq read_char
 	sta .petscii_char_read

@@ -136,8 +136,8 @@ fatalerror
     lda #$0d
     jsr streams_print_output
     jsr printchar_flush
-    jsr kernel_readchar   ; read keyboard
-    jmp kernel_reset      ; reset
+    jsr kernal_readchar   ; read keyboard
+    jmp kernal_reset      ; reset
 .fatal_error_string !pet "fatal error: ",0
 } else {
     pha
@@ -156,8 +156,8 @@ fatalerror
     jsr newline
     jsr print_trace
     jsr printchar_flush
-    jsr kernel_readchar   ; read keyboard
-    jmp kernel_reset      ; reset
+    jsr kernal_readchar   ; read keyboard
+    jmp kernal_reset      ; reset
 
 .saved_a !byte 0
 .saved_x !byte 0
@@ -345,7 +345,7 @@ pause
 	!pet "[Intentional pause. Press ENTER.]",13,0
     jsr print_trace
     jsr printchar_flush
-    jsr kernel_readchar   ; read keyboard
+    jsr kernal_readchar   ; read keyboard
     lda .saved_a
     ldx .saved_x
     ldy .saved_y

@@ -77,7 +77,7 @@ zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column
 zp_screenrow          = $d6 ; current cursor row
-zp_colorline          = $f3 ; 2 bytes current line (pointer to color memory)
+zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 zp_temp               = $fb ; 5 bytes
 
 print_buffer		  = $100 ; 41 bytes
@@ -98,29 +98,30 @@ datasette_buffer_end  = $03fb
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $d018 
-reg_bordercolor       = $d020
-reg_backgroundcolor   = $d021 
+reg_bordercolour      = $d020
+reg_backgroundcolour  = $d021 
 
 ; --- Kernel routines ---
-kernel_setcursor      = $e50c ; set cursor to x/y (row/column)
-kernel_reset          = $fce2 ; cold reset of the C64
-kernel_scnkey         = $ff9f ; scan the keyboard
-kernel_setlfs         = $ffba ; set file parameters
-kernel_setnam         = $ffbd ; set file name
-kernel_open           = $ffc0 ; open a file
-kernel_close          = $ffc3 ; close a file
-kernel_chkin          = $ffc6 ; define file as default input
-kernel_chkout         = $ffc9 ; define file as default output
-kernel_clrchn         = $ffcc ; close default input/output files
-kernel_readchar       = $ffcf ; read byte from default input into a
-;use streams_print_output instead of kernel_printchar
+kernal_delay_1ms      = $eeb3 ; delay 1 ms
+kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
+kernal_reset          = $fce2 ; cold reset of the C64
+kernal_scnkey         = $ff9f ; scan the keyboard
+kernal_setlfs         = $ffba ; set file parameters
+kernal_setnam         = $ffbd ; set file name
+kernal_open           = $ffc0 ; open a file
+kernal_close          = $ffc3 ; close a file
+kernal_chkin          = $ffc6 ; define file as default input
+kernal_chkout         = $ffc9 ; define file as default output
+kernal_clrchn         = $ffcc ; close default input/output files
+kernal_readchar       = $ffcf ; read byte from default input into a
+;use streams_print_output instead of kernal_printchar
 ;($ffd2 only allowed for input/output in screen.asm and text.asm)
-kernel_printchar      = $ffd2 ; write char in a
-kernel_load           = $ffd5 ; load file
-kernel_save           = $ffd8 ; save file
-kernel_readtime       = $ffde ; get time of day in a/x/y
-kernel_getchar        = $ffe4 ; get a character
-kernel_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
+kernal_printchar      = $ffd2 ; write char in a
+kernal_load           = $ffd5 ; load file
+kernal_save           = $ffd8 ; save file
+kernal_readtime       = $ffde ; get time of day in a/x/y
+kernal_getchar        = $ffe4 ; get a character
+kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
 
 
 ; story file header constants
@@ -144,8 +145,8 @@ header_screen_width_units = $22
 header_screen_height_units = $24
 header_font_width_units = $26
 header_font_height_units = $27
-header_default_bg_color = $2c
-header_default_fg_color = $2d
+header_default_bg_colour = $2c
+header_default_fg_colour = $2d
 header_terminating_chars_table = $2e
 header_standard_revision_number = $32
 header_alphabet_table = $34

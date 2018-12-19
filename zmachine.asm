@@ -1135,7 +1135,7 @@ z_ins_rfalse
 ; z_ins_catch (moved to stack.asm)
 
 z_ins_quit
-	jmp kernel_reset
+	jmp kernal_reset
 
 z_ins_restart
 	;rts ; Not currently working, so let's just return and go on with our business

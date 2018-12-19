@@ -331,7 +331,7 @@ increase_num_rows
     ; wait for ENTER
 .printchar_pressanykey
 !ifndef BENCHMARK {
--   jsr kernel_getchar
+-   jsr kernal_getchar
     beq -
 }
 !ifdef OLD_MORE_PROMPT {
@@ -364,7 +364,7 @@ printchar_flush
     ldx #0
 -   cpx .buffer_index
     beq +
-    txa ; kernel_printchar destroys x,y
+    txa ; kernal_printchar destroys x,y
     pha
     lda print_buffer,x
     jsr s_printchar
@@ -460,7 +460,7 @@ printchar_buffered
     ldx #0
 -   cpx .last_break_char_buffer_pos
     beq +
-    txa ; kernel_printchar destroys x,y
+    txa ; kernal_printchar destroys x,y
     pha
     lda print_buffer,x
     jsr s_printchar

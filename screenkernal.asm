@@ -5,7 +5,7 @@
 ; zp_screenline $d1-$d2
 ; zp_screencolumn $d3
 ; zp_screenrow $d6
-; zp_colorline $f3-$f4
+; zp_colourline $f3-$f4
 ;
 ; needed to be able to customize the text scrolling to
 ; not include status lines, especially big ones used in
@@ -55,10 +55,10 @@ s_printchar
     sty .stored_y
     ; check if colour code
     ldx #0
--   cmp .colors,x
+-   cmp .colours,x
     bne +
-    ; color <x> found
-    stx .color
+    ; colour <x> found
+    stx .colour
     jmp .printchar_end
 +   inx
     cpx #16
@@ -73,8 +73,8 @@ s_printchar
     lda #$20
     ldy zp_screencolumn
     sta (zp_screenline),y
-    lda .color
-    sta (zp_colorline),y
+    lda .colour
+    sta (zp_colourline),y
     jmp .printchar_end
 +   cmp #$0d
     bne +
@@ -128,8 +128,8 @@ s_printchar
     pla
     ldy zp_screencolumn
     sta (zp_screenline),y
-    lda .color
-    sta (zp_colorline),y
+    lda .colour
+    sta (zp_colourline),y
     iny
     sty zp_screencolumn
     cpy #40
@@ -151,8 +151,8 @@ s_erase_line
     ldy #0
 -   lda #$20
     sta (zp_screenline),y
-    lda .color
-    sta (zp_colorline),y
+    lda .colour
+    sta (zp_colourline),y
     iny
     cpy #40
     bne -
@@ -194,12 +194,12 @@ s_erase_window
     clc
     adc zp_screenline ; add *8
     sta zp_screenline
-    sta zp_colorline
+    sta zp_colourline
     lda zp_screenline + 1
     adc #$04 ; add screen start ($0400)
     sta zp_screenline +1
-    adc #$d4 ; add color start ($d800)
-    sta zp_colorline + 1
+    adc #$d4 ; add colour start ($d800)
+    sta zp_colourline + 1
 +   rts
 
 .s_scroll
@@ -217,29 +217,29 @@ s_erase_window
     inc zp_screenrow
     jsr .update_screenpos
     pla
-    sta zp_colorline + 1
+    sta zp_colourline + 1
     pla
-    sta zp_colorline
+    sta zp_colourline
     ; move characters
     ldy #0
 --  lda (zp_screenline),y ; zp_screenrow
-    sta (zp_colorline),y ; zp_screenrow - 1
+    sta (zp_colourline),y ; zp_screenrow - 1
     iny
     cpy #40
     bne --
-    ; move color info
+    ; move colour info
     lda zp_screenline + 1
     pha
     clc
     adc #$d4
     sta zp_screenline + 1
-    lda zp_colorline + 1
+    lda zp_colourline + 1
     clc
     adc #$d4
-    sta zp_colorline + 1
+    sta zp_colourline + 1
     ldy #0
 --  lda (zp_screenline),y ; zp_screenrow
-    sta (zp_colorline),y ; zp_screenrow - 1
+    sta (zp_colourline),y ; zp_screenrow - 1
     iny
     cpy #40
     bne --
@@ -250,15 +250,15 @@ s_erase_window
     bne -
     jmp s_erase_line
 
-.color !byte 254 ; light blue as default
+.colour !byte 254 ; light blue as default
 .reverse !byte 0
 .stored_x !byte 0
 .stored_y !byte 0
 .current_screenpos_row !byte $ff
-.colors !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
-.zcolors !byte $ff,$ff ; current/default color
-         !byte 0,2,5,7  ; black, red, green, yellow
-         !byte 6,4,3,1  ; blue, magenta, cyan, white
+.colours  !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+.zcolours !byte $ff,$ff ; current/default colour
+          !byte 0,2,5,7  ; black, red, green, yellow
+          !byte 6,4,3,1  ; blue, magenta, cyan, white
 !ifdef Z6 {
          !byte 15,12,11 ; lgrey, mgrey, dgrey
 }
@@ -269,16 +269,16 @@ z_ins_set_colour
 	jsr printchar_flush
     ldx z_operand_value_low_arr
 	beq .current_foreground
-    lda .zcolors,x
+    lda .zcolours,x
     bpl +
     lda story_start + $2d ; default colour
 +   tax
-    lda .colors,x ; get pet ascii for this color
-    jsr s_printchar ; change foreground color
+    lda .colours,x ; get pet ascii for this colour
+    jsr s_printchar ; change foreground colour
 .current_foreground
     ldx z_operand_value_low_arr + 1
 	beq .current_background
-    lda .zcolors,x
+    lda .zcolours,x
     bpl +
     lda story_start + $2c ; default colour
 +   sta $d021
@@ -315,7 +315,7 @@ testscreen
     bne +
     txa
     pha
---  jsr kernel_getchar
+--  jsr kernal_getchar
     beq --
     pla
     tax

@@ -303,7 +303,7 @@ z_init
 	lda #8
 	sta story_start + $26 ; Font width in units
 	sta story_start + $27 ; Font height in units
-	; TODO: Store default background and foreground color in 2c, 2d (or comply to game's wish?)
+	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
 }
 	lda #0
 	sta story_start + $32 ; major standard revision number which this terp complies to
@@ -419,7 +419,7 @@ deletable_init
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
-;    jsr kernel_readchar   ; read keyboard
+;    jsr kernal_readchar   ; read keyboard
 ; Copy game id
 	ldx #0
 -	lda config_load_address,x
@@ -604,7 +604,7 @@ auto_disk_config
 }
 !zone insert_disks_at_boot {
 insert_disks_at_boot
-;	jsr kernel_readchar
+;	jsr kernal_readchar
 	jsr prepare_for_disk_msgs
 	lda #0
 	tay ; Disk#
