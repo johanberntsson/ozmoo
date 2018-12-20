@@ -28,8 +28,6 @@ Figure out if some commandline flags to Acme are no longer useful enough to be k
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 - Add fast-loader code?
 
-Color support
-
 Output transcript to printer support.
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
@@ -71,6 +69,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Color support
+
 set_colour implemented
 
 Create our own screen handling routines to give us full control, including not scrolling status line off screen.

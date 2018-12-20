@@ -258,6 +258,8 @@ s_erase_window
     lda zp_screenrow
     cmp #24
     bne -
+    lda #$ff
+    sta .current_screenpos_row ; force recalculation
     jmp s_erase_line
 
 .colour !byte 254 ; light blue as default
