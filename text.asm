@@ -197,7 +197,7 @@ z_ins_sread
 }
     ; read input
 ; !ifndef Z4 {
-    ; jsr draw_status_line
+    jsr draw_status_line
 ; }
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr

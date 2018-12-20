@@ -349,7 +349,7 @@ close_io
 
 !zone disk_messages {
 prepare_for_disk_msgs
-	;jsr clear_screen_raw
+	jsr clear_screen_raw
 	; lda #0
 	; sta .print_row
 	ldx #0
