@@ -196,9 +196,10 @@ z_ins_sread
     ;jsr print_vm_map
 }
     ; read input
-; !ifndef Z4 {
+!ifndef Z4 {
+    ; Z1 - Z3 should redraw the status line before input
     jsr draw_status_line
-; }
+}
     lda z_operand_value_high_arr
     ldx z_operand_value_low_arr
 !ifdef Z4 {
