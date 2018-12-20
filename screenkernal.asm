@@ -153,21 +153,6 @@ s_printchar
     ldy .stored_y
     rts
 
-s_erase_line
-    ; registers: a,x,y
-    lda #0
-    sta zp_screencolumn
-    jsr .update_screenpos
-    ldy #0
--   lda #$20
-    sta (zp_screenline),y
-    lda .colour
-    sta (zp_colourline),y
-    iny
-    cpy #40
-    bne -
-    rts
-    
 s_erase_window
     lda #0
     sta zp_screenrow
@@ -188,21 +173,20 @@ s_erase_window
     beq +
     ; need to recalculate zp_screenline
     stx .current_screenpos_row
-    stx zp_screenline
     ; use the fact that zp_screenrow * 40 = zp_screenrow * (32+8)
     lda #0
     sta zp_screenline + 1
-    asl zp_screenline ; *2 no need to rol zp_screenline + 1 since 0 < zp_screenrow < 24
-    asl zp_screenline ; *4
-    asl zp_screenline ; *8
-    ldx zp_screenline ; store *8 for later
-    asl zp_screenline ; *16
+	txa
+    asl; *2 no need to rol zp_screenline + 1 since 0 < zp_screenrow < 24
+    asl; *4
+    asl; *8
+    sta zp_colourline ; store *8 for later
+    asl; *16
     rol zp_screenline + 1
-    asl zp_screenline ; *32
+    asl; *32
     rol zp_screenline + 1  ; *32
-    txa
     clc
-    adc zp_screenline ; add *8
+    adc zp_colourline ; add *8
     sta zp_screenline
     sta zp_colourline
     lda zp_screenline + 1
@@ -231,12 +215,11 @@ s_erase_window
     pla
     sta zp_colourline
     ; move characters
-    ldy #0
+    ldy #39
 --  lda (zp_screenline),y ; zp_screenrow
     sta (zp_colourline),y ; zp_screenrow - 1
-    iny
-    cpy #40
-    bne --
+    dey
+    bpl --
     ; move colour info
     lda zp_screenline + 1
     pha
@@ -247,12 +230,11 @@ s_erase_window
     clc
     adc #$d4
     sta zp_colourline + 1
-    ldy #0
+    ldy #39
 --  lda (zp_screenline),y ; zp_screenrow
     sta (zp_colourline),y ; zp_screenrow - 1
-    iny
-    cpy #40
-    bne --
+    dey
+    bpl --
     pla
     sta zp_screenline + 1
     lda zp_screenrow
@@ -260,7 +242,21 @@ s_erase_window
     bne -
     lda #$ff
     sta .current_screenpos_row ; force recalculation
-    jmp s_erase_line
+s_erase_line
+    ; registers: a,x,y
+    lda #0
+    sta zp_screencolumn
+    jsr .update_screenpos
+    ldy #0
+-   lda #$20
+    sta (zp_screenline),y
+    lda .colour
+    sta (zp_colourline),y
+    iny
+    cpy #40
+    bne -
+    rts
+    
 
 .colour !byte 254 ; light blue as default
 .reverse !byte 0
@@ -271,10 +267,11 @@ s_erase_window
 .zcolours !byte $ff,$ff ; current/default colour
           !byte 0,2,5,7  ; black, red, green, yellow
           !byte 6,4,3,1  ; blue, magenta, cyan, white
-!ifdef Z6 {
-         !byte 15,12,11 ; lgrey, mgrey, dgrey
-}
+; !ifdef Z6 {
+         ; !byte 15,12,11 ; lgrey, mgrey, dgrey
+; }
 
+!ifdef Z5PLUS {
 z_ins_set_colour
     ; set_colour foreground background [window]
     ; (window is not used in Ozmoo)
@@ -296,6 +293,7 @@ z_ins_set_colour
 +   sta $d021
 .current_background
     rts
+}
 
 !ifdef TESTSCREEN {
 

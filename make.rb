@@ -833,7 +833,7 @@ end
 
 
 def print_usage_and_exit
-    puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-c <preloadfile>] [-o] [-s] [-x] [-r] -f <fontfile> <file>"
+    puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-c <preloadfile>] [-o] [-s] [-x] [-r] [-f <fontfile>] <file>"
     puts "       -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. Read about build modes in documentation folder."
     puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
     puts "       -c: read preload config from preloadfile, previously created with -o"

@@ -24,7 +24,6 @@ Figure out if some commandline flags to Acme are no longer useful enough to be k
 
 *** Speed ***
 - Optimize object manipulation and object tree manipulation
-- Optimize screen kernal
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 - Add fast-loader code?
 
@@ -69,6 +68,14 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+*** Speed ***
+- Optimize player input encoding
+- Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
+- Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
+    Old todo: - reuse index and skip tests if same block as previous call to read_z_*
+- Optimize finding memory blocks in dynmem (predictable position) / not in dynmem. Figure out if quick-access table should be used for both or just for non-dynmem
+- Optimize screen kernal
+
 Color support
 
 set_colour implemented
@@ -138,13 +145,6 @@ save/restore
 Ending player input with Commodore-Enter puts the game in a state where it doesn't register player input, and thus becomes unplayable.
 
 Entering uppercase letters or PETSCII graphic characters as player input results in a fatal error.
-
-*** Speed ***
-- Optimize player input encoding
-- Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
-- Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
-    Old todo: - reuse index and skip tests if same block as previous call to read_z_*
-- Optimize finding memory blocks in dynmem (predictable position) / not in dynmem. Figure out if quick-access table should be used for both or just for non-dynmem
 
 Move config information to location in memory where it is now loaded on game start. Keep in temp directory to aid debugging. (Didn't do, since this would make it impossible to write a config utility)
 
