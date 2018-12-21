@@ -1036,6 +1036,7 @@ turn_off_cursor
     ; beq update_cursor ; always branch
 
 update_cursor
+	sty object_temp
     ldy zp_screencolumn
     lda s_cursorswitch
     bne +
@@ -1048,6 +1049,7 @@ update_cursor
     lda (zp_screenline),y
     ora #$80
     sta (zp_screenline),y
+	ldy object_temp
     rts
 
 read_text
@@ -1070,19 +1072,27 @@ read_text
 .init_read_text
     ; turn on blinking cursor
     jsr turn_on_cursor
-    ; store start column
-    lda #1
-    sta .read_text_column
-    lda zp_screencolumn
-    sta .read_text_startcolumn
-    ldy #1
+	ldy #0
+	lda (string_array),y
 !ifdef Z5PLUS {
-    lda (string_array),y
+	tax
+	inx
+	stx .read_text_char_limit
+} else {
+	sta .read_text_char_limit
+}
+    ; store start column
+    iny
+!ifdef Z5PLUS {
+	tya
+	clc
+    adc (string_array),y
 } else {
     lda #0
     sta (string_array),y ; default is empty string (0 in pos 1)
+	tya
 }
-    sta .read_text_offset
+    sta .read_text_column
 .readkey
     jsr get_cursor ; x=row, y=column
     stx .read_text_cursor
@@ -1168,41 +1178,29 @@ read_text
 +	cmp #252
 	bcc .char_is_ok
 	jmp .readkey
-    ; cmp #19
-    ; beq .readkey ; home
-    ; cmp #145
-    ; beq .readkey ; cursor up
-    ; cmp #17
-    ; beq .readkey ; cursor down
-    ; cmp #157
-    ; beq .readkey ; cursor left
-    ; cmp #29
-    ; beq .readkey ; cursor right
 	
     ; print the allowed char and store in the array
-.char_is_ok	
+.char_is_ok
+    ldx .read_text_column ; compare with size of keybuffer
+	cpx .read_text_char_limit
+    bcc +
+	jmp .readkey
++	; keybuffer < maxchars
 	pha
-;	jsr translate_zscii_to_petscii
-	lda .petscii_char_read
-    jsr s_printchar
-    jsr update_cursor
-    lda .read_text_column ; compare with size of keybuffer
 !ifdef Z5PLUS {
-    clc
-    adc .read_text_offset
-}
-    ldy #0
-    cmp (string_array),y ; max characters in array
-    bcs .read_buffer_full
-    ; keybuffer < maxchars
-!ifdef Z5PLUS {
-    iny
+    ldy #1
+	txa
     sta (string_array),y ; number of characters in the array
+} else {
+	txa
 }
     tay
 !ifdef Z5PLUS {
     iny
 }
+	lda .petscii_char_read
+    jsr s_printchar
+    jsr update_cursor
     pla
     ; convert to lower case
 	cmp #$41
@@ -1221,17 +1219,6 @@ read_text
     sta (string_array),y ; store 0 after last char
 }
     jmp .readkey
-.read_buffer_full
-	; keybuffer >= maxchars
-!ifdef Z5PLUS {
-    lda (string_array),y ; max characters in array
-    sec
-    sbc #1
-    iny
-    sta (string_array),y ; number of characters in the array (max - 1)
-}
-    pla ; don't save this character (out of bounds)
-    jmp .readkey
 .read_text_done
     pha ; return value
     ; turn off blinking cursor
@@ -1249,9 +1236,8 @@ read_text
 +   rts
 .read_text_buffer !byte 0,0
 .read_text_cursor !byte 0,0
-.read_text_offset !byte 0
-.read_text_startcolumn !byte 0
 .read_text_column !byte 0
+.read_text_char_limit !byte 0
 .read_text_operand_count !byte 0
 !ifdef Z4PLUS {
 .read_text_time !byte 0,0 ; update interval in 1/10 seconds

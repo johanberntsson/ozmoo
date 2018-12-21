@@ -71,6 +71,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+It's possible to type any number of characters when read is used to get player input.
+
+New screenkernal can't print a delete character in column 0.
+
 Cursor on a line which is not at the bottom of screen, inverses character on line above when going from column 39 on a line to column 0 on next.
 
 Player input line longer than one screen line (40 characters) doesn't work.
