@@ -14,8 +14,14 @@ Player input line longer than one screen line (40 characters) doesn't work.
 
 Timed input in v4 games may be broken.
 
+Restart doesn't check if it's a disk-based game, and doesn't check in which drive the boot disk is.
+
+Save and restore don't check if a disk is already in the right drive before printing a message to insert the disk.
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Add command line options to make.rb to select colours in palette as well as default colours. 
+
 Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
@@ -23,7 +29,6 @@ Build config utility. Could be in same location as Z-machine stack and accessibl
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
-- Optimize object manipulation and object tree manipulation
 - Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 - Add fast-loader code?
 
@@ -75,6 +80,7 @@ DONE (Implemented features and fixed bugs)
     Old todo: - reuse index and skip tests if same block as previous call to read_z_*
 - Optimize finding memory blocks in dynmem (predictable position) / not in dynmem. Figure out if quick-access table should be used for both or just for non-dynmem
 - Optimize screen kernal
+- Optimize object manipulation and object tree manipulation
 
 Color support
 

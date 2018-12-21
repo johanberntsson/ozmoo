@@ -51,6 +51,9 @@ z_address			  = $45 ; 3 bytes
 z_address_temp		  = $48
 
 object_tree_ptr       = $49 ; 2 bytes
+object_num			  = $4b ; 2 bytes
+object_temp			  = $4d ; 2 bytes
+
 default_properties_ptr = $52 ; 2 bytes (47 was bad?)
 z_trace_index		  = $54
 z_exe_mode	  		  = $55

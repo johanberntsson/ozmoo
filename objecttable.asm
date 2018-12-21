@@ -250,7 +250,7 @@ z_ins_get_prop_len
 .zp_parent = object_tree_ptr  ; won't be used at the same time
 .zp_sibling = object_tree_ptr ; won't be used at the same time
 .zp_dest = object_tree_ptr    ; won't be used at the same time
-.object_num !byte 0,0
+; .object_num !byte 0,0
 .parent_num !byte 0,0
 .child_num !byte 0,0
 .sibling_num !byte 0,0        ; won't be used at the same time
@@ -270,11 +270,11 @@ z_ins_remove_obj_body
     ; get object number
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
-    sta .object_num
-    stx .object_num + 1
+    sta object_num
+    stx object_num + 1
     ; find object in dynmem
-    ;lda .object_num
-    ;ldx .object_num + 1
+    ;lda object_num
+    ;ldx object_num + 1
     jsr calculate_object_address
     lda object_tree_ptr
     sta .zp_object
@@ -298,10 +298,10 @@ z_ins_remove_obj_body
 !ifdef TRACE_OBJ {
     jsr print_following_string
     !pet "remove_obj: obj ", 0
-    lda .object_num
+    lda object_num
     jsr printa
     jsr comma
-    lda .object_num + 1
+    lda object_num + 1
     jsr printa
     jsr print_following_string
     !pet " parent ", 0
@@ -351,10 +351,10 @@ z_ins_remove_obj_body
 }
     ; num_child == num_object?
     lda .child_num
-    cmp .object_num
+    cmp object_num
     bne .not_child
     lda .child_num + 1
-    cmp .object_num + 1
+    cmp object_num + 1
     bne .not_child
     ; object is the child of parent
     ; set child of parent to object's sibling
@@ -407,10 +407,10 @@ z_ins_remove_obj_body
 }
     ; while sibling != object
     lda .sibling_num
-    cmp .object_num
+    cmp object_num
     bne -
     lda .sibling_num + 1
-    cmp .object_num + 1
+    cmp object_num + 1
     bne -
     ; .zp_sibling.sibling == object. set to object.sibling instead
 !ifdef Z4PLUS {
@@ -754,7 +754,7 @@ z_ins_insert_obj
     jsr print_following_string
     !pet "insert_obj obj dest: ",0
 }
-    jsr z_ins_remove_obj_body ; will set .zp_object and .object_num
+    jsr z_ins_remove_obj_body ; will set .zp_object and object_num
     ; calculate destination address
     ldx z_operand_value_low_arr + 1
     lda z_operand_value_high_arr + 1
@@ -769,10 +769,10 @@ z_ins_insert_obj
     sta .dest_num
     stx .dest_num + 1
 !ifdef TRACE_OBJ {
-    lda .object_num
+    lda object_num
     jsr printa
     jsr comma
-    lda .object_num + 1
+    lda object_num + 1
     jsr printa
     jsr space
     lda .dest_num
@@ -803,10 +803,10 @@ z_ins_insert_obj
     sta (.zp_object),y
     ; destination.child = object
     ldy #10 ; child
-    lda .object_num
+    lda object_num
     sta (.zp_dest),y
     iny
-    lda .object_num + 1
+    lda object_num + 1
     sta (.zp_dest),y
 } else {
     ; object.parent = destination
@@ -820,7 +820,7 @@ z_ins_insert_obj
     sta (.zp_object),y
     ; destination.child = object
     ldy #6 ; child
-    lda .object_num + 1
+    lda object_num + 1
     sta (.zp_dest),y
 }
 !ifdef TRACE_OBJ {
@@ -1200,31 +1200,59 @@ calculate_object_address
     ; subroutine: calculate address for object
     ; input: a,x object index (high/low)
     ; output: object address in object_tree_ptr
-    ; used registers: a,x
+    ; used registers: a,x,y
     ; side effects:
-    stx multiplier
-    sta multiplier + 1
-    ; a/x is one too high (object table is 1-indexed)
-    cpx #0
-    bne +
-    dec multiplier + 1
-+   dec multiplier
-!ifndef Z4PLUS {
-    lda #9
+!ifdef Z3 {
+	; To get address, decrease obj# by 1 and multiply by 9 (Calculate 8 * (obj# - 1) + (obj# - 1))
+	dex ; x is one too high, since the first object is #1
+	stx object_tree_ptr
+	lda #0
+	sta object_tree_ptr + 1
+	txa
+	asl ; * 2
+	rol object_tree_ptr + 1 ; * 2
+	asl ; * 4
+	rol object_tree_ptr + 1 ; * 4
+	asl ; * 8
+	rol object_tree_ptr + 1 ; * 8
+	adc object_tree_ptr ; C is already 0
+	tax
+	lda object_tree_ptr + 1
+	adc #0
+} else {
+	; To get address, decrease obj# by 1 and multiply by 14 (Calculate 16 * (obj# - 1) - 2 * (obj# - 1))
+	dex
+	cpx #$ff
+	bne +
+	sbc #1
++	sta object_temp + 1
+	txa
+	asl ; * 2
+	sta object_temp
+	rol object_temp + 1 ; * 2
+	; Now we have (obj# - 1) * 2 in object_temp
+	ldy object_temp + 1
+	sty object_tree_ptr + 1
+	asl ; * 4
+	rol object_tree_ptr + 1 ; * 4
+	asl ; * 8
+	rol object_tree_ptr + 1 ; * 8
+	asl ; * 16
+	rol object_tree_ptr + 1 ; * 16
+	sec
+	sbc object_temp
+	tax
+	lda object_tree_ptr + 1
+	sbc object_temp + 1
+	clc
 }
-!ifdef Z4PLUS {
-    lda #14
-}
-    sta multiplicand
-    lda #0
-    sta multiplicand + 1
-    jsr mult16
-    ; add to the start of the object area
-    lda product
-    clc
-    adc objects_start_ptr
-    sta object_tree_ptr
-    lda product + 1
-    adc objects_start_ptr + 1
-    sta object_tree_ptr + 1
-    rts
+	; Object offset is now in a,x (high, low). Just need to add start address of object 1.
+	tay
+	txa
+	adc objects_start_ptr
+	sta object_tree_ptr
+	tya
+	adc objects_start_ptr + 1
+	sta object_tree_ptr + 1
+	rts
+	

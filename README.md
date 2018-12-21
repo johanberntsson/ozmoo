@@ -11,7 +11,7 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
-Ozmoo is not quite ready for release or production use yet. A few minor features are missing, like the ability to choose text color and background color. There are also some bugs. Most games should run just fine though.
+Ozmoo is not quite ready for release or production use yet. A few minor features are missing, like the ability to save and restore arbitrary parts of memory. There are also some bugs. Most games should run just fine though.
 
 If you want to start using Ozmoo once it's more mature, we recommend you to star the project, or just return every once in a while to see what's happening.
 
