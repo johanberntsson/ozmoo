@@ -10,8 +10,6 @@ Statusline longer than 40 characters overflows into main window.
 
 Statusline messed up after restore in BZ.
 
-Player input line longer than one screen line (40 characters) doesn't work.
-
 Timed input in v4 games may be broken.
 
 Restart doesn't check if it's a disk-based game, and doesn't check in which drive the boot disk is.
@@ -73,6 +71,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Cursor on a line which is not at the bottom of screen, inverses character on line above when going from column 39 on a line to column 0 on next.
+
+Player input line longer than one screen line (40 characters) doesn't work.
+
 *** Speed ***
 - Optimize player input encoding
 - Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.

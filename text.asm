@@ -1071,6 +1071,8 @@ read_text
     ; turn on blinking cursor
     jsr turn_on_cursor
     ; store start column
+    lda #1
+    sta .read_text_column
     lda zp_screencolumn
     sta .read_text_startcolumn
     ldy #1
@@ -1139,9 +1141,10 @@ read_text
 +   cmp #8
     bne +
     ; allow delete if anything in the buffer
-    ldy zp_screencolumn
-    cpy .read_text_startcolumn
-    beq .readkey
+    ldy .read_text_column
+    cpy #2
+    bcc .readkey
+	dec .read_text_column
 	jsr turn_off_cursor
 	lda .petscii_char_read
     jsr s_printchar ; print the delete char
@@ -1183,9 +1186,7 @@ read_text
 	lda .petscii_char_read
     jsr s_printchar
     jsr update_cursor
-    lda zp_screencolumn ; compare with size of keybuffer
-    sec
-    sbc .read_text_startcolumn
+    lda .read_text_column ; compare with size of keybuffer
 !ifdef Z5PLUS {
     clc
     adc .read_text_offset
@@ -1213,6 +1214,7 @@ read_text
 .dont_invert_case
 ;    and #$7f
     sta (string_array),y ; store new character in the array
+	inc .read_text_column	
 !ifndef Z5PLUS {
     iny
     lda #0
@@ -1236,11 +1238,7 @@ read_text
     jsr turn_off_cursor
 !ifndef Z5PLUS {
 	; Store terminating 0, in case characters were deleted at the end.
-    lda zp_screencolumn ; compare with size of keybuffer
-    sec
-    sbc .read_text_startcolumn
-	tay
-	iny
+    ldy .read_text_column ; compare with size of keybuffer
 	lda #0
 	sta (string_array),y
 }	
@@ -1253,6 +1251,7 @@ read_text
 .read_text_cursor !byte 0,0
 .read_text_offset !byte 0
 .read_text_startcolumn !byte 0
+.read_text_column !byte 0
 .read_text_operand_count !byte 0
 !ifdef Z4PLUS {
 .read_text_time !byte 0,0 ; update interval in 1/10 seconds

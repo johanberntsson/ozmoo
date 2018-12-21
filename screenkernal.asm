@@ -77,7 +77,13 @@ s_printchar
     ; delete
     dec zp_screencolumn ; move back
     bpl ++
-    inc zp_screencolumn ; return to 0 if < 0
+	inc zp_screencolumn ; Go back to 0 if < 0
+	lda zp_screenrow
+	cmp s_scrollstart
+	bcc ++
+	dec zp_screenrow
+	lda #39
+	sta zp_screencolumn
 ++  jsr .update_screenpos
     lda #$20
     ldy zp_screencolumn
@@ -147,7 +153,12 @@ s_printchar
     lda #0
     sta zp_screencolumn
     inc zp_screenrow
-    jsr .s_scroll
+	lda zp_screenrow
+	cmp #25
+	bcs +
+	jsr .update_screenpos
+	jmp .printchar_end
++	jsr .s_scroll
 .printchar_end
     ldx .stored_x
     ldy .stored_y
