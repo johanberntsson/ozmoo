@@ -1033,7 +1033,6 @@ turn_on_cursor
 turn_off_cursor
     lda #0
     sta s_cursorswitch
-    ; beq update_cursor ; always branch
 
 update_cursor
 	sty object_temp
@@ -1044,6 +1043,7 @@ update_cursor
     lda (zp_screenline),y
     and #$7f
     sta (zp_screenline),y
+	ldy object_temp
     rts
 +   ; cursor
     lda (zp_screenline),y
@@ -1069,9 +1069,6 @@ read_text
     ; check timer usage
     jsr init_read_text_timer
 }
-.init_read_text
-    ; turn on blinking cursor
-    jsr turn_on_cursor
 	ldy #0
 	lda (string_array),y
 !ifdef Z5PLUS {
@@ -1093,6 +1090,8 @@ read_text
 	tya
 }
     sta .read_text_column
+    ; turn on blinking cursor
+    jsr turn_on_cursor
 .readkey
     jsr get_cursor ; x=row, y=column
     stx .read_text_cursor
@@ -1288,13 +1287,13 @@ tokenise_text
 .find_word_loop
     ; skip initial space
     cpy .textend
-    beq .start_of_word
+    beq +
     bcs .parsing_done
-    lda (string_array),y
++	lda (string_array),y
     cmp #$20
     bne .start_of_word
     iny
-    jmp .find_word_loop
+    bne .find_word_loop ; Always branch
 .start_of_word
     ; start of next word found (y is first character of new word)
     sty .wordstart
@@ -1303,26 +1302,17 @@ tokenise_text
     cmp #$20
     beq .space_found
     ; check for terminators
-    tax
-    tya
-    pha     ; we need to reuse y, so save it on the stack
-    txa
-    ldy #0
---  cmp terminators,y
+	ldx num_terminators
+--  cmp terminators - 1,x
     beq .terminator_found
-    iny
-    cpy num_terminators
+	dex
     bne --
-    pla
-    tay ; restore y from the stack
     ; check if end of string
     cpy .textend
     bcs .word_found
     iny
-    jmp -
+    bne - ; Always branch
 .terminator_found
-    pla
-    tay ; restore y from the stack
     cpy .wordstart
     beq .word_found
 .space_found

@@ -44,7 +44,7 @@ s_plot
 +   ; set_cursor
     stx zp_screenrow
     sty zp_screencolumn
-    rts
+	jmp .update_screenpos
 
 s_printchar
     ; replacement for CHROUT ($ffd2)

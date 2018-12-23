@@ -12,17 +12,21 @@ Statusline messed up after restore in BZ.
 
 Timed input in v4 games may be broken.
 
-Restart doesn't check if it's a disk-based game, and doesn't check in which drive the boot disk is.
+Restart doesn't check in which drive the boot disk is.
 
 Save and restore don't check if a disk is already in the right drive before printing a message to insert the disk.
 
+After a text has been printed by an interrupt routine in BZ, the space above the new prompt gets reversed.
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Add command line options to make.rb to select colours in palette as well as default colours. 
+Simple config: Ask user to specify disk drive for saves.
 
 Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
+
+Add command line options to make.rb to select colours in palette as well as default colours. 
 
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
@@ -71,6 +75,12 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Restart doesn't check if it's a disk-based game.
+
+The cursor doesn't show when read has printed the prompt and is awaiting player input in HH.
+
+If player input ends with one or more space characters, the game thinks you've written an extra word.
+
 It's possible to type any number of characters when read is used to get player input.
 
 New screenkernal can't print a delete character in column 0.

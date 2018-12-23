@@ -441,8 +441,10 @@ z_exe_mode_exit = $ff
 
 .not_normal_exe_mode
 !ifdef Z4PLUS {
+!ifdef VMEM { ; If it's not a VMEM (disk-based) game, there is no need to check this.
 	cmp #z_exe_mode_return_from_read_interrupt
 	bne .return_from_z_execute
+}
 	lda #z_exe_mode_normal
 	sta z_exe_mode
 }
@@ -497,7 +499,6 @@ z_execute
 +
 }
 }
-	
 	
 	lda z_exe_mode
 	bne .not_normal_exe_mode
@@ -1138,8 +1139,14 @@ z_ins_quit
 	jmp kernal_reset
 
 z_ins_restart
-	;rts ; Not currently working, so let's just return and go on with our business
-	
+!ifndef VMEM {
+    ldy #>.not_supported_string
+	lda #<.not_supported_string
+	jmp printstring
+.not_supported_string
+!raw "[Not supported]",13,0
+	rts
+} else {	
 	ldx #0
 -	lda .restart_keys,x
 	beq +
@@ -1147,13 +1154,15 @@ z_ins_restart
 	inx
 	bne - ; Always branch
 +	stx 198
-	lda #147
-	jsr $ffd2
+	jsr clear_screen_raw
+	; lda #147
+	; jsr $ffd2
 	lda #z_exe_mode_exit
 	sta z_exe_mode
 	rts
 .restart_keys
 	!pet "lO",34,"*",34,",8:",131,0
+}
 	
 z_ins_ret_popped
 	jsr stack_pull
