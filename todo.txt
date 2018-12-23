@@ -6,8 +6,6 @@ long enough to reach the last column there will be an extra newline
 
 No words are recognized in Tethered.
 
-Statusline longer than 40 characters overflows into main window.
-
 Statusline messed up after restore in BZ.
 
 Timed input in v4 games may be broken.
@@ -73,6 +71,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Statusline longer than 40 characters overflows into main window.
+
+Underscore is printed as $ with the new screenkernal.
+
 After a text has been printed by an interrupt routine in BZ, the space above the new prompt gets reversed.
 
 Restart doesn't check if it's a disk-based game.

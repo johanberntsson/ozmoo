@@ -118,12 +118,19 @@ s_printchar
 	beq ++
 	dex
 	bpl -
-	bmi .normal_char
+	bmi .printchar_end ; Always branch
 ++	; colour <x> found
 	stx .colour
 	beq .printchar_end ; Always jump
 	
 .normal_char
+	; Check if statusline is overflowing
+	ldx current_window
+	beq +
+	ldx zp_screenrow
+	cpx s_scrollstart
+	bcs .printchar_end
++
    ; convert from pet ascii to screen code
 	cmp #$40
 	bcc ++    ; no change if numbers or special chars
@@ -135,6 +142,9 @@ s_printchar
     bcs +
 	and #%11011111
     bcc ++ ; always jump
++	cmp #$c0
+	bcs +
+	eor #%11000000
 +	and #%01111111
 ++  ; print the char
     clc

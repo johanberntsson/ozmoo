@@ -4,7 +4,7 @@
 
 .num_windows !byte 1
 .num_rows !byte 0,0
-.current_window !byte 0
+current_window !byte 0
 .window_size !byte 25, 0
 .cursor_position !byte 0,0
 is_buffered_window !byte 1,0
@@ -204,7 +204,7 @@ z_ins_set_window
     jsr newline
 }
     lda z_operand_value_low_arr
-    sta .current_window
+    sta current_window
     bne +
     ; this is the main text screen, restore cursor position
     jmp restore_cursor
@@ -272,7 +272,7 @@ z_ins_set_cursor
     ldx z_operand_value_low_arr ; line 1..
     dex ; line 0..
     txa
-    ldy .current_window
+    ldy current_window
     bne .top_window
     ; bottom window (add size of top window to x for correct offset)
     txa
@@ -291,7 +291,7 @@ clear_num_rows
     rts
 
 increase_num_rows
-    ldx .current_window
+    ldx current_window
     inc .num_rows,x
     lda is_buffered_window,x
     bne +
@@ -386,7 +386,7 @@ printchar_buffered
     tya
     pha
     ; is this a buffered window?
-    ldx .current_window
+    ldx current_window
     lda is_buffered_window,x
     bne .buffered_window
     lda .buffer_char
@@ -574,14 +574,14 @@ restore_cursor
 !ifdef Z3 {
 z_ins_show_status
     ; show_status (hardcoded size)
-    jmp draw_status_line
+;    jmp draw_status_line
 
 draw_status_line
     ldx #1
     jsr split_window
     ; save z_operand* (will be destroyed by print_num)
     lda #1
-    sta .current_window
+    sta current_window
     lda z_operand_value_low_arr
     pha
     lda z_operand_value_high_arr
@@ -668,7 +668,7 @@ draw_status_line
     lda #146 ; reverse off
     jsr s_printchar
     lda #0
-    sta .current_window
+    sta current_window
     pla
     sta z_operand_value_high_arr + 1
     pla

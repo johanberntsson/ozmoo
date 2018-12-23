@@ -18,7 +18,7 @@ character_translation_table_in
 	!byte 131, 157 ; Cursor left
 	!byte 132, 29 ; Cursor right
 character_translation_table_in_out
-	!byte $5f, $a4 ; Underscore = underscore-like graphic character
+	!byte $5f, $af ; Underscore = underscore-like graphic character
 	!byte $7c, $7d ; Pipe = pipe-like graphic character
 !ifdef SWEDISH_CHARS {
 	!byte $c9, $5d ; å = ]
@@ -62,7 +62,6 @@ streams_print_output
 	bne .mem_write
 	pla
 	jsr translate_zscii_to_petscii
-	;jmp printchar_unbuffered
 	jmp printchar_buffered
 .mem_write
 	lda streams_current_entry + 2
@@ -196,18 +195,14 @@ translate_zscii_to_petscii
 	bne +
 	lda #$0d
 +	sty .streams_tmp + 1
-	sta .streams_tmp
 	ldy #character_translation_table_end - character_translation_table_in_out - 2
--	lda character_translation_table_in_out,y
-	cmp .streams_tmp
+-	cmp character_translation_table_in_out,y
 	beq .match
 	dey
 	dey
 	bpl -
-	lda .streams_tmp
-.case_conversion
+; .case_conversion
 	ldy .streams_tmp + 1
-; case conversion
 	cmp #$41
 	bcc .case_conversion_done
 	cmp #$5b
@@ -229,10 +224,4 @@ translate_zscii_to_petscii
 	lda character_translation_table_in_out,y
 	ldy .streams_tmp + 1
 	rts
-; Should we in fact do a case conversion?
-;	jmp .case_conversion
-	
-
-	
-	
 }
