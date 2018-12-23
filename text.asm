@@ -1106,6 +1106,7 @@ read_text
     beq .readkey
     ; text changed, redraw input line
 !ifdef Z5PLUS {
+	jsr turn_off_cursor
     jsr clear_num_rows
 	lda #$0d ; Enter
 	jsr s_printchar
@@ -1168,8 +1169,9 @@ read_text
     jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
     cmp #32
-    bcc .readkey
-    cmp #128
+    bcs ++
+	jmp .readkey
+++	cmp #128
     bcc .char_is_ok
 	cmp #155
 	bpl +

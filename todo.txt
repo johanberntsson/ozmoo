@@ -16,8 +16,6 @@ Restart doesn't check in which drive the boot disk is.
 
 Save and restore don't check if a disk is already in the right drive before printing a message to insert the disk.
 
-After a text has been printed by an interrupt routine in BZ, the space above the new prompt gets reversed.
-
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Simple config: Ask user to specify disk drive for saves.
@@ -75,6 +73,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+After a text has been printed by an interrupt routine in BZ, the space above the new prompt gets reversed.
+
 Restart doesn't check if it's a disk-based game.
 
 The cursor doesn't show when read has printed the prompt and is awaiting player input in HH.
