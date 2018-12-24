@@ -29,17 +29,19 @@ init_screen_colours
     lda #147 ; clear screen
     jmp s_printchar
 
-!ifdef Z4PLUS {
-z_ins_erase_window
-    ; erase_window window
+erase_window
+    ; x = 0: delete main text window
+    ;     1: delete status line
+    ;    -1: clear screen and unsplit
+    ;    -2: clear screen and keep split
     lda zp_screenrow
     pha
     lda z_operand_value_low_arr
-    cmp #0
+    cpx #0
     beq .window_0
-    cmp #1
+    cpx #1
     beq .window_1
-    cmp #$ff ; clear screen, then; -1 unsplit, -2 keep as is
+    cpx #$ff ; clear screen, then; -1 unsplit, -2 keep as is
     bne .keep_split
 	jsr clear_num_rows
     ldx #0 ; unsplit
@@ -50,8 +52,6 @@ z_ins_erase_window
     jsr s_printchar
     jmp .end_erase
 .window_0
-    lda zp_screenrow
-    pha
     lda .window_size + 1
     sta zp_screenrow
 -   jsr s_erase_line
@@ -59,10 +59,12 @@ z_ins_erase_window
     lda zp_screenrow
     cmp #25
     bne -
-    beq .end_erase ; always branch
-.window_1
-    lda zp_screenrow
+    ; set cursor to top left
+    pla
+    lda .window_size + 1
     pha
+    jmp .end_erase
+.window_1
     lda #0
     sta zp_screenrow
 -   jsr s_erase_line
@@ -74,6 +76,12 @@ z_ins_erase_window
     pla
     sta zp_screenrow
     rts
+
+!ifdef Z4PLUS {
+z_ins_erase_window
+    ; erase_window window
+    ldx z_operand_value_low_arr
+    jmp erase_window
 
 z_ins_erase_line
     ; erase_line value

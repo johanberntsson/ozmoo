@@ -352,7 +352,8 @@ close_io
 !zone disk_messages {
 prepare_for_disk_msgs
 !ifdef INLINE_FLOPPYMSG {
-    rts
+    ldx #0
+    jmp erase_window
 } else {
 	jsr clear_screen_raw
 	; lda #0
@@ -413,7 +414,9 @@ print_insert_disk_msg
 	lda #>insert_msg_3
 	ldx #<insert_msg_3
 	jsr printstring_raw
-	jsr kernal_readchar
+	;jsr kernal_readchar ; this shows the standard kernal prompt (not good)
+-	jsr kernal_getchar
+    beq -
 	; lda .print_row
 	; clc
 	; adc #3
@@ -664,10 +667,6 @@ list_save_files
     rts
 
 .insertion_sort_item
-!ifdef INLINE_FLOPPYMSG {
-    ; TODO: fix insertion_sort_item for inline mode
-    rts
-}
 	; Parameters: x, .sort_item: item (1-9)
 	stx .current_item
 --	jsr .calc_screen_address
