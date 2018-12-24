@@ -1,3 +1,5 @@
+INLINE_FLOPPYMSG = 1
+
 first_unavailable_save_slot_charcode	!byte 0
 current_disks !byte $ff, $ff, $ff, $ff
 boot_device !byte 0
@@ -349,12 +351,16 @@ close_io
 
 !zone disk_messages {
 prepare_for_disk_msgs
-	;jsr clear_screen_raw
+!ifdef INLINE_FLOPPYMSG {
+    rts
+} else {
+	jsr clear_screen_raw
 	; lda #0
 	; sta .print_row
 	ldx #0
 	tay
 	jmp set_cursor
+}
 
 print_insert_disk_msg
 ; Parameters: y: memory index to start of info for disk in disk_info
@@ -658,6 +664,10 @@ list_save_files
     rts
 
 .insertion_sort_item
+!ifdef INLINE_FLOPPYMSG {
+    ; TODO: fix insertion_sort_item for inline mode
+    rts
+}
 	; Parameters: x, .sort_item: item (1-9)
 	stx .current_item
 --	jsr .calc_screen_address
@@ -739,12 +749,22 @@ list_save_files
 	tya
 	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
+!ifdef INLINE_FLOPPYMSG {
+    lda #$0d
+    jsr s_printchar
+    lda #$0d
+    jsr s_printchar
+}
 +
 }
+!ifdef INLINE_FLOPPYMSG {
+    rts
+} else {
 	jsr clear_screen_raw
 	ldx #24
 	ldy #0
 	jmp set_cursor
+}
 
 restore_game
     jsr .insert_save_disk
@@ -911,8 +931,8 @@ do_save
 .saveslot !byte 0
 .saveslot_msg	!pet "Slot (0-9, RETURN=cancel): ",0 ; Will be modified to say highest available slot #
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
-.save_msg	!pet 13,13,"  Saving...",0
-.restore_msg	!pet 13,13,"  Restoring...",0
+.save_msg	!pet 13,13,"Saving...",0
+.restore_msg	!pet 13,13,"Restoring...",0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
