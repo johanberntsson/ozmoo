@@ -25,7 +25,6 @@ $GENERALFLAGS = [
 	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
-#	'OLD_MORE_PROMPT',
 #	'SWEDISH_CHARS',
 ]
 

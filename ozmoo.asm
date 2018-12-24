@@ -113,30 +113,8 @@ game_id		!byte 0,0,0,0
 	jsr $ff5b ; more init
     jmp ($a000)
 
-program_end
-
-	!align 255, 0, 0
-z_trace_page
-	!fill z_trace_size, 0
-
-vmem_cache_start
-
-!ifdef ALLRAM {
-
-;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
-	!fill cache_pages * 256,0 ; typically 4 pages
-!ifdef VMEM {
-!if (stack_size + *) & 256 {
-	!fill 256,0 ; Add one page to avoid vmem alignment issues
-}
-} 
-
-vmem_cache_size = * - vmem_cache_start
-vmem_cache_count = vmem_cache_size / 256
-}
-!align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
-
-stack_start
+; The following code, down to program_end, can be placed in the stack area instead, but is put here to make sure stack can be decreased to two pages.	
+	
 !ifdef VMEM {
 prepare_static_high_memory
     lda #$ff
@@ -235,6 +213,32 @@ prepare_static_high_memory
     rts
 }
 
+
+	
+program_end
+
+	!align 255, 0, 0
+z_trace_page
+	!fill z_trace_size, 0
+
+vmem_cache_start
+
+!ifdef ALLRAM {
+
+;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
+	!fill cache_pages * 256,0 ; typically 4 pages
+!ifdef VMEM {
+!if (stack_size + *) & 256 {
+	!fill 256,0 ; Add one page to avoid vmem alignment issues
+}
+} 
+
+vmem_cache_size = * - vmem_cache_start
+vmem_cache_count = vmem_cache_size / 256
+}
+!align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
+
+stack_start
 
 z_init
 !zone z_init {

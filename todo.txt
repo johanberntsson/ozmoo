@@ -6,17 +6,17 @@ long enough to reach the last column there will be an extra newline
 
 No words are recognized in Tethered.
 
-Statusline messed up after restore in BZ.
-
 Timed input in v4 games may be broken.
 
 Restart doesn't check in which drive the boot disk is.
 
-Save and restore don't check if a disk is already in the right drive before printing a message to insert the disk.
+Save and restore may not check properly if a disk is already in the right drive before printing a message to insert the disk.
+
+
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Simple config: Ask user to specify disk drive for saves.
+Simple config: Ask user to specify disk drive for saves. Ask on first save or restore, then again if a save or restore fails or is cancelled.
 
 Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
 
@@ -36,8 +36,10 @@ Create easy-to-use tool (Wizard style?) to pick a story file and build disk imag
 
 Support REU for caching.
 
-; Instructions which have not yet been fully implemented
-; ------------------------------------------------------
+
+
+Instructions which have not yet been fully implemented
+------------------------------------------------------
 ; 0OP
 ; ---
 ;
@@ -57,6 +59,7 @@ Support REU for caching.
 ; restore		; Restore game state works. Restore a memory area doesn't. Parameters are ignored.
 
 
+
 Possible alternative versions / extensions
 ------------------------------------------
 * Support for C1581 disks (can hold 3160 blocks of user data)
@@ -69,8 +72,19 @@ Possible alternative versions / extensions
 * Apple II version
 
 
+
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Make sure stack can be reduced to two pages. (Reduce code to <= two pages)
+
+No cursor when entering save name.
+
+Space should also be allowed in save name.
+
+After clearing screen to save or restore, there is no text saying whether you are doing a save or a restore.
+
+Statusline messed up after restore in BZ.
+
 Statusline longer than 40 characters overflows into main window.
 
 Underscore is printed as $ with the new screenkernal.

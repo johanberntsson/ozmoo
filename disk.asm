@@ -1,4 +1,4 @@
-INLINE_FLOPPYMSG = 1
+; INLINE_FLOPPYMSG = 1
 
 first_unavailable_save_slot_charcode	!byte 0
 current_disks !byte $ff, $ff, $ff, $ff
@@ -351,17 +351,7 @@ close_io
 
 !zone disk_messages {
 prepare_for_disk_msgs
-!ifdef INLINE_FLOPPYMSG {
-    ldx #0
-    jmp erase_window
-} else {
-	jsr clear_screen_raw
-	; lda #0
-	; sta .print_row
-	ldx #0
-	tay
-	jmp set_cursor
-}
+	rts
 
 print_insert_disk_msg
 ; Parameters: y: memory index to start of info for disk in disk_info
@@ -440,7 +430,7 @@ print_insert_disk_msg
 
 
 insert_msg_1
-!pet 13,13,"  Please insert ",0
+!pet 13,"  Please insert ",0
 insert_msg_2
 !pet 13,"  in drive ",0
 insert_msg_3
@@ -493,6 +483,7 @@ z_ins_save
     ; return: x = number of characters read
     ;         .inputstring: null terminated string read (max 20 characters)
     ; modifies a,x,y
+	jsr turn_on_cursor
     lda #0
     sta .inputlen
 -   jsr kernal_getchar
@@ -501,10 +492,16 @@ z_ins_save
     ldx .inputlen
     beq -
     dec .inputlen
+	pha
+	jsr turn_off_cursor
+	pla
     jsr s_printchar
+	jsr turn_on_cursor
     jmp -
 +   cmp #$0d ; enter
-    beq +
+    beq .input_done
+	cmp #$20
+	beq .char_is_ok
     sec
     sbc #$30
     cmp #$5B-$30
@@ -513,18 +510,24 @@ z_ins_save
     cmp #$41-$3a
     bcc -
     adc #$39 ;actually +$3a because C=1
+.char_is_ok
     ldx .inputlen
     cpx #14
-    bpl -
+    bcs -
     sta .inputstring,x
     inc .inputlen
     jsr s_printchar
+	jsr update_cursor
     jmp -
-+   jsr s_printchar ; return
+.input_done
+	pha
+	jsr turn_off_cursor
+	pla
+	jsr s_printchar ; return
     ldx .inputlen
     lda #0
     sta .inputstring,x
-    rts
+	rts
 
 .error
     ; accumulator contains BASIC error code
@@ -541,12 +544,10 @@ z_ins_save
 	
 list_save_files
 	lda #13
-	jsr printchar_raw
-	lda #13
-	jsr printchar_raw
+	jsr s_printchar
 	ldx	first_unavailable_save_slot_charcode
 	dex
-	stx .saveslot_msg + 8
+	stx .saveslot_msg + 9
 	ldx disk_info + 1 ; # of save slots
 	lda #0
 -	sta .occupied_slots - 1,x
@@ -737,7 +738,10 @@ list_save_files
 }
 	jsr prepare_for_disk_msgs
 	ldy #0
-	jmp print_insert_disk_msg
+	jsr print_insert_disk_msg
+    ldx #0
+    jmp erase_window
+	
 
 .insert_story_disk
 !ifdef VMEM { ; If not VMEM, there isn't a story disk.
@@ -759,10 +763,8 @@ list_save_files
 !ifdef INLINE_FLOPPYMSG {
     rts
 } else {
-	jsr clear_screen_raw
-	ldx #24
-	ldy #0
-	jmp set_cursor
+    ldx #0
+    jmp erase_window
 }
 
 restore_game
@@ -773,6 +775,9 @@ restore_game
 	beq .restore_failed
 
 	; Pick a slot#
+	lda #>.saveslot_msg_restore ; high
+	ldx #<.saveslot_msg_restore ; low
+	jsr printstring_raw
 	lda #>.saveslot_msg ; high
 	ldx #<.saveslot_msg ; low
 	jsr printstring_raw
@@ -813,13 +818,13 @@ restore_game
 	rts
 
 save_game
-	ldx #0
-	ldy #4
--	jsr kernal_delay_1ms
-	dex
-	bne -
-	dey
-	bne -
+	; ldx #0
+	; ldy #5
+; -	jsr kernal_delay_1ms
+	; dex
+	; bne -
+	; dey
+	; bne -
 
     jsr .insert_save_disk
 
@@ -828,6 +833,9 @@ save_game
 	beq .restore_failed
 
 	; Pick a slot#
+	lda #>.saveslot_msg_save ; high
+	ldx #<.saveslot_msg_save ; low
+	jsr printstring_raw
 	lda #>.saveslot_msg ; high
 	ldx #<.saveslot_msg ; low
 	jsr printstring_raw
@@ -928,10 +936,12 @@ do_save
     rts
 .last_disk	!byte 0
 .saveslot !byte 0
-.saveslot_msg	!pet "Slot (0-9, RETURN=cancel): ",0 ; Will be modified to say highest available slot #
+.saveslot_msg_save	!pet 13,"Save to",0 ; Will be modified to say highest available slot #
+.saveslot_msg_restore	!pet 13,"Restore from",0 ; Will be modified to say highest available slot #
+.saveslot_msg	!pet " slot (0-9, RETURN=cancel): ",0 ; Will be modified to say highest available slot #
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
-.save_msg	!pet 13,13,"Saving...",0
-.restore_msg	!pet 13,13,"Restoring...",0
+.save_msg	!pet 13,"Saving...",13,0
+.restore_msg	!pet 13,"Restoring...",13,0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
