@@ -1,6 +1,5 @@
 ; screen update routines
 ; TRACE_WINDOW = 1
-; OLD_MORE_PROMPT = 1
 
 .num_windows !byte 1
 .num_rows !byte 0,0
@@ -308,14 +307,6 @@ increase_num_rows
     ; time to show [More]
     jsr clear_num_rows
     ; print [More]
-!ifdef OLD_MORE_PROMPT {
-    ldx #0
--   lda .more_text,x
-    beq .printchar_pressanykey
-    jsr s_printchar
-    inx
-    bne -
-} else {
     lda $07e5 
     sta .more_text_char
     lda $07e6 
@@ -327,37 +318,21 @@ increase_num_rows
     sta $07e5
     sta $07e6
     sta $07e7
-}
     ; wait for ENTER
 .printchar_pressanykey
 !ifndef BENCHMARK {
 -   jsr kernal_getchar
     beq -
 }
-!ifdef OLD_MORE_PROMPT {
-    ; remove [More]
-    ldx #0
--   lda .more_text,x
-    beq .increase_num_rows_done
-    lda #20 ; delete
-    jsr s_printchar
-    inx
-    bne -
-} else {
     lda .more_text_char
     sta $07e5
     lda .more_text_char + 1
     sta $07e6
     lda .more_text_char + 2
     sta $07e7
-}
 .increase_num_rows_done
     rts
-!ifdef OLD_MORE_PROMPT {
-.more_text !pet "[More]",0
-} else {
 .more_text_char !byte 0,0,0
-}
 
 printchar_flush
     ; flush the printchar buffer
@@ -400,17 +375,10 @@ printchar_buffered
     bne .check_break_char
     ; newline. Print line and reset the buffer
     jsr printchar_flush
-!ifdef OLD_MORE_PROMPT {
-    ; more on the next line
-    lda #$0d
-    jsr s_printchar
-    jsr increase_num_rows
-} else {
     ; more on the same line
     jsr increase_num_rows
     lda #$0d
     jsr s_printchar
-}
     jmp .printchar_done
 .check_break_char
     ldy .buffer_index
@@ -486,15 +454,6 @@ printchar_buffered
     bne .copy_loop ; Always branch
 .after_copy_loop
 	sty .buffer_index
-!ifdef OLD_MORE_PROMPT {
-    ; more on the next line
-	lda .last_break_char_buffer_pos
-	cmp #40
-	bcs +
-    lda #$0d
-    jsr s_printchar
-+	jsr increase_num_rows
-} else {
     ; more on the same line
     jsr increase_num_rows
 	lda .last_break_char_buffer_pos
@@ -502,9 +461,7 @@ printchar_buffered
 	bcs +
     lda #$0d
     jsr s_printchar
-+
-}
-    ldy #0
++   ldy #0
     sty .last_break_char_buffer_pos
 .printchar_done
     pla
