@@ -1,9 +1,5 @@
 Known bugs
 ----------
-A message which ends in the last column gets an extra line break.
-- test by writing a long unknown word in BZ. If the error message is just
-long enough to reach the last column there will be an extra newline
-
 No words are recognized in Tethered.
 
 Timed input in v4 games may be broken.
@@ -75,6 +71,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+A message which ends in the last column gets an extra line break.
+- test by writing a long unknown word in BZ. If the error message is just
+long enough to reach the last column there will be an extra newline
+
 Make sure stack can be reduced to two pages. (Reduce code to <= two pages)
 
 No cursor when entering save name.
