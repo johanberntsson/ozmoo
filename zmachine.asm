@@ -1138,31 +1138,7 @@ z_ins_rfalse
 z_ins_quit
 	jmp kernal_reset
 
-z_ins_restart
-!ifndef VMEM {
-    ldy #>.not_supported_string
-	lda #<.not_supported_string
-	jmp printstring
-.not_supported_string
-!raw "[Not supported]",13,0
-	rts
-} else {	
-	ldx #0
--	lda .restart_keys,x
-	beq +
-	sta 631,x
-	inx
-	bne - ; Always branch
-+	stx 198
-	jsr clear_screen_raw
-	; lda #147
-	; jsr $ffd2
-	lda #z_exe_mode_exit
-	sta z_exe_mode
-	rts
-.restart_keys
-	!pet "lO",34,"*",34,",8:",131,0
-}
+; z_ins_restart (moved to disk.asm)
 	
 z_ins_ret_popped
 	jsr stack_pull

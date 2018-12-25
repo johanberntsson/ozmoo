@@ -10,14 +10,13 @@ disk_info
 	!byte 8, 8, 0, 0, 0, 130, 131, 0 
 } else {
 
-;TRACE_FLOPPY = 1
-;TRACE_FLOPPY_VERBOSE = 1
+device_map !byte 0,0,0,0
+
 nonstored_blocks		!byte 0
 readblocks_numblocks	!byte 0 
 readblocks_currentblock	!byte 0,0 ; 257 = ff 1
 readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
 readblocks_mempos		!byte 0,0 ; $2000 = 00 20
-device_map	!byte 0,0,0,0 ; For device# 8,9,10,11
 disk_info
 !ifdef Z3 {
 	!fill 71
@@ -438,6 +437,57 @@ insert_msg_3
 }
 
 
+z_ins_restart
+!ifndef VMEM {
+    ldy #>.not_supported_string
+	lda #<.not_supported_string
+	jmp printstring
+.not_supported_string
+!raw "[Not supported]",13,0
+	rts
+} else {
+	; Find right device# for boot disk
+
+	; lda + sta of "0" is not needed if boot device can't be changed during play.
+	; lda #$30
+	; sta .restart_keys + 6
+	ldx disk_info + 3
+	lda disk_info + 4,x
+	cmp #10
+	bcc +
+	inc .restart_keys + 6
+	sec
+	sbc #10
++	ora #$30
+	sta .restart_keys + 7
+	
+	; Check if disk is in drive
+	lda disk_info + 4,x
+	tay
+	txa
+	cmp current_disks - 8,y
+	beq +
+	jsr print_insert_disk_msg
++
+
+	; Setup	key sequence
+	ldx #0
+-	lda .restart_keys,x
+	beq +
+	sta 631,x
+	inx
+	bne - ; Always branch
++	stx 198
+	jsr clear_screen_raw
+	; lda #147
+	; jsr $ffd2
+	lda #z_exe_mode_exit
+	sta z_exe_mode
+	rts
+.restart_keys
+	!pet "lO",34,"*",34,",08:",131,0
+}
+
 z_ins_restore
 !ifdef Z3 {
 	jsr restore_game
@@ -713,7 +763,6 @@ list_save_files
 	bcc - ; Always branch
 +	tax
 	tya
-.return
 	rts
 .dirname
 	!pet "$"
@@ -734,11 +783,12 @@ list_save_files
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
-	beq .return ; Save disk is already in drive.
+	beq .dont_print_insert_save_disk ; Save disk is already in drive.
 }
 	jsr prepare_for_disk_msgs
 	ldy #0
 	jsr print_insert_disk_msg
+.dont_print_insert_save_disk	
     ldx #0
     jmp erase_window
 	
