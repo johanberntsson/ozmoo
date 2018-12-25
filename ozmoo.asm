@@ -47,6 +47,43 @@
 }
 
 
+!ifndef COL2 {
+	COL2 = 0
+}
+!ifndef COL3 {
+	COL3 = 2
+}
+!ifndef COL4 {
+	COL4 = 5
+}
+!ifndef COL5 {
+	COL5 = 7
+}
+!ifndef COL6 {
+	COL6 = 6
+}
+!ifndef COL7 {
+	COL7 = 4
+}
+!ifndef COL8 {
+	COL8 = 3
+}
+!ifndef COL9 {
+	COL9 = 1
+}
+
+!ifndef BGCOL {
+	BGCOL = 2
+}
+!ifndef FGCOL {
+	FGCOL = 9
+}
+
+!ifndef STATCOL {
+	STATCOL = FGCOL
+}
+
+
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
 program_start

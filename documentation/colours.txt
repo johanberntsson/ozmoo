@@ -1,0 +1,60 @@
+Colours in Z-code games
+-----------------------
+make.rb has the following switches to control colours:
+
+-rc:(Z-code colour)=(C64 colour), ...
+	Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
+
+-dc:(Default background colour):(Default foreground colour)
+	Default colours: This picks the Z-code colours to use as default background and foreground colours.
+
+-sc:(Statusline colour)
+	Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 3 story files (z3).
+	
+Z-code has a palette of 8 colours, numbered 2-9:
+
+  2 = black       
+  3 = red         
+  4 = green       
+  5 = yellow      
+  6 = blue        
+  7 = magenta     
+  8 = cyan        
+  9 = white       
+
+The Commodore 64 has 16 colours, numbered 0-15:
+
+  0 = black
+  1 = white
+  2 = red
+  3 = cyan
+  4 = purple
+  5 = green
+  6 = blue
+  7 = yellow
+  8 = orange
+  9 = brown
+ 10 = pink
+ 11 = dark grey
+ 12 = grey
+ 13 = light green
+ 14 = light blue
+ 15 = light grey
+
+Examples
+--------
+
+Use cyan text on black background with a yellow statusbar (only works for z3!):
+
+make.rb -dc:2,8 -sc:5 game.z3
+
+
+Change so Z-code color 7 is dark grey instead of magenta and Z-code color 8 is light grey instead of cyan, and use these as default colors:
+
+make.rb -rc:7=11,8=15 -dc:7,8 game.z5
+
+
+Setting up the default palette (even though this isn't useful) is equivalent to using:
+
+make.rb -rc:2=0,3=2,4=5,5=7,6=6,7=4,8=3,9=1 game.z5
+

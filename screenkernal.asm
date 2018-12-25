@@ -114,7 +114,7 @@ s_printchar
 +
 	; check if colour code
 	ldx #15
--	cmp .colours,x
+-	cmp colours,x
 	beq ++
 	dex
 	bpl -
@@ -277,20 +277,16 @@ s_erase_line
     cpy #40
     bne -
     rts
-    
 
-.colour !byte 254 ; light blue as default
+.colour !byte 1 ; white as default
 .reverse !byte 0
 .stored_x !byte 0
 .stored_y !byte 0
 .current_screenpos_row !byte $ff
-.colours  !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
-.zcolours !byte $ff,$ff ; current/default colour
-          !byte 0,2,5,7  ; black, red, green, yellow
-          !byte 6,4,3,1  ; blue, magenta, cyan, white
-; !ifdef Z6 {
-         ; !byte 15,12,11 ; lgrey, mgrey, dgrey
-; }
+colours  !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+zcolours !byte $ff,$ff ; current/default colour
+          !byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
+          !byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
 
 !ifdef Z5PLUS {
 z_ins_set_colour
@@ -299,18 +295,18 @@ z_ins_set_colour
 	jsr printchar_flush
     ldx z_operand_value_low_arr
 	beq .current_foreground
-    lda .zcolours,x
+    lda zcolours,x
     bpl +
-    lda story_start + $2d ; default colour
+    lda story_start + header_default_fg_colour ; default colour
 +   tax
-    lda .colours,x ; get pet ascii for this colour
+    lda colours,x ; get pet ascii for this colour
     jsr s_printchar ; change foreground colour
 .current_foreground
     ldx z_operand_value_low_arr + 1
 	beq .current_background
-    lda .zcolours,x
+    lda zcolours,x
     bpl +
-    lda story_start + $2c ; default colour
+    lda story_start + header_default_bg_colour ; default colour
 +   sta $d021
 .current_background
     rts

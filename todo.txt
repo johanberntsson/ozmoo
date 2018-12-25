@@ -18,8 +18,6 @@ Allow user to choose save/restore device, including tape, in non vmem mode. (Is 
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
-Add command line options to make.rb to select colours in palette as well as default colours. 
-
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
 *** Speed ***
@@ -71,6 +69,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Add command line option to make.rb to select default colours. 
+
+Add command line option to make.rb to select colours in palette. 
+
 Restart doesn't check in which drive the boot disk is, or if the disk is currently in the drive (With build modes like -S2 the boot disk is typically not in the drive during play).
 
 A message which ends in the last column gets an extra line break.

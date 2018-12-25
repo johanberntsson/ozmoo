@@ -9,22 +9,25 @@ current_window !byte 0
 is_buffered_window !byte 1,0
 
 init_screen_colours_invisible
-    lda #151 ; dark grey
+	ldx zcolours + BGCOL
+    lda colours,x ; Load control character to switch to background colour
 	bne +
 init_screen_colours
     jsr s_init
-    lda #155 ; light grey
+	ldx zcolours + FGCOL
+	stx $d020
+    lda colours,x ; Load control character to switch to background colour
 +	jsr s_printchar
-    lda #$0f
-    sta $d020
-    lda #$0b
+    ; lda #$0f
+    ; sta $d020
+    lda zcolours + BGCOL
     sta $d021
 !ifdef Z5PLUS {
     ; store default colours in header
-    lda #6 ; blue
-    sta story_start + $2c
-    lda #9 ; white
-    sta story_start + $2d
+    lda #BGCOL ; blue
+    sta story_start + header_default_bg_colour
+    lda #FGCOL ; white
+    sta story_start + header_default_fg_colour
 }
     lda #147 ; clear screen
     jmp s_printchar
@@ -568,6 +571,9 @@ draw_status_line
     jsr set_cursor
     lda #18 ; reverse on
     jsr s_printchar
+	ldx zcolours + STATCOL
+	lda colours,x
+	jsr s_printchar
     ;
     ; Room name
     ; 
@@ -637,6 +643,9 @@ draw_status_line
     sta z_operand_value_high_arr
     jsr z_ins_print_num
 .statusline_done
+	ldx zcolours + FGCOL
+	lda colours,x
+	jsr s_printchar
     lda #146 ; reverse off
     jsr s_printchar
     lda #0

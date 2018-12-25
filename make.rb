@@ -391,10 +391,17 @@ def build_interpreter()
 	necessarysettings +=  " --cpu 6510 --format cbm"
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
+	colourflags = $colour_replacement_clause
+	unless $default_colours.empty? # or $zcode_version >= 5
+		colourflags += " -DBGCOL=#{$default_colours[0]} -DFGCOL=#{$default_colours[1]}"
+	end
+	if $statusline_colour
+		colourflags += " -DSTATCOL=#{$statusline_colour}"
+	end
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
-    cmd = "#{$ACME}#{necessarysettings}#{fontflag}#{generalflags}#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME}#{necessarysettings}#{fontflag}#{colourflags}#{generalflags}#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
     ret = system(cmd)
     exit 0 unless ret
@@ -529,6 +536,8 @@ def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, prel
 	# Build loader + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
+	
+	puts "############## #{vmem_contents[0x2c].ord}"
 	
 	disk.save()
 	
@@ -832,17 +841,21 @@ end
 
 
 def print_usage_and_exit
-    puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-c <preloadfile>] [-o] [-s] [-x] [-r] [-f <fontfile>] <file>"
-    puts "       -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. Read about build modes in documentation folder."
-    puts "       -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
-    puts "       -c: read preload config from preloadfile, previously created with -o"
-    puts "       -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
-    puts "       -s: start game in Vice if build succeeds"
-    puts "       -x: Use extended tracks (40 instead of 35) on 1541 disk"
-    puts "       -r: Use reduced amount of RAM (-$CFFF). Only with -P."
-    puts "       -f: Embed the specified font with the game"
-    puts "       filename: path optional (e.g. infocom/zork1.z3)"
-    exit 0
+	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-c <preloadfile>] [-o] [-s] [-x] [-r] [-f <fontfile>] "
+	puts "      [-rc:n=c,n=c...] [-dc:n:n] [-sc:n] <file>"
+	puts "  -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. See docs for details."
+	puts "  -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
+	puts "  -c: read preload config from preloadfile, previously created with -o"
+	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
+	puts "  -s: start game in Vice if build succeeds"
+	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
+	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
+	puts "  -f: Embed the specified font with the game. See docs for details."
+	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
+	puts "  -dc: Use the specified background and foreground colours. See docs for details."
+	puts "  -sc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  filename: path optional (e.g. infocom/zork1.z3)"
+	exit 0
 end
 
 i = 0
@@ -858,6 +871,9 @@ preload_max_vmem_blocks = 2**16 / $VMEM_BLOCKSIZE
 limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
+$colour_replacements = []
+$default_colours = []
+$statusline_colour = nil
 
 begin
 	while i < ARGV.length
@@ -888,6 +904,12 @@ begin
 			mode = MODE_D2
 		elsif ARGV[i] =~ /^-D3$/ then
 			mode = MODE_D3
+		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
+			$colour_replacements = $1.split(/,/)
+		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
+			$default_colours = [$1.to_i,$2.to_i]
+		elsif ARGV[i] =~ /^-sc:([2-9])$/ then
+			$statusline_colour = $1.to_i
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-f$/ then
@@ -916,6 +938,23 @@ $GENERALFLAGS.push('ALLRAM') unless reduced_ram
 
 $ALLRAM = $GENERALFLAGS.include?('ALLRAM')
 
+$colour_replacement_clause = ''
+unless $colour_replacements.empty?
+	$colour_replacements.each do |r|
+		r =~ /^(\d\d?)=(\d\d?)$/
+		zcode_colour = $1
+		c64_colour = $2
+		if zcode_colour !~ /^[2-9]$/
+			puts "-rc requires a Z-code colour value (2-9) to the left of the = character."
+			exit 0
+		end
+		if c64_colour !~ /^([0-9]|1[0-5])$/
+			puts "-rc requires a C64 colour value (0-15) to the right of the = character."
+			exit 0
+		end
+		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
+	end
+end
 
 if reduced_ram and mode != MODE_P
 	puts "Option -r can't be used with this build mode."
@@ -980,7 +1019,13 @@ rescue
 	exit 0
 end
 
-$ztype = "Z#{$story_file_data[0].ord}"
+$zcode_version = $story_file_data[0].ord
+$ztype = "Z#{$zcode_version}"
+
+if $statusline_colour and $zcode_version > 3
+	puts "Option -sc can only be used with z3 story files."
+	exit 0
+end	
 
 # check header.high_mem_start (size of dynmem + statmem)
 high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
