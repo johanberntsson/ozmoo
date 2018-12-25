@@ -40,6 +40,7 @@ The longer answer:
 * Supports embedding a custom font. Currently one font is included in the distribution, but there will be more. And you can supply your own font.
 * Supports custom alphabets in Z-machine version 5 and 8.
 * Supports custom character mappings, allowing for games using accented characters.
+* Supports custom colour schemes
 * Supports up to ten save slots on a save disk (and most games will get the full ten slots).
 * Supports writing a name for a save
 * Supports building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future.
@@ -56,6 +57,16 @@ Edit the file make.rb. At the top of the file, you need to specify paths to the 
 
 To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
 
+### Windows
+
+Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
+
+Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home). The download includes binaries for Windows.
+
+Get WinVice from [SourceForge](http://vice-emu.sourceforge.net/)
+
+You can get Ruby from [RubyInstaller](https://rubyinstaller.org/)
+
 ### Linux
 
 Acme can be downloaded from [Github](https://github.com/meonwax/acme) and compiled.
@@ -67,14 +78,4 @@ Vice is available on Debian/Ubuntu with:
 
 Ruby is available on Debian/Ubuntu with:
 > sudo apt-get install ruby
-
-### Windows
-
-Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
-
-Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home). The download includes binaries for Windows.
-
-Get WinVice from [SourceForge](http://vice-emu.sourceforge.net/)
-
-You can get Ruby from [RubyInstaller](https://rubyinstaller.org/)
 
