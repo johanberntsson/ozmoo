@@ -3,6 +3,7 @@
 first_unavailable_save_slot_charcode	!byte 0
 current_disks !byte $ff, $ff, $ff, $ff
 boot_device !byte 0
+ask_for_save_device !byte $ff
 
 !ifndef VMEM {
 disk_info
@@ -788,7 +789,19 @@ list_save_files
 	jsr prepare_for_disk_msgs
 	ldy #0
 	jsr print_insert_disk_msg
+	ldx disk_info + 4 ; Device# for save disk
+	lda #0
+	sta current_disks - 8,x
+	beq .insert_done
 .dont_print_insert_save_disk	
+	ldx #0
+	ldy #5
+-	jsr kernal_delay_1ms
+	dex
+	bne -
+	dey
+	bne -
+.insert_done
     ldx #0
     jmp erase_window
 	
@@ -817,7 +830,39 @@ list_save_files
     jmp erase_window
 }
 
+maybe_ask_for_save_device
+	lda ask_for_save_device
+	beq .dont_ask
+	lda #0
+	sta ask_for_save_device
+.ask_again
+	lda #>.save_device_msg ; high
+	ldx #<.save_device_msg ; low
+	jsr printstring_raw
+	jsr .input_alphanum
+	cpx #0
+	beq .dont_ask
+	cpx #3
+	bcs .ask_again
+	; One or two digits
+	cpx #1
+	bne .two_digits
+	lda .inputstring
+	and #1
+	ora #8
+	bne .store_device ; Always jump
+.two_digits
+	lda .inputstring + 1
+	and #1
+	ora #10
+.store_device
+	sta disk_info + 4
+.dont_ask
+	rts
+	
 restore_game
+	jsr maybe_ask_for_save_device
+
     jsr .insert_save_disk
 
 	; List files on disk
@@ -875,6 +920,8 @@ save_game
 	; bne -
 	; dey
 	; bne -
+
+	jsr maybe_ask_for_save_device
 
     jsr .insert_save_disk
 
@@ -992,6 +1039,7 @@ do_save
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,"Saving...",13,0
 .restore_msg	!pet 13,"Restoring...",13,0
+.save_device_msg !pet "Device# (8-11, RETURN=default): ",0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save

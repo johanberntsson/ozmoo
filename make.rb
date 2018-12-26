@@ -529,8 +529,6 @@ def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, prel
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 	
-	puts "############## #{vmem_contents[0x2c].ord}"
-	
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
@@ -1037,10 +1035,10 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
-save_slots = [255, 664 / (($static_mem_start.to_f + 1024 + 20) / 254).ceil.to_i].min
-puts "Static mem start: #{$static_mem_start}"
-puts "Save blocks: #{(($static_mem_start.to_f + 1024 + 20) / 254).ceil.to_i}"
-puts "Save slots: #{save_slots}"
+save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $STACK_PAGES + 20) / 254).ceil.to_i].min
+#puts "Static mem start: #{$static_mem_start}"
+#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $STACK_PAGES + 20) / 254).ceil.to_i}"
+#puts "Save slots: #{save_slots}"
 
 config_data = 
 [$BUILD_ID].pack("I>").unpack("CCCC") + 
