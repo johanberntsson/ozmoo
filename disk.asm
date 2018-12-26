@@ -1,5 +1,3 @@
-; INLINE_FLOPPYMSG = 1
-
 first_unavailable_save_slot_charcode	!byte 0
 current_disks !byte $ff, $ff, $ff, $ff
 boot_device !byte 0
@@ -780,12 +778,10 @@ list_save_files
 .base_screen_pos
 	!byte 0,0
 .insert_save_disk
-!ifdef VMEM {
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
 	beq .dont_print_insert_save_disk ; Save disk is already in drive.
-}
 	jsr prepare_for_disk_msgs
 	ldy #0
 	jsr print_insert_disk_msg
@@ -807,7 +803,6 @@ list_save_files
 	
 
 .insert_story_disk
-!ifdef VMEM { ; If not VMEM, there isn't a story disk.
 	ldy .last_disk
 	beq + ; Save disk was in disk before, no need to change
 	bmi + ; The drive was empty before, no need to change disk now
@@ -815,20 +810,8 @@ list_save_files
 	tya
 	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
-!ifdef INLINE_FLOPPYMSG {
-    lda #$0d
-    jsr s_printchar
-    lda #$0d
-    jsr s_printchar
-}
-+
-}
-!ifdef INLINE_FLOPPYMSG {
-    rts
-} else {
-    ldx #0
++	ldx #0
     jmp erase_window
-}
 
 maybe_ask_for_save_device
 	lda ask_for_save_device
@@ -913,13 +896,6 @@ restore_game
 	rts
 
 save_game
-	; ldx #0
-	; ldy #5
-; -	jsr kernal_delay_1ms
-	; dex
-	; bne -
-	; dey
-	; bne -
 
 	jsr maybe_ask_for_save_device
 
@@ -1039,7 +1015,7 @@ do_save
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,"Saving...",13,0
 .restore_msg	!pet 13,"Restoring...",13,0
-.save_device_msg !pet "Device# (8-11, RETURN=default): ",0
+.save_device_msg !pet 13,"Device# (8-11, RETURN=default): ",0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
