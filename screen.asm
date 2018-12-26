@@ -1,5 +1,4 @@
 ; screen update routines
-; TRACE_WINDOW = 1
 
 .num_windows !byte 1
 .num_rows !byte 0,0
@@ -170,13 +169,6 @@ z_ins_buffer_mode
 
 z_ins_split_window
     ; split_window lines
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "split_window: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
-}
     ldx z_operand_value_low_arr
     jmp split_window
 
@@ -206,13 +198,6 @@ split_window
 
 z_ins_set_window
     ;  set_window window
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "set_window: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
-}
     lda z_operand_value_low_arr
     sta current_window
     bne +
@@ -225,13 +210,6 @@ z_ins_set_window
 
 !ifdef Z4PLUS {
 z_ins_set_text_style
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "set_text_style: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr newline
-}
     lda z_operand_value_low_arr
     bne .t0
     ; roman
@@ -269,16 +247,6 @@ z_ins_get_cursor
 
 z_ins_set_cursor
     ; set_cursor line column
-!ifdef TRACE_WINDOW {
-    jsr print_following_string
-    !pet "set_cursor: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr newline
-}
     ldx z_operand_value_low_arr ; line 1..
     dex ; line 0..
     txa
