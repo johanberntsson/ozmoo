@@ -1,14 +1,5 @@
 ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect12.html
 
-;TRACE_TREE = 1 ; trace get_parent, get_sibling, get_child
-;TRACE_OBJ = 1 ; trace remove_obj, jin, insert_obj
-;TRACE_ATTR = 1 ; trace find_attr, set_attr, clear_attr
-;TRACE_PROP = 1  ; trace get_prop_len, get_next_prop
-;TRACE_FROTZ_OBJ = 1 ; give Frotz-style messages
-;TRACE_FROTZ_PROP = 1 ; give Frotz-style messages
-;TRACE_FROTZ_ATTR = 1 ; give Frotz-style messages
-;TRACE_FROTZ_TREE = 1 ; give Frotz-style messages
-
 ; globals
 num_default_properties !byte 0
 objects_start_ptr      !byte 0, 0
@@ -16,17 +7,6 @@ objects_start_ptr      !byte 0, 0
 ; object table opcodes
 z_ins_get_sibling
     ; get_sibling object -> (result) ?(label)
-!ifdef TRACE_FROTZ_TREE {
-    jsr print_following_string
-    !pet "@get_sibling  ",0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-}
-!ifdef TRACE_TREE {
-    jsr print_following_string
-    !pet "get_sibling obj: ",0
-}
 !ifndef Z4PLUS {
     lda #5
 } else {
@@ -36,17 +16,6 @@ z_ins_get_sibling
 
 z_ins_get_child
     ; get_child object -> (result) ?(label)
-!ifdef TRACE_FROTZ_TREE {
-    jsr print_following_string
-    !pet "@get_child  ",0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-}
-!ifdef TRACE_TREE {
-    jsr print_following_string
-    !pet "get_child obj: ",0
-}
 !ifndef Z4PLUS {
     lda #6
 } else  {
@@ -68,11 +37,6 @@ z_ins_get_child
     jsr z_store_result
 	jmp make_branch_false
 +	pha
-!ifdef TRACE_TREE {
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-}
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -91,21 +55,6 @@ z_ins_get_child
 	pha ; Value is zero if object is zero, non-zero if object is non-zero
     lda (object_tree_ptr),y
 }
-!ifdef TRACE_TREE {
-    pha
-    txa
-    pha
-    jsr printx
-    jsr newline
-    pla
-    tax
-    pla
-}
-!ifdef TRACE_FROTZ_TREE {
-    jsr space
-    jsr printx
-    jsr newline
-}
     jsr z_store_result
 	pla ; Value is zero if object is zero, non-zero if object is non-zero
 	bne .get_child_branch_true
@@ -115,34 +64,9 @@ z_ins_get_child
 
 z_ins_get_parent
     ; get_parent object -> (result)
-!ifdef TRACE_FROTZ_TREE {
-    jsr print_following_string
-    !pet "@get_parent ",0
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
-    jsr print_obj
-}
-!ifdef TRACE_TREE {
-    jsr print_following_string
-    !pet "get_parent obj: ",0
-}
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-!ifdef TRACE_TREE {
-    jsr printx
-    jsr comma
-    jsr printa
-    jsr space
-}
     jsr calculate_object_address
-!ifdef TRACE_TREE {
-    ldx object_tree_ptr
-    jsr printx
-    jsr comma
-    ldx object_tree_ptr + 1
-    jsr printx
-    jsr space
-}
 !ifndef Z4PLUS {
     ldy #4
     ldx #0
@@ -156,39 +80,10 @@ z_ins_get_parent
     dey
     lda (object_tree_ptr),y
 }
-!ifdef TRACE_FROTZ_TREE {
-    jsr space
-    jsr printx
-    jsr newline
-}
-!ifdef TRACE_TREE {
-    jsr printx
-    jsr newline
-}
     jmp z_store_result
 
 z_ins_get_prop_len
     ; get_prop_len property-address -> (result)
-!ifdef TRACE_FROTZ_PROP {
-    jsr print_following_string
-    !pet "get_prop_len  ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    lda z_operand_value_high_arr
-    jsr printa
-    jsr space
-}
-!ifdef TRACE_PROP {
-    jsr print_following_string
-    !pet "get_prop_len property-address: ",0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr
-    jsr printx
-    jsr space
-}
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     cpx #0
@@ -196,10 +91,6 @@ z_ins_get_prop_len
     cmp #0
     bne +
     ; get_prop_len 0 must return 0
-!ifdef TRACE_PROP {
-    jsr printx
-    jsr newline
-}
     jmp z_store_result
 +   jsr set_z_address
     ; z_address currently at start of prop data
@@ -236,14 +127,6 @@ z_ins_get_prop_len
 }
 ++  ldx .property_length
     lda #0
-!ifdef TRACE_FROTZ_PROP {
-    jsr printx
-    jsr newline
-}
-!ifdef TRACE_PROP {
-    jsr printx
-    jsr newline
-}
     jmp z_store_result
 
 .zp_object = zp_mempos
@@ -258,14 +141,6 @@ z_ins_get_prop_len
 
 z_ins_remove_obj
     ; remove_obj object
-!ifdef TRACE_FROTZ_OBJ {
-    jsr print_following_string
-    !pet "remove_obj: ", 0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr newline
-}
 z_ins_remove_obj_body
     ; get object number
     ldx z_operand_value_low_arr
@@ -295,23 +170,6 @@ z_ins_remove_obj_body
     lda (.zp_object),y
     sta .parent_num + 1
 }
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet "remove_obj: obj ", 0
-    lda object_num
-    jsr printa
-    jsr comma
-    lda object_num + 1
-    jsr printa
-    jsr print_following_string
-    !pet " parent ", 0
-    lda .parent_num
-    jsr printa
-    jsr comma
-    lda .parent_num + 1
-    jsr printa
-    jsr space
-}
     ; is there a parent?
     lda .parent_num
     bne .has_parent
@@ -340,15 +198,6 @@ z_ins_remove_obj_body
     lda (.zp_parent),y
     sta .child_num + 1
 }
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet " child ", 0
-    lda .child_num
-    jsr printa
-    jsr comma
-    lda .child_num + 1
-    jsr printa
-}
     ; num_child == num_object?
     lda .child_num
     cmp object_num
@@ -374,10 +223,6 @@ z_ins_remove_obj_body
     lda (.zp_object),y
     ldy #6  ; child
     sta (.zp_parent),y
-}
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet " directchild", 0
 }
     jmp .remove_obj_done
 .not_child
@@ -425,10 +270,6 @@ z_ins_remove_obj_body
     lda (.zp_object),y
     sta (.zp_sibling),y
 }
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet " sibling", 0
-}
 .remove_obj_done
     ; always set obj.parent and obj.sibling to 0
     lda #0
@@ -447,9 +288,6 @@ z_ins_remove_obj_body
     iny ; sibling (5)
     sta (.zp_object),y
 }
-!ifdef TRACE_OBJ {
-    jsr newline
-}
     rts
 
 find_attr
@@ -462,49 +300,17 @@ find_attr
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
-!ifdef TRACE_ATTR {
-    ldx z_operand_value_low_arr
-    jsr printx
-    lda #40 ; (
-    jsr streams_print_output
-    ldx object_tree_ptr
-    jsr printx
-    jsr comma
-    ldx object_tree_ptr + 1
-    jsr printx
-    lda #41 ; )
-    jsr streams_print_output
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-}
     lda z_operand_value_low_arr + 1
     ; ignore high_arr. Max 48 attributes
     and #$07
     sta .bitmask_index
     tax
-!ifdef TRACE_ATTR {
-    lda #$78 ; X
-    jsr streams_print_output
-    jsr printx
-    jsr space
-}
     lda z_operand_value_low_arr + 1
     lsr
     lsr
     lsr
     tay
     sta .attribute_index
-!ifdef TRACE_ATTR {
-    txa
-    pha
-    lda #$79 ; Y
-    jsr streams_print_output
-    jsr printy
-    jsr space
-    pla
-    tax
-}
     rts
 .bitmask !byte 128,64,32,16,8,4,2,1
 .bitmask_index !byte 0
@@ -534,22 +340,6 @@ print_obj
 
 z_ins_jin
     ; jin obj1 obj2 ?(label)
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet "jin obj1 obj2: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr + 1
-    jsr printx
-    jsr newline
-}
     ldx z_operand_value_low_arr
     lda z_operand_value_high_arr
     jsr calculate_object_address
@@ -573,187 +363,55 @@ z_ins_jin
 
 z_ins_test_attr
     ; test_attr object attribute ?(label)
-!ifdef TRACE_FROTZ_ATTR {
-    jsr print_following_string
-    !pet "@test_attr ",0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-}
-!ifdef TRACE_ATTR {
-    jsr print_following_string
-    !pet "test_attr obj attr: ",0
-}
     jsr find_attr
     lda (object_tree_ptr),y
-!ifdef TRACE_ATTR {
-    jsr printa
-    jsr space
-}
     and .bitmask,x
     beq .branch_false
 .branch_true 
-!ifdef TRACE_FROTZ_ATTR {
-    jsr print_following_string
-    !pet " true",0
-    jsr newline
-}
-!ifdef TRACE_ATTR {
-    jsr print_following_string
-    !pet "true",13,0
-}
     jmp make_branch_true
 .branch_false
-!ifdef TRACE_FROTZ_ATTR {
-    jsr print_following_string
-    !pet " false",0
-    jsr newline
-}
-!ifdef TRACE_ATTR {
-    jsr print_following_string
-    !pet "false",13,0
-}
    jmp make_branch_false
 
 z_ins_set_attr
     ; set_attr object attribute
     jsr find_attr
-!ifdef TRACE_FROTZ_ATTR {
-    jsr print_following_string
-    !pet "@set_attr  ", 0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr newline
-}
-!ifdef TRACE_ATTR {
-    jsr print_following_string
-    !pet "set_attr object attr: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr + 1
-    jsr printx
-    jsr space
-}
     ; don't continue if object = 0
     ldx z_operand_value_low_arr
     bne .do_set_attr
     ldx z_operand_value_high_arr
     bne .do_set_attr
-!ifdef TRACE_ATTR {
-    jsr newline
-}
     rts
 .do_set_attr
     ldx .bitmask_index
     ldy .attribute_index
     lda (object_tree_ptr),y
-!ifdef TRACE_ATTR {
-    lda .bitmask,x
-    jsr printa
-    jsr comma
-    lda (object_tree_ptr),y
-    jsr printa
-    jsr space
-}
     ora .bitmask,x
     sta (object_tree_ptr),y
-!ifdef TRACE_ATTR {
-    jsr printa
-    jsr newline
-}
     rts
 
 z_ins_clear_attr
     ; clear_attr object attribute
     jsr find_attr
-!ifdef TRACE_FROTZ_ATTR {
-    jsr print_following_string
-    !pet "@clear_attr object ", 0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr newline
-}
-!ifdef TRACE_ATTR {
-    jsr print_following_string
-    !pet "clear_attr object attr: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-    ldx z_operand_value_high_arr + 1
-    jsr printx
-    jsr space
-}
     ; don't continue if object = 0
     ldx z_operand_value_low_arr
     bne .do_clear_attr
     ldx z_operand_value_high_arr
     bne .do_clear_attr
-!ifdef TRACE_ATTR {
-    jsr newline
-}
     rts
 .do_clear_attr
     ldx .bitmask_index
     ldy .attribute_index
     lda (object_tree_ptr),y
-!ifdef TRACE_ATTR {
-    jsr printa
-    jsr space
-}
     and .bitmask,x
     beq +
     lda (object_tree_ptr),y
     eor .bitmask,x
     sta (object_tree_ptr),y
 +
-!ifdef TRACE_ATTR {
-    jsr printa
-    jsr newline
-}
     rts
 
 z_ins_insert_obj
     ; insert_obj object destination
-!ifdef TRACE_FROTZ_OBJ {
-    jsr print_following_string
-    !pet "move_obj: obj ", 0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    lda z_operand_value_high_arr + 1
-    jsr print_obj
-    jsr newline
-}
-!ifdef TRACE_OBJ {
-    jsr print_following_string
-    !pet "insert_obj obj dest: ",0
-}
     jsr z_ins_remove_obj_body ; will set .zp_object and object_num
     ; calculate destination address
     ldx z_operand_value_low_arr + 1
@@ -768,20 +426,6 @@ z_ins_insert_obj
     lda z_operand_value_high_arr + 1
     sta .dest_num
     stx .dest_num + 1
-!ifdef TRACE_OBJ {
-    lda object_num
-    jsr printa
-    jsr comma
-    lda object_num + 1
-    jsr printa
-    jsr space
-    lda .dest_num
-    jsr printa
-    jsr comma
-    lda .dest_num + 1
-    jsr printa
-    jsr space
-}
 !ifdef Z4PLUS {
     ; object.parent = destination
     ldy #6 ; parent
@@ -823,13 +467,6 @@ z_ins_insert_obj
     lda object_num + 1
     sta (.zp_dest),y
 }
-!ifdef TRACE_OBJ {
-    ldy #4 ; parent
-    lda (.zp_object),y
-    jsr printa
-    jsr space
-    jsr newline
-}
     rts
 
 calculate_property_length_number
@@ -840,10 +477,6 @@ calculate_property_length_number
     sta .property_number
     sta .property_length
     jsr read_next_byte ; size of property block (# data | property number)
-!ifdef TRACE_PROP {
-    ;jsr printa
-    ;jsr comma
-}
     beq .end_pf_property_list
 !ifdef Z4PLUS {
     pha
@@ -863,9 +496,6 @@ calculate_property_length_number
 .two_bytes
     pla ; we don't care about byte 1, bit 6 anymore
     jsr read_next_byte ; property_length
-!ifdef TRACE_PROP {
-    ;jsr printa
-}
     and #$3f ; property number
     sta .property_length
     bne .end_pf_property_list
@@ -885,9 +515,6 @@ calculate_property_length_number
     inc .property_length
 }
 .end_pf_property_list
-!ifdef TRACE_PROP {
-    ;jsr space
-}
     rts
 .property_number !byte 0
 .property_length !byte 0
@@ -934,16 +561,6 @@ find_prop
     lda .property_number
     cmp #0
     beq .find_prop_not_found
-!ifdef TRACE_PROP {
-    lda #46 ; .
-    jsr streams_print_output
-    ldx .property_number
-    jsr printx
-    jsr space
-    ldx .property_length
-    jsr printx
-    jsr newline
-}
     lda .property_number
     cmp z_operand_value_low_arr + 1; max 63 properties so only low_arr
     beq .find_prop_found
@@ -967,37 +584,8 @@ find_prop
 
 z_ins_get_prop
     ; get_prop object property -> (result)
-!ifdef TRACE_FROTZ_PROP {
-    jsr print_following_string
-    !pet "get_prop ", 0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-}
     jsr find_first_prop
     jsr find_prop
-!ifdef TRACE_PROP {
-    pha
-    jsr print_following_string
-    !pet "get_prop obj prop: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr colon
-    ldy .property_number
-    jsr printy
-    jsr space
-    ldy .property_length
-    jsr printy
-    jsr colon
-    pla
-}
     cmp #0
     bne .property_found
     ; no property found, get default property
@@ -1034,76 +622,16 @@ z_ins_get_prop
     lda #ERROR_BAD_PROPERTY_LENGTH
     jsr fatalerror
 .return_property_result
-!ifdef TRACE_FROTZ_PROP {
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
-}
-!ifdef TRACE_PROP {
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
-}
     jmp z_store_result
 
 z_ins_get_prop_addr
     ; get_prop_addr object property -> (result)
-!ifdef TRACE_FROTZ_PROP {
-    jsr print_following_string
-    !pet "get_prop_addr  ", 0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr print_obj
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-}
     jsr find_first_prop
     jsr find_prop
-!ifdef TRACE_PROP {
-    pha
-    txa
-    pha
-    jsr print_following_string
-    !pet "get_prop_addr object property: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr colon
-    ldy .property_number
-    jsr printy
-    jsr space
-    ldy .property_length
-    jsr printy
-    jsr colon
-    jsr get_z_address
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
-    pla
-    tax
-    pla
-}
-!ifdef TRACE_FROTZ_PROP {
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
-}
     jmp z_store_result
 
 z_ins_get_next_prop
     ; get_next_prop object property -> (result)
-!ifdef TRACE_PROP {
-    jsr print_following_string
-    !pet "get_next_prop object property: ", 13, 0
-}
     jsr find_first_prop
     ldx z_operand_value_low_arr + 1
     beq + ; property == 0, return first property number
@@ -1126,35 +654,12 @@ z_ins_put_prop
     clc
     adc #>story_start
     sta zp_mempos + 1
-!ifdef TRACE_PROP {
-    jsr print_following_string
-    !pet "put_prop object property: ", 0
-    ldx z_operand_value_low_arr
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 1
-    jsr printx
-    jsr space
-    ldx z_operand_value_low_arr + 2
-    jsr printx
-    jsr colon
-    ldy .property_number
-    jsr printy
-    jsr space
-    ldy .property_length
-    jsr printy
-    jsr colon
-    jsr space
-}
     lda .property_length
     cmp #1
     bne +
     ldx z_operand_value_low_arr + 2
     ldy #0
     sta (zp_mempos),y
-!ifdef TRACE_PROP {
-    jsr newline
-}
     rts
 +   cmp #2
     bne +
@@ -1164,9 +669,6 @@ z_ins_put_prop
     iny 
     lda z_operand_value_low_arr + 2
     sta (zp_mempos),y
-!ifdef TRACE_PROP {
-    jsr newline
-}
     rts
 +   lda #ERROR_BAD_PROPERTY_LENGTH
     jsr fatalerror

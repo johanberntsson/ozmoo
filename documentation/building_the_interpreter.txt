@@ -44,34 +44,18 @@ PRINT_SWAPS
 	Print information whenever a memory block is loaded into memory.
 TRACE
 	Print trace information.
-TRACE_ATTR
-	Print trace information for attribute changes.
 TRACE_FLOPPY
 	Print trace information for floppy operations.
 TRACE_FLOPPY_VERBOSE
 	Print verbose trace information for floppy operations.
-TRACE_FROTZ_ATTR
-	?
-TRACE_FROTZ_OBJ
-	?
-TRACE_FROTZ_PROP
-	?
-TRACE_FROTZ_TREE
-	?
-TRACE_OBJ
-	Print trace information for object changes.
 TRACE_PRINT_ARRAYS
 	?
-TRACE_PROP
-	Print trace information for property changes.
 TRACE_READTEXT
 	Print trace information for opcode read/aread/sread.
 TRACE_SHOW_DICT_ENTRIES
 	?
 TRACE_TOKENISE
 	Print trace information for the tokenization process.
-TRACE_TREE
-	Print trace information for object movement.
 TRACE_VM
 	Print trace information for the virtual memory system.
 TRACE_VM_PC
