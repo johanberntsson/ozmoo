@@ -283,10 +283,10 @@ s_erase_line
 .stored_x !byte 0
 .stored_y !byte 0
 .current_screenpos_row !byte $ff
-colours  !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
-zcolours !byte $ff,$ff ; current/default colour
-          !byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
-          !byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
+colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+zcolours	!byte $ff,$ff ; current/default colour
+			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
+			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
 
 !ifdef Z5PLUS {
 z_ins_set_colour
@@ -297,8 +297,12 @@ z_ins_set_colour
 	beq .current_foreground
     lda zcolours,x
     bpl +
-    lda story_start + header_default_fg_colour ; default colour
+    ldx story_start + header_default_fg_colour ; default colour
+    lda zcolours,x
 +   tax
+!ifdef BORDER_LIKE_FG {
+	sta reg_bordercolour
+}
     lda colours,x ; get pet ascii for this colour
     jsr s_printchar ; change foreground colour
 .current_foreground
@@ -306,8 +310,12 @@ z_ins_set_colour
 	beq .current_background
     lda zcolours,x
     bpl +
-    lda story_start + header_default_bg_colour ; default colour
-+   sta $d021
+    ldx story_start + header_default_bg_colour ; default colour
+    lda zcolours,x
++   sta reg_backgroundcolour
+!ifdef BORDER_LIKE_BG {
+	sta reg_bordercolour
+}
 .current_background
     rts
 }

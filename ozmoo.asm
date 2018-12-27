@@ -79,9 +79,21 @@
 	FGCOL = 9
 }
 
+; Border color: 0 = as background, 1 = as foreground, 2-9: specified Z-code colour. Default: as background
+!ifndef BORDERCOL {
+	BORDERCOL = 0
+}
+!if BORDERCOL = 0 {
+	BORDER_LIKE_BG = 1
+}
+!if BORDERCOL = 1 {
+	BORDER_LIKE_FG = 1
+}
+
 !ifndef STATCOL {
 	STATCOL = FGCOL
 }
+
 
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
@@ -325,7 +337,7 @@ z_init
 !ifdef Z4PLUS {
 	lda #8
 	sta story_start + $1e ; Interpreter number (8 = C64)
-	lda #64
+	lda #65
 	sta story_start + $1f ; Interpreter number. Usually ASCII code for a capital letter (We use @ until the terp is ready for release)
 	lda #25
 	sta story_start + $20 ; Screen lines

@@ -14,13 +14,21 @@ init_screen_colours_invisible
 init_screen_colours
     jsr s_init
 	ldx zcolours + FGCOL
-	stx $d020
+!ifdef BORDER_LIKE_FG {
+	stx reg_bordercolour
+}
     lda colours,x ; Load control character to switch to background colour
 +	jsr s_printchar
-    ; lda #$0f
-    ; sta $d020
     lda zcolours + BGCOL
-    sta $d021
+    sta reg_backgroundcolour
+!ifdef BORDER_LIKE_BG {
+	sta reg_bordercolour
+} else {
+!ifndef BORDER_LIKE_FG {
+	lda zcolours + BORDERCOL
+	sta reg_bordercolour
+}
+}
 !ifdef Z5PLUS {
     ; store default colours in header
     lda #BGCOL ; blue

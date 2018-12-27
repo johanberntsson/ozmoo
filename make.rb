@@ -385,6 +385,9 @@ def build_interpreter()
 	unless $default_colours.empty? # or $zcode_version >= 5
 		colourflags += " -DBGCOL=#{$default_colours[0]} -DFGCOL=#{$default_colours[1]}"
 	end
+	if $border_colour
+		colourflags += " -DBORDERCOL=#{$border_colour}"
+	end
 	if $statusline_colour
 		colourflags += " -DSTATCOL=#{$statusline_colour}"
 	end
@@ -830,20 +833,21 @@ end
 
 
 def print_usage_and_exit
-	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-s] [-x] [-r] [-f <fontfile>] "
-	puts "      [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-sc:[n]] [-sp:[n]] <storyfile>"
+	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] [-s] [-x] [-r] "
+	puts "      [-f <fontfile>] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p:[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
+	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc: Use the specified background and foreground colours. See docs for details."
+	puts "  -bc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
 	puts "  -sc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
-	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 	exit 0
 end
@@ -865,6 +869,7 @@ $colour_replacements = []
 $default_colours = []
 $statusline_colour = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
+$border_colour = 0
 
 begin
 	while i < ARGV.length
@@ -899,6 +904,8 @@ begin
 			$colour_replacements = $1.split(/,/)
 		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
 			$default_colours = [$1.to_i,$2.to_i]
+		elsif ARGV[i] =~ /^-bc:([0-9])$/ then
+			$border_colour = $1.to_i
 		elsif ARGV[i] =~ /^-sc:([2-9])$/ then
 			$statusline_colour = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
