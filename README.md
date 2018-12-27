@@ -11,9 +11,11 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
-Ozmoo is not quite ready for release or production use yet. A few minor features are missing, like the ability to save and restore arbitrary parts of memory. There are also some bugs. Most games should run just fine though.
+Update 2018-12-27: We now consider Ozmoo ready for production use. A few minor features are missing, like output to printer and the ability to save and restore arbitrary parts of memory, and chances are they won't be added. 
 
-If you want to start using Ozmoo once it's more mature, we recommend you to star the project, or just return every once in a while to see what's happening.
+There are probably still some bugs, and we will work to fix them as soon as we hear of them or notice them. We expect almost all games to run just fine.
+
+If you want to follow what's happening with Ozmoo, we recommend you to star the project.
 
 ## Motivation
 
@@ -49,11 +51,11 @@ The longer answer:
 
 You need to install:
 * Acme cross-assembler
-* Exomizer file compression program
+* Exomizer file compression program (tested with 3.0.0 and 3.0.1)
 * Vice C64 emulator
 * Ruby (Tested with 2.4.2, but most 2.x versions should work fine)
 
-Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, the Vice C64 emulator, and the program "1541" which is also included in the Vice distribution.
+Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.
 
 To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
 
