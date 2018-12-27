@@ -50,8 +50,6 @@ $INTERLEAVE = 9 # (1-21)
 
 $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.
 
-$STACK_PAGES = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
-
 MODE_P = 1
 MODE_S1 = 2
 MODE_S2 = 3
@@ -379,7 +377,7 @@ def name_to_c64(name)
 end
 
 def build_interpreter()
-	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$STACK_PAGES} -D#{$ztype}=1"
+	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1"
 	necessarysettings +=  " --cpu 6510 --format cbm"
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
@@ -420,6 +418,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+
 	puts exomizer_cmd
 	system(exomizer_cmd)
 #	puts "Building with #{vmem_preload_blocks} blocks gives file size #{File.size($zip_file)}."
@@ -831,10 +830,10 @@ end
 
 
 def print_usage_and_exit
-	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-c <preloadfile>] [-o] [-s] [-x] [-r] [-f <fontfile>] "
-	puts "      [-rc:n=c,n=c...] [-dc:n:n] [-sc:n] <file>"
+	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-s] [-x] [-r] [-f <fontfile>] "
+	puts "      [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-sc:[n]] [-sp:[n]] <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. See docs for details."
-	puts "  -p[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
+	puts "  -p:[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -s: start game in Vice if build succeeds"
@@ -844,7 +843,8 @@ def print_usage_and_exit
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc: Use the specified background and foreground colours. See docs for details."
 	puts "  -sc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
-	puts "  filename: path optional (e.g. infocom/zork1.z3)"
+	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
+	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 	exit 0
 end
 
@@ -864,6 +864,7 @@ $program_end_address = 0x10000
 $colour_replacements = []
 $default_colours = []
 $statusline_colour = nil
+$stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
 
 begin
 	while i < ARGV.length
@@ -881,8 +882,8 @@ begin
 			auto_play = true
 		elsif ARGV[i] =~ /^-r$/ then
 			reduced_ram = true
-		elsif ARGV[i] =~ /^-p(\d*)$/ then
-			preload_max_vmem_blocks = ($1.length > 0) ? $1.to_i : 0
+		elsif ARGV[i] =~ /^-p:(\d+)$/ then
+			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
@@ -900,6 +901,8 @@ begin
 			$default_colours = [$1.to_i,$2.to_i]
 		elsif ARGV[i] =~ /^-sc:([2-9])$/ then
 			$statusline_colour = $1.to_i
+		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
+			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-f$/ then
@@ -1035,9 +1038,9 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
-save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $STACK_PAGES + 20) / 254).ceil.to_i].min
+save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
 #puts "Static mem start: #{$static_mem_start}"
-#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $STACK_PAGES + 20) / 254).ceil.to_i}"
+#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}"
 #puts "Save slots: #{save_slots}"
 
 config_data = 

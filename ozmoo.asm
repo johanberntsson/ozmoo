@@ -381,10 +381,13 @@ z_init
 	lda story_start + header_globals + 1
 	clc
 	adc #<(story_start - 32)
-	sta z_global_vars_start
+	sta z_low_global_vars_ptr
+	sta z_high_global_vars_ptr
 	lda story_start + header_globals
 	adc #>(story_start - 32)
-	sta z_global_vars_start + 1
+	sta z_low_global_vars_ptr + 1
+	adc #1
+	sta z_high_global_vars_ptr + 1 
 
 	; Init sound
 	lda #0

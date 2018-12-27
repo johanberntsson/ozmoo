@@ -16,7 +16,7 @@
 ; E = Execution mode (1 = interrupt, 0 = normal)
 ; ZZZ ZZZZZZZZ ZZZZZZZZ = Z_PC to go to when returning from this routine 
 ;
-; Stack pointer actually points to last word of current entry (Number of pushed bytes + 4)
+; Stack pointer actually points to Pushed word 0.
 
 !zone {
 
@@ -389,18 +389,18 @@ stack_return_from_routine
 	sec
 ;	ldy #1 ; Not needed, has right value already
 	sbc (z_local_vars_ptr),y
-	tax
+	sta stack_ptr
 	lda z_local_vars_ptr + 1
 	dey
 	sbc (z_local_vars_ptr),y
-	tay
-
-	txa
-	sbc #0 ; Carry should always be set after last operation
-	sta stack_ptr
-	tya
-	sbc #0
 	sta stack_ptr + 1
+
+	; txa
+	; sbc #0 ; Carry should always be set after last operation
+	; sta stack_ptr
+	; tya
+	; sbc #0
+	; sta stack_ptr + 1
 	
 	; Find # of locals
 	lda stack_ptr
@@ -580,14 +580,35 @@ z_ins_catch
 
 z_ins_throw
 	; Restore pointer given. Return from routine (frame).
+	
+	; First, restore old stack_ptr, and calculate where # of local vars is stored.
 	lda z_operand_value_low_arr + 1
 	sta stack_ptr
+	sec
+	sbc #6
+	sta zp_temp
 	lda z_operand_value_high_arr + 1
 	sta stack_ptr + 1
+	sbc #0
+	sta zp_temp + 1
+	
+	; Retrieve # of local vars, and set z_local_vars_ptr to correct value
+	ldy #2
+	lda (zp_temp),y
+	and #$0f
+	sta z_local_var_count
+	lda zp_temp
+	sbc z_local_var_count
+	sta z_local_vars_ptr
+	lda zp_temp + 1
+	sbc #0
+	sta z_local_vars_ptr + 1
+
+	; Return from the routine that contained the catch instruction
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jmp stack_return_from_routine
-	
+
 z_ins_check_arg_count
 	; Read number of arguments provided to this routine
 	lda z_operand_value_high_arr

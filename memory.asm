@@ -47,25 +47,6 @@ inc_z_pc_page
 
 }
 
-get_page_at_z_pc
-!zone {
-	pha
-get_page_at_z_pc_did_pha
-	stx mem_temp
-!ifdef ALLRAM {
-	lda z_pc
-}
-	ldx z_pc + 1
-	ldy z_pc + 2
-	jsr read_byte_at_z_address
-	ldy mempointer + 1
-	sty z_pc_mempointer + 1
-	ldy #0 ; Important: y should always be 0 when exiting this routine!
-	ldx mem_temp
-	pla
-	rts
-}
-
 
 set_z_pc
 ; Sets new value of z_pc, and makes sure z_pc_mempointer points to the right memory
@@ -121,7 +102,27 @@ set_z_pc
 	sta z_pc
 .unsafe_2
 	stx z_pc + 1
-	jsr get_page_at_z_pc
+	; jsr get_page_at_z_pc
+	; rts
+}
+
+; Must follow set_z_pc
+get_page_at_z_pc
+!zone {
+	pha
+get_page_at_z_pc_did_pha
+	stx mem_temp
+!ifdef ALLRAM {
+	lda z_pc
+}
+	ldx z_pc + 1
+	ldy z_pc + 2
+	jsr read_byte_at_z_address
+	ldy mempointer + 1
+	sty z_pc_mempointer + 1
+	ldy #0 ; Important: y should always be 0 when exiting this routine!
+	ldx mem_temp
+	pla
 	rts
 }
 

@@ -62,3 +62,7 @@ TRACE_VM_PC
 	?
 VMEM_OPTIMIZE
 	Built the interpreter in PREOPT mode (used to pick which virtual memory blocks should be preloaded into memory when the game starts).
+VIEW_STACK_RECORDS
+	Print whenever the stack size hits a new high, or when the number of bytes pushed onto the stack within a frame reaches a new high.
+	
+	

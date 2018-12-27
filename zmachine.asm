@@ -779,23 +779,23 @@ dumptovice
 	asl
 	tay
 	iny
-	lda (z_global_vars_start),y
+	lda (z_low_global_vars_ptr),y
 	tax
 	dey
-	lda (z_global_vars_start),y
+	lda (z_low_global_vars_ptr),y
 	bcc .store_operand ; Always branch
 .read_high_global_var
-	inc z_global_vars_start + 1
-	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
-	asl
+	; inc z_global_vars_start + 1
+	; and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 (Pointless, since ASL will remove top bit anyway)
+	asl ; This will set C = 1
 	tay
 	iny
-	lda (z_global_vars_start),y
+	lda (z_high_global_vars_ptr),y
 	tax
 	dey
-	lda (z_global_vars_start),y
-	dec z_global_vars_start + 1
-	bne .store_operand ; Always branch
+	lda (z_high_global_vars_ptr),y
+;	dec z_global_vars_start + 1
+	bcs .store_operand ; Always branch
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
@@ -874,10 +874,10 @@ z_get_variable_reference
 	asl
 	rol zp_temp + 1
 	clc
-	adc z_global_vars_start
+	adc z_low_global_vars_ptr
 	tax
 	lda zp_temp + 1
-	adc z_global_vars_start + 1
+	adc z_low_global_vars_ptr + 1
 	ldy zp_temp + 3
 	rts
 
@@ -892,10 +892,10 @@ z_get_low_global_variable_value
 	asl
 	tay
 	iny
-	lda (z_global_vars_start),y
+	lda (z_low_global_vars_ptr),y
 	tax
 	dey
-	lda (z_global_vars_start),y
+	lda (z_low_global_vars_ptr),y
 	rts
 	
 z_set_variable
@@ -931,22 +931,22 @@ z_set_variable
 	asl
 	tay
 	lda zp_temp + 2
-	sta (z_global_vars_start),y
+	sta (z_low_global_vars_ptr),y
 	iny
 	lda zp_temp + 3
-	sta (z_global_vars_start),y
+	sta (z_low_global_vars_ptr),y
 	rts
 .write_high_global_var
-	inc z_global_vars_start + 1
-	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127
+;	inc z_global_vars_start + 1
+;	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 ; Pointless, since ASL will remove top bit
 	asl
 	tay
 	lda zp_temp + 2
-	sta (z_global_vars_start),y
+	sta (z_high_global_vars_ptr),y
 	iny
 	lda zp_temp + 3
-	sta (z_global_vars_start),y
-	dec z_global_vars_start + 1
+	sta (z_high_global_vars_ptr),y
+;	dec z_global_vars_start + 1
 	rts
 }
 

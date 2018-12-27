@@ -43,8 +43,8 @@ escape_char			  = $39
 escape_char_counter	  = $3a
 abbreviation_command  = $40
 
-parse_array           = $41 ; 2 bytes (22 was bad?)
-string_array          = $43 ; 2 bytes (24 was bad?)
+parse_array           = $41 ; 2 bytes
+string_array          = $43 ; 2 bytes
 ;terminators_ptr       = $45 ; 2 bytes
 
 z_address			  = $45 ; 3 bytes
@@ -54,12 +54,13 @@ object_tree_ptr       = $49 ; 2 bytes
 object_num			  = $4b ; 2 bytes
 object_temp			  = $4d ; 2 bytes
 
-default_properties_ptr = $52 ; 2 bytes (47 was bad?)
+z_low_global_vars_ptr	  = $50 ; 2 bytes
+z_high_global_vars_ptr	  = $52 ; 2 bytes
 z_trace_index		  = $54
 z_exe_mode	  		  = $55
 
 stack_tmp			  = $56; !byte 0, 0, 0, 0, 0
-z_global_vars_start	  = $5b ; 2 bytes
+default_properties_ptr = $5b ; 2 bytes
 zchars				  = $5d ; 3 bytes
 
 vmap_quick_index_match= $60

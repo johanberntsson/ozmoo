@@ -461,7 +461,7 @@ read_byte_at_z_address
 	cmp vmem_temp + 1
 	bne .no_quick_index_match
 	sta vmap_quick_index_match
-	beq .correct_vmap_index_found
+	beq .correct_vmap_index_found ; Always branch
 .no_quick_index_match
 	lda vmem_temp
 
