@@ -18,8 +18,6 @@ character_translation_table_in
 	!byte 131, 157 ; Cursor left
 	!byte 132, 29 ; Cursor right
 character_translation_table_in_out
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
 !ifdef SWEDISH_CHARS {
 	!byte $c9, $5d ; å = ]
 	!byte $9b, $5b ; ä = [
@@ -29,6 +27,14 @@ character_translation_table_in_out
 	!byte $9f, $7c ; Ö = £
 }
 character_translation_table_out
+	!byte $5e, $27 ; ^ => quote (NOTE: This substitution must no be defined for input!)
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $60, $27 ; Grave accent => quote (NOTE: This substitution must no be defined for input!)
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+	!byte $7b, $5b ; { => [ (NOTE: This substitution must no be defined for input!)
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7d, $5d ; } => ] (NOTE: This substitution must no be defined for input!)
+	!byte $7e, $2d ; ~ => - (NOTE: This substitution must no be defined for input!)
 character_translation_table_end
 
 	
