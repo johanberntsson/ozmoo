@@ -335,6 +335,68 @@ stack_call_routine
     lda #ERROR_STACK_FULL
 	jmp fatalerror
 	
+!ifdef Z5PLUS {	
+z_ins_check_arg_count
+	; Read number of arguments provided to this routine
+	lda z_operand_value_high_arr
+	bne .branch_false
+	ldy z_local_var_count
+	iny
+	tya
+	asl
+	tay
+	lda (z_local_vars_ptr),y
+	lsr
+	lsr
+	lsr
+	lsr
+	and #7
+	cmp z_operand_value_low_arr
+	bcc .branch_false
+	jmp make_branch_true
+.branch_false
+	jmp make_branch_false
+
+z_ins_catch
+	; Store pointer to first byte where pushed values are stored in current frame.
+	ldx stack_ptr
+	lda stack_ptr + 1
+	jmp z_store_result
+
+z_ins_throw
+	; Restore pointer given. Return from routine (frame).
+	
+	; First, restore old stack_ptr, and calculate where # of local vars is stored.
+	lda z_operand_value_low_arr + 1
+	sec
+	sbc #6
+	sta zp_temp
+	lda z_operand_value_high_arr + 1
+	sbc #0
+	sta zp_temp + 1
+	
+	; Retrieve # of local vars, and set z_local_vars_ptr to correct value
+	ldy #2
+	lda (zp_temp),y
+	and #$0f
+	sta z_local_var_count
+	asl
+	sta zp_temp + 2 ; # of bytes used by local vars
+	lda zp_temp
+	sec
+	sbc zp_temp + 2 ; # of bytes used by local vars
+	sta z_local_vars_ptr
+	lda zp_temp + 1
+	sbc #0
+	sta z_local_vars_ptr + 1
+
+	; Return from the routine that contained the catch instruction
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+;	jmp stack_return_from_routine ; Placed z_ins_throw just before stack_return_from_routine, so no jmp needed
+}	
+
+; NOTE: Must follow z_ins_throw
 stack_return_from_routine
 
 	; input: return value in a,x
@@ -563,73 +625,6 @@ z_ins_pull
 	sta (zp_temp),y
 	rts
 
-!ifdef Z5PLUS {	
-z_ins_catch
-	; Store pointer to first byte where pushed values are stored in current frame.
-	ldx stack_ptr
-	lda stack_ptr + 1
-	; lda stack_ptr
-	; sec
-	; ldy #1
-	; sbc (stack_ptr),y
-	; tax
-	; lda stack_ptr + 1
-	; dey
-	; sbc (stack_ptr),y
-	jmp z_store_result
-
-z_ins_throw
-	; Restore pointer given. Return from routine (frame).
-	
-	; First, restore old stack_ptr, and calculate where # of local vars is stored.
-	lda z_operand_value_low_arr + 1
-	sta stack_ptr
-	sec
-	sbc #6
-	sta zp_temp
-	lda z_operand_value_high_arr + 1
-	sta stack_ptr + 1
-	sbc #0
-	sta zp_temp + 1
-	
-	; Retrieve # of local vars, and set z_local_vars_ptr to correct value
-	ldy #2
-	lda (zp_temp),y
-	and #$0f
-	sta z_local_var_count
-	lda zp_temp
-	sbc z_local_var_count
-	sta z_local_vars_ptr
-	lda zp_temp + 1
-	sbc #0
-	sta z_local_vars_ptr + 1
-
-	; Return from the routine that contained the catch instruction
-	lda z_operand_value_high_arr
-	ldx z_operand_value_low_arr
-	jmp stack_return_from_routine
-
-z_ins_check_arg_count
-	; Read number of arguments provided to this routine
-	lda z_operand_value_high_arr
-	bne .branch_false
-	ldy z_local_var_count
-	iny
-	tya
-	asl
-	tay
-	lda (z_local_vars_ptr),y
-	lsr
-	lsr
-	lsr
-	lsr
-	and #7
-	cmp z_operand_value_low_arr
-	bcc .branch_false
-	jmp make_branch_true
-.branch_false
-	jmp make_branch_false
-}	
 	
 }
 

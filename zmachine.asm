@@ -749,6 +749,7 @@ dumptovice
 	; Variable# in a
 	cmp #0
 	beq .read_from_stack
+	bmi .read_high_global_var
 	cmp #16
 	bcs .read_global_var
 	; Local variable
@@ -774,8 +775,8 @@ dumptovice
 +	jsr stack_pull_no_top_value
 	jmp .store_operand ; Always branch
 .read_global_var
-	cmp #128
-	bcs .read_high_global_var
+	; cmp #128
+	; bcs .read_high_global_var
 	asl
 	tay
 	iny
