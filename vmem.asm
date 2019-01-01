@@ -450,18 +450,30 @@ read_byte_at_z_address
 -	ldy vmap_quick_index,x
     cmp vmap_z_l,y ; zmachine mem offset ($0 -
 	beq .quick_index_candidate
-	dex
+--	dex
 	bpl -
-	bmi .no_quick_index_match
+	bmi .no_quick_index_match ; Always branch
 .quick_index_candidate
-	tya
-	tax
-	lda vmap_z_h,x
+	lda vmap_z_h,y
     and #$87
 	cmp vmem_temp + 1
-	bne .no_quick_index_match
+	beq .quick_index_match
+	lda vmem_temp
+	bne -- ; Always branch
+.quick_index_match
 	sta vmap_quick_index_match
+	tya
+	tax
 	beq .correct_vmap_index_found ; Always branch
+	
+	; tya
+	; tax
+	; lda vmap_z_h,x
+    ; and #$87
+	; cmp vmem_temp + 1
+	; bne .no_quick_index_match
+	; sta vmap_quick_index_match
+	; beq .correct_vmap_index_found ; Always branch
 .no_quick_index_match
 	lda vmem_temp
 

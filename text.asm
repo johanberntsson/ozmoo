@@ -268,10 +268,11 @@ z_ins_sread
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!pet "[preopt mode. type xxx to exit early.]",13,0
+	!raw "[preopt mode. type xxx to exit early.]",13,0
 	ldy #3
 .check_next_preopt_exit_char
 	lda (string_array),y
+;	jsr printa
 	cmp #$78
 	bne .not_preopt_exit
 	dey
@@ -394,14 +395,14 @@ z_ins_aread
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!pet "[preopt mode. type xxx to exit early.]",13,0
-	ldy #4
+	!raw "[preopt mode. type xxx to exit early.]",13,0
+	ldy #2
 .check_next_preopt_exit_char
 	lda (string_array),y
-	cmp #$58
+	cmp #$78
 	bne .not_preopt_exit
-	dey
-	cpy #1
+	iny
+	cpy #5
 	bne .check_next_preopt_exit_char
 ; Exit PREOPT mode
 	jmp print_optimized_vm_map

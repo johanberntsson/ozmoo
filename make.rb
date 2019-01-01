@@ -1081,11 +1081,13 @@ if preload_data then
 	end
 else # No preload data available
 #	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
+	referenced_blocks = $dynmem_blocks
 	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
 	if $DEBUGFLAGS.include?('PREOPT') then
 		all_vmem_blocks = $dynmem_blocks
 	else
 		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
+		referenced_blocks = $dynmem_blocks + (all_vmem_blocks - $dynmem_blocks) / 2
 	end
 	vmem_data = [
 		3 + 2 * all_vmem_blocks, # Size of vmem data
@@ -1094,7 +1096,7 @@ else # No preload data available
 		]
 	lowbytes = []
 	all_vmem_blocks.times do |i|
-		vmem_data.push(i <= $dynmem_blocks ? 0xc0 : 0x80)
+		vmem_data.push(i <= $dynmem_blocks ? 0xc0 : (i <= referenced_blocks ? 0xa0 : 0x80))
 		lowbytes.push(i * $VMEM_BLOCKSIZE / 256)
 	end
 	vmem_data += lowbytes;

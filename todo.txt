@@ -4,6 +4,8 @@ Timed input in v4 games may be broken.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Refined vmem system which keeps track of how long ago a block was last referenced.
+
 Handle disk errors (To see how it works now: use True Drive Emulation, type "save", detach all disks and try to go through with the save. The game locks up.) The question is how many bytes we are prepared to use on code to handle disk errors.
 
 Allow user to choose save/restore device, including tape, in non vmem mode. (Is this feasible?)
@@ -61,6 +63,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+"xxx" doesn't work to exit PREOPT mode in Temple.
+
 No words are recognized in Tethered.
 
 Simple config: Ask user to specify disk drive for saves. Ask on first save or restore, then again if a save or restore fails or is cancelled. -- Implemented, but never asks again.

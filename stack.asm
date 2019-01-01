@@ -268,16 +268,21 @@ stack_call_routine
 	
 	; TASK: Store old Z_PC, number of local vars, number of arguments and store-result-bit on stack
 
+!ifdef Z5PLUS {
+	; # of arguments is only stored for Z5+
 	lda zp_temp ; Arg count
-	ldx zp_temp + 1 ; Store?
-	beq +
-	ora #%00001000
-+	asl
+	asl
 	asl
 	asl
 	asl
 	ora z_local_var_count
-	sta (stack_ptr),y
+} else {
+	lda z_local_var_count
+}
+	ldx zp_temp + 1 ; Store?
+	beq +
+	ora #%10000000
++	sta (stack_ptr),y
 	iny
 	lda stack_tmp + 4 ; Add call mode
 	ora stack_tmp
