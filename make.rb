@@ -43,7 +43,7 @@ $DEBUGFLAGS = [
 #	'TRACE_READTEXT',
 #	'TRACE_SHOW_DICT_ENTRIES',
 #	'TRACE_TOKENISE',
-#	'TRACE_VM_PC',
+	'TRACE_VM_PC',
 ]
 
 $INTERLEAVE = 9 # (1-21)
@@ -411,11 +411,10 @@ def read_labels(label_file_name)
 end
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = (vmem_preload_blocks > 0) ? " \"#{$compmem_filename}\"@#{$storystart},0,#{[vmem_preload_blocks * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}" : ''
+	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}"
 
 	font_clause = ""
 	if $font_filename then
-#		font_clause = " \"#{$font_filename}\"@$0800,2"
 		font_clause = " \"#{$font_filename}\"@2048"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
@@ -441,7 +440,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 			puts "ERROR: Can't open #{$compmem_filename} for writing"
 			exit 0
 		end
-		compmem_filehandle.write(vmem_contents[0 .. vmem_preload_blocks * $VMEM_BLOCKSIZE - 1])
+		compmem_filehandle.write(vmem_contents[0 .. ($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE - 1])
 		compmem_filehandle.close
 	end
 
@@ -462,11 +461,11 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		if min_failed_blocks - max_ok_blocks < 2
 			actual_blocks = max_ok_blocks
 			done = true
-		elsif min_failed_blocks - $dynmem_blocks < 1
+		elsif min_failed_blocks < 1
 			actual_blocks = max_ok_blocks
 			done = true
 		else
-			mid = (min_failed_blocks + [max_ok_blocks, $dynmem_blocks].max) / 2
+			mid = (min_failed_blocks + max_ok_blocks) / 2
 #			puts "Trying #{mid} blocks..."
 			size = build_specific_boot_file(mid, vmem_contents)
 			last_build = mid
@@ -499,8 +498,9 @@ def play(filename)
 end
 
 def limit_vmem_data(vmem_data)
-	if $vmem_size < vmem_data[2] * $VMEM_BLOCKSIZE
-		vmem_data[2] = $vmem_size / $VMEM_BLOCKSIZE
+#	puts "### #{$vmem_size} < #{(vmem_data[2] + $dynmem_blocks) * $VMEM_BLOCKSIZE} ###"
+	if $vmem_size < (vmem_data[2] + $dynmem_blocks) * $VMEM_BLOCKSIZE
+		vmem_data[2] = $vmem_size / $VMEM_BLOCKSIZE - $dynmem_blocks
 	end
 end
 
@@ -567,7 +567,8 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	# Build loader + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
-	if vmem_preload_blocks < $dynmem_blocks
+#	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
+	if vmem_preload_blocks < 0
 #		puts "#{vmem_preload_blocks} < #{$dynmem_blocks}"
 		# #	Temporary: write config_data and save disk, for debugging purposes
 		# disk.set_config_data(config_data)
@@ -1081,28 +1082,31 @@ if preload_data then
 	end
 else # No preload data available
 #	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
-	referenced_blocks = $dynmem_blocks
+	referenced_blocks = -1
 	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
+	mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
 	if $DEBUGFLAGS.include?('PREOPT') then
-		all_vmem_blocks = $dynmem_blocks
+#		all_vmem_blocks = $dynmem_blocks
+		mapped_vmem_blocks = 0
 	else
-		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
-		referenced_blocks = $dynmem_blocks + (all_vmem_blocks - $dynmem_blocks) / 2
+#		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
+		mapped_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
+		referenced_blocks = mapped_vmem_blocks / 2 # Mark the first half of the non-dynmem blocks as referenced 
 	end
 	vmem_data = [
-		3 + 2 * all_vmem_blocks, # Size of vmem data
-		all_vmem_blocks, # Number of suggested blocks
-		all_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
+		3 + 2 * mapped_vmem_blocks, # Size of vmem data
+		mapped_vmem_blocks, # Number of suggested blocks
+		mapped_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
 	lowbytes = []
-	all_vmem_blocks.times do |i|
-		vmem_data.push(i <= $dynmem_blocks ? 0xc0 : (i <= referenced_blocks ? 0xa0 : 0x80))
-		lowbytes.push(i * $VMEM_BLOCKSIZE / 256)
+	mapped_vmem_blocks.times do |i|
+		vmem_data.push(i <= referenced_blocks ? 0xa0 : 0x80)
+		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256)
 	end
 	vmem_data += lowbytes;
 end
 
-vmem_contents = ""
+vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
 vmem_data[1].times do |i|
 	start_address = (vmem_data[3 + i] & 0x07) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
 #	puts start_address

@@ -171,11 +171,11 @@ prepare_static_high_memory
     sta zp_pc_l
 
 ; Clear vmap_z_h
-	ldy #vmap_max_length - 1
+	ldy vmap_max_entries
 	lda #0
--	sta vmap_z_h,y
+-	sta vmap_z_h - 1,y
 	dey
-	bpl -
+	bne -
 
 ; Clear quick index
 	ldx #vmap_quick_index_length
@@ -191,32 +191,33 @@ prepare_static_high_memory
 	lda #>config_load_address
 ;	adc #0 ; Not needed if disk info is always <= 249 bytes
 	sta zp_temp + 1
-	ldy #1
-	lda (zp_temp),y
-	sta zp_temp + 3 ; # of blocks already loaded
-	dey
+	ldy #0
 	lda (zp_temp),y ; # of blocks in the list
 	tax
-	cpx #vmap_max_length + 1
+	cpx vmap_max_entries
 	bcc +
-	ldx #vmap_max_length
+	beq +
+	ldx vmap_max_entries
 +	stx zp_temp + 2  ; Number of bytes to copy
-; Copy to vmap_z_h
 	iny
+	lda (zp_temp),y
+	sta zp_temp + 3 ; # of blocks already loaded
+
+; Copy to vmap_z_h
 -	iny
 	lda (zp_temp),y
 	sta vmap_z_h - 2,y
 	dex
 	bne -
 	
-	ldy #vmap_max_length - 1
--	lda vmap_z_h,y
-	and #%01000000 ; Check if non-swappable memory
-	bne .dont_set
-	sty vmap_first_swappable_index
-	dey
-	bpl -
-.dont_set
+	; ldy #vmap_max_length - 1
+; -	lda vmap_z_h,y
+	; and #%01000000 ; Check if non-swappable memory
+	; bne .dont_set
+	; sty vmap_first_swappable_index
+	; dey
+	; bpl -
+; .dont_set
 	
 ; Point to lowbyte array	
 	ldy #0
@@ -225,7 +226,8 @@ prepare_static_high_memory
 	adc zp_temp
 	adc #2
 	sta zp_temp
-	ldy #vmap_max_length - 1
+	ldy vmap_max_entries
+	dey
 -	lda #0
 	cpy zp_temp + 2
 	bcs +
@@ -247,7 +249,7 @@ prepare_static_high_memory
 	bne - ; Always branch
 +
 	ldx zp_temp + 2
-	cpx #vmap_max_length
+	cpx vmap_max_entries
 	bcc +
 	dex
 +	stx vmap_clock_index
@@ -563,10 +565,29 @@ deletable_init
 	beq .store_nonstored_blocks
 	iny
 !ifndef SMALLBLOCK {
-	bne .maybe_inc_nonstored_blocks ; Carry should always be clear
+	bne .maybe_inc_nonstored_blocks ; Always branch
 }
 .store_nonstored_blocks
 	sty nonstored_blocks
+	tya
+	clc
+	adc #>story_start
+	sta vmap_first_ram_page
+	lda #0
+	sec
+	sbc vmap_first_ram_page
+	lsr
+!ifndef SMALLBLOCK {
+	lsr
+} else {
+	; This space constraint can not be a problem with big (1KB) vmem blocks.
+	cmp #vmap_max_size ; Maximum space available
+	bcc ++
+	lda #vmap_max_size
+++	
+}
+	sta vmap_max_entries
+
 } ; End of !ifdef VMEM
 
 +   ; check file length

@@ -144,15 +144,18 @@ read_byte_at_z_address
 
 vmem_blockmask = 255 - (>(vmem_blocksize - 1))
 vmem_block_pagecount = vmem_blocksize / 256
-vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
+; vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
+vmap_max_size = 102 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
+vmap_max_entries	!byte 0
 vmap_z_h = datasette_buffer_start
-vmap_z_l = vmap_z_h + vmap_max_length
+vmap_z_l = vmap_z_h + vmap_max_size
 
 vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
 
+vmap_first_ram_page		!byte 0
 vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
-vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
+; vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
 vmem_all_blocks_occupied !byte 0
 ; vmem_temp !byte 0
@@ -178,7 +181,7 @@ print_optimized_vm_map
 	jsr print_byte_as_hex
 	jsr colon
 	inx
-	cpx #vmap_max_length
+	cpx vmap_max_entries
 	bcc -
 
 	; Print block that was just to be read
@@ -255,7 +258,7 @@ print_vm_map
 !ifndef SMALLBLOCK {
 	asl
 }
-	adc #>story_start
+	adc vmap_first_ram_page
     jsr print_byte_as_hex
     lda #$30
     jsr streams_print_output
@@ -264,7 +267,7 @@ print_vm_map
     jsr newline
 .next_entry
     iny 
-    cpy #vmap_max_length
+    cpy vmap_max_entries
     bne -
     rts
 }
@@ -293,7 +296,7 @@ load_blocks_from_index
 	asl
 }
 	; Carry is already clear
-	adc #>story_start
+	adc vmap_first_ram_page
 
 !ifdef TRACE_FLOPPY {
 	jsr comma
@@ -478,15 +481,15 @@ read_byte_at_z_address
 	lda vmem_temp
 
     ; is there a block with this address in map?
-    ldx #vmap_max_length - 1
+    ldx vmap_max_entries
+	dex
 -   ; compare with low byte
     cmp vmap_z_l,x ; zmachine mem offset ($0 - 
     beq +
 .check_next_block
 	dex
-	cpx vmap_first_swappable_index
-    bcs -
-	bmi .no_such_block
+	bpl -
+	bmi .no_such_block ; Always branch
 	; is the block active and the highbyte correct?
 +   lda vmap_z_h,x
     and #$87
@@ -532,10 +535,10 @@ read_byte_at_z_address
 	and #%11011111 ; Turn off referenced flag
 	sta vmap_z_h,x
 --	inx
-	cpx #vmap_max_length
+	cpx vmap_max_entries
 	bcc -
-	ldx vmap_first_swappable_index
-	bne - ; Always branch
+	ldx #0
+	beq - ; Always branch
 .block_maybe_chosen
 	; Protect block where z_pc currently points
 	tya
@@ -554,13 +557,13 @@ read_byte_at_z_address
 	asl
 }
 	; Carry is already clear
-	adc #>story_start
+	adc vmap_first_ram_page
 	sta vmap_c64_offset
 	; Pick next index to use
 	iny
-	cpy #vmap_max_length
+	cpy vmap_max_entries
 	bcc .not_max_index
-	ldy vmap_first_swappable_index
+	ldy #0
 .not_max_index
 	sty vmap_clock_index
 
@@ -638,7 +641,7 @@ read_byte_at_z_address
 	asl
 }
 	; Carry is already clear
-	adc #>story_start
+	adc vmap_first_ram_page
 	sta vmap_c64_offset
 	cmp #first_banked_memory_page
     bcc .unswappable
