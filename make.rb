@@ -43,7 +43,6 @@ $DEBUGFLAGS = [
 #	'TRACE_READTEXT',
 #	'TRACE_SHOW_DICT_ENTRIES',
 #	'TRACE_TOKENISE',
-	'TRACE_VM_PC',
 ]
 
 $INTERLEAVE = 9 # (1-21)
@@ -1100,7 +1099,7 @@ else # No preload data available
 		]
 	lowbytes = []
 	mapped_vmem_blocks.times do |i|
-		vmem_data.push(i <= referenced_blocks ? 0xa0 : 0x80)
+		vmem_data.push(i <= referenced_blocks ? 0x20 : 0x00)
 		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256)
 	end
 	vmem_data += lowbytes;

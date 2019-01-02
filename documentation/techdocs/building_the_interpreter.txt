@@ -58,8 +58,6 @@ TRACE_TOKENISE
 	Print trace information for the tokenization process.
 TRACE_VM
 	Print trace information for the virtual memory system.
-TRACE_VM_PC
-	?
 VMEM_OPTIMIZE
 	Built the interpreter in PREOPT mode (used to pick which virtual memory blocks should be preloaded into memory when the game starts).
 VIEW_STACK_RECORDS

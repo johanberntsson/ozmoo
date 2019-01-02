@@ -36,6 +36,9 @@ z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
 zp_save_start = z_local_vars_ptr
 zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
 
+
+vmap_max_entries	  = $34
+
 zchar_triplet_cnt	  = $35
 packed_text			  = $36 ; 2 bytes
 alphabet_offset		  = $38
@@ -53,6 +56,8 @@ z_address_temp		  = $48
 object_tree_ptr       = $49 ; 2 bytes
 object_num			  = $4b ; 2 bytes
 object_temp			  = $4d ; 2 bytes
+
+vmap_used_entries	  = $4f
 
 z_low_global_vars_ptr	  = $50 ; 2 bytes
 z_high_global_vars_ptr	  = $52 ; 2 bytes

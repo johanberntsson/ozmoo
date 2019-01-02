@@ -128,9 +128,8 @@ read_byte_at_z_address
 ;
 ; map structure: one entry for each block (512 bytes) of available virtual memory
 ; each map entry is:
-; 1 byte: ZMachine offset high byte (bitmask: $80=used, $40=dynamic (rw), $20=referenced)
+; 1 byte: ZMachine offset high byte (bitmask: $80=used, $20=referenced)
 ; 1 byte: ZMachine offset low byte
-; 1 byte: C64 offset ($30 - $cf for $3000-$D000)
 ;
 ; needs 102*2=204 bytes for $3400-$FFFF
 ; will store in datasette_buffer
@@ -146,7 +145,8 @@ vmem_blockmask = 255 - (>(vmem_blocksize - 1))
 vmem_block_pagecount = vmem_blocksize / 256
 ; vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
 vmap_max_size = 102 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
-vmap_max_entries	!byte 0
+; vmap_max_entries	!byte 0 ; Moved to ZP
+; vmap_used_entries	!byte 0 ; Moved to ZP
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_size
 
@@ -163,6 +163,7 @@ vmem_all_blocks_occupied !byte 0
 !ifdef DEBUG {
 !ifdef PREOPT {
 print_optimized_vm_map
+	stx zp_temp ; Nonzero means premature exit
 	jsr printchar_flush
 	lda #0
 	sta streams_output_selected + 2
@@ -175,18 +176,18 @@ print_optimized_vm_map
 	!pet "clock",13,0
 	ldx #0
 -	lda vmap_z_h,x
-	beq +++
 	jsr print_byte_as_hex
 	lda vmap_z_l,x
 	jsr print_byte_as_hex
 	jsr colon
 	inx
-	cpx vmap_max_entries
+	cpx vmap_used_entries
 	bcc -
 
+	lda zp_temp
+	bne +++
 	; Print block that was just to be read
--	lda zp_pc_h
-	ora #$80 ; Mark as used
+	lda zp_pc_h
 	jsr print_byte_as_hex
 	lda zp_pc_l
 	and #vmem_blockmask
@@ -230,11 +231,7 @@ print_vm_map
     jsr print_byte_as_hex
     jsr newline
     ldy #0
--   ; don't print empty entries
-    lda vmap_z_h,y ; zmachine mem offset ($0 - 
-    and #$f0
-    beq .next_entry
-    ; not empty, print
+-	; print
     cpy #10
     bcs +
     jsr space ; alignment when <10
@@ -267,8 +264,8 @@ print_vm_map
     jsr newline
 .next_entry
     iny 
-    cpy vmap_max_entries
-    bne -
+    cpy vmap_used_entries
+    bcc -
     rts
 }
 }
@@ -380,7 +377,7 @@ load_blocks_from_index_using_cache
     pla
     tax
     inx
-	cpx #vmem_block_pagecount ; read 4 blocks (1 kb) in total
+	cpx #vmem_block_pagecount ; read 2 or 4 blocks (512 or 1024 bytes) in total
     bcc -
 
 	ldx .copy_to_vmem + 5
@@ -418,7 +415,6 @@ read_byte_at_z_address
 	bne - ; Always branch
 .non_dynmem
 	sta zp_pc_h
-	ora #$80
 	sta vmem_temp + 1
 	lda #0
 	sta vmap_quick_index_match
@@ -429,25 +425,6 @@ read_byte_at_z_address
 	txa
 	and #vmem_blockmask
 	sta vmem_temp
-!ifdef TRACE_VM_PC {
-	pha
-    lda zp_pc_l
-    cmp #$10
-    bcs +
-    cmp #$08
-    bcc +
-    jsr print_following_string
-    !pet "pc: ", 0
-    lda zp_pc_h
-    jsr print_byte_as_hex
-    lda zp_pc_l
-    jsr print_byte_as_hex
-    lda mempointer
-    jsr print_byte_as_hex
-    jsr newline
-+
-	pla
-}
 	; Check quick index first
 	ldx #vmap_quick_index_length - 1
 -	ldy vmap_quick_index,x
@@ -458,7 +435,7 @@ read_byte_at_z_address
 	bmi .no_quick_index_match ; Always branch
 .quick_index_candidate
 	lda vmap_z_h,y
-    and #$87
+	and #$07
 	cmp vmem_temp + 1
 	beq .quick_index_match
 	lda vmem_temp
@@ -469,19 +446,11 @@ read_byte_at_z_address
 	tax
 	beq .correct_vmap_index_found ; Always branch
 	
-	; tya
-	; tax
-	; lda vmap_z_h,x
-    ; and #$87
-	; cmp vmem_temp + 1
-	; bne .no_quick_index_match
-	; sta vmap_quick_index_match
-	; beq .correct_vmap_index_found ; Always branch
 .no_quick_index_match
 	lda vmem_temp
 
     ; is there a block with this address in map?
-    ldx vmap_max_entries
+    ldx vmap_used_entries
 	dex
 -   ; compare with low byte
     cmp vmap_z_l,x ; zmachine mem offset ($0 - 
@@ -490,13 +459,13 @@ read_byte_at_z_address
 	dex
 	bpl -
 	bmi .no_such_block ; Always branch
-	; is the block active and the highbyte correct?
+	; is the highbyte correct?
 +   lda vmap_z_h,x
-    and #$87
+	and #$07
 	cmp vmem_temp + 1
 	beq .correct_vmap_index_found
     lda vmem_temp
-    jmp .check_next_block ; next entry if used bit not set
+    jmp .check_next_block
 .correct_vmap_index_found
     ; vm index for this block found
     stx vmap_index
@@ -521,13 +490,15 @@ read_byte_at_z_address
 
 	; Load 1 KB block into RAM
 	ldx vmap_clock_index
--	lda vmap_z_h,x
-	bpl .block_chosen
+-	cpx vmap_used_entries
+	bcs .block_chosen
 !ifdef DEBUG {
 !ifdef PREOPT {
+	ldx #0
 	jmp print_optimized_vm_map
 }	
 }
+	lda vmap_z_h,x
 	tay
 	and #$20
 	beq .block_maybe_chosen
@@ -550,7 +521,10 @@ read_byte_at_z_address
 	cmp vmap_z_l,x
 	beq -- ; This block is protected, keep looking
 .block_chosen
-	txa
+	cpx vmap_used_entries
+	bcc +
+	inc vmap_used_entries
++	txa
 	tay
 	asl
 !ifndef SMALLBLOCK {
@@ -625,7 +599,6 @@ read_byte_at_z_address
 
 	; Store address of 1 KB block to load, then load it
 	lda zp_pc_h
-    ora #%10000000 ; mark as used
     sta vmap_z_h,x
     lda zp_pc_l
     and #vmem_blockmask ; skip bit 0,1 since kB blocks

@@ -170,19 +170,18 @@ prepare_static_high_memory
     sta zp_pc_h
     sta zp_pc_l
 
-; Clear vmap_z_h
-	ldy vmap_max_entries
+; ; Clear vmap_z_h
+	; ldy vmap_max_entries
 	lda #0
--	sta vmap_z_h - 1,y
-	dey
-	bne -
+; -	sta vmap_z_h - 1,y
+	; dey
+	; bne -
 
 ; Clear quick index
 	ldx #vmap_quick_index_length
 -	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
 	dex
 	bpl -
-	
 	
 	lda #5
 	clc
@@ -198,7 +197,7 @@ prepare_static_high_memory
 	bcc +
 	beq +
 	ldx vmap_max_entries
-+	stx zp_temp + 2  ; Number of bytes to copy
++	stx vmap_used_entries  ; Number of bytes to copy
 	iny
 	lda (zp_temp),y
 	sta zp_temp + 3 ; # of blocks already loaded
@@ -226,20 +225,17 @@ prepare_static_high_memory
 	adc zp_temp
 	adc #2
 	sta zp_temp
-	ldy vmap_max_entries
+	ldy vmap_used_entries
 	dey
--	lda #0
-	cpy zp_temp + 2
-	bcs +
-	lda (zp_temp),y
-+	sta vmap_z_l,y
+-	lda (zp_temp),y
+	sta vmap_z_l,y
 	dey
 	bpl -
 	
 ; Load all suggested pages which have not been pre-loaded
 -	lda zp_temp + 3 ; First index which has not been loaded
 	beq ++ ; First block was loaded with header
-	cmp zp_temp + 2 ; Total # of indexes in the list
+	cmp vmap_used_entries ; Total # of indexes in the list
 	bcs +
 	; jsr dollar
 	sta vmap_index
@@ -248,7 +244,7 @@ prepare_static_high_memory
 ++	inc zp_temp + 3
 	bne - ; Always branch
 +
-	ldx zp_temp + 2
+	ldx vmap_used_entries
 	cpx vmap_max_entries
 	bcc +
 	dex

@@ -278,6 +278,7 @@ z_ins_sread
 	dey
 	bne .check_next_preopt_exit_char
 ; Exit PREOPT mode
+	ldx #1
 	jmp print_optimized_vm_map
 .not_preopt_exit	
 }	
@@ -405,6 +406,7 @@ z_ins_aread
 	cpy #5
 	bne .check_next_preopt_exit_char
 ; Exit PREOPT mode
+	ldx #1
 	jmp print_optimized_vm_map
 .not_preopt_exit	
 }	
