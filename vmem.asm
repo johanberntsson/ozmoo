@@ -162,6 +162,19 @@ vmem_tick 			!byte $e0
 vmem_oldest_age		!byte 0
 vmem_oldest_index	!byte 0
 
+!ifdef Z8 {
+	vmem_tick_increment = 8
+	vmem_highbyte_mask = $07
+} else {
+!ifdef Z3 {
+	vmem_tick_increment = 2
+	vmem_highbyte_mask = $01
+} else {
+	vmem_tick_increment = 4
+	vmem_highbyte_mask = $03
+}
+}
+
 !ifdef COUNT_SWAPS {
 vmem_swap_count !byte 0,0
 }
@@ -316,7 +329,7 @@ load_blocks_from_index
 	lda vmap_z_l,x ; start block
 	sta readblocks_currentblock
 	lda vmap_z_h,x ; start block
-	and #$07
+	and #vmem_highbyte_mask
 	sta readblocks_currentblock + 1
 	jsr readblocks
 !ifdef TRACE_VM {
@@ -364,7 +377,7 @@ load_blocks_from_index_using_cache
     ora vmap_z_l,x ; start block
     sta readblocks_currentblock
     lda vmap_z_h,x ; start block
-    and #$07
+    and #vmem_highbyte_mask
     sta readblocks_currentblock + 1
     jsr readblock
     ; copy vmem_cache to block (banking as needed)
@@ -441,7 +454,7 @@ read_byte_at_z_address
 	bmi .no_quick_index_match ; Always branch
 .quick_index_candidate
 	lda vmap_z_h,y
-	and #$07
+	and #vmem_highbyte_mask
 	cmp vmem_temp + 1
 	beq .quick_index_match
 	lda vmem_temp
@@ -467,7 +480,7 @@ read_byte_at_z_address
 	bmi .no_such_block ; Always branch
 	; is the highbyte correct?
 +   lda vmap_z_h,x
-	and #$07
+	and #vmem_highbyte_mask
 	cmp vmem_temp + 1
 	beq .correct_vmap_index_found
     lda vmem_temp
@@ -519,7 +532,7 @@ read_byte_at_z_address
 	cpy z_pc + 1
 	bne ++
 	tay
-	and #$07
+	and #vmem_highbyte_mask
 	cmp z_pc
 	beq +
 	tya
@@ -653,7 +666,7 @@ read_byte_at_z_address
 	; Update tick
 	lda vmem_tick
 	clc
-	adc #8
+	adc #vmem_tick_increment
 	bcc +
 
 	; Tick counter has passed max value. Decrease tick value for all pages. Set tick counter back.
@@ -666,7 +679,7 @@ read_byte_at_z_address
 	sec
 	sbc #$80
 	bpl ++
-	and #$07
+	and #vmem_highbyte_mask
 ++	sta vmap_z_h,x
 	dex
 	bpl -
@@ -689,7 +702,7 @@ read_byte_at_z_address
 	; Update tick for last access 
     ldx vmap_index
 	lda vmap_z_h,x
-	and #$07
+	and #vmem_highbyte_mask
 	ora vmem_tick
 	sta vmap_z_h,x
 	txa
