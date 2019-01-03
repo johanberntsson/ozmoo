@@ -155,10 +155,16 @@ vmap_clock_index !byte 0        ; index where we will attempt to load a block ne
 vmap_first_ram_page		!byte 0
 vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
-; vmap_first_swappable_index !byte 0 ; first vmap index which can be used for swapping in static/high memory
 vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
-vmem_all_blocks_occupied !byte 0
 ; vmem_temp !byte 0
+
+vmem_tick 			!byte $e0
+vmem_oldest_age		!byte 0
+vmem_oldest_index	!byte 0
+
+!ifdef COUNT_SWAPS {
+vmem_swap_count !byte 0,0
+}
 
 !ifdef DEBUG {
 !ifdef PREOPT {
@@ -470,9 +476,9 @@ read_byte_at_z_address
     ; vm index for this block found
     stx vmap_index
 
-	lda vmap_z_h,x
-	ora #%00100000 		; Set referenced flag
-    sta vmap_z_h,x
+	; lda vmap_z_h,x
+	; ora #%00100000 		; Set referenced flag
+    ; sta vmap_z_h,x
 	ldy vmap_quick_index_match
 	bne ++ ; This is already in the quick index, don't store it again
 	txa
@@ -498,29 +504,75 @@ read_byte_at_z_address
 	jmp print_optimized_vm_map
 }	
 }
+	; Store age and index of entry at vmap_clock_index
 	lda vmap_z_h,x
+	stx vmem_oldest_index
+	sta vmem_oldest_age
+	
+	; Check all other indexes to find something older
+-	lda vmap_z_h,x
+	cmp vmem_oldest_age
+	bcs +
+	; Found older
+	; Skip if z_pc points here
+	ldy vmap_z_l,x
+	cpy z_pc + 1
+	bne ++
 	tay
-	and #$20
-	beq .block_maybe_chosen
-	tya
-	and #%11011111 ; Turn off referenced flag
-	sta vmap_z_h,x
---	inx
-	cpx vmap_max_entries
-	bcc -
-	ldx #0
-	beq - ; Always branch
-.block_maybe_chosen
-	; Protect block where z_pc currently points
-	tya
-	and #%111
+	and #$07
 	cmp z_pc
-	bne .block_chosen
-	lda z_pc + 1
-	and #vmem_blockmask
-	cmp vmap_z_l,x
-	beq -- ; This block is protected, keep looking
+	beq +
+	tya
+++	sta vmem_oldest_age
+	stx vmem_oldest_index
++	inx
+	cpx vmap_used_entries
+	bcc +
+	ldx #0
++	cpx vmap_clock_index
+	bne -
+
+	; ; Update clock index
+	; ldx vmem_oldest_index
+	; inx
+	; cpx vmap_used_entries
+	; bcc +
+	; ldx #0
+; +	stx vmap_clock_index
+
+	; Load chosen index
+	ldx vmem_oldest_index
+	
+	; lda vmap_z_h,x
+	; tay
+	; and #$20
+	; beq .block_maybe_chosen
+	; tya
+	; and #%11011111 ; Turn off referenced flag
+	; sta vmap_z_h,x
+; --	inx
+	; cpx vmap_max_entries
+	; bcc -
+	; ldx #0
+	; beq - ; Always branch
+; .block_maybe_chosen
+	; ; Protect block where z_pc currently points
+	; tya
+	; and #%111
+	; cmp z_pc
+	; bne .block_chosen
+	; lda z_pc + 1
+	; and #vmem_blockmask
+	; cmp vmap_z_l,x
+	; beq -- ; This block is protected, keep looking
 .block_chosen
+!ifdef COUNT_SWAPS {
+	inc vmem_swap_count + 1
+	bne ++
+	inc vmem_swap_count
+++
+}
+	
 	cpx vmap_used_entries
 	bcc +
 	inc vmap_used_entries
@@ -562,8 +614,9 @@ read_byte_at_z_address
 	jsr dollar
 	jsr print_byte_as_hex
 	jsr colon
+	cpx vmap_used_entries
+	bcs .printswaps_part_2
     lda vmap_z_h,x
-	bpl .printswaps_part_2
 	and #$7
 	jsr dollar
 	jsr print_byte_as_hex
@@ -597,6 +650,32 @@ read_byte_at_z_address
 	bpl -
 .cant_be_in_cache	
 
+	; Update tick
+	lda vmem_tick
+	clc
+	adc #8
+	bcc +
+
+	; Tick counter has passed max value. Decrease tick value for all pages. Set tick counter back.
+	txa
+	pha
+	
+	ldx vmap_used_entries
+	dex
+-	lda vmap_z_h,x
+	sec
+	sbc #$80
+	bpl ++
+	and #$07
+++	sta vmap_z_h,x
+	dex
+	bpl -
+	
+	pla
+	tax
+	lda #$80
++	sta vmem_tick
+
 	; Store address of 1 KB block to load, then load it
 	lda zp_pc_h
     sta vmap_z_h,x
@@ -606,9 +685,15 @@ read_byte_at_z_address
     stx vmap_index
     jsr load_blocks_from_index
 .index_found
-    ; index x found
-    lda vmap_index
-	tax
+    ; index found
+	; Update tick for last access 
+    ldx vmap_index
+	lda vmap_z_h,x
+	and #$07
+	ora vmem_tick
+	sta vmap_z_h,x
+	txa
+	
 	asl
 !ifndef SMALLBLOCK {
 	asl

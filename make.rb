@@ -25,6 +25,7 @@ $GENERALFLAGS = [
 	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
+#	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
 #	'SWEDISH_CHARS',
 ]
 
@@ -1099,7 +1100,9 @@ else # No preload data available
 		]
 	lowbytes = []
 	mapped_vmem_blocks.times do |i|
-		vmem_data.push(i <= referenced_blocks ? 0x20 : 0x00)
+#		vmem_data.push(i <= referenced_blocks ? 0x20 : 0x00)
+		vmem_data.push(256 - 8 * (i / 4) - 32 ) # The later the block, the higher its age
+#		0-25 -> 0-200 -> 32-232
 		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256)
 	end
 	vmem_data += lowbytes;
