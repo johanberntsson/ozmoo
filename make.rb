@@ -433,16 +433,14 @@ def save_good_boot_file()
 end
 
 def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
-	if vmem_preload_blocks > 0 then
-		begin
-			compmem_filehandle = File.open($compmem_filename, "wb")
-		rescue
-			puts "ERROR: Can't open #{$compmem_filename} for writing"
-			exit 0
-		end
-		compmem_filehandle.write(vmem_contents[0 .. ($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE - 1])
-		compmem_filehandle.close
+	begin
+		compmem_filehandle = File.open($compmem_filename, "wb")
+	rescue
+		puts "ERROR: Can't open #{$compmem_filename} for writing"
+		exit 0
 	end
+	compmem_filehandle.write(vmem_contents[0 .. ($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE - 1])
+	compmem_filehandle.close
 
 	max_file_size = free_blocks * 254
 	puts "Max file size is #{max_file_size} bytes."
@@ -1023,6 +1021,8 @@ end
 $zcode_version = $story_file_data[0].ord
 $ztype = "Z#{$zcode_version}"
 
+$vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x07 : 0x03)
+
 if $statusline_colour and $zcode_version > 3
 	puts "Option -sc can only be used with z3 story files."
 	exit 0
@@ -1110,8 +1110,9 @@ end
 
 vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
 vmem_data[1].times do |i|
-	start_address = (vmem_data[3 + i] & 0x07) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
-#	puts start_address
+	start_address = (vmem_data[3 + i] & $vmem_highbyte_mask) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
+	# puts start_address
+	# puts $story_file_data.length
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
 end
 

@@ -1,10 +1,11 @@
 Known bugs
 ----------
-Timed input in v4 games may be broken.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
-Refined vmem system which keeps track of how long ago a block was last referenced.
+Investigate if we can keep channels open between two consecutive block reads, and if this would make the game faster.
+
+If and when we keep channel open between block reads, investigate best interleave value again.
 
 Handle disk errors (To see how it works now: use True Drive Emulation, type "save", detach all disks and try to go through with the save. The game locks up.) The question is how many bytes we are prepared to use on code to handle disk errors.
 
@@ -39,7 +40,6 @@ Instructions which have not yet been fully implemented
 ;
 ; VAR
 ; ---
-; input_stream
 ;
 ; EXT
 ; ---
@@ -58,11 +58,19 @@ Possible alternative versions / extensions
 * PET version
 * Plus/4 version
 * Apple II version
-
+* BBC Micro version
 
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+; input_stream (Now giving a message that it's not supported)
+
+Timed input in v4 games may be broken.
+
+Bug in timed input (Borderzone): If an interrupt is called and it returns false, we print a newline and ">" to make it look like the regular prompts, before printing the characters that are in the input buffer. This is not what Infocom's terp does, and not correct behaviour. Remove the newline and ">".
+
+Refined vmem system which keeps track of how long ago a block was last referenced.
+
 "xxx" doesn't work to exit PREOPT mode in Temple.
 
 No words are recognized in Tethered.

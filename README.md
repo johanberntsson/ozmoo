@@ -6,7 +6,7 @@ A Z-machine interpreter for the Commodore 64
 
 Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
-![Curses running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/curses.png)
+![Curses running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
 
 
 ## Status
@@ -55,7 +55,7 @@ You need to install:
 * Vice C64 emulator
 * Ruby (Tested with 2.4.2, but most 2.x versions should work fine)
 
-Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.
+Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, Exomizer, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.
 
 To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
 

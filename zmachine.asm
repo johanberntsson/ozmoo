@@ -42,7 +42,11 @@ z_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
+!ifdef VMEM {
 	!byte >z_ins_restart
+} else {
+	!byte >z_ins_not_supported
+}
 	!byte >z_ins_ret_popped
 !ifndef Z5PLUS {
 	!byte >stack_pull ; z_ins_pop
@@ -139,11 +143,7 @@ z_jump_high_arr
 	!byte >z_ins_loadw_and_storew
 	!byte >z_ins_storeb
 	!byte >z_ins_put_prop
-!ifndef Z5PLUS {
-	!byte >z_ins_sread
-} else {
-	!byte >z_ins_aread
-}
+	!byte >z_ins_read
 	!byte >z_ins_print_char
 	!byte >z_ins_print_num
 	!byte >z_ins_random
@@ -169,7 +169,7 @@ z_jump_high_arr
 	!byte >z_not_implemented
 }
 	!byte >z_ins_output_stream
-	!byte >z_not_implemented
+	!byte >z_ins_not_supported
 	!byte >z_ins_sound_effect
 !ifdef Z4PLUS {
 	!byte >z_ins_read_char
@@ -233,7 +233,11 @@ z_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
+!ifdef VMEM {
 	!byte <z_ins_restart
+} else {
+	!byte <z_ins_not_supported
+}
 	!byte <z_ins_ret_popped
 !ifndef Z5PLUS {
 	!byte <stack_pull ; z_ins_pop
@@ -330,11 +334,7 @@ z_jump_low_arr
 	!byte <z_ins_loadw_and_storew
 	!byte <z_ins_storeb
 	!byte <z_ins_put_prop
-!ifndef Z5PLUS {
-	!byte <z_ins_sread
-} else {
-	!byte <z_ins_aread
-}
+	!byte <z_ins_read
 	!byte <z_ins_print_char
 	!byte <z_ins_print_num
 	!byte <z_ins_random
@@ -360,7 +360,7 @@ z_jump_low_arr
 	!byte <z_not_implemented
 }
 	!byte <z_ins_output_stream
-	!byte <z_not_implemented
+	!byte <z_ins_not_supported
 	!byte <z_ins_sound_effect
 !ifdef Z4PLUS {
 	!byte <z_ins_read_char
@@ -441,7 +441,7 @@ z_exe_mode_exit = $ff
 
 .not_normal_exe_mode
 !ifdef Z4PLUS {
-!ifdef VMEM { ; If it's not a VMEM (disk-based) game, there is no need to check this.
+!ifdef VMEM { ; Non-VMEM games can't be restarted, so they don't get z_exe_mode_exit and don't need this code.
 	cmp #z_exe_mode_return_from_read_interrupt
 	bne .return_from_z_execute
 }
@@ -973,6 +973,13 @@ check_for_routine_0_and_store
 }
 
 !zone {
+z_ins_not_supported
+    ldy #>.not_supported_string
+	lda #<.not_supported_string
+	jmp printstring
+.not_supported_string
+!raw "[Not supported]",13,0
+	rts
 }
 
 !zone {
@@ -1708,7 +1715,7 @@ z_ins_call_xs
 	
 ; z_ins_put_prop (moved to objecttable.asm)
 	
-; z_ins_sread / z_ins_aread (moved to text.asm)
+; z_ins_read (moved to text.asm)
 
 ; z_ins_print_char (moved to text.asm)
 

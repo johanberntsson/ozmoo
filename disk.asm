@@ -436,15 +436,8 @@ insert_msg_3
 }
 
 
+!ifdef VMEM {
 z_ins_restart
-!ifndef VMEM {
-    ldy #>.not_supported_string
-	lda #<.not_supported_string
-	jmp printstring
-.not_supported_string
-!raw "[Not supported]",13,0
-	rts
-} else {
 	; Find right device# for boot disk
 
 	; lda + sta of "0" is not needed if boot device can't be changed during play.

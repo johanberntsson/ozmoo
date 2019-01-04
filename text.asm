@@ -186,122 +186,29 @@ z_ins_print_ret
     ldx #1
     jmp stack_return_from_routine
 
-!ifndef Z5PLUS {
 
-z_ins_sread
-	; sread text parse (Z1-Z3)
-	; sread text parse time routine (Z4)
+; ============================= New unified read instruction
+z_ins_read
+    ; z3: sread text parse
+    ; z4: sread text parse time routine
+    ; z5: aread text parse time routine -> (result)
     jsr printchar_flush
-!ifdef TRACE_VM {
-    ;jsr print_vm_map
-}
-    ; read input
-!ifndef Z4 {
+!ifdef Z3 {
     ; Z1 - Z3 should redraw the status line before input
     jsr draw_status_line
 }
-    lda z_operand_value_high_arr
-    ldx z_operand_value_low_arr
-!ifdef Z4 {
-    ; time routine arguments
-    ldy z_operand_count
-    cpy #4
-    bne +
-    ldy z_operand_value_high_arr + 2
-    sty .read_text_time
-    ldy z_operand_value_low_arr + 2
-    sty .read_text_time + 1
-    ldy z_operand_value_high_arr + 3
-    sty .read_text_routine
-    ldy z_operand_value_low_arr + 3
-    sty .read_text_routine + 1
-+
-}
-    jsr read_text
-!ifdef TRACE_READTEXT {
-    jsr print_following_string
-    !pet "read_text ",0
-    ldx z_operand_value_low_arr
-    lda z_operand_value_high_arr
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
-    ldy #0
--   lda (string_array),y
-    jsr printa
-    jsr space
-    iny
-    cpy #14
-    bne -
-    jsr newline
-}
-    ; parse it as well?
-    ldx z_operand_count
-    cpx #2
-    bcc .sread_done
-    lda z_operand_value_high_arr + 1
-    ldx z_operand_value_low_arr + 1
-!ifdef TRACE_TOKENISE {
-    jsr print_following_string
-    !pet "tokenise_text ",0
-    ldx z_operand_value_low_arr + 1
-    lda z_operand_value_high_arr + 1
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
-}
-    ldy #0
-    jsr tokenise_text
-!ifdef TRACE_TOKENISE {
-    ldy #0
--   lda (parse_array),y
-    jsr printa
-    jsr space
-    iny
-    cpy #10
-    bne -
-    jsr newline
-}
-.sread_done
-!ifdef DEBUG {
-!ifdef PREOPT {
-	jsr print_following_string
-	!raw "[preopt mode. type xxx to exit early.]",13,0
-	ldy #3
-.check_next_preopt_exit_char
-	lda (string_array),y
-;	jsr printa
-	cmp #$78
-	bne .not_preopt_exit
-	dey
-	bne .check_next_preopt_exit_char
-; Exit PREOPT mode
-	ldx #1
-	jmp print_optimized_vm_map
-.not_preopt_exit	
-}	
-}
-    rts
-
-} else {	; End of !ifndef Z5PLUS
-
-z_ins_aread
-    ; aread text parse time routine -> (result)
-    jsr printchar_flush
-    ; read input
+!ifdef Z4PLUS {
     ; arguments that need to be copied to their own locations because there *may* be a timed interrupt call
     ldx z_operand_count
 	stx .read_text_operand_count
     ldy z_operand_value_low_arr + 1
-    sty .read_text_buffer
+    sty .read_parse_buffer
     ldy z_operand_value_high_arr + 1
-    sty .read_text_buffer + 1
+    sty .read_parse_buffer + 1
 	lda #0
     tay
 	cpx #3
-	bcc +
+	bcc + ; time and routine are omitted
     ldy z_operand_value_high_arr + 3
     sty .read_text_routine
     ldy z_operand_value_low_arr + 3
@@ -310,6 +217,8 @@ z_ins_aread
 	ldy z_operand_value_low_arr + 2
 +	sta .read_text_time
 	sty .read_text_time + 1
+}
+    ; Read input
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
     jsr read_text
@@ -331,29 +240,27 @@ z_ins_aread
     bne -
     jsr newline
 }
-    ; parse it as well?
+
+!ifdef Z5PLUS {
+    ; parse it as well? In Z5, this can be avoided by setting parse to 0
     ldx .read_text_operand_count
     cpx #2
-    bcc .aread_done
-
+    bcc .read_done
+	lda .read_parse_buffer
+	ora .read_parse_buffer + 1
+	beq .read_done
+}
     ; Setup default dictionary
     lda story_start + header_dictionary     ; 05
     ldx story_start + header_dictionary + 1 ; f3
 	jsr parse_dictionary
 
-;    lda z_operand_value_high_arr + 1
-;    ldx z_operand_value_low_arr + 1
-    lda .read_text_buffer + 1
-    ldx .read_text_buffer
-!ifdef TRACE_TOKENISE {
-    jsr print_following_string
-    !pet "tokenise_text ",0
-    lda .read_text_buffer + 1
-    ldx .read_text_buffer
-    jsr printx
-    jsr space
-    jsr printa
-    jsr newline
+!ifdef Z3 {
+    lda z_operand_value_high_arr + 1
+    ldx z_operand_value_low_arr + 1
+} else {
+    lda .read_parse_buffer + 1
+    ldx .read_parse_buffer
 }
     ldy #0
     jsr tokenise_text
@@ -367,7 +274,7 @@ z_ins_aread
     bne -
     jsr newline
 }
-.aread_done
+.read_done
     ; debug - print parsearray
 !ifdef TRACE_PRINT_ARRAYS {
     ldy #0
@@ -397,13 +304,21 @@ z_ins_aread
 !ifdef PREOPT {
 	jsr print_following_string
 	!raw "[preopt mode. type xxx to exit early.]",13,0
+!ifdef Z5PLUS {
 	ldy #2
+} else {
+	ldy #1
+}
 .check_next_preopt_exit_char
 	lda (string_array),y
 	cmp #$78
 	bne .not_preopt_exit
 	iny
+!ifdef Z5PLUS {
 	cpy #5
+} else {
+	cpy #4
+}
 	bne .check_next_preopt_exit_char
 ; Exit PREOPT mode
 	ldx #1
@@ -411,10 +326,14 @@ z_ins_aread
 .not_preopt_exit	
 }	
 }
+!ifdef Z5PLUS {
     lda #0
     ldx #13
 	jmp z_store_result
+} else {
+	rts
 }
+; ============================= End of new unified read instruction
 
 !ifdef Z5PLUS {
 z_ins_check_unicode
@@ -971,14 +890,6 @@ read_char
 	tya
 	sbc .read_text_jiffy
 	bcc .no_timer
-    ; cpy .read_text_jiffy + 2 ; compare high bytes
-    ; bcc .no_timer
-    ; bne .call_routine
-    ; cpx .read_text_jiffy + 1
-    ; bcc .no_timer
-    ; bne .call_routine
-    ; cmp .read_text_jiffy
-    ; bcc .no_timer
 .call_routine	
     ; current time >= .read_text_jiffy. Time to call routine
     jsr turn_off_cursor
@@ -1108,13 +1019,13 @@ read_text
     cpy .read_text_cursor + 1
     beq .readkey
     ; text changed, redraw input line
-!ifdef Z5PLUS {
 	jsr turn_off_cursor
     jsr clear_num_rows
-	lda #$0d ; Enter
-	jsr s_printchar
-	lda #$3e ; ">"
-	jsr s_printchar
+!ifdef Z5PLUS {
+	; lda #$0d ; Enter
+	; jsr s_printchar
+	; lda #$3e ; ">"
+	; jsr s_printchar
     ldy #1
     lda (string_array),y
     tax
@@ -1131,6 +1042,7 @@ read_text
     ldy #1
 .p0 lda (string_array),y ; default is empty string (0 in pos 1)
     beq .p1
+	jsr translate_zscii_to_petscii
     jsr s_printchar
     iny
     jmp .p0
@@ -1145,8 +1057,7 @@ read_text
     ldy #1
     lda #0
     sta (string_array),y
-    lda #0 ; return 0
-    jmp .read_text_done
+    jmp .read_text_done ; a should hold 0 to return 0 here
 +   cmp #$0d
     bne +
 ;    lda #13 ; return 13
@@ -1191,12 +1102,10 @@ read_text
 	jmp .readkey
 +	; keybuffer < maxchars
 	pha
+	txa
 !ifdef Z5PLUS {
     ldy #1
-	txa
     sta (string_array),y ; number of characters in the array
-} else {
-	txa
 }
     tay
 !ifdef Z5PLUS {
@@ -1214,7 +1123,6 @@ read_text
 	ora #$20
 
 .dont_invert_case
-;    and #$7f
     sta (string_array),y ; store new character in the array
 	inc .read_text_column	
 !ifndef Z5PLUS {
@@ -1238,7 +1146,7 @@ read_text
     beq +
     jsr s_printchar; print final char unless it is 0
 +   rts
-.read_text_buffer !byte 0,0
+.read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
 .read_text_column !byte 0
 .read_text_char_limit !byte 0
