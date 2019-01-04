@@ -1,0 +1,11 @@
+Currently Ozmoo doesn't have any support for printers, but hooks
+exist that could be used to add such functionality.
+
+Infocom provided printer output through the transcript command, which
+redirected text output to output stream 2. stream.asm implements
+streaming, and stream_print_output can be extended to handle stream 2
+and send the bytes to the printer.
+
+We currently have no hardware to test printer support on, and no
+immediate plans to provide such support. However, we are happy to
+accept patches.
