@@ -372,6 +372,14 @@ convert_zchar_to_char
 +++	rts
 
 translate_petscii_to_zscii
+	ldx #character_translation_table_in_end - character_translation_table_in - 1
+-	cmp character_translation_table_in,x
+	bcc .no_match
+	beq .translation_match
+	dex
+	dex
+	bpl -
+.no_match	
 	cmp #$60
 	bcc .no_shadow
 	cmp #$80
@@ -392,17 +400,7 @@ translate_petscii_to_zscii
 	bcs .case_conversion_done
 	; Upper case. $c1 -> $41
 	and #$7f
-;	jsr invert_case
 .case_conversion_done
-	sta .current_character
-	ldx #character_translation_table_out - character_translation_table_in - 1
--	lda character_translation_table_in,x
-	cmp .current_character
-	beq .translation_match
-	dex
-	dex
-	bpl -
-	lda .current_character
 	rts
 .translation_match
 	dex
@@ -940,8 +938,7 @@ read_char
     cmp #$00
     beq read_char
 	sta .petscii_char_read
-	jsr translate_petscii_to_zscii
-    rts
+	jmp translate_petscii_to_zscii
 
 s_cursorswitch !byte 0
 turn_on_cursor

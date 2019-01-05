@@ -9,33 +9,47 @@ streams_output_selected		!byte 0, 0, 0, 0
 
 .streams_tmp	!byte 0,0,0
 .current_character !byte 0
+
 character_translation_table_in
-; Pairs of values (zscii code, petscii code). End with 0,0.
-	!byte 32, 160 ; Convert shift-space to regular space
-	!byte $8, $14 ; Backspace
-	!byte 129, 145 ; Cursor up
-	!byte 130, 17 ; Cursor down
-	!byte 131, 157 ; Cursor left
-	!byte 132, 29 ; Cursor right
-character_translation_table_in_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
 !ifdef SWEDISH_CHARS {
-	!byte $c9, $5d ; å = ]
-	!byte $9b, $5b ; ä = [
-	!byte $9c, $5c ; ö = £
 	!byte $ca, $7d ; Å = ]
-	!byte $9e, $7b ; Ä = [
 	!byte $9f, $7c ; Ö = £
+	!byte $9e, $7b ; Ä = [
+	!byte $c9, $5d ; å = ]
+	!byte $9c, $5c ; ö = £
+	!byte $9b, $5b ; ä = [
 }
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
 character_translation_table_out
-	!byte $5e, $27 ; ^ => quote (NOTE: This substitution must no be defined for input!)
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $60, $27 ; Grave accent => quote (NOTE: This substitution must no be defined for input!)
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $7b, $5b ; { => [ (NOTE: This substitution must no be defined for input!)
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
-	!byte $7d, $5d ; } => ] (NOTE: This substitution must no be defined for input!)
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+!ifdef SWEDISH_CHARS {
+	!byte $ca, $7d ; Å = ]
+	!byte $c9, $5d ; å = ]
+	!byte $9f, $7c ; Ö = £
+	!byte $9e, $7b ; Ä = [
+	!byte $9c, $5c ; ö = £
+	!byte $9b, $5b ; ä = [
+}
 	!byte $7e, $2d ; ~ => - (NOTE: This substitution must no be defined for input!)
-character_translation_table_end
+	!byte $7d, $5d ; } => ] (NOTE: This substitution must no be defined for input!)
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7b, $5b ; { => [ (NOTE: This substitution must no be defined for input!)
+	!byte $60, $27 ; Grave accent => quote (NOTE: This substitution must no be defined for input!)
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+;	!byte $5e, $27 ; ^ => quote (NOTE: This substitution must no be defined for input!)
+	!byte $5e, $0d ; ^ => Enter, since Inform uses this (NOTE: This substitution must no be defined for input!)
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+character_translation_table_out_end
 
 	
 streams_init
@@ -197,16 +211,15 @@ z_ins_output_stream
 	rts
 
 translate_zscii_to_petscii
-	cmp #$5e
-	bne +
-	lda #$0d
-+	sty .streams_tmp + 1
-	ldy #character_translation_table_end - character_translation_table_in_out - 2
--	cmp character_translation_table_in_out,y
+	sty .streams_tmp + 1
+	ldy #character_translation_table_out_end - character_translation_table_out - 2
+-	cmp character_translation_table_out,y
 	beq .match
+	bcc .no_match
 	dey
 	dey
 	bpl -
+.no_match
 ; .case_conversion
 	ldy .streams_tmp + 1
 	cmp #$41
@@ -227,7 +240,7 @@ translate_zscii_to_petscii
 	rts
 .match
 	iny
-	lda character_translation_table_in_out,y
+	lda character_translation_table_out,y
 	ldy .streams_tmp + 1
 	rts
 }
