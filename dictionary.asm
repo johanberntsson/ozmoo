@@ -1,9 +1,29 @@
+!ifdef Z5PLUS {
+dict_is_default	!byte 0
+}
 dict_entries !byte 0, 0
 dict_len_entries !byte 0
 dict_num_entries !byte 0,0
-dict_ordered	!byte 0 ; Holds 0 for false or $ff for true
+dict_ordered	!byte $ff ; Holds 0 for false or $ff for true
 num_terminators !byte 0
 terminators !byte 0,0,0,0,0,0,0,0,0,0
+
+!ifdef Z5PLUS {
+parse_user_dictionary
+	pha
+	lda #0
+	sta dict_is_default
+	pla
+	jmp parse_dictionary
+}
+
+parse_default_dictionary
+!ifdef Z5PLUS {
+	lda #1
+	sta dict_is_default
+}
+    lda story_start + header_dictionary     ; 05
+    ldx story_start + header_dictionary + 1 ; f3
 
 parse_dictionary
 	; parameters: dictionary address in (a,x)
@@ -28,13 +48,16 @@ parse_dictionary
     jsr read_next_byte
     sta dict_len_entries
 
+!ifdef Z5PLUS {
 	lda #$ff
 	sta dict_ordered
+}
     jsr read_next_byte
     sta dict_num_entries
 	tay
     jsr read_next_byte
     sta dict_num_entries + 1
+!ifdef Z5PLUS {
 ; Check if ordered dictionary
 	cpy #$80
 	bcc .ordered
@@ -48,6 +71,7 @@ parse_dictionary
 	eor #$ff
 	adc #0
 	sta dict_num_entries
+}
 .ordered	
     jsr get_z_address
     stx dict_entries

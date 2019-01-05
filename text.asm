@@ -103,14 +103,15 @@ z_ins_tokenise_text
     ; user dictionary
 
 	lda z_operand_value_high_arr + 2
-	jsr parse_dictionary
+	jsr parse_user_dictionary
 	jmp .tokenise_main
 	
 .no_user_dictionary
-    ; default dictionary
-    lda story_start + header_dictionary     ; 05
-    ldx story_start + header_dictionary + 1 ; f3
-	jsr parse_dictionary
+    ; Setup default dictionary
+	lda dict_is_default
+	bne +
+	jsr parse_default_dictionary
++
 
 .tokenise_main
     ; setup parse_array and flag
@@ -249,11 +250,13 @@ z_ins_read
 	lda .read_parse_buffer
 	ora .read_parse_buffer + 1
 	beq .read_done
-}
+
     ; Setup default dictionary
-    lda story_start + header_dictionary     ; 05
-    ldx story_start + header_dictionary + 1 ; f3
-	jsr parse_dictionary
+	lda dict_is_default
+	bne +
+	jsr parse_default_dictionary
++
+}
 
 !ifdef Z3 {
     lda z_operand_value_high_arr + 1
@@ -610,10 +613,11 @@ find_word_in_dictionary
 	lda dict_num_entries
 	sbc #0
 	sta .last_word + 1
+!ifdef Z5PLUS {
 	lda dict_ordered
 	bne .loop_check_next_entry
 	jmp .find_word_in_unordered_dictionary
-		
+}		
 	; Step 2: Calculate the median word
 .loop_check_next_entry
 	lda .last_word
@@ -778,6 +782,7 @@ find_word_in_dictionary
     iny
     rts
 
+!ifdef Z5PLUS {
 .find_word_in_unordered_dictionary
 ; In the end, jump to either .found_dict_entry or .no_entry_found
 	ldx dict_entries
@@ -823,7 +828,7 @@ find_word_in_dictionary
 	bcc .unordered_check_next_word ; Always branch
 
 +	bcs .no_entry_found ; Always branch
-
+} ; End of !ifdef Z5PLUS
 
 !ifdef Z4PLUS {
 init_read_text_timer
