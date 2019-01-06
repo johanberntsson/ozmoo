@@ -13,13 +13,16 @@ streams_output_selected		!byte 0, 0, 0, 0
 character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
+!ifdef SWEDISH_CHARS {
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $c9, $dd ; Å = ]
+	!byte $9c, $dc ; Ö = £
+	!byte $9b, $db ; Ä = [
+}
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
 !ifdef SWEDISH_CHARS {
-	!byte $ca, $7d ; Å = ]
-	!byte $9f, $7c ; Ö = £
-	!byte $9e, $7b ; Ä = [
 	!byte $c9, $5d ; å = ]
 	!byte $9c, $5c ; ö = £
 	!byte $9b, $5b ; ä = [
@@ -33,22 +36,28 @@ character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
 !ifdef SWEDISH_CHARS {
-	!byte $ca, $7d ; Å = ]
+	!byte $ca, $dd ; Å = Shift-]
 	!byte $c9, $5d ; å = ]
-	!byte $9f, $7c ; Ö = £
-	!byte $9e, $7b ; Ä = [
+	!byte $9f, $dc ; Ö = Shift-£
+	!byte $9e, $db ; Ä = Shift-[
 	!byte $9c, $5c ; ö = £
 	!byte $9b, $5b ; ä = [
 }
-	!byte $7e, $2d ; ~ => - (NOTE: This substitution must no be defined for input!)
-	!byte $7d, $5d ; } => ] (NOTE: This substitution must no be defined for input!)
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
 	!byte $7c, $7d ; Pipe = pipe-like graphic character
-	!byte $7b, $5b ; { => [ (NOTE: This substitution must no be defined for input!)
-	!byte $60, $27 ; Grave accent => quote (NOTE: This substitution must no be defined for input!)
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
-;	!byte $5e, $27 ; ^ => quote (NOTE: This substitution must no be defined for input!)
-	!byte $5e, $0d ; ^ => Enter, since Inform uses this (NOTE: This substitution must no be defined for input!)
+;	!byte $5e, $27 ; ^ => quote
+	!byte $5e, $0d ; ^ => Enter, since Inform uses this
+!ifdef SWEDISH_CHARS {
+	!byte $5d, $29 ; ] = )
+}
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+!ifdef SWEDISH_CHARS {
+	!byte $5b, $28 ; [ = (
+}
 character_translation_table_out_end
 
 	
