@@ -39,6 +39,8 @@ The longer answer:
 
 ## Nice-to-have features
 
+![Ozmoo running a German game using a custom font with accented characters](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/germangame.png)
+
 * Supports embedding a custom font. Currently one font is included in the distribution, but there will be more. And you can supply your own font.
 * Supports custom alphabets in Z-machine version 5 and 8.
 * Supports custom character mappings, allowing for games using accented characters.
@@ -80,4 +82,8 @@ Vice is available on Debian/Ubuntu with:
 
 Ruby is available on Debian/Ubuntu with:
 > sudo apt-get install ruby
+
+### Thanks
+
+Special thanks to howtophil, for Linux-related make.rb suggestions, and retrofan for font support.
 
