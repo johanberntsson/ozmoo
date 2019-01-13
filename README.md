@@ -26,6 +26,7 @@ While the old Infocom interpreters are still available, the license situation is
 There are some other implementations, but they have their limitations:
 * [Infocom64](https://github.com/christopherkobayashi/infocom64) is based on assembly code of the original Infocom interpreter so it has the same license issues. Also, it only works with certain setups of hardware or emulation.
 * [Zeugma](https://www.linusakesson.net/software/zeugma/index.php) requires an REU (Ram Expansion Unit) and doesn't support save and restore.
+* [Z] (http://petsd.net/petfood.php?lang=en) is an interpreter for Z-code version 3 only.
 
 ## What games can Ozmoo run?
 
@@ -53,9 +54,9 @@ The longer answer:
 
 You need to install:
 * Acme cross-assembler
-* Exomizer file compression program (tested with 3.0.0 and 3.0.1)
+* Exomizer file compression program (tested with 3.0.0, 3.0.1 and 3.0.2)
 * Vice C64 emulator
-* Ruby (Tested with 2.4.2, but most 2.x versions should work fine)
+* Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
 
 Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, Exomizer, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.
 
@@ -85,5 +86,7 @@ Ruby is available on Debian/Ubuntu with:
 
 ### Thanks
 
-Special thanks to howtophil, for Linux-related make.rb suggestions, and retrofan for font support.
+Special thanks to:
+* howtophil, for Linux-related make.rb suggestions
+* Paul van der Laan for font support.
 

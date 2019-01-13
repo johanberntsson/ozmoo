@@ -8,7 +8,7 @@ if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.1\\win32\\exomizer.exe"
+    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
     $ACME = "acme.exe"
 else
 	# Paths on Linux
@@ -993,7 +993,7 @@ preload_data = nil
 if preloadfile then
 	preload_raw_data = File.read(preloadfile)
 	vmem_type = "clock"
-	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\$\$\$/i
+	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\n?\$\$\$/i
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{preload_data.length} blocks found for initial caching."
 	else
