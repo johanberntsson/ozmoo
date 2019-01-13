@@ -1,5 +1,7 @@
 Known bugs
 ----------
+Quote boxes are broken. The text is printed in the quote box AND in the regular text flow.
+
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------

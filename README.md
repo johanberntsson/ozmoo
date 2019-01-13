@@ -26,7 +26,7 @@ While the old Infocom interpreters are still available, the license situation is
 There are some other implementations, but they have their limitations:
 * [Infocom64](https://github.com/christopherkobayashi/infocom64) is based on assembly code of the original Infocom interpreter so it has the same license issues. Also, it only works with certain setups of hardware or emulation.
 * [Zeugma](https://www.linusakesson.net/software/zeugma/index.php) requires an REU (Ram Expansion Unit) and doesn't support save and restore.
-* [Z] (http://petsd.net/petfood.php?lang=en) is an interpreter for Z-code version 3 only.
+* [Z](http://petsd.net/petfood.php?lang=en) is an interpreter for Z-code version 3 only.
 
 ## What games can Ozmoo run?
 
