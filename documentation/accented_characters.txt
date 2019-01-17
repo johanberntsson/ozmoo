@@ -1,0 +1,28 @@
+Ozmoo has some support for using accented characters in games. Since the Commodore 64 doesn't really support accented characters, some tricks are needed to make this work.
+
+The Commodore 64 uses PETSCII (a modified version of ASCII) to encode characters. PETSCII has 256 different codes (actually less, since 0 is used as a string terminator and some code ranges are just ghosts, i.e. copies of other code ranges). Some PETSCII codes are control codes, like the ones to change the text colour or clear the screen. 128 of the PETSCII codes (plus som ghost codes) map to printable characters. A character set contains these, plus reverse-video versions of all 128, adding up to 256 characters all in all.
+
+So, all in all there are basically 128 different characters, and that's it. They include letters A-Z, digits, special characters like !#$%& etc, some graphic characters, and then either lowercase a-z or 26 more graphic characters. There are no accented characters.
+
+To build a game with Ozmoo with accented characters, we typically need to:
+
+* Decide which (less important) characters in the character set will be replaced with the accented characters we need.
+* Create a font (character set) where these replacements have been made
+* Create mappings from PETSCII to ZSCII for when the player enters text
+* Create mappings from ZSCII to PETSCII for when the game outputs text
+
+There are already fonts in place for German and Swedish. You can also supply your own font.
+
+The character mappings are created at the beginning of the file streams.asm
+
+To build a game using accented characters, the make command may look like this:
+
+ruby make.rb examples\Aventyr.z5 -f fonts\PXLfont-rf-sv.fnt -cm:sv
+
+-f sets the font to use.
+-cm sets the character mapping to use.
+
+If you want to create a character mapping for say Italian, and you know you will never want to build a game in Swedish, you can just replace the Swedish mapping in streams.asm and use -cm:sv to refer to your italian mapping.
+
+
+

@@ -26,7 +26,6 @@ $GENERALFLAGS = [
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
-#	'SWEDISH_CHARS',
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -833,9 +832,9 @@ end
 
 def print_usage_and_exit
 	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] [-s] [-x] [-r] "
-	puts "      [-f <fontfile>] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] <storyfile>"
+	puts "      [-f <fontfile>] [-cm:[xx]] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. See docs for details."
-	puts "  -p:[n]: preload a a maximum of n virtual memory blocks to make game faster at start"
+	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
@@ -843,6 +842,7 @@ def print_usage_and_exit
 	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
+	puts "  -cm: Use the specified character map (sv or de)"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -869,6 +869,7 @@ $default_colours = []
 $statusline_colour = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
 $border_colour = 0
+$char_map = nil
 
 begin
 	while i < ARGV.length
@@ -909,6 +910,8 @@ begin
 			$statusline_colour = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
+		elsif ARGV[i] =~ /^-cm:(sv|de)$/ then
+			$char_map = $1
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-f$/ then
@@ -930,6 +933,9 @@ rescue
 end
 
 $VMEM = (mode != MODE_P)
+
+$GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'
+$GENERALFLAGS.push('GERMAN_CHARS') if $char_map == 'de'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 

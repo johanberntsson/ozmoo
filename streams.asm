@@ -10,23 +10,23 @@ streams_output_selected		!byte 0, 0, 0, 0
 .streams_tmp	!byte 0,0,0
 .current_character !byte 0
 
+!ifdef SWEDISH_CHARS {
+
+; SWEDISH
+
 character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-!ifdef SWEDISH_CHARS {
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
 	!byte $c9, $dd ; Å = ]
 	!byte $9c, $dc ; Ö = £
 	!byte $9b, $db ; Ä = [
-}
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-!ifdef SWEDISH_CHARS {
 	!byte $c9, $5d ; å = ]
 	!byte $9c, $5c ; ö = £
 	!byte $9b, $5b ; ä = [
-}
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
 	!byte $82, $11 ; Cursor down
@@ -35,31 +35,100 @@ character_translation_table_in_end
 character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-!ifdef SWEDISH_CHARS {
 	!byte $ca, $dd ; Å = Shift-]
 	!byte $c9, $5d ; å = ]
 	!byte $9f, $dc ; Ö = Shift-£
 	!byte $9e, $db ; Ä = Shift-[
 	!byte $9c, $5c ; ö = £
 	!byte $9b, $5b ; ä = [
-}
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
 	!byte $7c, $7d ; Pipe = pipe-like graphic character
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
-;	!byte $5e, $27 ; ^ => quote
 	!byte $5e, $0d ; ^ => Enter, since Inform uses this
-!ifdef SWEDISH_CHARS {
 	!byte $5d, $29 ; ] = )
-}
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-!ifdef SWEDISH_CHARS {
 	!byte $5b, $28 ; [ = (
-}
+character_translation_table_out_end
+} else { ; End of Swedish section
+!ifdef GERMAN_CHARS {
+
+; GERMAN
+
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $9b, $dd ; ä = Shift-]
+	!byte $9c, $db ; ö = Shift-[
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $9d, $60 ; ü = Shift-@
+	!byte $a1, $5f ; ß = left-arrow
+	!byte $9b, $5d ; ä = ]
+	!byte $9c, $5b ; ö = [
+	!byte $9d, $40 ; ü = @
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $a1, $5f ; ß = left-arrow
+	!byte $a0, $60 ; Ü = Shift-@
+	!byte $9f, $db ; Ö = Shift-[
+	!byte $9e, $dd ; Ä = Shift-]
+	!byte $9d, $40 ; ü = @
+	!byte $9c, $5b ; ö = [
+	!byte $9b, $5d ; ä = ]
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5e, $0d ; ^ => Enter, since Inform uses this
+	!byte $5d, $29 ; ] = )
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+	!byte $5b, $28 ; [ = (
 character_translation_table_out_end
 
+
+} else { ; End of ifdef GERMAN_CHARS
+
+; ENGLISH
+
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5e, $0d ; ^ => Enter, since Inform uses this
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+character_translation_table_out_end
+
+} ; End of English section
+} ; End of non-Swedish section
 	
 streams_init
 	; Setup/Reset streams handling
@@ -89,6 +158,8 @@ streams_print_output
 	pha
 	lda streams_output_selected + 2
 	bne .mem_write
+	lda streams_output_selected
+	beq .pla_and_return
 	pla
 	jsr translate_zscii_to_petscii
 	jmp printchar_buffered
@@ -105,7 +176,10 @@ streams_print_output
 	inc streams_current_entry + 3
 .return
 	rts
-
+.pla_and_return
+	pla
+	rts
+	
 z_ins_output_stream
 	; Set output stream held in z_operand 0
 	; input:  z_operand 0: 1..4 to enable, -1..-4 to disable. If enabling stream 3, also provide z_operand 1: z_address of table

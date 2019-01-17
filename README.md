@@ -88,5 +88,5 @@ Ruby is available on Debian/Ubuntu with:
 
 Special thanks to:
 * howtophil, for Linux-related make.rb suggestions
-* Paul van der Laan for font support.
+* Retrofan and Paul van der Laan for font support.
 
