@@ -1,7 +1,5 @@
 Known bugs
 ----------
-Quote boxes are broken. The text is printed in the quote box AND in the regular text flow.
-
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -65,6 +63,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Quote boxes are broken. The text is printed in the quote box AND in the regular text flow.
+
 ; input_stream (Now giving a message that it's not supported)
 
 Timed input in v4 games may be broken.
