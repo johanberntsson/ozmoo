@@ -63,6 +63,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+get_cursor returns 0,0 for upper left corner. Should be 1,1.
+
 Quote boxes are broken. The text is printed in the quote box AND in the regular text flow.
 
 ; input_stream (Now giving a message that it's not supported)

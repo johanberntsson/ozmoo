@@ -243,6 +243,8 @@ z_ins_get_cursor
     ldy #2
     sta (string_array),y
     jsr get_cursor ; x=row, y=column
+	inx ; In Z-machine, cursor has position 1+
+	iny ; In Z-machine, cursor has position 1+
     tya
     pha
     ldy #1
