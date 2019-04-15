@@ -113,9 +113,6 @@ read_byte_at_z_address
     adc #>vmem_cache_start
     sta mempointer + 1
 	bne .return_result 
-    ; ldy #0
-    ; lda (mempointer),y
-    ; rts
 } ; End of block for ALLRAM=1
 	
 } else {
@@ -128,7 +125,7 @@ read_byte_at_z_address
 ;
 ; map structure: one entry for each block (512 bytes) of available virtual memory
 ; each map entry is:
-; 1 byte: ZMachine offset high byte (bitmask: $80=used, $20=referenced)
+; 1 byte: ZMachine offset high byte (1-3 lowest bits used for ZMachine offset, the rest used to store ticks since block was last used)
 ; 1 byte: ZMachine offset low byte
 ;
 ; needs 102*2=204 bytes for $3400-$FFFF
@@ -138,7 +135,7 @@ read_byte_at_z_address
 !ifdef SMALLBLOCK {
 	vmem_blocksize = 512
 } else {
-	vmem_blocksize = 1024
+	vmem_blocksize = 1024 ; This hasn't been used in a long time, and probably doesn't work anymore.
 }
 
 vmem_blockmask = 255 - (>(vmem_blocksize - 1))
@@ -155,7 +152,7 @@ vmap_clock_index !byte 0        ; index where we will attempt to load a block ne
 vmap_first_ram_page		!byte 0
 vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
-vmem_1kb_offset !byte 0         ; 256 byte offset in 1kb block (0-3)
+vmem_offset_in_block !byte 0         ; 256 byte offset in 512 byte block (0-1)
 ; vmem_temp !byte 0
 
 vmem_tick 			!byte $e0
@@ -440,7 +437,7 @@ read_byte_at_z_address
     txa
     sta zp_pc_l
     and #255 - vmem_blockmask ; keep index into kB chunk
-    sta vmem_1kb_offset
+    sta vmem_offset_in_block
 	txa
 	and #vmem_blockmask
 	sta vmem_temp
@@ -489,9 +486,6 @@ read_byte_at_z_address
     ; vm index for this block found
     stx vmap_index
 
-	; lda vmap_z_h,x
-	; ora #%00100000 		; Set referenced flag
-    ; sta vmap_z_h,x
 	ldy vmap_quick_index_match
 	bne ++ ; This is already in the quick index, don't store it again
 	txa
@@ -507,7 +501,7 @@ read_byte_at_z_address
 ; no index found, add last
 .no_such_block
 
-	; Load 1 KB block into RAM
+	; Load 512 byte block into RAM
 	ldx vmap_clock_index
 -	cpx vmap_used_entries
 	bcs .block_chosen
@@ -545,39 +539,9 @@ read_byte_at_z_address
 +	cpx vmap_clock_index
 	bne -
 
-	; ; Update clock index
-	; ldx vmem_oldest_index
-	; inx
-	; cpx vmap_used_entries
-	; bcc +
-	; ldx #0
-; +	stx vmap_clock_index
-
 	; Load chosen index
 	ldx vmem_oldest_index
 	
-	; lda vmap_z_h,x
-	; tay
-	; and #$20
-	; beq .block_maybe_chosen
-	; tya
-	; and #%11011111 ; Turn off referenced flag
-	; sta vmap_z_h,x
-; --	inx
-	; cpx vmap_max_entries
-	; bcc -
-	; ldx #0
-	; beq - ; Always branch
-; .block_maybe_chosen
-	; ; Protect block where z_pc currently points
-	; tya
-	; and #%111
-	; cmp z_pc
-	; bne .block_chosen
-	; lda z_pc + 1
-	; and #vmem_blockmask
-	; cmp vmap_z_l,x
-	; beq -- ; This block is protected, keep looking
 .block_chosen
 !ifdef COUNT_SWAPS {
 	inc vmem_swap_count + 1
@@ -689,11 +653,11 @@ read_byte_at_z_address
 	lda #$80
 +	sta vmem_tick
 
-	; Store address of 1 KB block to load, then load it
+	; Store address of 512 byte block to load, then load it
 	lda zp_pc_h
     sta vmap_z_h,x
     lda zp_pc_l
-    and #vmem_blockmask ; skip bit 0,1 since kB blocks
+    and #vmem_blockmask ; skip bit 0 since 512 byte blocks
     sta vmap_z_l,x
     stx vmap_index
     jsr load_blocks_from_index
@@ -719,7 +683,7 @@ read_byte_at_z_address
     ; this is swappable memory
     ; update vmem_cache if needed
     clc
-    adc vmem_1kb_offset
+    adc vmem_offset_in_block
 	; Check if this page is in cache
     ldx #vmem_cache_count - 1
 -   cmp vmem_cache_index,x
@@ -777,7 +741,7 @@ read_byte_at_z_address
     bne .return_result ; always true
 .unswappable
     ; update memory pointer
-    lda vmem_1kb_offset
+    lda vmem_offset_in_block
     clc
     adc vmap_c64_offset
     sta mempointer + 1

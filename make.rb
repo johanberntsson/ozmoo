@@ -22,7 +22,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically only SMALLBLOCK should be enabled.
 $GENERALFLAGS = [
-	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 bytes blocks for virtual memory.
+	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 byte blocks for virtual memory. NOTE: 1024 byte mode is slower and currently broken.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
