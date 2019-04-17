@@ -66,9 +66,9 @@ To build a game, you run something like "ruby make.rb game.z5" Add -s to make th
 
 Acme can be downloaded from [SourceForge](https://sourceforge.net/projects/acme-crossass/)
 
-Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home). The download includes binaries for Windows.
+Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/browse/downloads). The download includes binaries for Windows.
 
-Get WinVice from [SourceForge](http://vice-emu.sourceforge.net/)
+Get WinVice from [SourceForge](http://vice-emu.sourceforge.net/windows.html)
 
 You can get Ruby from [RubyInstaller](https://rubyinstaller.org/)
 
