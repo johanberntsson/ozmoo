@@ -68,6 +68,8 @@ $VMEM_BLOCKSIZE = $GENERALFLAGS.include?('SMALLBLOCK') ? 512 : 1024
 
 $ZEROBYTE = 0.chr
 
+$EXECDIR = Dir.pwd
+$SRCDIR = File.join(__dir__, 'asm')
 $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 
@@ -395,7 +397,9 @@ def build_interpreter()
 
     cmd = "#{$ACME}#{necessarysettings}#{fontflag}#{colourflags}#{generalflags}#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
+	Dir.chdir $SRCDIR
     ret = system(cmd)
+	Dir.chdir $EXECDIR
     exit 0 unless ret
 	read_labels($labels_file);
 	puts "Interpreter size: #{$program_end_address - $start_address} bytes."
