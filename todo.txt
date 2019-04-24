@@ -3,6 +3,12 @@ Known bugs
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Support REU for caching.
+
+Add fast-loader code?
+
+Less error checking in production builds to increase speed (Remove: Stack overflow, Maybe: Stack underflow. What else?)
+
 Investigate if we can keep channels open between two consecutive block reads, and if this would make the game faster.
 
 If and when we keep channel open between block reads, investigate best interleave value again.
@@ -15,37 +21,13 @@ Build config utility. Could be in same location as Z-machine stack and accessibl
 
 Figure out if some commandline flags to Acme are no longer useful enough to be kept.
 
-*** Speed ***
-- Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
-- Add fast-loader code?
+Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 
 Output transcript to printer support.
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
 
-Support REU for caching.
-
-
-
-Instructions which have not yet been fully implemented
-------------------------------------------------------
-; 0OP
-; ---
-;
-; 1OP
-; ---
-;
-; 2OP
-; ---
-;
-; VAR
-; ---
-;
-; EXT
-; ---
-; save			; Save game state works. Save a memory area doesn't. Parameters are ignored.
-; restore		; Restore game state works. Restore a memory area doesn't. Parameters are ignored.
-
+Add support to save/restore a memory area. (Do we even need this? Is it feasible?)
 
 
 Possible alternative versions / extensions
