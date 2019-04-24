@@ -75,18 +75,23 @@ You can get Ruby from [RubyInstaller](https://rubyinstaller.org/)
 ### Linux
 
 Acme can be downloaded from [Github](https://github.com/meonwax/acme) and compiled:
->cd src
->make
+
+    >cd src
+    >make
 
 Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomizer/wiki/Home) and compiled:
->cd src
->make
+
+    >cd src
+    >make
 
 Vice is available on Debian/Ubuntu with:
-> sudo apt-get install vice
+
+    > sudo apt-get install vice
+
 
 Ruby is available on Debian/Ubuntu with:
-> sudo apt-get install ruby
+
+    > sudo apt-get install ruby
 
 ### Thanks
 
