@@ -9,7 +9,7 @@ if $is_windows then
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
-    $ACME = "acme.exe"
+    $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
 else
 	# Paths on Linux
     $X64 = "/usr/bin/x64 -autostart-delay-random"
@@ -400,7 +400,10 @@ def build_interpreter()
 	Dir.chdir $SRCDIR
     ret = system(cmd)
 	Dir.chdir $EXECDIR
-    exit 0 unless ret
+	unless ret
+		puts "ERROR: There was a problem calling Acme"
+		exit 1
+	end
 	read_labels($labels_file);
 	puts "Interpreter size: #{$program_end_address - $start_address} bytes."
 end
@@ -425,7 +428,12 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
 	puts exomizer_cmd
-	system(exomizer_cmd)
+	ret = system(exomizer_cmd)
+	unless ret
+		puts "ERROR: There was a problem calling Exomizer"
+		exit 1
+	end
+
 #	puts "Building with #{vmem_preload_blocks} blocks gives file size #{File.size($zip_file)}."
 	File.size($zip_file)
 end

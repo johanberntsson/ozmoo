@@ -1,6 +1,12 @@
 Known bugs
 ----------
 
+print_table seems buggy. This produces garbage text output in statusline in Planetfall Solid Gold, and in dialogue in MST3K1.
+
+Early version of MST3K1 dies with a CPU jam. May or may not be a bug in Ozmoo.
+
+Seastalker refuses to go into auto mode for sonarscope.
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Support REU for caching.
@@ -45,6 +51,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+s_plot in screenkernal can place the cursor in columns > 39, thus effectively putting the cursor on the next row, but thinking it's still on the same screen line.
+
 get_cursor returns 0,0 for upper left corner. Should be 1,1.
 
 Quote boxes are broken. The text is printed in the quote box AND in the regular text flow.

@@ -36,14 +36,24 @@ s_init
 s_plot
     ; y=column (0-39)
     ; x=row (0-24)
-    bcc +
+    bcc .set_cursor_pos
     ; get_cursor
     ldx zp_screenrow
     ldy zp_screencolumn
     rts
-+   ; set_cursor
-    stx zp_screenrow
-    sty zp_screencolumn
+.set_cursor_pos
+	cpy #40
+	bcc +
+	tya
+	sbc #40
+	tay
+	inx
+	bne .set_cursor_pos ; Always branch
++	cpx #25
+	bcc +
+	ldx #24
++	stx zp_screenrow
+	sty zp_screencolumn
 	jmp .update_screenpos
 
 s_printchar
@@ -53,7 +63,7 @@ s_printchar
     ; used registers: -
     stx .stored_x
     sty .stored_y
-	
+
 	; Fastlane for the most common characters
 	cmp #$20
 	bcc +
