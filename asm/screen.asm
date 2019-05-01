@@ -75,6 +75,8 @@ erase_window
     pha
     jmp .end_erase
 .window_1
+	lda .window_size + 1
+	beq .end_erase
     lda #0
     sta zp_screenrow
 -   jsr s_erase_line

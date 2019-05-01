@@ -312,7 +312,7 @@ z_init
 	; Modify header to tell game about terp capabilities
 !ifdef Z3 {
 	lda story_start + 1
-	and #(255 - 16 - 32 - 64) ; Screen-splitting not available, variable-pitch font is not default
+	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
 	sta story_start + 1
 } else {
 !ifdef Z4 {

@@ -1,9 +1,7 @@
 Known bugs
 ----------
 
-Early version of MST3K1 dies with a CPU jam. May or may not be a bug in Ozmoo.
-
-Seastalker refuses to go into auto mode for sonarscope. This is because Ozmoo says in the header that it doesn't support split-screen. Does it? Should it?
+auto sonarscope mode in Seastalker is buggy. 
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -49,6 +47,11 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Seastalker refuses to go into auto mode for sonarscope. This is because Ozmoo says in the header that it doesn't support split-screen. Does it? Should it?
+
+Early version of MST3K1 dies with a CPU jam. May or may not be a bug in Ozmoo.
+Root cause: Calling erase_window 1 when statusline window is 0 lines high corrupts interpreter.
+
 print_table seems buggy. This produces garbage text output in statusline in Planetfall Solid Gold, and in dialogue in MST3K1.
 
 s_plot in screenkernal can place the cursor in columns > 39, thus effectively putting the cursor on the next row, but thinking it's still on the same screen line.
