@@ -52,6 +52,10 @@ The longer answer:
 
 ## Building and running
 
+The simplest but also somewhat limited option, is to use [Ozmoo Online](http://microheaven.com/ozmooonline/), a web page we have setup where you can build games with Ozmoo without installing anything on your computer.
+
+The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X.
+
 You need to install:
 * Acme cross-assembler
 * Exomizer file compression program (tested with 3.0.0, 3.0.1 and 3.0.2)

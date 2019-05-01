@@ -101,23 +101,20 @@ z_ins_erase_line
 !ifdef Z5PLUS {
 z_ins_print_table
     ; print_table zscii-text width [height = 1] [skip]
-    ; defaults
+    ; ; defaults
     lda #1
     sta .pt_height
     lda #0
     sta .pt_skip
-    ; parse arguments
-    ldx z_operand_value_low_arr ; zscii
-    lda z_operand_value_high_arr
-    jsr set_z_paddress
+	; Read args
     lda z_operand_value_low_arr + 1
     sta .pt_width
     ldy z_operand_count
-    cpy #2
+    cpy #3
     bcc +
     lda z_operand_value_low_arr + 2
     sta .pt_height
-+   cpy #3
++   cpy #4
     bcc +
     lda z_operand_value_low_arr + 3
     sta .pt_skip
@@ -126,43 +123,36 @@ z_ins_print_table
     jsr get_cursor ; x=row, y=column
     stx .pt_cursor
     sty .pt_cursor + 1
-    jsr init_get_zchar
-    lda #0
-    sta .pt_height + 1
-.pt_row
-    lda .pt_width
-    sta .pt_width + 1
-.pt_line
-    jsr get_next_zchar 
-    jsr convert_zchar_to_char
-    jsr streams_print_output
-    dec .pt_width + 1
-    bne .pt_line
-    ; skip (reuse .pt_width + 1 (which is zero) to save a few bytes)
--   lda .pt_width + 1
-    cmp .pt_skip
-    beq +
-    jsr get_next_zchar
-    inc .pt_width + 1
-    bne - ; always true in this context
-+   ; next line?
-    jsr printchar_flush
-    inc .pt_height + 1
-    lda .pt_height + 1
-    cmp .pt_height
-    beq +
-    ; prepare cursor
-    lda .pt_cursor
-    clc
-    adc .pt_height + 1
-    tax
-    ldy .pt_cursor + 1
-    jsr set_cursor
-    jmp .pt_row
-+   rts
+	lda z_operand_value_high_arr ; Start address
+	ldx z_operand_value_low_arr
+--	jsr set_z_address
+	ldy .pt_width
+-	jsr read_next_byte
+	jsr streams_print_output
+	dey
+	bne -
+	dec .pt_height
+	beq ++
+; Move cursor to start of next line to print
+	inc .pt_cursor
+	ldx .pt_cursor
+	ldy .pt_cursor + 1
+	jsr set_cursor
+; Skip the number of bytes requested
+	jsr get_z_address
+	pha
+	txa
+	clc
+	adc .pt_skip
+	tax
+	pla
+	adc #0
+	bcc -- ; Always jump 
+++	rts
+
 .pt_cursor !byte 0,0
-.pt_width !byte 0, 0
-.pt_height !byte 0, 0
+.pt_width !byte 0
+.pt_height !byte 0
 .pt_skip !byte 0
 }
 
