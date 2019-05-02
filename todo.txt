@@ -5,9 +5,17 @@ auto sonarscope mode in Seastalker is buggy.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+Investigate why terp gets *bigger* when built in non vmem mode. (size reported by make.rb is bigger)
+
+Keep everything in residential memory area in RAM rather than just the dynamic RAM. Decrease residential area as needed to make a game fit.
+
+Let user embed a start screen with the game. This can be put in the main file and displayed until the user presses a key, at which time the rest of the game is uncompressed and started. This would also make it useful for non vmem (single file) games. For disk-based games, one may want to put the image in a small loader program which shows the image, enables a disk turbo if the user agrees, and then loads the game, without blanking the screen.
+
 Support REU for caching.
 
-Add fast-loader code?
+Support REU for fast memory copying.
+
+Add fast-loader code.
 
 Less error checking in production builds to increase speed (Remove: Stack overflow, Maybe: Stack underflow. What else?)
 
@@ -27,8 +35,6 @@ Setup profiling, where we can see how much time is spent in different instructio
 
 Output transcript to printer support.
 
-Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
-
 Add support to save/restore a memory area. (Do we even need this? Is it feasible?)
 
 
@@ -36,7 +42,6 @@ Possible alternative versions / extensions
 ------------------------------------------
 * Support for C1581 disks (can hold 3160 blocks of user data)
 * Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
-* Support for REU
 * A build mode where the whole game fits in memory from the start, and load/save will use the same device as the game was loaded from (tape or a disk drive)
 * C128 version which can use a C1571, additional RAM and 80-column mode.
 * PET version
@@ -47,6 +52,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
+
 Seastalker refuses to go into auto mode for sonarscope. This is because Ozmoo says in the header that it doesn't support split-screen. Does it? Should it?
 
 Early version of MST3K1 dies with a CPU jam. May or may not be a bug in Ozmoo.
