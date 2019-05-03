@@ -113,6 +113,7 @@ game_id		!byte 0,0,0,0
 !source "screenkernal.asm"
 !source "streams.asm"
 !source "disk.asm"
+!source "reu.asm"
 !source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
@@ -142,6 +143,8 @@ game_id		!byte 0,0,0,0
 	jsr stack_init
 
 	jsr init_screen_colours
+
+	jsr reu_start
 	
 	; start text output from bottom of the screen
 	ldy #0

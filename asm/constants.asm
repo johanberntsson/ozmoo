@@ -80,6 +80,8 @@ z_temp				  = $68 ; 12 bytes (Only dictionary encoding uses more than 6)
 vmem_temp			  = $92 ; 2 bytes
 alphabet_table		  = $96 ; 2 bytes
 
+use_reu				  = $9b
+
 s_scrollstart = $ab ; scroll from line (keep lines above untouched)
 
 zp_cursorswitch       = $cc
