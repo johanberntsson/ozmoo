@@ -502,7 +502,18 @@ read_byte_at_z_address
 .no_such_block
 
 	; Load 512 byte block into RAM
-	ldx vmap_clock_index
+	; First, check if this is initial REU loading
+	ldx use_reu
+	cpx #$80
+	bne +
+	ldx #0
+	ldy vmap_z_l ; ,x is not needed here, since x is always 0
+	cpy z_pc + 1
+	bne ++
+	inx ; Set x to 1
+++	bne .block_chosen ; Always branch
+
++	ldx vmap_clock_index
 -	cpx vmap_used_entries
 	bcs .block_chosen
 !ifdef DEBUG {

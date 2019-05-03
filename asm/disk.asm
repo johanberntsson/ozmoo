@@ -61,6 +61,16 @@ readblocks
     bne -
     rts
 
+.readblock_from_reu
+	ldx readblocks_currentblock_adjusted
+	ldy readblocks_currentblock_adjusted + 1
+	inx
+	bne +
+	iny
++	tya
+	ldy readblocks_mempos + 1 ; Assuming lowbyte is always 0 (which it should be)
+	jmp copy_page_from_reu
+
 readblock
     ; read 1 block from floppy
     ; $mempos (contains address to store in) [in]
@@ -75,6 +85,7 @@ readblock
 	lda readblocks_currentblock
 	jsr print_byte_as_hex
 }
+
 	lda readblocks_currentblock
 	sec
 	sbc nonstored_blocks
@@ -84,6 +95,10 @@ readblock
 	sbc #0
 	sta readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
+
+	; Check if game has been cached to REU
+	bit use_reu
+	bvs .readblock_from_reu
 
     ; convert block to track/sector
 	
