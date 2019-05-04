@@ -99,6 +99,8 @@ copy_page_from_reu
 	rts
 
 store_reu_transfer_params
+	; a,x = REU page
+	; y = C64 page
 	sta reu_reubase + 2
 	stx reu_reubase + 1
 	sty reu_c64base + 1

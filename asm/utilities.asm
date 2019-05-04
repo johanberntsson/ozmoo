@@ -18,12 +18,21 @@
     sta zero_processorports
     pla
 }
+!macro set_memory_all_ram_unsafe {
+    ; Don't forget to disable interrupts first!
+    lda #%00110000 
+    sta zero_processorports
+}
 
 !macro set_memory_no_basic {
     pha
     lda #%00110110
     sta zero_processorports
     pla
+}
+!macro set_memory_no_basic_unsafe {
+    lda #%00110110
+    sta zero_processorports
 }
 
 !macro set_memory_normal {

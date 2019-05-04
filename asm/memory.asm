@@ -126,3 +126,62 @@ get_page_at_z_pc_did_pha
 	rts
 }
 
+!zone {
+; !ifdef VMEM {
+; .reu_copy
+	; ; a = source C64 page
+	; ; y = destination C64 page
+	; stx mem_temp
+	; sty mem_temp + 1
+	; ; Copy to REU
+	; tay
+	; lda #0
+	; tax
+	; jsr store_reu_transfer_params
+	; lda #%10000000;  c64 -> REU with delayed execution
+	; sta reu_command
+    ; sei
+    ; +set_memory_all_ram_unsafe
+	; lda $ff00
+	; sta $ff00
+	; +set_memory_no_basic_unsafe
+	; cli
+	; ; Copy to C64
+	; txa ; X is already 0, set a to 0 too
+	; ldy mem_temp + 1
+	; jsr store_reu_transfer_params
+	; lda #%10000001;  REU -> c64 with delayed execution
+	; sta reu_command
+	; sei
+    ; +set_memory_all_ram_unsafe
+	; lda $ff00
+	; sta $ff00
+	; +set_memory_no_basic_unsafe
+	; cli
+	; ldx mem_temp
+	; ldy #0
+	; rts
+; }	
+
+copy_page
+; a = source
+; y = destination
+
+; !ifdef VMEM {
+	; bit use_reu
+	; bmi .reu_copy
+; }
+	sta .copy + 2
+	sty .copy + 5
+    sei
+    +set_memory_all_ram_unsafe
+-   ldy #0
+.copy
+    lda $8000,y
+    sta $8000,y
+    iny
+    bne .copy
+    +set_memory_no_basic_unsafe
+    cli
+	rts
+}

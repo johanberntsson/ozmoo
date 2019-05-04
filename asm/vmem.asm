@@ -67,7 +67,6 @@ read_byte_at_z_address
     bpl -
 	; The requested page was not found in the cache
     ; copy vmem to vmem_cache (banking as needed)
-    sta .copy_from_vmem_to_cache + 2
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
 	pha
@@ -84,20 +83,13 @@ read_byte_at_z_address
 
 +	pla
 	sta vmem_cache_index,x
+	pha
     lda #>vmem_cache_start ; start of cache
     clc
     adc vmem_cache_cnt
-    sta .copy_from_vmem_to_cache + 5
-    sei
-    +set_memory_all_ram
--   ldy #0
-.copy_from_vmem_to_cache
-    lda $8000,y
-    sta $8000,y
-    iny
-    bne .copy_from_vmem_to_cache
-    +set_memory_no_basic
-    cli
+	tay
+	pla
+	jsr copy_page
     ; set next cache to use when needed
 	inx
 	txa
@@ -360,8 +352,8 @@ load_blocks_from_index_using_cache
     lda #>vmem_cache_start ; start of cache
     clc
     adc vmem_cache_cnt
-    sta .copy_to_vmem + 2
-    sty .copy_to_vmem + 5
+	sta vmem_temp
+	sty vmem_temp + 1
     ldx #0 ; Start with page 0 in this 1KB-block
     ; read next into vmem_cache
 -   lda #>vmem_cache_start ; start of cache
@@ -378,25 +370,17 @@ load_blocks_from_index_using_cache
     sta readblocks_currentblock + 1
     jsr readblock
     ; copy vmem_cache to block (banking as needed)
-    sei
-    +set_memory_all_ram
-    ldy #0
-.copy_to_vmem
-    lda $8000,y
-    sta $8000,y
-    iny
-    bne .copy_to_vmem
-;    inc .copy_to_vmem + 2
-    inc .copy_to_vmem + 5
-    +set_memory_no_basic
-    cli
+	lda vmem_temp
+	ldy vmem_temp + 1
+	jsr copy_page
+	inc vmem_temp + 1
     pla
     tax
     inx
 	cpx #vmem_block_pagecount ; read 2 or 4 blocks (512 or 1024 bytes) in total
     bcc -
 
-	ldx .copy_to_vmem + 5
+	ldx vmem_temp + 1
 	dex
 	txa
 	ldx vmem_cache_cnt
@@ -703,7 +687,7 @@ read_byte_at_z_address
     bpl -
 	; The requested page was not found in the cache
     ; copy vmem to vmem_cache (banking as needed)
-    sta .copy_from_vmem_to_cache + 2
+	sta vmem_temp
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
 	pha
@@ -723,17 +707,9 @@ read_byte_at_z_address
     lda #>vmem_cache_start ; start of cache
     clc
     adc vmem_cache_cnt
-    sta .copy_from_vmem_to_cache + 5
-    sei
-    +set_memory_all_ram
--   ldy #0
-.copy_from_vmem_to_cache
-    lda $8000,y
-    sta $8000,y
-    iny
-    bne .copy_from_vmem_to_cache
-    +set_memory_no_basic
-    cli
+	tay
+	lda vmem_temp
+	jsr copy_page
     ; set next cache to use when needed
 	inx
 	txa
