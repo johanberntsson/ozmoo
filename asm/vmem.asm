@@ -26,7 +26,7 @@ read_byte_at_z_address
 	clc
 	adc #>story_start
 	sta mempointer + 1
-	bne - ; Always branch
+	jmp - ; Always branch
 } else {
 ; No vmem, but ALLRAM 
 
@@ -104,7 +104,7 @@ read_byte_at_z_address
     clc
     adc #>vmem_cache_start
     sta mempointer + 1
-	bne .return_result 
+	jmp .return_result 
 } ; End of block for ALLRAM=1
 	
 } else {

@@ -241,7 +241,6 @@ z_ins_read
     bne -
     jsr newline
 }
-
 !ifdef Z5PLUS {
     ; parse it as well? In Z5, this can be avoided by setting parse to 0
     ldx .read_text_operand_count
@@ -737,7 +736,13 @@ find_word_in_dictionary
 	jsr streams_print_output
     jsr newline
 }
+	lda .median_word + 1
+	cmp .first_word + 1
+	bne .median_is_not_first
 	lda .median_word
+	cmp .first_word
+.median_is_not_first
+	beq .no_entry_found
 	sec
 	sbc #1
 	sta .last_word
@@ -1176,20 +1181,19 @@ tokenise_text
     clc
     adc #>story_start
     sta parse_array + 1
-    lda #0
-    sta .numwords ; no words found yet
     lda #2
     sta .wordoffset ; where to store the next word in parse_array
     ldy #0
+    sty .numwords ; no words found yet
     lda (parse_array),y 
     sta .maxwords
 !ifdef Z5PLUS {
     iny
     lda (string_array),y ; number of chars in text string
-    clc
-    adc #1
-    sta .textend
-    ldy #2 ; start position in text
+    tax
+    inx
+    stx .textend
+    iny ; sets y to 2 = start position in text
 } else {
 -   iny
     lda (string_array),y
