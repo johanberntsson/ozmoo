@@ -736,13 +736,13 @@ find_word_in_dictionary
 	jsr streams_print_output
     jsr newline
 }
-	lda .median_word + 1
-	cmp .first_word + 1
-	bne .median_is_not_first
 	lda .median_word
 	cmp .first_word
-.median_is_not_first
+	bne .median_is_not_first
+	ldy .median_word + 1
+	cpy .first_word + 1
 	beq .no_entry_found
+.median_is_not_first
 	sec
 	sbc #1
 	sta .last_word
