@@ -182,6 +182,10 @@ class D64_image
 			@track1800[0x90 + charno] = c64_title[charno].ord
 		end
 		
+		if @is_boot_disk then
+			allocate_sector(@config_track, 0)
+			allocate_sector(@config_track, 1)
+		end
 
 	end # initialize
 
@@ -191,12 +195,9 @@ class D64_image
 	
 	def add_story_data(max_story_blocks:, add_at_end:)
 	
+		max_story_blocks -= 1 if max_story_blocks % 2 != 0
 		story_data_length = $story_file_data.length - $story_file_cursor
 		num_sectors = [story_data_length / 256, max_story_blocks].min
-		if @is_boot_disk then
-			allocate_sector(@config_track, 0)
-			allocate_sector(@config_track, 1)
-		end
 
 		first_story_track = 1
 		first_story_track_max_sectors = get_track_length(first_story_track)
@@ -240,6 +241,7 @@ class D64_image
 	#		5. Add interleave, go back to 2	
 				sector = 0
 				free_sectors_in_track.times do
+					break if num_sectors < 1
 					while track_map[sector] != 0
 						sector = (sector + 1) % sector_count
 					end
