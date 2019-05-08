@@ -7,6 +7,11 @@ reu_irqmask  = $DF09
 reu_control  = $DF0A
 
 !zone {
+.no_reu
+	lda #78 + 128
+	jsr kernal_printchar
+	rts
+
 reu_start
 	lda #0
 	sta use_reu
@@ -23,6 +28,8 @@ reu_start
     beq -
 	cmp #89
 	bne .no_reu
+	ora #$80
+	jsr kernal_printchar
 ; Use REU	
 ;	inc $d020
 	lda #$80 ; Use REU, set vmem to reu loading mode
@@ -68,8 +75,6 @@ reu_start
 .done_copying
 	lda #$ff ; Use REU
 	sta use_reu
-
-.no_reu
 	rts
 
 .reu_error
