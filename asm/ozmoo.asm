@@ -132,24 +132,22 @@ game_id		!byte 0,0,0,0
 !ifdef TESTSCREEN {
     jmp testscreen
 }
+
+	jsr deletable_init_start
+;	jsr init_screen_colours
+!ifdef VMEM {
+	jsr reu_start
+}
 	jsr deletable_init
-	jsr prepare_static_high_memory
     jsr parse_object_table
 !ifndef Z5PLUS {
     ; Setup default dictionary
 	jsr parse_default_dictionary
 }
 	
-	
 	jsr streams_init
 	jsr stack_init
 
-	jsr init_screen_colours
-
-!ifdef VMEM {
-	jsr reu_start
-}
-	
 	; start text output from bottom of the screen
 	ldy #0
 	ldx #24
@@ -205,7 +203,8 @@ prepare_static_high_memory
 +	stx vmap_used_entries  ; Number of bytes to copy
 	iny
 	lda (zp_temp),y
-	sta zp_temp + 3 ; # of blocks already loaded
+	sta vmap_blocks_preloaded ; # of blocks already loaded
+;	sta zp_temp + 3 ; # of blocks already loaded
 
 ; Copy to vmap_z_h
 -	iny
@@ -236,9 +235,14 @@ prepare_static_high_memory
 	sta vmap_z_l,y
 	dey
 	bpl -
+!ifdef TRACE_VM {
+    jsr print_vm_map
+}
+	rts
 	
+load_suggested_pages
 ; Load all suggested pages which have not been pre-loaded
--	lda zp_temp + 3 ; First index which has not been loaded
+-	lda vmap_blocks_preloaded ; First index which has not been loaded
 	beq ++ ; First block was loaded with header
 	cmp vmap_used_entries ; Total # of indexes in the list
 	bcs +
@@ -246,7 +250,7 @@ prepare_static_high_memory
 	sta vmap_index
 	tax
 	jsr load_blocks_from_index
-++	inc zp_temp + 3
+++	inc vmap_blocks_preloaded
 	bne - ; Always branch
 +
 	ldx vmap_used_entries
@@ -432,6 +436,19 @@ z_init
 }
 
 !zone deletable_init {
+deletable_init_start
+!ifdef CUSTOM_FONT {
+    lda #18
+} else {
+	lda #23
+}
+    sta reg_screen_char_mode
+	lda #$80
+	sta charset_switchable
+
+	jmp init_screen_colours ; _invisible
+
+
 deletable_init
 	cld
     ; ; check if PAL or NTSC (needed for read_line timer)
@@ -442,16 +459,6 @@ deletable_init
     ; and #$03
     ; sta c64_model
     ; enable lower case mode
-!ifdef CUSTOM_FONT {
-    lda #18
-} else {
-	lda #23
-}
-    sta reg_screen_char_mode
-	lda #$80
-	sta charset_switchable
-
-	jsr init_screen_colours ; _invisible
 
 ; Read and parse config from boot disk
 	; $BA holds last used device#
@@ -496,7 +503,6 @@ deletable_init
 	
 	jsr auto_disk_config
 ;	jsr init_screen_colours
-	jsr insert_disks_at_boot
 } else { ; End of !ifdef VMEM
 	sty disk_info + 4
 	ldx #$30 ; First unavailable slot
@@ -589,6 +595,15 @@ deletable_init
 }
 	sta vmap_max_entries
 
+	jsr prepare_static_high_memory
+
+	jsr insert_disks_at_boot
+
+	lda use_reu
+	bne .dont_preload
+	jsr load_suggested_pages
+.dont_preload
+
 } ; End of !ifdef VMEM
 
 +   ; check file length
@@ -652,6 +667,9 @@ auto_disk_config
 	bne .select_device ; Always branch
 .not_save_or_boot_disk
 	stx zp_temp ; Store current value of x (memory pointer)
+	ldx boot_device
+	bit use_reu
+	bmi .use_this_device
 	ldx #8
 -	lda device_map - 8,x
 	beq .use_this_device
@@ -682,6 +700,7 @@ auto_disk_config
 }
 !zone insert_disks_at_boot {
 insert_disks_at_boot
+;	jsr dollar
 ;	jsr kernal_readchar
 	jsr prepare_for_disk_msgs
 	lda #0
@@ -698,11 +717,15 @@ insert_disks_at_boot
 	sta current_disks - 8,x
 	tax
 	cpy #2
-	bcc .dont_need_to_insert_this
+	bcc .copy_data_from_disk_1_to_reu
 	stx zp_temp
 	sty zp_temp + 1
 	ldy zp_temp
 	jsr print_insert_disk_msg
+	ldx use_reu
+	beq .restore_xy_disk_done
+	jsr copy_data_from_disk_at_zp_temp_to_reu
+.restore_xy_disk_done
 	ldx zp_temp
 	ldy zp_temp + 1
 .dont_need_to_insert_this
@@ -713,7 +736,126 @@ insert_disks_at_boot
 	adc disk_info + 3,x
 	bne .next_disk ; Always branch
 .done
+	lda use_reu
+	beq +
+	lda #$ff ; Use REU
+	sta use_reu
++	rts
+	
+.copy_data_from_disk_1_to_reu
+	lda use_reu
+	bpl .dont_need_to_insert_this
+
+	sty zp_temp + 1
+
+	; Prepare for copying data to REU
+	lda #0
+	ldx nonstored_blocks
+	stx z_temp ; Lowbyte of current page in Z-machine memory
+	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
+	ldx #1
+	stx z_temp + 2 ; Lowbyte of current page in REU memory
+	sta z_temp + 3 ; Highbyte of current page in REU memory
+	sta z_temp + 6 ; Sector# to read next, lowbyte
+	sta z_temp + 7 ; Sector# to read next, highbyte
+	
+	jsr copy_data_from_disk_at_zp_temp_to_reu
+	jmp .restore_xy_disk_done
+
+copy_data_from_disk_at_zp_temp_to_reu
+; zp_temp holds memory index into disk_info where info on this disk begins
+; Perform initial copy of data to REU	
+	ldx zp_temp
+	lda disk_info + 6,x
+	sta z_temp + 4 ; Last sector# on this disk. Store low-endian
+	lda disk_info + 5,x
+	sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+
+.initial_copy_loop
+	lda z_temp + 6
+	cmp z_temp + 4
+	lda z_temp + 7
+	sbc z_temp + 5
+	bcs .done_copying
+
+; ;	ldy zp_temp ; memory index in disk_info
+	; ldx z_temp + 4
+	; bne +
+	; ldy z_temp + 5
+	; beq .done_copying
+; +	dex
+	; stx z_temp + 4
+	; cpx #$ff
+	; bne +
+	; dec z_temp + 5
+; +
+; !ifdef DEBUGz {
+	; +set_memory_normal
+	; lda z_temp + 5
+	; ldx z_temp + 4
+	; jsr $bdcd
+	; +set_memory_no_basic
+; }
+
+	; ldx z_temp
+	; cpx z_temp + 4
+	; lda z_temp + 1
+	; sbc z_temp + 5
+	; bcs .done_copying
+
+	lda z_temp + 1
+	ldx z_temp ; (Not) Already loaded
+	ldy #0 ; Value is unimportant except for the last block, where anything > 0 may be after file end
+	jsr read_byte_at_z_address
+	; Current Z-machine page is now in C64 page held in mempointer + 1
+	lda z_temp + 3
+	ldx z_temp + 2
+	ldy mempointer + 1
+	jsr copy_page_to_reu
+	bcs .reu_error
+
+	inc z_temp
+	bne +
+	inc z_temp + 1
++	
+	; lda z_temp
+	; cmp fileblocks + 1 ; Fileblocks is stored big-endian
+	; lda z_temp + 1
+	; sbc fileblocks
+	; bcs .done_copying
+	inc z_temp + 2
+	bne +
+	inc z_temp + 3
++	
+	inc z_temp + 6
+	bne +
+	inc z_temp + 7
++	bne .initial_copy_loop ; Always branch
+
+.done_copying
 	rts
+
+.reu_error
+	lda #0
+	sta use_reu
+	lda #>.reu_error_msg
+	ldx #<.reu_error_msg
+	jsr printstring_raw
+-	jsr kernal_getchar
+    beq -
+	rts
+
+.reu_error_msg
+    !pet "REU error. [SPACE]",0
+
+copy_page_to_reu
+	; a,x = REU page
+	; y = C64 page
+	jsr store_reu_transfer_params
+	lda #%10010000;  c64 -> REU with immediate execution
+	sta reu_command
+	rts
+
 }
 } ; End if !ifdef VMEM
 

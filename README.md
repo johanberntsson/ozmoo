@@ -49,6 +49,7 @@ The longer answer:
 * Supports up to ten save slots on a save disk (and most games will get the full ten slots).
 * Supports writing a name for a save
 * Supports building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future.
+* Supports using an REU (Ram Expansion Unit) for caching
 
 ## Building and running
 

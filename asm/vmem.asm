@@ -136,6 +136,7 @@ vmem_block_pagecount = vmem_blocksize / 256
 vmap_max_size = 102 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
 ; vmap_max_entries	!byte 0 ; Moved to ZP
 ; vmap_used_entries	!byte 0 ; Moved to ZP
+vmap_blocks_preloaded !byte 0
 vmap_z_h = datasette_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_size
 
