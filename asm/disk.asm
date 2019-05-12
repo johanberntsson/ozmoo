@@ -812,7 +812,7 @@ list_save_files
 
 .insert_story_disk
 	ldy .last_disk
-	beq + ; Save disk was in disk before, no need to change
+	beq + ; Save disk was in drive before, no need to change
 	bmi + ; The drive was empty before, no need to change disk now
 	jsr print_insert_disk_msg
 	tya
@@ -891,15 +891,19 @@ restore_game
 
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
+	lda use_reu
+	bmi +
     jsr .insert_story_disk
-	jsr get_page_at_z_pc
++	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
 	rts
 .restore_failed
+	lda use_reu
+	bmi +
     jsr .insert_story_disk
 	; Return failed status
-	lda #0
++	lda #0
 	tax
 	rts
 
@@ -966,8 +970,10 @@ save_game
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
-    jsr .insert_story_disk
-	lda #0
+ 	lda use_reu
+	bmi +
+	jsr .insert_story_disk
++	lda #0
 	ldx #1
 	rts
 

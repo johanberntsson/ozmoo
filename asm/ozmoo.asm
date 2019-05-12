@@ -778,31 +778,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 	sbc z_temp + 5
 	bcs .done_copying
 
-; ;	ldy zp_temp ; memory index in disk_info
-	; ldx z_temp + 4
-	; bne +
-	; ldy z_temp + 5
-	; beq .done_copying
-; +	dex
-	; stx z_temp + 4
-	; cpx #$ff
-	; bne +
-	; dec z_temp + 5
-; +
-; !ifdef DEBUGz {
-	; +set_memory_normal
-	; lda z_temp + 5
-	; ldx z_temp + 4
-	; jsr $bdcd
-	; +set_memory_no_basic
-; }
-
-	; ldx z_temp
-	; cpx z_temp + 4
-	; lda z_temp + 1
-	; sbc z_temp + 5
-	; bcs .done_copying
-
 	lda z_temp + 1
 	ldx z_temp ; (Not) Already loaded
 	ldy #0 ; Value is unimportant except for the last block, where anything > 0 may be after file end
@@ -818,11 +793,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 	bne +
 	inc z_temp + 1
 +	
-	; lda z_temp
-	; cmp fileblocks + 1 ; Fileblocks is stored big-endian
-	; lda z_temp + 1
-	; sbc fileblocks
-	; bcs .done_copying
 	inc z_temp + 2
 	bne +
 	inc z_temp + 3
@@ -856,8 +826,42 @@ copy_page_to_reu
 	sta reu_command
 	rts
 
+.no_reu
+	lda #78 + 128
+.print_reply_and_return
+	jsr kernal_printchar
+	lda #13
+	jsr kernal_printchar
+.no_reu_present	
+	rts
+
+reu_start
+	lda #0
+	sta use_reu
+	sta $c6 ; Empty keyboard buffer
+	ldx reu_c64base
+	inc reu_c64base
+	inx
+	cpx reu_c64base
+	bne .no_reu_present
+; REU detected
+	lda #>.use_reu_question
+	ldx #<.use_reu_question
+	jsr printstring_raw
+-	jsr kernal_getchar
+    beq -
+	cmp #89
+	bne .no_reu
+	ldx #$80 ; Use REU, set vmem to reu loading mode
+	stx use_reu
+	ora #$80
+	bne .print_reply_and_return ; Always branch
+.use_reu_question
+    !pet "Use REU? (Y/N) ",0
+
 }
 } ; End if !ifdef VMEM
+end_of_routines_in_stack_space
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 

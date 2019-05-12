@@ -7,36 +7,6 @@ reu_irqmask  = $DF09
 reu_control  = $DF0A
 
 !zone reu {
-.no_reu
-	lda #78 + 128
-.print_reply_and_return
-	jsr kernal_printchar
-	lda #13
-	jsr kernal_printchar
-.no_reu_present	
-	rts
-
-reu_start
-	lda #0
-	sta use_reu
-	sta $c6 ; Empty keyboard buffer
-	ldx reu_c64base
-	inc reu_c64base
-	inx
-	cpx reu_c64base
-	bne .no_reu_present
-; REU detected
-	lda #>.use_reu_question
-	ldx #<.use_reu_question
-	jsr printstring_raw
--	jsr kernal_getchar
-    beq -
-	cmp #89
-	bne .no_reu
-	ldx #$80 ; Use REU, set vmem to reu loading mode
-	stx use_reu
-	ora #$80
-	bne .print_reply_and_return ; Always branch
 
 copy_page_from_reu
 	; a,x = REU page
@@ -61,9 +31,6 @@ store_reu_transfer_params
 	sta reu_translen + 1
 	rts
 
-
-.use_reu_question
-    !pet "Use REU? (Y/N) ",0
 }
 
 	
