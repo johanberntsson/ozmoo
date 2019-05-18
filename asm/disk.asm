@@ -455,18 +455,15 @@ insert_msg_3
 z_ins_restart
 	; Find right device# for boot disk
 
-	; lda + sta of "0" is not needed if boot device can't be changed during play.
-	; lda #$30
-	; sta .restart_keys + 6
 	ldx disk_info + 3
 	lda disk_info + 4,x
 	cmp #10
 	bcc +
-	inc .restart_keys + 6
+	inc .restart_code_string + 12
 	sec
 	sbc #10
 +	ora #$30
-	sta .restart_keys + 7
+	sta .restart_code_string + 13
 	
 	; Check if disk is in drive
 	lda disk_info + 4,x
@@ -476,6 +473,13 @@ z_ins_restart
 	beq +
 	jsr print_insert_disk_msg
 +
+
+	; Copy restart code
+	ldx #.restart_code_end - .restart_code_begin
+-	lda .restart_code_begin - 1,x
+	sta .restart_code_address - 1,x
+	dex
+	bne -
 
 	; Setup	key sequence
 	ldx #0
@@ -492,7 +496,32 @@ z_ins_restart
 	sta z_exe_mode
 	rts
 .restart_keys
-	!pet "lO",34,"*",34,",08:",131,0
+;	!pet "lO",34,":*",34,",08:",131,0
+	!pet "sY3e4",13,0
+
+.restart_code_address = 30000
+
+.restart_code_begin
+.restart_code_string_final_pos = .restart_code_string - .restart_code_begin + .restart_code_address
+	ldx #0
+-	lda .restart_code_string_final_pos,x
+	beq +
+	jsr $ffd2
+	inx
+	bne -
+	; Setup	key sequence
++	lda #131
+	sta 631
+	lda #1
+	sta 198
+	rts
+		
+.restart_code_string
+	!pet 147,17,17,"    ",34,":*",34,",08",19,0
+; .restart_code_keys
+	; !pet 131,0
+.restart_code_end
+
 }
 
 z_ins_restore

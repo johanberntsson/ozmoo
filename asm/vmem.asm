@@ -442,10 +442,10 @@ read_byte_at_z_address
 	lda vmem_temp
 	bne -- ; Always branch
 .quick_index_match
-	sta vmap_quick_index_match
+	inc vmap_quick_index_match
 	tya
 	tax
-	beq .correct_vmap_index_found ; Always branch
+	jmp .correct_vmap_index_found ; Always branch
 	
 .no_quick_index_match
 	lda vmem_temp

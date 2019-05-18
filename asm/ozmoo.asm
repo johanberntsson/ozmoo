@@ -164,112 +164,6 @@ game_id		!byte 0,0,0,0
 	jsr $fd15 ; set I/O vectors
 	jsr $ff5b ; more init
     jmp ($a000)
-
-; The following code, down to program_end, can be placed in the stack area instead, but is put here to make sure stack can be decreased to two pages.	
-	
-!ifdef VMEM {
-prepare_static_high_memory
-    lda #$ff
-    sta zp_pc_h
-    sta zp_pc_l
-
-; ; Clear vmap_z_h
-	; ldy vmap_max_entries
-	lda #0
-; -	sta vmap_z_h - 1,y
-	; dey
-	; bne -
-
-; Clear quick index
-	ldx #vmap_quick_index_length
--	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
-	dex
-	bpl -
-	
-	lda #5
-	clc
-	adc config_load_address + 4
-	sta zp_temp
-	lda #>config_load_address
-;	adc #0 ; Not needed if disk info is always <= 249 bytes
-	sta zp_temp + 1
-	ldy #0
-	lda (zp_temp),y ; # of blocks in the list
-	tax
-	cpx vmap_max_entries
-	bcc +
-	beq +
-	ldx vmap_max_entries
-+	stx vmap_used_entries  ; Number of bytes to copy
-	iny
-	lda (zp_temp),y
-	sta vmap_blocks_preloaded ; # of blocks already loaded
-;	sta zp_temp + 3 ; # of blocks already loaded
-
-; Copy to vmap_z_h
--	iny
-	lda (zp_temp),y
-	sta vmap_z_h - 2,y
-	dex
-	bne -
-	
-	; ldy #vmap_max_length - 1
-; -	lda vmap_z_h,y
-	; and #%01000000 ; Check if non-swappable memory
-	; bne .dont_set
-	; sty vmap_first_swappable_index
-	; dey
-	; bpl -
-; .dont_set
-	
-; Point to lowbyte array	
-	ldy #0
-	lda (zp_temp),y
-	clc
-	adc zp_temp
-	adc #2
-	sta zp_temp
-	ldy vmap_used_entries
-	dey
--	lda (zp_temp),y
-	sta vmap_z_l,y
-	dey
-	bpl -
-!ifdef TRACE_VM {
-    jsr print_vm_map
-}
-	rts
-	
-load_suggested_pages
-; Load all suggested pages which have not been pre-loaded
--	lda vmap_blocks_preloaded ; First index which has not been loaded
-	beq ++ ; First block was loaded with header
-	cmp vmap_used_entries ; Total # of indexes in the list
-	bcs +
-	; jsr dollar
-	sta vmap_index
-	tax
-	jsr load_blocks_from_index
-++	inc vmap_blocks_preloaded
-	bne - ; Always branch
-+
-	ldx vmap_used_entries
-	cpx vmap_max_entries
-	bcc +
-	dex
-+	stx vmap_clock_index
-
-!ifdef TRACE_VM {
-    jsr print_vm_map
-}
-    rts
-} else {
-prepare_static_high_memory
-    ; the default case is to simply treat all as dynamic (r/w)
-    rts
-}
-
-
 	
 program_end
 
@@ -780,6 +674,8 @@ copy_data_from_disk_at_zp_temp_to_reu
 
 	lda z_temp + 1
 	ldx z_temp ; (Not) Already loaded
+	sta $7fd
+	stx $7fe
 	ldy #0 ; Value is unimportant except for the last block, where anything > 0 may be after file end
 	jsr read_byte_at_z_address
 	; Current Z-machine page is now in C64 page held in mempointer + 1
@@ -789,15 +685,21 @@ copy_data_from_disk_at_zp_temp_to_reu
 	jsr copy_page_to_reu
 	bcs .reu_error
 
+	ldx z_temp ; (Not) Already loaded
+	stx $7ff
+
+	; Inc Z-machine page
 	inc z_temp
 	bne +
 	inc z_temp + 1
-+	
-	inc z_temp + 2
+
+	; Inc REU page
++	inc z_temp + 2
 	bne +
 	inc z_temp + 3
-+	
-	inc z_temp + 6
+
+	; Inc disk block#
++	inc z_temp + 6
 	bne +
 	inc z_temp + 7
 +	bne .initial_copy_loop ; Always branch
@@ -860,7 +762,117 @@ reu_start
     !pet "Use REU? (Y/N) ",0
 
 }
-} ; End if !ifdef VMEM
+prepare_static_high_memory
+    lda #$ff
+    sta zp_pc_h
+    sta zp_pc_l
+
+; ; Clear vmap_z_h
+	; ldy vmap_max_entries
+	lda #0
+; -	sta vmap_z_h - 1,y
+	; dey
+	; bne -
+
+; Clear quick index
+	ldx #vmap_quick_index_length
+-	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
+	dex
+	bpl -
+	
+	lda #5
+	clc
+	adc config_load_address + 4
+	sta zp_temp
+	lda #>config_load_address
+;	adc #0 ; Not needed if disk info is always <= 249 bytes
+	sta zp_temp + 1
+	ldy #0
+	lda (zp_temp),y ; # of blocks in the list
+	tax
+	cpx vmap_max_entries
+	bcc +
+	beq +
+	ldx vmap_max_entries
++	stx vmap_used_entries  ; Number of bytes to copy
+	iny
+	lda (zp_temp),y
+	sta vmap_blocks_preloaded ; # of blocks already loaded
+
+	; If using REU, suggested blocks will just be ignored
+	bit use_reu
+	bpl +
+	sta vmap_used_entries
++
+;	sta zp_temp + 3 ; # of blocks already loaded
+
+; Copy to vmap_z_h
+-	iny
+	lda (zp_temp),y
+	sta vmap_z_h - 2,y
+	dex
+	bne -
+	
+	; ldy #vmap_max_length - 1
+; -	lda vmap_z_h,y
+	; and #%01000000 ; Check if non-swappable memory
+	; bne .dont_set
+	; sty vmap_first_swappable_index
+	; dey
+	; bpl -
+; .dont_set
+	
+; Point to lowbyte array	
+	ldy #0
+	lda (zp_temp),y
+	clc
+	adc zp_temp
+	adc #2
+	sta zp_temp
+	ldy vmap_used_entries
+	beq .no_entries
+	dey
+-	lda (zp_temp),y
+	sta vmap_z_l,y
+	dey
+	bpl -
+.no_entries
+!ifdef TRACE_VM {
+    jsr print_vm_map
+}
+	rts
+	
+load_suggested_pages
+; Load all suggested pages which have not been pre-loaded
+-	lda vmap_blocks_preloaded ; First index which has not been loaded
+	beq ++ ; First block was loaded with header
+	cmp vmap_used_entries ; Total # of indexes in the list
+	bcs +
+	; jsr dollar
+	sta vmap_index
+	tax
+	jsr load_blocks_from_index
+++	inc vmap_blocks_preloaded
+	bne - ; Always branch
++
+	ldx vmap_used_entries
+	cpx vmap_max_entries
+	bcc +
+	dex
++	stx vmap_clock_index
+
+!ifdef TRACE_VM {
+    jsr print_vm_map
+}
+    rts
+} else {
+prepare_static_high_memory
+    ; the default case is to simply treat all as dynamic (r/w)
+    rts
+}
+
+
+
 end_of_routines_in_stack_space
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages

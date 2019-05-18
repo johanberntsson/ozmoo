@@ -1,5 +1,8 @@
 Known bugs
 ----------
+Cursor doesn't show up in initial form in Bureaucracy.
+
+Printing to last column and then a newline creates an extra linebreak. (mst3k1)
 
 auto sonarscope mode in Seastalker is buggy. 
 
@@ -8,8 +11,6 @@ Ideas for tasks / subprojects to do next
 Handle case where REU is present but not large enough to hold entire game.
 
 Verify that game data was written correctly to REU and signal error if not.
-
-When REU is used, don't make user go back to story disk after save, but make sure story disk 1 is in drive before restart.
 
 Keep everything in residential memory area in RAM rather than just the dynamic RAM. Decrease residential area as needed to make a game fit.
 
@@ -54,6 +55,10 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+When REU is used, don't make user go back to story disk after save, but make sure story disk 1 is in drive before restart.
+
+REU mode: Building BorderZone with -p:0 -S2 and choosing to use REU crashes the terp at the end of loading (Error 8: Reference to invalid Z-machine address?)
+
 Support REU for caching.
 
 Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.

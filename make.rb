@@ -462,7 +462,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		return vmem_preload_blocks
 	end
 	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####\n\n"
-	max_ok_blocks = -1 # We we never find a number of blocks which work, -1 will be returned to signal failure.  
+	max_ok_blocks = -1 # If we never find a number of blocks which work, -1 will be returned to signal failure.  
 	
 	done = false
 	min_failed_blocks = vmem_preload_blocks
@@ -580,10 +580,6 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 #	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
 	if vmem_preload_blocks < 0
-#		puts "#{vmem_preload_blocks} < #{$dynmem_blocks}"
-		# #	Temporary: write config_data and save disk, for debugging purposes
-		# disk.set_config_data(config_data)
-		# disk.save()
 		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
 		exit 1
 	end
@@ -716,6 +712,10 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 
 	# Build loader + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks_1)
+	if vmem_preload_blocks < 0
+		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
+		exit 1
+	end
 	vmem_data[2] = vmem_preload_blocks
 	
 	# Add config data about boot disk / story disk 1
@@ -977,28 +977,33 @@ end
 
 if reduced_ram and mode != MODE_P
 	puts "Option -r can't be used with this build mode."
-	exit 0
+	exit 1
+end
+
+if $stack_pages < 4 and mode != MODE_P
+	puts "Stack pages < 4 is only allowed in build mode P."
+	exit 1
 end
 
 if optimize and mode == MODE_P
 	puts "Option -o can't be used with this build mode."
-	exit 0
+	exit 1
 end
 
 if limit_preload_vmem_blocks and !$VMEM
 	puts "Option -p can't be used with this build mode."
-	exit 0
+	exit 1
 end
 
 if extended_tracks and !$VMEM
 	puts "Option -x can't be used with this build mode."
-	exit 0
+	exit 1
 end
 
 if optimize then
 	if preloadfile then
 		puts "-c (preload story data) can not be used with -o."
-		exit 0
+		exit 1
 	end
 	$DEBUGFLAGS.push('PREOPT')
 end
@@ -1035,7 +1040,7 @@ begin
 	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))
 rescue
 	puts "ERROR: Can't open #{$story_file} for reading"
-	exit 0
+	exit 1
 end
 
 $zcode_version = $story_file_data[0].ord
@@ -1045,7 +1050,7 @@ $vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x
 
 if $statusline_colour and $zcode_version > 3
 	puts "Option -sc can only be used with z3 story files."
-	exit 0
+	exit 1
 end	
 
 # check header.high_mem_start (size of dynmem + statmem)
@@ -1057,10 +1062,10 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
 puts "Dynmem blocks: #{$dynmem_blocks}"
-if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
-	puts "Max preload blocks adjusted to dynmem size, from #{preload_max_vmem_blocks} to #{$dynmem_blocks}."
-	preload_max_vmem_blocks = $dynmem_blocks
-end
+# if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
+	# puts "Max preload blocks adjusted to dynmem size, from #{preload_max_vmem_blocks} to #{$dynmem_blocks}."
+	# preload_max_vmem_blocks = $dynmem_blocks
+# end
 
 $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
@@ -1174,7 +1179,7 @@ when MODE_D3
 	error = build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, 
 		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 else
-	puts "Unsupported build mode. Currently supported modes: S1, S2."
+	puts "Unsupported build mode."
 	exit 1
 end
 
