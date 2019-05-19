@@ -694,11 +694,16 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	max_story_blocks = 9999
 	total_raw_story_blocks = ($story_size - $story_file_cursor) / 256
 	if disk1.free_blocks() - 160 >= total_raw_story_blocks / 2 and disk2.free_blocks >= disk1.free_blocks
+		# Story data can be evenly spread over the two disks
 		max_story_blocks = total_raw_story_blocks / 2
 	elsif disk1.free_blocks() - 160 + disk2.free_blocks >= total_raw_story_blocks
+		# There is room for a full-size loader on boot disk, if we spread the data unevenly over the two disks
 		max_story_blocks = disk1.free_blocks() - 160
 	else
-		max_story_blocks = total_raw_story_blocks - disk2.free_blocks()
+		# Fill disk 2 with story data, put the rest on disk 1, and squeeze in the biggest loader that there is room for.
+		disk2_free = disk2.free_blocks()
+		disk2_free -= 1 if disk2_free % 2 > 0
+		max_story_blocks = total_raw_story_blocks - disk2_free
 	end
 	
 	free_blocks_1 = disk1.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
