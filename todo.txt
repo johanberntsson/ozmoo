@@ -55,6 +55,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Supply documentation for all runtime errors.
+
 When REU is used, don't make user go back to story disk after save, but make sure story disk 1 is in drive before restart.
 
 REU mode: Building BorderZone with -p:0 -S2 and choosing to use REU crashes the terp at the end of loading (Error 8: Reference to invalid Z-machine address?)
