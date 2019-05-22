@@ -2,8 +2,6 @@ Known bugs
 ----------
 Cursor doesn't show up in initial form in Bureaucracy.
 
-Printing to last column and then a newline creates an extra linebreak. (mst3k1)
-
 auto sonarscope mode in Seastalker is buggy. 
 
 Ideas for tasks / subprojects to do next
@@ -55,6 +53,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Printing to last column and then a newline creates an extra linebreak. (mst3k1)
+
 Supply documentation for all runtime errors.
 
 When REU is used, don't make user go back to story disk after save, but make sure story disk 1 is in drive before restart.

@@ -23,14 +23,16 @@
 
 s_init
     ; init cursor
+    lda #$ff
+    sta s_current_screenpos_row ; force recalculation first time
     lda #0
     sta zp_screencolumn
     sta zp_screenrow
-    sta .reverse
-    lda #$ff
-    sta .current_screenpos_row ; force recalculation first time
-    ldx #0
-    stx s_scrollstart ; how many top lines to protect
+	; Set to 0: s_ignore_next_linebreak, s_scrollstart, s_reverse
+    ldx #3
+-	sta s_ignore_next_linebreak,x
+	dex
+	bpl -
     rts
 
 s_plot
@@ -61,8 +63,8 @@ s_printchar
     ; input: A = byte to write (PETASCII)
     ; output: -
     ; used registers: -
-    stx .stored_x
-    sty .stored_y
+    stx s_stored_x
+    sty s_stored_y
 
 	; Fastlane for the most common characters
 	cmp #$20
@@ -74,13 +76,7 @@ s_printchar
 +	
 	cmp #$0d
     bne +
-    ; newline/enter/return
-    lda #0
-    sta zp_screencolumn
-    inc zp_screenrow
-    jsr .s_scroll
-    jsr .update_screenpos
-    jmp .printchar_end
+	jmp .perform_newline
 +   
     cmp #20
     bne +
@@ -98,7 +94,7 @@ s_printchar
     lda #$20
     ldy zp_screencolumn
     sta (zp_screenline),y
-    lda .colour
+    lda s_colour
     sta (zp_colourline),y
     jmp .printchar_end
 +   cmp #$93 
@@ -113,13 +109,13 @@ s_printchar
     bne +
     ; reverse on
     ldx #$80
-    stx .reverse
+    stx s_reverse
     jmp .printchar_end
 +   cmp #$92 ; 146
     bne +
     ; reverse off
     ldx #0
-    stx .reverse
+    stx s_reverse
     beq .printchar_end ; Always jump
 +
 	; check if colour code
@@ -130,12 +126,17 @@ s_printchar
 	bpl -
 	bmi .printchar_end ; Always branch
 ++	; colour <x> found
-	stx .colour
+	stx s_colour
 	beq .printchar_end ; Always jump
 	
 .normal_char
-	; Check if statusline is overflowing
+	; Reset ignore next linebreak setting
 	ldx current_window
+	ldy s_ignore_next_linebreak,x
+	bpl +
+	inc s_ignore_next_linebreak,x
+	; Check if statusline is overflowing
++	ldx current_window
 	beq +
 	ldx zp_screenrow
 	cpx s_scrollstart
@@ -158,18 +159,20 @@ s_printchar
 +	and #%01111111
 ++  ; print the char
     clc
-    adc .reverse
+    adc s_reverse
     pha
     jsr .update_screenpos
     pla
     ldy zp_screencolumn
     sta (zp_screenline),y
-    lda .colour
+    lda s_colour
     sta (zp_colourline),y
     iny
     sty zp_screencolumn
     cpy #40
     bcc .printchar_end
+	ldx current_window
+	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
     lda #0
     sta zp_screencolumn
     inc zp_screenrow
@@ -180,9 +183,24 @@ s_printchar
 	jmp .printchar_end
 +	jsr .s_scroll
 .printchar_end
-    ldx .stored_x
-    ldy .stored_y
+    ldx s_stored_x
+    ldy s_stored_y
     rts
+
+.perform_newline
+    ; newline/enter/return
+	; Check ignore next linebreak setting
+	ldx current_window
+	ldy s_ignore_next_linebreak,x
+	bpl +
+	inc s_ignore_next_linebreak,x
+	jmp .printchar_end
++	lda #0
+    sta zp_screencolumn
+    inc zp_screenrow
+    jsr .s_scroll
+    jsr .update_screenpos
+    jmp .printchar_end
 
 s_erase_window
     lda #0
@@ -200,10 +218,10 @@ s_erase_window
 .update_screenpos
     ; set screenpos (current line) using row
     ldx zp_screenrow
-    cpx .current_screenpos_row
+    cpx s_current_screenpos_row
     beq +
     ; need to recalculate zp_screenline
-    stx .current_screenpos_row
+    stx s_current_screenpos_row
     ; use the fact that zp_screenrow * 40 = zp_screenrow * (32+8)
     lda #0
     sta zp_screenline + 1
@@ -272,7 +290,7 @@ s_erase_window
     cmp #24
     bne -
     lda #$ff
-    sta .current_screenpos_row ; force recalculation
+    sta s_current_screenpos_row ; force recalculation
 s_erase_line
     ; registers: a,x,y
     lda #0
@@ -281,18 +299,13 @@ s_erase_line
     ldy #0
 -   lda #$20
     sta (zp_screenline),y
-    lda .colour
+    lda s_colour
     sta (zp_colourline),y
     iny
     cpy #40
     bne -
     rts
 
-.colour !byte 1 ; white as default
-.reverse !byte 0
-.stored_x !byte 0
-.stored_y !byte 0
-.current_screenpos_row !byte $ff
 colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 zcolours	!byte $ff,$ff ; current/default colour
 			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow

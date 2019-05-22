@@ -82,7 +82,15 @@ alphabet_table		  = $96 ; 2 bytes
 
 use_reu				  = $9b
 
-s_scrollstart = $ab ; scroll from line (keep lines above untouched)
+s_colour 			  = $ab ; !byte 1 ; white as default
+
+; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+s_ignore_next_linebreak = $b0 ; 2 bytes
+s_scrollstart		  = $b2 ; scroll from line (keep lines above untouched)
+s_reverse 			  = $b3 ; !byte 0
+s_stored_x			  = $b4 ; !byte 0
+s_stored_y			  = $b5 ; !byte 0
+s_current_screenpos_row = $b6 ; !byte $ff
 
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
