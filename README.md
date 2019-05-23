@@ -11,9 +11,13 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
+Update 2019-05-23: There are a lot of bugfixes and some features in the latest code which were not in release 1. We advice you to use the latest code. We expect to make a new release soon.
+
 Update 2018-12-27: We now consider Ozmoo ready for production use. A few minor features are missing, like output to printer and the ability to save and restore arbitrary parts of memory, and chances are they won't be added. 
 
 There are probably still some bugs, and we will work to fix them as soon as we hear of them or notice them. We expect almost all games to run just fine.
+
+Known bugs: See todo.txt.
 
 If you want to follow what's happening with Ozmoo, we recommend you to star the project.
 
@@ -42,14 +46,14 @@ The longer answer:
 
 ![Ozmoo running a German game using a custom font with accented characters](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/germangame.png)
 
-* Supports embedding a custom font. Currently one font is included in the distribution, but there will be more. And you can supply your own font.
+* Supports embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish and German. And you can supply your own font.
 * Supports custom alphabets in Z-machine version 5 and 8.
-* Supports custom character mappings, allowing for games using accented characters.
-* Supports custom colour schemes
+* Supports custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish and German.
+* Supports custom colour schemes.
 * Supports up to ten save slots on a save disk (and most games will get the full ten slots).
-* Supports writing a name for a save
+* Supports writing a name for each save.
 * Supports building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future.
-* Supports using an REU (Ram Expansion Unit) for caching
+* Supports using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
 
 ## Building and running
 

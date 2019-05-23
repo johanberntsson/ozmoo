@@ -101,6 +101,12 @@ z_ins_erase_line
     jmp s_erase_line
 
 !ifdef Z5PLUS {
+.pt_cursor = z_temp;  !byte 0,0
+.pt_width = z_temp + 2 ; !byte 0
+.pt_height = z_temp + 3; !byte 0
+.pt_skip = z_temp + 4; !byte 0
+.current_col = z_temp + 5; !byte 0
+
 z_ins_print_table
     ; print_table zscii-text width [height = 1] [skip]
     ; ; defaults
@@ -128,9 +134,15 @@ z_ins_print_table
 	lda z_operand_value_high_arr ; Start address
 	ldx z_operand_value_low_arr
 --	jsr set_z_address
+    ldx .pt_cursor + 1
+	stx .current_col
 	ldy .pt_width
 -	jsr read_next_byte
+	ldx .current_col
+	cpx #40
+	bcs +
 	jsr streams_print_output
++	inc .current_col
 	dey
 	bne -
 	dec .pt_height
@@ -151,11 +163,6 @@ z_ins_print_table
 	adc #0
 	bcc -- ; Always jump 
 ++	rts
-
-.pt_cursor !byte 0,0
-.pt_width !byte 0
-.pt_height !byte 0
-.pt_skip !byte 0
 }
 
 z_ins_buffer_mode 
