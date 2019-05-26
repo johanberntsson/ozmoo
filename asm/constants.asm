@@ -64,7 +64,7 @@ z_high_global_vars_ptr	  = $52 ; 2 bytes
 z_trace_index		  = $54
 z_exe_mode	  		  = $55
 
-stack_tmp			  = $56; !byte 0, 0, 0, 0, 0
+stack_tmp			  = $56; ! 5 bytes
 default_properties_ptr = $5b ; 2 bytes
 zchars				  = $5d ; 3 bytes
 
@@ -73,9 +73,7 @@ vmap_next_quick_index = $61
 vmap_quick_index	  = $62 ; Must follow vmap_next_quick_index!
 vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
-z_temp				  = $68 ; 12 bytes (Only dictionary encoding uses more than 6)
-
-
+z_temp				  = $68 ; 12 bytes
 
 vmem_temp			  = $92 ; 2 bytes
 alphabet_table		  = $96 ; 2 bytes

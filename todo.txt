@@ -4,6 +4,8 @@ Cursor doesn't show up in initial form in Bureaucracy.
 
 auto sonarscope mode in Seastalker is buggy. 
 
+REU loading breaks down for Freefall (because entire game fits in memory?).
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Handle case where REU is present but not large enough to hold entire game.

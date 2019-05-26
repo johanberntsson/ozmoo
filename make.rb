@@ -858,7 +858,7 @@ def print_usage_and_exit
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -s: start game in Vice if build succeeds"
-	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
+#	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv or de)"

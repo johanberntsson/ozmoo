@@ -216,9 +216,9 @@ z_init
 	
 	; Modify header to tell game about terp capabilities
 !ifdef Z3 {
-	lda story_start + 1
+	lda story_start + header_flags_1
 	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
-	sta story_start + 1
+	sta story_start + header_flags_1
 } else {
 !ifdef Z4 {
 	lda story_start + header_flags_1
@@ -230,38 +230,40 @@ z_init
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 	sta story_start + header_flags_1
-	lda story_start + $11
+	lda story_start + header_flags_2 + 1
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
-	sta story_start + $11
+	sta story_start + header_flags_2 + 1
 }
 }
 !ifdef Z4PLUS {
 	lda #8
-	sta story_start + $1e ; Interpreter number (8 = C64)
+	sta story_start + header_interpreter_number ; Interpreter number (8 = C64)
 	lda #65
-	sta story_start + $1f ; Interpreter number. Usually ASCII code for a capital letter (We use @ until the terp is ready for release)
+	sta story_start + header_interpreter_version ; Interpreter version. Usually ASCII code for a capital letter
 	lda #25
-	sta story_start + $20 ; Screen lines
-	lda #40
-	sta story_start + $21 ; Screen columns
-}
+	sta story_start + header_screen_height_lines
 !ifdef Z5PLUS {
-	lda #>320
-	sta story_start + $22 ; Screen width in units
-	lda #<320
-	sta story_start + $23 ; Screen width in units
-	lda #>200
-	sta story_start + $24 ; Screen height in units
-	lda #<200
-	sta story_start + $25 ; Screen height in units
-	lda #8
-	sta story_start + $26 ; Font width in units
-	sta story_start + $27 ; Font height in units
-	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
+	sta story_start + header_screen_height_units + 1
+}
+	lda #40
+	sta story_start + header_screen_width_chars
+!ifdef Z5PLUS {
+	sta story_start + header_screen_width_units + 1
+}
 }
 	lda #0
-	sta story_start + $32 ; major standard revision number which this terp complies to
-	sta story_start + $33 ; minor standard revision number which this terp complies to
+	sta story_start + header_standard_revision_number ; major standard revision number which this terp complies to
+	sta story_start + header_standard_revision_number + 1 ; minor standard revision number which this terp complies to
+
+!ifdef Z5PLUS {
+	; a is already 0
+	sta story_start + header_screen_width_units
+	sta story_start + header_screen_height_units
+	lda #1
+	sta story_start + header_font_width_units
+	sta story_start + header_font_height_units
+	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
+}
 	
 	; Copy alphabet pointer from header, or default
 	ldx #<default_alphabet
