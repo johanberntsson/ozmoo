@@ -242,6 +242,10 @@ split_window
     sec
     sbc window_size + 1
     sta window_size
+!ifdef Z3 {
+	ldx #1
+	jsr erase_window
+}	
 	lda current_window
 	beq .ensure_cursor_in_window
 	; Window 1 was already selected => Reset cursor if outside window
@@ -667,7 +671,9 @@ draw_status_line
     ; fill the rest of the line with spaces
     ;
 -   lda zp_screencolumn
-    beq +
+;    beq +
+	cmp #40
+	bcs +
     lda #$20
     jsr s_printchar
     jmp -

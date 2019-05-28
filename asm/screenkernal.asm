@@ -44,13 +44,6 @@ s_plot
     ldy zp_screencolumn
     rts
 .set_cursor_pos
-	cpy #40
-	bcc +
-	tya
-	sbc #40
-	tay
-	inx
-	bne .set_cursor_pos ; Always branch
 +	cpx #25
 	bcc +
 	ldx #24
@@ -130,18 +123,19 @@ s_printchar
 	beq .printchar_end ; Always jump
 	
 .normal_char
+	; Skip if column > 39
+	ldx zp_screencolumn
+	cpx #40
+	bcs .printchar_end
 	; Reset ignore next linebreak setting
 	ldx current_window
 	ldy s_ignore_next_linebreak,x
 	bpl +
 	inc s_ignore_next_linebreak,x
 	; Check if statusline is overflowing
-+	ldx current_window
-	beq +
-	ldx zp_screenrow
++	ldx zp_screenrow
 	cpx s_last_line_plus_1
 	bcs .printchar_end
-+
    ; convert from pet ascii to screen code
 	cmp #$40
 	bcc ++    ; no change if numbers or special chars
@@ -169,9 +163,10 @@ s_printchar
     sta (zp_colourline),y
     iny
     sty zp_screencolumn
+	ldx current_window
+	bne .printchar_end ; For upper window and statusline (in z3), don't advance to next line.
     cpy #40
     bcc .printchar_end
-	ldx current_window
 	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
     lda #0
     sta zp_screencolumn
