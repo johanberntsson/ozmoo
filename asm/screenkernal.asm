@@ -85,7 +85,7 @@ s_printchar
     bpl ++
 	inc zp_screencolumn ; Go back to 0 if < 0
 	lda zp_screenrow
-	cmp s_scrollstart
+	cmp s_first_line
 	bcc ++
 	dec zp_screenrow
 	lda #39
@@ -139,7 +139,7 @@ s_printchar
 +	ldx current_window
 	beq +
 	ldx zp_screenrow
-	cpx s_scrollstart
+	cpx s_last_line_plus_1
 	bcs .printchar_end
 +
    ; convert from pet ascii to screen code

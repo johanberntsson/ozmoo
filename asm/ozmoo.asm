@@ -148,11 +148,8 @@ game_id		!byte 0,0,0,0
 	jsr streams_init
 	jsr stack_init
 
-	; start text output from bottom of the screen
-	ldy #0
-	ldx #24
-	jsr set_cursor
-	
+	jsr deletable_screen_init
+
 	jsr z_init
 	jsr z_execute
 
@@ -189,6 +186,31 @@ vmem_cache_count = vmem_cache_size / 256
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
 stack_start
+
+deletable_screen_init
+	; start text output from bottom of the screen
+	
+    lda #147 ; clear screen
+    jsr s_printchar
+!ifdef Z3 {
+	ldy #1
+	sty s_scrollstart
+	sty s_first_line
+	dey
+} else {
+	ldy #0
+	sty s_scrollstart
+	sty s_first_line
+}	
+	sty current_window
+	ldx #25
+	stx s_last_line_plus_1
+	ldx #$ff
+	jsr erase_window
+	ldy #0
+	ldx #25
+	jmp set_cursor
+
 
 z_init
 !zone z_init {
@@ -761,7 +783,7 @@ reu_start
 	ora #$80
 	bne .print_reply_and_return ; Always branch
 .use_reu_question
-    !pet "Use REU? (Y/N) ",0
+    !pet 13,"Use REU? (Y/N) ",0
 
 }
 prepare_static_high_memory

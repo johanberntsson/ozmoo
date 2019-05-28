@@ -902,14 +902,6 @@ read_char
     ; current time >= .read_text_jiffy. Time to call routine
     jsr turn_off_cursor
 
-	; Turn off buffering
-	; lda is_buffered_window
-	; sta .text_tmp
-	; lda #0
-	; sta is_buffered_window
-
-	; stx z_operand_value_low_arr
-	; jsr z_ins_buffer_mode
 	lda .read_text_routine
 	sta z_operand_value_high_arr
 	ldx .read_text_routine + 1

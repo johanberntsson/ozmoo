@@ -75,10 +75,20 @@ vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
 z_temp				  = $68 ; 12 bytes
 
+s_first_line 		  = $74
+s_last_line_plus_1	  = $75
+
 vmem_temp			  = $92 ; 2 bytes
 alphabet_table		  = $96 ; 2 bytes
 
 use_reu				  = $9b
+
+num_rows			  = $a6 ; !byte 0
+current_window		  = $a7 ; !byte 0
+window_size			  = $a8 ; !byte 25, 0
+screen_temp 		  = $aa ; !byte 0
+is_buffered_window	  = $ab;  !byte 1
+
 
 s_colour 			  = $ab ; !byte 1 ; white as default
 
@@ -90,11 +100,18 @@ s_stored_x			  = $b4 ; !byte 0
 s_stored_y			  = $b5 ; !byte 0
 s_current_screenpos_row = $b6 ; !byte $ff
 
+max_chars_on_line	  = $bd; !byte 0
+buffer_index		  = $be ; !byte 0
+last_break_char_buffer_pos = $bf ; !byte 0
+
+
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; current cursor column
 zp_screenrow          = $d6 ; current cursor row
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
+cursor_row			  = $f7 ; 2 bytes
+cursor_column		  = $f9 ; 2 bytes
 zp_temp               = $fb ; 5 bytes
 
 print_buffer		  = $100 ; 41 bytes
