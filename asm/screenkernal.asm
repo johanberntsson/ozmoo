@@ -28,7 +28,7 @@ s_init
     lda #0
     sta zp_screencolumn
     sta zp_screenrow
-	; Set to 0: s_ignore_next_linebreak, s_scrollstart, s_reverse
+	; Set to 0: s_ignore_next_linebreak, s_reverse
     ldx #3
 -	sta s_ignore_next_linebreak,x
 	dex
@@ -139,7 +139,8 @@ s_printchar
 	ldy current_window 
 	cmp window_start_row,y
 	pla ; Doesn't affect C
-	bcs .printchar_end
+	bcs .outside_current_window
+.resume_printing_normal_char	
    ; convert from pet ascii to screen code
 	cmp #$40
 	bcc ++    ; no change if numbers or special chars
@@ -185,6 +186,17 @@ s_printchar
     ldx s_stored_x
     ldy s_stored_y
     rts
+
+.outside_current_window
+	cpy #1
+	bne .printchar_end
+	; This is window 1. Expand it if possible.
+	ldy zp_screenrow
+	cpy window_start_row ; Compare to end of screen (window 0)
+	bcs .printchar_end
+	iny
+	sty window_start_row + 1
+	bne .resume_printing_normal_char ; Always branch
 
 .perform_newline
     ; newline/enter/return
