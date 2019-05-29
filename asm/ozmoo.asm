@@ -192,19 +192,18 @@ deletable_screen_init
 	
     lda #147 ; clear screen
     jsr s_printchar
-!ifdef Z3 {
-	ldy #1
-	sty s_scrollstart
-	sty s_first_line
-	dey
-} else {
 	ldy #0
-	sty s_scrollstart
-	sty s_first_line
-}	
 	sty current_window
-	ldx #25
-	stx s_last_line_plus_1
+	sty window_start_row + 3
+!ifdef Z3 {
+	iny
+}
+	sty window_start_row + 2
+	sty window_start_row + 1
+	ldy #25
+	sty window_start_row
+	ldy #1
+	sty is_buffered_window
 	ldx #$ff
 	jsr erase_window
 	ldy #0

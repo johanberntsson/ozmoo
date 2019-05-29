@@ -78,7 +78,8 @@ s_printchar
     bpl ++
 	inc zp_screencolumn ; Go back to 0 if < 0
 	lda zp_screenrow
-	cmp s_first_line
+	ldy current_window
+	cmp window_start_row + 1,y
 	bcc ++
 	dec zp_screenrow
 	lda #39
@@ -132,9 +133,12 @@ s_printchar
 	ldy s_ignore_next_linebreak,x
 	bpl +
 	inc s_ignore_next_linebreak,x
-	; Check if statusline is overflowing
-+	ldx zp_screenrow
-	cpx s_last_line_plus_1
+	; Check if statusline is overflowing TODO: Do we really need to check any more?
++	pha
+	lda zp_screenrow
+	ldy current_window 
+	cmp window_start_row,y
+	pla ; Doesn't affect C
 	bcs .printchar_end
    ; convert from pet ascii to screen code
 	cmp #$40
@@ -245,7 +249,7 @@ s_erase_window
     cmp #25
     bpl +
     rts
-+   ldx s_scrollstart ; how many top lines to protect
++   ldx window_start_row + 1 ; how many top lines to protect
     stx zp_screenrow
 -   jsr .update_screenpos
     lda zp_screenline

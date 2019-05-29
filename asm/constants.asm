@@ -75,27 +75,24 @@ vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
 z_temp				  = $68 ; 12 bytes
 
-s_first_line 		  = $74
-s_last_line_plus_1	  = $75
+s_colour 			  = $74 ; !byte 1 ; white as default
 
 vmem_temp			  = $92 ; 2 bytes
 alphabet_table		  = $96 ; 2 bytes
 
 use_reu				  = $9b
 
+window_start_row	  = $9c; 4 bytes
+
 num_rows			  = $a6 ; !byte 0
 current_window		  = $a7 ; !byte 0
-window_size			  = $a8 ; !byte 25, 0
-screen_temp 		  = $aa ; !byte 0
+
 is_buffered_window	  = $ab;  !byte 1
 
-
-s_colour 			  = $ab ; !byte 1 ; white as default
-
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
-s_ignore_next_linebreak = $b0 ; 2 bytes
-s_scrollstart		  = $b2 ; scroll from line (keep lines above untouched)
+s_ignore_next_linebreak = $b0 ; 3 bytes
 s_reverse 			  = $b3 ; !byte 0
+
 s_stored_x			  = $b4 ; !byte 0
 s_stored_y			  = $b5 ; !byte 0
 s_current_screenpos_row = $b6 ; !byte $ff

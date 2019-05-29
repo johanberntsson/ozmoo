@@ -67,13 +67,7 @@ erase_window
 	beq .clear_from_a ; Always branch
 }
 .window_0
-!ifdef Z3 {
-    ldx window_size + 1
-	inx
-	txa
-} else {
-    lda window_size + 1
-}
+    lda window_start_row + 1
 .clear_from_a
     sta zp_screenrow
 -   jsr s_erase_line
@@ -87,38 +81,26 @@ erase_window
 	ldx #0
 	stx cursor_column + 1
 !ifdef Z3 {
-    ldx window_size + 1
 	inx
-	txa
-	ldx #1
-} else {
+}
 !ifdef Z4 {
     lda #24
 } else {
-    lda window_size + 1
-}
+    lda window_start_row + 1
 }
 	stx cursor_row + 1
     pha
     jmp .end_erase
 .window_1
-	lda window_size + 1
+	lda window_start_row + 1
+	cmp window_start_row + 2
 	beq .end_erase
-!ifdef Z3 {
-    ldx window_size + 1
-	inx
-	stx screen_temp
-}
-    lda #0
+    lda window_start_row + 2
     sta zp_screenrow
 -   jsr s_erase_line
     inc zp_screenrow
     lda zp_screenrow
-!ifdef Z3 {
-	cmp screen_temp
-} else {
-    cmp window_size + 1
-}
+	cmp window_start_row + 1
     bne -
 .end_erase
     pla
@@ -220,28 +202,17 @@ split_window
     cpx #0
     bne .split_window
     ; unsplit
-    ldx #0
-    stx window_size + 1
-!ifdef Z3 {
-	inx ; Since Z3 always has a separate statusline at the top
-}
-    stx s_scrollstart
-    ldy #.max_lines
-    sty window_size
+    ldx window_start_row + 2
+    stx window_start_row + 1
     rts
 .split_window
 	cpx #.max_lines
 	bcc +
 	ldx #.max_lines
-+	stx window_size + 1
-!ifdef Z3 {
-	inx ; Since Z3 always has a separate statusline at the top
-}
-    stx s_scrollstart
-    lda #.max_lines
-    sec
-    sbc window_size + 1
-    sta window_size
++	txa
+	clc
+	adc window_start_row + 2
+	sta window_start_row + 1
 !ifdef Z3 {
 	ldx #1
 	jsr erase_window
@@ -250,15 +221,15 @@ split_window
 	beq .ensure_cursor_in_window
 	; Window 1 was already selected => Reset cursor if outside window
 	jsr get_cursor
-	cpx window_size + 1
+	cpx window_start_row + 1
 	bcs .reset_cursor
 .do_nothing
 	rts
 .ensure_cursor_in_window
 	jsr get_cursor
-	cpx s_scrollstart
+	cpx window_start_row + 1
 	bcs .do_nothing
-	ldx s_scrollstart
+	ldx window_start_row + 1
 	jmp set_cursor
 
 z_ins_set_window
@@ -271,13 +242,6 @@ z_ins_set_window
 	jsr save_cursor
 	lda #0
     sta current_window
-	ldx window_size + 1
-	ldy #25
-!ifdef Z3 { ; Since Z3 has a separate statusline 
-	inx
-}
-	stx s_first_line
-	sty s_last_line_plus_1
     ; this is the main text screen, restore cursor position
     jmp restore_cursor
 .selecting_upper_window
@@ -289,14 +253,6 @@ z_ins_set_window
     jsr save_cursor
 	ldx #1
 	stx current_window
-	ldy window_size + 1
-!ifdef Z3 { ; Since Z3 has a separate statusline 
-	iny 
-} else {
-	dex
-}
-	stx s_first_line
-	sty s_last_line_plus_1
 .reset_cursor
 !ifdef Z3 { ; Since Z3 has a separate statusline 
 	ldx #1
@@ -380,9 +336,16 @@ increase_num_rows
     ;bcc .increase_num_rows_done
     ;bcs .show_more
     jmp .increase_num_rows_done
-+   lda num_rows
-    cmp window_size
-    bcc .increase_num_rows_done
+; TODO: Check comparison for off-by-1-error
++   lda window_start_row
+	sec
+	sbc window_start_row + 1
+	sbc #1
+	cmp num_rows
+	bcs .increase_num_rows_done
+	; lda num_rows
+    ; cmp window_size
+    ; bcc .increase_num_rows_done
 .show_more
     ; time to show [More]
     jsr clear_num_rows
@@ -490,10 +453,17 @@ printchar_buffered
     ; print the line until last space
 	; First calculate max# of characters on line
 	ldx #40
-	ldy num_rows
-	iny
-	cpy window_size
-	bcc +
+; TODO: Check comparison for off-by-1-error
+	lda window_start_row
+	sec
+	sbc window_start_row + 1
+	sbc #2
+	cmp num_rows
+	bcs +
+	; ldy num_rows 
+	; iny
+	; cpy window_size
+	; bcc +
 	dex ; Max 39 chars on last line on screen.
 +	stx max_chars_on_line
 	; Now find the character to break on
@@ -625,14 +595,14 @@ z_ins_show_status
 ;    jmp draw_status_line
 
 draw_status_line
-	lda s_first_line
-	pha
-	lda s_last_line_plus_1
-	pha
-	lda #0
-	sta s_first_line
-	lda #1
-	sta s_last_line_plus_1
+	; lda s_first_line
+	; pha
+	; lda s_last_line_plus_1
+	; pha
+	; lda #0
+	; sta s_first_line
+	; lda #1
+	; sta s_last_line_plus_1
 	lda current_window
 	pha
     ; ldx #1
@@ -649,7 +619,7 @@ draw_status_line
     lda z_operand_value_high_arr + 1
     pha
     jsr save_cursor
-	lda #1
+	lda #2
 	sta current_window
     ldx #0
     ldy #0
@@ -662,6 +632,7 @@ draw_status_line
     ;
     ; Room name
     ; 
+dummy
     ; name of the object whose number is in the first global variable
     lda #16
     jsr z_get_low_global_variable_value
@@ -747,10 +718,10 @@ draw_status_line
     sta z_operand_value_low_arr
 	pla
 	sta current_window
-	pla
-	sta s_last_line_plus_1
-	pla
-	sta s_first_line
+	; pla
+	; sta s_last_line_plus_1
+	; pla
+	; sta s_first_line
     jmp restore_cursor
 .score_str !pet "Score: ",0
 .time_str !pet "Time ",0
