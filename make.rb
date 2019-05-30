@@ -45,7 +45,7 @@ $DEBUGFLAGS = [
 #	'TRACE_TOKENISE',
 ]
 
-$INTERLEAVE = 9 # (1-21)
+$INTERLEAVE = 1 #9 # (1-21)
 
 $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.
 
@@ -252,8 +252,8 @@ class D64_image
 					num_sectors -= 1
 					sector = (sector + $INTERLEAVE) % sector_count
 				end
-			
-				@config_track_map.push(32 * reserved_sectors + last_story_sector - reserved_sectors)
+
+				@config_track_map.push(32 * reserved_sectors + last_story_sector)
 			else
 				@config_track_map.push 0
 			end # if num_sectors > 0
@@ -1044,10 +1044,9 @@ else
 	$zmachine_memory_size *= 4
 end
 
-unless $story_file_data.length == $zmachine_memory_size
-	$story_file_data.slice!($zmachine_memory_size)
-end
-
+# unless $story_file_data.length == $zmachine_memory_size
+	# $story_file_data.slice!($zmachine_memory_size)
+# end
 
 
 unless $story_file_data.length % $VMEM_BLOCKSIZE == 0
