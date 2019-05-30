@@ -188,6 +188,9 @@ s_printchar
     rts
 
 .outside_current_window
+!ifdef Z4 {
+	jmp .printchar_end
+} else {
 	cpy #1
 	bne .printchar_end
 	; This is window 1. Expand it if possible.
@@ -197,6 +200,7 @@ s_printchar
 	iny
 	sty window_start_row + 1
 	bne .resume_printing_normal_char ; Always branch
+}
 
 .perform_newline
     ; newline/enter/return
