@@ -124,8 +124,12 @@ s_printchar
 	beq .printchar_end ; Always jump
 	
 .normal_char
-	; Skip if column > 39
 	ldx zp_screencolumn
+	bpl +
+	; Negative column. Increase column but don't print anything.
+	inc zp_screencolumn
+	jmp .printchar_end
++	; Skip if column > 39
 	cpx #40
 	bcs .printchar_end
 	; Reset ignore next linebreak setting
