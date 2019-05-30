@@ -135,6 +135,8 @@ game_id		!byte 0,0,0,0
 
 	jsr deletable_init_start
 ;	jsr init_screen_colours
+	jsr deletable_screen_init
+
 !ifdef VMEM {
 	jsr reu_start
 }
@@ -148,7 +150,11 @@ game_id		!byte 0,0,0,0
 	jsr streams_init
 	jsr stack_init
 
-	jsr deletable_screen_init
+	ldx #$ff
+	jsr erase_window
+	ldy #0
+	ldx #25
+	jsr set_cursor
 
 	jsr z_init
 	jsr z_execute
@@ -207,7 +213,7 @@ deletable_screen_init
 	ldx #$ff
 	jsr erase_window
 	ldy #0
-	ldx #25
+	ldx #1
 	jmp set_cursor
 
 
