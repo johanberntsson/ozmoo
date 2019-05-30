@@ -232,7 +232,7 @@ class D64_image
 					track_map[i] = 1
 				end
 				free_sectors_in_track = sector_count - reserved_sectors
-				last_story_sector = sector_count - 1
+				last_story_sector = 0
 	#	Find right sector.
 	#		1. Start at 0
 	#		2. Find next free sector
@@ -240,35 +240,20 @@ class D64_image
 	#		4. Mark sector as used.
 	#		5. Add interleave, go back to 2	
 				sector = 0
-				free_sectors_in_track.times do
-					break if num_sectors < 1
+				[free_sectors_in_track, num_sectors].min.times do
 					while track_map[sector] != 0
 						sector = (sector + 1) % sector_count
 					end
 					track_map[sector] = 1
 					allocate_sector(track, sector)
 					add_story_block(track, sector)
+					last_story_sector += 1
 					@free_blocks -= 1
 					num_sectors -= 1
 					sector = (sector + $INTERLEAVE) % sector_count
 				end
 			
-				# for sector in 0 .. get_track_length(track) - 1 do
-					# print " #{sector}" if $PRINT_DISK_MAP
-					# if @is_boot_disk && track == @config_track && sector < 2 then
-						# allocate_sector(track, sector)
-					# elsif (track != 18 || sector >= @skip_blocks_on_18) &&
-							# (!@is_boot_disk || track != @config_track || sector >= @skip_blocks_on_config_track) &&
-							# num_sectors > 0 then
-						# allocate_sector(track, sector)
-						# add_story_block(track, sector)
-						# last_story_sector = sector
-						# @free_blocks -= 1
-						# num_sectors -= 1
-					# end
-				# end
-				@config_track_map.push(32 * reserved_sectors + last_story_sector - reserved_sectors + 1)
-#				end
+				@config_track_map.push(32 * reserved_sectors + last_story_sector - reserved_sectors)
 			else
 				@config_track_map.push 0
 			end # if num_sectors > 0
@@ -1042,7 +1027,6 @@ storyname = File.basename($story_file, extension)
 begin
 	puts "Reading file #{$story_file}..."
 	$story_file_data = IO.binread($story_file)
-	$story_file_data += $ZEROBYTE * (1024 - ($story_file_data.length % 1024))
 rescue
 	puts "ERROR: Can't open #{$story_file} for reading"
 	exit 1
@@ -1050,6 +1034,26 @@ end
 
 $zcode_version = $story_file_data[0].ord
 $ztype = "Z#{$zcode_version}"
+
+$zmachine_memory_size = $story_file_data[0x1a .. 0x1b].unpack("n")[0]
+if $zcode_version == 3
+	$zmachine_memory_size *= 2
+elsif $zcode_version == 8
+	$zmachine_memory_size *= 8
+else
+	$zmachine_memory_size *= 4
+end
+
+unless $story_file_data.length == $zmachine_memory_size
+	$story_file_data.slice!($zmachine_memory_size)
+end
+
+
+
+unless $story_file_data.length % $VMEM_BLOCKSIZE == 0
+	$story_file_data += $ZEROBYTE * ($VMEM_BLOCKSIZE - ($story_file_data.length % $VMEM_BLOCKSIZE))
+end
+
 
 $vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x07 : 0x03)
 
@@ -1075,6 +1079,12 @@ puts "Dynmem blocks: #{$dynmem_blocks}"
 $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
+
+
+ 
+puts "$zmachine_memory_size = #{$zmachine_memory_size}"
+puts "$story_size = #{$story_size}"
+
 
 save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
 #puts "Static mem start: #{$static_mem_start}"

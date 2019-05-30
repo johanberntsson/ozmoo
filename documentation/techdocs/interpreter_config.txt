@@ -3,7 +3,7 @@ Interpreter config
 Interpreter configuration is stored in two blocks on the boot disk (track 19, sector 0-1). The interpreter loads this information when it starts.
 
 Contents:
-4 bytes: Game signature: A checksum of the story file contents, the build mode and the interpreter version.
+4 bytes: Game signature: A 32-bit random number.
 
 --- Disk information block ---
 1 byte: Number of bytes used for disk information, including this byte
@@ -12,7 +12,7 @@ Contents:
 1 byte: Number of disks used (disk 0 is the save disk(s), disk 1 .. are game disks
 For each disk:
 		1 byte: n: Number of bytes used for this entry, including this byte.
-		1 byte: Device#. If device# is < 8 or > 11, interpreter should halt and tell user to run setup program.
+		1 byte: Device#. Should be 8,9,10,11 or 0, meaning it's not decided yet - it's up to the terp to set the device#.
 		2 bytes: Last story block # + 1 (high endian) on this disk 
 		1 byte: t: Number of tracks used for story data (If this number is > 0, this is a story disk!)
 		t bytes: Sectors used for story data: Bit 0-4: # of sectors used. Bit 5-7: First sector# used. (Example: %01010000: Use 16 sectors, starting with #2)

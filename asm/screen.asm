@@ -632,7 +632,6 @@ draw_status_line
     ;
     ; Room name
     ; 
-dummy
     ; name of the object whose number is in the first global variable
     lda #16
     jsr z_get_low_global_variable_value
