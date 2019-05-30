@@ -760,9 +760,9 @@ copy_page_to_reu
 .no_reu
 	lda #78 + 128
 .print_reply_and_return
-	jsr kernal_printchar
+	jsr s_printchar
 	lda #13
-	jsr kernal_printchar
+	jsr s_printchar
 .no_reu_present	
 	rts
 
