@@ -90,9 +90,12 @@ class D64_image
 
 		@tracks = forty_tracks ? 40 : 35 # 35 or 40 are useful options
 #		puts "Tracks: #{@tracks}"
-		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@config_track = 19
+
+		# NOTE: Blocks to skip can only be 0, 2, 4 or 6.
+		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
+
 		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 17 * (@tracks - 35) - @skip_blocks_on_config_track
 		puts "Free disk blocks at start: #{@free_blocks}"
 		@d64_file = nil
@@ -253,7 +256,7 @@ class D64_image
 					sector = (sector + $INTERLEAVE) % sector_count
 				end
 
-				@config_track_map.push(32 * reserved_sectors + last_story_sector)
+				@config_track_map.push(64 * reserved_sectors / 2 + last_story_sector)
 			else
 				@config_track_map.push 0
 			end # if num_sectors > 0

@@ -169,7 +169,7 @@ readblock
 .right_track_found
 	; Add sectors not used at beginning of track
 	; .blocks_to_go + 1: logical sector#
-	; disk_info + 8,x: # of sectors skipped (3 bits), # of sectors used (5 bits)
+	; disk_info + 8,x: # of sectors skipped / 2 (2 bits), # of sectors used (6 bits)
 	sty .temp_y
 !ifdef TRACE_FLOPPY {
 	jsr arrow
@@ -184,11 +184,12 @@ readblock
 	lsr
 	lsr
 	lsr
-	lsr ; a now holds # of sectors at start of track not in use
+	lsr	
+	and #%110; a now holds # of sectors at start of track not in use
 	sta .skip_sectors
 ; Initialize track map. Write 0 for sectors not yet used, $ff for sectors used 
 	lda disk_info + 8,x
-	and #%00011111
+	and #%00111111
 	clc
 	adc .skip_sectors
 	sta .sector_count
@@ -244,7 +245,7 @@ readblock
 	ldy .temp_y
 	jmp .have_set_device_track_sector
 
-.track_map 		!fill 21 ; Holds a map of the sectors in a single track
+.track_map 		!fill 40 ; Holds a map of the sectors in a single track
 .sector_count 	!byte 0
 .skip_sectors 	!byte 0
 .temp_y 		!byte 0
