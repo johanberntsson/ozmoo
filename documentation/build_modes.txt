@@ -57,8 +57,16 @@ D3: Double 1541 drives, three disks
 		* Boot disk
 		* Story disk A
 		* Story disk B
-	
-Modes requiring a 1571, a 1581 or an SD2IEC:
+
+Modes requiring a 1581 drive for play:
 ---
-To be added at a later date. A single drive 1571 mode could be used for story files up to about 360 KB in size. 1581 and SD2IEC modes could enable full 512 KB story sizes.
+81: Single 1581 drive, one disk
+	Any story size: Full preloading. Full amount of RAM available for virtual memory system.
+
+	Disks used:
+		* Boot / Story disk
+
+Modes requiring a 1571 or an SD2IEC:
+---
+To be added at a later date. A single drive 1571 mode could be used for story files up to about 360 KB in size. SD2IEC mode could enable full 512 KB story sizes.
 

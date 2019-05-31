@@ -54,6 +54,7 @@ MODE_S1 = 2
 MODE_S2 = 3
 MODE_D2 = 4
 MODE_D3 = 5
+MODE_81 = 6
 
 mode = MODE_S1
 
@@ -363,6 +364,7 @@ class D81_image < Disk_image
 
 		@tracks = 80
 		@track_length = Array.new(@tracks + 1, 40)
+		@track_length[0] = 0
 
 		base_initialize()
 
@@ -426,7 +428,7 @@ class D81_image < Disk_image
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF, # Track 65-68
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF, # Track 69-72
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF, # Track 73-76
-			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x24,0xF0,0xFF,0xFF,0xFF,0xFF  # Track 77-80
+			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF  # Track 77-80
 		]
 
 		# Create a disk image. Return number of free blocks, or -1 for failure.
@@ -611,10 +613,10 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
-def add_boot_file(storyname, diskimage_filename)
-	ret = FileUtils.cp("#{diskimage_filename}", "#{storyname}.d64")
-	puts "#{$C1541} -attach \"#{storyname}.d64\" -write \"#{$good_zip_file}\" story"
-	system("#{$C1541} -attach \"#{storyname}.d64\" -write \"#{$good_zip_file}\" story")
+def add_boot_file(finaldiskname, diskimage_filename)
+	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
+	puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+	system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story")
 end
 
 def play(filename)
@@ -635,10 +637,7 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	
 	boot_disk = false
 	
-	if $VMEM
-		puts "ERROR: Tried to use build mode -P with VMEM."
-		exit 1
-	end
+	diskfilename = "#{storyname}.d64"
 	
 	if $vmem_size < $story_size
 		puts "#{$vmem_size} < #{$story_size}"
@@ -660,13 +659,13 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
-	if add_boot_file(storyname, diskimage_filename) != true
+	if add_boot_file(diskfilename, diskimage_filename) != true
 		puts "ERROR: Failed to write loader/interpreter to disk."
 		exit 1
 	end
 
-	puts "Successfully built game as #{storyname}.d64"
-	$bootdiskname = storyname
+	$bootdiskname = diskfilename
+	puts "Successfully built game as #{$bootdiskname}"
 	nil # Signal success
 end
 
@@ -675,11 +674,8 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	
 	boot_disk = true
 
-	unless $VMEM
-		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 1
-	end
-	
+	diskfilename = "#{storyname}.d64"
+
 	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
@@ -703,7 +699,7 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
 	last_block_plus_1 = 0
-	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
 # Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
 	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk.config_track_map.length] + disk.config_track_map
@@ -718,26 +714,21 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
-	if add_boot_file(storyname, diskimage_filename) != true
+	if add_boot_file(diskfilename, diskimage_filename) != true
 		puts "ERROR: Failed to write loader/interpreter to disk."
 		exit 1
 	end
 
-	puts "Successfully built game as #{storyname}.d64"
-	$bootdiskname = storyname
+	$bootdiskname = "#{diskfilename}"
+	puts "Successfully built game as #{$bootdiskname}"
 	nil # Signal success
 end
 
 def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
-	unless $VMEM
-		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 1
-	end
-
 	config_data[7] = 3 # 3 disks used in total
-	outfile1name = "#{storyname}_boot"
-	outfile2name = "#{storyname}_story"
+	outfile1name = "#{storyname}_boot.d64"
+	outfile2name = "#{storyname}_story.d64"
 	max_story_blocks = 9999
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
@@ -763,7 +754,7 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	# Add config data about story disk
 	disk_info_size = 8 + disk2.config_track_map.length
 	last_block_plus_1 = 0
-	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
 # Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Story disk"
 	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk2.config_track_map.length] + disk2.config_track_map
@@ -783,23 +774,18 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 		exit 1
 	end
 	File.delete(outfile2name) if File.exist?(outfile2name)
-	File.rename(d64_filename_2, "./#{outfile2name}.d64")
+	File.rename(d64_filename_2, "./#{outfile2name}")
 	
-	puts "Successfully built game as #{outfile1name}.d64 + #{outfile2name}.d64"
-	$bootdiskname = outfile1name
+	$bootdiskname = "#{outfile1name}"
+	puts "Successfully built game as #{$bootdiskname} + #{outfile2name}"
 	nil # Signal success
 end
 
 def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
-	unless $VMEM
-		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 1
-	end
-
 	config_data[7] = 3 # 3 disks used in total
-	outfile1name = "#{storyname}_boot_story_1"
-	outfile2name = "#{storyname}_story_2"
+	outfile1name = "#{storyname}_boot_story_1.d64"
+	outfile2name = "#{storyname}_story_2.d64"
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 
@@ -842,7 +828,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk_info_size = 13 + disk1.config_track_map.length
 #	last_block_plus_1 = $dynmem_blocks * $VMEM_BLOCKSIZE / 256
 	last_block_plus_1 = 0
-	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
 # Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
 	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk1.config_track_map.length] + disk1.config_track_map
@@ -851,7 +837,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	
 	# Add config data about story disk 2
 	disk_info_size = 9 + disk2.config_track_map.length
-	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
 # Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
 	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk2.config_track_map.length] + disk2.config_track_map
@@ -871,24 +857,19 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 		exit 1
 	end
 	File.delete(outfile2name) if File.exist?(outfile2name)
-	File.rename(d64_filename_2, "./#{outfile2name}.d64")
+	File.rename(d64_filename_2, "./#{outfile2name}")
 	
-	puts "Successfully built game as #{outfile1name}.d64 + #{outfile2name}.d64"
-	$bootdiskname = outfile1name
+	$bootdiskname = "#{outfile1name}"
+	puts "Successfully built game as #{$bootdiskname} + #{outfile2name}"
 	nil # Signal success
 end
 
 def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
-	unless $VMEM
-		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 1
-	end
-
 	config_data[7] = 4 # 4 disks used in total
-	outfile1name = "#{storyname}_boot"
-	outfile2name = "#{storyname}_story_1"
-	outfile3name = "#{storyname}_story_2"
+	outfile1name = "#{storyname}_boot.d64"
+	outfile2name = "#{storyname}_story_1.d64"
+	outfile3name = "#{storyname}_story_2.d64"
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	disk3 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
@@ -924,7 +905,7 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	
 	# Add config data about story disk 1
 	disk_info_size = 9 + disk2.config_track_map.length
-	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
 # Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
 	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk2.config_track_map.length] + disk2.config_track_map
@@ -933,7 +914,7 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 
 	# Add config data about story disk 2
 	disk_info_size = 9 + disk3.config_track_map.length
-	disk3.config_track_map.each{|i| last_block_plus_1 += (i & 0x1f)}
+	disk3.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
 # Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
 	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
 		disk3.config_track_map.length] + disk3.config_track_map
@@ -954,20 +935,67 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 		exit 1
 	end
 	File.delete(outfile2name) if File.exist?(outfile2name)
-	File.rename(d64_filename_2, "./#{outfile2name}.d64")
+	File.rename(d64_filename_2, "./#{outfile2name}")
 	File.delete(outfile3name) if File.exist?(outfile3name)
-	File.rename(d64_filename_3, "./#{outfile3name}.d64")
+	File.rename(d64_filename_3, "./#{outfile3name}")
 	
-	puts "Successfully built game as #{outfile1name}.d64 + #{outfile2name}.d64 + #{outfile3name}.d64"
-	$bootdiskname = outfile1name
+	$bootdiskname = "#{outfile1name}"
+	puts "Successfully built game as #{bootdiskname} + #{outfile2name} + #{outfile3name}"
 	nil # Signal success
 end
 
+def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
+
+	diskfilename = "#{storyname}.d81"
+	
+	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
+
+	disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}"
+
+	# Build loader + terp + preloaded vmem blocks as a file
+#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
+#	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
+	if vmem_preload_blocks < 0
+		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
+		exit 1
+	end
+	vmem_data[2] = vmem_preload_blocks
+
+	# Add config data about boot / story disk
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+	
+	config_data += vmem_data
+
+	#	puts config_data
+	disk.set_config_data(config_data)
+	
+	disk.save()
+	
+	# Add loader + terp + preloaded vmem blocks file to disk
+	if add_boot_file(diskfilename, diskimage_filename) != true
+		puts "ERROR: Failed to write loader/interpreter to disk."
+		exit 1
+	end
+
+	$bootdiskname = "#{storyname}.d81"
+	puts "Successfully built game as #{$bootdiskname}"
+	nil # Signal success
+end
 
 def print_usage_and_exit
 	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] [-s] [-x] [-r] "
 	puts "      [-f <fontfile>] [-cm:[xx]] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] <storyfile>"
-	puts "  -S1|-S2|-D2|-D3|-P: specify build mode. Defaults to S1. See docs for details."
+	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
@@ -1034,6 +1062,8 @@ begin
 			mode = MODE_D2
 		elsif ARGV[i] =~ /^-D3$/ then
 			mode = MODE_D3
+		elsif ARGV[i] =~ /^-81$/ then
+			mode = MODE_81
 		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
 			$colour_replacements = $1.split(/,/)
 		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
@@ -1301,6 +1331,18 @@ if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] 
 	preload_max_vmem_blocks = vmem_data[2]
 end
 
+if $VMEM 
+	if mode == MODE_P
+		puts "ERROR: Tried to use build mode -P with VMEM."
+		exit 1
+	end
+elsif mode != MODE_P
+	puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+	exit 1
+end
+
+
+
 case mode
 when MODE_P
 	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
@@ -1322,13 +1364,16 @@ when MODE_D3
 	d64_filename_3 = File.join($TEMPDIR, "temp3.d64")
 	error = build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, 
 		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+when MODE_81
+	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
+	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
 else
 	puts "Unsupported build mode."
 	exit 1
 end
 
 if !error and auto_play then 
-	play("#{$bootdiskname}.d64")
+	play("#{$bootdiskname}")
 end
 
 

@@ -136,7 +136,7 @@ readblock
 .check_track
 	lda disk_info + 8,x
 	beq .next_track
-	and #%00011111
+	and #%00111111
 	sta .sector
 	lda .blocks_to_go + 1
 	sec

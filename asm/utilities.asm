@@ -132,6 +132,7 @@ fatalerror
     ; prints the error, then resets the computer
     ; input: a (error code)
     ; side effects: resets the computer
+	sta z_temp + 11
 !ifndef DEBUG {
     pha
     +set_memory_normal
