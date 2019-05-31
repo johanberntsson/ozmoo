@@ -92,6 +92,7 @@ class Disk_image
 		@config_track_map = []
 		@contents = Array.new(256 * @track_length.inject(0, :+), 0)
 		@storydata_start_track = 0
+		@storydata_end_track = 0
 		@storydata_blocks = 0
 	end
 
@@ -166,6 +167,7 @@ class Disk_image
 					@free_blocks -= 1
 					num_sectors -= 1
 					@storydata_start_track = track if @storydata_start_track < 1
+					@storydata_end_track = track
 					@storydata_blocks += 1
 					sector = (sector + @interleave) % sector_count
 				end
@@ -455,6 +457,34 @@ class D81_image < Disk_image
 		@free_blocks
 	end # initialize
 
+	def create_story_partition
+		if @storydata_start_track > 0 and @storydata_end_track > @storydata_start_track
+
+			sector = @contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255]
+			@storydata_start_track -= 1 if @config_track == @storydata_start_track - 1
+			@storydata_end_track += 1 if @config_track == @storydata_end_track + 1
+			allocate_track(@storydata_end_track)
+			allocate_track(@config_track)
+			
+			if @storydata_start_track < 40 and @storydata_end_track > 40
+				return false unless create_a_partition(sector, @storydata_start_track, 39, 'data-a') == true
+				@contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255] = sector
+				return false unless create_a_partition(sector, 41, @storydata_end_track, 'data-b') == true
+				@contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255] = sector
+			else
+				return false unless create_a_partition(sector, @storydata_start_track, @storydata_end_track, 'data') == true
+				@contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255] = sector
+			end
+			if @config_track < @storydata_start_track or @config_track > @storydata_end_track 
+				return false unless create_a_partition(sector, @config_track, @config_track, 'cfg') == true
+				@contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255] = sector
+			end
+			true
+		else
+			false
+		end
+	end
+
 
 	private
 	
@@ -478,8 +508,35 @@ class D81_image < Disk_image
 		@contents[(@track_offset[40] + 1) * 256 .. (@track_offset[40] + 1) * 256 + @track4001.length - 1] = @track4001
 
 		# Add directory at 40:03
-		@contents[@track_offset[18] * 256 + 256] = 0 
-		@contents[@track_offset[18] * 256 + 257] = 0xff 
+		@contents[(@track_offset[40] + 3) * 256] = 0 
+		@contents[(@track_offset[40] + 3) * 256 + 1] = 0xff 
+	end
+
+	def create_a_partition(sector, start_track, end_track, name)
+		entry = 0
+		while entry < 8 and sector[0x20 * entry + 2] > 0
+			entry += 1
+		end
+		return false if entry > 7
+		entrybase = 0x20 * entry
+		sector[entrybase + 2] = 0x85 # CBM type ( = partition)
+		sector[entrybase + 3] = start_track
+		sector[entrybase + 4] = 0 # Start sector
+		c64_title = name_to_c64(name)
+		sector[entrybase + 0x5 .. entrybase + 0x14] = Array.new(0x10, 0xa0)
+		[c64_title.length, 0x10].min.times do |charno|
+			sector[entrybase + 0x5 + charno] = c64_title[charno].ord
+		end
+		sector[entrybase + 0x15 .. entrybase + 0x1d] = Array.new(9, 0)
+		part_size = (end_track - start_track + 1) * 40
+		sector[entrybase + 0x1e] = part_size % 256
+		sector[entrybase + 0x1f] = part_size / 256
+		true
+	end
+	
+	def allocate_track(track)
+		index1 = (track > 40 ? 0x100: 0) + 0x10 +  6 * ((track - 1) % 40)
+		@contents[(@track_offset[40] + 1) * 256 + index1 .. (@track_offset[40] + 1) * 256 + index1 + 5] = Array.new(6, 0)
 	end
 	
 end # class D81_image
@@ -987,6 +1044,8 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	#	puts config_data
 	disk.set_config_data(config_data)
+	
+	disk.create_story_partition()
 	
 	disk.save()
 	
