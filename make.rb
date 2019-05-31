@@ -45,9 +45,9 @@ $DEBUGFLAGS = [
 #	'TRACE_TOKENISE',
 ]
 
-$INTERLEAVE = 1 #9 # (1-21)
-
 $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.
+
+$CONFIG_TRACK = 1
 
 MODE_P = 1
 MODE_S1 = 2
@@ -82,7 +82,8 @@ $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 
 class Disk_image
 	def base_initialize
-		@config_track = 19
+		@interleave = 1
+		@config_track = $CONFIG_TRACK
 		@skip_tracks = Array.new(@tracks)
 		offset = 0
 		@track_offset = @track_length.map {|len| k = offset; offset += len; k }
@@ -90,6 +91,8 @@ class Disk_image
 		@reserved_sectors = Array.new(@track_length.length, 0)
 		@config_track_map = []
 		@contents = Array.new(256 * @track_length.inject(0, :+), 0)
+		@storydata_start_track = 0
+		@storydata_blocks = 0
 	end
 
 	def calculate_initial_free_blocks
@@ -99,6 +102,10 @@ class Disk_image
 	
 	def free_blocks
 		@free_blocks
+	end
+
+	def interleave
+		@interleave
 	end
 	
 	def add_story_data(max_story_blocks:, add_at_end:)
@@ -158,7 +165,9 @@ class Disk_image
 					last_story_sector += 1
 					@free_blocks -= 1
 					num_sectors -= 1
-					sector = (sector + $INTERLEAVE) % sector_count
+					@storydata_start_track = track if @storydata_start_track < 1
+					@storydata_blocks += 1
+					sector = (sector + @interleave) % sector_count
 				end
 
 				@config_track_map.push(64 * reserved_sectors / 2 + last_story_sector)
@@ -187,8 +196,8 @@ class Disk_image
 			puts "ERROR: Config data array is not the right length."
 			exit 1
 		end
+		data[5] = @interleave
 		@contents[@track_offset[@config_track] * 256 .. @track_offset[@config_track] * 256 + data.length - 1] = data
-		
 	end
 	
 	def save
@@ -242,9 +251,11 @@ class D64_image < Disk_image
 
 		base_initialize()
 
+		@interleave = 9
+
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
 		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
-		@reserved_sectors[19] = 2 if @is_boot_disk
+		@reserved_sectors[@config_track] = 2 if @is_boot_disk
 
 		calculate_initial_free_blocks()
 			
@@ -369,8 +380,8 @@ class D81_image < Disk_image
 		base_initialize()
 
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
-		@reserved_sectors[40] = 4 # 4: Skip BAM and 1 directory block, 6: Skip BAM and 3 directory blocks, 40: Skip entire track
-		@reserved_sectors[19] = 2
+		@reserved_sectors[40] = 40 # 4: Skip BAM and 1 directory block, 6: Skip BAM and 3 directory blocks, 40: Skip entire track
+		@reserved_sectors[@config_track] = 2
 
 		calculate_initial_free_blocks()
 			
@@ -408,9 +419,7 @@ class D81_image < Disk_image
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF, # Track 29-32
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF, # Track 33-36
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x24,0xF0,0xFF,0xFF,0xFF,0xFF, # Track 37-40
-		# ]
-
-		# @track4002 = [
+		# Sector 40:02
 			0x00,0xFF, # track/sector of next BAM sector
 			0x44, # Version#
 			0xBB, # One's complement of version#
@@ -497,7 +506,7 @@ def name_to_c64(name)
 end
 
 def build_interpreter()
-	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1"
+	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1 -DCONF_TRK=#{$CONFIG_TRACK}"
 	necessarysettings +=  " --cpu 6510 --format cbm"
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
@@ -1255,7 +1264,7 @@ config_data =
 [
 # 0, 0, 0, 0, # Game ID
 12, # Number of bytes used for disk information, including this byte
-$INTERLEAVE, 
+1, #Interleave value (can be changed later)
 save_slots, # Save slots, change later if wrong
 2, # Number of disks, change later if wrong
 # Data for save disk: 8 bytes used, device# = 0 (auto), Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"

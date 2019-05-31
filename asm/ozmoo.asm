@@ -399,12 +399,12 @@ deletable_init
 	sta readblocks_mempos
 	lda #>config_load_address
 	sta readblocks_mempos + 1
-	lda #19
+	lda #CONF_TRK
 	ldx #0
 ; No need to load y with boot device#, already in place
 	jsr read_track_sector
 	inc readblocks_mempos + 1
-	lda #19
+	lda #CONF_TRK
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
