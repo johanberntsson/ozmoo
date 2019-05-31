@@ -79,119 +79,23 @@ $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 
-################################## create_d64.rb
-# copies zmachine story data (*.z3, *.z5 etc.) to a Commodore 64 floppy (*.d64)
-
-class D64_image
-	def initialize(disk_title:, d64_filename:, is_boot_disk:, forty_tracks:)
-		@disk_title = disk_title
-		@d64_filename = d64_filename
-		@is_boot_disk = is_boot_disk
-
-		@tracks = forty_tracks ? 40 : 35 # 35 or 40 are useful options
-#		puts "Tracks: #{@tracks}"
+class Disk_image
+	def base_initialize
 		@config_track = 19
-
-		# NOTE: Blocks to skip can only be 0, 2, 4 or 6.
-		@skip_blocks_on_18 = 2 # 1: Just skip BAM, 2: Skip BAM and 1 directory block, 19: Skip entire track
-		@skip_blocks_on_config_track = (@is_boot_disk ? 2 : 0)
-
-		@free_blocks = 664 + 19 - @skip_blocks_on_18 + 17 * (@tracks - 35) - @skip_blocks_on_config_track
-		puts "Free disk blocks at start: #{@free_blocks}"
-		@d64_file = nil
-		
+		@skip_tracks = Array.new(@tracks)
+		offset = 0
+		@track_offset = @track_length.map {|len| k = offset; offset += len; k }
+#		puts "offset = #{@track_offset}"
+		@reserved_sectors = Array.new(@track_length.length, 0)
 		@config_track_map = []
-		@contents = Array.new(@tracks > 35 ? 196608 : 174848, 0)
-		@track_offset = [0,
-			0,21,42,63,84,
-			105,126,147,168,189,
-			210,231,252,273,294,
-			315,336,357,376,395,
-			414,433,452,471,490,
-			508,526,544,562,580,
-			598,615,632,649,666,
-			683,700,717,734,751,
-			768]
-			
-		# BAM
-		@track1800 = [
-			# $16500 = 91392 = 357 (18,0)
-			0x12,0x01, # track/sector
-			0x41, # DOS version
-			0x00, # unused
-			# mark track 1-16, sector 1-16 as reserved for story files
-			# <free sectors>,<0-7>,<8-15>,<16-?, remaining bits 0>
-			0x15,0xff,0xff,0x1f, # 16504, track 01 (21 sectors)
-			0x15,0xff,0xff,0x1f, # 16508, track 02
-			0x15,0xff,0xff,0x1f, # 1650c, track 03
-			0x15,0xff,0xff,0x1f, # 16510, track 04
-			0x15,0xff,0xff,0x1f, # 16514, track 05
-			0x15,0xff,0xff,0x1f, # 16518, track 06
-			0x15,0xff,0xff,0x1f, # 1651c, track 07
-			0x15,0xff,0xff,0x1f, # 16520, track 08
-			0x15,0xff,0xff,0x1f, # 16524, track 09
-			0x15,0xff,0xff,0x1f, # 16528, track 10
-			0x15,0xff,0xff,0x1f, # 1652c, track 11
-			0x15,0xff,0xff,0x1f, # 16530, track 12
-			0x15,0xff,0xff,0x1f, # 16534, track 13
-			0x15,0xff,0xff,0x1f, # 16538, track 14
-			0x15,0xff,0xff,0x1f, # 1653c, track 15
-			0x15,0xff,0xff,0x1f, # 16540, track 16
-			0x15,0xff,0xff,0x1f, # 16544, track 17
-			0x11,0xfc,0xff,0x07, # 16548, track 18 (19 sectors)
-			0x13,0xff,0xff,0x07, # 1654c, track 19
-			0x13,0xff,0xff,0x07, # 16550, track 20
-			0x13,0xff,0xff,0x07, # 16554, track 21
-			0x13,0xff,0xff,0x07, # 16558, track 22
-			0x13,0xff,0xff,0x07, # 1655c, track 23
-			0x13,0xff,0xff,0x07, # 16560, track 24
-			0x12,0xff,0xff,0x03, # 16564, track 25 (18 sectors)
-			0x12,0xff,0xff,0x03, # 16568, track 26
-			0x12,0xff,0xff,0x03, # 1656c, track 27
-			0x12,0xff,0xff,0x03, # 16570, track 28
-			0x12,0xff,0xff,0x03, # 16574, track 29
-			0x12,0xff,0xff,0x03, # 16578, track 30
-			0x11,0xff,0xff,0x01, # 1657c, track 31 (17 sectors)
-			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
-			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
-			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0, # label (game name)
-			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,
-			0xa0,0xa0,0x30,0x30,0xa0,0x32,0x41,0xa0,
-			0xa0,0xa0,0xa0,0x00,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
-			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
-			0x11,0xff,0xff,0x01,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
-		]
+		@contents = Array.new(256 * @track_length.inject(0, :+), 0)
+	end
 
-		# Create a disk image. Return number of free blocks, or -1 for failure.
-
-		for track in 36 .. 40 do
-			@track1800[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > @tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
-		end
-		
-		puts "Creating disk image..."
-
-		# Set disk title
-		c64_title = name_to_c64(disk_title)
-		@track1800[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
-		[c64_title.length, 0x10].min.times do |charno|
-			@track1800[0x90 + charno] = c64_title[charno].ord
-		end
-		
-		if @is_boot_disk then
-			allocate_sector(@config_track, 0)
-			allocate_sector(@config_track, 1)
-		end
-
-	end # initialize
-
+	def calculate_initial_free_blocks
+		@free_blocks = @track_length.inject(0, :+) - @reserved_sectors.inject(0, :+)
+		puts "Free disk blocks at start: #{@free_blocks}"
+	end
+	
 	def free_blocks
 		@free_blocks
 	end
@@ -263,8 +167,7 @@ class D64_image
 			puts if $PRINT_DISK_MAP
 		end # for track
 #		puts num_sectors.to_s
-		add_1800()
-		add_1801()
+		add_directory()
 
 		@config_track_map = @config_track_map.reverse.drop_while{|i| i==0}.reverse # Drop trailing zero elements
 
@@ -278,10 +181,10 @@ class D64_image
 	def set_config_data(data)
 		if !@is_boot_disk then
 			puts "ERROR: Tried to save config data on a non-boot disk."
-			exit 0
+			exit 1
 		elsif !(data.is_a?(Array)) or data.length > 512 then
-			puts "ERROR: Tried to save config data on a non-boot disk."
-			exit 0
+			puts "ERROR: Config data array is not the right length."
+			exit 1
 		end
 		@contents[@track_offset[@config_track] * 256 .. @track_offset[@config_track] * 256 + data.length - 1] = data
 		
@@ -289,14 +192,137 @@ class D64_image
 	
 	def save
 		begin
-			d64_file = File.open(@d64_filename, "wb")
+			diskimage_file = File.open(@diskimage_filename, "wb")
 		rescue
-			puts "ERROR: Can't open #{@d64_filename} for writing"
-			exit 0
+			puts "ERROR: Can't open #{@diskimage_filename} for writing"
+			exit 1
 		end
-		d64_file.write @contents.pack("C*")
-		d64_file.close
+		diskimage_file.write @contents.pack("C*")
+		diskimage_file.close
 	end
+
+	def get_track_length(track)
+		@track_length[track]
+	end
+
+	def get_reserved_sectors(track)
+		@reserved_sectors[track]
+	end
+	
+	def add_story_block(track, sector)
+		story_block_added = false
+		if $story_file_data.length > $story_file_cursor + 1
+			@contents[256 * (@track_offset[track] + sector) .. 256 * (@track_offset[track] + sector) + 255] =
+				$story_file_data[$story_file_cursor .. $story_file_cursor + 255].unpack("C*")
+			$story_file_cursor += 256
+			story_block_added = true
+		end
+		story_block_added
+	end
+end  # class Disk_image
+
+class D64_image < Disk_image
+	def initialize(disk_title:, diskimage_filename:, is_boot_disk:, forty_tracks:)
+		puts "Creating disk image..."
+
+		@disk_title = disk_title
+		@diskimage_filename = diskimage_filename
+		@is_boot_disk = is_boot_disk
+
+		@tracks = forty_tracks ? 40 : 35 # 35 or 40 are useful options
+		@track_length = Array.new(@tracks + 1) {|track| 
+			track == 0 ? 0 :
+			track < 18 ? 21 : 
+			track < 25 ? 19 : 
+			track < 31 ? 18 :
+			17
+		}
+#		puts "Tracks: #{@track_length.to_s}"
+
+		base_initialize()
+
+		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
+		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@reserved_sectors[19] = 2 if @is_boot_disk
+
+		calculate_initial_free_blocks()
+			
+		# BAM
+		@track1800 = [
+			# $16500 = 91392 = 357 (18,0)
+			0x12,0x01, # track/sector
+			0x41, # DOS version
+			0x00, # unused
+			# <free sectors>,<0-7>,<8-15>,<16-?, remaining bits 0>
+			0x15,0xff,0xff,0x1f, # 16504, track 01 (21 sectors)
+			0x15,0xff,0xff,0x1f, # 16508, track 02
+			0x15,0xff,0xff,0x1f, # 1650c, track 03
+			0x15,0xff,0xff,0x1f, # 16510, track 04
+			0x15,0xff,0xff,0x1f, # 16514, track 05
+			0x15,0xff,0xff,0x1f, # 16518, track 06
+			0x15,0xff,0xff,0x1f, # 1651c, track 07
+			0x15,0xff,0xff,0x1f, # 16520, track 08
+			0x15,0xff,0xff,0x1f, # 16524, track 09
+			0x15,0xff,0xff,0x1f, # 16528, track 10
+			0x15,0xff,0xff,0x1f, # 1652c, track 11
+			0x15,0xff,0xff,0x1f, # 16530, track 12
+			0x15,0xff,0xff,0x1f, # 16534, track 13
+			0x15,0xff,0xff,0x1f, # 16538, track 14
+			0x15,0xff,0xff,0x1f, # 1653c, track 15
+			0x15,0xff,0xff,0x1f, # 16540, track 16
+			0x15,0xff,0xff,0x1f, # 16544, track 17
+			0x11,0xfc,0xff,0x07, # 16548, track 18 (19 sectors)
+			0x13,0xff,0xff,0x07, # 1654c, track 19
+			0x13,0xff,0xff,0x07, # 16550, track 20
+			0x13,0xff,0xff,0x07, # 16554, track 21
+			0x13,0xff,0xff,0x07, # 16558, track 22
+			0x13,0xff,0xff,0x07, # 1655c, track 23
+			0x13,0xff,0xff,0x07, # 16560, track 24
+			0x12,0xff,0xff,0x03, # 16564, track 25 (18 sectors)
+			0x12,0xff,0xff,0x03, # 16568, track 26
+			0x12,0xff,0xff,0x03, # 1656c, track 27
+			0x12,0xff,0xff,0x03, # 16570, track 28
+			0x12,0xff,0xff,0x03, # 16574, track 29
+			0x12,0xff,0xff,0x03, # 16578, track 30
+			0x11,0xff,0xff,0x01, # 1657c, track 31 (17 sectors)
+			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
+			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
+			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0, # label (game name)
+			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,
+			0xa0,0xa0,0x30,0x30,0xa0,0x32,0x41,0xa0,
+			0xa0,0xa0,0xa0,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
+			0x11,0xff,0xff,0x01,0x11,0xff,0xff,0x01,
+			0x11,0xff,0xff,0x01,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+		]
+
+		# Create a disk image. Return number of free blocks, or -1 for failure.
+
+		for track in 36 .. 40 do
+			@track1800[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > @tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
+		end
+		
+		# Set disk title
+		c64_title = name_to_c64(disk_title)
+		@track1800[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
+		[c64_title.length, 0x10].min.times do |charno|
+			@track1800[0x90 + charno] = c64_title[charno].ord
+		end
+		
+		if @is_boot_disk then
+			allocate_sector(@config_track, 0)
+			allocate_sector(@config_track, 1)
+		end
+
+	end # initialize
+
 
 	private
 	
@@ -315,35 +341,15 @@ class D64_image
 		@track1800[index2] &= index3
 	end
 
-	def get_track_length(track)
-		@track_offset[track + 1] - @track_offset[track]
-	end
-
-	def get_reserved_sectors(track)
-		return 0 + 
-			(track == 18 ? @skip_blocks_on_18 : 0) + 
-			(track == @config_track ? @skip_blocks_on_config_track : 0)
-	end
-	
-	def add_1800()
+	def add_directory()
+		# Add disk info and BAM at 18:00
 		@contents[@track_offset[18] * 256 .. @track_offset[18] * 256 + 255] = @track1800
-	end
 
-	def add_1801()
+		# Add directory at 18:01
 		@contents[@track_offset[18] * 256 + 256] = 0 
 		@contents[@track_offset[18] * 256 + 257] = 0xff 
 	end
-
-	def add_story_block(track, sector)
-		story_block_added = false
-		if $story_file_data.length > $story_file_cursor + 1
-			@contents[256 * (@track_offset[track] + sector) .. 256 * (@track_offset[track] + sector) + 255] =
-				$story_file_data[$story_file_cursor .. $story_file_cursor + 255].unpack("C*")
-			$story_file_cursor += 256
-			story_block_added = true
-		end
-		story_block_added
-	end
+	
 end # class D64_image
 
 ################################## END create_d64.rb
@@ -438,7 +444,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		compmem_filehandle = File.open($compmem_filename, "wb")
 	rescue
 		puts "ERROR: Can't open #{$compmem_filename} for writing"
-		exit 0
+		exit 1
 	end
 	compmem_filehandle.write(vmem_contents[0 .. ($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE - 1])
 	compmem_filehandle.close
@@ -484,8 +490,8 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
-def add_boot_file(storyname, d64_filename)
-	ret = FileUtils.cp("#{d64_filename}", "#{storyname}.d64")
+def add_boot_file(storyname, diskimage_filename)
+	ret = FileUtils.cp("#{diskimage_filename}", "#{storyname}.d64")
 	puts "#{$C1541} -attach \"#{storyname}.d64\" -write \"#{$good_zip_file}\" story"
 	system("#{$C1541} -attach \"#{storyname}.d64\" -write \"#{$good_zip_file}\" story")
 end
@@ -503,14 +509,14 @@ def limit_vmem_data(vmem_data)
 	end
 end
 
-def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 0
 	
 	boot_disk = false
 	
 	if $VMEM
 		puts "ERROR: Tried to use build mode -P with VMEM."
-		exit 0
+		exit 1
 	end
 	
 	if $vmem_size < $story_size
@@ -519,7 +525,7 @@ def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, prel
 		exit 1
 	end
 	
-	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks) # Has to be run to finalize the disk
 
@@ -533,7 +539,7 @@ def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, prel
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
-	if add_boot_file(storyname, d64_filename) != true
+	if add_boot_file(storyname, diskimage_filename) != true
 		puts "ERROR: Failed to write loader/interpreter to disk."
 		exit 1
 	end
@@ -543,17 +549,17 @@ def build_P(storyname, d64_filename, config_data, vmem_data, vmem_contents, prel
 	nil # Signal success
 end
 
-def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 9999
 	
 	boot_disk = true
 
 	unless $VMEM
 		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 0
+		exit 1
 	end
 	
-	disk = D64_image.new(disk_title: storyname, d64_filename: d64_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
 	if $story_file_cursor < $story_file_data.length
@@ -591,7 +597,7 @@ def build_S1(storyname, d64_filename, config_data, vmem_data, vmem_contents, pre
 	disk.save()
 	
 	# Add loader + terp + preloaded vmem blocks file to disk
-	if add_boot_file(storyname, d64_filename) != true
+	if add_boot_file(storyname, diskimage_filename) != true
 		puts "ERROR: Failed to write loader/interpreter to disk."
 		exit 1
 	end
@@ -605,15 +611,15 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 
 	unless $VMEM
 		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 0
+		exit 1
 	end
 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story"
 	max_story_blocks = 9999
-	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
-	disk2 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
+	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	free_blocks = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
 	free_blocks = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
 		puts "Free disk blocks after story data has been written: #{free_blocks}"
@@ -667,14 +673,14 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 
 	unless $VMEM
 		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 0
+		exit 1
 	end
 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{storyname}_boot_story_1"
 	outfile2name = "#{storyname}_story_2"
-	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
-	disk2 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
+	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 
 	# Figure out how to put story blocks on the disks in optimal way.
 	# Rule 1: Save 160 blocks for loader on boot disk, if possible. 
@@ -755,16 +761,16 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 
 	unless $VMEM
 		puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-		exit 0
+		exit 1
 	end
 
 	config_data[7] = 4 # 4 disks used in total
 	outfile1name = "#{storyname}_boot"
 	outfile2name = "#{storyname}_story_1"
 	outfile3name = "#{storyname}_story_2"
-	disk1 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
-	disk2 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
-	disk3 = D64_image.new(disk_title: storyname, d64_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
+	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk3 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
 
 	# Figure out how to put story blocks on the disks in optimal way.
 	# Rule: Spread story data as evenly as possible, so heads will move less.
@@ -855,7 +861,7 @@ def print_usage_and_exit
 	puts "  -bc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
 	puts "  -sc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
-	exit 0
+	exit 1
 end
 
 i = 0
@@ -958,11 +964,11 @@ unless $colour_replacements.empty?
 		c64_colour = $2
 		if zcode_colour !~ /^[2-9]$/
 			puts "-rc requires a Z-code colour value (2-9) to the left of the = character."
-			exit 0
+			exit 1
 		end
 		if c64_colour !~ /^([0-9]|1[0-5])$/
 			puts "-rc requires a C64 colour value (0-15) to the right of the = character."
-			exit 0
+			exit 1
 		end
 		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
 	end
@@ -1176,11 +1182,11 @@ end
 
 case mode
 when MODE_P
-	d64_filename = File.join($TEMPDIR, "temp1.d64")
-	error = build_P(storyname, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
+	error = build_P(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S1
-	d64_filename = File.join($TEMPDIR, "temp1.d64")
-	error = build_S1(storyname, d64_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
+	error = build_S1(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
