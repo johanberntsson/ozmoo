@@ -203,7 +203,11 @@ s_printchar
 	bcs .printchar_end
 	iny
 	sty window_start_row + 1
-	bne .resume_printing_normal_char ; Always branch
+	; Move lower window cursor if it gets hidden by upper window
+	cpy cursor_row
+	bcc .resume_printing_normal_char
+	sty cursor_row
+	bcs .resume_printing_normal_char ; Always branch
 }
 
 .perform_newline
