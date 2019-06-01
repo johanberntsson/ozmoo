@@ -116,7 +116,7 @@ class Disk_image
 		num_sectors = [story_data_length / 256, max_story_blocks].min
 
 		first_story_track = 1
-		first_story_track_max_sectors = get_track_length(first_story_track)
+		first_story_track_max_sectors = get_track_length(first_story_track) - get_reserved_sectors(first_story_track)
 		temp_sectors = num_sectors
 		if add_at_end then
 			@tracks.downto(1) do |track|
@@ -1045,7 +1045,10 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	#	puts config_data
 	disk.set_config_data(config_data)
 	
-	disk.create_story_partition()
+	if disk.create_story_partition() == false
+		puts "ERROR: Could not create partition to protect data on disk."
+		exit 1
+	end
 	
 	disk.save()
 	

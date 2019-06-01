@@ -341,9 +341,8 @@ cname_len = * - .cname
 .uname !text "U1 2 0 "
 .uname_track !text "18 "
 .uname_sector !text "00"
-;!ifdef DEBUG {
     !byte 0 ; end of string, so we can print debug messages
-;}
+
 uname_len = * - .uname
 .track  !byte 0
 .sector !byte 0
