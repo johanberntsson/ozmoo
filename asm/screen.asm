@@ -350,31 +350,46 @@ increase_num_rows
     ; time to show [More]
     jsr clear_num_rows
     ; print [More]
-    lda $07e5 
-    sta .more_text_char
-    lda $07e6 
-    sta .more_text_char + 1
+    ; lda $07e5 
+    ; sta .more_text_char
+    ; lda $07e6 
+    ; sta .more_text_char + 1
     lda $07e7 
     sta .more_text_char + 2
-    ;lda #190 ; screen code for reversed >
-    lda #174 ; screen code for reversed .
-    sta $07e5
-    sta $07e6
+    lda #128 + $2a ; screen code for reversed "*"
+    ; sta $07e5
+    ; sta $07e6
     sta $07e7
     ; wait for ENTER
 .printchar_pressanykey
 !ifndef BENCHMARK {
--   jsr kernal_getchar
-    beq -
+--	ldx s_colour
+	iny
+	tya
+	and #1
+	beq +
+	ldx $d021
++	stx $d800 + 999	
+	ldx #40
+---	lda $a2
+-	cmp $a2
+	beq -
+	jsr kernal_getchar
+    bne +
+	dex
+	bne ---
+    beq --
++
 }
-    lda .more_text_char
-    sta $07e5
-    lda .more_text_char + 1
-    sta $07e6
+    ; ; lda .more_text_char
+    ; ; sta $07e5
+    ; ; lda .more_text_char + 1
+    ; ; sta $07e6
     lda .more_text_char + 2
     sta $07e7
 .increase_num_rows_done
     rts
+
 .more_text_char !byte 0,0,0
 
 printchar_flush

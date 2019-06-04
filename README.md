@@ -109,3 +109,4 @@ Special thanks to:
 * howtophil, for Linux-related make.rb suggestions
 * Retrofan and Paul van der Laan for font support
 * lft for good advice and support
+* Jason Compton, for great help in testing

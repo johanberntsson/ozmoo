@@ -49,6 +49,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+MORE prompt hides two characters of text, which the player may miss entirely.
+
 Cursor doesn't show up in initial form in Bureaucracy.
 
 Support for C1581 disks (can hold 3160 blocks of user data)
