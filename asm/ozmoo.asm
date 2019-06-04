@@ -265,7 +265,7 @@ z_init
 !ifdef Z4PLUS {
 	lda #8
 	sta story_start + header_interpreter_number ; Interpreter number (8 = C64)
-	lda #65
+	lda #66 ; "B" = release 2
 	sta story_start + header_interpreter_version ; Interpreter version. Usually ASCII code for a capital letter
 	lda #25
 	sta story_start + header_screen_height_lines
