@@ -1,6 +1,5 @@
 Known bugs
 ----------
-Cursor doesn't show up in initial form in Bureaucracy.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -50,6 +49,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Cursor doesn't show up in initial form in Bureaucracy.
+
 Support for C1581 disks (can hold 3160 blocks of user data)
 
 auto sonarscope mode in Seastalker is buggy. 

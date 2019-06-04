@@ -56,6 +56,7 @@ z_ins_read_char
     ; ldy z_operand_value_low_arr
     ; optional time routine arguments
 	jsr printchar_flush
+    jsr turn_on_cursor
     ldy #0
 	tya
     sty .read_text_time
@@ -76,6 +77,9 @@ z_ins_read_char
     jsr read_char
     cmp #0
     beq .read_char_loop ; timer routine returned false
+	pha
+    jsr turn_off_cursor
+	pla
     cmp #1
     bne +
     lda #0 ; time routine returned true, and read_char should return 0
