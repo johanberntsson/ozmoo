@@ -11,7 +11,7 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
-Update 2019-05-23: There are a lot of bugfixes and some features in the latest code which were not in release 1. We advice you to use the latest code. We expect to make a new release soon.
+Update 2019-06-04: We have created a new release, with several new features, many bugfixes, better docs and other improvements.
 
 Update 2018-12-27: We now consider Ozmoo ready for production use. A few minor features are missing, like output to printer and the ability to save and restore arbitrary parts of memory, and chances are they won't be added. 
 
@@ -46,6 +46,7 @@ The longer answer:
 
 ![Ozmoo running a German game using a custom font with accented characters](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/germangame.png)
 
+* Uses all 40 columns, has smart wordwrap and has a MORE prompt which uses a single character - this allows for much more text to be fitted on screen than with Infocom's interpreters.
 * Supports embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish and German. And you can supply your own font.
 * Supports custom alphabets in Z-machine version 5 and 8.
 * Supports custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish and German.
@@ -55,6 +56,10 @@ The longer answer:
 * Supports building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
 * Supports building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator.
 * Supports using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
+
+![Ozmoo running Hollywood Hijinx vs Infocom's interpreter running Hollywood Hijinx](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/hollywood.png)
+
+The differences in screen handling are evident in this comparison between Infocom's interpreter (left) and Ozmoo, both showing the first screenful of text in Hollywood Hijinx. Ozmoo manages to squeeze in 872 characters of text, which is 34% more than Infocom's interpreter (650 characters). Both interpreters have reserved the top line for the statusline, but Ozmoo doesn't actually print the statusline until the first prompt.
 
 ## Building and running
 
