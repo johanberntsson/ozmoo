@@ -47,7 +47,6 @@ character_translation_table_out
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5e, $0d ; ^ => Enter, since Inform uses this
 	!byte $5d, $29 ; ] = )
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $5b, $28 ; [ = (
@@ -92,7 +91,6 @@ character_translation_table_out
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5e, $0d ; ^ => Enter, since Inform uses this
 	!byte $5d, $29 ; ] = )
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $5b, $28 ; [ = (
@@ -123,7 +121,6 @@ character_translation_table_out
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5e, $0d ; ^ => Enter, since Inform uses this
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 character_translation_table_out_end
 

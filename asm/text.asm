@@ -1449,27 +1449,36 @@ print_addr
 ;	jsr translate_zscii_to_petscii
     jsr streams_print_output
     jmp .next_zchar
-.l0a ; escape char?
-    cmp #6
-    bne .l1
+.l0a 
+	; If alphabet A2, special treatment for code 6 and 7!
     ldy alphabet_offset
     cpy #52
-    bne .l6
-    lda #0
-    sta escape_char
-    sta alphabet_offset
+    bne .not_A2
+; newline?
+	cmp #7
+	bne .l0b
+	lda #13
+	bne .print_normal_char ; Always jump
+.l0b 
+	; Direct jump for all normal chars in A2
+	bcs .l6
+	; escape char?
+    cmp #6
+    bne .l1
     lda #2
     sta escape_char_counter
-    jmp .next_zchar
-.l1 bcs .l6 ; Shortcut for all regular characters
+    lda #0
+    sta escape_char
+	beq .sta_offset
+.not_A2
+	cmp #6
+	bcs .l6
+.l1 ; Space?
 	cmp #0
     bne .l2
     ; space
     lda #$20
-    jsr streams_print_output
-    lda #0
-    sta alphabet_offset
-    jmp .next_zchar
+	bne .print_normal_char ; Always jump
 .l2 cmp #4
 	bcc .abbreviation
     bne .l3
@@ -1492,9 +1501,11 @@ print_addr
     jmp .next_zchar
 .l6 ; normal char
     jsr convert_zchar_to_char
+.print_normal_char
     jsr streams_print_output
     ; change back to A0
     lda #0
+.sta_offset
     sta alphabet_offset
 .next_zchar
     jsr was_last_zchar

@@ -1,5 +1,6 @@
 Known bugs
 ----------
+A Bear's Night Out: Extra reversed space after quote box at start of game.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
