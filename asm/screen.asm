@@ -433,15 +433,7 @@ printchar_buffered
     ; add this char to the buffer
     cmp #$0d
     bne .check_break_char
-    ; newline. Print line and reset the buffer
-    ldy buffer_index
-	cpy #40
-	bne +
-	; This newline occurs just after 40 characters of text, meaning it should not be printed.
-    jsr printchar_flush
-;	jsr increase_num_rows ; Not sure if this should be called
-	jmp .printchar_done
-+	jsr printchar_flush
+	jsr printchar_flush
     ; more on the same line
     jsr increase_num_rows
     lda #$0d
