@@ -416,6 +416,7 @@ convert_char_to_zchar
     ; output: store zchars in z_temp,x. Increase x. Exit if x >= ZCHARS_PER_ENTRY
     ; side effects:
     ; used registers: a,x
+	; NOTE: This routine can't convert space (code 0) or newline (code 7 in A2) properly, but there's no need to either.
 ;	jsr translate_petscii_to_zscii
 	sty zp_temp + 4
 	ldy #0

@@ -1,6 +1,5 @@
 Known bugs
 ----------
-A Bear's Night Out: Extra reversed space after quote box at start of game.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
@@ -50,6 +49,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+A Bear's Night Out: Extra reversed space after quote box at start of game, and "[Please press SPACE to begin]" not shown.
+
 MORE prompt hides two characters of text, which the player may miss entirely.
 
 Cursor doesn't show up in initial form in Bureaucracy.

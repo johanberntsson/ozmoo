@@ -179,11 +179,15 @@ z_ins_print_table
 }
 
 z_ins_buffer_mode 
-    ; buffer_mode flag
-    jsr printchar_flush
-    lda z_operand_value_low_arr
-    sta is_buffered_window ; set lower window to buffered mode
-    rts
+	; buffer_mode flag
+	lda z_operand_value_low_arr
+	bne +
+	cmp is_buffered_window
+	beq ++
+	jsr printchar_flush
+	lda z_operand_value_low_arr
++	sta is_buffered_window ; set lower window to buffered mode
+++	rts
 }
 
 !ifdef Z3 {
@@ -235,8 +239,9 @@ split_window
 z_ins_set_window
     ;  set_window window
     lda z_operand_value_low_arr
-	bne .selecting_upper_window
+	bne select_upper_window
 	; Selecting lower window
+select_lower_window
 	ldx current_window
 	beq .do_nothing
 	jsr save_cursor
@@ -244,7 +249,7 @@ z_ins_set_window
     sta current_window
     ; this is the main text screen, restore cursor position
     jmp restore_cursor
-.selecting_upper_window
+select_upper_window
 	; this is the status line window
     ; store cursor position so it can be restored later
     ; when set_window 0 is called
@@ -394,6 +399,9 @@ increase_num_rows
 
 printchar_flush
     ; flush the printchar buffer
+	ldx current_window
+	stx z_temp + 11
+	jsr select_lower_window
     ldx #0
 -   cpx buffer_index
     beq +
@@ -408,7 +416,14 @@ printchar_flush
 +   ldx #0
     stx buffer_index
     stx last_break_char_buffer_pos
-    rts
+
+	ldx z_temp + 11
+	beq .increase_num_rows_done
+	jsr save_cursor
+	lda #1
+    sta current_window
+    ; We have re-selected the upper window, restore cursor position
+    jmp restore_cursor
 
 printchar_buffered
     ; a is character to print
