@@ -704,11 +704,11 @@ draw_status_line
 	sta current_window
     jmp restore_cursor
 .print_clock_number
-	txa
-	cmp #60
+	cpx #60
 	bcc +
-	lda #59
-+	ldy #0
+	ldx #59
++	txa
+	ldy #0
 -	cmp #10
 	bcc .print_tens
 	sbc #10 ; C is already set
