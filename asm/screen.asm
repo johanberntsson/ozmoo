@@ -673,7 +673,7 @@ draw_status_line
     ; score or time game?
     ;
 +   lda story_start + header_flags_1
-    and #$40
+    and #$02
     bne .timegame
     ; score game
     ldx #0
@@ -720,7 +720,15 @@ draw_status_line
     jsr z_get_low_global_variable_value
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
-    jsr z_ins_print_num
+    ; add initial "0" if minutes <10
+    cpx #10
+    bpl +
+    pha
+    lda #$30
+    jsr s_printchar
+    pla
++   jsr z_ins_print_num
+    ldx z_operand_value_low_arr
 .statusline_done
 	ldx zcolours + FGCOL
 	lda colours,x
