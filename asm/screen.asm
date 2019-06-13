@@ -617,29 +617,8 @@ z_ins_show_status
 ;    jmp draw_status_line
 
 draw_status_line
-	; lda s_first_line
-	; pha
-	; lda s_last_line_plus_1
-	; pha
-	; lda #0
-	; sta s_first_line
-	; lda #1
-	; sta s_last_line_plus_1
 	lda current_window
 	pha
-    ; ldx #1
-    ; jsr split_window
-    ; lda #1
-    ; sta current_window
-    ; save z_operand* (will be destroyed by print_num)
-    lda z_operand_value_low_arr
-    pha
-    lda z_operand_value_high_arr
-    pha
-    lda z_operand_value_low_arr + 1
-    pha
-    lda z_operand_value_high_arr + 1
-    pha
     jsr save_cursor
 	lda #2
 	sta current_window
@@ -658,12 +637,10 @@ draw_status_line
     lda #16
     jsr z_get_low_global_variable_value
     jsr print_obj
-    ;jsr print_addr
     ;
     ; fill the rest of the line with spaces
     ;
 -   lda zp_screencolumn
-;    beq +
 	cmp #40
 	bcs +
     lda #$20
@@ -701,7 +678,7 @@ draw_status_line
 .timegame
     ; time game
     ldx #0
-    ldy #20
+    ldy #29
     jsr set_cursor
     ldy #0
 -   lda .time_str,y
@@ -711,47 +688,42 @@ draw_status_line
     bne -
 +   lda #17 ; hour
     jsr z_get_low_global_variable_value
-    stx z_operand_value_low_arr
-    sta z_operand_value_high_arr
-    jsr z_ins_print_num
+	jsr .print_clock_number
     lda #58 ; :
     jsr s_printchar
     lda #18 ; minute
     jsr z_get_low_global_variable_value
-    stx z_operand_value_low_arr
-    sta z_operand_value_high_arr
-    ; add initial "0" if minutes <10
-    cpx #10
-    bpl +
-    pha
-    lda #$30
-    jsr s_printchar
-    pla
-+   jsr z_ins_print_num
-    ldx z_operand_value_low_arr
+	jsr .print_clock_number
 .statusline_done
 	ldx zcolours + FGCOL
 	lda colours,x
 	jsr s_printchar
     lda #146 ; reverse off
     jsr s_printchar
-    ; lda #0
-    ; sta current_window
-    pla
-    sta z_operand_value_high_arr + 1
-    pla
-    sta z_operand_value_low_arr + 1
-    pla
-    sta z_operand_value_high_arr
-    pla
-    sta z_operand_value_low_arr
 	pla
 	sta current_window
-	; pla
-	; sta s_last_line_plus_1
-	; pla
-	; sta s_first_line
     jmp restore_cursor
+.print_clock_number
+	txa
+	cmp #60
+	bcc +
+	lda #59
++	ldy #0
+-	cmp #10
+	bcc .print_tens
+	sbc #10 ; C is already set
+	iny
+	bne - ; Always branch
+.print_tens
+	tax
+	tya
+	ora #$30
+	jsr s_printchar
+	txa
+	ora #$30
+	jmp s_printchar
+
+
 .score_str !pet "Score: ",0
 .time_str !pet "Time ",0
 }
