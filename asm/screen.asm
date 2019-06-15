@@ -653,6 +653,14 @@ draw_status_line
     and #$02
     bne .timegame
     ; score game
+	lda z_operand_value_low_arr
+	pha
+	lda z_operand_value_high_arr
+	pha
+	lda z_operand_value_low_arr + 1
+	pha
+	lda z_operand_value_high_arr + 1
+	pha
     ldx #0
     ldy #25
     jsr set_cursor
@@ -674,6 +682,14 @@ draw_status_line
     stx z_operand_value_low_arr
     sta z_operand_value_high_arr
     jsr z_ins_print_num
+	pla
+	sta z_operand_value_high_arr + 1
+	pla
+	sta z_operand_value_low_arr + 1
+	pla
+	sta z_operand_value_high_arr
+	pla
+	sta z_operand_value_low_arr
     jmp .statusline_done
 .timegame
     ; time game
