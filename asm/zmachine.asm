@@ -11,14 +11,17 @@ z_rnd_b				!byte 75
 z_rnd_c				!byte 93
 z_rnd_x				!byte 1
 z_rnd_mode 			!byte 0
+!ifdef Z4PLUS {
+z_interrupt_return_value !byte 0,0
+}
+!ifdef Z5PLUS {
+z_font				!byte 1, 1
+}
+!ifdef DEBUG {
 z_test				!byte 0
 z_test_mode_print = 1
 z_test_mode_print_and_store = 2
-z_font				!byte 1, 1
-z_window_lower = 0
-z_window_upper = 1
-z_window			!byte z_window_lower
-z_interrupt_return_value !byte 0,0
+}
 
 ; opcount0 = 0
 ; opcount1 = 16
@@ -2225,7 +2228,7 @@ z_ins_art_shift
 	beq .shift_store ; Always branch
 
 z_ins_set_font
-	ldy z_window
+	ldy current_window
 	lda z_operand_value_low_arr
 	beq .set_font_check_status
 	cmp #1

@@ -103,10 +103,12 @@ program_start
     jmp .initialize
 
 ; global variables
-filelength !byte 0, 0, 0
-fileblocks !byte 0, 0
+; filelength !byte 0, 0, 0
+; fileblocks !byte 0, 0
 ; c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
+!ifdef VMEM {
 game_id		!byte 0,0,0,0
+}
 
 ; include other assembly files
 !source "utilities.asm"
@@ -529,37 +531,37 @@ deletable_init
 
 } ; End of !ifdef VMEM
 
-+   ; check file length
-    ; Start by multiplying file length by 2
-	lda #0
-	sta filelength
-    lda story_start + header_filelength
-	sta filelength + 1
-    lda story_start + header_filelength + 1
-	asl
-	rol filelength + 1
-	rol filelength
-!ifdef Z4PLUS {
-    ; Multiply file length by 2 again (for Z4, Z5 and Z8)
-	asl
-	rol filelength + 1
-	rol filelength
-!ifdef Z8 {
-    ; Multiply file length by 2 again (for Z8)
-	asl
-	rol filelength + 1
-	rol filelength
-}
-}
-	sta filelength + 2
-	ldy filelength
-	ldx filelength + 1
-	beq +
-	inx
-	bne +
-	iny
-+	sty fileblocks
-	stx fileblocks + 1
+   ; ; check file length
+    ; ; Start by multiplying file length by 2
+	; lda #0
+	; sta filelength
+    ; lda story_start + header_filelength
+	; sta filelength + 1
+    ; lda story_start + header_filelength + 1
+	; asl
+	; rol filelength + 1
+	; rol filelength
+; !ifdef Z4PLUS {
+    ; ; Multiply file length by 2 again (for Z4, Z5 and Z8)
+	; asl
+	; rol filelength + 1
+	; rol filelength
+; !ifdef Z8 {
+    ; ; Multiply file length by 2 again (for Z8)
+	; asl
+	; rol filelength + 1
+	; rol filelength
+; }
+; }
+	; sta filelength + 2
+	; ldy filelength
+	; ldx filelength + 1
+	; beq +
+	; inx
+	; bne +
+	; iny
+; +	sty fileblocks
+	; stx fileblocks + 1
 	rts
 }
 
@@ -894,13 +896,7 @@ load_suggested_pages
     jsr print_vm_map
 }
     rts
-} else {
-prepare_static_high_memory
-    ; the default case is to simply treat all as dynamic (r/w)
-    rts
-}
-
-
+} 
 
 end_of_routines_in_stack_space
 

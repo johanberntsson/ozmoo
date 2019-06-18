@@ -524,6 +524,7 @@ printstring
 +   rts
 }
 
+!ifdef VMEM {
 conv2dec
     ; convert a to decimal in x,a
     ; for example a=#$0f -> x='1', a='5'
@@ -536,6 +537,7 @@ conv2dec
     jmp -
 +   adc #$30
     rts
+}
 
 mult16
     ;16-bit multiply with 32-bit product
