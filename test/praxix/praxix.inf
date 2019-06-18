@@ -4,6 +4,19 @@
 
 ! The indirect test is Copyright (C) 2003, Amir Karger
 
+! TODO:
+!	@encode_text
+!	@erase_line
+!	@get_cursor
+!	@set_font
+!	@call 0
+!	@random - check it's a good distribution
+!	@print_table - check line breaks are only printed between lines
+!	Consider making this test suite non-interactive, and have another test suite for interactive tests
+!		Move too any tests which are manually confirmed by eye, so that all of Praxix can be summed up by "All tests passed"
+!	Maybe add tests for @loadw/@storew etc to check they are casting array+word correctly
+!	1.1 spec unicode texts
+
 Constant Story "Praxix";
 Constant Headline "A Z-code interpreter unit test^";
 Release 1;
@@ -167,6 +180,26 @@ Class TestClass
 	rfalse;
 ];
 
+[ check_unspecified val wanted;
+	if (val == wanted) {
+		print val, " (Unspecified)";
+		rtrue;
+	}
+	print val, " (Unspecified but ", wanted, " is suggested)";
+	rfalse;
+];
+
+[ check_arr_3 arr v0 v1 v2;
+	if (arr->0 == v0 && arr->1 == v1 && arr->2 == v2) {
+		print v0, " ", v1, " ", v2;
+		rtrue;
+	}
+	failures++;
+	print arr->0, " ", arr->1, " ", arr->2;
+	print " (should be ", v0, " ", v1, " ",	v2, " FAIL)";
+	rfalse;
+];
+
 [ check_hex val wanted;
 	if (val == wanted) {
 		print (Hex) val;
@@ -174,6 +207,15 @@ Class TestClass
 	}
 	failures++;
 	print (Hex) val, " (should be ", (Hex) wanted, " FAIL)";
+	rfalse;
+];
+
+[ check_hex_unspecified val wanted;
+	if (val == wanted) {
+		print (Hex) val, " (Unspecified)";
+		rtrue;
+	}
+	print (Hex) val, " (Unspecified but ", wanted, " is suggested)";
 	rfalse;
 ];
 
@@ -185,6 +227,19 @@ Class TestClass
 	failures++;
 	print (Hex) val, " (should be >= ", (Hex) min, " FAIL)";
 	rfalse;
+];
+
+[ check_array test gold len func
+	ix testch goldch;
+	for (ix=0 : ix<len : ix++) {
+		goldch = gold->ix;
+		testch = test->ix;
+		if (testch ~= goldch) {
+			func(goldch, ix);
+			check(testch, goldch);
+			new_line;
+		}
+	}
 ];
 
 [ count_failures   val;
@@ -257,6 +312,9 @@ TestClass AllAction
 		ix++;
 	}
 	print ".";
+	
+	print "^(Some tests check unspecified behaviour, and their results will be marked by (Unspecified).)^";
+	
 	new_line;
 	if (total_failures) {
 		print "^", total_failures, " tests have failed so far in this run.^";
@@ -589,7 +647,7 @@ TestClass ShiftTest
 		@log_shift $11 15 val;
 		print "$11u<<15="; check_hex(val, $8000); print ", ";
 		@log_shift $11 16 val;
-		print "$11u<<16="; check_hex(val, 0); print ", ";
+		print "$11u<<16="; check_hex_unspecified(val, 0); print ", ";
 		@log_shift (-2) 0 val;
 		print "-2u<<0="; check(val, -2); print ", ";
 		@log_shift (-2) 1 val;
@@ -607,7 +665,7 @@ TestClass ShiftTest
 			res = res+res;
 		}
 		@log_shift testglobal ix val;
-		print "1u<<", ix, "="; check(val, 0); print "^";
+		print "1u<<", ix, "="; check_hex_unspecified(val, 0); print "^";
 		
 		@log_shift $4001 (0) val;
 		print "$4001u>>-0="; check_hex(val, $4001); print ", ";
@@ -620,7 +678,7 @@ TestClass ShiftTest
 		@log_shift $4001 (-15) val;
 		print "$4001u>>-15="; check_hex(val, $0); print ", ";
 		@log_shift $4001 (-16) val;
-		print "$4001u>>-16="; check_hex(val, $0); print "^";
+		print "$4001u>>-16="; check_hex_unspecified(val, $0); print "^";
 		
 		@log_shift $7FFF (0) val;
 		print "$7FFFu>>-0="; check_hex(val, $7FFF); print ", ";
@@ -635,7 +693,7 @@ TestClass ShiftTest
 		@log_shift $7FFF (-15) val;
 		print "$7FFFu>>-15="; check_hex(val, $0); print ", ";
 		@log_shift $7FFF (-16) val;
-		print "$7FFFu>>-16="; check_hex(val, $0); print "^";
+		print "$7FFFu>>-16="; check_hex_unspecified(val, $0); print "^";
 		
 		@log_shift (-1) (0) val;
 		print "-1u>>-0="; check_hex(val, -1); print ", ";
@@ -652,9 +710,9 @@ TestClass ShiftTest
 		@log_shift (-1) (-15) val;
 		print "-1u>>-15="; check_hex(val, $1); print ", ";
 		@log_shift (-1) (-16) val;
-		print "-1u>>-16="; check_hex(val, $0); print ", ";
+		print "-1u>>-16="; check_hex_unspecified(val, $0); print ", ";
 		@log_shift (-1) (-17) val;
-		print "-1u>>-17="; check_hex(val, $0); print "^";
+		print "-1u>>-17="; check_hex_unspecified(val, $0); print "^";
 		
 		testglobal = -1;
 		res = $7fff;
@@ -664,7 +722,7 @@ TestClass ShiftTest
 			res = res / 2;
 		}
 		@log_shift testglobal ix val;
-		print "-1u>>", ix, "="; check(val, 0); print "^";
+		print "-1u>>", ix, "="; check_hex_unspecified(val, 0); print "^";
 
 		@art_shift $11 0 val;
 		print "$11s<<0="; check_hex(val, $11); print ", ";
@@ -677,7 +735,7 @@ TestClass ShiftTest
 		@art_shift $11 15 val;
 		print "$11s<<15="; check_hex(val, $8000); print ", ";
 		@art_shift $11 16 val;
-		print "$11s<<16="; check_hex(val, 0); print ", ";
+		print "$11s<<16="; check_hex_unspecified(val, 0); print ", ";
 		@art_shift (-2) 0 val;
 		print "-2s<<0="; check(val, -2); print ", ";
 		@art_shift (-2) 1 val;
@@ -695,7 +753,7 @@ TestClass ShiftTest
 			res = res+res;
 		}
 		@art_shift testglobal ix val;
-		print "1s<<", ix, "="; check(val, 0); print "^";
+		print "1s<<", ix, "="; check_hex_unspecified(val, 0); print "^";
 		
 		@art_shift $4001 (0) val;
 		print "$4001s>>-0="; check_hex(val, $4001); print ", ";
@@ -708,7 +766,7 @@ TestClass ShiftTest
 		@art_shift $4001 (-15) val;
 		print "$4001s>>-15="; check_hex(val, $0); print ", ";
 		@art_shift $4001 (-16) val;
-		print "$4001s>>-16="; check_hex(val, $0); print "^";
+		print "$4001s>>-16="; check_hex_unspecified(val, $0); print "^";
 		
 		@art_shift $7FFF (0) val;
 		print "$7FFFs>>-0="; check_hex(val, $7FFF); print ", ";
@@ -727,7 +785,7 @@ TestClass ShiftTest
 		@art_shift $7FFF (-15) val;
 		print "$7FFFs>>-15="; check_hex(val, $0); print ", ";
 		@art_shift $7FFF (-16) val;
-		print "$7FFFs>>-16="; check_hex(val, $0); print "^";
+		print "$7FFFs>>-16="; check_hex_unspecified(val, $0); print "^";
 		
 		@art_shift (-1) (0) val;
 		print "-1s>>-0="; check(val, -1); print ", ";
@@ -736,9 +794,9 @@ TestClass ShiftTest
 		@art_shift (-1) (-15) val;
 		print "-1s>>-15="; check(val, -1); print ", ";
 		@art_shift (-1) (-16) val;
-		print "-1s>>-16="; check(val, -1); print ", ";
+		print "-1s>>-16="; check_hex_unspecified(val, -1); print ", ";
 		@art_shift (-1) (-17) val;
-		print "-1s>>-17="; check(val, -1); print "^";
+		print "-1s>>-17="; check_hex_unspecified(val, -1); print "^";
 
 		@art_shift (-1000) (0) val;
 		print "-1000s>>-0="; check(val, -1000); print ", ";
@@ -755,9 +813,9 @@ TestClass ShiftTest
 		@art_shift (-1000) (-15) val;
 		print "-1000s>>-15="; check(val, -1); print ", ";
 		@art_shift (-1000) (-16) val;
-		print "-1000s>>-16="; check(val, -1); print ", ";
+		print "-1000s>>-16="; check_hex_unspecified(val, -1); print ", ";
 		@art_shift (-1000) (-17) val;
-		print "-1000s>>-17="; check(val, -1); print "^";
+		print "-1000s>>-17="; check_hex_unspecified(val, -1); print "^";
 		
 		testglobal = -1;
 		for (ix=0 : ix>-16 : ix--) {
@@ -765,7 +823,7 @@ TestClass ShiftTest
 			print "-1s>>", ix, "="; check(val, -1); print ", ";
 		}
 		@art_shift testglobal ix val;
-		print "-1s>>", ix, "="; check(val, -1); print "^";
+		print "-1s>>", ix, "="; check_hex_unspecified(val, -1); print "^";
 		
 		count_failures();
 	];
@@ -2188,7 +2246,7 @@ Array streambufcmp -> 170;
 TestClass StreamTripTest
 	with name 'streamtrip',
 	short_name "streamtrip",
-	testfunc [ ix len pos ch;
+	testfunc [ ix len pos;
 		print "Memory stream round-trip:^^";
 
 		@output_stream 3 streambuf;
@@ -2214,19 +2272,242 @@ TestClass StreamTripTest
 		print "Number of characters written: "; check(pos, 166); new_line;
 		print "Number of characters read: "; check(len, 166); new_line;
 
-		for (ix=0 : ix<len : ix++) {
-		  ch = streambufcmp->ix;
-		  if (streambuf->(ix+2) ~= ch) {
-		    print "Mismatch for ", ch, " '";
-		    @print_char ch;
-			print "': ";
-		    check(streambuf->(ix+2), ch);
-			new_line;
-		  }
-		}
+		check_array( streambuf+2, streambufcmp, len, Streamtripprint );
 
 		count_failures();
 	];
+
+[ Streamtripprint ch;
+	print "Mismatch for ", ch, " '";
+	@print_char ch;
+	print "': ";
+];
+
+TestClass StreamOpTest
+	with name 'streamop',
+	short_name "streamop",
+	testfunc [ len;
+		print "Memory stream opcodes:^^";
+
+		@output_stream 3 streambuf;
+		@print_paddr "abc";
+		@output_stream -3;
+		
+		len = (streambuf+0)-->0;
+		print "@@64print_paddr: ";
+		check(len, 3); print " characters written: "; 
+		check_arr_3(streambuf+2, 'a', 'b', 'c'); new_line;
+		
+		@output_stream 3 streambuf;
+		@print_num 789;
+		@output_stream -3;
+
+		len = (streambuf+0)-->0;
+		print "@@64print_num: ";
+		check(len, 3); print " characters written: "; 
+		check_arr_3(streambuf+2, '7', '8', '9'); new_line;
+		
+		@output_stream 3 streambuf;
+		@print_char 'x';
+		@output_stream -3;
+
+		len = (streambuf+0)-->0;
+		print "@@64print_char: ";
+		check(len, 1); print " characters written: "; 
+		check_arr_3(streambuf+2, 'x', '8', '9'); new_line;
+		
+		count_failures();
+	];
+
+TestClass Throwcatch
+	with name 'throwcatch' 'throw' 'catch',
+	short_name "throwcatch",
+	testfunc [ val;
+		print "@@64throw/@@64catch:^^";
+
+		testglobal = 0;
+		testglobal2 = 0;
+		
+		val = Throwfunc1();
+		
+		print "The function with @@64catch will be returned with the value of @@64throw: "; check(val, 1); print "^";
+		print "Intermediate functions should not set their storers.^testglobal="; check(testglobal, 0); print "^";
+		print "testglobal2="; check(testglobal2, 0); print "^";
+		
+		count_failures();
+	];
+
+[ Throwfunc1 val;
+	print "Throwfunc1^";
+	val = Throwfunc2();
+	print "Returning from Throwfunc1^^";
+	return val;
+];
+
+[ Throwfunc2 val;
+	print "Throwfunc2^";
+	@catch -> val;
+	val = Throwfunc3(val);
+	print "Returning from Throwfunc2^";
+	return 2;
+];
+
+[ Throwfunc3 val;
+	print "Throwfunc3^";
+	testglobal = Throwfunc4(val);
+	print "Returning from Throwfunc3^";
+	return 3;
+];
+
+[ Throwfunc4 val;
+	print "Throwfunc4^";
+	testglobal2 = Throwfunc5(val);
+	print "Returning from Throwfunc4^";
+	return 4;
+];
+
+[ Throwfunc5 val;
+	print "Throwfunc5^About to @@64throw - should then return from Throwfunc1^";
+	@throw 1 val;
+	print "Returning from Throwfunc5^";
+	return 5;
+];
+
+Array tables_data -> 256;
+Array copy_table_reference ->
+$00 $01 $02 $03 $04 $05 $06 $07 $08 $09 $0a $0b $0c $0d $0e $0f
+$00 $01 $02 $03 $04 $05 $06 $07 $18 $19 $1a $1b $1c $1d $1e $1f
+$30 $31 $32 $33 $34 $35 $36 $37 $28 $29 $2a $2b $2c $2d $2e $2f
+$30 $31 $32 $33 $34 $35 $36 $37 $38 $39 $3a $3b $3c $3d $3e $3f
+$40 $41 $42 $43 $40 $41 $42 $43 $44 $45 $46 $47 $4c $4d $4e $4f
+$54 $55 $56 $57 $58 $59 $5a $5b $58 $59 $5a $5b $5c $5d $5e $5f
+$60 $61 $62 $63 $60 $61 $62 $63 $60 $61 $62 $63 $6c $6d $6e $6f
+$00 $00 $00 $00 $00 $00 $00 $00 $78 $79 $7a $7b $7c $7d $7e $7f;
+
+TestClass Tables
+	with name 'tables' 'table',
+	testfunc [ val val2 ix;
+		print "*_table tests:^^";
+		
+		for (ix=0 : ix<256 : ix++) {
+			tables_data->ix = ix;
+		}
+		
+		print "@@64print_table - should print the alphabet in upper then lower case:^";
+		val = tables_data + $41;
+		@print_table val 26 2 6;
+		
+		print "^^@@64scan_table:";
+		print "^Default form, first word: "; 
+		@scan_table $0001 tables_data 128 -> val ?~bad_scan_table;
+		check(val, tables_data);
+		print "^Default form, another word: "; 
+		@scan_table $8081 tables_data 128 -> val ?~bad_scan_table;
+		check(val, tables_data + $80);
+		print "^Manually specified default form: "; 
+		@scan_table $8081 tables_data 128 $82 -> val ?~bad_scan_table;
+		check(val, tables_data + $80);
+		print "^Default form, nonexistent word: "; 
+		@scan_table $0102 tables_data 128 -> val ?bad_scan_table;
+		check(val, 0);
+		
+		print "^Byte form, first byte: "; 
+		@scan_table $00 tables_data 256 $01 -> val ?~bad_scan_table;
+		check(val, tables_data);
+		print "^Byte form, another byte: "; 
+		@scan_table $80 tables_data 256 $01 -> val ?~bad_scan_table;
+		check(val, tables_data + $80);
+		print "^Byte form, nonexistent byte: "; 
+		@scan_table $100 tables_data 256 $01 -> val ?bad_scan_table;
+		check(val, 0);
+		
+		print "^Longer form, first word: "; 
+		@scan_table $0001 tables_data 64 $84 -> val ?~bad_scan_table;
+		check(val, tables_data);
+		print "^Longer form, another word: "; 
+		@scan_table $8081 tables_data 64 $84 -> val ?~bad_scan_table;
+		check(val, tables_data + $80);
+		print "^Longer form, a word which will be skipped: "; 
+		@scan_table $0203 tables_data 64 $84 -> val ?bad_scan_table;
+		check(val, 0);
+		
+		print "^Longer byte form, first byte: "; 
+		@scan_table $00 tables_data 64 $04 -> val ?~bad_scan_table;
+		check(val, tables_data);
+		print "^Longer byte form, another byte: "; 
+		@scan_table $80 tables_data 64 $04 -> val ?~bad_scan_table;
+		check(val, tables_data + $80);
+		print "^Longer byte form, a byte which will be skipped: "; 
+		@scan_table $02 tables_data 64 $04 -> val ?bad_scan_table;
+		check(val, 0);
+		
+		print "^Default form, word after length of table: "; 
+		@scan_table $8081 tables_data 63 -> val ?bad_scan_table;
+		check(val, 0);
+		print "^Longer form, word after length of table: "; 
+		@scan_table $8081 tables_data 31 $84 -> val ?bad_scan_table;
+		check(val, 0);
+		
+		.copy_table;
+		print "^^@@64copy_table:^";
+		print "Copying forward, non-overlapping.^";
+		val = tables_data + $10;
+		@copy_table tables_data val 8;
+		val2 = copy_table_reference + $10;
+		check_array( val, val2, 16, Copytableprint );
+		
+		print "Copying backwards, non-overlapping.^";
+		val = tables_data + $20;
+		val2 = tables_data + $30;
+		@copy_table val2 val 8;
+		val2 = copy_table_reference + $20;
+		check_array( val, val2, 16, Copytableprint );
+		
+		print "Copying forward, overlapping, non-corrupting.^";
+		val = tables_data + $40;
+		val2 = tables_data + $44;
+		@copy_table val val2 8;
+		val2 = copy_table_reference + $40;
+		check_array( val, val2, 16, Copytableprint );
+		
+		print "Copying backward, overlapping, non-corrupting.^";
+		val = tables_data + $50;
+		val2 = tables_data + $54;
+		@copy_table val2 val 8;
+		val2 = copy_table_reference + $50;
+		check_array( val, val2, 16, Copytableprint );
+		
+		print "Copying forward, overlapping, corrupting.^";
+		val = tables_data + $60;
+		val2 = tables_data + $64;
+		@copy_table val val2 (-8);
+		val2 = copy_table_reference + $60;
+		check_array( val, val2, 16, Copytableprint );
+		
+		print "Using @@64copy_table to zero out an array.^";
+		val = tables_data + $70;
+		@copy_table val 0 8;
+		val2 = copy_table_reference + $70;
+		check_array( val, val2, 16, Copytableprint );
+		
+		val = failures;
+		
+		print "Checking final table (failures are not counted twice).^";
+		check_array( tables_data, copy_table_reference, 128, Copytableprint );
+		
+		failures = val;
+		count_failures();
+		return;
+		
+		.bad_scan_table;
+		print "^Bad @@64scan_table branch.";
+		failures++;
+		jump copy_table;
+	];
+
+[ Copytableprint ch ix;
+	print "Mismatch for index ", ix, ": ";
+];
 
 TestClass specfixes
 	with name 'specfixes' 'fixes',
@@ -2319,6 +2600,65 @@ TestClass specfixes
 		count_failures();
 	];
 
+Array basic_color_set --> $0000 $001D $0340 $03BD $59A0 $7C1F $77A0 $7FFF $5AD6 $4631 $2D6B;
+
+Array rainbow_set --> $001f $007f $00bf $00ff $013f $019f $01df $023f $027f $02bf $02ff $035f $039f $03df $03fd $03fb $03f9 $03f6 $03f4 $03f2 $03ef $03ed $03eb $03e8 $03e6 $03e4 $03e1 $07e0 $0fe0 $1be0 $23e0 $2be0 $33e0 $3fe0 $47e0 $53e0 $5be0 $63e0 $6be0 $77e0 $7fe0 $7f80 $7f40 $7f00 $7ec0 $7e60 $7e20 $7dc0 $7d80 $7d40 $7d00 $7ca0 $7c60 $7c00 $7c01 $7c04 $7c06 $7c09 $7c0b $7c0d $7c0f $7c12 $7c14 $7c17 $7c19 $7c1b $7c1d $781f $701f $641f $5c1f $541f $4c1f $401f $381f $2c1f $241f $1c1f $141f $081f;
+
+TestClass spec11
+	with name 'spec11',
+	testfunc [ i val;
+		print "Z-Machine 1.1 tests:^^";
+		
+		! Check we're in a 1.1 version interpreter
+		val = HDR_SPECREVISION-->0;
+		if (val < $0101)
+		{
+			print "Stopping, interpreter is only version "; Version(); print ".^";
+			return;
+		}
+		
+		print "Ok, interpreter is version "; Version(); print ".^^";
+		
+		! Test @set_true_colour by printing a rainbow
+		print "Checking @@64set_true_colour by printing a pretty rainbow (ultimate prettiness of rainbow depends on the observer's tastes):^^";
+		
+		@set_text_style 8;
+		for (i=0 : i<80 : i++)
+		{
+			val = rainbow_set-->i;
+			@"EXT:13" -1 val;
+			print " ";
+		}
+		@set_colour 1 1;
+		@set_text_style 0;
+		print "^^";
+		
+		! Check the recommended colour set
+		print "Checking if the basic colour set uses the recommended true colours:^^";
+		
+		@set_text_style 8;
+		print "Recommended: ";
+		for (i=0 : i<11 : i++)
+		{
+			val = basic_color_set-->i;
+			@"EXT:13" -1 val;
+			print " ";
+		}
+		@set_colour 1 1;
+		print "^Interpreter: ";
+		for (i=2 : i<13 : i++)
+		{
+			@set_colour 1 i;
+			print " ";
+		}
+		@set_colour 1 1;
+		@set_text_style 0;
+		print "^";
+		
+		!count_failures();
+		return;
+	];
+
 TestClass gestalt
 	with name 'spec12' 'gestalt',
 	testfunc [ val ;
@@ -2345,4 +2685,3 @@ TestClass gestalt
 		count_failures();
 		return;
 	];
-

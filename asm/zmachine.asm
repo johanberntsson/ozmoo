@@ -1973,7 +1973,7 @@ z_ins_scan_table
 	and #$80
 	bne + ; This is word compare, so don't perform the following test
 	lda z_operand_value_high_arr
-	bne .scan_not_a_match ; A value > 255 will never be matched by a byte
+	bne .scan_table_false ; A value > 255 will never be matched by a byte
 +	lda zp_temp
 	and #$7f
 	sta zp_temp + 1 ; entry length (1-127)
@@ -1990,15 +1990,11 @@ z_ins_scan_table
     jsr set_z_address
 	jsr read_next_byte
 	ldx zp_temp
-	bmi .scan_word_compare
-	; Byte compare
-	cmp z_operand_value_low_arr
-	bne .scan_not_a_match
-	beq .scan_is_a_match ; Always branch
-.scan_word_compare
+	bpl .scan_byte_compare
 	cmp z_operand_value_high_arr
 	bne .scan_not_a_match
 	jsr read_next_byte
+.scan_byte_compare
 	cmp z_operand_value_low_arr
 	beq .scan_is_a_match
 .scan_not_a_match
