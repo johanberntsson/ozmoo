@@ -129,11 +129,13 @@ z_ins_print_table
     sta .pt_skip
 	; Read args
     lda z_operand_value_low_arr + 1
+	beq .print_table_done
     sta .pt_width
     ldy z_operand_count
     cpy #3
     bcc +
     lda z_operand_value_low_arr + 2
+	beq .print_table_done
     sta .pt_height
 +   cpy #4
     bcc +
@@ -159,7 +161,7 @@ z_ins_print_table
 	dey
 	bne -
 	dec .pt_height
-	beq ++
+	beq .print_table_done
 ; Move cursor to start of next line to print
 	inc .pt_cursor
 	ldx .pt_cursor
@@ -174,8 +176,9 @@ z_ins_print_table
 	tax
 	pla
 	adc #0
-	bcc -- ; Always jump 
-++	rts
+	bcc -- ; Always jump
+.print_table_done	
+	rts
 }
 
 z_ins_buffer_mode 
