@@ -199,6 +199,8 @@ z_ins_buffer_mode
 .buffer_mode_done
 	rts
 
+}
+
 start_buffering
 	jsr get_cursor
 	sty first_buffered_column
@@ -206,7 +208,6 @@ start_buffering
 	ldy #0
 	sty last_break_char_buffer_pos
 	rts
-}
 
 !ifdef Z3 {
 .max_lines = 24
