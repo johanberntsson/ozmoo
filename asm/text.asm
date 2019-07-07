@@ -79,6 +79,12 @@ z_ins_read_char
     beq .read_char_loop ; timer routine returned false
 	pha
     jsr turn_off_cursor
+	lda current_window
+	bne .no_need_to_start_buffering
+	lda is_buffered_window
+	beq .no_need_to_start_buffering
+	jsr start_buffering
+.no_need_to_start_buffering	
 	pla
     cmp #1
     bne +

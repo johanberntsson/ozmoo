@@ -183,14 +183,29 @@ z_ins_print_table
 
 z_ins_buffer_mode 
 	; buffer_mode flag
+	; If buffer mode goes from 0 to 1, remember the start column
+	; If buffer mode goes from 1 to 0, flush the buffer 
+	
 	lda z_operand_value_low_arr
-	bne +
-	cmp is_buffered_window
-	beq ++
+	beq +
+	lda #1
++	cmp is_buffered_window
+	beq .buffer_mode_done
+; Buffer mode changes
+	sta is_buffered_window ; set lower window to buffered or unbuffered mode
+	cmp #0
+	bne start_buffering
 	jsr printchar_flush
-	lda z_operand_value_low_arr
-+	sta is_buffered_window ; set lower window to buffered mode
-++	rts
+.buffer_mode_done
+	rts
+
+start_buffering
+	jsr get_cursor
+	sty first_buffered_column
+	sty buffer_index
+	ldy #0
+	sty last_break_char_buffer_pos
+	rts
 }
 
 !ifdef Z3 {
@@ -332,47 +347,29 @@ clear_num_rows
     rts
 
 increase_num_rows
-    lda current_window
-	bne .not_buffered
-    inc num_rows
-    lda is_buffered_window
-    bne +
-.not_buffered
-    ; unbuffered windows don't insert newlines
-    ;lda num_rows
-    ;cmp #24 ; make sure that we see all debug messages (if any)
-    ;bcc .increase_num_rows_done
-    ;bcs .show_more
-    jmp .increase_num_rows_done
-; TODO: Check comparison for off-by-1-error
-+   lda window_start_row
+	lda current_window
+	bne .increase_num_rows_done ; Upper window is never buffered
+	inc num_rows
+	lda is_buffered_window
+	beq .increase_num_rows_done
+	lda window_start_row
 	sec
 	sbc window_start_row + 1
 	sbc #1
 	cmp num_rows
 	bcs .increase_num_rows_done
-	; lda num_rows
-    ; cmp window_size
-    ; bcc .increase_num_rows_done
 .show_more
-    ; time to show [More]
-    jsr clear_num_rows
-    ; print [More]
-    ; lda $07e5 
-    ; sta .more_text_char
-    ; lda $07e6 
-    ; sta .more_text_char + 1
-    lda $07e7 
-    sta .more_text_char + 2
-    lda #128 + $2a ; screen code for reversed "*"
-    ; sta $07e5
-    ; sta $07e6
-    sta $07e7
-    ; wait for ENTER
+	; time to show [More]
+	jsr clear_num_rows
+	lda $07e7 
+	sta .more_text_char
+	lda #128 + $2a ; screen code for reversed "*"
+	sta $07e7
+	; wait for ENTER
 .printchar_pressanykey
 !ifndef BENCHMARK {
 --	ldx s_colour
-	iny
+	iny ; TODO: Why iny? What do we use y for? Do we know
 	tya
 	and #1
 	beq +
@@ -389,25 +386,21 @@ increase_num_rows
     beq --
 +
 }
-    ; ; lda .more_text_char
-    ; ; sta $07e5
-    ; ; lda .more_text_char + 1
-    ; ; sta $07e6
-    lda .more_text_char + 2
-    sta $07e7
+	lda .more_text_char
+	sta $07e7
 .increase_num_rows_done
     rts
 
-.more_text_char !byte 0,0,0
+.more_text_char !byte 0
 
 printchar_flush
     ; flush the printchar buffer
 	ldx current_window
 	stx z_temp + 11
 	jsr select_lower_window
-    ldx #0
+    ldx first_buffered_column
 -   cpx buffer_index
-    beq +
+    bcs +
     txa ; kernal_printchar destroys x,y
     pha
     lda print_buffer,x
@@ -416,17 +409,14 @@ printchar_flush
     tax
     inx
     bne -
-+   ldx #0
-    stx buffer_index
-    stx last_break_char_buffer_pos
-
++	jsr start_buffering
 	ldx z_temp + 11
 	beq .increase_num_rows_done
 	jsr save_cursor
 	lda #1
-    sta current_window
-    ; We have re-selected the upper window, restore cursor position
-    jmp restore_cursor
+	sta current_window
+	; We have re-selected the upper window, restore cursor position
+	jmp restore_cursor
 
 printchar_buffered
     ; a is character to print
@@ -456,6 +446,7 @@ printchar_buffered
     jsr increase_num_rows
     lda #$0d
     jsr s_printchar
+	jsr start_buffering
     jmp .printchar_done
 .check_break_char
     ldy buffer_index
@@ -478,17 +469,12 @@ printchar_buffered
     ; print the line until last space
 	; First calculate max# of characters on line
 	ldx #40
-; TODO: Check comparison for off-by-1-error
 	lda window_start_row
 	sec
 	sbc window_start_row + 1
 	sbc #2
 	cmp num_rows
 	bcs +
-	; ldy num_rows 
-	; iny
-	; cpy window_size
-	; bcc +
 	dex ; Max 39 chars on last line on screen.
 +	stx max_chars_on_line
 	; Now find the character to break on
@@ -505,13 +491,17 @@ printchar_buffered
 	iny
 	bne .store_break_pos ; Always branch
 .print_40
+	; If we didn't start buffering at first column, we print a newline and put buffer contents at start of buffer to start on a new line.
+	ldx first_buffered_column
+	bne .move_remaining_chars_to_buffer_start
+
 	ldy max_chars_on_line
 .store_break_pos
 	sty last_break_char_buffer_pos
 .print_buffer
-    ldx #0
+	ldx first_buffered_column
 -   cpx last_break_char_buffer_pos
-    beq +
+    beq .move_remaining_chars_to_buffer_start
     txa ; kernal_printchar destroys x,y
     pha
     lda print_buffer,x
@@ -520,8 +510,10 @@ printchar_buffered
     tax
     inx
     bne - ; Always branch
+
+.move_remaining_chars_to_buffer_start
     ; Skip initial spaces, move the rest of the line back to the beginning and update indices
-+   ldy #0
+	ldy #0
 	cpx buffer_index
 	beq .after_copy_loop
     lda print_buffer,x
@@ -538,6 +530,8 @@ printchar_buffered
     bne .copy_loop ; Always branch
 .after_copy_loop
 	sty buffer_index
+	lda #0
+	sta first_buffered_column
     ; more on the same line
     jsr increase_num_rows
 	lda last_break_char_buffer_pos
@@ -557,6 +551,7 @@ printchar_buffered
 ; print_buffer            !fill 41, 0
 .save_x			   !byte 0
 .save_y			   !byte 0
+first_buffered_column !byte 0
 
 clear_screen_raw
 	lda #147
