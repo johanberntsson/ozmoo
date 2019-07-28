@@ -95,9 +95,60 @@ character_translation_table_out
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $5b, $28 ; [ = (
 character_translation_table_out_end
+} else { ; End of German section
+!ifdef ITALIAN_CHARS {
 
+; ITALIAN
 
-} else { ; End of ifdef GERMAN_CHARS
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $b9, $ac ; u-grave
+	!byte $b8, $ab ; o-grave
+	!byte $b7, $aa ; i-grave
+	!byte $aa, $a9 ; e-acute
+	!byte $b6, $a8 ; e-grave
+	!byte $b5, $a7 ; a-grave
+	!byte $be, $a6 ; U-grave
+	!byte $bd, $a5 ; O-grave
+	!byte $bc, $a4 ; I-grave
+	!byte $b0, $a3 ; E-acute
+	!byte $bb, $a2 ; E-grave
+	!byte $ba, $a1 ; A-grave
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $be, $a6 ; U-grave
+	!byte $bd, $a5 ; O-grave
+	!byte $bc, $a4 ; I-grave
+	!byte $bb, $a2 ; E-grave
+	!byte $ba, $a1 ; A-grave
+	!byte $b9, $ac ; u-grave
+	!byte $b8, $ab ; o-grave
+	!byte $b7, $aa ; i-grave
+	!byte $b6, $a8 ; e-grave
+	!byte $b5, $a7 ; a-grave
+	!byte $b0, $a3 ; E-acute
+	!byte $aa, $a9 ; e-acute
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+character_translation_table_out_end
+
+} else { ; End of Italian section
 
 ; ENGLISH
 
@@ -125,6 +176,7 @@ character_translation_table_out
 character_translation_table_out_end
 
 } ; End of English section
+} ; End of non-German section
 } ; End of non-Swedish section
 	
 streams_init

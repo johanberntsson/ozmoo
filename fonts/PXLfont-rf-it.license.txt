@@ -1,0 +1,17 @@
+PXLfont-rf-it.fnt: Ozmoo version, for Italian language, of PXLfont88665b-RF2.0-C64sys by Retrofan (http://compidiaries.wordpress.com)
+
+License: 
+
+This font was created by gpz500 (https://gpz500.wordpress.com/), based on the work of Retrofan (http://compidiaries.wordpress.com). It may be freely used with the Z-code interpreter Ozmoo, including embedding the font in games built with Ozmoo. For any other usage, you must first get permission by the author. A verbatim copy of this copyright notice must be distributed with any games which include this font.
+
+If you use this font in a game, you must also include credits for the font, stating the name of the font as well as the creator of the font. We strongly suggest you include these credits both in the docs / game distribution and somewhere within the game (Some games print "Type ABOUT for information about the game." or something to that effect as the game starts).
+
+Original license of PXLfont88665b-RF2.0-C64sys font follows.
+
+PXLfont-rf.fnt: PXLfont88665b-RF2.0-C64sys
+
+License: 
+
+This font was created by Retrofan (http://compidiaries.wordpress.com). It may be freely used with the Z-code interpreter Ozmoo, including embedding the font in games built with Ozmoo. For any other usage, you must first get permission by the author. A verbatim copy of this copyright notice must be distributed with any games which include this font.
+
+If you use this font in a game, you must also include credits for the font, stating the name of the font as well as the creator of the font. We strongly suggest you include these credits both in the docs / game distribution and somewhere within the game (Some games print "Type ABOUT for information about the game." or something to that effect as the game starts).

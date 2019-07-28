@@ -24,7 +24,7 @@ ruby make.rb examples\Aventyr.z5 -f fonts\PXLfont-rf-sv.fnt -cm:sv
 -f sets the font to use.
 -cm sets the character mapping to use.
 
-If you want to create a character mapping for say Italian, and you know you will never want to build a game in Swedish, you can just replace the Swedish mapping in streams.asm and use -cm:sv to refer to your italian mapping.
+If you want to create a character mapping for say French, and you know you will never want to build a game in Swedish, you can just replace the Swedish mapping in streams.asm and use -cm:sv to refer to your french mapping.
 
 The definition of ZSCII can be found at https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight (the accented characters that Ozmoo can use are in a table under 3.8.7).
 
