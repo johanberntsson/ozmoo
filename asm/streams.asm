@@ -104,18 +104,18 @@ character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $b9, $ac ; u-grave
-	!byte $b8, $ab ; o-grave
-	!byte $b7, $aa ; i-grave
-	!byte $aa, $a9 ; e-acute
-	!byte $b6, $a8 ; e-grave
-	!byte $b5, $a7 ; a-grave
-	!byte $be, $a6 ; U-grave
-	!byte $bd, $a5 ; O-grave
-	!byte $bc, $a4 ; I-grave
-	!byte $b0, $a3 ; E-acute
-	!byte $bb, $a2 ; E-grave
-	!byte $ba, $a1 ; A-grave
+	!byte $b0, $bb ; E-acute <= CBM-f
+	!byte $b8, $b9 ; o-grave <= CBM-o
+	!byte $b9, $b8 ; u-grave <= CBM-u
+	!byte $bd, $b6 ; O-grave <= CBM-l
+	!byte $be, $b5 ; U-grave <= CBM-j
+	!byte $aa, $b2 ; e-acute <= CBM-r
+	!byte $b6, $b1 ; e-grave <= CBM-e
+	!byte $b5, $b0 ; a-grave <= CBM-a
+	!byte $ba, $ad ; A-grave <= CBM-z
+	!byte $bb, $ac ; E-grave <= CBM-d
+	!byte $b7, $a2 ; i-grave <= CBM-i
+	!byte $bc, $a1 ; I-grave <= CBM-k
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
@@ -127,18 +127,18 @@ character_translation_table_in_end
 character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $be, $a6 ; U-grave
-	!byte $bd, $a5 ; O-grave
-	!byte $bc, $a4 ; I-grave
-	!byte $bb, $a2 ; E-grave
-	!byte $ba, $a1 ; A-grave
-	!byte $b9, $ac ; u-grave
-	!byte $b8, $ab ; o-grave
-	!byte $b7, $aa ; i-grave
-	!byte $b6, $a8 ; e-grave
-	!byte $b5, $a7 ; a-grave
-	!byte $b0, $a3 ; E-acute
-	!byte $aa, $a9 ; e-acute
+	!byte $be, $b5 ; U-grave => CBM-j
+	!byte $bd, $b6 ; O-grave => CBM-l
+	!byte $bc, $a1 ; I-grave => CBM-k
+	!byte $bb, $ac ; E-grave => CBM-d
+	!byte $ba, $ad ; A-grave => CBM-z
+	!byte $b9, $b8 ; u-grave => CBM-u
+	!byte $b8, $b9 ; o-grave => CBM-o
+	!byte $b7, $a2 ; i-grave => CBM-i
+	!byte $b6, $b1 ; e-grave => CBM-e
+	!byte $b5, $b0 ; a-grave => CBM-a
+	!byte $b0, $bb ; E-acute => CBM-f
+	!byte $aa, $b2 ; e-acute => CBM-r
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
 	!byte $7c, $7d ; Pipe = pipe-like graphic character

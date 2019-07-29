@@ -28,7 +28,7 @@ If you want to create a character mapping for say French, and you know you will 
 
 The definition of ZSCII can be found at https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight (the accented characters that Ozmoo can use are in a table under 3.8.7).
 
-The definition of PETSCII can be found at http://sta.c64.org/cbm64pet.html . Please read the notes below the table as well.
+The definition of PETSCII can be found at http://sta.c64.org/cbm64petkey.html . Please read the notes below the table as well.
 
 
 
