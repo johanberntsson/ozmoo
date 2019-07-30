@@ -159,7 +159,14 @@ streams_print_output
 	beq .pla_and_return
 	pla
 	jsr translate_zscii_to_petscii
+	bcs .could_not_convert
 	jmp printchar_buffered
+.could_not_convert
+!ifdef DEBUG {
+	jmp print_bad_zscii_code_buffered
+} else {
+	rts
+}
 .mem_write
 	lda streams_current_entry + 2
 	sta .print_byte_to_mem + 1
@@ -291,6 +298,7 @@ z_ins_output_stream
 	rts
 
 translate_zscii_to_petscii
+	; Return PETSCII code *OR* set carry if this ZSCII character is unsupported
 	sty .streams_tmp + 1
 	ldy #character_translation_table_out_end - character_translation_table_out - 2
 -	cmp character_translation_table_out,y
@@ -300,6 +308,17 @@ translate_zscii_to_petscii
 	dey
 	bpl -
 .no_match
+	; Check if legal
+	cmp #13
+	beq .case_conversion_done
+	cmp #$20
+	bcc .not_legal
+	cmp #$7f
+	bcc .is_legal
+.not_legal
+	sec
+	rts
+.is_legal
 ; .case_conversion
 	ldy .streams_tmp + 1
 	cmp #$41
@@ -317,10 +336,13 @@ translate_zscii_to_petscii
 	; Lower case. $61 -> $41
 	and #$df
 .case_conversion_done
+	clc
 	rts
 .match
 	iny
 	lda character_translation_table_out,y
 	ldy .streams_tmp + 1
+	clc
 	rts
+
 }

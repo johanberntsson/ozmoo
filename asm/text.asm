@@ -1044,7 +1044,16 @@ read_text
     iny
     lda (string_array),y
 	jsr translate_zscii_to_petscii
+!ifdef DEBUG {
+	bcc .could_convert
+	jsr print_bad_zscii_code
+	jmp .done_printing_this_char
+.could_convert
+} else {
+	bcs .done_printing_this_char
+}
 	jsr s_printchar
+.done_printing_this_char
     dex
     jmp .p0
 .p1   
@@ -1053,7 +1062,16 @@ read_text
 .p0 lda (string_array),y ; default is empty string (0 in pos 1)
     beq .p1
 	jsr translate_zscii_to_petscii
-    jsr s_printchar
+!ifdef DEBUG {
+	bcc .could_convert
+	jsr print_bad_zscii_code
+	jmp .done_printing_this_char
+.could_convert
+} else {
+	bcs .done_printing_this_char
+}
+	jsr s_printchar
+.done_printing_this_char
     iny
     jmp .p0
 .p1

@@ -444,12 +444,21 @@ print_trace
 	inx
 	cpx #10
 	bcc .print_next_op
-	bcs .print_no_more_ops
+	rts
 } else {
 	rts ; If TRACE is not enabled, there is no trace info to print
 }
 
 print_byte_as_hex
+	pha
+	lda #$ff
+	sta .print_bad_code_buffered
+	pla
+
+; Must be followed by print_byte_as_hex_primitive
+
+; Must follow print_byte_as_hex
+print_byte_as_hex_primitive
 	stx .saved_x
 	pha
 	lsr
@@ -458,22 +467,50 @@ print_byte_as_hex
 	lsr
 	tax
 	lda .hex_num,x
-	jsr streams_print_output
+	jsr .print_byte_as_hex_one_char
 	pla
 	pha
 	and #$0f
 	tax
 	lda .hex_num,x
 	ldx .saved_x
-	jsr streams_print_output
+	jsr .print_byte_as_hex_one_char
 	pla
 	rts
+
+print_bad_zscii_code_buffered
+	pha
+	lda #$80
+	bne .print_bad_zscii_code_main ; Always branch
+print_bad_zscii_code
+	pha
+	lda #0
+.print_bad_zscii_code_main
+	sta .print_bad_code_buffered
+	lda #$2f ; "/"
+	jsr .print_byte_as_hex_one_char
+	pla
+	pha
+	jsr print_byte_as_hex_primitive
+	lda #$2f ; "/"
+	jsr .print_byte_as_hex_one_char
+	pla
+	rts
+	
+.print_byte_as_hex_one_char
+	bit .print_bad_code_buffered
+	bmi +
+	jmp s_printchar
++	bvs +
+	jmp printchar_buffered	
++	jmp streams_print_output
+
+.print_bad_code_buffered	!byte 0	; 0 = s_printchar, $80 = printchar_buffered, $ff = streams_print_output
 .hex_num
 	!pet "0123456789abcdef"
-.print_no_more_ops
-    rts
-	
-}
+} ; ifdef DBUG
+
+
 
 printinteger
     ; subroutine: print 16 bit integer value
