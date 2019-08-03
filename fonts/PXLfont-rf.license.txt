@@ -1,4 +1,4 @@
-PXLfont-rf.fnt: PXLfont88665b-RF2.0-C64sys
+PXLfont-rf.fnt: PXLfont88665b-RF2.2-C64sys
 
 License: 
 
