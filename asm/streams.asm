@@ -95,9 +95,60 @@ character_translation_table_out
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $5b, $28 ; [ = (
 character_translation_table_out_end
+} else { ; End of German section
+!ifdef ITALIAN_CHARS {
 
+; ITALIAN
 
-} else { ; End of ifdef GERMAN_CHARS
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $aa, $bb ; é <= É (CBM-f)
+	!byte $b8, $b9 ;      ò (CBM-o)
+	!byte $b9, $b8 ;      ù (CBM-u)
+	!byte $b8, $b6 ; ò <= Ò (CBM-l)
+	!byte $b9, $b5 ; ù <= Ù (CBM-j)
+	!byte $aa, $b2 ;      é (CBM-r)
+	!byte $b6, $b1 ;      è (CBM-e)
+	!byte $b5, $b0 ;      à (CBM-a)
+	!byte $b5, $ad ; à <= À (CBM-z)
+	!byte $b6, $ac ; è <= È (CBM-d)
+	!byte $b7, $a2 ;      ì (CBM-i)
+	!byte $b7, $a1 ; ì <= Ì (CBM-k)
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $be, $b5 ; Ù
+	!byte $bd, $b6 ; Ò
+	!byte $bc, $a1 ; Ì
+	!byte $bb, $ac ; È
+	!byte $ba, $ad ; À
+	!byte $b9, $b8 ; ù
+	!byte $b8, $b9 ; ò
+	!byte $b7, $a2 ; ì
+	!byte $b6, $b1 ; è
+	!byte $b5, $b0 ; à
+	!byte $b0, $bb ; É
+	!byte $aa, $b2 ; é
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+character_translation_table_out_end
+
+} else { ; End of Italian section
 
 ; ENGLISH
 
@@ -125,6 +176,7 @@ character_translation_table_out
 character_translation_table_out_end
 
 } ; End of English section
+} ; End of non-German section
 } ; End of non-Swedish section
 	
 streams_init
