@@ -21,6 +21,7 @@ character_translation_table_in
 	!byte $c9, $dd ; Å = ]
 	!byte $9c, $dc ; Ö = £
 	!byte $9b, $db ; Ä = [
+	!byte $aa, $b1 ; é = CBM-e
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
@@ -37,6 +38,7 @@ character_translation_table_out
 ; NOTE: Must be sorted on ZSCII value, descending!
 	!byte $ca, $dd ; Å = Shift-]
 	!byte $c9, $5d ; å = ]
+	!byte $aa, $b1 ; é = CBM-e
 	!byte $9f, $dc ; Ö = Shift-£
 	!byte $9e, $db ; Ä = Shift-[
 	!byte $9c, $5c ; ö = £
