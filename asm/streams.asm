@@ -62,12 +62,12 @@ character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $9b, $dd ; ä = Shift-]
-	!byte $9c, $db ; ö = Shift-[
+	!byte $9b, $dd ; Ä => ]
+	!byte $9c, $db ; Ö => [
+	!byte $9d, $c0 ; Ü => @
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $9d, $60 ; ü = Shift-@
 	!byte $a1, $5f ; ß = left-arrow
 	!byte $9b, $5d ; ä = ]
 	!byte $9c, $5b ; ö = [
@@ -81,7 +81,7 @@ character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
 	!byte $a1, $5f ; ß = left-arrow
-	!byte $a0, $60 ; Ü = Shift-@
+	!byte $a0, $c0 ; Ü = Shift-@
 	!byte $9f, $db ; Ö = Shift-[
 	!byte $9e, $dd ; Ä = Shift-]
 	!byte $9d, $40 ; ü = @

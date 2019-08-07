@@ -105,14 +105,17 @@ z_ins_tokenise_text
     adc #>story_start
     sta string_array + 1
     ; setup user dictionary, if supplied
-    lda z_operand_value_low_arr + 2
-	tax
-	ora z_operand_value_high_arr + 2
+	lda z_operand_count
+	cmp #3
+	bcc .no_user_dictionary
+	ldx z_operand_value_low_arr + 2
+	txa
+    ora z_operand_value_high_arr + 2
 	beq .no_user_dictionary
 
     ; user dictionary
 
-	lda z_operand_value_high_arr + 2
+	lda z_operand_value_high_arr + 2 ; X is already set
 	jsr parse_user_dictionary
 	jmp .tokenise_main
 	
