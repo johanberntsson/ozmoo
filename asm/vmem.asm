@@ -441,7 +441,7 @@ read_byte_at_z_address
 	cmp vmem_temp + 1
 	beq .quick_index_match
 	lda vmem_temp
-	bne -- ; Always branch
+	jmp --
 .quick_index_match
 	inc vmap_quick_index_match
 	tya
