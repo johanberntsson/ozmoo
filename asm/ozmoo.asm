@@ -466,6 +466,8 @@ deletable_init
 	+set_memory_no_basic
 
 ; parse_header section
+
+!ifndef SMALL_CODE {
     ; check z machine version
     lda story_start + header_version
 !ifdef Z3 {
@@ -484,6 +486,7 @@ deletable_init
     lda #ERROR_UNSUPPORTED_STORY_VERSION
     jsr fatalerror
 .supported_version
+}
 
 	; Check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
 !ifdef VMEM {

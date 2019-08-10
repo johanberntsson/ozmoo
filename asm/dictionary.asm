@@ -33,11 +33,14 @@ parse_dictionary
 !ifdef DEBUG {
     jsr newline
 }
+!ifndef SMALL_CODE {
     cmp #10 ; max num terminators
-    bcc +
+    bcc .ok_term
     lda #ERROR_TOO_MANY_TERMINATORS
     jsr fatalerror
-+   sta num_terminators
+.ok_term
+}
+   sta num_terminators
     ldy #0
 -   jsr read_next_byte
     sta terminators,y

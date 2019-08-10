@@ -758,8 +758,10 @@ dumptovice
 	; Local variable
 	tay
 	dey
+!ifndef SMALL_CODE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
+}
 	asl
 	tay
 	iny
@@ -800,9 +802,11 @@ dumptovice
 	lda (z_high_global_vars_ptr),y
 ;	dec z_global_vars_start + 1
 	bcs .store_operand ; Always branch
+!ifndef SMALL_CODE {
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
+}
 	
 .perform_instruction
 	lda z_opcode_opcount
@@ -826,6 +830,10 @@ dumptovice
 	jmp .main_loop
 
 z_not_implemented
+
+!ifdef SMALL_CODE {
+	rts
+} else {
 !ifdef DEBUG {
 	jsr print_following_string
 	!pet "opcode: ",0
@@ -840,6 +848,7 @@ z_not_implemented
 }
     lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror
+}
 }
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
@@ -862,8 +871,10 @@ z_get_variable_reference
 	; Local variable
 	tay
 	dey
+!ifndef SMALL_CODE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
+}
 	asl
 	clc
 	adc z_local_vars_ptr
@@ -885,9 +896,11 @@ z_get_variable_reference
 	ldy zp_temp + 3
 	rts
 
+!ifndef SMALL_CODE {
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
+}
 	
 ; z_get_variable_value
 z_get_low_global_variable_value
@@ -916,8 +929,10 @@ z_set_variable
 	; Local variable
 	tay
 	dey
+!ifndef SMALL_CODE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
+}
 	asl
 	tay
 	lda zp_temp + 2

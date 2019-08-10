@@ -608,21 +608,24 @@ z_ins_get_prop
     lda #0
     jmp .return_property_result
 .not_one
+!ifndef SMALL_CODE {
     cmp #2
     bne .not_two
+}
     ; property length is 2
     jsr read_next_byte
     pha
     jsr read_next_byte
     tax
     pla
-    jmp .return_property_result
+.return_property_result
+    jmp z_store_result
+!ifndef SMALL_CODE {
 .not_two
     ; error. only 1 or 2 allowed
     lda #ERROR_BAD_PROPERTY_LENGTH
     jsr fatalerror
-.return_property_result
-    jmp z_store_result
+}
 
 z_ins_get_prop_addr
     ; get_prop_addr object property -> (result)
@@ -661,8 +664,11 @@ z_ins_put_prop
     ldy #0
     sta (zp_mempos),y
     rts
-+   cmp #2
-    bne +
++   
+!ifndef SMALL_CODE {
+	cmp #2
+    bne .not_two
+}
     ldy #0
     lda z_operand_value_high_arr + 2
     sta (zp_mempos),y
@@ -670,8 +676,6 @@ z_ins_put_prop
     lda z_operand_value_low_arr + 2
     sta (zp_mempos),y
     rts
-+   lda #ERROR_BAD_PROPERTY_LENGTH
-    jsr fatalerror
 
 parse_object_table
     lda story_start + header_object_table     ; high byte

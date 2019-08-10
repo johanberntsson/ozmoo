@@ -247,22 +247,28 @@ z_ins_output_stream
 	bit z_operand_value_low_arr
 	bmi .negative
 	lda z_operand_value_low_arr
+!ifndef SMALL_CODE {
 	beq .unsupported_stream
 	cmp #5
 	bcs .unsupported_stream
+}
 	tax
 	lda #1
 	sta streams_output_selected - 1,x
 	cpx #3
 	beq .turn_on_mem_stream
 	rts
+!ifndef SMALL_CODE {
 .unsupported_stream
     lda #ERROR_UNSUPPORTED_STREAM
 	jsr fatalerror
+}
 .negative
 	lda z_operand_value_low_arr
+!ifndef SMALL_CODE {
 	cmp #-4
 	bmi .unsupported_stream
+}
 	eor #$ff
 	clc
 	adc #1
@@ -275,8 +281,10 @@ z_ins_output_stream
 .turn_on_mem_stream
 	lda streams_stack_items
 	beq .add_first_level
+!ifndef SMALL_CODE {
 	cmp #16
 	bcs .stream_nesting_error
+}
 	asl
 	asl
 	tay
@@ -304,12 +312,16 @@ z_ins_output_stream
 	sta streams_current_entry + 3
 	inc streams_stack_items
 	rts
+!ifndef SMALL_CODE {
 .stream_nesting_error
     lda #ERROR_STREAM_NESTING_ERROR
 	jsr fatalerror
+}
 .turn_off_mem_stream
 	lda streams_stack_items
+!ifndef SMALL_CODE {
 	beq .stream_nesting_error
+}
 	; Copy length to first word in table
 	lda streams_current_entry
 	sta zp_temp

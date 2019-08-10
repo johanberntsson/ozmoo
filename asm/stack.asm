@@ -106,6 +106,7 @@ stack_push_top_value
 	ldx zp_temp + 4
 }
 
+!ifndef SMALL_CODE {
 ; push_check_room
 	lda stack_ptr
 	clc
@@ -113,9 +114,11 @@ stack_push_top_value
 	lda stack_ptr + 1
 	adc stack_pushed_bytes
 	cmp #>(stack_start + stack_size)
-	bcc +
+	bcc .not_full
 	jmp .stack_full
-+	rts
+.not_full
+}
+	rts
 
 ; This is used by stack_call_routine	
 .many_pushed_bytes
@@ -309,8 +312,10 @@ stack_call_routine
 	lda stack_ptr + 1
 	adc #0
 	sta stack_ptr + 1
+!ifndef SMALL_CODE {
 	cmp #>(stack_start + stack_size)
 	bcs .stack_full
+}
 
 !ifdef VIEW_STACK_RECORDS {
 	lda stack_ptr
@@ -336,9 +341,11 @@ stack_call_routine
 }
 	rts
 
+!ifndef SMALL_CODE {
 .stack_full
     lda #ERROR_STACK_FULL
 	jmp fatalerror
+}
 	
 !ifdef Z5PLUS {	
 z_ins_check_arg_count
