@@ -7,6 +7,8 @@ Included with the Ozmoo distribution are these custom fonts:
 
 * Clairsys.fnt: Clairsys, by Paul van der Laan.
 
+* Clairsys-it.fnt: Italian version of Clairsys, by Paul van der Laan.
+
 * PXLfont-rf.fnt: PXLfont88665b-RF2.2-C64sys by Retrofan.
 
 * PXLfont-rf-de.fnt: Ozmoo version of PXLfont88665b-RF2.2-C64sysDE by Retrofan. Note: This is font for usage in German games.
