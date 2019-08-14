@@ -45,7 +45,7 @@ character_translation_table_out
 	!byte $9b, $5b ; ä = [
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -89,7 +89,7 @@ character_translation_table_out
 	!byte $9b, $5d ; ä = ]
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -143,7 +143,70 @@ character_translation_table_out
 	!byte $aa, $b2 ; é
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+character_translation_table_out_end
+
+} else { ; End of Italian section
+
+
+!ifdef SPANISH_CHARS {
+
+; SPANISH
+
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $ac, $b9 ; á          (CBM-o)
+	!byte $ad, $b8 ; á          (CBM-u)
+	!byte $9d, $b7 ; ü          (CBM-y)
+	!byte $ac, $b6 ; Ó => ó     (CBM-l)
+	!byte $ad, $b5 ; Ú => ú     (CBM-j)
+	!byte $9d, $b4 ; Ü => ü     (CBM-h)
+	!byte $df, $b3 ; inverted ? (CBM-w)
+	!byte $aa, $b1 ; é          (CBM-e)
+	!byte $a9, $b0 ; á          (CBM-a)
+	!byte $a9, $ad ; Á => á     (CBM-z)
+	!byte $aa, $ac ; É => é     (CBM-d)
+	!byte $de, $ab ; inverted ! (CBM-q)
+	!byte $ce, $aa ; ñ          (CBM-n)
+	!byte $ce, $a7 ; Ñ => ñ     (CBM-m)
+	!byte $ab, $a2 ; í          (CBM-i)
+	!byte $ab, $a1 ; Í => í     (CBM-k)
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $df, $b3 ; inverted ?
+	!byte $de, $ab ; inverted !
+	!byte $d1, $a7 ; Ñ
+	!byte $ce, $aa ; ñ
+	!byte $b3, $b5 ; Ú
+	!byte $b2, $b6 ; Ó
+	!byte $b1, $a1 ; Í
+	!byte $b0, $ac ; É
+	!byte $af, $ad ; Á
+	!byte $ad, $b8 ; á
+	!byte $ac, $b9 ; á
+	!byte $ab, $a2 ; í
+	!byte $aa, $b1 ; é
+	!byte $a9, $b0 ; á
+	!byte $a0, $b4 ; Ü
+	!byte $9d, $b7 ; ü
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -170,7 +233,7 @@ character_translation_table_out
 ; NOTE: Must be sorted on ZSCII value, descending!
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $7d ; Pipe = pipe-like graphic character
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -178,6 +241,7 @@ character_translation_table_out
 character_translation_table_out_end
 
 } ; End of English section
+} ; End of non-Italian section
 } ; End of non-German section
 } ; End of non-Swedish section
 	

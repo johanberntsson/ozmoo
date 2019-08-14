@@ -1076,7 +1076,7 @@ def print_usage_and_exit
 #	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
-	puts "  -cm: Use the specified character map (sv, de or it)"
+	puts "  -cm: Use the specified character map (sv, de, it or es)"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1146,7 +1146,7 @@ begin
 			$statusline_colour = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
-		elsif ARGV[i] =~ /^-cm:(sv|de|it)$/ then
+		elsif ARGV[i] =~ /^-cm:(sv|de|it|es)$/ then
 			$char_map = $1
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
@@ -1173,6 +1173,7 @@ $VMEM = (mode != MODE_P)
 $GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'
 $GENERALFLAGS.push('GERMAN_CHARS') if $char_map == 'de'
 $GENERALFLAGS.push('ITALIAN_CHARS') if $char_map == 'it'
+$GENERALFLAGS.push('SPANISH_CHARS') if $char_map == 'es'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 
