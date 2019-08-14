@@ -1007,7 +1007,7 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	File.rename(d64_filename_3, "./#{outfile3name}")
 	
 	$bootdiskname = "#{outfile1name}"
-	puts "Successfully built game as #{bootdiskname} + #{outfile2name} + #{outfile3name}"
+	puts "Successfully built game as #{$bootdiskname} + #{outfile2name} + #{outfile3name}"
 	nil # Signal success
 end
 
