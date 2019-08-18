@@ -216,7 +216,8 @@ deletable_screen_init
 	jsr erase_window
 	ldy #0
 	ldx #1
-	jmp set_cursor
+	jsr set_cursor
+	jmp start_buffering
 
 
 z_init
