@@ -79,12 +79,12 @@ z_ins_read_char
     beq .read_char_loop ; timer routine returned false
 	pha
     jsr turn_off_cursor
-	lda current_window
-	bne .no_need_to_start_buffering
-	lda is_buffered_window
-	beq .no_need_to_start_buffering
+	; lda current_window
+	; bne .no_need_to_start_buffering
+	; lda is_buffered_window
+	; beq .no_need_to_start_buffering
 	jsr start_buffering
-.no_need_to_start_buffering	
+; .no_need_to_start_buffering	
 	pla
     cmp #1
     bne +
@@ -290,6 +290,7 @@ z_ins_read
     jsr newline
 }
 .read_done
+	jsr start_buffering
     ; debug - print parsearray
 !ifdef TRACE_PRINT_ARRAYS {
     ldy #0
@@ -990,6 +991,7 @@ read_text
     clc
     adc #>story_start
     sta string_array + 1
+	jsr printchar_flush
     ; clear [More] counter
     jsr clear_num_rows
 !ifdef Z4PLUS {
@@ -1175,7 +1177,10 @@ read_text
 	
     pla
     beq +
+;	pha
     jsr s_printchar; print final char unless it is 0
+;	jsr start_buffering
+;	pla
 +   rts
 .read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
