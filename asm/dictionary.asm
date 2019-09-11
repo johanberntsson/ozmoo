@@ -30,9 +30,6 @@ parse_dictionary
     jsr set_z_address
     ; read terminators
     jsr read_next_byte
-!ifdef DEBUG {
-    jsr newline
-}
 !ifndef SMALL_CODE {
     cmp #10 ; max num terminators
     bcc .ok_term
