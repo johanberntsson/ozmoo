@@ -15,8 +15,6 @@ Support REU for fast memory copying.
 
 Add fast-loader code.
 
-Less error checking in production builds to increase speed (Remove: Stack overflow, Maybe: Stack underflow. What else?)
-
 Investigate if we can keep channels open between two consecutive block reads, and if this would make the game faster.
 
 If and when we keep channel open between block reads, investigate best interleave value again.
@@ -49,6 +47,8 @@ Possible alternative versions / extensions
 
 DONE (Implemented features and fixed bugs)
 ------------------------------------------
+Less error checking in production builds to increase speed (Remove: Stack overflow, Maybe: Stack underflow. What else?)
+
 A Bear's Night Out: Extra reversed space after quote box at start of game, and "[Please press SPACE to begin]" not shown.
 
 MORE prompt hides two characters of text, which the player may miss entirely.
