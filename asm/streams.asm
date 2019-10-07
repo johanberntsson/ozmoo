@@ -54,6 +54,50 @@ character_translation_table_out
 	!byte $5b, $28 ; [ = (
 character_translation_table_out_end
 } else { ; End of Swedish section
+!ifdef DANISH_CHARS {
+
+; DANISH
+
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $c9, $dd ; Å = ]
+	!byte $cb, $dc ; Ø = £
+	!byte $d3, $db ; Æ = [
+	!byte $aa, $b1 ; é = CBM-e
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $c9, $5d ; å = ]
+	!byte $cb, $5c ; ø = £
+	!byte $d3, $5b ; æ = [
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $d4, $db ; Æ = Shift-[
+	!byte $d3, $5b ; æ = [
+	!byte $cc, $dc ; Ø = Shift-£
+	!byte $cb, $5c ; ø = £
+	!byte $ca, $dd ; Å = Shift-]
+	!byte $c9, $5d ; å = ]
+	!byte $aa, $b1 ; é = CBM-e
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5d, $29 ; ] = )
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+	!byte $5b, $28 ; [ = (
+character_translation_table_out_end
+} else { ; End of Danish section
 !ifdef GERMAN_CHARS {
 
 ; GERMAN
@@ -243,6 +287,7 @@ character_translation_table_out_end
 } ; End of English section
 } ; End of non-Italian section
 } ; End of non-German section
+} ; End of non-Danish section
 } ; End of non-Swedish section
 	
 streams_init
