@@ -1,4 +1,4 @@
-system-sv.fnt: Ozmoo version, for Danish language, of the original Commodore 64 system font
+system-da.fnt: Ozmoo version, for Danish language, of the original Commodore 64 system font
 
 License: 
 

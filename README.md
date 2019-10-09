@@ -47,7 +47,7 @@ The longer answer:
 ![Ozmoo running a German game using a custom font with accented characters](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/germangame.png)
 
 * Uses all 40 columns, has smart wordwrap and has a MORE prompt which uses a single character - this allows for much more text to be fitted on screen than with Infocom's interpreters.
-* Supports embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, German, Italian and Spanish. And you can supply your own font.
+* Supports embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, Danish, German, Italian and Spanish. And you can supply your own font.
 * Supports custom alphabets in Z-machine version 5 and 8.
 * Supports custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedis, German, Italian and Spanish.
 * Supports custom colour schemes.
@@ -116,3 +116,4 @@ Special thanks to:
 * lft for good advice and support
 * Jason Compton, for great help in testing
 * Alessandro Morgantini for adding support for Italian
+* Thomas Bøvith for adding support for Danish
