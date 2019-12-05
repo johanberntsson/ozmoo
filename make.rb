@@ -1364,7 +1364,11 @@ else # No preload data available
 		mapped_vmem_blocks = 0
 	else
 #		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
-		mapped_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
+		if mode == MODE_P 
+			mapped_vmem_blocks = total_vmem_blocks - $dynmem_blocks
+		else
+			mapped_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
+		end
 		referenced_blocks = mapped_vmem_blocks / 2 # Mark the first half of the non-dynmem blocks as referenced 
 	end
 	vmem_data = [
