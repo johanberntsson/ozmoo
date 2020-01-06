@@ -1,17 +1,15 @@
 ; screen update routines
 
 init_screen_colours_invisible
-	ldx zcolours + BGCOL
-    lda colours,x ; Load control character to switch to background colour
-	bne +
+	lda zcolours + BGCOL
+	bpl + ; Always branch
 init_screen_colours
     jsr s_init
-	ldx zcolours + FGCOL
+	lda zcolours + FGCOL
 !ifdef BORDER_LIKE_FG {
-	stx reg_bordercolour
+	sta reg_bordercolour
 }
-    lda colours,x ; Load control character to switch to background colour
-+	jsr s_printchar
++	jsr s_set_text_colour
     lda zcolours + BGCOL
     sta reg_backgroundcolour
 !ifdef BORDER_LIKE_BG {
@@ -626,9 +624,8 @@ draw_status_line
     jsr set_cursor
     lda #18 ; reverse on
     jsr s_printchar
-	ldx zcolours + STATCOL
-	lda colours,x
-	jsr s_printchar
+	lda zcolours + STATCOL
+	jsr s_set_text_colour
     ;
     ; Room name
     ; 
@@ -710,9 +707,8 @@ draw_status_line
     jsr z_get_low_global_variable_value
 	jsr .print_clock_number
 .statusline_done
-	ldx zcolours + FGCOL
-	lda colours,x
-	jsr s_printchar
+	lda zcolours + FGCOL
+	jsr s_set_text_colour
     lda #146 ; reverse off
     jsr s_printchar
 	pla

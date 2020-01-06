@@ -51,6 +51,10 @@ s_plot
 	sty zp_screencolumn
 	jmp .update_screenpos
 
+s_set_text_colour
+	sta s_colour
+	rts
+
 s_printchar
     ; replacement for CHROUT ($ffd2)
     ; input: A = byte to write (PETASCII)
@@ -106,22 +110,22 @@ s_printchar
     stx s_reverse
     jmp .printchar_end
 +   cmp #$92 ; 146
-    bne +
+    bne .printchar_end
     ; reverse off
     ldx #0
     stx s_reverse
     beq .printchar_end ; Always jump
-+
-	; check if colour code
-	ldx #15
--	cmp colours,x
-	beq ++
-	dex
-	bpl -
-	bmi .printchar_end ; Always branch
-++	; colour <x> found
-	stx s_colour
-	beq .printchar_end ; Always jump
+; +
+	; ; check if colour code
+	; ldx #15
+; -	cmp colours,x
+	; beq ++
+	; dex
+	; bpl -
+	; bmi .printchar_end ; Always branch
+; ++	; colour <x> found
+	; stx s_colour
+	; beq .printchar_end ; Always jump
 	
 .normal_char
 	ldx zp_screencolumn
@@ -329,7 +333,7 @@ s_erase_line
     bne -
     rts
 
-colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 zcolours	!byte $ff,$ff ; current/default colour
 			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
 			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
@@ -342,15 +346,14 @@ z_ins_set_colour
     ldx z_operand_value_low_arr
 	beq .current_foreground
     lda zcolours,x
-    bpl +
+    bpl + ; Branch unless it's the special value $ff, which means "default colour"
     ldx story_start + header_default_fg_colour ; default colour
     lda zcolours,x
-+   tax
++
 !ifdef BORDER_LIKE_FG {
 	sta reg_bordercolour
 }
-    lda colours,x ; get pet ascii for this colour
-    jsr s_printchar ; change foreground colour
+    jsr s_set_text_colour ; change foreground colour
 .current_foreground
     ldx z_operand_value_low_arr + 1
 	beq .current_background
