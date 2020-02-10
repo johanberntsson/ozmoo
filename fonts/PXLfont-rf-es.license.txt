@@ -1,4 +1,4 @@
-PXLfont-rf-it.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysIT
+PXLfont-rf-es.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysES
 
 License: 
 

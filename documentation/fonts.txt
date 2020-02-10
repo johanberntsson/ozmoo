@@ -9,13 +9,17 @@ Included with the Ozmoo distribution are these custom fonts:
 
 * Clairsys-it.fnt: Italian version of Clairsys, by Paul van der Laan.
 
-* PXLfont-rf.fnt: PXLfont88665b-RF2.2-C64sys by Retrofan.
+* PXLfont-rf.fnt: PXLfont88665b-RF2.3-C64sys by Retrofan.
 
-* PXLfont-rf-de.fnt: Ozmoo version of PXLfont88665b-RF2.2-C64sysDE by Retrofan. Note: This is font for usage in German games.
+* PXLfont-rf-da.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysDA by Retrofan. Note: This is font for usage in Danish games.
 
-* PXLfont-rf-it.fnt: Ozmoo version of PXLfont88665b-RF2.2-C64sysDE by Retrofan. Note: This is font for usage in Italian games.
+* PXLfont-rf-de.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysDE by Retrofan. Note: This is font for usage in German games.
 
-* PXLfont-rf-sv.fnt: Ozmoo version of PXLfont88665b-RF2.2-C64sysSV by Retrofan. Note: This is font for usage in Swedish games.
+* PXLfont-rf-es.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysES by Retrofan. Note: This is font for usage in German games.
+
+* PXLfont-rf-it.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysIT by Retrofan. Note: This is font for usage in Italian games.
+
+* PXLfont-rf-sv.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysSV by Retrofan. Note: This is font for usage in Swedish games.
 
 * system-da.fnt: Ozmoo/Danish version of the original Commodore 64 system font. Note: This font is for usage in Danish games.
 
