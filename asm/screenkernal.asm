@@ -319,19 +319,25 @@ s_erase_window
     lda #$ff
     sta s_current_screenpos_row ; force recalculation
 s_erase_line
-    ; registers: a,x,y
-    lda #0
-    sta zp_screencolumn
-    jsr .update_screenpos
-    ldy #0
--   lda #$20
-    sta (zp_screenline),y
-    lda s_colour
-    sta (zp_colourline),y
-    iny
-    cpy #40
-    bne -
-    rts
+	; registers: a,x,y
+	lda #0
+	sta zp_screencolumn
+	jsr .update_screenpos
+	ldy #0
+.erase_line_from_any_col	
+	lda #$20
+-	cpy #40
+	bcs .done_erasing
+	sta (zp_screenline),y
+	iny
+	bne -
+.done_erasing	
+ 	rts
+s_erase_line_from_cursor
+	jsr .update_screenpos
+	ldy zp_screencolumn
+	jmp .erase_line_from_any_col
+
 
 ; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 zcolours	!byte $ff,$ff ; current/default colour

@@ -189,8 +189,7 @@ z_ins_print
 	tax
 	tya
 	ldy zp_temp
-	jsr set_z_pc
-    rts
+	jmp set_z_pc
 
 z_ins_print_ret
     jsr z_ins_print

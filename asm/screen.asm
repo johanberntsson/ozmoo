@@ -103,13 +103,17 @@ erase_window
 .end_erase
     pla
     sta zp_screenrow
+.return	
     rts
 
 !ifdef Z4PLUS {
 z_ins_erase_line
     ; erase_line value
     ; clear current line (where the cursor is)
-    jmp s_erase_line
+	lda z_operand_value_low_arr
+	cmp #1
+	bne .return
+    jmp s_erase_line_from_cursor
 
 !ifdef Z5PLUS {
 .pt_cursor = z_temp;  !byte 0,0
@@ -400,12 +404,8 @@ printchar_flush
     ldx first_buffered_column
 -   cpx buffer_index
     bcs +
-    txa ; kernal_printchar destroys x,y
-    pha
     lda print_buffer,x
     jsr s_printchar
-    pla
-    tax
     inx
     bne -
 +	jsr start_buffering
@@ -490,10 +490,6 @@ printchar_buffered
 	iny
 	bne .store_break_pos ; Always branch
 .print_40
-	; If we didn't start buffering at first column, we print a newline and put buffer contents at start of buffer to start on a new line.
-	ldx first_buffered_column
-	bne .move_remaining_chars_to_buffer_start
-
 	ldy max_chars_on_line
 .store_break_pos
 	sty last_break_char_buffer_pos
