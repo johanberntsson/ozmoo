@@ -476,13 +476,13 @@ printchar_buffered
 	bcs +
 	dex ; Max 39 chars on last line on screen.
 +	stx max_chars_on_line
-	; Now find the character to break on
-	ldy last_break_char_buffer_pos
-	beq .print_40 ; If there are no break characters on the line, print all 40 characters
 	; Check if we have a "perfect space" - a space after 40 characters
 	lda print_buffer,x
 	cmp #$20
-	beq .print_40
+	beq .print_40_2 ; Print all in buffer, regardless of which column buffering started in
+	; Now find the character to break on
+	ldy last_break_char_buffer_pos
+	beq .print_40 ; If there are no break characters on the line, print all 40 characters
 	; Check if the break character is a space
 	lda print_buffer,y
 	cmp #$20
@@ -490,6 +490,10 @@ printchar_buffered
 	iny
 	bne .store_break_pos ; Always branch
 .print_40
+	; If we can't find a place to break, and buffered output started in column > 0, print a line break and move the text in the buffer to the next line.
+	ldx first_buffered_column
+	bne .move_remaining_chars_to_buffer_start
+.print_40_2	
 	ldy max_chars_on_line
 .store_break_pos
 	sty last_break_char_buffer_pos
