@@ -514,7 +514,7 @@ class D81_image < Disk_image
 	end
 
 	def create_a_partition(sector, start_track, end_track, name)
-		entry = 0
+		entry = 1
 		while entry < 8 and sector[0x20 * entry + 2] > 0
 			entry += 1
 		end
