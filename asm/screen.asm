@@ -372,7 +372,7 @@ increase_num_rows
 .printchar_pressanykey
 !ifndef BENCHMARK {
 --	ldx s_colour
-	iny ; TODO: Why iny? What do we use y for? Do we know
+	iny
 	tya
 	and #1
 	beq +
@@ -382,17 +382,12 @@ increase_num_rows
 ---	lda $a2
 -	cmp $a2
 	beq -
-	jsr kernal_getchar
- 	cmp #133
-	bne +
-	jsr switch_darkmode
-	ldx #40
-	lda #0
-+	cmp #0
+	jsr getchar_and_maybe_toggle_darkmode
+	cmp #0
 	bne +
 	dex
 	bne ---
-    beq --
+    beq -- ; Always branch
 +
 }
 	lda .more_text_char

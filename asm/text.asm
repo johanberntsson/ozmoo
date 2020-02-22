@@ -884,6 +884,15 @@ update_read_text_timer
     rts
 }
 
+getchar_and_maybe_toggle_darkmode
+	jsr kernal_getchar
+ 	cmp #133
+	bne +
+	jsr toggle_darkmode
+	ldx #40 ; Side effect to help when called from MORE prompt
+	lda #0
++	rts
+
 read_char
 	; return: 0,1: return value of routine (false, true)
 	;         any other number: char value
@@ -945,12 +954,8 @@ read_char
 +	rts
 }
 .no_timer
-    jsr kernal_getchar
-	cmp #133
-	bne +
-	jsr switch_darkmode
-	lda #0
-+	cmp #$00
+	jsr getchar_and_maybe_toggle_darkmode
+	cmp #$00
     beq read_char
 	sta .petscii_char_read
 	jmp translate_petscii_to_zscii

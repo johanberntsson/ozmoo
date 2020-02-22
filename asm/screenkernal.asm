@@ -344,7 +344,6 @@ zcolours	!byte $ff,$ff ; current/default colour
 			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
 			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
 darkmode	!byte 0
-darkmode_old !byte 0
 bgcol		!byte BGCOL, BGCOLDM
 fgcol		!byte FGCOL, FGCOLDM
 bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
@@ -352,10 +351,14 @@ bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
 statuslinecol !byte STATCOL, STATCOLDM
 }
 
-switch_darkmode
-!ifndef Z5PLUS {
-; @set_colour does not exist, so we can trust all characters to have the expected colour
-
+toggle_darkmode
+!ifdef Z5PLUS {
+	; We will need the old fg colour later, to check which characters have the default colour
+	ldx darkmode ; previous darkmode value (0 or 1)
+	ldy fgcol,x
+	lda zcolours,y
+	sta z_temp + 9 ; old fg colour
+}
 ; Toggle darkmode
 	lda darkmode
 	eor #1
@@ -365,17 +368,21 @@ switch_darkmode
 	ldy bgcol,x
 	lda zcolours,y
 	sta reg_backgroundcolour
+!ifdef Z5PLUS {
+	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
+	sta z_temp + 8 ; new background colour
+}
 ; Set border colour 
 	ldy bordercol,x
-; !ifdef BORDER_MAY_FOLLOW_BG {
-	; beq .store_bordercol
-; }
-; !ifdef BORDER_MAY_FOLLOW_FG {
-	; cpy #1
-	; bne +
-	; ldy fgcol,x
-; +	
-; }
+!ifdef BORDER_MAY_FOLLOW_BG {
+	beq .store_bordercol
+}
+!ifdef BORDER_MAY_FOLLOW_FG {
+	cpy #1
+	bne +
+	ldy fgcol,x
++	
+}
 	lda zcolours,y
 .store_bordercol
 	sta reg_bordercolour
@@ -400,54 +407,29 @@ switch_darkmode
 !ifdef Z3 {
 	ldy #40
 }
+!ifdef Z5PLUS {
+	sta z_temp + 7
+}
 .compare
+!ifdef Z5PLUS {
+	lda (z_temp + 10),y
+	and #$0f
+	cmp z_temp + 9
+	beq .change
+	cmp z_temp + 8
+	bne .dont_change
+.change	
+	lda z_temp + 7
+}
 	sta (z_temp + 10),y
-+	iny
+.dont_change
+	iny
 	bne .compare
 	inc z_temp + 11
 	dex
 	bne .compare
 	rts 
-} else {
-; Code to toggle darkmode for z5+
-	rts
-}
 
-	; lda darkmode
-	; sta s_stored_x
-	; eor #1
-	; sta darkmode
-	; tax
-	; ldy bgcol,x
-	; lda zcolours,y
-	; sta reg_backgroundcolour
-	; ldy fgcol,x
-	; lda zcolours,y
-	; jsr s_set_text_colour
-	; sta z_temp + 11 ; New fg colour
-	; ldx s_stored_x ; Previous darkmode value (0 or 1)
-	; ldy fgcol,x
-	; lda zcolours,y
-	; sta z_temp + 10 ; Old fg colour
-	; ldx #4
-	; stx s_stored_y
-	; ldx #$d8
-	; stx z_temp + 9
-	; ldy #0
-	; sty z_temp + 8
-; .compare
-	; lda z_temp + 10
-	; cmp (z_temp + 8),y
-	; bne +
-	; lda z_temp + 11
-	; sta (z_temp + 8),y
-; +	inx
-	; bne .compare
-	; inc z_temp + 9
-	; dec s_stored_y
-	; bne .compare
-	; rts 
-	
 
 !ifdef Z5PLUS {
 z_ins_set_colour
