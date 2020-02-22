@@ -1,5 +1,13 @@
 Colours in Z-code games
 -----------------------
+Ozmoo lets you pick two different colour schemes for your game. We refer to these to colour schemes as normal mode and 
+darkmode. The idea is that you may want lighter text on a dark background when playing at night, while dark text on
+a light background has proven to be easier to read, when reading large amounts of text. Ozmoo will always start in
+normal mode, and the player can switch between normal mode and darkmode using the F1 key. When switching modes, Ozmoo
+will change the colour of all onscreen text which has the default foreground colour *or* which has the same colour as
+the background colour in the mode it's switching to and thus would otherwise become invisible.
+
+
 make.rb has the following switches to control colours:
 
 -rc:(Z-code colour)=(C64 colour), ...
@@ -15,6 +23,13 @@ make.rb has the following switches to control colours:
 	Border colour. This picks the Z-code colour to use as border colour. 
 	Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours,
 	as it may do in Z5+ games, values 0 and 1 mean the border changes too.
+
+-dmdc: (same as -dc but for darkmode)
+
+-dmsc: (same as -sc but for darkmode)
+
+-dmbc: (same as -bc but for darkmode)
+
 	
 Z-code has a palette of 8 colours, numbered 2-9:
 

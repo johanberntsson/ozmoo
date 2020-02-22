@@ -51,6 +51,7 @@ The longer answer:
 * Supports custom alphabets in Z-machine version 5 and 8.
 * Supports custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian and Spanish.
 * Supports custom colour schemes.
+* Supports a secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
 * Supports up to ten save slots on a save disk (and most games will get the full ten slots).
 * Supports writing a name for each save.
 * Supports building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.

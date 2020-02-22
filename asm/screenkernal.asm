@@ -449,7 +449,7 @@ z_ins_set_colour
     ldx story_start + header_default_bg_colour ; default colour
     lda zcolours,x
 +   sta reg_backgroundcolour
-; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 0
+; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
 	cpy #0
 	bne .current_background
 	sta reg_bordercolour
