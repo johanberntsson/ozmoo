@@ -578,6 +578,15 @@ def build_interpreter()
 	if $statusline_colour
 		colourflags += " -DSTATCOL=#{$statusline_colour}"
 	end
+	unless $default_colours_dm.empty? # or $zcode_version >= 5
+		colourflags += " -DBGCOLDM=#{$default_colours_dm[0]} -DFGCOLDM=#{$default_colours_dm[1]}"
+	end
+	if $border_colour_dm
+		colourflags += " -DBORDERCOLDM=#{$border_colour_dm}"
+	end
+	if $statusline_colour_dm
+		colourflags += " -DSTATCOLDM=#{$statusline_colour_dm}"
+	end
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
@@ -1066,7 +1075,8 @@ end
 
 def print_usage_and_exit
 	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] [-s] [-x] [-r] "
-	puts "      [-f <fontfile>] [-cm:[xx]] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] <storyfile>"
+	puts "      [-f <fontfile>] [-cm:[xx]] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] "
+	puts "      [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
@@ -1078,9 +1088,9 @@ def print_usage_and_exit
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it or es)"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
-	puts "  -dc: Use the specified background and foreground colours. See docs for details."
-	puts "  -bc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
-	puts "  -sc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
+	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
+	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 	exit 1
 end
@@ -1100,7 +1110,11 @@ $start_address = 0x0801
 $program_end_address = 0x10000
 $colour_replacements = []
 $default_colours = []
+$default_colours_dm = []
 $statusline_colour = nil
+$statusline_colour_dm = nil
+$border_colour = nil
+$border_colour_dm = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
 $border_colour = 0
 $char_map = nil
@@ -1140,10 +1154,16 @@ begin
 			$colour_replacements = $1.split(/,/)
 		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
 			$default_colours = [$1.to_i,$2.to_i]
+		elsif ARGV[i] =~ /^-dmdc:([2-9]):([2-9])$/ then
+			$default_colours_dm = [$1.to_i,$2.to_i]
 		elsif ARGV[i] =~ /^-bc:([0-9])$/ then
 			$border_colour = $1.to_i
+		elsif ARGV[i] =~ /^-dmbc:([0-9])$/ then
+			$border_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-sc:([2-9])$/ then
 			$statusline_colour = $1.to_i
+		elsif ARGV[i] =~ /^-dmsc:([2-9])$/ then
+			$statusline_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es)$/ then

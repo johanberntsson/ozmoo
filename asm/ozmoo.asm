@@ -73,25 +73,76 @@
 }
 
 !ifndef BGCOL {
-	BGCOL = 2
+	BGCOL = 9
 }
 !ifndef FGCOL {
-	FGCOL = 9
+	FGCOL = 2
+}
+
+!ifndef BGCOLDM {
+	BGCOLDM = 2
+}
+!ifndef FGCOLDM {
+	FGCOLDM = 4
 }
 
 ; Border color: 0 = as background, 1 = as foreground, 2-9: specified Z-code colour. Default: as background
+
 !ifndef BORDERCOL {
-	BORDERCOL = 0
+	!ifdef Z5PLUS {
+		BORDERCOL = 0
+	} else {
+		BORDERCOL = BGCOL
+	}
 }
-!if BORDERCOL = 0 {
-	BORDER_LIKE_BG = 1
+!ifndef BORDERCOLDM {
+	!ifdef Z5PLUS {
+		BORDERCOLDM = 0
+	} else {
+		BORDERCOLDM = BGCOLDM
+	}
 }
-!if BORDERCOL = 1 {
-	BORDER_LIKE_FG = 1
+; For z3 and z4, change border colour magic values 0 and 1 to actual bgcol or fgcol, for shorter code
+!ifndef Z5PLUS {
+	!if BORDERCOL = 0 {
+		BORDERCOL_FINAL = BGCOL
+	}
+	!if BORDERCOL = 1 {
+		BORDERCOL_FINAL = FGCOL
+	}
+	!if BORDERCOLDM = 0 {
+		BORDERCOLDM_FINAL = BGCOLDM
+	}
+	!if BORDERCOLDM = 1 {
+		BORDERCOLDM_FINAL = FGCOLDM
+	}
+}
+!ifndef BORDERCOL_FINAL {
+	BORDERCOL_FINAL = BORDERCOL
+}
+!ifndef BORDERCOLDM_FINAL {
+	BORDERCOLDM_FINAL = BORDERCOLDM
+}
+!if BORDERCOL_FINAL = 0 {
+	BORDER_MAY_FOLLOW_BG = 1
+} else {
+	!if BORDERCOLDM_FINAL = 0 {
+		BORDER_MAY_FOLLOW_BG = 1
+	}
+}
+!if BORDERCOL_FINAL = 1 {
+	BORDER_MAY_FOLLOW_FG = 1
+} else {
+!if BORDERCOLDM_FINAL = 1 {
+	BORDER_MAY_FOLLOW_FG = 1
+}
 }
 
 !ifndef STATCOL {
 	STATCOL = FGCOL
+}
+!ifndef STATCOLDM {
+	STATCOLDM = FGCOLDM
 }
 
 

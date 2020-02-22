@@ -6,19 +6,19 @@ init_screen_colours_invisible
 init_screen_colours
     jsr s_init
 	lda zcolours + FGCOL
-!ifdef BORDER_LIKE_FG {
+!if BORDERCOL_FINAL = 1 {
 	sta reg_bordercolour
 }
 +	jsr s_set_text_colour
     lda zcolours + BGCOL
     sta reg_backgroundcolour
-!ifdef BORDER_LIKE_BG {
+!if BORDERCOL_FINAL = 0 {
 	sta reg_bordercolour
 } else {
-!ifndef BORDER_LIKE_FG {
-	lda zcolours + BORDERCOL
-	sta reg_bordercolour
-}
+	!if BORDERCOL_FINAL != 1 {
+		lda zcolours + BORDERCOL_FINAL
+		sta reg_bordercolour
+	}
 }
 !ifdef Z5PLUS {
     ; store default colours in header
@@ -383,7 +383,13 @@ increase_num_rows
 -	cmp $a2
 	beq -
 	jsr kernal_getchar
-    bne +
+ 	cmp #133
+	bne +
+	jsr switch_darkmode
+	ldx #40
+	lda #0
++	cmp #0
+	bne +
 	dex
 	bne ---
     beq --
@@ -624,7 +630,9 @@ draw_status_line
     jsr set_cursor
     lda #18 ; reverse on
     jsr s_printchar
-	lda zcolours + STATCOL
+	ldx darkmode
+	ldy statuslinecol,x 
+	lda zcolours,y
 	jsr s_set_text_colour
     ;
     ; Room name
@@ -707,7 +715,9 @@ draw_status_line
     jsr z_get_low_global_variable_value
 	jsr .print_clock_number
 .statusline_done
-	lda zcolours + FGCOL
+	ldx darkmode
+	ldy fgcol,x 
+	lda zcolours,y
 	jsr s_set_text_colour
     lda #146 ; reverse off
     jsr s_printchar

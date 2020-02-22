@@ -946,7 +946,11 @@ read_char
 }
 .no_timer
     jsr kernal_getchar
-    cmp #$00
+	cmp #133
+	bne +
+	jsr switch_darkmode
+	lda #0
++	cmp #$00
     beq read_char
 	sta .petscii_char_read
 	jmp translate_petscii_to_zscii
