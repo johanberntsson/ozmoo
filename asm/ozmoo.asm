@@ -20,14 +20,20 @@
 }
 }
 
+!ifdef Z3 {
+	ZMACHINEVERSION = 3
+}
 !ifdef Z4 {
+	ZMACHINEVERSION = 4
 	Z4PLUS = 1
 }
 !ifdef Z5 {
+	ZMACHINEVERSION = 5
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
 !ifdef Z8 {
+	ZMACHINEVERSION = 8
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
@@ -464,12 +470,11 @@ deletable_init
 	jsr read_track_sector
 ;    jsr kernal_readchar   ; read keyboard
 ; Copy game id
-	ldx #0
+	ldx #3
 -	lda config_load_address,x
 	sta game_id,x
-	inx
-	cpx #4
-	bcc -
+	dex
+	bpl -
 ; Copy disk info
 	ldx config_load_address + 4
 	dex
@@ -522,18 +527,7 @@ deletable_init
 !ifndef SMALL_CODE {
     ; check z machine version
     lda story_start + header_version
-!ifdef Z3 {
-    cmp #3
-}
-!ifdef Z4 {
-    cmp #4
-}
-!ifdef Z5 {
-    cmp #5
-}
-!ifdef Z8 {
-    cmp #8
-}
+	cmp #ZMACHINEVERSION
 	beq .supported_version
     lda #ERROR_UNSUPPORTED_STORY_VERSION
     jsr fatalerror
