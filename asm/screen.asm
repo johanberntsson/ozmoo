@@ -81,10 +81,10 @@ erase_window
 !ifdef Z3 {
 	inx
 }
-!ifdef Z4 {
-    lda #24
-} else {
+!ifdef Z5PLUS {
     lda window_start_row + 1
+} else {
+    lda #24
 }
 	stx cursor_row + 1
     pha

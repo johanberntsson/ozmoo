@@ -219,9 +219,6 @@ game_id		!byte 0,0,0,0
 	jsr deletable_screen_init_2
 	ldx #$ff
 	jsr erase_window
-	ldy #0
-	ldx #25
-	jsr set_cursor
 
 	jsr z_init
 	jsr z_execute
