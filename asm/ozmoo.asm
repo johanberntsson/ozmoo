@@ -151,6 +151,10 @@
 	STATCOLDM = FGCOLDM
 }
 
+!ifndef SPLASHWAIT {
+	SPLASHWAIT = 3
+}
+
 
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
@@ -194,7 +198,10 @@ game_id		!byte 0,0,0,0
 
 	jsr deletable_init_start
 ;	jsr init_screen_colours
-	jsr deletable_screen_init
+	jsr deletable_screen_init_1
+!if SPLASHWAIT > 0 {
+	jsr splash_screen
+}
 
 !ifdef VMEM {
 	jsr reu_start
@@ -209,6 +216,7 @@ game_id		!byte 0,0,0,0
 	jsr streams_init
 	jsr stack_init
 
+	jsr deletable_screen_init_2
 	ldx #$ff
 	jsr erase_window
 	ldy #0
@@ -236,13 +244,18 @@ z_trace_page
 vmem_cache_start
 
 !ifdef ALLRAM {
+	!if SPLASHWAIT > 0 {
+		!source "splashscreen.asm"
+	}
 
-;	!align 255, 0, 0 ; 1 page (assuming code above is <= 256 bytes)
-	!fill cache_pages * 256,0 ; typically 4 pages
+end_of_routines_in_vmem_cache
+
+	!fill cache_pages * 256 - (* - vmem_cache_start),0 ; Typically 4 pages
+
 !ifdef VMEM {
-!if (stack_size + *) & 256 {
-	!fill 256,0 ; Add one page to avoid vmem alignment issues
-}
+	!if (stack_size + *) & 256 {
+		!fill 256,0 ; Add one page to avoid vmem alignment issues
+	}
 } 
 
 vmem_cache_size = * - vmem_cache_start
@@ -252,7 +265,7 @@ vmem_cache_count = vmem_cache_size / 256
 
 stack_start
 
-deletable_screen_init
+deletable_screen_init_1
 	; start text output from bottom of the screen
 	
     lda #147 ; clear screen
@@ -267,6 +280,16 @@ deletable_screen_init
 	sty window_start_row + 1
 	ldy #25
 	sty window_start_row
+	ldy #0
+	sty is_buffered_window
+	ldx #$ff
+	jmp erase_window
+
+deletable_screen_init_2
+	; start text output from bottom of the screen
+	
+    lda #147 ; clear screen
+    jsr s_printchar
 	ldy #1
 	sty is_buffered_window
 	ldx #$ff
@@ -275,7 +298,6 @@ deletable_screen_init
 	ldx #1
 	jsr set_cursor
 	jmp start_buffering
-
 
 z_init
 !zone z_init {
@@ -946,6 +968,12 @@ load_suggested_pages
 }
     rts
 } 
+
+!ifndef ALLRAM {
+	!if SPLASHWAIT > 0 {
+		!source "splashscreen.asm"
+	}
+}
 
 end_of_routines_in_stack_space
 

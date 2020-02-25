@@ -361,7 +361,7 @@ increase_num_rows
 	sbc #1
 	cmp num_rows
 	bcs .increase_num_rows_done
-.show_more
+show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
 	lda $07e7 

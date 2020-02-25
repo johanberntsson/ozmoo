@@ -544,17 +544,27 @@ end # class D81_image
 
 ################################## END Disk image classes
 
-def name_to_c64(name)
+def filename_to_title(name, remove_the_if_longer_than)
 	# Convert camel case and underscore to spaces. Remove "The" or "A" at beginning if the name gets too long.
-	c64_name = name.dup
-	camel_case = c64_name =~ /[a-z]/ and c64_name =~ /[A-Z]/ and c64_name !~ / |_/ 
+	title = name.dup
+	camel_case = title =~ /[a-z]/ and title =~ /[A-Z]/ and title !~ / |_/ 
 	if camel_case then
-		c64_name.gsub!(/([a-z])([A-Z])/,'\1 \2')
-		c64_name.gsub!(/A([A-Z])/,'A \1')
+		title.gsub!(/([a-z])([A-Z])/,'\1 \2')
+		title.gsub!(/A([A-Z])/,'A \1')
 	end
-	c64_name.gsub!(/_+/," ")
-	c64_name.gsub!(/^(the|a) (.*)$/i,'\2') if c64_name.length > 16 
-	
+	title.gsub!(/_+/," ")
+	title.gsub!(/(^ +)|( +)$/,"")
+	if remove_the_if_longer_than
+		title.gsub!(/^(the|a) (.*)$/i,'\2') if title.length > remove_the_if_longer_than 
+	end
+	title.capitalize! if title =~ /^[a-z]/
+	title
+end
+
+def name_to_c64(name)
+
+	c64_name = filename_to_title(name, 16)
+
 	c64_name.length.times do |charno|
 		code = c64_name[charno].ord
 		code &= 0xdf if code >= 0x61 and code <= 0x7a
@@ -566,6 +576,9 @@ end
 def build_interpreter()
 	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1 -DCONF_TRK=#{$CONFIG_TRACK}"
 	necessarysettings +=  " --cpu 6510 --format cbm"
+	optionalsettings = ""
+	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
+	
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
 	colourflags = $colour_replacement_clause
@@ -590,7 +603,8 @@ def build_interpreter()
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
-    cmd = "#{$ACME}#{necessarysettings}#{fontflag}#{colourflags}#{generalflags}#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
+    cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
+		"#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
 	Dir.chdir $SRCDIR
     ret = system(cmd)
@@ -1076,14 +1090,13 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] [-s] [-x] [-r] "
 	puts "      [-f <fontfile>] [-cm:[xx]] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] "
-	puts "      [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] <storyfile>"
+	puts "      [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"] -sw:[nnn] <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -s: start game in Vice if build succeeds"
-#	puts "  -x: Use extended tracks (40 instead of 35) on 1541 disk"
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it or es)"
@@ -1091,10 +1104,15 @@ def print_usage_and_exit
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
+	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 	exit 1
 end
 
+splashes = [
+"", "", "", ""
+]
 i = 0
 reduced_ram = false
 await_preloadfile = false
@@ -1118,6 +1136,7 @@ $border_colour_dm = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
 $border_colour = 0
 $char_map = nil
+$splash_wait = nil
 
 begin
 	while i < ARGV.length
@@ -1173,6 +1192,10 @@ begin
 		elsif ARGV[i] =~ /^-f$/ then
 			await_fontfile = true
 			$start_address = 0x1000
+		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
+			splashes[$1.to_i - 1] = $2 
+		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
+			$splash_wait = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -1414,6 +1437,36 @@ vmem_data[1].times do |i|
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
 end
 
+
+
+# Splashscreen
+
+# splashes = [
+# "", "", "", ""
+# ]
+# splashes[0] = filename_to_title(storyname, 40)
+splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
+version = File.read(File.join(__dir__, 'version.txt'))
+version.gsub!(/[^\d\.]/m,'')
+splash.sub!("@vs@", version)
+4.times do |i|
+	text = splashes[i]
+	indent = 0
+	if text.length > 0
+		$splash_wait = 10 unless $splash_wait
+		text.gsub!(/(\n|\t)+/, ' ')
+		if text.length > 40
+			puts "Splashline #{i + 1} is longer than 40 characters."
+			exit 1
+		end
+		indent = (40 - text.length) / 2
+		text.gsub!(/"/, '",34,"')
+	end
+	splash.sub!("@#{i}s@", text)
+	splash.sub!("@#{i}c@", indent.to_s)
+end
+File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+
 build_interpreter()
 
 $vmem_size = ($ALLRAM ? 0x10000 : 0xd000) - $storystart
@@ -1439,8 +1492,6 @@ elsif mode != MODE_P
 	puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
 	exit 1
 end
-
-
 
 case mode
 when MODE_P
