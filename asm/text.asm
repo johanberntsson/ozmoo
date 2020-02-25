@@ -985,6 +985,8 @@ update_cursor
     lda (zp_screenline),y
     ora #$80
     sta (zp_screenline),y
+	lda s_colour
+	sta (zp_colourline),y
 	ldy object_temp
     rts
 
