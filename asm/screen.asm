@@ -710,22 +710,43 @@ draw_status_line
 .timegame
     ; time game
     ldx #0
-    ldy #29
+    ldy #25
     jsr set_cursor
-    ldy #0
--   lda .time_str,y
-    beq +
-    jsr s_printchar
-	iny
-    bne -
+	lda #>.time_str
+	ldx #<.time_str
+	jsr printstring_raw
+; Print hours
 +   lda #17 ; hour
     jsr z_get_low_global_variable_value
+	stx z_temp + 11
+	cpx #0
+	bne +
+	ldx #12
++	cpx #13
+	bcc +
+	txa
+	sbc #12
+	tax
++	ldy #$20 ; " " before if < 10
 	jsr .print_clock_number
     lda #58 ; :
     jsr s_printchar
+; Print minutes
     lda #18 ; minute
     jsr z_get_low_global_variable_value
+	ldy #$30 ; "0" before if < 10
 	jsr .print_clock_number
+; Print AM/PM
+	lda z_temp + 11
+	cmp #12
+	bcc +
+	lda #80 + 32
+	bne ++
++	lda #65 + 32
+++	sta .ampm_str + 1
+	lda #>.ampm_str
+	ldx #<.ampm_str
+	jsr printstring_raw
 .statusline_done
 	ldx darkmode
 	ldy fgcol,x 
@@ -737,10 +758,12 @@ draw_status_line
 	sta current_window
     jmp restore_cursor
 .print_clock_number
-	cpx #60
-	bcc +
-	ldx #59
-+	txa
+;	cpx #99
+;	bcc +
+;	ldx #99
+;+
+	sty z_temp + 10
+	txa
 	ldy #0
 -	cmp #10
 	bcc .print_tens
@@ -750,14 +773,17 @@ draw_status_line
 .print_tens
 	tax
 	tya
-	ora #$30
-	jsr s_printchar
+	bne +
+	lda z_temp + 10
+	bne ++
++	ora #$30
+++	jsr s_printchar
 	txa
 	ora #$30
 	jmp s_printchar
 
-
 .score_str !pet "Score: ",0
-.time_str !pet "Time ",0
+.time_str !pet "Time: ",0
+.ampm_str !pet " AM",0
 }
 
