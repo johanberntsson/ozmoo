@@ -308,7 +308,7 @@ streams_init
 	rts
 	
 streams_print_output
-	; Print a character
+	; Print a ZSCII character
 	; input:  character in a
 	; output:
 	; side effects: -

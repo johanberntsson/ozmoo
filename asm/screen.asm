@@ -119,8 +119,8 @@ z_ins_erase_line
 .pt_cursor = z_temp;  !byte 0,0
 .pt_width = z_temp + 2 ; !byte 0
 .pt_height = z_temp + 3; !byte 0
-.pt_skip = z_temp + 4; !byte 0
-.current_col = z_temp + 5; !byte 0
+.pt_skip = z_temp + 4; !byte 0,0
+.current_col = z_temp + 6; !byte 0
 
 z_ins_print_table
     ; print_table zscii-text width [height = 1] [skip]
@@ -129,21 +129,27 @@ z_ins_print_table
     sta .pt_height
     lda #0
     sta .pt_skip
+    sta .pt_skip + 1
 	; Read args
     lda z_operand_value_low_arr + 1
 	beq .print_table_done
     sta .pt_width
     ldy z_operand_count
     cpy #3
-    bcc +
+    bcc ++
     lda z_operand_value_low_arr + 2
 	beq .print_table_done
     sta .pt_height
 +   cpy #4
-    bcc +
+    bcc ++
     lda z_operand_value_low_arr + 3
     sta .pt_skip
-+   ; start printing
+    lda z_operand_value_high_arr + 3
+    sta .pt_skip + 1
+++	lda .pt_height
+	cmp #1
+	beq .print_table_oneline
+; start printing multi-line table
     jsr printchar_flush
     jsr get_cursor ; x=row, y=column
     stx .pt_cursor
@@ -177,9 +183,20 @@ z_ins_print_table
 	adc .pt_skip
 	tax
 	pla
-	adc #0
+	adc .pt_skip + 1
 	bcc -- ; Always jump
 .print_table_done	
+	rts
+.print_table_oneline
+	lda z_operand_value_high_arr ; Start address
+	ldx z_operand_value_low_arr
+	jsr set_z_address
+	ldy .pt_width
+-	jsr read_next_byte
+	jsr translate_zscii_to_petscii
+	jsr printchar_buffered
+	dey
+	bne -
 	rts
 }
 
@@ -419,7 +436,7 @@ printchar_flush
 	jmp restore_cursor
 
 printchar_buffered
-    ; a is character to print
+    ; a is PETSCII character to print
     sta .buffer_char
     ; need to save x,y
     txa
