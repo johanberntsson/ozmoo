@@ -842,7 +842,14 @@ list_save_files
 	bne -
 .insert_done
     ldx #0
-    jmp erase_window
+!ifdef Z5PLUS {
+	jmp erase_window
+} else {
+    jsr erase_window
+	ldx window_start_row + 1 ; First line in lower window
+	ldy #0
+	jmp set_cursor
+}	
 	
 
 .insert_story_disk
