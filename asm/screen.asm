@@ -716,12 +716,19 @@ draw_status_line
 	ldx #<.time_str
 	jsr printstring_raw
 ; Print hours
-+   lda #17 ; hour
+	lda #65 + 32
+	sta .ampm_str + 1
+	lda #17 ; hour
     jsr z_get_low_global_variable_value
-	stx z_temp + 11
-	cpx #0
+; Change AM to PM if hour >= 12
+	cpx #12
+	bcc +
+	lda #80 + 32
+	sta .ampm_str + 1
++	cpx #0
 	bne +
 	ldx #12
+; Subtract 12 from hours if hours >= 13, so 15 becomes 3 etc
 +	cpx #13
 	bcc +
 	txa
@@ -737,13 +744,6 @@ draw_status_line
 	ldy #$30 ; "0" before if < 10
 	jsr .print_clock_number
 ; Print AM/PM
-	lda z_temp + 11
-	cmp #12
-	bcc +
-	lda #80 + 32
-	bne ++
-+	lda #65 + 32
-++	sta .ampm_str + 1
 	lda #>.ampm_str
 	ldx #<.ampm_str
 	jsr printstring_raw
@@ -758,11 +758,7 @@ draw_status_line
 	sta current_window
     jmp restore_cursor
 .print_clock_number
-;	cpx #99
-;	bcc +
-;	ldx #99
-;+
-	sty z_temp + 10
+	sty z_temp + 11
 	txa
 	ldy #0
 -	cmp #10
@@ -774,7 +770,7 @@ draw_status_line
 	tax
 	tya
 	bne +
-	lda z_temp + 10
+	lda z_temp + 11
 	bne ++
 +	ora #$30
 ++	jsr s_printchar
