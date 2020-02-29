@@ -324,6 +324,7 @@ z_init
 !ifdef Z3 {
 	lda story_start + header_flags_1
 	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
+	ora #32 ; Split screen available
 	sta story_start + header_flags_1
 } else {
 !ifdef Z4 {
