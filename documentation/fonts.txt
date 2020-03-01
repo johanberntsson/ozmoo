@@ -25,6 +25,8 @@ Included with the Ozmoo distribution are these custom fonts:
 
 * system-es.fnt: Ozmoo/Spanish version of the original Commodore 64 system font. Note: This font is for usage in Spanish games.
 
+* system-fr.fnt: Ozmoo/French version of the original Commodore 64 system font. Note: This font is for usage in French games.
+
 * system-it.fnt: Ozmoo/Italian version of the original Commodore 64 system font. Note: This font is for usage in Italian games.
 
 * system-sv.fnt: Ozmoo/Swedish version of the original Commodore 64 system font. Note: This font is for usage in Swedish games.
