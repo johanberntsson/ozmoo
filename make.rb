@@ -1099,7 +1099,7 @@ def print_usage_and_exit
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
-	puts "  -cm: Use the specified character map (sv, da, de, it or es)"
+	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1185,7 +1185,7 @@ begin
 			$statusline_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
-		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es)$/ then
+		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
@@ -1218,6 +1218,7 @@ $GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'
 $GENERALFLAGS.push('GERMAN_CHARS') if $char_map == 'de'
 $GENERALFLAGS.push('ITALIAN_CHARS') if $char_map == 'it'
 $GENERALFLAGS.push('SPANISH_CHARS') if $char_map == 'es'
+$GENERALFLAGS.push('FRENCH_CHARS') if $char_map == 'fr'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 

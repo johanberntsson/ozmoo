@@ -257,7 +257,106 @@ character_translation_table_out
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 character_translation_table_out_end
 
-} else { ; End of Italian section
+} else { ; End of Spanish section
+
+!ifdef FRENCH_CHARS {
+
+; FRENCH
+
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $dc, $df ; Œ => œ
+	!byte $c3, $de ; Û => û 
+	!byte $d5, $be ; Ç => ç
+	!byte $b5, $bd ; À => à
+	!byte $d5, $bc ; ç
+	!byte $a4, $bb ; Ë => ë 
+	!byte $c2, $b9 ; ô
+	!byte $c3, $b8 ; û 
+	!byte $c2, $b6 ; Ô => ô 
+	!byte $9d, $b5 ; ü
+	!byte $b9, $b4 ; ù
+	!byte $aa, $b3 ; é 
+	!byte $b6, $b2 ; è 
+	!byte $c0, $b1 ; ê 
+	!byte $bf, $b0 ; â
+	!byte $b5, $ae ; à
+	!byte $bf, $ad ; Â => â
+	!byte $a4, $ac ; ë
+	!byte $aa, $ab ; É => é
+	!byte $b9, $aa ; Ù => ù
+	!byte $c1, $a8 ; Î => î 
+	!byte $9d, $a7 ; Ü => ü
+	!byte $a5, $a6 ; Ï => ï
+	!byte $b6, $a5 ; È => è
+	!byte $d3, $a4 ; Æ => æ
+	!byte $c0, $a3 ; Ê => ê
+	!byte $c1, $a2 ; î
+	!byte $a5, $a1 ; ï
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $dc, $5d ; œ
+	!byte $d3, $5b ; æ
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $dd, $df ; Œ 
+	!byte $dc, $5d ; œ
+	!byte $d6, $be ; Ç
+	!byte $d5, $bc ; ç
+	!byte $d4, $a4 ; Æ
+	!byte $d3, $5b ; æ
+	!byte $c8, $de ; Û 
+	!byte $c7, $b6 ; Ô 
+	!byte $c6, $a8 ; Î 
+	!byte $c5, $a3 ; Ê 
+	!byte $c4, $ad ; Â
+	!byte $c3, $b8 ; û 
+	!byte $c2, $b9 ; ô
+	!byte $c1, $a2 ; î
+	!byte $c0, $b1 ; ê 
+	!byte $bf, $b0 ; â
+	!byte $be, $aa ; Ù 
+	!byte $bb, $a5 ; È
+	!byte $ba, $bd ; À
+	!byte $b9, $b4 ; ù
+	!byte $b6, $b2 ; è 
+	!byte $b5, $ae ; à
+	!byte $b0, $ab ; É 
+	!byte $aa, $b3 ; é 
+	!byte $a8, $a6 ; Ï 
+	!byte $a7, $bb ; Ë 
+	!byte $a6, $59 ; ÿ => y
+	!byte $a5, $a1 ; ï
+	!byte $a4, $ac ; ë
+	!byte $a3, $22 ; « => "
+	!byte $a2, $22 ; » => "
+	!byte $a0, $a7 ; Ü 
+	!byte $9f, $cf ; Ö => O
+	!byte $9e, $c1 ; Ä => A
+	!byte $9d, $b5 ; ü
+	!byte $9c, $4f ; ö => o
+	!byte $9b, $41 ; ä => a
+	!byte $7e, $2d ; ~ => -
+	!byte $7d, $29 ; } => )
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $7b, $28 ; { => (
+	!byte $60, $27 ; Grave accent => quote
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $5d, $29 ; ] => )
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+	!byte $5b, $28 ; [ => (
+character_translation_table_out_end
+
+} else { ; End of French section
 
 ; ENGLISH
 
@@ -284,7 +383,8 @@ character_translation_table_out
 	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 character_translation_table_out_end
 
-} ; End of English section
+} ; End of non-French section
+} ; End of non-Spanish section
 } ; End of non-Italian section
 } ; End of non-German section
 } ; End of non-Danish section
