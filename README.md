@@ -49,9 +49,9 @@ The longer answer:
 Ozmoo supports:
 
 * Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
-* Embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, Danish, German, Italian and Spanish. And you can supply your own font.
+* Embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, Danish, German, Italian, Spanish and French. And you can supply your own font.
 * Custom alphabets in Z-machine version 5 and 8.
-* Custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian and Spanish.
+* Custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian, Spanish and French.
 * Custom colour schemes.
 * A fully configurable secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
 * A configurable splash screen which is shown just before the game starts.

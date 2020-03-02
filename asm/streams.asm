@@ -269,6 +269,8 @@ character_translation_table_in
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
 	!byte $dc, $df ; Œ => œ
 	!byte $c3, $de ; Û => û 
+	!byte $a2, $dc ; »
+	!byte $a3, $db ; «
 	!byte $d5, $be ; Ç => ç
 	!byte $b5, $bd ; À => à
 	!byte $d5, $bc ; ç
@@ -337,8 +339,8 @@ character_translation_table_out
 	!byte $a6, $59 ; ÿ => y
 	!byte $a5, $a1 ; ï
 	!byte $a4, $ac ; ë
-	!byte $a3, $22 ; « => "
-	!byte $a2, $22 ; » => "
+	!byte $a3, $db ; «
+	!byte $a2, $dc ; »
 	!byte $a0, $a7 ; Ü 
 	!byte $9f, $cf ; Ö => O
 	!byte $9e, $c1 ; Ä => A

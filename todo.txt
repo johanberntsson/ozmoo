@@ -316,11 +316,3 @@ Improve ZSCII / PETSCII conversion with special cases for accented characters
 
 System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
 
-
-
-
-
-
-
-
-
