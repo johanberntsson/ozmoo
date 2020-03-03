@@ -114,6 +114,7 @@ character_translation_table_in
 	!byte $81, $91 ; Cursor up
 	!byte $a1, $5f ; ß = left-arrow
 	!byte $9b, $5d ; ä = ]
+	!byte $db, $5c ; £
 	!byte $9c, $5b ; ö = [
 	!byte $9d, $40 ; ü = @
 	!byte $84, $1d ; Cursor right
@@ -124,6 +125,7 @@ character_translation_table_in_end
 character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $db, $5c ; £
 	!byte $a1, $5f ; ß = left-arrow
 	!byte $a0, $c0 ; Ü = Shift-@
 	!byte $9f, $db ; Ö = Shift-[
@@ -165,6 +167,7 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
+	!byte $db, $5c ; £
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
 	!byte $82, $11 ; Cursor down
@@ -173,6 +176,7 @@ character_translation_table_in_end
 character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $db, $5c ; £
 	!byte $be, $b5 ; Ù
 	!byte $bd, $b6 ; Ò
 	!byte $bc, $a1 ; Ì
@@ -224,6 +228,7 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
+	!byte $db, $5c ; £
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
 	!byte $82, $11 ; Cursor down
@@ -234,6 +239,7 @@ character_translation_table_out
 ; NOTE: Must be sorted on ZSCII value, descending!
 	!byte $df, $b3 ; inverted ?
 	!byte $de, $ab ; inverted !
+	!byte $db, $5c ; £
 	!byte $d1, $a7 ; Ñ
 	!byte $ce, $aa ; ñ
 	!byte $b3, $b5 ; Ú
@@ -301,6 +307,7 @@ character_translation_table_in
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
 	!byte $dc, $5d ; œ
+	!byte $db, $5c ; £
 	!byte $d3, $5b ; æ
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
@@ -312,6 +319,7 @@ character_translation_table_out
 ; NOTE: Must be sorted on ZSCII value, descending!
 	!byte $dd, $df ; Œ 
 	!byte $dc, $5d ; œ
+	!byte $db, $5c ; £
 	!byte $d6, $be ; Ç
 	!byte $d5, $bc ; ç
 	!byte $d4, $a4 ; Æ
@@ -368,6 +376,7 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
+	!byte $db, $5c ; £
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
 	!byte $82, $11 ; Cursor down
@@ -376,6 +385,7 @@ character_translation_table_in_end
 character_translation_table_out
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
+	!byte $db, $5c ; £
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
 	!byte $7c, $dd ; Pipe = pipe-like graphic character
