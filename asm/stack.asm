@@ -516,11 +516,25 @@ stack_return_from_routine
 	bit stack_tmp
 	bmi +
 	rts
-+	+read_next_byte_at_z_pc
-	tay
++	
+;	+read_next_byte_at_z_pc
+;	tay
 	lda zp_temp
 	ldx zp_temp + 1
-	jmp z_set_variable	
+;	jmp z_set_variable	; Code is followed by z_store_result which will set the variable
+
+!zone {
+z_store_result
+	; input: a,x hold result
+	; affected: a,x,y
+	pha
+	+read_next_byte_at_z_pc
+	tay
+	pla
+	jmp z_set_variable
+}
+
+
 
 stack_push
 	; Push a,x onto stack

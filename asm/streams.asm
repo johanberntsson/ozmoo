@@ -616,6 +616,7 @@ translate_zscii_to_petscii
 	dey
 	bpl -
 .no_match
+	ldy .streams_tmp + 1
 	; Check if legal
 	cmp #13
 	beq .case_conversion_done
@@ -628,7 +629,6 @@ translate_zscii_to_petscii
 	rts
 .is_legal
 ; .case_conversion
-	ldy .streams_tmp + 1
 	cmp #$41
 	bcc .case_conversion_done
 	cmp #$5b

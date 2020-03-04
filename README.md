@@ -11,6 +11,8 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
+Update 2020-03-04: Release 3 is here. Many bugfixes. Darkmode and splash screen added. Support for four new languages.
+
 Update 2019-06-04: We have created a new release, with several new features, many bugfixes, better docs and other improvements.
 
 Update 2018-12-27: We now consider Ozmoo ready for production use. A few minor features are missing, like output to printer and the ability to save and restore arbitrary parts of memory, and chances are they won't be added. 

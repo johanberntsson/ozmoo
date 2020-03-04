@@ -194,8 +194,9 @@ z_ins_print_table
 	ldy .pt_width
 -	jsr read_next_byte
 	jsr translate_zscii_to_petscii
+	bcs + ; Illegal char
 	jsr printchar_buffered
-	dey
++	dey
 	bne -
 	rts
 }

@@ -969,26 +969,26 @@ z_set_variable
 	rts
 }
 
-!zone {
-!ifdef Z5PLUS {
-check_for_routine_0
-	; If value in argument 0 is 0, set status flag Z to 1, otherwise set to 0, and return. 
-	lda z_operand_value_high_arr
-	ora z_operand_value_low_arr
-	rts
-}
-check_for_routine_0_and_store
-	; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
-	lda z_operand_value_high_arr
-	ora z_operand_value_low_arr
-	bne .not_0
-	lda #0
-	tax
-	jsr z_store_result
-	lda #0
-.not_0
-	rts
-}
+;!zone {
+; !ifdef Z5PLUS {
+; check_for_routine_0
+	; ; If value in argument 0 is 0, set status flag Z to 1, otherwise set to 0, and return. 
+	; lda z_operand_value_high_arr
+	; ora z_operand_value_low_arr
+	; rts
+; }
+; check_for_routine_0_and_store
+	; ; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
+	; lda z_operand_value_high_arr
+	; ora z_operand_value_low_arr
+	; bne .not_0
+	; lda #0
+	; tax
+	; jsr z_store_result
+	; lda #0
+; .not_0
+	; rts
+;}
 
 !zone {
 z_ins_not_supported
@@ -998,17 +998,6 @@ z_ins_not_supported
 .not_supported_string
 !raw "[Not supported]",13,0
 	rts
-}
-
-!zone {
-z_store_result
-	; input: a,x hold result
-	; affected: a,x,y
-+	pha
-	+read_next_byte_at_z_pc
-	tay
-	pla
-	jmp z_set_variable
 }
 
 !zone z_division {
@@ -1700,7 +1689,9 @@ z_ins_mod
 	
 !ifdef Z5PLUS {
 z_ins_call_xn
-	jsr check_for_routine_0
+	; If value in argument 0 is 0, set status flag Z to 1, otherwise set to 0
+	lda z_operand_value_high_arr
+	ora z_operand_value_low_arr
 	bne +
 	rts
 +	ldx z_operand_count
@@ -1718,9 +1709,13 @@ z_ins_call_xn
 ; VAR instructions
 	
 z_ins_call_xs
-	jsr check_for_routine_0_and_store
+;	jsr check_for_routine_0_and_store
+	lda z_operand_value_high_arr
+	ora z_operand_value_low_arr
 	bne +
-	rts
+	lda #0
+	tax
+	jmp z_store_result
 +	ldx z_operand_count
 	dex
 	ldy #1 ; Store result = 1
