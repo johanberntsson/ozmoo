@@ -392,12 +392,12 @@ translate_petscii_to_zscii
 	dex
 	bpl -
 .no_match	
-	cmp #$60
-	bcc .no_shadow
-	cmp #$80
-	bcs .no_shadow
-	eor #$a0
-.no_shadow
+	; cmp #$60
+	; bcc .no_shadow
+	; cmp #$80
+	; bcs .no_shadow
+	; eor #$a0
+; .no_shadow
 	cmp #$41
 	bcc .case_conversion_done
 	cmp #$5b
@@ -1061,6 +1061,8 @@ read_text
 	jsr translate_zscii_to_petscii
 !ifdef DEBUG {
 	bcc .could_convert
+	cmp #0
+	beq .done_printing_this_char
 	jsr print_bad_zscii_code
 	jmp .done_printing_this_char
 .could_convert
@@ -1079,6 +1081,8 @@ read_text
 	jsr translate_zscii_to_petscii
 !ifdef DEBUG {
 	bcc .could_convert
+	cmp #0
+	beq .done_printing_this_char
 	jsr print_bad_zscii_code
 	jmp .done_printing_this_char
 .could_convert

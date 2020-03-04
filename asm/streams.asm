@@ -21,7 +21,10 @@ character_translation_table_in
 	!byte $c9, $dd ; Å = ]
 	!byte $9c, $dc ; Ö = £
 	!byte $9b, $db ; Ä = [
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $aa, $b1 ; é = CBM-e
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
@@ -45,7 +48,7 @@ character_translation_table_out
 	!byte $9b, $5b ; ä = [
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -65,7 +68,10 @@ character_translation_table_in
 	!byte $c9, $dd ; Å = ]
 	!byte $cb, $dc ; Ø = £
 	!byte $d3, $db ; Æ = [
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $aa, $b1 ; é = CBM-e
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
@@ -89,7 +95,7 @@ character_translation_table_out
 	!byte $aa, $b1 ; é = CBM-e
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -109,6 +115,9 @@ character_translation_table_in
 	!byte $9b, $dd ; Ä => ]
 	!byte $9c, $db ; Ö => [
 	!byte $9d, $c0 ; Ü => @
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+	!byte $5f, $af ; Underscore = underscore-like graphic character
+	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
@@ -135,7 +144,7 @@ character_translation_table_out
 	!byte $9b, $5d ; ä = ]
 	!byte $7e, $2d ; ~ => -
 	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
 	!byte $7b, $28 ; { => (
 	!byte $60, $27 ; Grave accent => quote
 	!byte $5f, $af ; Underscore = underscore-like graphic character
@@ -152,6 +161,8 @@ character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $aa, $bb ; é <= É (CBM-f)
 	!byte $b8, $b9 ;      ò (CBM-o)
 	!byte $b9, $b8 ;      ù (CBM-u)
@@ -160,6 +171,7 @@ character_translation_table_in
 	!byte $aa, $b2 ;      é (CBM-r)
 	!byte $b6, $b1 ;      è (CBM-e)
 	!byte $b5, $b0 ;      à (CBM-a)
+	!byte $5f, $af ; Underscore = underscore-like graphic character
 	!byte $b5, $ad ; à <= À (CBM-z)
 	!byte $b6, $ac ; è <= È (CBM-d)
 	!byte $b7, $a2 ;      ì (CBM-i)
@@ -209,6 +221,8 @@ character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $ac, $b9 ; á          (CBM-o)
 	!byte $ad, $b8 ; á          (CBM-u)
 	!byte $9d, $b7 ; ü          (CBM-y)
@@ -218,6 +232,7 @@ character_translation_table_in
 	!byte $df, $b3 ; inverted ? (CBM-w)
 	!byte $aa, $b1 ; é          (CBM-e)
 	!byte $a9, $b0 ; á          (CBM-a)
+	!byte $5f, $af ; Underscore = underscore-like graphic character
 	!byte $a9, $ad ; Á => á     (CBM-z)
 	!byte $aa, $ac ; É => é     (CBM-d)
 	!byte $de, $ab ; inverted ! (CBM-q)
@@ -275,8 +290,10 @@ character_translation_table_in
 	; Map uppercase letters to lowercase, or they won't be recognized in player input
 	!byte $dc, $df ; Œ => œ
 	!byte $c3, $de ; Û => û 
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
 	!byte $a2, $dc ; »
 	!byte $a3, $db ; «
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
 	!byte $d5, $be ; Ç => ç
 	!byte $b5, $bd ; À => à
 	!byte $d5, $bc ; ç
@@ -290,6 +307,7 @@ character_translation_table_in
 	!byte $b6, $b2 ; è 
 	!byte $c0, $b1 ; ê 
 	!byte $bf, $b0 ; â
+	!byte $5f, $af ; Underscore = underscore-like graphic character
 	!byte $b5, $ae ; à
 	!byte $bf, $ad ; Â => â
 	!byte $a4, $ac ; ë
@@ -373,6 +391,9 @@ character_translation_table_out_end
 character_translation_table_in
 ; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
+	!byte $7c, $dd ; Pipe = pipe-like graphic character
+	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+	!byte $5f, $af ; Underscore = underscore-like graphic character
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
@@ -589,8 +610,8 @@ translate_zscii_to_petscii
 	sty .streams_tmp + 1
 	ldy #character_translation_table_out_end - character_translation_table_out - 2
 -	cmp character_translation_table_out,y
-	beq .match
 	bcc .no_match
+	beq .match
 	dey
 	dey
 	bpl -
