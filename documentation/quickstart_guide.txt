@@ -4,6 +4,10 @@ To setup Ozmoo
 
 2. Edit make.rb and change the values of $X64, $C1541, $EXOMIZER and $ACME at the beginning of the file, to point to their locations on your computer. If you are using Windows, you can ignore the section on Linux and vice versa.
 
+To see all commandline options for make.rb
+---
+1. At a command prompt, type "ruby make.rb"
+
 
 
 The basic way to build a game

@@ -1,0 +1,17 @@
+By default, Ozmoo will show a splash screen just before the game starts. At the bottom of the screen is a line of text stating the version of Ozmoo used and instructions to use F1 to toggle darkmode. After three seconds, or when the player presses a key, the game starts.
+
+You can use the following commandline parameters to alter this behaviour:
+
+-ss1:"text"
+-ss2:"text"
+-ss3:"text"
+-ss4:"text"
+	These parameters can be used to add up to four lines of text to the splash screen.
+
+-sw:nnn
+	This sets the number of seconds that Ozmoo will pause on the splash screen. The default is three seconds if no text has been added, and ten seconds if text has been added.
+	
+Example:
+
+ruby make.rb supermm.z5 -ss1:"Super Mario Murders" -ss2:"A coin-op mystery" -ss3:"by" -ss4:"John \"Popeye\" Johnsson" -sw:8
+
