@@ -1,6 +1,5 @@
 ; z_extended_opcode 	!byte 0
 ; z_operand_count		!byte 0
-; z_canonical_opcode	!byte 0
 ; z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 ; z_operand_value_high_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
 ; z_operand_value_low_arr   !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -771,6 +770,9 @@ dumptovice
 	lda (z_local_vars_ptr),y
 	bcc .store_operand ; Always branch
 .read_from_stack
+!ifdef SLOW {
+	jsr stack_pull
+} else {
 	ldy stack_has_top_value
 	beq +
 	lda stack_top_value
@@ -778,10 +780,14 @@ dumptovice
 	dec stack_has_top_value
 	beq .store_operand ; Always branch
 +	jsr stack_pull_no_top_value
+}
 	jmp .store_operand ; Always branch
 .read_global_var
 	; cmp #128
 	; bcs .read_high_global_var
+!ifdef SLOW {
+	jsr z_get_low_global_variable_value
+} else {
 	asl
 	tay
 	iny
@@ -789,6 +795,7 @@ dumptovice
 	tax
 	dey
 	lda (z_low_global_vars_ptr),y
+}
 	bcc .store_operand ; Always branch
 .read_high_global_var
 	; inc z_global_vars_start + 1
@@ -812,14 +819,15 @@ dumptovice
 	lda z_opcode_opcount
 	clc
 	adc z_opcode_number
-	sta z_canonical_opcode
 !ifdef TRACE {
 	ldy z_trace_index
 	sta z_trace_page,y
 	inc z_trace_index
 }
+!ifndef UNSAFE {
 	cmp #z_number_of_opcodes_implemented
 	bcs z_not_implemented
+}
 	tax 
 	lda z_jump_low_arr,x
 	sta .jsr_perform + 1
@@ -906,13 +914,18 @@ z_get_variable_reference
 z_get_low_global_variable_value
 	; Read global var 0-111
 	; input: a = variable# + 16 (16-127)
-	asl
+	asl ; Clears carry
 	tay
 	iny
 	lda (z_low_global_vars_ptr),y
 	tax
 	dey
 	lda (z_low_global_vars_ptr),y
+	rts ; Note that caller may assume that carry is clear on return!
+
+; Used by z_set_variable
+.write_to_stack
+	jsr stack_push
 	rts
 	
 z_set_variable
@@ -920,10 +933,23 @@ z_set_variable
 	; Variable in y
 	; affects: a, x, y
 	cpy #0
-	beq .write_to_stack
-	sta zp_temp + 2
-	stx zp_temp + 3
+	beq .write_to_stack	
+	sta z_temp
+	stx z_temp + 1
 	tya
+!ifdef SLOW {
+	tax
+	jsr z_get_variable_reference
+	stx z_temp + 2
+	sta z_temp + 3
+	ldy #0
+	lda z_temp
+	sta (z_temp + 2),y
+	iny
+	lda z_temp + 1
+	sta (z_temp + 2),y
+	rts
+} else {
 	cmp #16
 	bcs .write_global_var
 	; Local variable
@@ -935,60 +961,36 @@ z_set_variable
 }
 	asl
 	tay
-	lda zp_temp + 2
+	lda z_temp
 	sta (z_local_vars_ptr),y
 	iny
-	lda zp_temp + 3
+	lda z_temp + 1
 	sta (z_local_vars_ptr),y
-	rts
-.write_to_stack
-	jsr stack_push
 	rts
 .write_global_var
 	cmp #128
 	bcs .write_high_global_var
 	asl
 	tay
-	lda zp_temp + 2
+	lda z_temp
 	sta (z_low_global_vars_ptr),y
 	iny
-	lda zp_temp + 3
+	lda z_temp + 1
 	sta (z_low_global_vars_ptr),y
 	rts
 .write_high_global_var
-;	inc z_global_vars_start + 1
 ;	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 ; Pointless, since ASL will remove top bit
 	asl
 	tay
-	lda zp_temp + 2
+	lda z_temp
 	sta (z_high_global_vars_ptr),y
 	iny
-	lda zp_temp + 3
+	lda z_temp + 1
 	sta (z_high_global_vars_ptr),y
-;	dec z_global_vars_start + 1
 	rts
-}
+} ; Not SLOW
+} ; Zone
 
-;!zone {
-; !ifdef Z5PLUS {
-; check_for_routine_0
-	; ; If value in argument 0 is 0, set status flag Z to 1, otherwise set to 0, and return. 
-	; lda z_operand_value_high_arr
-	; ora z_operand_value_low_arr
-	; rts
-; }
-; check_for_routine_0_and_store
-	; ; If value in argument 0 is 0, store 0 in the variable in byte at Z_PC, then set status flag Z to 1 and return 
-	; lda z_operand_value_high_arr
-	; ora z_operand_value_low_arr
-	; bne .not_0
-	; lda #0
-	; tax
-	; jsr z_store_result
-	; lda #0
-; .not_0
-	; rts
-;}
 
 !zone {
 z_ins_not_supported
@@ -1050,7 +1052,7 @@ z_divide
 	sta divisor + 1
 	; Perform the division
 	jsr divide16
-	; Reverse sign if applicable. 
+	; Inverse sign if applicable. 
 	bit zp_temp + 2
 	bpl +
 	; Inverse sign of result
@@ -1187,6 +1189,19 @@ z_ins_ret_popped
 z_ins_inc
 	ldx z_operand_value_low_arr
 	jsr z_get_variable_reference
+
+	; ldy #1
+	; lda (foo),y
+	; clc
+	; adc #1
+	; sta (foo),y
+	; bne +
+	; dey
+	; lda (foo),y
+	; adc #0
+	; sta (foo),y
+; +	rts
+
 .inc_store_ref	
 	stx .ins_inc + 1
 	sta .ins_inc + 2

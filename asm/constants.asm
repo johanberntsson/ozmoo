@@ -8,7 +8,7 @@ z_opcode              = $02
 mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
 z_extended_opcode	  = $07
-z_canonical_opcode	  = $08
+
 z_opcode_number       = $09
 zp_pc_h               = $0a
 zp_pc_l               = $0b
