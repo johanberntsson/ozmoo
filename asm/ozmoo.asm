@@ -544,7 +544,7 @@ deletable_init
 
 ; parse_header section
 
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
     ; check z machine version
     lda story_start + header_version
 	cmp #ZMACHINEVERSION

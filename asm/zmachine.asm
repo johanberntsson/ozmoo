@@ -756,13 +756,13 @@ dumptovice
 	cmp #16
 	bcs .read_global_var
 	; Local variable
+!ifndef UNSAFE {
 	tay
 	dey
-!ifndef SMALL_CODE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
-	asl
+	asl ; This clears carry
 	tay
 	iny
 	lda (z_local_vars_ptr),y
@@ -793,7 +793,7 @@ dumptovice
 .read_high_global_var
 	; inc z_global_vars_start + 1
 	; and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 (Pointless, since ASL will remove top bit anyway)
-	asl ; This will set C = 1
+	asl ; This sets carry
 	tay
 	iny
 	lda (z_high_global_vars_ptr),y
@@ -802,7 +802,7 @@ dumptovice
 	lda (z_high_global_vars_ptr),y
 ;	dec z_global_vars_start + 1
 	bcs .store_operand ; Always branch
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
@@ -831,7 +831,7 @@ dumptovice
 
 z_not_implemented
 
-!ifdef SMALL_CODE {
+!ifdef UNSAFE {
 	rts
 } else {
 !ifdef DEBUG {
@@ -871,7 +871,7 @@ z_get_variable_reference
 	; Local variable
 	tay
 	dey
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
@@ -896,7 +896,7 @@ z_get_variable_reference
 	ldy zp_temp + 3
 	rts
 
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
@@ -929,7 +929,7 @@ z_set_variable
 	; Local variable
 	tay
 	dey
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }

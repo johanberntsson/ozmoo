@@ -154,7 +154,7 @@ readblock
 	inc .track
 	dec .disk_tracks
 	bne .check_track
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 ; Broken config
 	lda #ERROR_CONFIG ; Config info must be incorrect if we get here
 	jmp fatalerror
@@ -162,7 +162,7 @@ readblock
 .next_disk
 	ldx .next_disk_index
 	iny
-!ifdef SMALL_CODE {
+!ifdef UNSAFE {
 	jmp .check_next_disk
 } else {
 	cpy disk_info + 2 ; # of disks

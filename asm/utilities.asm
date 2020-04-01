@@ -51,13 +51,30 @@
     cli
 }
 
+!ifdef SLOW {
+read_next_byte_at_z_pc_sub
+	ldy #0
+	lda (z_pc_mempointer),y
+	inc z_pc_mempointer ; Also increases z_pc
+	beq ++
+	rts
+++	jmp inc_z_pc_page
+
+!macro read_next_byte_at_z_pc {
+	jsr read_next_byte_at_z_pc_sub
+}
+	
+} else {
+
 !macro read_next_byte_at_z_pc {
 	ldy #0
-+	lda (z_pc_mempointer),y
+	lda (z_pc_mempointer),y
 	inc z_pc_mempointer ; Also increases z_pc
 	bne ++
 	jsr inc_z_pc_page
-++	
+++
+}	
+
 }
 
 ERROR_UNSUPPORTED_STREAM = 1

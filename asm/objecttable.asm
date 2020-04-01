@@ -608,7 +608,7 @@ z_ins_get_prop
     lda #0
     jmp .return_property_result
 .not_one
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
     cmp #2
     bne .not_two
 }
@@ -620,7 +620,7 @@ z_ins_get_prop
     pla
 .return_property_result
     jmp z_store_result
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 .not_two
     ; error. only 1 or 2 allowed
     lda #ERROR_BAD_PROPERTY_LENGTH
@@ -665,7 +665,7 @@ z_ins_put_prop
     sta (zp_mempos),y
     rts
 +   
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	cmp #2
     bne .not_two
 }

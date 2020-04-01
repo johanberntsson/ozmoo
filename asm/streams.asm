@@ -489,7 +489,7 @@ z_ins_output_stream
 	bit z_operand_value_low_arr
 	bmi .negative
 	lda z_operand_value_low_arr
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	beq .unsupported_stream
 	cmp #5
 	bcs .unsupported_stream
@@ -500,14 +500,14 @@ z_ins_output_stream
 	cpx #3
 	beq .turn_on_mem_stream
 	rts
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 .unsupported_stream
     lda #ERROR_UNSUPPORTED_STREAM
 	jsr fatalerror
 }
 .negative
 	lda z_operand_value_low_arr
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	cmp #-4
 	bmi .unsupported_stream
 }
@@ -523,7 +523,7 @@ z_ins_output_stream
 .turn_on_mem_stream
 	lda streams_stack_items
 	beq .add_first_level
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	cmp #16
 	bcs .stream_nesting_error
 }
@@ -554,14 +554,14 @@ z_ins_output_stream
 	sta streams_current_entry + 3
 	inc streams_stack_items
 	rts
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 .stream_nesting_error
     lda #ERROR_STREAM_NESTING_ERROR
 	jsr fatalerror
 }
 .turn_off_mem_stream
 	lda streams_stack_items
-!ifndef SMALL_CODE {
+!ifndef UNSAFE {
 	beq .stream_nesting_error
 }
 	; Copy length to first word in table
