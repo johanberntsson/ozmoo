@@ -20,7 +20,6 @@ zp_mempos             = $14 ; 2 bytes
 
 z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
-z_operand_type_arr = z_operand_value_low_arr
 
 ; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
 z_local_vars_ptr      = $26 ; 2 bytes
