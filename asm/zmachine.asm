@@ -577,6 +577,11 @@ dumptovice
 	sty z_trace_index
 }
 
+	lda #0
+	sta z_operand_count
+!ifdef Z4PLUS {	
+	sta z_temp + 5 ; Signal to NOT read up to four more operands
+}
 	+read_next_byte_at_z_pc
 	sta z_opcode
 	
@@ -600,12 +605,27 @@ dumptovice
 	; Top bits are 11. Form = Variable
 	and #%00011111
 	sta z_opcode_number
-	ldx #z_opcode_opcount_2op
+	ldy #z_opcode_opcount_2op
 	lda z_opcode
 	and #%00100000
 	beq + ; This is a 2OP instruction, with up to 4 operands
-	ldx #z_opcode_opcount_var
-+	stx z_opcode_opcount
+; This is a VAR instruction
+!ifdef Z4PLUS {	
+	lda z_opcode
+	cmp #z_opcode_call_vs2
+!ifdef Z5PLUS {
+	beq .get_4_extra_op_types
+	cmp #z_opcode_call_vn2
+}
+	bne .dont_get_4_extra_op_types
+.get_4_extra_op_types
+	+read_next_byte_at_z_pc
+	tax
+	dec z_temp + 5 ; Signal to read up to four more operands, and first four operand types are in x
+.dont_get_4_extra_op_types
+}
+	ldy #z_opcode_opcount_var
++	sty z_opcode_opcount
 	jmp .get_4_op_types ; Always branch
 
 .top_bits_are_10
@@ -628,21 +648,19 @@ dumptovice
 	and #%00110000
 	cmp #%00110000
 	beq .short_0op
+	ldx #z_opcode_opcount_1op
+	stx z_opcode_opcount
 	lsr
 	lsr
 	lsr
 	lsr
-	sta z_operand_type_arr
-	lda #z_opcode_opcount_1op
-	sta z_opcode_opcount
-	ldx #1
-	stx z_operand_count
-	bne .read_operands ; Always branch
+	tax
+	jsr read_operand
+	jmp .perform_instruction
 .short_0op
 	lda #z_opcode_opcount_0op 
 	sta z_opcode_opcount
-	sta z_operand_count ; Since z_opcode_opcount_0op is 0
-	beq .read_operands ; Always branch
+	beq .perform_instruction ; Always branch
 	
 .top_bits_are_0x
 	; Form = Long
@@ -653,76 +671,111 @@ dumptovice
 	lda z_opcode
 	asl
 	asl
-	ldy #%10
-	sty z_operand_count
+	ldx #%10
 	bcs +
-	dey
-+	sty z_operand_type_arr
+	dex
++	pha
+	jsr read_operand
+	pla
 	asl
-	ldy #%10
+	ldx #%10
 	bcs +
-	dey
-+	sty z_operand_type_arr + 1
-	bne .read_operands ; Always branch
-
-!ifdef Z4PLUS {	
-	; Get another byte of operand types
-.get_4_more_op_types
-	lda z_temp + 2
-	bne .read_operands
-	inc z_temp + 2
-	ldy #8
-	bne .read_more_op_types ; Always branch
-}
+	dex
++	jsr read_operand
+	jmp .perform_instruction
 
 .get_4_op_types
-	ldx #0
-	ldy #4
-	stx z_temp + 2 ; Meaning: this is the first round
-;	stx z_temp + 3 ; Meaning: We have not encountered a missing argument yet
-.read_more_op_types
-	; x = index of first operand (0 or 4), y = index of last possible operand + 1 (1-8) 
+; If z_temp + 5 = $ff, x holds first byte of arg types and we need to read one more byte and store in z_temp + 4 
+	ldy #4 ; index of last possible operand + 1 (4 or 8) 
 	sty z_temp
 	+read_next_byte_at_z_pc
+!ifdef Z4PLUS {
+	ldy z_temp + 5
+	beq .not_4_extra_args
+	sta z_temp + 4
+	txa
+.not_4_extra_args
+}
+	
 .get_next_op_type
 	asl
 	bcc .optype_0x
 	asl
 	bcs .done ; %11
-	ldy #%10
+	ldx #%10
 	bne .store_optype ; Always branch
 .optype_0x
 	asl
-	ldy #%00
+	ldx #%00
 	bcc .store_optype
-	iny
-.store_optype
-	sty z_operand_type_arr,x
 	inx
+.store_optype
+	pha
+	jsr read_operand
+	pla
+	ldx z_operand_count
 	cpx z_temp
 	bcc .get_next_op_type
-;.really_done
-;	inc z_temp + 3 ; An argument was empty
+
 .done
-	stx z_operand_count
-!ifdef Z4PLUS {	
-	lda z_opcode
-	cmp #z_opcode_call_vs2
-	beq .get_4_more_op_types
-!ifdef Z5PLUS {
-	cmp #z_opcode_call_vn2
-	beq .get_4_more_op_types
-}
+
+!ifdef Z4PLUS {
+	lda z_temp + 5 ; $0 = Don't read more args, $ff = read more args
+	beq .perform_instruction
+	inc z_temp + 5
+	lda z_temp + 4
+	ldy #8
+	sty z_temp
+	bne .get_next_op_type ; Always branch
 }
 	
-.read_operands
-	ldy z_operand_count
-	bne +
-	jmp .perform_instruction
-+	ldy #0
-.read_next_operand
-	sty z_temp
-	ldx z_operand_type_arr,y
+.perform_instruction
+	lda z_opcode_opcount
+	clc
+	adc z_opcode_number
+!ifdef TRACE {
+	ldy z_trace_index
+	sta z_trace_page,y
+	inc z_trace_index
+}
+!ifndef UNSAFE {
+	cmp #z_number_of_opcodes_implemented
+	bcs z_not_implemented
+}
+	tax 
+	lda z_jump_low_arr,x
+	sta .jsr_perform + 1
+	lda z_jump_high_arr,x
+	sta .jsr_perform + 2
+.jsr_perform
+	jsr $8000
+	jmp .main_loop
+
+
+z_not_implemented
+
+!ifdef UNSAFE {
+	rts
+} else {
+!ifdef DEBUG {
+	jsr print_following_string
+	!pet "opcode: ",0
+	ldx z_opcode
+	jsr printx
+	jsr print_following_string
+	!pet " @ ",0
+	ldx z_pc + 2
+	lda z_pc + 1
+	jsr printinteger
+	jsr newline
+}
+    lda #ERROR_OPCODE_NOT_IMPLEMENTED
+	jsr fatalerror
+}
+}
+
+read_operand
+; Operand type in x - Zero flag must reflect if X is 0 upon entry
 	bne .operand_is_not_large_constant
 	+read_next_byte_at_z_pc
 	pha
@@ -739,13 +792,11 @@ dumptovice
 	lda #0
 
 .store_operand
-	ldy z_temp
+	ldy z_operand_count
 	sta z_operand_value_high_arr,y
 	stx z_operand_value_low_arr,y
-	iny
-	cpy z_operand_count
-	bcc .read_next_operand
-	bcs .perform_instruction ; Always branch
+	inc z_operand_count
+	rts
 
 .operand_is_var
 	; Variable# in a
@@ -798,7 +849,6 @@ dumptovice
 }
 	bcc .store_operand ; Always branch
 .read_high_global_var
-	; inc z_global_vars_start + 1
 	; and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 (Pointless, since ASL will remove top bit anyway)
 	asl ; This sets carry
 	tay
@@ -807,57 +857,13 @@ dumptovice
 	tax
 	dey
 	lda (z_high_global_vars_ptr),y
-;	dec z_global_vars_start + 1
 	bcs .store_operand ; Always branch
 !ifndef UNSAFE {
 .nonexistent_local
     lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 }
-	
-.perform_instruction
-	lda z_opcode_opcount
-	clc
-	adc z_opcode_number
-!ifdef TRACE {
-	ldy z_trace_index
-	sta z_trace_page,y
-	inc z_trace_index
-}
-!ifndef UNSAFE {
-	cmp #z_number_of_opcodes_implemented
-	bcs z_not_implemented
-}
-	tax 
-	lda z_jump_low_arr,x
-	sta .jsr_perform + 1
-	lda z_jump_high_arr,x
-	sta .jsr_perform + 2
-.jsr_perform
-	jsr $8000
-	jmp .main_loop
 
-z_not_implemented
-
-!ifdef UNSAFE {
-	rts
-} else {
-!ifdef DEBUG {
-	jsr print_following_string
-	!pet "opcode: ",0
-	ldx z_opcode
-	jsr printx
-	jsr print_following_string
-	!pet " @ ",0
-	ldx z_pc + 2
-	lda z_pc + 1
-	jsr printinteger
-	jsr newline
-}
-    lda #ERROR_OPCODE_NOT_IMPLEMENTED
-	jsr fatalerror
-}
-}
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
 

@@ -31,6 +31,7 @@ benchmark_read_char
 	lda $a2
 	jsr print_byte_as_hex
 	jsr space
+	jsr printchar_flush
 	lda #13
 	rts
 }
