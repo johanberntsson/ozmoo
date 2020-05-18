@@ -480,8 +480,8 @@ printchar_buffered
 .add_char
     ldy buffer_index
     sta print_buffer,y
-    inc buffer_index
-    ldy buffer_index
+	iny
+    sty buffer_index
     cpy #41
     bne .printchar_done
     ; print the line until last space

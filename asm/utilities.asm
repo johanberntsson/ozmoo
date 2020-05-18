@@ -237,7 +237,7 @@ dollar
     stx .saved_x
     sty .saved_y
     lda #36
-    jsr streams_print_output
+    jsr printchar_buffered
     lda .saved_a
     ldx .saved_x
     ldy .saved_y
