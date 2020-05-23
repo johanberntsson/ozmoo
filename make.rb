@@ -1089,9 +1089,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 end
 
 def print_usage_and_exit
-	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-P] [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] [-s] [-x] [-r] "
-	puts "      [-f <fontfile>] [-cm:[xx]] [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] "
-	puts "      [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"] -sw:[nnn] <storyfile>"
+	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-81|-P] [-p:[n]] [-c <preloadfile>] [-o]"
+	puts "         [-sp:[n]] [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
+	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
+	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
+	puts "         -sw:[nnn] <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"

@@ -164,6 +164,7 @@ header_object_table = $a
 header_globals = $c
 header_static_mem = $e
 header_flags_2 = $10
+header_serial = $12
 header_abbreviations = $18
 header_filelength = $1a
 header_checksum = $1c

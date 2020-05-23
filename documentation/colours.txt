@@ -61,12 +61,12 @@ Examples
 
 Use cyan text on black background with a yellow statusbar (only works for z3!):
 
-make.rb -dc:2,8 -sc:5 game.z3
+make.rb -dc:2:8 -sc:5 game.z3
 
 
 Change so Z-code color 7 is dark grey instead of magenta and Z-code color 8 is light grey instead of cyan, and use these as default colors:
 
-make.rb -rc:7=11,8=15 -dc:7,8 game.z5
+make.rb -rc:7=11,8=15 -dc:7:8 game.z5
 
 
 Setting up the default palette (even though this isn't useful) is equivalent to using:
