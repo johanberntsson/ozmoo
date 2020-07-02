@@ -671,14 +671,14 @@ dumptovice
 	lda z_opcode
 	asl
 	asl
-	ldx #%10
+	ldx #%00000010
 	bcs +
 	dex
 +	pha
 	jsr read_operand
 	pla
 	asl
-	ldx #%10
+	ldx #%00000010
 	bcs +
 	dex
 +	jsr read_operand
@@ -702,11 +702,11 @@ dumptovice
 	bcc .optype_0x
 	asl
 	bcs .done ; %11
-	ldx #%10
+	ldx #%00000010
 	bne .store_optype ; Always branch
 .optype_0x
 	asl
-	ldx #%00
+	ldx #%00000000
 	bcc .store_optype
 	inx
 .store_optype
@@ -785,7 +785,7 @@ read_operand
 	jmp .store_operand ; Always branch
 .operand_is_not_large_constant
 	+read_next_byte_at_z_pc
-	cpx #%10
+	cpx #%00000010
 	beq .operand_is_var
 	; Operand is small constant
 	tax

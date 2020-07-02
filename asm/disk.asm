@@ -191,7 +191,7 @@ readblock
 	lsr
 	lsr
 	lsr	
-	and #%110; a now holds # of sectors at start of track not in use
+	and #%00000110; a now holds # of sectors at start of track not in use
 	sta .skip_sectors
 ; Initialize track map. Write 0 for sectors not yet used, $ff for sectors used 
 	lda disk_info + 8,x
@@ -394,7 +394,7 @@ print_insert_disk_msg
 	iny
 	bne - ; Always branch
 .special_string
-	and #%111
+	and #%00000111
 	tax
 	lda .special_string_low,x
 	sta .save_x

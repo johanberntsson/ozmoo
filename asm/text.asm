@@ -1571,4 +1571,5 @@ print_addr
 default_alphabet ; 26 * 3
     !raw "abcdefghijklmnopqrstuvwxyz"
     !raw "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    !raw " ",13,"0123456789.,!?_#'",34, "/\-:()"
+    !raw 32,13,"0123456789.,!?_#'",34,47,92,"-:()"
+	
