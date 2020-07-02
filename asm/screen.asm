@@ -20,6 +20,8 @@ init_screen_colours
 		sta reg_bordercolour
 	}
 }
+    lda zcolours + CURSORCOL
+    sta current_cursor_colour
 !ifdef Z5PLUS {
     ; store default colours in header
     lda #BGCOL ; blue

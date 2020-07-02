@@ -55,6 +55,12 @@ s_set_text_colour
 	sta s_colour
 	rts
 
+s_delete_cursor
+	lda #$20 ; blank space
+	ldy zp_screencolumn
+	sta (zp_screenline),y
+	rts
+
 s_printchar
     ; replacement for CHROUT ($ffd2)
     ; input: A = byte to write (PETASCII)
@@ -73,11 +79,19 @@ s_printchar
 +	
 	cmp #$0d
     bne +
-	jmp .perform_newline
+	; newline
+	; but first, check if the current character is the cursor so that we may delete it
+	lda cursor_character
+	ldy zp_screencolumn
+	cmp (zp_screenline),y
+	bne +++
+	jsr s_delete_cursor
++++	jmp .perform_newline
 +   
     cmp #20
     bne +
     ; delete
+    jsr s_delete_cursor
     dec zp_screencolumn ; move back
     bpl ++
 	inc zp_screencolumn ; Go back to 0 if < 0
@@ -350,6 +364,9 @@ bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
 !ifdef Z3 {
 statuslinecol !byte STATCOL, STATCOLDM
 }
+cursorcol !byte CURSORCOL, CURSORCOLDM
+current_cursor_colour !byte CURSORCOL
+cursor_character !byte CURSORCHAR
 
 toggle_darkmode
 !ifdef Z5PLUS {
@@ -364,6 +381,10 @@ toggle_darkmode
 	eor #1
 	sta darkmode
 	tax
+; Set cursor colour
+	ldy cursorcol,x
+	lda zcolours,y
+	sta current_cursor_colour
 ; Set bgcolor
 	ldy bgcol,x
 	lda zcolours,y
@@ -428,6 +449,7 @@ toggle_darkmode
 	inc z_temp + 11
 	dex
 	bne .compare
+	jsr update_cursor
 	rts 
 
 
