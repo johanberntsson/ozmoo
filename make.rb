@@ -601,6 +601,20 @@ def build_interpreter()
 	if $statusline_colour_dm
 		colourflags += " -DSTATCOLDM=#{$statusline_colour_dm}"
 	end
+	if $cursor_colour
+		colourflags += " -DCURSORCOL=#{$cursor_colour}"
+	end
+	if $cursor_colour_dm
+		colourflags += " -DCURSORCOLDM=#{$cursor_colour_dm}"
+	end
+	if $cursor_shape
+		cursor_shapes = {
+			'b' => 224,     # block      $e0
+			'u' => 100,     # underscore $e4 AND $7f
+			'l' => 101      # line       $e5 AND $7f
+		}
+		colourflags += " -DCURSORCHAR=#{cursor_shapes[$cursor_shape]}"
+	end
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
@@ -1093,7 +1107,8 @@ def print_usage_and_exit
 	puts "         [-sp:[n]] [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
-	puts "         -sw:[nnn] <storyfile>"
+	puts "         [-sw:[nnn]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
+	puts "         <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
@@ -1109,6 +1124,8 @@ def print_usage_and_exit
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
+	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
+	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 	exit 1
 end
@@ -1140,6 +1157,8 @@ $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason n
 $border_colour = 0
 $char_map = nil
 $splash_wait = nil
+$cursor_colour = nil
+$cursor_shape = nil
 
 begin
 	while i < ARGV.length
@@ -1199,6 +1218,12 @@ begin
 			splashes[$1.to_i - 1] = $2 
 		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
 			$splash_wait = $1
+		elsif ARGV[i] =~ /^-cc:([0-9])$/ then
+			$cursor_colour = $1.to_i
+		elsif ARGV[i] =~ /^-dmcc:([0-9])$/ then
+			$cursor_colour_dm = $1.to_i
+		elsif ARGV[i] =~ /^-cs:([b|u|l])$/ then
+			$cursor_shape = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"

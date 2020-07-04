@@ -983,10 +983,9 @@ update_cursor
 	ldy object_temp
     rts
 +   ; cursor
-    lda (zp_screenline),y
-    ora #$80
-    sta (zp_screenline),y
-	lda s_colour
+	lda cursor_character
+	sta (zp_screenline),y
+	lda current_cursor_colour
 	sta (zp_colourline),y
 	ldy object_temp
     rts
