@@ -25,7 +25,17 @@ make.rb has the following switches to control colours:
 
 -dmbc: (same as -bc but for darkmode)
 
-	
+The color (and shape) of the cursor can also be customized:
+
+-cc:(Cursor color)
+	Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
+
+-dmcc: (same as -dc but for darkmode)
+
+-cs:(Cursor shape)
+    Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
+
+
 Z-code has a palette of 8 colours, numbered 2-9:
 
   2 = black       
