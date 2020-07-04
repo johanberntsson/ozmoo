@@ -123,3 +123,4 @@ Special thanks to:
 * Jason Compton, for great help in testing
 * Alessandro Morgantini for adding support for Italian
 * Thomas Bøvith for adding support for Danish
+* Eric Sherman for for adding cursor customization support
