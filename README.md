@@ -107,12 +107,12 @@ Exomizer can be downloaded from [Bitbucket](https://bitbucket.org/magli143/exomi
 
 Vice is available on Debian/Ubuntu with:
 
-    > sudo apt-get install vice
+    > sudo apt install vice
 
 
 Ruby is available on Debian/Ubuntu with:
 
-    > sudo apt-get install ruby
+    > sudo apt install ruby
 
 ### Thanks
 
