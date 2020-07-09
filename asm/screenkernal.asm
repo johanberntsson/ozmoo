@@ -207,6 +207,9 @@ s_printchar
 .printchar_end
     ldx s_stored_x
     ldy s_stored_y
+!ifdef CURSORBLINK {
+    jsr reset_cursor_blinker
+}
     rts
 
 .outside_current_window
@@ -536,3 +539,56 @@ testscreen
 }
 }
 
+!ifdef CURSORBLINK {
+init_cursor_blinker
+	sei			; disable interrupts while setting up
+
+	lda #<cursor_blinker	; low byte of interrupt handler
+	ldx #>cursor_blinker	; high byte of interrupt handler
+	ldy #$8f		; arbitrary raster line to trigger interrupt
+	sta $0314		; register the handler
+	stx $0315
+	sty $d012		; at that raster line
+
+	jsr reset_cursor_blinker
+
+	cli			; enable interrupts again
+	rts
+
+reset_cursor_blinker
+	lda #$00
+	sta $cd		; jiffy countdown
+	sta $cf		; blink state
+	rts
+
+cursor_blinker
+	dec $cd		; countdown to zero
+	bpl .ack
+	lda $cf		; check blink state
+	beq .switch_on
+.switch_off
+	dec $cf
+	jsr cursor_blink_off
+	jmp .reset_countdown
+.switch_on
+	inc $cf
+	jsr cursor_blink_on
+.reset_countdown
+	lda #$20	; reset to $20 jiffies
+	sta $cd
+.ack
+	asl $d019	; ACK interrupt
+	jmp $ea31	; return from interrupt
+
+cursor_blink_on
+	lda #CURSORCHAR
+	sta cursor_character
+	jsr update_cursor
+	rts
+
+cursor_blink_off
+	lda #$20	; blank space
+	sta cursor_character
+	jsr update_cursor
+	rts
+}

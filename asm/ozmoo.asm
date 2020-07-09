@@ -214,6 +214,10 @@ game_id		!byte 0,0,0,0
 	jsr splash_screen
 }
 
+!ifdef CURSORBLINK {
+	jsr init_cursor_blinker
+}
+
 !ifdef VMEM {
 	jsr reu_start
 }

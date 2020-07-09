@@ -35,6 +35,8 @@ The color (and shape) of the cursor can also be customized:
 -cs:(Cursor shape)
     Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
 
+-cb
+    Cursor blinks.  This is only possible with version 3 story files (z3).
 
 Z-code has a palette of 8 colours, numbered 2-9:
 
