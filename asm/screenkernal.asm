@@ -568,27 +568,17 @@ cursor_blinker
 	beq .switch_on
 .switch_off
 	dec $cf
-	jsr cursor_blink_off
-	jmp .reset_countdown
+	lda #$20	; blank space
+	jmp .update
 .switch_on
 	inc $cf
-	jsr cursor_blink_on
-.reset_countdown
-	lda #$20	; reset to $20 jiffies
+	lda #CURSORCHAR ; intended cursor character
+.update
+	sta cursor_character	; update the cursor character
+	jsr update_cursor	; redraw the cursor character on screen
+	lda #$20		; reset counter to $20 jiffies
 	sta $cd
 .ack
 	asl $d019	; ACK interrupt
 	jmp $ea31	; return from interrupt
-
-cursor_blink_on
-	lda #CURSORCHAR
-	sta cursor_character
-	jsr update_cursor
-	rts
-
-cursor_blink_off
-	lda #$20	; blank space
-	sta cursor_character
-	jsr update_cursor
-	rts
 }
