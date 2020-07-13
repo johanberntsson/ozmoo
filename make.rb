@@ -615,6 +615,10 @@ def build_interpreter()
 		}
 		colourflags += " -DCURSORCHAR=#{cursor_shapes[$cursor_shape]}"
 	end
+	if $cursor_blink
+	    colourflags += " -DUSE_BLINKING_CURSOR=#{$cursor_blink}"
+	end
+
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
     compressionflags = ''
 
@@ -1107,7 +1111,7 @@ def print_usage_and_exit
 	puts "         [-sp:[n]] [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
-	puts "         [-sw:[nnn]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
+	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
@@ -1124,6 +1128,7 @@ def print_usage_and_exit
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
+	puts "  -cb: Set cursor blink frequency (0-9, where 9 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
@@ -1159,6 +1164,7 @@ $char_map = nil
 $splash_wait = nil
 $cursor_colour = nil
 $cursor_shape = nil
+$cursor_blink = nil
 
 begin
 	while i < ARGV.length
@@ -1224,6 +1230,8 @@ begin
 			$cursor_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-cs:([b|u|l])$/ then
 			$cursor_shape = $1
+		elsif ARGV[i] =~ /^-cb:([0-9])$/ then
+			$cursor_blink = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"

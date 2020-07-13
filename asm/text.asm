@@ -73,6 +73,9 @@ z_ins_read_char
     sty .read_text_routine
     ldy z_operand_value_low_arr + 2
     sty .read_text_routine + 1
+!ifdef USE_BLINKING_CURSOR {
+    jsr init_cursor_timer
+}
     jsr init_read_text_timer
 .read_char_loop
     jsr read_char
@@ -848,6 +851,30 @@ find_word_in_dictionary
 +	bcs .no_entry_found ; Always branch
 } ; End of !ifdef Z5PLUS
 
+!ifdef USE_BLINKING_CURSOR {
+init_cursor_timer
+    lda #0
+    sta s_cursormode
+    ; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
+    sta .cursor_time_jiffy
+    sta .cursor_time_jiffy + 1
+    lda USE_BLINKING_CURSOR
+    sta .cursor_time_jiffy + 2
+update_cursor_timer
+    ; calculate when the next cursor update occurs
+    jsr kernal_readtime  ; read current time (in jiffys)
+    clc
+    adc .cursor_time_jiffy + 2
+    sta .cursor_jiffy + 2
+    txa
+    adc .cursor_time_jiffy + 1
+    sta .cursor_jiffy + 1
+    tya
+    adc .cursor_time_jiffy
+    sta .cursor_jiffy
+    rts
+}
+
 !ifdef Z4PLUS {
 init_read_text_timer
 	lda .read_text_time
@@ -908,6 +935,29 @@ read_char
 +
 }
 
+!ifdef USE_BLINKING_CURSOR {
+    ; check if time for to update the blinking cursor
+    ; http://www.6502.org/tutorials/compare_beyond.html#2.2
+    jsr kernal_readtime   ; read start time (in jiffys) in a,x,y (low to high)
+	cmp .cursor_jiffy + 2
+	txa
+	sbc .cursor_jiffy + 1
+	tya
+	sbc .cursor_jiffy
+	bcc .no_cursor_blink
+	; blink the cursor
+	;
+	; set up next time out
+    jsr update_cursor_timer
+    ; cursor on/off depending on if s_cursormode is even/odd
+    jsr turn_on_cursor
+	inc s_cursormode
+	lda s_cursormode
+	and #$01
+	beq .no_cursor_blink
+    jsr turn_off_cursor
+.no_cursor_blink
+}
 	
 !ifdef Z4PLUS {
     ; check if time for routine call
@@ -962,6 +1012,9 @@ read_char
 	jmp translate_petscii_to_zscii
 
 s_cursorswitch !byte 0
+!ifdef USE_BLINKING_CURSOR {
+s_cursormode !byte 0
+}
 turn_on_cursor
     lda #1
     sta s_cursorswitch
@@ -1004,6 +1057,9 @@ read_text
 	jsr printchar_flush
     ; clear [More] counter
     jsr clear_num_rows
+!ifdef USE_BLINKING_CURSOR {
+    jsr init_cursor_timer
+}
 !ifdef Z4PLUS {
     ; check timer usage
     jsr init_read_text_timer
@@ -1206,6 +1262,10 @@ read_text
 .read_text_time_jiffy !byte 0,0,0 ; update interval in jiffys
 .read_text_jiffy !byte 0,0,0  ; current time
 .read_text_routine !byte 0,0 ; called with .read_text_time intervals
+}
+!ifdef USE_BLINKING_CURSOR {
+.cursor_jiffy !byte 0,0,0  ; next cursor update time
+.cursor_time_jiffy !byte 0,0,0 ; time between cursor updates
 }
 
 tokenise_text

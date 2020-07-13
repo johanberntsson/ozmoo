@@ -27,6 +27,9 @@ make.rb has the following switches to control colours:
 
 The color (and shape) of the cursor can also be customized:
 
+-cb:(delay)
+	Cursor blinking frequency. delay is 0 to 9, where 9 is fastest.
+
 -cc:(Cursor color)
 	Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
 
