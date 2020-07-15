@@ -993,6 +993,13 @@ read_char
 	jsr printchar_flush
 
 	jsr turn_on_cursor
+!ifdef USE_BLINKING_CURSOR {
+	lda s_cursormode
+	and #$01
+	beq .no_cursor_blink2
+    jsr turn_off_cursor
+.no_cursor_blink2
+}
 	; Interrupt routine has been executed, with value in word
 	; z_interrupt_return_value
 	; set up next time out
