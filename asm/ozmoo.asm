@@ -6,6 +6,13 @@
 ;Z5 = 1
 ;Z8 = 1
 
+; Which machine to generate code for
+; C64 is default and currently the only supported target, but
+; future versions may include new targets such as Mega65, Plus/4 etc.
+!ifndef TARGET_C64 {
+    TARGET_C64 = 1 ; C64 is the default target
+}
+
 !ifdef VMEM {
 !ifndef ALLRAM {
 	ALLRAM = 1
@@ -206,7 +213,6 @@ game_id		!byte 0,0,0,0
 !ifdef TESTSCREEN {
     jmp testscreen
 }
-
 	jsr deletable_init_start
 ;	jsr init_screen_colours
 	jsr deletable_screen_init_1
@@ -232,6 +238,26 @@ game_id		!byte 0,0,0,0
 	jsr erase_window
 
 	jsr z_init
+
+!ifdef TARGET_C64 {
+    ; set up C64 SuperCPU if any
+    ; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
+    lda $d0bc ; SuperCPU control register (read only)
+    and #$80  ; DOS extension mode? 0 if SuperCPU, 1 if standard C64
+    bne .nosupercpu 
+    ; it doesn't matter what you store in the SuperCPU control registers
+    ; it is just the access itself that counts
+    ;
+    ; memory mirroring doesn't seem to matter
+    ;sta $d07e ; enable hardware registers
+    ;sta $d077 ; no memory mirroring
+    ;sta $d07f ; disable hardware registers
+    ;
+    ; things start breaking if we run 20 Hz
+    sta $d07a ; normal speed (1 Hz)
+.nosupercpu
+}
+
 	jsr z_execute
 
 	; Back to normal memory banks
