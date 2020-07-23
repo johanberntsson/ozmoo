@@ -579,6 +579,9 @@ def build_interpreter()
 	necessarysettings +=  " --cpu 6510 --format cbm"
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
+	if $target
+		optionalsettings += " -DTARGET_#{$target.upcase}=1"
+	end
 	
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
@@ -1107,12 +1110,14 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 end
 
 def print_usage_and_exit
-	puts "Usage: make.rb [-S1|-S2|-D2|-D3|-81|-P] [-p:[n]] [-c <preloadfile>] [-o]"
-	puts "         [-sp:[n]] [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
+	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
+	puts "         [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
+	puts "  -t: specify target machine. Available targets are c64 (default)."
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
@@ -1156,6 +1161,7 @@ $default_colours = []
 $default_colours_dm = []
 $statusline_colour = nil
 $statusline_colour_dm = nil
+$target = nil
 $border_colour = nil
 $border_colour_dm = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
@@ -1187,6 +1193,8 @@ begin
 			limit_preload_vmem_blocks = true
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
+		elsif ARGV[i] =~ /^-t:(c64|mega65)$/ then
+			$target = $1
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then

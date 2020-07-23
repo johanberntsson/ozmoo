@@ -221,7 +221,26 @@ game_id		!byte 0,0,0,0
 }
 
 !ifdef VMEM {
+!ifdef TARGET_C64 {
+    ; set up C64 SuperCPU if any
+    ; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
+    lda $d0bc ; SuperCPU control register (read only)
+    and #$80  ; DOS extension mode? 0 if SuperCPU, 1 if standard C64
+    beq .supercpu
+    ;bne .nosupercpu 
+    ; it doesn't matter what you store in the SuperCPU control registers
+    ; it is just the access itself that counts
+    ;sta $d07e ; enable hardware registers
+    ;sta $d076 ; basic optimization
+    ;sta $d077 ; no memory optimization
+    ;sta $d07f ; disable hardware registers
+    ;sta $d07a ; normal speed (1 MHz)
+}
+    ; SuperCPU and REU doesn't work well together
+    ; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
+    ;
 	jsr reu_start
+.supercpu
 }
 	jsr deletable_init
     jsr parse_object_table
@@ -238,26 +257,6 @@ game_id		!byte 0,0,0,0
 	jsr erase_window
 
 	jsr z_init
-
-!ifdef TARGET_C64 {
-    ; set up C64 SuperCPU if any
-    ; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
-    lda $d0bc ; SuperCPU control register (read only)
-    and #$80  ; DOS extension mode? 0 if SuperCPU, 1 if standard C64
-    bne .nosupercpu 
-    ; it doesn't matter what you store in the SuperCPU control registers
-    ; it is just the access itself that counts
-    ;
-    ; memory mirroring doesn't seem to matter
-    ;sta $d07e ; enable hardware registers
-    ;sta $d077 ; no memory mirroring
-    ;sta $d07f ; disable hardware registers
-    ;
-    ; things start breaking if we run 20 Hz
-    sta $d07a ; normal speed (1 Hz)
-.nosupercpu
-}
-
 	jsr z_execute
 
 	; Back to normal memory banks
