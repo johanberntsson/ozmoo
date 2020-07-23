@@ -950,12 +950,16 @@ read_char
 	; set up next time out
     jsr update_cursor_timer
     ; cursor on/off depending on if s_cursormode is even/odd
-    jsr turn_on_cursor
+    lda #CURSORCHAR ; cursor on
+    sta cursor_character
+    jsr update_cursor
 	inc s_cursormode
 	lda s_cursormode
 	and #$01
 	beq .no_cursor_blink
-    jsr turn_off_cursor
+    lda #$20 ; blank space, cursor off
+    sta cursor_character
+    jsr update_cursor
 .no_cursor_blink
 }
 	
@@ -993,13 +997,6 @@ read_char
 	jsr printchar_flush
 
 	jsr turn_on_cursor
-!ifdef USE_BLINKING_CURSOR {
-	lda s_cursormode
-	and #$01
-	beq .no_cursor_blink2
-    jsr turn_off_cursor
-.no_cursor_blink2
-}
 	; Interrupt routine has been executed, with value in word
 	; z_interrupt_return_value
 	; set up next time out
@@ -1049,6 +1046,19 @@ update_cursor
 	sta (zp_colourline),y
 	ldy object_temp
     rts
+
+!ifdef USE_BLINKING_CURSOR {
+reset_cursor_blink
+    ; resets the cursor timer and blink mode
+    ; effectively puts the cursor back on the screen for another timer duration
+    lda #$00
+    sta .cursor_jiffy
+    sta .cursor_jiffy + 1
+    sta .cursor_jiffy + 2
+    lda #$01
+    sta s_cursormode
+    rts
+}
 
 read_text
     ; read line from keyboard into an array (address: a/x)
@@ -1133,6 +1143,9 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
+!ifdef USE_BLINKING_CURSOR {
+	jsr reset_cursor_blink
+}
 .done_printing_this_char
     dex
     jmp .p0
@@ -1153,6 +1166,9 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
+!ifdef USE_BLINKING_CURSOR {
+	jsr reset_cursor_blink
+}
 .done_printing_this_char
     iny
     jmp .p0
@@ -1182,6 +1198,9 @@ read_text
 	jsr turn_off_cursor
 	lda .petscii_char_read
     jsr s_printchar ; print the delete char
+!ifdef USE_BLINKING_CURSOR {
+    jsr reset_cursor_blink
+}
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
     ldy #1
@@ -1223,6 +1242,9 @@ read_text
 }
 	lda .petscii_char_read
     jsr s_printchar
+!ifdef USE_BLINKING_CURSOR {
+    jsr reset_cursor_blink
+}
     jsr update_cursor
     pla
     ; convert to lower case
@@ -1256,6 +1278,9 @@ read_text
     beq +
 ;	pha
     jsr s_printchar; print final char unless it is 0
+!ifdef USE_BLINKING_CURSOR {
+    jsr reset_cursor_blink
+}
 ;	jsr start_buffering
 ;	pla
 +   rts
