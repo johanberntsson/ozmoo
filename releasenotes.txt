@@ -83,11 +83,12 @@ Fixed bugs:
 
 ================================================
 Release 4: Cursor improvements, SuperCPU support, bugfixes
+Special thanks to Eric Sherman for cursor patches
 
-New features:
+New features: 
 - cursor shape and colour configuration settings
-- optional cursor blinking mode
-- make.rb support for additional target platforms (currently only C64)
+- optional cursor blinking mode (see documentation/colours.txt)
+- make.rb support for additional target platforms (currently only -t:c64)
 
 Optimizations:
 - Slight optimization to printchar_buffered.
