@@ -6,6 +6,13 @@
 ;Z5 = 1
 ;Z8 = 1
 
+; Which machine to generate code for
+; C64 is default and currently the only supported target, but
+; future versions may include new targets such as Mega65, Plus/4 etc.
+!ifndef TARGET_C64 {
+    TARGET_C64 = 1 ; C64 is the default target
+}
+
 !ifdef VMEM {
 !ifndef ALLRAM {
 	ALLRAM = 1
@@ -206,7 +213,6 @@ game_id		!byte 0,0,0,0
 !ifdef TESTSCREEN {
     jmp testscreen
 }
-
 	jsr deletable_init_start
 ;	jsr init_screen_colours
 	jsr deletable_screen_init_1
@@ -215,7 +221,26 @@ game_id		!byte 0,0,0,0
 }
 
 !ifdef VMEM {
+!ifdef TARGET_C64 {
+    ; set up C64 SuperCPU if any
+    ; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
+    lda $d0bc ; SuperCPU control register (read only)
+    and #$80  ; DOS extension mode? 0 if SuperCPU, 1 if standard C64
+    beq .supercpu
+    ;bne .nosupercpu 
+    ; it doesn't matter what you store in the SuperCPU control registers
+    ; it is just the access itself that counts
+    ;sta $d07e ; enable hardware registers
+    ;sta $d076 ; basic optimization
+    ;sta $d077 ; no memory optimization
+    ;sta $d07f ; disable hardware registers
+    ;sta $d07a ; normal speed (1 MHz)
+}
+    ; SuperCPU and REU doesn't work well together
+    ; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
+    ;
 	jsr reu_start
+.supercpu
 }
 	jsr deletable_init
     jsr parse_object_table

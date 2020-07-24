@@ -1,0 +1,99 @@
+RELEASE NOTES
+
+================================================
+Release 1: first public release (28 December 2018)
+
+================================================
+Release 2: REU support, .d81 support, bugfixes (5 June 2019)
+
+Features:
+- REU support: All the game data that would normally be retrieved from disk as needed can be cached in an REU instead. This also allows a user with a single disk drive and an REU to play a game built for a dual drive system.
+- Added support for building a game to a 1581 disk image (d81), typically to be used with an emulator, or a real C64 with a 1581 drive or an SD2IEC.
+- Changed MORE prompt to not cover any text.
+- Added character mappings using the C64's graphics characters to show (approximations of) the regular ASCII characters that are part of ZSCII but not PETSCII.
+- Added easily usable mappings and fonts for games in Swedish and German
+- Ozmoo now shows a cursor while waiting for the user to press a key. This makes a cursor appear when filling in the form in Bureaucracy, where it was dearly missed.
+- Upper window now auto-expands in z3, z5 and z8, if a game prints outside its limits. This makes a lot of not-so-well-behaved games work a lot better, with menus etc.
+- Text in upper window is now truncated at right border instead of overflowing into the next line. This makes games which don't expect such a narrow screen work better.
+- Text in upper window can be printed outside the left border. The text doesn't show, but the cursor moves as it should. This makes quote boxes and the like written for wider screens look as good as they can.
+- Handling of upper window has been bugfixed and improved in many ways to work as best practice states.
+- z3 programs can now split off an upper window without it being confused with the z3 statusline.
+
+Optimizations:
+- Improved algorithm for which virtual memory block is swapped out when space is needed. This means fewer blocks typically need to be loaded during a game session.
+- Faster code to convert between PETSCII and ZSCII, which speeds up all printing and player input
+- Removed superfluous parsing of dictionaries
+- Fixed bug which made the vmem quick index (a list of the six last used block in virtual memory) useless
+- Fixed bug in make.rb which made it preload some memory blocks even when explicitly asked not to. This made PREOPT less efficient.
+- Fixed bug which made make.rb use more disk blocks than necessary for story data. The bugfix allows for slightly larger games to be built with Ozmoo in modes S1 and D2.
+- Fixed bug which caused make.rb to fail when building a game over a certain size in mode D2, forcing the user to use D3 instead when D2 should be enough.
+
+Bugfixes:
+- Bug in @throw, which was rendering @catch/@throw useless
+- Removed extra linebreak when printing text that ended in last column.
+- Bug in PREOPT mode
+- Bug in timed input
+- Bug in @get_cursor which made it return rows and columns starting with 0,0 instead of 1,1 as the standard states
+- Bug which would sometimes crash dictionary search when searching for a word not in the dictionary
+- Bug in @restart which made it not work after the game had been saved or restored to a disk in the same drive as the boot disk.
+- Bugs in make.rb where the program would not signal failure properly in many cases.
+- Bug which caused some extra letters to be printed on the line below the statusline in many games.
+
+Other improvements:
+- Updated documentation
+- Changed screen dimension units in header to characters rather than pixels. This works well with more games.
+- Updated to latest version of Exomizer (3.0.2)
+
+================================================
+Release 3: Darkmode, splash screen, bugfixes, more languages (5 March 2020)
+
+Features:
+- Added a secondary, configurable, colour scheme called Darkmode, which the player can toggle with the F1 key.
+Added a configurable and optional splash screen which is displayed just before the game starts. The game starts after a few seconds or when the user presses a key. By default it shows the Ozmoo version and the instruction to use F1 to access Darkmode.
+- Time display on statusline in z3 games has been changed to AM/PM format and made to show 99:99 PM when the player doesn't hold the watch in Cutthroats.
+- Added filtering of ZSCII characters which can't be handled in output. They will now be omitted in production builds, and printed as hex codes "/ff/" in Debug mode.
+- Added fonts and character mappings for Italian, Danish, Spanish and French (in addition to German and Swedish which were already supported).
+- Added modified versions of the system font for several languages.
+- Updated several fonts.
+- Added a build flag in code (SMALL_CODE) which eliminates most runtime error checks in order to save about 120 bytes.
+- Put the story file first on a d81 disk image instead of the partition. This enabled Vice to load the right file when loading "*" even without true drive emulation.
+
+Fixed bugs:
+- A paragraph ending with a character in the last screen column would not get a newline.
+- A custom alphabet could change the meaning of character 7 in alphabet A2. This character should always be a newline.
+- @buffer_mode always flushed the print buffer, and printed the contents to the current window.
+- Time display in z3 games with time on statusline has been bugfixed.
+- Bug in @scan_table.
+- Bug in @set_font.
+- Numerous bugs in @print_table.
+- Bugs in wordwrap after player input and when text buffering started in column > 0.
+- Bug in @tokenise which could make it mistakenly think there was a user dictionary.
+- Bug in quickindex, a shorthand list of recently used blocks in virtual memory, which made it think it had found a block if it found one with the same address modus 65536.
+- make.rb crashed when building a three-disk game.
+- Fixed spurious characters being output at start of game on an Ultimate 64.
+- make.rb silently clipped a story file after 51 KB in single file build mode.
+- @erase_line always erased the whole line, when it should erase from cursor.
+- Cursor started at bottom of screen in z5 games, when it should start at top.
+- Splitscreen in z3 games was working but the terp told the games it didn't support it, so the splitscreen sonar display in Seastalker didn't work.
+- £ character wasn't mapped, so games could not display it and it wouldn't be recognized in player input.
+- We used a graphic character to represent the backslash character. We have now edited all fonts included with Ozmoo to make it look like a real backslash character.
+- Pipe character was incorrectly mapped for output to the graphic character that looks like a pipe character, even for languages where that character has been repurposed as an accented character. Pipe character has instead been mapped to another graphic character with a vertical bar but to the left instead of in the middle of the 8x8 matrix.
+- We didn't have input mapping for backslash, underscore and pipe character so if you managed to type them at an input prompt, a game still couldn't recognize them.
+- @print_table printed too many characters if it encountered an illegal ZSCII code, due to a bug in translate_zscii_to_petscii.
+
+================================================
+Release 4: Cursor improvements, SuperCPU support, bugfixes
+Special thanks to Eric Sherman for cursor patches
+
+New features: 
+- cursor shape and colour configuration settings
+- optional cursor blinking mode (see documentation/colours.txt)
+- make.rb support for additional target platforms (currently only -t:c64)
+
+Optimizations:
+- Slight optimization to printchar_buffered.
+
+Fixed bugs:
+- SuperCPU + REU combination bug avoided by deselecting REU when SuperCPU used
+- Fixed bug in docs for colours settings.
+- Fixed code that caused errors and warnings with new version of ACME 

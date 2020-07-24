@@ -1,3 +1,12 @@
+Targets
+-------
+
+While the main target for Ozmoo is the Commodore 64, it is possible to target
+other similar computers. make.rb takes a -t:target argument to enable such
+future extensions, but currently only c64 is supported, and the rest of this
+documents is c64 specific.
+
+
 Drives and devices
 ------------------
 A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drive devices attached to the C64. The device numbers which can be used are 8, 9, 10, 11. Two different story disks can not use the same device number.
