@@ -32,11 +32,11 @@ $GENERALFLAGS = [
 
 # For a production build, none of these flags should be enabled.
 $DEBUGFLAGS = [
-	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
+#	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'VIEW_STACK_RECORDS',
 #	'PRINTSPEED'
-	'BENCHMARK',
-	'VMEM_STRESS', # very slow but gives vmem a workout
+#	'BENCHMARK',
+#	'VMEM_STRESS', # very slow but gives vmem a workout
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
