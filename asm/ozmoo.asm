@@ -623,6 +623,9 @@ deletable_init
 	lda #vmap_max_size
 ++	
 }
+!ifdef VMEM_STRESS {
+        lda #2 ; one block for PC, one block for data
+}
 	sta vmap_max_entries
 
 	jsr prepare_static_high_memory

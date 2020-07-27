@@ -83,7 +83,8 @@ Fixed bugs:
 
 ================================================
 Release 4: Cursor improvements, SuperCPU support, bugfixes
-Special thanks to Eric Sherman for cursor patches
+Special thanks to Eric Sherman for cursor patches and Steve Flintham
+for VM bug fix patches
 
 New features: 
 - cursor shape and colour configuration settings
@@ -97,3 +98,5 @@ Fixed bugs:
 - SuperCPU + REU combination bug avoided by deselecting REU when SuperCPU used
 - Fixed bug in docs for colours settings.
 - Fixed code that caused errors and warnings with new version of ACME 
+- Merged VM bug fixes from Steven Flintham
+

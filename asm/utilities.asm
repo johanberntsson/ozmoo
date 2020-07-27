@@ -92,6 +92,7 @@ ERROR_OUT_OF_MEMORY = 12
 ERROR_WRITE_ABOVE_DYNMEM = 13
 ERROR_READ_ABOVE_STATMEM = 14
 ERROR_TOO_MANY_TERMINATORS = 15
+ERROR_NO_VMEM_INDEX = 16
 
 !ifdef DEBUG {
 .error_unsupported_stream !pet "unsupported stream#",0
@@ -109,6 +110,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
 .error_write_above_dynmem !pet "tried to write to non-dynamic memory", 0
 .error_read_above_statmem !pet "tried to read from himem", 0
 .error_too_many_terminators !pet "too many terminators", 0
+.error_no_vmem_index !pet "no vmem index found", 0
 
 .error_message_high_arr
     !byte >.error_unsupported_stream
@@ -126,6 +128,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
     !byte >.error_write_above_dynmem
     !byte >.error_read_above_statmem
     !byte >.error_too_many_terminators
+    !byte >.error_no_vmem_index
 
 .error_message_low_arr
     !byte <.error_unsupported_stream
@@ -143,6 +146,7 @@ ERROR_TOO_MANY_TERMINATORS = 15
     !byte <.error_write_above_dynmem
     !byte <.error_read_above_statmem
     !byte <.error_too_many_terminators
+    !byte <.error_no_vmem_index
 }
 
 fatalerror
