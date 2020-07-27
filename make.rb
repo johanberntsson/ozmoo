@@ -36,6 +36,7 @@ $DEBUGFLAGS = [
 #	'VIEW_STACK_RECORDS',
 #	'PRINTSPEED'
 #	'BENCHMARK',
+#	'VMEM_STRESS', # very slow but gives vmem a workout
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
