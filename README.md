@@ -130,3 +130,5 @@ Special thanks to:
 * Thomas Bøvith for adding support for Danish
 * Eric Sherman for adding cursor customization support
 * Paul Gardner-Stephen for porting Ozmoo to the Mega65
+* Steve Flintham for bug fixes and porting Ozmoo to Acorn computers
+
