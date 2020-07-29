@@ -422,14 +422,20 @@ printchar_flush
 	ldx current_window
 	stx z_temp + 11
 	jsr select_lower_window
+    lda s_reverse
+    pha
     ldx first_buffered_column
 -   cpx buffer_index
     bcs +
+    lda print_buffer2,x
+    sta s_reverse
     lda print_buffer,x
     jsr s_printchar
     inx
     bne -
-+	jsr start_buffering
++	pla
+        sta s_reverse
+        jsr start_buffering
 	ldx z_temp + 11
 	beq .increase_num_rows_done
 	jsr save_cursor
@@ -482,10 +488,14 @@ printchar_buffered
 .add_char
     ldy buffer_index
     sta print_buffer,y
+    lda s_reverse
+    sta print_buffer2,y
 	iny
     sty buffer_index
     cpy #41
-    bne .printchar_done
+    beq +
+    jmp .printchar_done
++
     ; print the line until last space
 	; First calculate max# of characters on line
 	ldx #40
@@ -520,16 +530,22 @@ printchar_buffered
 	sty last_break_char_buffer_pos
 .print_buffer
 	ldx first_buffered_column
+    lda s_reverse
+    pha
 -   cpx last_break_char_buffer_pos
-    beq .move_remaining_chars_to_buffer_start
+    beq +
     txa ; kernal_printchar destroys x,y
     pha
+    lda print_buffer2,x
+    sta s_reverse
     lda print_buffer,x
     jsr s_printchar
     pla
     tax
     inx
     bne - ; Always branch
++   pla
+    sta s_reverse
 
 .move_remaining_chars_to_buffer_start
     ; Skip initial spaces, move the rest of the line back to the beginning and update indices
@@ -545,6 +561,8 @@ printchar_buffered
     beq .after_copy_loop
     lda print_buffer,x
     sta print_buffer,y
+    lda print_buffer2,x
+    sta print_buffer2,y
     iny
     inx
     bne .copy_loop ; Always branch
