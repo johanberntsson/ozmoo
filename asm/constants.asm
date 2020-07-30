@@ -111,6 +111,7 @@ cursor_column		  = $f9 ; 2 bytes
 zp_temp               = $fb ; 5 bytes
 
 print_buffer		  = $100 ; 41 bytes
+print_buffer2             = $129 ; 41 bytes
 
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
