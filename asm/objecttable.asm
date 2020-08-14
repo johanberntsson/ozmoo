@@ -608,10 +608,6 @@ z_ins_get_prop
     lda #0
     jmp .return_property_result
 .not_one
-!ifndef UNSAFE {
-    cmp #2
-    bne .not_two
-}
     ; property length is 2
     jsr read_next_byte
     pha
