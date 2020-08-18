@@ -1012,6 +1012,14 @@ z_ins_not_supported
 z_divide
 	; input: Dividend in arg 0, divisor in arg 1, y = signed? 0 = unsigned, $ff = signed
 	; output: result in division_result (low byte, high byte)
+!ifndef UNSAFE {
+	lda z_operand_value_high_arr + 1
+	ora z_operand_value_low_arr + 1
+	bne .not_div_by_0
+    lda #ERROR_DIVISION_BY_ZERO
+	jsr fatalerror
+.not_div_by_0	
+}
 	cpy #0
 	beq .div_unsigned
 	lda z_operand_value_high_arr
