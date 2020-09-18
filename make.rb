@@ -78,6 +78,10 @@ $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 
 $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
+$loader_labels_file = File.join($TEMPDIR, 'acme_labels_loader.txt')
+# $loader_pic_file = File.join($EXECDIR, 'loaderpic.kla')
+$loader_file = File.join($TEMPDIR, 'loader')
+$loader_zip_file = File.join($TEMPDIR, 'loader_zip')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
@@ -636,17 +640,50 @@ def build_interpreter()
 		puts "ERROR: There was a problem calling Acme"
 		exit 1
 	end
+	$storystart = 0
 	read_labels($labels_file);
 	puts "Interpreter size: #{$program_end_address - $start_address} bytes."
 end
 
 def read_labels(label_file_name)
-	$storystart = 0
 	File.open(label_file_name).each do |line|
 		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
 		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
+		$loader_pic_start = $1.to_i(16) if line =~ /\tloader_pic_start\t=\s*\$(\w{3,4})\b/;
 	end
 end
+
+def build_loader_file()
+	necessarysettings =  " --cpu 6510 --format cbm"
+	optionalsettings = ""
+	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
+	
+    cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}" +
+		" -l \"#{$loader_labels_file}\" --outfile \"#{$loader_file}\" picloader.asm"
+	puts cmd
+	Dir.chdir $SRCDIR
+    ret = system(cmd)
+	Dir.chdir $EXECDIR
+	unless ret
+		puts "ERROR: There was a problem calling Acme"
+		exit 1
+	end
+	read_labels($loader_labels_file);
+	puts "Loader pic address: #{$loader_pic_start}"
+
+	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2,10001"
+	exomizer_cmd = "#{$EXOMIZER} sfx basic -B \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
+
+	puts exomizer_cmd
+	ret = system(exomizer_cmd)
+	unless ret
+		puts "ERROR: There was a problem calling Exomizer"
+		exit 1
+	end
+
+	File.size($loader_zip_file)
+end
+
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}"
@@ -691,7 +728,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 		save_good_boot_file()
 		return vmem_preload_blocks
 	end
-	puts "##### Built loader/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####\n\n"
+	puts "##### Built bootfile/interpreter with #{vmem_preload_blocks} virtual memory blocks preloaded: Too big #####\n\n"
 	max_ok_blocks = -1 # If we never find a number of blocks which work, -1 will be returned to signal failure.  
 	
 	done = false
@@ -711,11 +748,11 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 			size = build_specific_boot_file(mid, vmem_contents)
 			last_build = mid
 			if size > max_file_size then
-				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: Too big #####\n\n"
+				puts "##### Built bootfile/interpreter with #{mid} virtual memory blocks preloaded: Too big #####\n\n"
 				min_failed_blocks = mid
 			else
 				save_good_boot_file()
-				puts "##### Built loader/interpreter with #{mid} virtual memory blocks preloaded: OK      #####\n\n"
+				puts "##### Built bootfile/interpreter with #{mid} virtual memory blocks preloaded: OK      #####\n\n"
 				max_ok_blocks = mid
 #				max_ok_blocks = [mid + (1.25 * (max_file_size - size) / $VMEM_BLOCKSIZE).floor.to_i, min_failed_blocks - 1].min  
 			end
@@ -724,6 +761,11 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 #	build_specific_boot_file(actual_blocks, vmem_contents) unless last_build == actual_blocks
 	puts "Picked #{actual_blocks} blocks." if max_ok_blocks >= 0
 	actual_blocks
+end
+
+def add_loader_file(diskimage_filename)
+	puts "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
+	system("#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader")
 end
 
 def add_boot_file(finaldiskname, diskimage_filename)
@@ -762,18 +804,29 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks) # Has to be run to finalize the disk
 
+	disk.save()
+
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}"
 
-	# Build loader + terp + preloaded vmem blocks as a file
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}"
+		if add_loader_file(diskimage_filename) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 	
-	disk.save()
-	
-	# Add loader + terp + preloaded vmem blocks file to disk
+	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(diskfilename, diskimage_filename) != true
-		puts "ERROR: Failed to write loader/interpreter to disk."
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
 		exit 1
 	end
 
@@ -799,12 +852,19 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}"
 
-	# Build loader + terp + preloaded vmem blocks as a file
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}"
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 #	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
 	if vmem_preload_blocks < 0
-		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
+		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
 	vmem_data[2] = vmem_preload_blocks
@@ -826,9 +886,17 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	
 	disk.save()
 	
-	# Add loader + terp + preloaded vmem blocks file to disk
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(diskimage_filename) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(diskfilename, diskimage_filename) != true
-		puts "ERROR: Failed to write loader/interpreter to disk."
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
 		exit 1
 	end
 
@@ -847,13 +915,20 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	free_blocks = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
 	free_blocks = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
-		puts "Free disk blocks after story data has been written: #{free_blocks}"
+	puts "Free disk blocks after story data has been written: #{free_blocks}"
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
 	end
 
-	# Build loader + terp + preloaded vmem blocks as a file
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}"
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
 	vmem_data[2] = vmem_preload_blocks
 	
@@ -881,9 +956,17 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk1.save()
 	disk2.save()
 	
-	# Add loader + terp + preloaded vmem blocks file to disk
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(d64_filename_1) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(outfile1name, d64_filename_1) != true
-		puts "ERROR: Failed to write loader/interpreter to disk."
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
 		exit 1
 	end
 	File.delete(outfile2name) if File.exist?(outfile2name)
@@ -903,7 +986,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 
 	# Figure out how to put story blocks on the disks in optimal way.
-	# Rule 1: Save 160 blocks for loader on boot disk, if possible. 
+	# Rule 1: Save 160 blocks for bootfile on boot disk, if possible. 
 	# Rule 2: Spread story data as evenly as possible, so heads will move less.
 	max_story_blocks = 9999
 	total_raw_story_blocks = ($story_size - $story_file_cursor) / 256
@@ -911,10 +994,10 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 		# Story data can be evenly spread over the two disks
 		max_story_blocks = total_raw_story_blocks / 2
 	elsif disk1.free_blocks() - 160 + disk2.free_blocks >= total_raw_story_blocks
-		# There is room for a full-size loader on boot disk, if we spread the data unevenly over the two disks
+		# There is room for a full-size bootfile on boot disk, if we spread the data unevenly over the two disks
 		max_story_blocks = disk1.free_blocks() - 160
 	else
-		# Fill disk 2 with story data, put the rest on disk 1, and squeeze in the biggest loader that there is room for.
+		# Fill disk 2 with story data, put the rest on disk 1, and squeeze in the biggest bootfile that there is room for.
 		disk2_free = disk2.free_blocks()
 		disk2_free -= 1 if disk2_free % 2 > 0
 		max_story_blocks = total_raw_story_blocks - disk2_free
@@ -929,10 +1012,17 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 		exit 1
 	end
 
-	# Build loader + terp + preloaded vmem blocks as a file
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks_1 -= (loader_size / 254.0).ceil
+		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}"
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks_1)
 	if vmem_preload_blocks < 0
-		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
+		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
 	vmem_data[2] = vmem_preload_blocks
@@ -964,9 +1054,17 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk1.save()
 	disk2.save()
 	
-	# Add loader + terp + preloaded vmem blocks file to disk
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(d64_filename_1) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(outfile1name, d64_filename_1) != true
-		puts "ERROR: Failed to write loader/interpreter to disk."
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
 		exit 1
 	end
 	File.delete(outfile2name) if File.exist?(outfile2name)
@@ -1003,7 +1101,14 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 		exit 1
 	end
 
-	# Build loader + terp + preloaded vmem blocks as a file
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks_1 -= (loader_size / 254.0).ceil
+		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}"
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
 	vmem_data[2] = vmem_preload_blocks
 	
@@ -1042,9 +1147,17 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	disk2.save()
 	disk3.save()
 	
-	# Add loader + terp + preloaded vmem blocks file to disk
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(d64_filename_1) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(outfile1name, d64_filename_1) != true
-		puts "ERROR: Failed to write loader/interpreter to disk."
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
 		exit 1
 	end
 	File.delete(outfile2name) if File.exist?(outfile2name)
@@ -1067,12 +1180,19 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}"
 
-	# Build loader + terp + preloaded vmem blocks as a file
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}"
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
 #	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
 	if vmem_preload_blocks < 0
-		puts "ERROR: The story fits on the disk, but not the loader/interpreter. Please try another build mode."
+		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
 	vmem_data[2] = vmem_preload_blocks
@@ -1098,10 +1218,18 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	end
 	
 	disk.save()
-	
-	# Add loader + terp + preloaded vmem blocks file to disk
+
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(diskimage_filename) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(diskfilename, diskimage_filename) != true
-		puts "ERROR: Failed to write loader/interpreter to disk."
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
 		exit 1
 	end
 
@@ -1113,7 +1241,7 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
 	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
-	puts "         [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
+	puts "         [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]  [-i <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
@@ -1128,6 +1256,7 @@ def print_usage_and_exit
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1148,8 +1277,10 @@ i = 0
 reduced_ram = false
 await_preloadfile = false
 await_fontfile = false
+await_imagefile = false
 preloadfile = nil
 $font_filename = nil
+$loader_pic_file = nil
 auto_play = false
 optimize = false
 extended_tracks = false
@@ -1181,6 +1312,9 @@ begin
 		elsif await_fontfile then
 			await_fontfile = false
 			$font_filename = ARGV[i]
+		elsif await_imagefile then
+			await_imagefile = false
+			$loader_pic_file = ARGV[i]
 		elsif ARGV[i] =~ /^-x$/ then
 			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/ then
@@ -1229,6 +1363,8 @@ begin
 		elsif ARGV[i] =~ /^-f$/ then
 			await_fontfile = true
 			$start_address = 0x1000
+		elsif ARGV[i] =~ /^-i$/ then
+			await_imagefile = true
 		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
 			splashes[$1.to_i - 1] = $2 
 		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then

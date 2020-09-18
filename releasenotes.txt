@@ -91,6 +91,7 @@ New features:
 - optional cursor blinking mode (see documentation/colours.txt)
 - make.rb support for additional target platforms (currently only -t:c64)
 - Added a runtime error for division by zero.
+- Option -i to add a loader showing a picture while the game loads.
 
 Optimizations:
 - Slight optimization to printchar_buffered.
