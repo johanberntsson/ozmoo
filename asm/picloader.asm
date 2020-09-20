@@ -2,6 +2,7 @@
 * = $801
 
 loader_start = $334
+interrupt_vector = $314
 
 !source "constants.asm"
 
@@ -9,6 +10,11 @@ loader_start = $334
 !byte $0b, $08, $01,$00, $9e, $32, $30, $36, $31, 0, 0, 0
 
 !zone picloader {
+
+; Copy background colour
+	ldx loader_pic_start + 10000
+	stx $d020
+	stx $d021
 
 ; Copy bitmap data
 
@@ -45,11 +51,6 @@ loader_start = $334
 	cpx #250
 	bcc .copy_screen
 
-
-; Copy background colour
-	lda loader_pic_start + 10000
-	sta $d020
-	sta $d021
 
 ; Show image
 
@@ -90,6 +91,28 @@ loader_start = $334
 	sta loader_start,x
 	dex
 	bpl -
+
+!ifdef FLICKER {
+; Copy background colour to loader code
+	lda loader_pic_start + 10000
+	and #15 ; Make sure we don't have any noise in the high nybble
+	tax
+	lda .alt_col,x
+	sta .load_alt_col + 1
+	
+; Setup interrupt
+	sei
+	lda interrupt_vector
+	sta .jmp_kernal_interrupt + 1
+	lda interrupt_vector + 1
+	sta .jmp_kernal_interrupt + 2
+	lda #<.interrupt
+	sta interrupt_vector
+	lda #>.interrupt
+	sta interrupt_vector + 1
+	cli
+}
+	
 	jmp loader_start;
 
 .loader
@@ -107,6 +130,16 @@ loader_start = $334
     lda #1 
     jsr kernal_close
 
+!ifdef FLICKER {
+; Clear interrupt
+
+	sei
+	lda .jmp_kernal_interrupt + 1
+	sta interrupt_vector
+	lda .jmp_kernal_interrupt + 2
+	sta interrupt_vector + 1
+	cli
+}
 ; Hide image and set default graphics bank
 
 ; Set graphics mode
@@ -142,15 +175,35 @@ loader_start = $334
 	lda #3  ; 3 chars are now in keyboard buffer
 	sta 198
 	
-	; Set text colour to black
-	lda #0
+	; Set text colour to background colour
+	lda $d021
 	sta 646
 
 	rts
+
+!ifdef FLICKER {
+.interrupt
+	ldx $d020
+.load_alt_col
+	lda #0
+	sta $d020
+	nop
+	nop
+	stx $d020
+.jmp_kernal_interrupt
+	jmp $ea31
+}
+	
 .filename
 !pet "story"
 }
 .end_of_loader
+
+!ifdef FLICKER {
+.alt_col
+	!byte 1, 0, 10, 14, 14, 13, 14, 0, 9, 8, 2, 12, 15, 5, 6, 12
+}
+
 } ; zone picloader
 
 loader_pic_start

@@ -656,7 +656,7 @@ end
 def build_loader_file()
 	necessarysettings =  " --cpu 6510 --format cbm"
 	optionalsettings = ""
-	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
+	optionalsettings += " -DFLICKER=1" if $loader_flicker
 	
     cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}" +
 		" -l \"#{$loader_labels_file}\" --outfile \"#{$loader_file}\" picloader.asm"
@@ -1241,7 +1241,8 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
 	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
-	puts "         [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]  [-i <imagefile>]"
+	puts "         [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
+	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
@@ -1257,6 +1258,7 @@ def print_usage_and_exit
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
+	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1281,6 +1283,7 @@ await_imagefile = false
 preloadfile = nil
 $font_filename = nil
 $loader_pic_file = nil
+$loader_flicker = false
 auto_play = false
 optimize = false
 extended_tracks = false
@@ -1363,8 +1366,9 @@ begin
 		elsif ARGV[i] =~ /^-f$/ then
 			await_fontfile = true
 			$start_address = 0x1000
-		elsif ARGV[i] =~ /^-i$/ then
+		elsif ARGV[i] =~ /^-if?$/ then
 			await_imagefile = true
+			$loader_flicker = ARGV[i] =~ /f$/
 		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
 			splashes[$1.to_i - 1] = $2 
 		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
