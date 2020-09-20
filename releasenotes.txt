@@ -82,13 +82,11 @@ Fixed bugs:
 - @print_table printed too many characters if it encountered an illegal ZSCII code, due to a bug in translate_zscii_to_petscii.
 
 ================================================
-Release 4: Cursor improvements, SuperCPU support, bugfixes
-Special thanks to Eric Sherman for cursor patches and Steve Flintham
-for VM bug fix patches
+Release 4: Configurable cursor, loadscreen, bugfixes
+Special thanks to Eric Sherman for cursor patches and Steve Flintham for VM bug fix patches
 
 New features: 
-- cursor shape and colour configuration settings
-- optional cursor blinking mode (see documentation/colours.txt)
+- cursor shape, colour and blinking configuration settings (see documentation/colours.txt)
 - make.rb support for additional target platforms (currently only -t:c64)
 - Added a runtime error for division by zero.
 - Option -i to add a loader showing a picture while the game loads.
