@@ -132,9 +132,14 @@ z_ins_tokenise_text
 
 .tokenise_main
     ; setup parse_array and flag
+	ldy #0
+	lda z_operand_count
+	cmp #4
+	bcc .flag_set
+    ldy z_operand_value_low_arr + 3
+.flag_set	
     ldx z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr + 1
-    ldy z_operand_value_low_arr + 3
     jmp tokenise_text
 
 z_ins_encode_text
@@ -783,9 +788,15 @@ find_word_in_dictionary
     sta .dictionary_address
     sta .dictionary_address + 1
     sta .is_word_found
-!ifdef TRACE_SHOW_DICT_ENTRIES {
-	beq .store_find_result ; Only needed if TRACE_SHOW_DICT_ENTRIES is set
-}
+    ldy .parse_array_index
+	iny
+	iny
+	rts
+
+; After adding an rts above, the following code can't be reached anyway.	
+;!ifdef TRACE_SHOW_DICT_ENTRIES {
+;	beq .store_find_result ; Only needed if TRACE_SHOW_DICT_ENTRIES is set
+;}
 .found_dict_entry
     ; store result into parse_array and exit
 !ifdef TRACE_SHOW_DICT_ENTRIES {
@@ -1382,12 +1393,12 @@ tokenise_text
     adc #4
     sta .wordoffset
     jsr find_word_in_dictionary ; will update y
+    inc .numwords
     lda .is_word_found
     bne .store_word_in_parse_array
     lda .ignore_unknown_words
     bne .find_next_word ; word unknown, and we shouldn't store unknown words
 .store_word_in_parse_array
-    inc .numwords
     lda .wordend
     sec
     sbc .wordstart
@@ -1395,19 +1406,20 @@ tokenise_text
     iny
     lda .wordstart
     sta (parse_array),y ; start index
+    ; find the next word
+.find_next_word
     ldy #1
     lda .numwords
     sta (parse_array),y ; num of words
-    ; find the next word
-.find_next_word
+
     ldy .wordend
     lda .numwords
     cmp .maxwords
     bne  .find_word_loop
 .parsing_done
-    lda .numwords
-    ldy #1
-    sta (parse_array),y
+;    lda .numwords
+;    ldy #1
+;    sta (parse_array),y
     rts
 .maxwords   !byte 0 
 .numwords   !byte 0 

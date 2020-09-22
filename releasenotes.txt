@@ -101,3 +101,9 @@ Fixed bugs:
 - Fixed code that caused errors and warnings with new version of ACME 
 - Merged VM bug fixes from Steven Flintham
 
+================================================
+Release 5: Bugfixes
+
+Fixed bugs:
+- @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
+- @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
