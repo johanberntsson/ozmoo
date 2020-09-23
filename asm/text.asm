@@ -1195,6 +1195,15 @@ read_text
     lda #0
     sta (string_array),y
     jmp .read_text_done ; a should hold 0 to return 0 here
+    ; TODO: check terminating characters ($2e)
+    ; must be one of function keys 129-154, 252-254.
+    ; 255 means any function key
+    ; 129-132: cursor u/d/l/r
+    ; 133-144: F1-F12 (only F1-F8 on C64)
+    ; 145-154: keypad 0-9 (not on C64 of course)
+    ; 252 menu click (V6) (not C64)
+    ; 253 double click (V6) (not C64)
+    ; 253 single click (not C64)
 +   cmp #$0d
     bne +
 ;    lda #13 ; return 13
