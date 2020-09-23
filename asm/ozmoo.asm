@@ -248,6 +248,11 @@ game_id		!byte 0,0,0,0
     ; Setup default dictionary
 	jsr parse_default_dictionary
 }
+
+!ifdef Z5PLUS {
+    ; set up terminating characters
+    jsr parse_terminating_characters
+}
 	
 	jsr streams_init
 	jsr stack_init

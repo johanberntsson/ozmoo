@@ -7,7 +7,42 @@
 .text_tmp	!byte 0
 .current_character !byte 0
 .petscii_char_read = zp_temp
-	
+
+; only ENTER + cursor + F1-F8 possible on a C64
+num_terminating_characters !byte 1
+terminating_characters !byte $0d,$81,$82,$83,$84, $85,$86,$87,$88,$89,$8a,$8b,$8c
+
+parse_terminating_characters
+    ; read terminating characters list ($2e)
+    ; must be one of function keys 129-154, 252-254.
+    ; 129-132: cursor u/d/l/r
+    ; 133-144: F1-F12 (only F1-F8 on C64)
+    ; 145-154: keypad 0-9 (not on C64 of course)
+    ; 252 menu click (V6) (not C64)
+    ; 253 double click (V6) (not C64)
+    ; 254 single click (not C64)
+    ; 255 means any function key
+    lda story_start + header_terminating_chars_table      ; 5c
+    ldx story_start + header_terminating_chars_table + 1  ; 18
+    jsr set_z_address
+    ; read terminator
+    ldy #1
+-   jsr read_next_byte
+    cmp #$ff
+    bne +
+    ; all function keys (already the default)
+    lda #$0d ; 13 keys in total (enter+cursor+F1-F8)
+    sta num_terminating_characters
+    rts
++   cmp #$8d ; F8=8c. Any higher values are not accepted in C64 mode
+    bpl +
+    sta terminating_characters,y
+    iny 
++   cmp #$00
+    bne -
+    sty num_terminating_characters
+    rts
+
 !ifdef BENCHMARK {
 benchmark_commands
 ; !pet "turn statue w:turn it e:turn it n:n:open door:",255,0
@@ -1195,19 +1230,13 @@ read_text
     lda #0
     sta (string_array),y
     jmp .read_text_done ; a should hold 0 to return 0 here
-    ; TODO: check terminating characters ($2e)
-    ; must be one of function keys 129-154, 252-254.
-    ; 255 means any function key
-    ; 129-132: cursor u/d/l/r
-    ; 133-144: F1-F12 (only F1-F8 on C64)
-    ; 145-154: keypad 0-9 (not on C64 of course)
-    ; 252 menu click (V6) (not C64)
-    ; 253 double click (V6) (not C64)
-    ; 253 single click (not C64)
-+   cmp #$0d
-    bne +
-;    lda #13 ; return 13
-    jmp .read_text_done
+    ; check terminating characters
++   ldy #0
+-   cmp terminating_characters,y
+    beq .read_text_done
+    iny
+    cpy num_terminating_characters
+    bne -
 +   cmp #8
     bne +
     ; allow delete if anything in the buffer
