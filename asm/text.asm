@@ -279,6 +279,9 @@ z_ins_read
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
     jsr read_text
+!ifdef Z5PLUS {
+    sta .read_text_return_value
+}
 !ifdef TRACE_READTEXT {
     jsr print_following_string
     !pet "read_text ",0
@@ -287,6 +290,17 @@ z_ins_read
     jsr printx
     jsr space
     jsr printa
+    jsr colon
+    ldx string_array
+    lda string_array+1
+    jsr printx
+    jsr space
+    jsr printa
+!ifdef Z5PLUS {
+    jsr colon
+    lda .read_text_return_value
+    jsr printa
+}
     jsr newline
     ldy #0
 -   lda (string_array),y
@@ -387,7 +401,7 @@ z_ins_read
 }
 !ifdef Z5PLUS {
     lda #0
-    ldx #13
+    ldx .read_text_return_value
 	jmp z_store_result
 } else {
 	rts
@@ -1110,7 +1124,7 @@ read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
     ; input: a,x, .read_text_time, .read_text_routine
-    ; output: string_array
+    ; output: string_array, a as the return value
     ; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
     ; used registers: a,x,y
     stx string_array
@@ -1325,13 +1339,13 @@ read_text
 	
     pla
     beq +
-;	pha
+	pha
     jsr s_printchar; print final char unless it is 0
 !ifdef USE_BLINKING_CURSOR {
     jsr reset_cursor_blink
 }
 ;	jsr start_buffering
-;	pla
+	pla
 +   rts
 .read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
@@ -1343,6 +1357,9 @@ read_text
 .read_text_time_jiffy !byte 0,0,0 ; update interval in jiffys
 .read_text_jiffy !byte 0,0,0  ; current time
 .read_text_routine !byte 0,0 ; called with .read_text_time intervals
+}
+!ifdef Z5PLUS {
+.read_text_return_value !byte 0 ; return value
 }
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
