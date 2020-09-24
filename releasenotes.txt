@@ -107,3 +107,4 @@ Release 5: Bugfixes
 Fixed bugs:
 - @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
 - @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
+- added support for terminating character array ($2e/$2f in the header)
