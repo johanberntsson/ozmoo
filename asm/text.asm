@@ -10,7 +10,9 @@
 
 ; only ENTER + cursor + F1-F8 possible on a C64
 num_terminating_characters !byte 1
-terminating_characters !byte $0d,$81,$82,$83,$84, $85,$86,$87,$88,$89,$8a,$8b,$8c
+terminating_characters !byte $0d
+!ifdef Z5PLUS {	
+    !byte $81,$82,$83,$84,$85,$86,$87,$88,$89,$8a,$8b,$8c
 
 parse_terminating_characters
     ; read terminating characters list ($2e)
@@ -24,7 +26,11 @@ parse_terminating_characters
     ; 255 means any function key
     lda story_start + header_terminating_chars_table      ; 5c
     ldx story_start + header_terminating_chars_table + 1  ; 18
-    jsr set_z_address
+    bne +
+    cmp #0
+    bne +
+    rts
++   jsr set_z_address
     ; read terminator
     ldy #1
 -   jsr read_next_byte
@@ -42,6 +48,7 @@ parse_terminating_characters
     bne -
     sty num_terminating_characters
     rts
+}
 
 !ifdef BENCHMARK {
 benchmark_commands
