@@ -286,9 +286,6 @@ z_ins_read
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
     jsr read_text
-!ifdef Z5PLUS {
-    sta .read_text_return_value
-}
 !ifdef TRACE_READTEXT {
     jsr print_following_string
     !pet "read_text ",0
@@ -1130,8 +1127,8 @@ reset_cursor_blink
 read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
-    ; input: a,x, .read_text_time, .read_text_routine
-    ; output: string_array, a as the return value
+    ; input: a,x, .read_text_time (Z4PLUS), .read_text_routine (Z4PLUS)
+    ; output: string_array, .read_text_return_value (Z5PLUS)
     ; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
     ; used registers: a,x,y
     stx string_array
@@ -1334,7 +1331,10 @@ read_text
 }
     jmp .readkey
 .read_text_done
-    pha ; return value
+    pha ; the terminating character, usually newline
+!ifdef Z5PLUS {
+    sta .read_text_return_value
+}
     ; turn off blinking cursor
     jsr turn_off_cursor
 !ifndef Z5PLUS {
@@ -1343,16 +1343,13 @@ read_text
 	lda #0
 	sta (string_array),y
 }	
-	
-    pla
+    pla ; the terminating character, usually newline
     beq +
-	pha
-    jsr s_printchar; print final char unless it is 0
+    jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
 !ifdef USE_BLINKING_CURSOR {
     jsr reset_cursor_blink
 }
 ;	jsr start_buffering
-	pla
 +   rts
 .read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
