@@ -1241,7 +1241,7 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
 	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
-	puts "         [-s] [-x] [-r] [-f <fontfile>] [-cm:[xx]]"
+	puts "         [-s] [-r] [-f <fontfile>] [-cm:[xx]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
@@ -1318,8 +1318,8 @@ begin
 		elsif await_imagefile then
 			await_imagefile = false
 			$loader_pic_file = ARGV[i]
-		elsif ARGV[i] =~ /^-x$/ then
-			extended_tracks = true
+#		elsif ARGV[i] =~ /^-x$/ then
+#			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/ then
 			optimize = true
 		elsif ARGV[i] =~ /^-s$/ then
