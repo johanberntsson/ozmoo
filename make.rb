@@ -4,6 +4,14 @@ require 'fileutils'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
+$beyondzork_releases = [
+    "r47-s870915",
+    "r49-s870917",
+    "r51-s870923",
+    "r57-s871221",
+    "r60-s880610"
+]
+
 if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
@@ -1530,6 +1538,12 @@ high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
 
 # check header.static_mem_start (size of dynmem)
 $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
+
+# check header.release and serial to find out if beyondzork or not
+release = $story_file_data[2 .. 3].unpack("n")[0]
+serial = $story_file_data[18 .. 23]
+key = "r%d-s%d" % [ release, serial ]
+is_beyondzork = $beyondzork_releases.include?(key)
 
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
