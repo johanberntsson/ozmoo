@@ -27,6 +27,10 @@
 }
 }
 
+!ifndef TERPNO {
+	TERPRNO = 8
+}
+
 !ifdef Z3 {
 	ZMACHINEVERSION = 3
 }
@@ -384,7 +388,7 @@ z_init
 }
 }
 !ifdef Z4PLUS {
-	lda #8
+	lda #TERPNO
 	sta story_start + header_interpreter_number ; Interpreter number (8 = C64)
 	lda #68 ; "D" = release 4
 	sta story_start + header_interpreter_version ; Interpreter version. Usually ASCII code for a capital letter

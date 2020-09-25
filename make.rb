@@ -592,6 +592,7 @@ def build_interpreter()
 	necessarysettings +=  " --cpu 6510 --format cbm"
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
+	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
@@ -1249,7 +1250,7 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
 	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
-	puts "         [-s] [-r] [-f <fontfile>] [-cm:[xx]]"
+	puts "         [-s] [-r] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
@@ -1265,6 +1266,7 @@ def print_usage_and_exit
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -in: Set the interpreter number (0-19). Default is 1 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
@@ -1283,6 +1285,7 @@ end
 splashes = [
 "", "", "", ""
 ]
+$interpreter_number = nil
 i = 0
 reduced_ram = false
 await_preloadfile = false
@@ -1330,6 +1333,8 @@ begin
 #			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/ then
 			optimize = true
+		elsif ARGV[i] =~ /^-in:(1?\d)$/ then
+			$interpreter_number = $1
 		elsif ARGV[i] =~ /^-s$/ then
 			auto_play = true
 		elsif ARGV[i] =~ /^-r$/ then
@@ -1544,6 +1549,10 @@ release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
 key = "r%d-s%d" % [ release, serial ]
 is_beyondzork = $beyondzork_releases.include?(key)
+
+if is_beyondzork and $interpreter_number == nil 
+	$interpreter_number = 1
+end
 
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
