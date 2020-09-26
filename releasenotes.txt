@@ -102,11 +102,15 @@ Fixed bugs:
 - Merged VM bug fixes from Steven Flintham
 
 ================================================
-Release 5: Bugfixes
+Release 5: Beyond Zork mode and Bugfixes
+
+New features:
+- make.rb will now patch Beyond Zork story file before writing it to disk image(s) to make it work better on 40 column screen. Original story file is left untouched.
+- make.rb detects if Beyond Zork is built and changes the interpreter number to say it's the Apple IIe interpreter, since this gives the best results on Ozmoo.
+- interpreter number can now be customized with -in:N in make.rb
+
 
 Fixed bugs:
 - @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
 - @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
 - added support for terminating character array ($2e/$2f in the header)
-- interpreter number can now be customized with -in:N in make.rb
-- make.rb detects if Beyond Zork is built and adjusts the interpreter as needed

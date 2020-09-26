@@ -4,14 +4,6 @@ require 'fileutils'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
-$beyondzork_releases = [
-    "r47-s870915",
-    "r49-s870917",
-    "r51-s870923",
-    "r57-s871221",
-    "r60-s880610"
-]
-
 if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
@@ -94,6 +86,14 @@ $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
+
+$beyondzork_releases = {
+    "r47-s870915" => "f347 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
+    "r49-s870917" => "f2c0 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
+    "r51-s870923" => "f2a8 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
+    "r57-s871221" => "f384 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
+    "r60-s880610" => "f2dc 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1"
+}
 
 class Disk_image
 	def base_initialize
@@ -1266,7 +1266,7 @@ def print_usage_and_exit
 	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
-	puts "  -in: Set the interpreter number (0-19). Default is 1 for Beyond Zork, 8 for other games."
+	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
@@ -1547,11 +1547,26 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # check header.release and serial to find out if beyondzork or not
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
-key = "r%d-s%d" % [ release, serial ]
-is_beyondzork = $beyondzork_releases.include?(key)
+storyfile_key = "r%d-s%d" % [ release, serial ]
+is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 
-if is_beyondzork and $interpreter_number == nil 
-	$interpreter_number = 2
+if is_beyondzork
+	$interpreter_number = 2 unless $interpreter_number 
+	patch_data_string = $beyondzork_releases[storyfile_key]
+	patch_data_arr = patch_data_string.split(/ /)
+	patch_address = patch_data_arr.shift.to_i(16)
+	patch_check = patch_data_arr.shift.to_i(16)
+	# Change all hex strings to 8-bit unsigned ints instead, due to bug in Ruby's array.pack("H")
+	patch_data_arr.length.times do |i|
+		patch_data_arr[i] = patch_data_arr[i].to_i(16)
+	end
+	if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
+		$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
+			patch_data_arr.pack("C*")
+		puts "Successfully patched Beyond Zork story file."
+	else
+		puts "### WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
+	end
 end
 
 # get dynmem size (in vmem blocks)

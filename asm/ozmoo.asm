@@ -28,7 +28,7 @@
 }
 
 !ifndef TERPNO {
-	TERPRNO = 8
+	TERPNO = 8
 }
 
 !ifdef Z3 {
