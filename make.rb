@@ -1551,7 +1551,7 @@ key = "r%d-s%d" % [ release, serial ]
 is_beyondzork = $beyondzork_releases.include?(key)
 
 if is_beyondzork and $interpreter_number == nil 
-	$interpreter_number = 1
+	$interpreter_number = 2
 end
 
 # get dynmem size (in vmem blocks)
