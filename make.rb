@@ -609,20 +609,24 @@ def build_interpreter()
 	if $statusline_colour
 		colourflags += " -DSTATCOL=#{$statusline_colour}"
 	end
-	unless $default_colours_dm.empty? # or $zcode_version >= 5
-		colourflags += " -DBGCOLDM=#{$default_colours_dm[0]} -DFGCOLDM=#{$default_colours_dm[1]}"
-	end
-	if $border_colour_dm
-		colourflags += " -DBORDERCOLDM=#{$border_colour_dm}"
-	end
-	if $statusline_colour_dm
-		colourflags += " -DSTATCOLDM=#{$statusline_colour_dm}"
+	if $no_darkmode
+		colourflags += " -DNODARKMODE=1"
+	else
+		unless $default_colours_dm.empty? # or $zcode_version >= 5
+			colourflags += " -DBGCOLDM=#{$default_colours_dm[0]} -DFGCOLDM=#{$default_colours_dm[1]}"
+		end
+		if $border_colour_dm
+			colourflags += " -DBORDERCOLDM=#{$border_colour_dm}"
+		end
+		if $statusline_colour_dm
+			colourflags += " -DSTATCOLDM=#{$statusline_colour_dm}"
+		end
+		if $cursor_colour_dm
+			colourflags += " -DCURSORCOLDM=#{$cursor_colour_dm}"
+		end
 	end
 	if $cursor_colour
 		colourflags += " -DCURSORCOL=#{$cursor_colour}"
-	end
-	if $cursor_colour_dm
-		colourflags += " -DCURSORCOLDM=#{$cursor_colour_dm}"
 	end
 	if $cursor_shape
 		cursor_shapes = {
@@ -1550,8 +1554,10 @@ serial = $story_file_data[18 .. 23]
 storyfile_key = "r%d-s%d" % [ release, serial ]
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 
+$no_darkmode = nil
 if is_beyondzork
-	$interpreter_number = 2 unless $interpreter_number 
+	$interpreter_number = 2 unless $interpreter_number
+	$no_darkmode = true
 	patch_data_string = $beyondzork_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
 	patch_address = patch_data_arr.shift.to_i(16)
@@ -1673,6 +1679,7 @@ splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
 version = File.read(File.join(__dir__, 'version.txt'))
 version.gsub!(/[^\d\.]/m,'')
 splash.sub!("@vs@", version)
+splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 4.times do |i|
 	text = splashes[i]
 	indent = 0

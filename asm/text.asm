@@ -977,6 +977,9 @@ update_read_text_timer
 }
 
 getchar_and_maybe_toggle_darkmode
+!ifdef NODARKMODE {
+	jmp kernal_getchar
+} else {
 	jsr kernal_getchar
  	cmp #133
 	bne +
@@ -984,6 +987,7 @@ getchar_and_maybe_toggle_darkmode
 	ldx #40 ; Side effect to help when called from MORE prompt
 	lda #0
 +	rts
+}
 
 read_char
 	; return: 0,1: return value of routine (false, true)

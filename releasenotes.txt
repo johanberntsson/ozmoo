@@ -108,7 +108,7 @@ New features:
 - make.rb will now patch Beyond Zork story file before writing it to disk image(s) to make it work better on 40 column screen. Original story file is left untouched.
 - make.rb detects if Beyond Zork is built and changes the interpreter number to say it's the Apple IIe interpreter, since this gives the best results on Ozmoo.
 - interpreter number can now be customized with -in:N in make.rb
-
+- Darkmode support is automatically removed when building Beyond Zork, since it gets in the way of a built-in keyboard shortcut in the game, and the game restores the colours even if you change them.
 
 Fixed bugs:
 - @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
