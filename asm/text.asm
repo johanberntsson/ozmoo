@@ -7,7 +7,49 @@
 .text_tmp	!byte 0
 .current_character !byte 0
 .petscii_char_read = zp_temp
-	
+
+; only ENTER + cursor + F1-F8 possible on a C64
+num_terminating_characters !byte 1
+terminating_characters !byte $0d
+!ifdef Z5PLUS {	
+    !byte $81,$82,$83,$84,$85,$86,$87,$88,$89,$8a,$8b,$8c
+
+parse_terminating_characters
+    ; read terminating characters list ($2e)
+    ; must be one of function keys 129-154, 252-254.
+    ; 129-132: cursor u/d/l/r
+    ; 133-144: F1-F12 (only F1-F8 on C64)
+    ; 145-154: keypad 0-9 (not on C64 of course)
+    ; 252 menu click (V6) (not C64)
+    ; 253 double click (V6) (not C64)
+    ; 254 single click (not C64)
+    ; 255 means any function key
+    lda story_start + header_terminating_chars_table      ; 5c
+    ldx story_start + header_terminating_chars_table + 1  ; 18
+    bne +
+    cmp #0
+    bne +
+    rts
++   jsr set_z_address
+    ; read terminator
+    ldy #1
+-   jsr read_next_byte
+    cmp #$ff
+    bne +
+    ; all function keys (already the default)
+    lda #$0d ; 13 keys in total (enter+cursor+F1-F8)
+    sta num_terminating_characters
+    rts
++   cmp #$8d ; F8=8c. Any higher values are not accepted in C64 mode
+    bpl +
+    sta terminating_characters,y
+    iny 
++   cmp #$00
+    bne -
+    sty num_terminating_characters
+    rts
+}
+
 !ifdef BENCHMARK {
 benchmark_commands
 ; !pet "turn statue w:turn it e:turn it n:n:open door:",255,0
@@ -132,9 +174,14 @@ z_ins_tokenise_text
 
 .tokenise_main
     ; setup parse_array and flag
+	ldy #0
+	lda z_operand_count
+	cmp #4
+	bcc .flag_set
+    ldy z_operand_value_low_arr + 3
+.flag_set	
     ldx z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr + 1
-    ldy z_operand_value_low_arr + 3
     jmp tokenise_text
 
 z_ins_encode_text
@@ -247,6 +294,17 @@ z_ins_read
     jsr printx
     jsr space
     jsr printa
+    jsr colon
+    ldx string_array
+    lda string_array+1
+    jsr printx
+    jsr space
+    jsr printa
+!ifdef Z5PLUS {
+    jsr colon
+    lda .read_text_return_value
+    jsr printa
+}
     jsr newline
     ldy #0
 -   lda (string_array),y
@@ -347,7 +405,7 @@ z_ins_read
 }
 !ifdef Z5PLUS {
     lda #0
-    ldx #13
+    ldx .read_text_return_value
 	jmp z_store_result
 } else {
 	rts
@@ -783,9 +841,15 @@ find_word_in_dictionary
     sta .dictionary_address
     sta .dictionary_address + 1
     sta .is_word_found
-!ifdef TRACE_SHOW_DICT_ENTRIES {
-	beq .store_find_result ; Only needed if TRACE_SHOW_DICT_ENTRIES is set
-}
+    ldy .parse_array_index
+	iny
+	iny
+	rts
+
+; After adding an rts above, the following code can't be reached anyway.	
+;!ifdef TRACE_SHOW_DICT_ENTRIES {
+;	beq .store_find_result ; Only needed if TRACE_SHOW_DICT_ENTRIES is set
+;}
 .found_dict_entry
     ; store result into parse_array and exit
 !ifdef TRACE_SHOW_DICT_ENTRIES {
@@ -913,6 +977,9 @@ update_read_text_timer
 }
 
 getchar_and_maybe_toggle_darkmode
+!ifdef NODARKMODE {
+	jmp kernal_getchar
+} else {
 	jsr kernal_getchar
  	cmp #133
 	bne +
@@ -920,6 +987,7 @@ getchar_and_maybe_toggle_darkmode
 	ldx #40 ; Side effect to help when called from MORE prompt
 	lda #0
 +	rts
+}
 
 read_char
 	; return: 0,1: return value of routine (false, true)
@@ -1063,8 +1131,8 @@ reset_cursor_blink
 read_text
     ; read line from keyboard into an array (address: a/x)
     ; See also: http://inform-fiction.org/manual/html/s2.html#p54
-    ; input: a,x, .read_text_time, .read_text_routine
-    ; output: string_array
+    ; input: a,x, .read_text_time (Z4PLUS), .read_text_routine (Z4PLUS)
+    ; output: string_array, .read_text_return_value (Z5PLUS)
     ; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
     ; used registers: a,x,y
     stx string_array
@@ -1184,10 +1252,13 @@ read_text
     lda #0
     sta (string_array),y
     jmp .read_text_done ; a should hold 0 to return 0 here
-+   cmp #$0d
-    bne +
-;    lda #13 ; return 13
-    jmp .read_text_done
+    ; check terminating characters
++   ldy #0
+-   cmp terminating_characters,y
+    beq .read_text_done
+    iny
+    cpy num_terminating_characters
+    bne -
 +   cmp #8
     bne +
     ; allow delete if anything in the buffer
@@ -1264,7 +1335,10 @@ read_text
 }
     jmp .readkey
 .read_text_done
-    pha ; return value
+    pha ; the terminating character, usually newline
+!ifdef Z5PLUS {
+    sta .read_text_return_value
+}
     ; turn off blinking cursor
     jsr turn_off_cursor
 !ifndef Z5PLUS {
@@ -1273,16 +1347,13 @@ read_text
 	lda #0
 	sta (string_array),y
 }	
-	
-    pla
+    pla ; the terminating character, usually newline
     beq +
-;	pha
-    jsr s_printchar; print final char unless it is 0
+    jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
 !ifdef USE_BLINKING_CURSOR {
     jsr reset_cursor_blink
 }
 ;	jsr start_buffering
-;	pla
 +   rts
 .read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
@@ -1294,6 +1365,9 @@ read_text
 .read_text_time_jiffy !byte 0,0,0 ; update interval in jiffys
 .read_text_jiffy !byte 0,0,0  ; current time
 .read_text_routine !byte 0,0 ; called with .read_text_time intervals
+}
+!ifdef Z5PLUS {
+.read_text_return_value !byte 0 ; return value
 }
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
@@ -1382,12 +1456,12 @@ tokenise_text
     adc #4
     sta .wordoffset
     jsr find_word_in_dictionary ; will update y
+    inc .numwords
     lda .is_word_found
     bne .store_word_in_parse_array
     lda .ignore_unknown_words
     bne .find_next_word ; word unknown, and we shouldn't store unknown words
 .store_word_in_parse_array
-    inc .numwords
     lda .wordend
     sec
     sbc .wordstart
@@ -1395,19 +1469,20 @@ tokenise_text
     iny
     lda .wordstart
     sta (parse_array),y ; start index
+    ; find the next word
+.find_next_word
     ldy #1
     lda .numwords
     sta (parse_array),y ; num of words
-    ; find the next word
-.find_next_word
+
     ldy .wordend
     lda .numwords
     cmp .maxwords
     bne  .find_word_loop
 .parsing_done
-    lda .numwords
-    ldy #1
-    sta (parse_array),y
+;    lda .numwords
+;    ldy #1
+;    sta (parse_array),y
     rts
 .maxwords   !byte 0 
 .numwords   !byte 0 

@@ -11,6 +11,8 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018
 
 ## Status
 
+Update 2020-09-20: Release 4 has been released. Bugfixes, new cursor customization options, and a loader showing an image of your choice while the game loads.
+
 Update 2020-03-04: Release 3 is here. Many bugfixes. Darkmode and splash screen added. Support for four new languages.
 
 Update 2019-06-04: We have created a new release, with several new features, many bugfixes, better docs and other improvements.
@@ -22,6 +24,9 @@ There are probably still some bugs, and we will work to fix them as soon as we h
 Known bugs: See todo.txt.
 
 If you want to follow what's happening with Ozmoo, we recommend you to star the project.
+
+![Hibernated 2 with a loader image](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/hibernated2_loading.gif)
+
 
 ## Motivation
 

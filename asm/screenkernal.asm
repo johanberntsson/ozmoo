@@ -368,6 +368,7 @@ cursorcol !byte CURSORCOL, CURSORCOLDM
 current_cursor_colour !byte CURSORCOL
 cursor_character !byte CURSORCHAR
 
+!ifndef NODARKMODE {
 toggle_darkmode
 !ifdef Z5PLUS {
 	; We will need the old fg colour later, to check which characters have the default colour
@@ -451,7 +452,7 @@ toggle_darkmode
 	bne .compare
 	jsr update_cursor
 	rts 
-
+} ; ifndef NODARKMODE
 
 !ifdef Z5PLUS {
 z_ins_set_colour

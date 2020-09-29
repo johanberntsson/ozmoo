@@ -82,14 +82,15 @@ Fixed bugs:
 - @print_table printed too many characters if it encountered an illegal ZSCII code, due to a bug in translate_zscii_to_petscii.
 
 ================================================
-Release 4: Cursor improvements, SuperCPU support, bugfixes
-Special thanks to Eric Sherman for cursor patches and Steve Flintham
-for VM bug fix patches
+Release 4: Configurable cursor, loadscreen, bugfixes
+Special thanks to Eric Sherman for cursor patches and Steve Flintham for VM bug fix patches
 
 New features: 
-- cursor shape and colour configuration settings
-- optional cursor blinking mode (see documentation/colours.txt)
+- cursor shape, colour and blinking configuration settings (see documentation/colours.txt)
 - make.rb support for additional target platforms (currently only -t:c64)
+- Added a runtime error for division by zero.
+- Option -i to add a loader showing a picture while the game loads.
+- Option -if to add a loader showing a picture while the game loads + a slight border flicker while loading.
 
 Optimizations:
 - Slight optimization to printchar_buffered.
@@ -100,3 +101,16 @@ Fixed bugs:
 - Fixed code that caused errors and warnings with new version of ACME 
 - Merged VM bug fixes from Steven Flintham
 
+================================================
+Release 5: Beyond Zork mode and Bugfixes
+
+New features:
+- make.rb will now patch Beyond Zork story file before writing it to disk image(s) to make it work better on 40 column screen. Original story file is left untouched.
+- make.rb detects if Beyond Zork is built and changes the interpreter number to say it's the Apple IIe interpreter, since this gives the best results on Ozmoo.
+- interpreter number can now be customized with -in:N in make.rb
+- Darkmode support is automatically removed when building Beyond Zork, since it gets in the way of a built-in keyboard shortcut in the game, and the game restores the colours even if you change them.
+
+Fixed bugs:
+- @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
+- @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
+- added support for terminating character array ($2e/$2f in the header)
