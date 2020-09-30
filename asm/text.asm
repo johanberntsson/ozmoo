@@ -841,6 +841,8 @@ find_word_in_dictionary
     sta .dictionary_address
     sta .dictionary_address + 1
     sta .is_word_found
+	lda .ignore_unknown_words
+	beq .store_find_result
     ldy .parse_array_index
 	iny
 	iny
