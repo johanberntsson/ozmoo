@@ -21,18 +21,6 @@
 
 !zone screenkernal {
 
-!ifdef TARGET_PLUS4 {
-    ; Plus/4
-    screen_memory = $0c00
-    color_memory = $0800
-    color_memory_diff = $fc00 ; $d800 - $0400
-} else {
-    screen_memory = $0400
-    color_memory = $d800
-    color_memory_diff = $d400 ; $d800 - $0400
-}
-
-
 !ifdef TARGET_MEGA65 {
 mega65io
 	lda #$47
@@ -314,7 +302,7 @@ s_erase_window
     beq +
     ; need to recalculate zp_screenline
     stx s_current_screenpos_row
-!ifdef TARGET_C64 {
+!if SCREEN_WIDTH = 40 {
     ; use the fact that zp_screenrow * 40 = zp_screenrow * (32+8)
     lda #0
     sta zp_screenline + 1
@@ -332,9 +320,9 @@ s_erase_window
     sta zp_screenline
     sta zp_colourline
     lda zp_screenline + 1
-    adc #>screen_memory ; add screen start ($0400 for C64)
+    adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
     sta zp_screenline +1
-    adc #>color_memory_diff ; add colour start ($d800)
+    adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800)
     sta zp_colourline + 1
 }
 !ifdef TARGET_MEGA65 {
@@ -360,7 +348,8 @@ s_erase_window
     adc #>SCREEN_ADDRESS
     sta zp_screenline+1
     clc
-    adc #>($D800 - SCREEN_ADDRESS)
+;    adc #>($D800 - SCREEN_ADDRESS)
+    adc #>COLOUR_ADDRESS_DIFF
     sta zp_colourline+1
 }
 +   rts
@@ -400,11 +389,13 @@ s_erase_window
     lda zp_screenline + 1
     pha
     clc
-    adc #>($D800 - SCREEN_ADDRESS)
+;    adc #>($D800 - SCREEN_ADDRESS)
+    adc #>COLOUR_ADDRESS_DIFF
     sta zp_screenline + 1
     lda zp_colourline + 1
     clc
-    adc #>($D800 - SCREEN_ADDRESS)
+;    adc #>($D800 - SCREEN_ADDRESS)
+    adc #>COLOUR_ADDRESS_DIFF
     sta zp_colourline + 1
     ldy #SCREEN_WIDTH-1
 --

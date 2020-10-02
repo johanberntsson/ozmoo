@@ -14,8 +14,8 @@
 
 ;plus4_enable_ram = $ff3f
 ;plus4_enable_rom = $ff3e
-plus4_enable_ram = $f000
-plus4_enable_rom = $f000
+plus4_enable_ram = $0c00
+plus4_enable_rom = $0c00
 
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!

@@ -1,19 +1,39 @@
+;!ifdef TARGET_PLUS4 {
+;    ; Plus/4
+;    screen_memory = $0c00
+;    color_memory = $0800
+;    color_memory_diff = $fc00 ; $d800 - $0400
+;} else {
+;    screen_memory = $0400
+;    color_memory = $d800
+;    color_memory_diff = $d400 ; $d800 - $0400
+;}
+
+
+
+
 !ifdef TARGET_C64 {
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
+COLOUR_ADDRESS        = $d800
+COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 }
 
 !ifdef TARGET_PLUS4 {
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0c00
+COLOUR_ADDRESS        = $0800
+COLOUR_ADDRESS_DIFF   = $10000 + COLOUR_ADDRESS - SCREEN_ADDRESS
 }
 
 !ifdef TARGET_MEGA65 {
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
 SCREEN_ADDRESS        = $0800
+COLOUR_ADDRESS        = $d800
+COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 }
 
 ; --- ZERO PAGE --
@@ -150,9 +170,15 @@ datasette_buffer_end  = $03fb
 ;basic_printinteger    = $bdcd ; write integer value in a/x
 
 ; --- I/O registers ---
+!ifdef TARGET_PLUS4 {
+reg_screen_char_mode  = $d018
+reg_bordercolour      = $ff19
+reg_backgroundcolour  = $ff15 
+} else {
 reg_screen_char_mode  = $d018 
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
+}
 
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
