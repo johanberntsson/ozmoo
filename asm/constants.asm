@@ -1,3 +1,15 @@
+!ifdef TARGET_C64 {
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 40
+SCREEN_ADDRESS        = $0400
+}
+
+!ifdef TARGET_MEGA65 {
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 80
+SCREEN_ADDRESS        = $0800
+}
+
 ; --- ZERO PAGE --
 ; BASIC not much used, so many positions free to use
 ; memory bank control
@@ -110,8 +122,8 @@ cursor_row			  = $f7 ; 2 bytes
 cursor_column		  = $f9 ; 2 bytes
 zp_temp               = $fb ; 5 bytes
 
-print_buffer		  = $100 ; 41 bytes
-print_buffer2             = $129 ; 41 bytes
+print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
+print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
 
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
@@ -135,7 +147,12 @@ reg_backgroundcolour  = $d021
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
+!ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
+}
+!ifdef TARGET_MEGA65 {
+kernal_reset          = 58552	      ; Reset back to C65 mode
+}
 kernal_scnkey         = $ff9f ; scan the keyboard
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
@@ -183,5 +200,4 @@ header_terminating_chars_table = $2e
 header_standard_revision_number = $32
 header_alphabet_table = $34
 header_header_extension_table = $36
-
 

@@ -16,6 +16,7 @@ else
     $C1541 = "/usr/bin/c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
+    $MEGA65 = "xemu-xmega65"
 end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
@@ -77,6 +78,8 @@ $SRCDIR = File.join(__dir__, 'asm')
 $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 
+$wrapper_labels_file = File.join($TEMPDIR, 'wrapper_labels.txt')
+$wrapper_file = File.join($TEMPDIR, 'wrapper')
 $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $loader_labels_file = File.join($TEMPDIR, 'acme_labels_loader.txt')
 # $loader_pic_file = File.join($EXECDIR, 'loaderpic.kla')
@@ -86,6 +89,7 @@ $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
+$universal_file = File.join($TEMPDIR, 'universal')
 
 $beyondzork_releases = {
     "r47-s870915" => "f347 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
@@ -641,13 +645,20 @@ def build_interpreter()
 	end
 
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
-    compressionflags = ''
+	compressionflags = ''
 
-    cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
+	if $target == "mega65" then
+		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" asm/c65toc64wrapper.asm"
+		puts cmd
+		ret = system(cmd)
+		exit 0 unless ret
+	end
+    
+	cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
 		"#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
 	Dir.chdir $SRCDIR
-    ret = system(cmd)
+	ret = system(cmd)
 	Dir.chdir $EXECDIR
 	unless ret
 		puts "ERROR: There was a problem calling Acme"
@@ -659,6 +670,7 @@ def build_interpreter()
 end
 
 def read_labels(label_file_name)
+	$storystart = 0
 	File.open(label_file_name).each do |line|
 		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
 		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
@@ -782,13 +794,29 @@ def add_loader_file(diskimage_filename)
 end
 
 def add_boot_file(finaldiskname, diskimage_filename)
+	if $target == "mega65" then	
+	        # Put C65/C64 mode switch wrapper on the front
+        	cmd = "cat #{$wrapper_file} #{$good_zip_file} > #{$universal_file}";
+	        puts cmd
+	        ret = system(cmd)
+	        exit 0 unless ret
+	end
 	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
-	puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
-	system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story")
+	if $target == "mega65" then	
+		puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
+		system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65")
+	else
+		puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+		system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story")
+	end
 end
 
 def play(filename)
-	command = "#{$X64} #{filename}"
+	if $target == "mega65" then
+	    command = "#{$MEGA65} -8 #{filename}"
+	else
+	    command = "#{$X64} #{filename}"
+	end
 	puts command
     system(command)
 end
@@ -1260,7 +1288,7 @@ def print_usage_and_exit
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default)."
+	puts "  -t: specify target machine. Available targets are c64 (default) and mega65."
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
@@ -1350,6 +1378,11 @@ begin
 			mode = MODE_P
 		elsif ARGV[i] =~ /^-t:(c64|mega65)$/ then
 			$target = $1
+			if $target == "mega65" then
+			    # d81 as default for Mega65 and different start address
+			    $start_address = 0x1001
+			    mode = MODE_81
+			end
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then

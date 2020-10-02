@@ -9,8 +9,11 @@
 ; Which machine to generate code for
 ; C64 is default and currently the only supported target, but
 ; future versions may include new targets such as Mega65, Plus/4 etc.
-!ifndef TARGET_C64 {
-    TARGET_C64 = 1 ; C64 is the default target
+!ifdef TARGET_C64 {
+} else ifdef TARGET_MEGA65 {
+} else {
+    ; No target given. C64 is the default target
+    TARGET_C64 = 1 
 }
 
 !ifdef VMEM {
@@ -397,7 +400,7 @@ z_init
 !ifdef Z5PLUS {
 	sta story_start + header_screen_height_units + 1
 }
-	lda #40
+	lda #SCREEN_WIDTH
 	sta story_start + header_screen_width_chars
 !ifdef Z5PLUS {
 	sta story_start + header_screen_width_units + 1
@@ -493,6 +496,26 @@ deletable_init_start
     sta reg_screen_char_mode
 	lda #$80
 	sta charset_switchable
+
+!ifdef TARGET_MEGA65 {
+	;; MEGA65 IO enable
+	jsr mega65io
+	;; 40MHz CPU
+	lda #65
+	sta 0
+	;; 80-column mode
+	lda #$c0
+	sta $d031
+	lda #$c9
+	sta $D016
+	;; Screen at $0800
+	lda #$26
+	sta $d018
+	;; Disable VIC-II/VIC-III hot registers
+	lda $d05d
+	and #$7f
+	sta $d05d
+}
 
 	jmp init_screen_colours ; _invisible
 

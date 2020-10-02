@@ -21,6 +21,33 @@
 
 !zone screenkernal {
 
+!ifdef TARGET_MEGA65 {
+mega65io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $d02f
+	rts
+	
+colour2k
+	sei
+	pha
+        jsr mega65io
+	lda #$01
+	sta $d030
+	pla
+	rts
+
+colour1k
+	pha
+        jsr mega65io
+	lda #$00
+	sta $d030
+	pla
+	cli
+	rts
+}
+
 s_init
     ; init cursor
     lda #$ff
@@ -36,17 +63,17 @@ s_init
     rts
 
 s_plot
-    ; y=column (0-39)
-    ; x=row (0-24)
+    ; y=column (0-(SCREEN_WIDTH-1))
+    ; x=row (0- (SCREEN_HEIGHT-1))
     bcc .set_cursor_pos
     ; get_cursor
     ldx zp_screenrow
     ldy zp_screencolumn
     rts
 .set_cursor_pos
-+	cpx #25
++	cpx #SCREEN_HEIGHT
 	bcc +
-	ldx #24
+	ldx #SCREEN_HEIGHT-1
 +	stx zp_screenrow
 	sty zp_screencolumn
 	jmp .update_screenpos
@@ -100,14 +127,20 @@ s_printchar
 	cmp window_start_row + 1,y
 	bcc ++
 	dec zp_screenrow
-	lda #39
+	lda #SCREEN_WIDTH-1
 	sta zp_screencolumn
 ++  jsr .update_screenpos
     lda #$20
     ldy zp_screencolumn
     sta (zp_screenline),y
+!ifdef TARGET_MEGA65 {
+    jsr colour2k
+}
     lda s_colour
     sta (zp_colourline),y
+!ifdef TARGET_MEGA65 {
+    jsr colour1k
+}
     jmp .printchar_end
 +   cmp #$93 
     bne +
@@ -147,8 +180,8 @@ s_printchar
 	; Negative column. Increase column but don't print anything.
 	inc zp_screencolumn
 	jmp .printchar_end
-+	; Skip if column > 39
-	cpx #40
++	; Skip if column > SCREEN_WIDTH - 1
+	cpx #SCREEN_WIDTH
 	bcs .printchar_end
 	; Reset ignore next linebreak setting
 	ldx current_window
@@ -186,20 +219,26 @@ s_printchar
     pla
     ldy zp_screencolumn
     sta (zp_screenline),y
+!ifdef TARGET_MEGA65 {
+    jsr colour2k
+}
     lda s_colour
     sta (zp_colourline),y
+!ifdef TARGET_MEGA65 {
+    jsr colour1k
+}
     iny
     sty zp_screencolumn
 	ldx current_window
 	bne .printchar_end ; For upper window and statusline (in z3), don't advance to next line.
-    cpy #40
+    cpy #SCREEN_WIDTH
     bcc .printchar_end
 	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
     lda #0
     sta zp_screencolumn
     inc zp_screenrow
 	lda zp_screenrow
-	cmp #25
+	cmp #SCREEN_HEIGHT
 	bcs +
 	jsr .update_screenpos
 	jmp .printchar_end
@@ -249,7 +288,7 @@ s_erase_window
 -   jsr s_erase_line
     inc zp_screenrow
     lda zp_screenrow
-    cmp #25
+    cmp #SCREEN_HEIGHT
     bne -
     lda #0
     sta zp_screenrow
@@ -263,6 +302,7 @@ s_erase_window
     beq +
     ; need to recalculate zp_screenline
     stx s_current_screenpos_row
+!ifdef TARGET_C64 {
     ; use the fact that zp_screenrow * 40 = zp_screenrow * (32+8)
     lda #0
     sta zp_screenline + 1
@@ -284,11 +324,38 @@ s_erase_window
     sta zp_screenline +1
     adc #$d4 ; add colour start ($d800)
     sta zp_colourline + 1
+}
+!ifdef TARGET_MEGA65 {
+    ;; Use MEGA65's hardware multiplier
+    jsr mega65io
+    stx $d770
+    lda #0
+    sta $d771
+    sta $d772
+    sta $d773
+    sta $d775
+    sta $d776
+    sta $d777
+    lda #SCREEN_WIDTH
+    sta $d774
+
+    lda $d778
+    sta zp_screenline
+    sta zp_colourline
+    lda $d779
+    and #$07
+    clc
+    adc #>SCREEN_ADDRESS
+    sta zp_screenline+1
+    clc
+    adc #>($D800 - SCREEN_ADDRESS)
+    sta zp_colourline+1
+}
 +   rts
 
 .s_scroll
     lda zp_screenrow
-    cmp #25
+    cmp #SCREEN_HEIGHT
     bpl +
     rts
 +   ldx window_start_row + 1 ; how many top lines to protect
@@ -305,26 +372,40 @@ s_erase_window
     pla
     sta zp_colourline
     ; move characters
-    ldy #39
---  lda (zp_screenline),y ; zp_screenrow
+    ldy #SCREEN_WIDTH-1
+--
+!ifdef TARGET_MEGA65 {
+    jsr colour2k	
+}
+    lda (zp_screenline),y ; zp_screenrow
     sta (zp_colourline),y ; zp_screenrow - 1
     dey
     bpl --
+!ifdef TARGET_MEGA65 {
+    jsr colour1k
+}
     ; move colour info
     lda zp_screenline + 1
     pha
     clc
-    adc #$d4
+    adc #>($D800 - SCREEN_ADDRESS)
     sta zp_screenline + 1
     lda zp_colourline + 1
     clc
-    adc #$d4
+    adc #>($D800 - SCREEN_ADDRESS)
     sta zp_colourline + 1
-    ldy #39
---  lda (zp_screenline),y ; zp_screenrow
+    ldy #SCREEN_WIDTH-1
+--
+!ifdef TARGET_MEGA65 {
+    jsr colour2k
+}
+    lda (zp_screenline),y ; zp_screenrow
     sta (zp_colourline),y ; zp_screenrow - 1
     dey
     bpl --
+!ifdef TARGET_MEGA65 {
+    jsr colour1k
+}
     pla
     sta zp_screenline + 1
     lda zp_screenrow
@@ -340,7 +421,7 @@ s_erase_line
 	ldy #0
 .erase_line_from_any_col	
 	lda #$20
--	cpy #40
+-	cpy #SCREEN_WIDTH
 	bcs .done_erasing
 	sta (zp_screenline),y
 	iny
@@ -412,7 +493,7 @@ toggle_darkmode
 ; Set statusline colour
 	ldy statuslinecol,x
 	lda zcolours,y
-	ldy #39
+	ldy #SCREEN_WIDTH-1
 -	sta $d800,y
 	dey
 	bpl -
@@ -421,13 +502,17 @@ toggle_darkmode
 	ldy fgcol,x
 	lda zcolours,y
 	jsr s_set_text_colour
-	ldx #4
-	ldy #$d8
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
+	;; Work out how many pages of colour RAM to examine
+	ldx #1+>(SCREEN_WIDTH*SCREEN_HEIGHT)
+	ldy #>$D800
 	sty z_temp + 11
 	ldy #0
 	sty z_temp + 10
 !ifdef Z3 {
-	ldy #40
+	ldy #SCREEN_WIDTH
 }
 !ifdef Z5PLUS {
 	sta z_temp + 7
@@ -450,6 +535,9 @@ toggle_darkmode
 	inc z_temp + 11
 	dex
 	bne .compare
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
 	jsr update_cursor
 	rts 
 } ; ifndef NODARKMODE

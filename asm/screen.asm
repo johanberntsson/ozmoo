@@ -164,7 +164,7 @@ z_ins_print_table
 	ldy .pt_width
 -	jsr read_next_byte
 	ldx .current_col
-	cpx #40
+	cpx #SCREEN_WIDTH
 	bcs +
 	jsr streams_print_output
 +	inc .current_col
@@ -384,10 +384,10 @@ increase_num_rows
 show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
-	lda $07e7 
+	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
 	sta .more_text_char
 	lda #128 + $2a ; screen code for reversed "*"
-	sta $07e7
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
 	; wait for ENTER
 .printchar_pressanykey
 !ifndef BENCHMARK {
@@ -397,8 +397,15 @@ show_more_prompt
 	and #1
 	beq +
 	ldx $d021
-+	stx $d800 + 999	
-	ldx #40
++
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
+	stx $d800 + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
+	ldx #SCREEN_WIDTH
 ---	lda $a2
 -	cmp $a2
 	beq -
@@ -411,7 +418,7 @@ show_more_prompt
 +
 }
 	lda .more_text_char
-	sta $07e7
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
 .increase_num_rows_done
     rts
 
@@ -476,7 +483,7 @@ printchar_buffered
     jmp .printchar_done
 .check_break_char
     ldy buffer_index
-	cpy #40
+	cpy #SCREEN_WIDTH
 	bcs .add_char ; Don't register break chars on last position of buffer.
     cmp #$20 ; Space
     beq .break_char
@@ -492,13 +499,13 @@ printchar_buffered
     sta print_buffer2,y
 	iny
     sty buffer_index
-    cpy #41
+    cpy #SCREEN_WIDTH+1
     beq +
     jmp .printchar_done
 +
     ; print the line until last space
 	; First calculate max# of characters on line
-	ldx #40
+	ldx #SCREEN_WIDTH
 	lda window_start_row
 	sec
 	sbc window_start_row + 1
@@ -573,7 +580,7 @@ printchar_buffered
     ; more on the same line
     jsr increase_num_rows
 	lda last_break_char_buffer_pos
-	cmp #40
+	cmp #SCREEN_WIDTH
 	bcs +
     lda #$0d
     jsr s_printchar
@@ -678,7 +685,7 @@ draw_status_line
     ; fill the rest of the line with spaces
     ;
 -   lda zp_screencolumn
-	cmp #40
+	cmp #SCREEN_WIDTH
 	bcs +
     lda #$20
     jsr s_printchar
@@ -699,7 +706,7 @@ draw_status_line
 	lda z_operand_value_high_arr + 1
 	pha
     ldx #0
-    ldy #25
+    ldy #SCREEN_WIDTH - 15
     jsr set_cursor
     ldy #0
 -   lda .score_str,y
