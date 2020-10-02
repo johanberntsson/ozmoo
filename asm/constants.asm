@@ -4,6 +4,12 @@ SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
 }
 
+!ifdef TARGET_PLUS4 {
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 40
+SCREEN_ADDRESS        = $0c00
+}
+
 !ifdef TARGET_MEGA65 {
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
@@ -152,6 +158,9 @@ reg_backgroundcolour  = $d021
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
 !ifdef TARGET_C64 {
+kernal_reset          = $fce2 ; cold reset of the C64
+}
+!ifdef TARGET_PLUS4 {
 kernal_reset          = $fce2 ; cold reset of the C64
 }
 !ifdef TARGET_MEGA65 {

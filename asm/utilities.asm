@@ -11,34 +11,60 @@
 ; various debug functions
 
 ; zero_processorports: ...<d000><e000><a000> on/off
+
+;plus4_enable_ram = $ff3f
+;plus4_enable_rom = $ff3e
+plus4_enable_ram = $f000
+plus4_enable_rom = $f000
+
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
     pha
     lda #%00110000 
+!ifdef TARGET_PLUS4 {
+    sta plus4_enable_ram
+} else {
     sta zero_processorports
+}
     pla
 }
 !macro set_memory_all_ram_unsafe {
     ; Don't forget to disable interrupts first!
     lda #%00110000 
+!ifdef TARGET_PLUS4 {
+    sta plus4_enable_ram
+} else {
     sta zero_processorports
+}
 }
 
 !macro set_memory_no_basic {
     pha
     lda #%00110110
+!ifdef TARGET_PLUS4 {
+    sta plus4_enable_ram
+} else {
     sta zero_processorports
+}
     pla
 }
 !macro set_memory_no_basic_unsafe {
     lda #%00110110
+!ifdef TARGET_PLUS4 {
+    sta plus4_enable_ram
+} else {
     sta zero_processorports
+}
 }
 
 !macro set_memory_normal {
     pha
     lda #%00110111
+!ifdef TARGET_PLUS4 {
+    sta plus4_enable_ram
+} else {
     sta zero_processorports
+}
     pla
 }
 

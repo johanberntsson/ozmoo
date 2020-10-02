@@ -21,6 +21,18 @@
 
 !zone screenkernal {
 
+!ifdef TARGET_PLUS4 {
+    ; Plus/4
+    screen_memory = $0c00
+    color_memory = $0800
+    color_memory_diff = $fc00 ; $d800 - $0400
+} else {
+    screen_memory = $0400
+    color_memory = $d800
+    color_memory_diff = $d400 ; $d800 - $0400
+}
+
+
 !ifdef TARGET_MEGA65 {
 mega65io
 	lda #$47
@@ -320,9 +332,9 @@ s_erase_window
     sta zp_screenline
     sta zp_colourline
     lda zp_screenline + 1
-    adc #$04 ; add screen start ($0400)
+    adc #>screen_memory ; add screen start ($0400 for C64)
     sta zp_screenline +1
-    adc #$d4 ; add colour start ($d800)
+    adc #>color_memory_diff ; add colour start ($d800)
     sta zp_colourline + 1
 }
 !ifdef TARGET_MEGA65 {

@@ -711,7 +711,9 @@ end
 
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}"
+	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks +
+		vmem_preload_blocks) * $VMEM_BLOCKSIZE, $memory_end_address - $storystart, 
+		File.size($compmem_filename)].min}"
 
 	font_clause = ""
 	if $font_filename
@@ -1339,6 +1341,7 @@ preload_max_vmem_blocks = 2**16 / $VMEM_BLOCKSIZE
 limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
+$memory_end_address = 0x10000
 $colour_replacements = []
 $default_colours = []
 $default_colours_dm = []
@@ -1390,6 +1393,7 @@ begin
 			elsif $target == "plus4" then
 			    # Different start address
 			    $start_address = 0x1001
+				$memory_end_address = 0xfd00
 			end
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
