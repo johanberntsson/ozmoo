@@ -130,7 +130,11 @@ memory_buffer_length  = 89
 
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
+!ifdef TARGET_PLUS4 {
+charset_switchable 	  = $547
+} else {
 charset_switchable 	  = $291
+}
 
 datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
 datasette_buffer_end  = $03fb

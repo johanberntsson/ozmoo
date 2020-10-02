@@ -9,11 +9,19 @@
 ; Which machine to generate code for
 ; C64 is default and currently the only supported target, but
 ; future versions may include new targets such as Mega65, Plus/4 etc.
+!ifdef TARGET_MEGA65 {
+	TARGET_ASSIGNED = 1
+}
+!ifdef TARGET_PLUS4 {
+	TARGET_ASSIGNED = 1
+}
 !ifdef TARGET_C64 {
-} else ifdef TARGET_MEGA65 {
-} else {
+	TARGET_ASSIGNED = 1
+}
+
+!ifndef TARGET_ASSIGNED {
     ; No target given. C64 is the default target
-    TARGET_C64 = 1 
+	TARGET_C64 = 1
 }
 
 !ifdef VMEM {

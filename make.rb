@@ -714,12 +714,16 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}"
 
 	font_clause = ""
-	if $font_filename then
+	if $font_filename
 		font_clause = " \"#{$font_filename}\"@2048"
+	end
+	exo_target = ""
+	if $target == 'plus4'
+		exo_target = " -t4"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
 	puts exomizer_cmd
 	ret = system(exomizer_cmd)
@@ -789,8 +793,9 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 end
 
 def add_loader_file(diskimage_filename)
-	puts "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
-	system("#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader")
+	c1541_cmd = "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
+	puts c1541_cmd
+	system(c1541_cmd)
 end
 
 def add_boot_file(finaldiskname, diskimage_filename)
@@ -802,13 +807,13 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	        exit 0 unless ret
 	end
 	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
+	
+	c1541_cmd = "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
 	if $target == "mega65" then	
-		puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
-		system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65")
-	else
-		puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
-		system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story")
+		c1541_cmd = "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 	end
+	puts c1541_cmd
+	system(c1541_cmd)
 end
 
 def play(filename)
@@ -1376,12 +1381,15 @@ begin
 			limit_preload_vmem_blocks = true
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
-		elsif ARGV[i] =~ /^-t:(c64|mega65)$/ then
+		elsif ARGV[i] =~ /^-t:(c64|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    # d81 as default for Mega65 and different start address
 			    $start_address = 0x1001
-			    mode = MODE_81
+			    mode = MODE_81 unless mode
+			elsif $target == "plus4" then
+			    # Different start address
+			    $start_address = 0x1001
 			end
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
