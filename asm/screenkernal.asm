@@ -604,8 +604,12 @@ z_ins_set_colour
           !pet 0
 
 testscreen
+!ifdef TARGET_PLUS4 {
+    lda #212 ; 212 upper/lower, 208 = upper/special
+} else {
     lda #23 ; 23 upper/lower, 21 = upper/special (22/20 also ok)
-    sta $d018 ; reg_screen_char_mode
+}
+    sta reg_screen_char_mode
     jsr s_init
     lda #1
     sta s_scrollstart

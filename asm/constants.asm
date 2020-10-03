@@ -1,20 +1,15 @@
-;!ifdef TARGET_PLUS4 {
-;    ; Plus/4
-;    screen_memory = $0c00
-;    color_memory = $0800
-;    color_memory_diff = $fc00 ; $d800 - $0400
-;} else {
-;    screen_memory = $0400
-;    color_memory = $d800
-;    color_memory_diff = $d400 ; $d800 - $0400
-;}
-
-
-
-
 !ifdef TARGET_C64 {
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
+SCREEN_ADDRESS        = $0400
+COLOUR_ADDRESS        = $d800
+COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
+}
+
+!ifdef TARGET_C128 {
+; We use VIC-II 40 columns for now and worry about 80 columns later
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 40 
 SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
@@ -171,11 +166,24 @@ datasette_buffer_end  = $03fb
 
 ; --- I/O registers ---
 !ifdef TARGET_PLUS4 {
-reg_screen_char_mode  = $d018
+; TED reference here:
+; http://mclauchlan.site.net.au/scott/C=Hacking/C-Hacking12/gfx.html
+reg_screen_char_mode  = $ff13
 reg_bordercolour      = $ff19
 reg_backgroundcolour  = $ff15 
-} else {
+}
+!ifdef TARGET_MEGA65 {
 reg_screen_char_mode  = $d018 
+reg_bordercolour      = $d020
+reg_backgroundcolour  = $d021 
+}
+!ifdef TARGET_C64 {
+reg_screen_char_mode  = $d018 
+reg_bordercolour      = $d020
+reg_backgroundcolour  = $d021 
+}
+!ifdef TARGET_C128 {
+reg_screen_char_mode  = $0a2c
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
 }
@@ -186,11 +194,14 @@ kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
 }
+!ifdef TARGET_C128 {
+kernal_reset          = $fce2 ; cold reset of the C128
+}
 !ifdef TARGET_PLUS4 {
-kernal_reset          = $fce2 ; cold reset of the C64
+kernal_reset          = $fce2 ; cold reset of the PLUS4
 }
 !ifdef TARGET_MEGA65 {
-kernal_reset          = 58552	      ; Reset back to C65 mode
+kernal_reset          = 58552 ; Reset back to C65 mode
 }
 kernal_scnkey         = $ff9f ; scan the keyboard
 kernal_setlfs         = $ffba ; set file parameters

@@ -18,6 +18,9 @@
 !ifdef TARGET_C64 {
 	TARGET_ASSIGNED = 1
 }
+!ifdef TARGET_C128 {
+	TARGET_ASSIGNED = 1
+}
 
 !ifndef TARGET_ASSIGNED {
     ; No target given. C64 is the default target
@@ -192,8 +195,15 @@
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
-program_start
 
+program_start
+!ifdef TARGET_C128 {
+    ; initialize is in Basic LO ROM in C128 mode, so we need
+    ; to turn off BASIC already here. Since the set_memory_no_basic
+    ; macro isn't defined yet we'll have to do it manually
+    lda #%00001110
+    sta $ff00
+}
     jmp .initialize
 
 ; global variables
@@ -500,6 +510,9 @@ deletable_init_start
     lda #18
 } else {
 	lda #23
+}
+!ifdef TARGET_PLUS4 {
+	lda #212
 }
     sta reg_screen_char_mode
 	lda #$80

@@ -20,16 +20,27 @@ plus4_enable_rom = $0c00
 !macro set_memory_all_ram {
     ; Don't forget to disable interrupts first!
     pha
+!ifdef TARGET_C128 {
+    ; 48K RAM (0-$c000)
+    lda #%00001110
+    sta $ff0
+} else {
     lda #%00110000 
 !ifdef TARGET_PLUS4 {
     sta plus4_enable_ram
 } else {
     sta zero_processorports
+}
 }
     pla
 }
 !macro set_memory_all_ram_unsafe {
     ; Don't forget to disable interrupts first!
+!ifdef TARGET_C128 {
+    ; 48K RAM (0-$c000)
+    lda #%00001110
+    sta $ff0
+} else {
     lda #%00110000 
 !ifdef TARGET_PLUS4 {
     sta plus4_enable_ram
@@ -37,33 +48,52 @@ plus4_enable_rom = $0c00
     sta zero_processorports
 }
 }
+}
 
 !macro set_memory_no_basic {
     pha
+!ifdef TARGET_C128 {
+    ; 48K RAM (0-$c000)
+    lda #%00001110
+    sta $ff0
+} else {
     lda #%00110110
 !ifdef TARGET_PLUS4 {
     sta plus4_enable_ram
 } else {
     sta zero_processorports
+}
 }
     pla
 }
 !macro set_memory_no_basic_unsafe {
+!ifdef TARGET_C128 {
+    ; 48K RAM (0-$c000)
+    lda #%00001110
+    sta $ff0
+} else {
     lda #%00110110
 !ifdef TARGET_PLUS4 {
     sta plus4_enable_ram
 } else {
     sta zero_processorports
+}
 }
 }
 
 !macro set_memory_normal {
     pha
+!ifdef TARGET_C128 {
+    ; default
+    lda #%00000000
+    sta $ff0
+} else {
     lda #%00110111
 !ifdef TARGET_PLUS4 {
     sta plus4_enable_ram
 } else {
     sta zero_processorports
+}
 }
     pla
 }
