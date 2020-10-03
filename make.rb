@@ -1389,7 +1389,9 @@ begin
 			if $target == "mega65" then
 			    # d81 as default for Mega65 and different start address
 			    $start_address = 0x1001
-			    mode = MODE_81 unless mode
+			    mode = MODE_81
+			    # this will not work since mode is default MODE_S1 above
+			    #mode = MODE_81 unless mode 
 			elsif $target == "plus4" then
 			    # Different start address
 			    $start_address = 0x1001
