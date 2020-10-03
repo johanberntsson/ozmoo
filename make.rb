@@ -479,7 +479,7 @@ class D81_image < Disk_image
 	end # initialize
 
 	def create_story_partition
-		if @storydata_start_track > 0 and @storydata_end_track > @storydata_start_track
+		if @storydata_start_track > 0 and @storydata_end_track >= @storydata_start_track
 
 			sector = @contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255]
 			@storydata_start_track -= 1 if @config_track == @storydata_start_track - 1
