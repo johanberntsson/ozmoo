@@ -589,9 +589,9 @@ z_ins_set_colour
 
 !ifdef TESTSCREEN {
 
-.testtext !pet 5,147,18,"Status Line 123         ",146,13
-          !pet 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13
-          !pet 155,"third",20,13
+.testtext !pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
+          !pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
+          !pet 155,"third",20,13                                ; light gray
           !pet "fourth line",13
           !pet 13,13,13,13,13,13
           !pet 13,13,13,13,13,13,13
@@ -604,6 +604,7 @@ z_ins_set_colour
           !pet 0
 
 testscreen
+    jsr init_screen_colours
 !ifdef TARGET_PLUS4 {
     lda #212 ; 212 upper/lower, 208 = upper/special
 } else {
@@ -611,12 +612,31 @@ testscreen
 }
     sta reg_screen_char_mode
     jsr s_init
+    ;lda #1
+    ;sta s_scrollstart
+    lda #25
+    sta window_start_row ; 25 lines in window 0
     lda #1
-    sta s_scrollstart
+    sta window_start_row + 1 ; 1 status line
+    sta window_start_row + 2 ; 1 status line
+    lda #0
+    sta window_start_row + 3
     ldx #0
 -   lda .testtext,x
     bne +
     rts
++   cmp #2
+    bne +
+    ; use upper window
+    lda #1
+	sta current_window
+	jmp ++
++   cmp #3
+    bne +
+    ; use lower window
+    lda #0
+	sta current_window
+	jmp ++
 +   cmp #1
     bne +
     txa
@@ -626,6 +646,8 @@ testscreen
     pla
     tax
     bne ++
+    ; NOTE: s_printchar no longer recognizes the colour codes, so the
+    ; colours will not change. But rev on/off still works
 +   jsr s_printchar
 ++  inx
     bne -

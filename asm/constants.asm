@@ -190,7 +190,6 @@ reg_backgroundcolour  = $d021
 
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
-kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
 }
@@ -203,13 +202,11 @@ kernal_reset          = $fce2 ; cold reset of the PLUS4
 !ifdef TARGET_MEGA65 {
 kernal_reset          = 58552 ; Reset back to C65 mode
 }
-kernal_scnkey         = $ff9f ; scan the keyboard
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
 kernal_open           = $ffc0 ; open a file
 kernal_close          = $ffc3 ; close a file
 kernal_chkin          = $ffc6 ; define file as default input
-kernal_chkout         = $ffc9 ; define file as default output
 kernal_clrchn         = $ffcc ; close default input/output files
 kernal_readchar       = $ffcf ; read byte from default input into a
 ;use streams_print_output instead of kernal_printchar
@@ -219,7 +216,10 @@ kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
-kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
+;NOTUSED kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
+;NOTUSED kernal_scnkey         = $ff9f ; scan the keyboard
+;NOTUSED kernal_chkout         = $ffc9 ; define file as default output
+;NOTUSED kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
 
 
 ; story file header constants
