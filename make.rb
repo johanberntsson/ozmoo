@@ -12,11 +12,13 @@ if $is_windows then
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
 else
 	# Paths on Linux
-    $X64 = "/usr/bin/x64 -autostart-delay-random"
-    $C1541 = "/usr/bin/c1541"
+    $X64 = "x64 -autostart-delay-random"
+    $X128 = "x128 -autostart-delay-random"
+    $XPLUS4 = "xplus4 -autostart-delay-random"
+    $MEGA65 = "xemu-xmega65"
+    $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
-    $MEGA65 = "xemu-xmega65"
 end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
@@ -723,6 +725,9 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	if $target == 'plus4'
 		exo_target = " -t4"
 	end
+	if $target == 'c128'
+		exo_target = " -t128"
+	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
@@ -821,6 +826,10 @@ end
 def play(filename)
 	if $target == "mega65" then
 	    command = "#{$MEGA65} -8 #{filename}"
+	elsif $target == "plus4" then
+	    command = "#{$XPLUS4} #{filename}"
+	elsif $target == "c128" then
+	    command = "#{$X128} #{filename}"
 	else
 	    command = "#{$X64} #{filename}"
 	end
@@ -1384,7 +1393,7 @@ begin
 			limit_preload_vmem_blocks = true
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
-		elsif ARGV[i] =~ /^-t:(c64|mega65|plus4)$/ then
+		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    # d81 as default for Mega65 and different start address
@@ -1396,6 +1405,10 @@ begin
 			    # Different start address
 			    $start_address = 0x1001
 				$memory_end_address = 0xfd00
+			elsif $target == "c128" then
+			    # Different start address
+			    $start_address = 0x1c01
+				$memory_end_address = 0xc000 # temp test
 			end
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
