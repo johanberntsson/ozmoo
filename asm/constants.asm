@@ -8,6 +8,7 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
 !ifdef TARGET_C128 {
 ; We use VIC-II 40 columns for now and worry about 80 columns later
+; see also: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40 
 SCREEN_ADDRESS        = $0400
@@ -133,15 +134,25 @@ max_chars_on_line	  = $bd; !byte 0
 buffer_index		  = $be ; !byte 0
 last_break_char_buffer_pos = $bf ; !byte 0
 
-
+!ifdef TARGET_C128 {
+zp_cursorswitch       = $f0 ; 1 byte
+zp_screenline         = $f1 ; 2 bytes current line (pointer to screen memory)
+zp_screencolumn       = $f3 ; 1 byte current cursor column
+zp_screenrow          = $f4 ; 1 byte current cursor row
+zp_colourline         = $f5 ; 2 bytes current line (pointer to colour memory)
+cursor_row			  = $f7 ; 2 bytes
+cursor_column		  = $f9 ; 2 bytes
+zp_temp               = $fa ; 5 bytes
+} else {
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
-zp_screencolumn       = $d3 ; current cursor column
-zp_screenrow          = $d6 ; current cursor row
+zp_screencolumn       = $d3 ; 1 byte current cursor column
+zp_screenrow          = $d6 ; 1 byte current cursor row
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 cursor_row			  = $f7 ; 2 bytes
 cursor_column		  = $f9 ; 2 bytes
 zp_temp               = $fb ; 5 bytes
+}
 
 print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
