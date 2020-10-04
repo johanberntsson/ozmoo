@@ -2194,7 +2194,14 @@ z_ins_copy_table
 	ldy z_operand_value_low_arr
 -	lda z_operand_value_low_arr + 2
 	ora z_operand_value_high_arr + 2
+!ifdef TARGET_C128 {
+    ; when -P is used then the branch becomes too far away
+	bne +
+	jmp .copy_all_done
++
+} else {
 	beq .copy_all_done
+}
 	lda #0
 	; Read next byte from first table
 	jsr read_byte_at_z_address
