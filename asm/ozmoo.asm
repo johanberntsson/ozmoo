@@ -63,8 +63,6 @@
 	Z5PLUS = 1
 }
 
-!source "constants.asm"
-
 !ifdef TRACE {
 	z_trace_size = 256
 } else {
@@ -205,6 +203,14 @@ program_start
     sta $ff00
 }
     jmp .initialize
+
+!ifdef TARGET_C128 {
+!source "constants-c128.asm"
+} else {
+!source "constants.asm"
+}
+!source "constants-header.asm"
+
 
 ; global variables
 ; filelength !byte 0, 0, 0

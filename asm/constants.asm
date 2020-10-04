@@ -1,16 +1,9 @@
+; C128 is now in a separate constants-c128 instead
+;
+
 !ifdef TARGET_C64 {
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
-SCREEN_ADDRESS        = $0400
-COLOUR_ADDRESS        = $d800
-COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
-}
-
-!ifdef TARGET_C128 {
-; We use VIC-II 40 columns for now and worry about 80 columns later
-; see also: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
-SCREEN_HEIGHT         = 25
-SCREEN_WIDTH          = 40 
 SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
@@ -134,16 +127,6 @@ max_chars_on_line	  = $bd; !byte 0
 buffer_index		  = $be ; !byte 0
 last_break_char_buffer_pos = $bf ; !byte 0
 
-!ifdef TARGET_C128 {
-zp_cursorswitch       = $f0 ; 1 byte
-zp_screenline         = $f1 ; 2 bytes current line (pointer to screen memory)
-zp_screencolumn       = $f3 ; 1 byte current cursor column
-zp_screenrow          = $f4 ; 1 byte current cursor row
-zp_colourline         = $f5 ; 2 bytes current line (pointer to colour memory)
-cursor_row			  = $f7 ; 2 bytes
-cursor_column		  = $f9 ; 2 bytes
-zp_temp               = $fa ; 5 bytes
-} else {
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; 1 byte current cursor column
@@ -152,7 +135,6 @@ zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 cursor_row			  = $f7 ; 2 bytes
 cursor_column		  = $f9 ; 2 bytes
 zp_temp               = $fb ; 5 bytes
-}
 
 print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
@@ -193,19 +175,11 @@ reg_screen_char_mode  = $d018
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
 }
-!ifdef TARGET_C128 {
-reg_screen_char_mode  = $0a2c
-reg_bordercolour      = $d020
-reg_backgroundcolour  = $d021 
-}
 
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
-}
-!ifdef TARGET_C128 {
-kernal_reset          = $fce2 ; cold reset of the C128
 }
 !ifdef TARGET_PLUS4 {
 kernal_reset          = $fce2 ; cold reset of the PLUS4
@@ -227,38 +201,3 @@ kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
-;NOTUSED kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
-;NOTUSED kernal_scnkey         = $ff9f ; scan the keyboard
-;NOTUSED kernal_chkout         = $ffc9 ; define file as default output
-;NOTUSED kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
-
-
-; story file header constants
-header_version = $0
-header_flags_1 = $1
-header_high_mem = $4
-header_initial_pc = $6
-header_dictionary = $8
-header_object_table = $a
-header_globals = $c
-header_static_mem = $e
-header_flags_2 = $10
-header_serial = $12
-header_abbreviations = $18
-header_filelength = $1a
-header_checksum = $1c
-header_interpreter_number = $1e
-header_interpreter_version = $1f
-header_screen_height_lines = $20
-header_screen_width_chars = $21
-header_screen_width_units = $22
-header_screen_height_units = $24
-header_font_width_units = $26
-header_font_height_units = $27
-header_default_bg_colour = $2c
-header_default_fg_colour = $2d
-header_terminating_chars_table = $2e
-header_standard_revision_number = $32
-header_alphabet_table = $34
-header_header_extension_table = $36
-
