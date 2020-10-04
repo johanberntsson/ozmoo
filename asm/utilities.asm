@@ -21,8 +21,7 @@ plus4_enable_rom = $0c00
     ; Don't forget to disable interrupts first!
     pha
 !ifdef TARGET_C128 {
-    ; 48K RAM (0-$c000)
-    lda #%00001110
+    lda #%11111111
     sta $ff0
 } else {
     lda #%00110000 
@@ -37,8 +36,7 @@ plus4_enable_rom = $0c00
 !macro set_memory_all_ram_unsafe {
     ; Don't forget to disable interrupts first!
 !ifdef TARGET_C128 {
-    ; 48K RAM (0-$c000)
-    lda #%00001110
+    lda #%11111111
     sta $ff0
 } else {
     lda #%00110000 
