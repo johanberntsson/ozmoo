@@ -140,6 +140,7 @@ reg_backgroundcolour  = $d021
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_reset          = $fce2 ; cold reset of the C128
+kernal_setbnk         = $ff68 ; set bank for I/O operations
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
 kernal_open           = $ffc0 ; open a file

@@ -299,7 +299,10 @@ read_track_sector
     ldx .device
 	tay      ; secondary address 2
     jsr kernal_setlfs ; call SETLFS
-
+!ifdef TARGET_C128 {
+    ldx #$00
+    jsr kernal_setbnk
+}
     jsr kernal_open     ; call OPEN
     bcs .error    ; if carry set, the file could not be opened
 
@@ -313,7 +316,10 @@ read_track_sector
     ldx .device
     tay      ; secondary address 15
     jsr kernal_setlfs ; call SETLFS
-
+!ifdef TARGET_C128 {
+    ldx #$00
+    jsr kernal_setbnk
+}
     jsr kernal_open ; call OPEN (open command channel and send U1 command)
     bcs .error    ; if carry set, the file could not be opened
 
@@ -661,7 +667,10 @@ list_save_files
     ldx disk_info + 4 ; Device# for save disk
 +   ldy #0      ; secondary address 2
     jsr kernal_setlfs ; call SETLFS
-
+!ifdef TARGET_C128 {
+    ldx #$00
+    jsr kernal_setbnk
+}
     jsr kernal_open     ; call OPEN
     bcs .error    ; if carry set, the file could not be opened
 
@@ -997,6 +1006,10 @@ save_game
     ldx disk_info + 4 ; Device# for save disk
 	ldy #$0f      ; secondary address 15
     jsr kernal_setlfs
+!ifdef TARGET_C128 {
+    ldx #$00
+    jsr kernal_setbnk
+}
     jsr kernal_open ; open command channel and send delete command)
     bcs .restore_failed  ; if carry set, the file could not be opened
     lda #$0f      ; filenumber 15
@@ -1028,6 +1041,10 @@ do_restore
     ldx disk_info + 4 ; Device# for save disk
 	ldy #1      ; not $01 means: load to address stored in file
     jsr kernal_setlfs
+!ifdef TARGET_C128 {
+    ldx #$00
+    jsr kernal_setbnk
+}
     lda #$00      ; $00 means: load to memory (not verify)
     jsr kernal_load
     php ; store c flag so error can be checked by calling routine
@@ -1047,6 +1064,10 @@ do_save
     ldx disk_info + 4 ; Device# for save disk
 	ldy #1
     jsr kernal_setlfs
+!ifdef TARGET_C128 {
+    ldx #$00
+    jsr kernal_setbnk
+}
     lda #<(stack_start - zp_bytes_to_save)
     sta $c1
     lda #>(stack_start - zp_bytes_to_save)
