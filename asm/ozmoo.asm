@@ -559,8 +559,7 @@ deletable_init
     ; enable lower case mode
 
 ; Read and parse config from boot disk
-	; $BA holds last used device#
-	ldy $ba
+	ldy CURRENT_DEVICE
 	cpy #8
 	bcc .pick_default_boot_device
 	cpy #12

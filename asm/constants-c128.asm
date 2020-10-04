@@ -8,6 +8,7 @@ SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
+CURRENT_DEVICE        = $ba
 
 ; --- ZERO PAGE --
 ; available zero page variables (pseudo registers)

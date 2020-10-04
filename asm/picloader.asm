@@ -122,7 +122,7 @@ interrupt_vector = $314
     ldy #>.filename
     jsr kernal_setnam
     lda #1      ; file number
-    ldx $ba ; Device#
+    ldx CURRENT_DEVICE ; Device#
 	ldy #1      ; $01 means: load to address stored in file
     jsr kernal_setlfs
     lda #$00      ; $00 means: load to memory (not verify)
