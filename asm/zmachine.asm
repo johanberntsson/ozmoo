@@ -465,11 +465,11 @@ z_execute
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda #0
-	sta $a0
-	sta $a1
-	sta $a2
-	sta $4b
-	sta $4c
+	sta ti_variable
+	sta ti_variable + 1
+	sta ti_variable + 2
+	sta object_num
+	sta object_num + 1
 }
 }
 
@@ -477,27 +477,27 @@ z_execute
 
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
-	lda $a2
+	lda ti_variable + 2
 	cmp #60
 	bcc ++
 	bne +
-	lda $a1
+	lda ti_variable + 1
 	bne +
-	lda $4c
-	ldx $4b
+	lda object_num + 1
+	ldx object_num
 	jsr printinteger
 	jsr comma
 	
 +	lda #0
-	sta $a0
-	sta $a1
-	sta $a2
-	sta $4b
-	sta $4c
+	sta ti_variable
+	sta ti_variable + 1
+	sta ti_variable + 2
+	sta object_num
+	sta object_num + 1
 
-++	inc $4b
+++	inc object_num
 	bne +
-	inc $4c
+	inc object_num + 1
 +
 }
 }

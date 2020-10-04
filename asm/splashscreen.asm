@@ -16,11 +16,11 @@ splash_line_y
 	cpy #5
 	bne splash_line_y
 
-	lda $a2
+	lda ti_variable + 2
 	clc
 	adc #<(SPLASHWAIT*60)
 	sta z_temp + 2
-	lda $a1
+	lda ti_variable + 1
 	adc #>(SPLASHWAIT*60)
 	sta z_temp + 1
 	

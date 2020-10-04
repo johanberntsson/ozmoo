@@ -79,6 +79,8 @@ parse_array           = $41 ; 2 bytes
 string_array          = $43 ; 2 bytes
 ;terminators_ptr       = $45 ; 2 bytes
 
+ti_variable           = $a0; 3 bytes
+
 z_address			  = $45 ; 3 bytes
 z_address_temp		  = $48
 

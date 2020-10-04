@@ -56,6 +56,8 @@ abbreviation_command  !byte 0 ;= $40
 parse_array           = $41 ; 2 bytes
 string_array          = $43 ; 2 bytes
 
+ti_variable           = $a0; 3 bytes
+
 z_address			  !byte 0, 0, 0 ; = $45 ; 3 bytes
 z_address_temp		  !byte 0 ; = $48
 

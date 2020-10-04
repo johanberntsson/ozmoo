@@ -66,11 +66,11 @@ benchmark_read_char
 	jsr translate_petscii_to_zscii
 +++	rts
 ++	jsr dollar
-	lda $a0
+	lda ti_variable
 	jsr print_byte_as_hex
-	lda $a1
+	lda ti_variable + 1
 	jsr print_byte_as_hex
-	lda $a2
+	lda ti_variable + 2
 	jsr print_byte_as_hex
 	jsr space
 	jsr printchar_flush
