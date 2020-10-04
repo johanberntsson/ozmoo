@@ -10,6 +10,7 @@ COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 
+
 ; --- ZERO PAGE --
 ; available zero page variables (pseudo registers)
 z_opcode              !byte 0 ; = $02
@@ -128,7 +129,7 @@ first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking
 
 charset_switchable 	  = $291
 
-datasette_buffer_start= $0b00 
+datasette_buffer_start= $0ac5 
 datasette_buffer_end  = $0bff
 
 ; --- I/O registers ---

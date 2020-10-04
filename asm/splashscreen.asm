@@ -27,10 +27,10 @@ splash_line_y
 -	jsr kernal_getchar
 	bne +
 	lda z_temp + 2
-	cmp $a2
+	cmp ti_variable + 2
 	bne -
 	lda z_temp + 1
-	cmp $a1
+	cmp ti_variable + 1
 	bne -
 +	
 	lda #147

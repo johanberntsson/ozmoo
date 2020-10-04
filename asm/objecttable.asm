@@ -682,16 +682,15 @@ parse_object_table
     adc #>story_start
     sta default_properties_ptr + 1
 !ifndef Z4PLUS {
-    ldx #62 ; 31 words
+    lda #62 ; 31 words
 }
 !ifdef Z4PLUS {
-    ldx #126 ; 63 words
+    lda #126 ; 63 words
 }
-    stx num_default_properties
+    sta num_default_properties
     ; store start of objects
-    lda default_properties_ptr
     clc
-    adc num_default_properties
+    adc default_properties_ptr
     sta objects_start_ptr
     lda default_properties_ptr + 1
     adc #0

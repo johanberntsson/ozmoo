@@ -8,6 +8,8 @@ SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
+ti_variable           = $a0; 3 bytes
+zp_temp               = $fb ; 5 bytes
 }
 
 !ifdef TARGET_PLUS4 {
@@ -16,7 +18,9 @@ SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0c00
 COLOUR_ADDRESS        = $0800
 COLOUR_ADDRESS_DIFF   = $10000 + COLOUR_ADDRESS - SCREEN_ADDRESS
-CURRENT_DEVICE        = $ba
+CURRENT_DEVICE        = $ae
+ti_variable           = $a3; 3 bytes
+zp_temp               = $3b ; 5 bytes
 }
 
 !ifdef TARGET_MEGA65 {
@@ -26,6 +30,8 @@ SCREEN_ADDRESS        = $0800
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
+ti_variable           = $a0; 3 bytes
+zp_temp               = $fb ; 5 bytes
 }
 
 ; --- ZERO PAGE --
@@ -78,8 +84,6 @@ abbreviation_command  = $40
 parse_array           = $41 ; 2 bytes
 string_array          = $43 ; 2 bytes
 ;terminators_ptr       = $45 ; 2 bytes
-
-ti_variable           = $a0; 3 bytes
 
 z_address			  = $45 ; 3 bytes
 z_address_temp		  = $48
@@ -139,7 +143,6 @@ zp_screenrow          = $d6 ; 1 byte current cursor row
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 cursor_row			  = $f7 ; 2 bytes
 cursor_column		  = $f9 ; 2 bytes
-zp_temp               = $fb ; 5 bytes
 
 print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
