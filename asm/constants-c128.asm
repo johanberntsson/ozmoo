@@ -3,6 +3,9 @@
 ; We use VIC-II 40 columns for now and worry about 80 columns later
 ; see also: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 ;
+TARGET_C128_80COL = 1
+;TARGET_C128_40COL = 1
+
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40 
 SCREEN_ADDRESS        = $0400

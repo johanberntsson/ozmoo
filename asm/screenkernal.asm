@@ -32,7 +32,7 @@ mega65io
 colour2k
 	sei
 	pha
-        jsr mega65io
+    jsr mega65io
 	lda #$01
 	sta $d030
 	pla
@@ -48,7 +48,23 @@ colour1k
 	rts
 }
 
+!ifdef TARGET_C128_80COL {
+!source "vdc.asm"
+}
+
 s_init
+!ifdef TARGET_C128_80COL {
+    lda #0 ; low
+    ldy #0 ; high
+    jsr VDCSetSourceAddr
+    ldy #0   // loop counter
+    ldx #VDC_DATA  // internal data register of the VCD.
+-   tya
+    ; jsr VDCWriteReg
+    iny
+    bne -
+}
+
     ; init cursor
     lda #$ff
     sta s_current_screenpos_row ; force recalculation first time
@@ -157,9 +173,10 @@ s_printchar
     stx s_reverse
     jmp .printchar_end
 +   cmp #$92 ; 146
-    bne .printchar_end
+    beq +
+    jmp .printchar_end
     ; reverse off
-    ldx #0
++   ldx #0
     stx s_reverse
     beq .printchar_end ; Always jump
 ; +
@@ -218,6 +235,10 @@ s_printchar
     jsr .update_screenpos
     pla
     ldy zp_screencolumn
+!ifdef TARGET_C128_80COL {
+    ldx #VDC_DATA
+    jsr VDCWriteReg
+}
     sta (zp_screenline),y
 !ifdef TARGET_MEGA65 {
     jsr colour2k
