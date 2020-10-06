@@ -40,7 +40,7 @@ colour2k
 
 colour1k
 	pha
-        jsr mega65io
+    jsr mega65io
 	lda #$00
 	sta $d030
 	pla
@@ -48,22 +48,67 @@ colour1k
 	rts
 }
 
-!ifdef TARGET_C128_80COL {
+s_screen_width !byte 0
+s_screen_heigth !byte 0
+s_screen_width_plus_one !byte 0
+s_screen_width_minus_one !byte 0
+s_screen_heigth_minus_one !byte 0
+s_screen_size !byte 0, 0
+
+!ifdef TARGET_C128 {
 !source "vdc.asm"
+
 }
 
 s_init
-!ifdef TARGET_C128_80COL {
+
+!ifdef TARGET_C128 {
+    ; init VDC
     lda #0 ; low
     ldy #0 ; high
     jsr VDCSetSourceAddr
-    ldy #0   // loop counter
-    ldx #VDC_DATA  // internal data register of the VCD.
--   tya
-    ; jsr VDCWriteReg
-    iny
-    bne -
 }
+
+    ; set up screen_width and screen_width_minus_one
+!ifdef TARGET_C128 {
+    lda #SCREEN_WIDTH
+} else {
+    lda #SCREEN_WIDTH
+}
+    sta s_screen_width
+    sta s_screen_width_plus_one
+    sta s_screen_width_minus_one
+    inc s_screen_width_plus_one
+    dec s_screen_width_minus_one
+
+    ; set up screen_height and screen_width_minus_one
+!ifdef TARGET_C128 {
+    lda #SCREEN_WIDTH
+    ldx COLS_40_80
+    beq +
+    ; 80 columns mode selected, so override default SCREEN_WIDTH
+    lda #80
++
+} else {
+    lda #SCREEN_HEIGHT
+}
+    sta s_screen_heigth
+    sta s_screen_heigth_minus_one
+    dec s_screen_heigth_minus_one
+
+    ; calculate total screen size
+    lda s_screen_heigth
+    sta multiplier
+    lda s_screen_width
+    sta multiplicand
+    lda #0
+    sta multiplier + 1
+    sta multiplicand + 1
+    jsr mult16
+    lda product
+    sta s_screen_size;
+    lda product + 1
+    sta s_screen_size + 1;
 
     ; init cursor
     lda #$ff
@@ -87,9 +132,9 @@ s_plot
     ldy zp_screencolumn
     rts
 .set_cursor_pos
-+	cpx #SCREEN_HEIGHT
++	cpx s_screen_heigth
 	bcc +
-	ldx #SCREEN_HEIGHT-1
+	ldx s_screen_heigth_minus_one
 +	stx zp_screenrow
 	sty zp_screencolumn
 	jmp .update_screenpos
@@ -143,7 +188,7 @@ s_printchar
 	cmp window_start_row + 1,y
 	bcc ++
 	dec zp_screenrow
-	lda #SCREEN_WIDTH-1
+	lda s_screen_width_minus_one ; #SCREEN_WIDTH-1
 	sta zp_screencolumn
 ++  jsr .update_screenpos
     lda #$20
@@ -198,7 +243,7 @@ s_printchar
 	inc zp_screencolumn
 	jmp .printchar_end
 +	; Skip if column > SCREEN_WIDTH - 1
-	cpx #SCREEN_WIDTH
+	cpx s_screen_width ; #SCREEN_WIDTH
 	bcs .printchar_end
 	; Reset ignore next linebreak setting
 	ldx current_window
@@ -235,7 +280,7 @@ s_printchar
     jsr .update_screenpos
     pla
     ldy zp_screencolumn
-!ifdef TARGET_C128_80COL {
+!ifdef TARGET_C128 {
     ldx #VDC_DATA
     jsr VDCWriteReg
 }
@@ -252,14 +297,14 @@ s_printchar
     sty zp_screencolumn
 	ldx current_window
 	bne .printchar_end ; For upper window and statusline (in z3), don't advance to next line.
-    cpy #SCREEN_WIDTH
+    cpy s_screen_width ; #SCREEN_WIDTH
     bcc .printchar_end
 	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
     lda #0
     sta zp_screencolumn
     inc zp_screenrow
 	lda zp_screenrow
-	cmp #SCREEN_HEIGHT
+	cmp s_screen_heigth
 	bcs +
 	jsr .update_screenpos
 	jmp .printchar_end
@@ -309,7 +354,7 @@ s_erase_window
 -   jsr s_erase_line
     inc zp_screenrow
     lda zp_screenrow
-    cmp #SCREEN_HEIGHT
+    cmp s_screen_heigth
     bne -
     lda #0
     sta zp_screenrow
@@ -323,31 +368,9 @@ s_erase_window
     beq +
     ; need to recalculate zp_screenline
     stx s_current_screenpos_row
-!if SCREEN_WIDTH = 40 {
-    ; use the fact that zp_screenrow * 40 = zp_screenrow * (32+8)
-    lda #0
-    sta zp_screenline + 1
-	txa
-    asl; *2 no need to rol zp_screenline + 1 since 0 < zp_screenrow < 24
-    asl; *4
-    asl; *8
-    sta zp_colourline ; store *8 for later
-    asl; *16
-    rol zp_screenline + 1
-    asl; *32
-    rol zp_screenline + 1  ; *32
-    clc
-    adc zp_colourline ; add *8
-    sta zp_screenline
-    sta zp_colourline
-    lda zp_screenline + 1
-    adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
-    sta zp_screenline +1
-    adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800)
-    sta zp_colourline + 1
-}
 !ifdef TARGET_MEGA65 {
-    ;; Use MEGA65's hardware multiplier
+    ; calculate zp_screenline = zp_current_screenpos_row * 40
+    ; Use MEGA65's hardware multiplier
     jsr mega65io
     stx $d770
     lda #0
@@ -357,27 +380,48 @@ s_erase_window
     sta $d775
     sta $d776
     sta $d777
-    lda #SCREEN_WIDTH
+    lda s_screen_width ; #SCREEN_WIDTH
     sta $d774
-
+    ;
+    ; add screen offsets
+    ;
     lda $d778
     sta zp_screenline
     sta zp_colourline
     lda $d779
     and #$07
     clc
-    adc #>SCREEN_ADDRESS
+    adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
     sta zp_screenline+1
     clc
-;    adc #>($D800 - SCREEN_ADDRESS)
-    adc #>COLOUR_ADDRESS_DIFF
+    adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
     sta zp_colourline+1
+} else {
+    ; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
+    stx multiplier
+    lda s_screen_width
+    sta multiplicand
+    lda #0
+    sta multiplier + 1
+    sta multiplicand + 1
+    jsr mult16
+    lda product
+    sta zp_screenline
+    sta zp_colourline
+    lda product + 1
+    ;
+    ; add screen offsets
+    ;
+    adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
+    sta zp_screenline +1
+    adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
+    sta zp_colourline + 1
 }
 +   rts
 
 .s_scroll
     lda zp_screenrow
-    cmp #SCREEN_HEIGHT
+    cmp s_screen_heigth
     bpl +
     rts
 +   ldx window_start_row + 1 ; how many top lines to protect
@@ -394,7 +438,7 @@ s_erase_window
     pla
     sta zp_colourline
     ; move characters
-    ldy #SCREEN_WIDTH-1
+    ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
 --
 !ifdef TARGET_MEGA65 {
     jsr colour2k	
@@ -418,7 +462,7 @@ s_erase_window
 ;    adc #>($D800 - SCREEN_ADDRESS)
     adc #>COLOUR_ADDRESS_DIFF
     sta zp_colourline + 1
-    ldy #SCREEN_WIDTH-1
+    ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
 --
 !ifdef TARGET_MEGA65 {
     jsr colour2k
@@ -433,7 +477,7 @@ s_erase_window
     pla
     sta zp_screenline + 1
     lda zp_screenrow
-    cmp #24
+    cmp s_screen_heigth_minus_one
     bne -
     lda #$ff
     sta s_current_screenpos_row ; force recalculation
@@ -445,7 +489,7 @@ s_erase_line
 	ldy #0
 .erase_line_from_any_col	
 	lda #$20
--	cpy #SCREEN_WIDTH
+-	cpy s_screen_width ; #SCREEN_WIDTH
 	bcs .done_erasing
 	sta (zp_screenline),y
 	iny
@@ -517,8 +561,8 @@ toggle_darkmode
 ; Set statusline colour
 	ldy statuslinecol,x
 	lda zcolours,y
-	ldy #SCREEN_WIDTH-1
--	sta $d800,y
+	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
+-	sta COLOUR_ADDRESS,y
 	dey
 	bpl -
 }
@@ -530,13 +574,15 @@ toggle_darkmode
 	jsr colour2k
 }
 	;; Work out how many pages of colour RAM to examine
-	ldx #1+>(SCREEN_WIDTH*SCREEN_HEIGHT)
-	ldy #>$D800
+	;ldx #1+>(SCREEN_WIDTH*SCREEN_HEIGHT)
+	ldx s_screen_size + 1
+	inx
+	ldy #>COLOUR_ADDRESS
 	sty z_temp + 11
 	ldy #0
 	sty z_temp + 10
 !ifdef Z3 {
-	ldy #SCREEN_WIDTH
+	ldy s_screen_width ; #SCREEN_WIDTH
 }
 !ifdef Z5PLUS {
 	sta z_temp + 7

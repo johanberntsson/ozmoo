@@ -5,6 +5,27 @@ init_screen_colours_invisible
 	bpl + ; Always branch
 init_screen_colours
     jsr s_init
+    ; calculate the position for the more prompt
+    ; (self modifying code since we don't want to
+    ; ZP space is limited)
+    lda s_screen_size + 1
+    clc
+    adc #>SCREEN_ADDRESS
+    sta .more_access1 + 2
+    sta .more_access2 + 2
+    sta .more_access4 + 2
+    lda s_screen_size + 1
+    clc
+    adc #>COLOUR_ADDRESS
+    sta .more_access3 + 2
+    lda s_screen_size
+    sec
+    sbc #1
+    sta .more_access1 + 1
+    sta .more_access2 + 1
+    sta .more_access3 + 1
+    sta .more_access4 + 1
+    ; colours
 	lda zcolours + FGCOL
 !if BORDERCOL_FINAL = 1 {
 	sta reg_bordercolour
@@ -164,7 +185,7 @@ z_ins_print_table
 	ldy .pt_width
 -	jsr read_next_byte
 	ldx .current_col
-	cpx #SCREEN_WIDTH
+	cpx s_screen_width
 	bcs +
 	jsr streams_print_output
 +	inc .current_col
@@ -384,9 +405,11 @@ increase_num_rows
 show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
+.more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
 	sta .more_text_char
 	lda #128 + $2a ; screen code for reversed "*"
+.more_access2
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
 	; wait for ENTER
 .printchar_pressanykey
@@ -401,11 +424,12 @@ show_more_prompt
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
-	stx $d800 + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+.more_access3
+	stx COLOUR_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
-	ldx #SCREEN_WIDTH
+	ldx s_screen_width
 ---	lda $a2
 -	cmp $a2
 	beq -
@@ -418,6 +442,7 @@ show_more_prompt
 +
 }
 	lda .more_text_char
+.more_access4
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
 .increase_num_rows_done
     rts
@@ -483,7 +508,7 @@ printchar_buffered
     jmp .printchar_done
 .check_break_char
     ldy buffer_index
-	cpy #SCREEN_WIDTH
+	cpy s_screen_width
 	bcs .add_char ; Don't register break chars on last position of buffer.
     cmp #$20 ; Space
     beq .break_char
@@ -499,13 +524,13 @@ printchar_buffered
     sta print_buffer2,y
 	iny
     sty buffer_index
-    cpy #SCREEN_WIDTH+1
+    cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
     beq +
     jmp .printchar_done
 +
     ; print the line until last space
 	; First calculate max# of characters on line
-	ldx #SCREEN_WIDTH
+	ldx s_screen_width
 	lda window_start_row
 	sec
 	sbc window_start_row + 1
@@ -580,7 +605,7 @@ printchar_buffered
     ; more on the same line
     jsr increase_num_rows
 	lda last_break_char_buffer_pos
-	cmp #SCREEN_WIDTH
+	cmp s_screen_width
 	bcs +
     lda #$0d
     jsr s_printchar
@@ -685,7 +710,7 @@ draw_status_line
     ; fill the rest of the line with spaces
     ;
 -   lda zp_screencolumn
-	cmp #SCREEN_WIDTH
+	cmp s_screen_width
 	bcs +
     lda #$20
     jsr s_printchar
@@ -706,7 +731,10 @@ draw_status_line
 	lda z_operand_value_high_arr + 1
 	pha
     ldx #0
-    ldy #SCREEN_WIDTH - 15
+    clc
+    lda s_screen_width
+    sbc #15
+    tay
     jsr set_cursor
     ldy #0
 -   lda .score_str,y

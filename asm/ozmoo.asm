@@ -347,7 +347,7 @@ deletable_screen_init_1
 }
 	sty window_start_row + 2
 	sty window_start_row + 1
-	ldy #25
+	ldy s_screen_heigth
 	sty window_start_row
 	ldy #0
 	sty is_buffered_window
@@ -424,7 +424,7 @@ z_init
 !ifdef Z5PLUS {
 	sta story_start + header_screen_height_units + 1
 }
-	lda #SCREEN_WIDTH
+	lda s_screen_width
 	sta story_start + header_screen_width_chars
 !ifdef Z5PLUS {
 	sta story_start + header_screen_width_units + 1

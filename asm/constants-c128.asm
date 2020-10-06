@@ -1,17 +1,14 @@
 ; This file should be used for the C128 target
 ;
-; We use VIC-II 40 columns for now and worry about 80 columns later
-; see also: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
-;
-TARGET_C128_80COL = 1
-;TARGET_C128_40COL = 1
+; ZP allocation: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 
 SCREEN_HEIGHT         = 25
-SCREEN_WIDTH          = 40 
+SCREEN_WIDTH          = 40 ; default, adjusted if needed in s_init
 SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
+COLS_40_80            = $d7
 
 
 ; --- ZERO PAGE --
