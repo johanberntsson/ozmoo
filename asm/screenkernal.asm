@@ -71,7 +71,12 @@ s_init
 
     ; set up screen_width and screen_width_minus_one
 !ifdef TARGET_C128 {
-    lda #SCREEN_WIDTH
+    lda #40
+    ldx COLS_40_80
+    beq +
+    ; 80 columns mode selected
+    lda #80
++
 } else {
     lda #SCREEN_WIDTH
 }
@@ -82,16 +87,7 @@ s_init
     dec s_screen_width_minus_one
 
     ; set up screen_height and screen_width_minus_one
-!ifdef TARGET_C128 {
-    lda #SCREEN_WIDTH
-    ldx COLS_40_80
-    beq +
-    ; 80 columns mode selected, so override default SCREEN_WIDTH
-    lda #80
-+
-} else {
     lda #SCREEN_HEIGHT
-}
     sta s_screen_heigth
     sta s_screen_heigth_minus_one
     dec s_screen_heigth_minus_one

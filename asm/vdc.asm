@@ -60,21 +60,23 @@ VDCWriteReg
     sta     VDC_DATA_REG
     rts
 
-;VDCClearScreen
-;    lda     #0
-;    ldy     #0
-;    jsr     VDCSetSourceAddr
-;    lda     #0
-;    ldx     #VDC_VSCROLL   ; fill mode (blitter)
-;    jsr     VDCWriteReg
-;    lda     #32            ; space character
-;    jsr     VDCWriteByte   ; put first byte (fill value)
-;    ldy     #7             ; 7 times
-;    lda     #0             ; 256 bytes (since 80*25=7*256+208)
-;    ldx     #VDC_COUNT
-;-   jsr     VDCWriteReg
-;    dey
-;    bne     -
-;    lda     #208           ; the remainder
-;    jmp     VDCWriteReg
+!ifdef VDC_INCLUDE_CLEARSCREEN {
+VDCClearScreen
+    lda     #0
+    ldy     #0
+    jsr     VDCSetSourceAddr
+    lda     #0
+    ldx     #VDC_VSCROLL   ; fill mode (blitter)
+    jsr     VDCWriteReg
+    lda     #32            ; space character
+    jsr     VDCWriteByte   ; put first byte (fill value)
+    ldy     #7             ; 7 times
+    lda     #0             ; 256 bytes (since 80*25=7*256+208)
+    ldx     #VDC_COUNT
+-   jsr     VDCWriteReg
+    dey
+    bne     -
+    lda     #208           ; the remainder
+    jmp     VDCWriteReg
+}
 
