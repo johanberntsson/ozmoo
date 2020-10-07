@@ -26,15 +26,13 @@
 
 .stored_a !byte 0
 .stored_y !byte 0
+
+; TODO: this can probably be removed if scrolling replaced with blitter
 .vdi_offset !byte 0 ; the current offset between VIC-II and VDC
 
+; TODO: VDCGetChar is only needed for scrolling and should be replaced with blitter
 VDCGetChar
-	ldx COLS_40_80
-	bne +
-	; 40 columns, use VIC-II screen
-	lda (zp_screenline),y
-	rts
-+	; 80 columns, use VDC screen
+	; 80 columns, use VDC screen
 	sty .stored_y
 	sta .stored_a
 	lda zp_screenline + 1
@@ -53,12 +51,7 @@ VDCGetChar
 	jmp VDCReadReg
 
 VDCPrintChar
-	ldx COLS_40_80
-	bne +
-	; 40 columns, use VIC-II screen
-	sta (zp_screenline),y
-	rts
-+	; 80 columns, use VDC screen
+	; 80 columns, use VDC screen
 	sty .stored_y
 	sta .stored_a
 	lda zp_screenline + 1
@@ -77,25 +70,16 @@ VDCPrintChar
 	jmp VDCWriteReg
 
 VDCPrintColour
-	ldx COLS_40_80
-	bne +
-	; 40 columns, use VIC-II screen
-	sta (zp_colourline),y
-	rts
-+	; 80 columns, use VDC screen
+	; 80 columns, use VDC screen
 	; adjust color from VIC-II to VDC format
 	lda #$8f ; white
 	ora #$80 ; lower-case
 	jmp +
+; TODO: VDCCopyColour is only needed for scrolling and should be replaced with blitter
 VDCCopyColour
 	; input: x = memory_offset, a = character/colour,
 	;        y = offset from zp_colorline
 	; registers modified: x
-	ldx COLS_40_80
-	bne +
-	; 40 columns, use VIC-II screen
-	sta (zp_colourline),y
-	rts
 +	; 80 columns, use VDC screen
 	sty .stored_y
 	sta .stored_a
@@ -238,9 +222,10 @@ s_printchar
 	cmp #$20
 	bcc +
 	cmp #$80
-	bcc .normal_char
+	bcc ++ ; .normal_char
 	cmp #$a0
-	bcs .normal_char
+	bcc + ; bcs .normal_char
+++	jmp .normal_char
 +	
 	cmp #$0d
 	bne +
@@ -271,9 +256,18 @@ s_printchar
 	lda #$20
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
+	ldx COLS_40_80
+	bne .col80_1
+	; 40 columns, use VIC-II screen
+	sta (zp_screenline),y
+	lda s_colour
+	sta (zp_colourline),y
+	jmp .col80_1_end
+.col80_1
 	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
 	stx .vdi_offset
 	jsr VDCPrintChar
+.col80_1_end
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -310,14 +304,16 @@ s_printchar
 	jmp .printchar_end ; Always jump
 	
 .normal_char
+	; TODO: perhaps we can remove all testing here and just
+	; continue at .resume_printing_normal_char	?
 	ldx zp_screencolumn
 	bpl +
 	; Negative column. Increase column but don't print anything.
 	inc zp_screencolumn
-	jmp .printchar_end
+-	jmp .printchar_end
 +	; Skip if column > SCREEN_WIDTH - 1
 	cpx s_screen_width ; #SCREEN_WIDTH
-	bcs .printchar_end
+	bcs - ; .printchar_end
 	; Reset ignore next linebreak setting
 	ldx current_window
 	ldy s_ignore_next_linebreak,x
@@ -354,6 +350,14 @@ s_printchar
 	pla
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
+	ldx COLS_40_80
+	bne .col80_2
+	; 40 columns, use VIC-II screen
+	sta (zp_screenline),y
+	lda s_colour
+	sta (zp_colourline),y
+	jmp .col80_2_end
+.col80_2
 	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
 	stx .vdi_offset
 	jsr VDCPrintChar
@@ -361,6 +365,7 @@ s_printchar
 	stx .vdi_offset
 	lda s_colour
 	jsr VDCPrintColour
+.col80_2_end
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -407,9 +412,9 @@ s_printchar
 	sty window_start_row + 1
 	; Move lower window cursor if it gets hidden by upper window
 	cpy cursor_row
-	bcc .resume_printing_normal_char
+	bcc +
 	sty cursor_row
-	bcs .resume_printing_normal_char ; Always branch
++	jmp .resume_printing_normal_char ; Always branch
 }
 
 .perform_newline
@@ -518,23 +523,34 @@ s_erase_window
 	sta zp_colourline
 	; move characters
 	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
---
 !ifdef TARGET_C128 {
 	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
 	stx .vdi_offset
+--
+	ldx COLS_40_80
+	bne .col80_3
+	; 40 columns, use VIC-II screen
+	lda (zp_screenline),y ; zp_screenrow
+	sta (zp_colourline),y ; zp_screenrow - 1
+	jmp .col80_3_end
+.col80_3
 	jsr VDCGetChar
 	jsr VDCCopyColour
+.col80_3_end
+	dey
+	bpl --
 } else {
+--
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k	
 	}
 	lda (zp_screenline),y ; zp_screenrow
 	sta (zp_colourline),y ; zp_screenrow - 1
-}
 	dey
 	bpl --
-!ifdef TARGET_MEGA65 {
-	jsr colour1k
+	!ifdef TARGET_MEGA65 {
+		jsr colour1k
+	}
 }
 	; move colour info
 	lda zp_screenline + 1
@@ -549,23 +565,36 @@ s_erase_window
 	adc #>COLOUR_ADDRESS_DIFF
 	sta zp_colourline + 1
 	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
---
 !ifdef TARGET_C128 {
 	ldx #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
 	stx .vdi_offset
+--
+	ldx COLS_40_80
+	bne .col80_4
+	; 40 columns, use VIC-II screen
+	lda (zp_screenline),y ; zp_screenrow
+	sta (zp_colourline),y ; zp_screenrow - 1
+	jmp .col80_4_end
+	lda (zp_screenline),y ; zp_screenrow
+	sta (zp_colourline),y ; zp_screenrow - 1
+.col80_4
 	jsr VDCGetChar
 	jsr VDCCopyColour
+.col80_4_end
+	dey
+	bpl --
 } else {
+--
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
 	lda (zp_screenline),y ; zp_screenrow
 	sta (zp_colourline),y ; zp_screenrow - 1
-}
 	dey
 	bpl --
-!ifdef TARGET_MEGA65 {
-	jsr colour1k
+	!ifdef TARGET_MEGA65 {
+		jsr colour1k
+	}
 }
 	pla
 	sta zp_screenline + 1
@@ -582,17 +611,32 @@ s_erase_line
 	ldy #0
 .erase_line_from_any_col	
 	lda #$20
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	bne .col80_5
+	; 40 columns, use VIC-II screen
 -	cpy s_screen_width
 	bcs .done_erasing
-!ifdef TARGET_C128 {
-	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
-	stx .vdi_offset
-	jsr VDCPrintChar
-} else {
 	sta (zp_screenline),y
-}
 	iny
 	bne -
+	jmp .col80_5_end
+.col80_5
+	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
+	stx .vdi_offset
+-	cpy s_screen_width
+	bcs .done_erasing
+	jsr VDCPrintChar
+	iny
+	bne -
+.col80_5_end
+} else {
+-	cpy s_screen_width
+	bcs .done_erasing
+	sta (zp_screenline),y
+	iny
+	bne -
+}
 .done_erasing	
  	rts
 s_erase_line_from_cursor
