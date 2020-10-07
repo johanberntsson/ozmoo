@@ -15,7 +15,7 @@
 	; lda (mempointer),y
 	; rts
 ; .too_high
-    ; lda #ERROR_MEMORY_OVER_64KB
+	; lda #ERROR_MEMORY_OVER_64KB
 	; jsr fatalerror
 
 ; }
@@ -140,8 +140,8 @@ get_page_at_z_pc_did_pha
 	; jsr store_reu_transfer_params
 	; lda #%10000000;  c64 -> REU with delayed execution
 	; sta reu_command
-    ; sei
-    ; +set_memory_all_ram_unsafe
+	; sei
+	; +set_memory_all_ram_unsafe
 	; lda $ff00
 	; sta $ff00
 	; +set_memory_no_basic_unsafe
@@ -153,7 +153,7 @@ get_page_at_z_pc_did_pha
 	; lda #%10000001;  REU -> c64 with delayed execution
 	; sta reu_command
 	; sei
-    ; +set_memory_all_ram_unsafe
+	; +set_memory_all_ram_unsafe
 	; lda $ff00
 	; sta $ff00
 	; +set_memory_no_basic_unsafe
@@ -173,15 +173,15 @@ copy_page
 ; }
 	sta .copy + 2
 	sty .copy + 5
-    sei
-    +set_memory_all_ram_unsafe
+	sei
+	+set_memory_all_ram_unsafe
 -   ldy #0
 .copy
-    lda $8000,y
-    sta $8000,y
-    iny
-    bne .copy
-    +set_memory_no_basic_unsafe
-    cli
+	lda $8000,y
+	sta $8000,y
+	iny
+	bne .copy
+	+set_memory_no_basic_unsafe
+	cli
 	rts
 }

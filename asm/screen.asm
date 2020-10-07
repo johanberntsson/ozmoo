@@ -4,35 +4,35 @@ init_screen_colours_invisible
 	lda zcolours + BGCOL
 	bpl + ; Always branch
 init_screen_colours
-    jsr s_init
-    ; calculate the position for the more prompt
-    ; (self modifying code since we don't want to
-    ; ZP space is limited)
-    lda s_screen_size + 1
-    clc
-    adc #>SCREEN_ADDRESS
-    sta .more_access1 + 2
-    sta .more_access2 + 2
-    sta .more_access4 + 2
-    lda s_screen_size + 1
-    clc
-    adc #>COLOUR_ADDRESS
-    sta .more_access3 + 2
-    lda s_screen_size
-    sec
-    sbc #1
-    sta .more_access1 + 1
-    sta .more_access2 + 1
-    sta .more_access3 + 1
-    sta .more_access4 + 1
-    ; colours
+	jsr s_init
+	; calculate the position for the more prompt
+	; (self modifying code since we don't want to
+	; ZP space is limited)
+	lda s_screen_size + 1
+	clc
+	adc #>SCREEN_ADDRESS
+	sta .more_access1 + 2
+	sta .more_access2 + 2
+	sta .more_access4 + 2
+	lda s_screen_size + 1
+	clc
+	adc #>COLOUR_ADDRESS
+	sta .more_access3 + 2
+	lda s_screen_size
+	sec
+	sbc #1
+	sta .more_access1 + 1
+	sta .more_access2 + 1
+	sta .more_access3 + 1
+	sta .more_access4 + 1
+	; colours
 	lda zcolours + FGCOL
 !if BORDERCOL_FINAL = 1 {
 	sta reg_bordercolour
 }
 +	jsr s_set_text_colour
-    lda zcolours + BGCOL
-    sta reg_backgroundcolour
+	lda zcolours + BGCOL
+	sta reg_backgroundcolour
 !if BORDERCOL_FINAL = 0 {
 	sta reg_bordercolour
 } else {
@@ -41,102 +41,102 @@ init_screen_colours
 		sta reg_bordercolour
 	}
 }
-    lda zcolours + CURSORCOL
-    sta current_cursor_colour
+	lda zcolours + CURSORCOL
+	sta current_cursor_colour
 !ifdef Z5PLUS {
-    ; store default colours in header
-    lda #BGCOL ; blue
-    sta story_start + header_default_bg_colour
-    lda #FGCOL ; white
-    sta story_start + header_default_fg_colour
+	; store default colours in header
+	lda #BGCOL ; blue
+	sta story_start + header_default_bg_colour
+	lda #FGCOL ; white
+	sta story_start + header_default_fg_colour
 }
-    lda #147 ; clear screen
-    jmp s_printchar
+	lda #147 ; clear screen
+	jmp s_printchar
 
 !ifdef Z4PLUS {
 z_ins_erase_window
-    ; erase_window window
-    ldx z_operand_value_low_arr
+	; erase_window window
+	ldx z_operand_value_low_arr
 ;    jmp erase_window ; Not needed, since erase_window follows
 }
 	
 erase_window
-    ; x = 0: clear lower window
-    ;     1: clear upper window
-    ;    -1: clear screen and unsplit
-    ;    -2: clear screen and keep split
-    lda zp_screenrow
-    pha
+	; x = 0: clear lower window
+	;     1: clear upper window
+	;    -1: clear screen and unsplit
+	;    -2: clear screen and keep split
+	lda zp_screenrow
+	pha
 ;    lda z_operand_value_low_arr
-    cpx #0
-    beq .window_0
-    cpx #1
-    beq .window_1
+	cpx #0
+	beq .window_0
+	cpx #1
+	beq .window_1
 	lda #0
 	sta current_window
-    cpx #$ff ; clear screen, then; -1 unsplit, -2 keep as is
-    bne .keep_split
+	cpx #$ff ; clear screen, then; -1 unsplit, -2 keep as is
+	bne .keep_split
 	jsr clear_num_rows
-    ldx #0 ; unsplit
-    jsr split_window
+	ldx #0 ; unsplit
+	jsr split_window
 .keep_split
 !ifdef Z3 {
-    lda #1
+	lda #1
 	bne .clear_from_a ; Always branch
 } else {
-    lda #0
+	lda #0
 	beq .clear_from_a ; Always branch
 }
 .window_0
-    lda window_start_row + 1
+	lda window_start_row + 1
 .clear_from_a
-    sta zp_screenrow
+	sta zp_screenrow
 -   jsr s_erase_line
-    inc zp_screenrow
-    lda zp_screenrow
-    cmp #25
-    bne -
+	inc zp_screenrow
+	lda zp_screenrow
+	cmp #25
+	bne -
 	jsr clear_num_rows
-    ; set cursor to top left (or, if Z4, bottom left)
-    pla
+	; set cursor to top left (or, if Z4, bottom left)
+	pla
 	ldx #0
 	stx cursor_column + 1
 !ifdef Z3 {
 	inx
 }
 !ifdef Z5PLUS {
-    lda window_start_row + 1
+	lda window_start_row + 1
 } else {
-    lda #24
+	lda #24
 }
 	stx cursor_row + 1
-    pha
-    jmp .end_erase
+	pha
+	jmp .end_erase
 .window_1
 	lda window_start_row + 1
 	cmp window_start_row + 2
 	beq .end_erase
-    lda window_start_row + 2
-    sta zp_screenrow
+	lda window_start_row + 2
+	sta zp_screenrow
 -   jsr s_erase_line
-    inc zp_screenrow
-    lda zp_screenrow
+	inc zp_screenrow
+	lda zp_screenrow
 	cmp window_start_row + 1
-    bne -
+	bne -
 .end_erase
-    pla
-    sta zp_screenrow
+	pla
+	sta zp_screenrow
 .return	
-    rts
+	rts
 
 !ifdef Z4PLUS {
 z_ins_erase_line
-    ; erase_line value
-    ; clear current line (where the cursor is)
+	; erase_line value
+	; clear current line (where the cursor is)
 	lda z_operand_value_low_arr
 	cmp #1
 	bne .return
-    jmp s_erase_line_from_cursor
+	jmp s_erase_line_from_cursor
 
 !ifdef Z5PLUS {
 .pt_cursor = z_temp;  !byte 0,0
@@ -146,41 +146,41 @@ z_ins_erase_line
 .current_col = z_temp + 6; !byte 0
 
 z_ins_print_table
-    ; print_table zscii-text width [height = 1] [skip]
-    ; ; defaults
-    lda #1
-    sta .pt_height
-    lda #0
-    sta .pt_skip
-    sta .pt_skip + 1
+	; print_table zscii-text width [height = 1] [skip]
+	; ; defaults
+	lda #1
+	sta .pt_height
+	lda #0
+	sta .pt_skip
+	sta .pt_skip + 1
 	; Read args
-    lda z_operand_value_low_arr + 1
+	lda z_operand_value_low_arr + 1
 	beq .print_table_done
-    sta .pt_width
-    ldy z_operand_count
-    cpy #3
-    bcc ++
-    lda z_operand_value_low_arr + 2
+	sta .pt_width
+	ldy z_operand_count
+	cpy #3
+	bcc ++
+	lda z_operand_value_low_arr + 2
 	beq .print_table_done
-    sta .pt_height
+	sta .pt_height
 +   cpy #4
-    bcc ++
-    lda z_operand_value_low_arr + 3
-    sta .pt_skip
-    lda z_operand_value_high_arr + 3
-    sta .pt_skip + 1
+	bcc ++
+	lda z_operand_value_low_arr + 3
+	sta .pt_skip
+	lda z_operand_value_high_arr + 3
+	sta .pt_skip + 1
 ++	lda .pt_height
 	cmp #1
 	beq .print_table_oneline
 ; start printing multi-line table
-    jsr printchar_flush
-    jsr get_cursor ; x=row, y=column
-    stx .pt_cursor
-    sty .pt_cursor + 1
+	jsr printchar_flush
+	jsr get_cursor ; x=row, y=column
+	stx .pt_cursor
+	sty .pt_cursor + 1
 	lda z_operand_value_high_arr ; Start address
 	ldx z_operand_value_low_arr
 --	jsr set_z_address
-    ldx .pt_cursor + 1
+	ldx .pt_cursor + 1
 	stx .current_col
 	ldy .pt_width
 -	jsr read_next_byte
@@ -259,18 +259,18 @@ start_buffering
 }
 
 z_ins_split_window
-    ; split_window lines
-    ldx z_operand_value_low_arr
+	; split_window lines
+	ldx z_operand_value_low_arr
 ;    jmp split_window ; Not needed since split_window follows
 
 split_window
-    ; split if <x> > 0, unsplit if <x> = 0
-    cpx #0
-    bne .split_window
-    ; unsplit
-    ldx window_start_row + 2
-    stx window_start_row + 1
-    rts
+	; split if <x> > 0, unsplit if <x> = 0
+	cpx #0
+	bne .split_window
+	; unsplit
+	ldx window_start_row + 2
+	stx window_start_row + 1
+	rts
 .split_window
 	cpx #.max_lines
 	bcc +
@@ -299,8 +299,8 @@ split_window
 	jmp set_cursor
 
 z_ins_set_window
-    ;  set_window window
-    lda z_operand_value_low_arr
+	;  set_window window
+	lda z_operand_value_low_arr
 	bne select_upper_window
 	; Selecting lower window
 select_lower_window
@@ -308,16 +308,16 @@ select_lower_window
 	beq .do_nothing
 	jsr save_cursor
 	lda #0
-    sta current_window
-    ; this is the main text screen, restore cursor position
-    jmp restore_cursor
+	sta current_window
+	; this is the main text screen, restore cursor position
+	jmp restore_cursor
 select_upper_window
 	; this is the status line window
-    ; store cursor position so it can be restored later
-    ; when set_window 0 is called
+	; store cursor position so it can be restored later
+	; when set_window 0 is called
 	ldx current_window
 	bne .reset_cursor ; Upper window was already selected
-    jsr save_cursor
+	jsr save_cursor
 	ldx #1
 	stx current_window
 .reset_cursor
@@ -331,64 +331,64 @@ select_upper_window
 
 !ifdef Z4PLUS {
 z_ins_set_text_style
-    lda z_operand_value_low_arr
-    bne .t0
-    ; roman
-    lda #146 ; reverse off
-    jmp s_printchar
+	lda z_operand_value_low_arr
+	bne .t0
+	; roman
+	lda #146 ; reverse off
+	jmp s_printchar
 .t0 cmp #1
-    bne .do_nothing
-    lda #18 ; reverse on
-    jmp s_printchar
+	bne .do_nothing
+	lda #18 ; reverse on
+	jmp s_printchar
 
 z_ins_get_cursor
-    ; get_cursor array
-    ldx z_operand_value_low_arr
-    stx string_array
-    lda z_operand_value_high_arr
-    clc
-    adc #>story_start
-    sta string_array + 1
-    lda #0
-    ldy #0
-    sta (string_array),y
-    ldy #2
-    sta (string_array),y
+	; get_cursor array
+	ldx z_operand_value_low_arr
+	stx string_array
+	lda z_operand_value_high_arr
+	clc
+	adc #>story_start
+	sta string_array + 1
+	lda #0
+	ldy #0
+	sta (string_array),y
+	ldy #2
+	sta (string_array),y
 	ldx current_window
 	beq + ; We are in lower window, jump to read last cursor pos in upper window
-    jsr get_cursor ; x=row, y=column	
+	jsr get_cursor ; x=row, y=column	
 -	inx ; In Z-machine, cursor has position 1+
 	iny ; In Z-machine, cursor has position 1+
-    tya
-    pha
-    ldy #1
-    txa ; row
-    sta (string_array),y
-    pla ; column
-    ldy #3
-    sta (string_array),y
+	tya
+	pha
+	ldy #1
+	txa ; row
+	sta (string_array),y
+	pla ; column
+	ldy #3
+	sta (string_array),y
 .do_nothing_2
-    rts
+	rts
 +	ldx cursor_row + 1
 	ldy cursor_column + 1
 	jmp -	
 
 
 z_ins_set_cursor
-    ; set_cursor line column
-    ldy current_window
-    beq .do_nothing_2
-    ldx z_operand_value_low_arr ; line 1..
-    dex ; line 0..
-    ldy z_operand_value_low_arr + 1 ; column
-    dey
-    jmp set_cursor
+	; set_cursor line column
+	ldy current_window
+	beq .do_nothing_2
+	ldx z_operand_value_low_arr ; line 1..
+	dex ; line 0..
+	ldy z_operand_value_low_arr + 1 ; column
+	dey
+	jmp set_cursor
 }
 
 clear_num_rows
-    lda #0
-    sta num_rows
-    rts
+	lda #0
+	sta num_rows
+	rts
 
 increase_num_rows
 	lda current_window
@@ -438,36 +438,36 @@ show_more_prompt
 	bne +
 	dex
 	bne ---
-    beq -- ; Always branch
+	beq -- ; Always branch
 +
 }
 	lda .more_text_char
 .more_access4
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
 .increase_num_rows_done
-    rts
+	rts
 
 .more_text_char !byte 0
 
 printchar_flush
-    ; flush the printchar buffer
+	; flush the printchar buffer
 	ldx current_window
 	stx z_temp + 11
 	jsr select_lower_window
-    lda s_reverse
-    pha
-    ldx first_buffered_column
+	lda s_reverse
+	pha
+	ldx first_buffered_column
 -   cpx buffer_index
-    bcs +
-    lda print_buffer2,x
-    sta s_reverse
-    lda print_buffer,x
-    jsr s_printchar
-    inx
-    bne -
+	bcs +
+	lda print_buffer2,x
+	sta s_reverse
+	lda print_buffer,x
+	jsr s_printchar
+	inx
+	bne -
 +	pla
-        sta s_reverse
-        jsr start_buffering
+	sta s_reverse
+	jsr start_buffering
 	ldx z_temp + 11
 	beq .increase_num_rows_done
 	jsr save_cursor
@@ -477,58 +477,58 @@ printchar_flush
 	jmp restore_cursor
 
 printchar_buffered
-    ; a is PETSCII character to print
-    sta .buffer_char
-    ; need to save x,y
-    txa
-    pha
-    tya
-    pha
-    ; is this a buffered window?
-    lda current_window
+	; a is PETSCII character to print
+	sta .buffer_char
+	; need to save x,y
+	txa
+	pha
+	tya
+	pha
+	; is this a buffered window?
+	lda current_window
 	bne .is_not_buffered
-    lda is_buffered_window
-    bne .buffered_window
+	lda is_buffered_window
+	bne .buffered_window
 .is_not_buffered
-    lda .buffer_char
-    jsr s_printchar
-    jmp .printchar_done
-    ; update the buffer
+	lda .buffer_char
+	jsr s_printchar
+	jmp .printchar_done
+	; update the buffer
 .buffered_window
-    lda .buffer_char
-    ; add this char to the buffer
-    cmp #$0d
-    bne .check_break_char
+	lda .buffer_char
+	; add this char to the buffer
+	cmp #$0d
+	bne .check_break_char
 	jsr printchar_flush
-    ; more on the same line
-    jsr increase_num_rows
-    lda #$0d
-    jsr s_printchar
+	; more on the same line
+	jsr increase_num_rows
+	lda #$0d
+	jsr s_printchar
 	jsr start_buffering
-    jmp .printchar_done
+	jmp .printchar_done
 .check_break_char
-    ldy buffer_index
+	ldy buffer_index
 	cpy s_screen_width
 	bcs .add_char ; Don't register break chars on last position of buffer.
-    cmp #$20 ; Space
-    beq .break_char
+	cmp #$20 ; Space
+	beq .break_char
 	cmp #$2d ; -
 	bne .add_char
 .break_char
-    ; update index to last break character
-    sty last_break_char_buffer_pos
+	; update index to last break character
+	sty last_break_char_buffer_pos
 .add_char
-    ldy buffer_index
-    sta print_buffer,y
-    lda s_reverse
-    sta print_buffer2,y
+	ldy buffer_index
+	sta print_buffer,y
+	lda s_reverse
+	sta print_buffer2,y
 	iny
-    sty buffer_index
-    cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
-    beq +
-    jmp .printchar_done
+	sty buffer_index
+	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
+	beq +
+	jmp .printchar_done
 +
-    ; print the line until last space
+	; print the line until last space
 	; First calculate max# of characters on line
 	ldx s_screen_width
 	lda window_start_row
@@ -562,61 +562,61 @@ printchar_buffered
 	sty last_break_char_buffer_pos
 .print_buffer
 	ldx first_buffered_column
-    lda s_reverse
-    pha
+	lda s_reverse
+	pha
 -   cpx last_break_char_buffer_pos
-    beq +
-    txa ; kernal_printchar destroys x,y
-    pha
-    lda print_buffer2,x
-    sta s_reverse
-    lda print_buffer,x
-    jsr s_printchar
-    pla
-    tax
-    inx
-    bne - ; Always branch
+	beq +
+	txa ; kernal_printchar destroys x,y
+	pha
+	lda print_buffer2,x
+	sta s_reverse
+	lda print_buffer,x
+	jsr s_printchar
+	pla
+	tax
+	inx
+	bne - ; Always branch
 +   pla
-    sta s_reverse
+	sta s_reverse
 
 .move_remaining_chars_to_buffer_start
-    ; Skip initial spaces, move the rest of the line back to the beginning and update indices
+	; Skip initial spaces, move the rest of the line back to the beginning and update indices
 	ldy #0
 	cpx buffer_index
 	beq .after_copy_loop
-    lda print_buffer,x
+	lda print_buffer,x
 	cmp #$20
 	bne .copy_loop
 	inx
 .copy_loop
 	cpx buffer_index
-    beq .after_copy_loop
-    lda print_buffer,x
-    sta print_buffer,y
-    lda print_buffer2,x
-    sta print_buffer2,y
-    iny
-    inx
-    bne .copy_loop ; Always branch
+	beq .after_copy_loop
+	lda print_buffer,x
+	sta print_buffer,y
+	lda print_buffer2,x
+	sta print_buffer2,y
+	iny
+	inx
+	bne .copy_loop ; Always branch
 .after_copy_loop
 	sty buffer_index
 	lda #0
 	sta first_buffered_column
-    ; more on the same line
-    jsr increase_num_rows
+	; more on the same line
+	jsr increase_num_rows
 	lda last_break_char_buffer_pos
 	cmp s_screen_width
 	bcs +
-    lda #$0d
-    jsr s_printchar
+	lda #$0d
+	jsr s_printchar
 +   ldy #0
-    sty last_break_char_buffer_pos
+	sty last_break_char_buffer_pos
 .printchar_done
-    pla
-    tay
-    pla
-    tax
-    rts
+	pla
+	tay
+	pla
+	tax
+	rts
 .buffer_char       !byte 0
 ; print_buffer            !fill 41, 0
 .save_x			   !byte 0
@@ -652,76 +652,76 @@ printstring_raw
 +	rts
 	
 set_cursor
-    ; input: y=column (0-39)
-    ;        x=row (0-24)
-    clc
-    jmp s_plot
+	; input: y=column (0-39)
+	;        x=row (0-24)
+	clc
+	jmp s_plot
 
 get_cursor
-    ; output: y=column (0-39)
-    ;         x=row (0-24)
-    sec
-    jmp s_plot
+	; output: y=column (0-39)
+	;         x=row (0-24)
+	sec
+	jmp s_plot
 
 save_cursor
-    jsr get_cursor
+	jsr get_cursor
 	tya
 	ldy current_window
-    stx cursor_row,y
-    sta cursor_column,y
-    rts
+	stx cursor_row,y
+	sta cursor_column,y
+	rts
 
 restore_cursor
 	ldy current_window
-    ldx cursor_row,y
-    lda cursor_column,y
+	ldx cursor_row,y
+	lda cursor_column,y
 	tay
-    jmp set_cursor
+	jmp set_cursor
 
 !ifdef Z3 {
 
 z_ins_show_status
-    ; show_status (hardcoded size)
+	; show_status (hardcoded size)
 ;    jmp draw_status_line
 
 draw_status_line
 	lda current_window
 	pha
-    jsr save_cursor
+	jsr save_cursor
 	lda #2
 	sta current_window
-    ldx #0
-    ldy #0
-    jsr set_cursor
-    lda #18 ; reverse on
-    jsr s_printchar
+	ldx #0
+	ldy #0
+	jsr set_cursor
+	lda #18 ; reverse on
+	jsr s_printchar
 	ldx darkmode
 	ldy statuslinecol,x 
 	lda zcolours,y
 	jsr s_set_text_colour
-    ;
-    ; Room name
-    ; 
-    ; name of the object whose number is in the first global variable
-    lda #16
-    jsr z_get_low_global_variable_value
-    jsr print_obj
-    ;
-    ; fill the rest of the line with spaces
-    ;
+	;
+	; Room name
+	; 
+	; name of the object whose number is in the first global variable
+	lda #16
+	jsr z_get_low_global_variable_value
+	jsr print_obj
+	;
+	; fill the rest of the line with spaces
+	;
 -   lda zp_screencolumn
 	cmp s_screen_width
 	bcs +
-    lda #$20
-    jsr s_printchar
-    jmp -
-    ;
-    ; score or time game?
-    ;
+	lda #$20
+	jsr s_printchar
+	jmp -
+	;
+	; score or time game?
+	;
 +   lda story_start + header_flags_1
-    and #$02
-    bne .timegame
-    ; score game
+	and #$02
+	bne .timegame
+	; score game
 	lda z_operand_value_low_arr
 	pha
 	lda z_operand_value_high_arr
@@ -730,30 +730,30 @@ draw_status_line
 	pha
 	lda z_operand_value_high_arr + 1
 	pha
-    ldx #0
-    clc
-    lda s_screen_width
-    sbc #15
-    tay
-    jsr set_cursor
-    ldy #0
+	ldx #0
+	clc
+	lda s_screen_width
+	sbc #15
+	tay
+	jsr set_cursor
+	ldy #0
 -   lda .score_str,y
-    beq +
-    jsr s_printchar
-    iny
-    bne -
+	beq +
+	jsr s_printchar
+	iny
+	bne -
 +   lda #17
-    jsr z_get_low_global_variable_value
-    stx z_operand_value_low_arr
-    sta z_operand_value_high_arr
-    jsr z_ins_print_num
-    lda #47
-    jsr s_printchar
-    lda #18
-    jsr z_get_low_global_variable_value
-    stx z_operand_value_low_arr
-    sta z_operand_value_high_arr
-    jsr z_ins_print_num
+	jsr z_get_low_global_variable_value
+	stx z_operand_value_low_arr
+	sta z_operand_value_high_arr
+	jsr z_ins_print_num
+	lda #47
+	jsr s_printchar
+	lda #18
+	jsr z_get_low_global_variable_value
+	stx z_operand_value_low_arr
+	sta z_operand_value_high_arr
+	jsr z_ins_print_num
 	pla
 	sta z_operand_value_high_arr + 1
 	pla
@@ -762,12 +762,12 @@ draw_status_line
 	sta z_operand_value_high_arr
 	pla
 	sta z_operand_value_low_arr
-    jmp .statusline_done
+	jmp .statusline_done
 .timegame
-    ; time game
-    ldx #0
-    ldy #25
-    jsr set_cursor
+	; time game
+	ldx #0
+	ldy #25
+	jsr set_cursor
 	lda #>.time_str
 	ldx #<.time_str
 	jsr printstring_raw
@@ -775,7 +775,7 @@ draw_status_line
 	lda #65 + 32
 	sta .ampm_str + 1
 	lda #17 ; hour
-    jsr z_get_low_global_variable_value
+	jsr z_get_low_global_variable_value
 ; Change AM to PM if hour >= 12
 	cpx #12
 	bcc +
@@ -792,11 +792,11 @@ draw_status_line
 	tax
 +	ldy #$20 ; " " before if < 10
 	jsr .print_clock_number
-    lda #58 ; :
-    jsr s_printchar
+	lda #58 ; :
+	jsr s_printchar
 ; Print minutes
-    lda #18 ; minute
-    jsr z_get_low_global_variable_value
+	lda #18 ; minute
+	jsr z_get_low_global_variable_value
 	ldy #$30 ; "0" before if < 10
 	jsr .print_clock_number
 ; Print AM/PM
@@ -808,11 +808,11 @@ draw_status_line
 	ldy fgcol,x 
 	lda zcolours,y
 	jsr s_set_text_colour
-    lda #146 ; reverse off
-    jsr s_printchar
+	lda #146 ; reverse off
+	jsr s_printchar
 	pla
 	sta current_window
-    jmp restore_cursor
+	jmp restore_cursor
 .print_clock_number
 	sty z_temp + 11
 	txa

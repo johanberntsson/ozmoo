@@ -93,10 +93,10 @@ transfer_routine
 
 	;; Reset C64 mode KERNAL stuff
 	jsr $fda3 ; init I/O
-        jsr $fd15 ; set I/O vectors
+	jsr $fd15 ; set I/O vectors
 	lda #>$0400 		; Make sure screen memory set to sensible location
 	sta $0288		; before we call screen init $FF5B
-        jsr $ff5b ; more init
+	jsr $ff5b ; more init
 	jsr $f7a9 ; C65 DOS reinit
 
 	;; Enter programme

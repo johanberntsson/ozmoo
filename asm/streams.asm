@@ -558,7 +558,7 @@ z_ins_output_stream
 	rts
 !ifndef UNSAFE {
 .unsupported_stream
-    lda #ERROR_UNSUPPORTED_STREAM
+	lda #ERROR_UNSUPPORTED_STREAM
 	jsr fatalerror
 }
 .negative
@@ -612,7 +612,7 @@ z_ins_output_stream
 	rts
 !ifndef UNSAFE {
 .stream_nesting_error
-    lda #ERROR_STREAM_NESTING_ERROR
+	lda #ERROR_STREAM_NESTING_ERROR
 	jsr fatalerror
 }
 .turn_off_mem_stream

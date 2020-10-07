@@ -32,7 +32,7 @@ mega65io
 colour2k
 	sei
 	pha
-    jsr mega65io
+	jsr mega65io
 	lda #$01
 	sta $d030
 	pla
@@ -40,7 +40,7 @@ colour2k
 
 colour1k
 	pha
-    jsr mega65io
+	jsr mega65io
 	lda #$00
 	sta $d030
 	pla
@@ -63,70 +63,70 @@ s_screen_size !byte 0, 0
 s_init
 
 !ifdef TARGET_C128 {
-    ; init VDC
-    lda #0 ; low
-    ldy #0 ; high
-    jsr VDCSetSourceAddr
+	; init VDC
+	lda #0 ; low
+	ldy #0 ; high
+	jsr VDCSetSourceAddr
 }
 
-    ; set up screen_width and screen_width_minus_one
+	; set up screen_width and screen_width_minus_one
 !ifdef TARGET_C128 {
-    lda #40
-    ldx COLS_40_80
-    beq +
-    ; 80 columns mode selected
-    lda #80
+	lda #40
+	ldx COLS_40_80
+	beq +
+	; 80 columns mode selected
+	lda #80
 +
 } else {
-    lda #SCREEN_WIDTH
+	lda #SCREEN_WIDTH
 }
-    sta s_screen_width
-    sta s_screen_width_plus_one
-    sta s_screen_width_minus_one
-    inc s_screen_width_plus_one
-    dec s_screen_width_minus_one
+	sta s_screen_width
+	sta s_screen_width_plus_one
+	sta s_screen_width_minus_one
+	inc s_screen_width_plus_one
+	dec s_screen_width_minus_one
 
-    ; set up screen_height and screen_width_minus_one
-    lda #SCREEN_HEIGHT
-    sta s_screen_heigth
-    sta s_screen_heigth_minus_one
-    dec s_screen_heigth_minus_one
+	; set up screen_height and screen_width_minus_one
+	lda #SCREEN_HEIGHT
+	sta s_screen_heigth
+	sta s_screen_heigth_minus_one
+	dec s_screen_heigth_minus_one
 
-    ; calculate total screen size
-    lda s_screen_heigth
-    sta multiplier
-    lda s_screen_width
-    sta multiplicand
-    lda #0
-    sta multiplier + 1
-    sta multiplicand + 1
-    jsr mult16
-    lda product
-    sta s_screen_size;
-    lda product + 1
-    sta s_screen_size + 1;
+	; calculate total screen size
+	lda s_screen_heigth
+	sta multiplier
+	lda s_screen_width
+	sta multiplicand
+	lda #0
+	sta multiplier + 1
+	sta multiplicand + 1
+	jsr mult16
+	lda product
+	sta s_screen_size;
+	lda product + 1
+	sta s_screen_size + 1;
 
-    ; init cursor
-    lda #$ff
-    sta s_current_screenpos_row ; force recalculation first time
-    lda #0
-    sta zp_screencolumn
-    sta zp_screenrow
+	; init cursor
+	lda #$ff
+	sta s_current_screenpos_row ; force recalculation first time
+	lda #0
+	sta zp_screencolumn
+	sta zp_screenrow
 	; Set to 0: s_ignore_next_linebreak, s_reverse
-    ldx #3
+	ldx #3
 -	sta s_ignore_next_linebreak,x
 	dex
 	bpl -
-    rts
+	rts
 
 s_plot
-    ; y=column (0-(SCREEN_WIDTH-1))
-    ; x=row (0- (SCREEN_HEIGHT-1))
-    bcc .set_cursor_pos
-    ; get_cursor
-    ldx zp_screenrow
-    ldy zp_screencolumn
-    rts
+	; y=column (0-(SCREEN_WIDTH-1))
+	; x=row (0- (SCREEN_HEIGHT-1))
+	bcc .set_cursor_pos
+	; get_cursor
+	ldx zp_screenrow
+	ldy zp_screencolumn
+	rts
 .set_cursor_pos
 +	cpx s_screen_heigth
 	bcc +
@@ -146,12 +146,12 @@ s_delete_cursor
 	rts
 
 s_printchar
-    ; replacement for CHROUT ($ffd2)
-    ; input: A = byte to write (PETASCII)
-    ; output: -
-    ; used registers: -
-    stx s_stored_x
-    sty s_stored_y
+	; replacement for CHROUT ($ffd2)
+	; input: A = byte to write (PETASCII)
+	; output: -
+	; used registers: -
+	stx s_stored_x
+	sty s_stored_y
 
 	; Fastlane for the most common characters
 	cmp #$20
@@ -162,7 +162,7 @@ s_printchar
 	bcs .normal_char
 +	
 	cmp #$0d
-    bne +
+	bne +
 	; newline
 	; but first, check if the current character is the cursor so that we may delete it
 	lda cursor_character
@@ -172,12 +172,12 @@ s_printchar
 	jsr s_delete_cursor
 +++	jmp .perform_newline
 +   
-    cmp #20
-    bne +
-    ; delete
-    jsr s_delete_cursor
-    dec zp_screencolumn ; move back
-    bpl ++
+	cmp #20
+	bne +
+	; delete
+	jsr s_delete_cursor
+	dec zp_screencolumn ; move back
+	bpl ++
 	inc zp_screencolumn ; Go back to 0 if < 0
 	lda zp_screenrow
 	ldy current_window
@@ -187,39 +187,39 @@ s_printchar
 	lda s_screen_width_minus_one ; #SCREEN_WIDTH-1
 	sta zp_screencolumn
 ++  jsr .update_screenpos
-    lda #$20
-    ldy zp_screencolumn
-    sta (zp_screenline),y
+	lda #$20
+	ldy zp_screencolumn
+	sta (zp_screenline),y
 !ifdef TARGET_MEGA65 {
-    jsr colour2k
+	jsr colour2k
 }
-    lda s_colour
-    sta (zp_colourline),y
+	lda s_colour
+	sta (zp_colourline),y
 !ifdef TARGET_MEGA65 {
-    jsr colour1k
+	jsr colour1k
 }
-    jmp .printchar_end
+	jmp .printchar_end
 +   cmp #$93 
-    bne +
-    ; clr (clear screen)
-    lda #0
-    sta zp_screencolumn
-    sta zp_screenrow
-    jsr s_erase_window
-    jmp .printchar_end
+	bne +
+	; clr (clear screen)
+	lda #0
+	sta zp_screencolumn
+	sta zp_screenrow
+	jsr s_erase_window
+	jmp .printchar_end
 +   cmp #$12 ; 18
-    bne +
-    ; reverse on
-    ldx #$80
-    stx s_reverse
-    jmp .printchar_end
+	bne +
+	; reverse on
+	ldx #$80
+	stx s_reverse
+	jmp .printchar_end
 +   cmp #$92 ; 146
-    beq +
-    jmp .printchar_end
-    ; reverse off
+	beq +
+	jmp .printchar_end
+	; reverse off
 +   ldx #0
-    stx s_reverse
-    beq .printchar_end ; Always jump
+	stx s_reverse
+	beq .printchar_end ; Always jump
 ; +
 	; ; check if colour code
 	; ldx #15
@@ -262,43 +262,43 @@ s_printchar
 	and #%00111111
 	bcc ++ ; always jump
 +   cmp #$80
-    bcs +
+	bcs +
 	and #%11011111
-    bcc ++ ; always jump
+	bcc ++ ; always jump
 +	cmp #$c0
 	bcs +
 	eor #%11000000
 +	and #%01111111
 ++  ; print the char
-    clc
-    adc s_reverse
-    pha
-    jsr .update_screenpos
-    pla
-    ldy zp_screencolumn
+	clc
+	adc s_reverse
+	pha
+	jsr .update_screenpos
+	pla
+	ldy zp_screencolumn
 !ifdef TARGET_C128 {
-    ldx #VDC_DATA
-    jsr VDCWriteReg
+	ldx #VDC_DATA
+	jsr VDCWriteReg
 }
-    sta (zp_screenline),y
+	sta (zp_screenline),y
 !ifdef TARGET_MEGA65 {
-    jsr colour2k
+	jsr colour2k
 }
-    lda s_colour
-    sta (zp_colourline),y
+	lda s_colour
+	sta (zp_colourline),y
 !ifdef TARGET_MEGA65 {
-    jsr colour1k
+	jsr colour1k
 }
-    iny
-    sty zp_screencolumn
+	iny
+	sty zp_screencolumn
 	ldx current_window
 	bne .printchar_end ; For upper window and statusline (in z3), don't advance to next line.
-    cpy s_screen_width ; #SCREEN_WIDTH
-    bcc .printchar_end
+	cpy s_screen_width ; #SCREEN_WIDTH
+	bcc .printchar_end
 	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
-    lda #0
-    sta zp_screencolumn
-    inc zp_screenrow
+	lda #0
+	sta zp_screencolumn
+	inc zp_screenrow
 	lda zp_screenrow
 	cmp s_screen_heigth
 	bcs +
@@ -306,9 +306,9 @@ s_printchar
 	jmp .printchar_end
 +	jsr .s_scroll
 .printchar_end
-    ldx s_stored_x
-    ldy s_stored_y
-    rts
+	ldx s_stored_x
+	ldy s_stored_y
+	rts
 
 .outside_current_window
 !ifdef Z4 {
@@ -330,7 +330,7 @@ s_printchar
 }
 
 .perform_newline
-    ; newline/enter/return
+	; newline/enter/return
 	; Check ignore next linebreak setting
 	ldx current_window
 	ldy s_ignore_next_linebreak,x
@@ -338,145 +338,145 @@ s_printchar
 	inc s_ignore_next_linebreak,x
 	jmp .printchar_end
 +	lda #0
-    sta zp_screencolumn
-    inc zp_screenrow
-    jsr .s_scroll
-    jsr .update_screenpos
-    jmp .printchar_end
+	sta zp_screencolumn
+	inc zp_screenrow
+	jsr .s_scroll
+	jsr .update_screenpos
+	jmp .printchar_end
 
 s_erase_window
-    lda #0
-    sta zp_screenrow
+	lda #0
+	sta zp_screenrow
 -   jsr s_erase_line
-    inc zp_screenrow
-    lda zp_screenrow
-    cmp s_screen_heigth
-    bne -
-    lda #0
-    sta zp_screenrow
-    sta zp_screencolumn
-    rts
+	inc zp_screenrow
+	lda zp_screenrow
+	cmp s_screen_heigth
+	bne -
+	lda #0
+	sta zp_screenrow
+	sta zp_screencolumn
+	rts
 
 .update_screenpos
-    ; set screenpos (current line) using row
-    ldx zp_screenrow
-    cpx s_current_screenpos_row
-    beq +
-    ; need to recalculate zp_screenline
-    stx s_current_screenpos_row
+	; set screenpos (current line) using row
+	ldx zp_screenrow
+	cpx s_current_screenpos_row
+	beq +
+	; need to recalculate zp_screenline
+	stx s_current_screenpos_row
 !ifdef TARGET_MEGA65 {
-    ; calculate zp_screenline = zp_current_screenpos_row * 40
-    ; Use MEGA65's hardware multiplier
-    jsr mega65io
-    stx $d770
-    lda #0
-    sta $d771
-    sta $d772
-    sta $d773
-    sta $d775
-    sta $d776
-    sta $d777
-    lda s_screen_width ; #SCREEN_WIDTH
-    sta $d774
-    ;
-    ; add screen offsets
-    ;
-    lda $d778
-    sta zp_screenline
-    sta zp_colourline
-    lda $d779
-    and #$07
-    clc
-    adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
-    sta zp_screenline+1
-    clc
-    adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
-    sta zp_colourline+1
+	; calculate zp_screenline = zp_current_screenpos_row * 40
+	; Use MEGA65's hardware multiplier
+	jsr mega65io
+	stx $d770
+	lda #0
+	sta $d771
+	sta $d772
+	sta $d773
+	sta $d775
+	sta $d776
+	sta $d777
+	lda s_screen_width ; #SCREEN_WIDTH
+	sta $d774
+	;
+	; add screen offsets
+	;
+	lda $d778
+	sta zp_screenline
+	sta zp_colourline
+	lda $d779
+	and #$07
+	clc
+	adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
+	sta zp_screenline+1
+	clc
+	adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
+	sta zp_colourline+1
 } else {
-    ; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
-    stx multiplier
-    lda s_screen_width
-    sta multiplicand
-    lda #0
-    sta multiplier + 1
-    sta multiplicand + 1
-    jsr mult16
-    lda product
-    sta zp_screenline
-    sta zp_colourline
-    lda product + 1
-    ;
-    ; add screen offsets
-    ;
-    adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
-    sta zp_screenline +1
-    adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
-    sta zp_colourline + 1
+	; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
+	stx multiplier
+	lda s_screen_width
+	sta multiplicand
+	lda #0
+	sta multiplier + 1
+	sta multiplicand + 1
+	jsr mult16
+	lda product
+	sta zp_screenline
+	sta zp_colourline
+	lda product + 1
+	;
+	; add screen offsets
+	;
+	adc #>SCREEN_ADDRESS ; add screen start ($0400 for C64)
+	sta zp_screenline +1
+	adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
+	sta zp_colourline + 1
 }
 +   rts
 
 .s_scroll
-    lda zp_screenrow
-    cmp s_screen_heigth
-    bpl +
-    rts
+	lda zp_screenrow
+	cmp s_screen_heigth
+	bpl +
+	rts
 +   ldx window_start_row + 1 ; how many top lines to protect
-    stx zp_screenrow
+	stx zp_screenrow
 -   jsr .update_screenpos
-    lda zp_screenline
-    pha
-    lda zp_screenline + 1
-    pha
-    inc zp_screenrow
-    jsr .update_screenpos
-    pla
-    sta zp_colourline + 1
-    pla
-    sta zp_colourline
-    ; move characters
-    ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
+	lda zp_screenline
+	pha
+	lda zp_screenline + 1
+	pha
+	inc zp_screenrow
+	jsr .update_screenpos
+	pla
+	sta zp_colourline + 1
+	pla
+	sta zp_colourline
+	; move characters
+	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
 --
 !ifdef TARGET_MEGA65 {
-    jsr colour2k	
+	jsr colour2k	
 }
-    lda (zp_screenline),y ; zp_screenrow
-    sta (zp_colourline),y ; zp_screenrow - 1
-    dey
-    bpl --
+	lda (zp_screenline),y ; zp_screenrow
+	sta (zp_colourline),y ; zp_screenrow - 1
+	dey
+	bpl --
 !ifdef TARGET_MEGA65 {
-    jsr colour1k
+	jsr colour1k
 }
-    ; move colour info
-    lda zp_screenline + 1
-    pha
-    clc
+	; move colour info
+	lda zp_screenline + 1
+	pha
+	clc
 ;    adc #>($D800 - SCREEN_ADDRESS)
-    adc #>COLOUR_ADDRESS_DIFF
-    sta zp_screenline + 1
-    lda zp_colourline + 1
-    clc
+	adc #>COLOUR_ADDRESS_DIFF
+	sta zp_screenline + 1
+	lda zp_colourline + 1
+	clc
 ;    adc #>($D800 - SCREEN_ADDRESS)
-    adc #>COLOUR_ADDRESS_DIFF
-    sta zp_colourline + 1
-    ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
+	adc #>COLOUR_ADDRESS_DIFF
+	sta zp_colourline + 1
+	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
 --
 !ifdef TARGET_MEGA65 {
-    jsr colour2k
+	jsr colour2k
 }
-    lda (zp_screenline),y ; zp_screenrow
-    sta (zp_colourline),y ; zp_screenrow - 1
-    dey
-    bpl --
+	lda (zp_screenline),y ; zp_screenrow
+	sta (zp_colourline),y ; zp_screenrow - 1
+	dey
+	bpl --
 !ifdef TARGET_MEGA65 {
-    jsr colour1k
+	jsr colour1k
 }
-    pla
-    sta zp_screenline + 1
-    lda zp_screenrow
-    cmp s_screen_heigth_minus_one
-    bne -
-    lda #$ff
-    sta s_current_screenpos_row ; force recalculation
+	pla
+	sta zp_screenline + 1
+	lda zp_screenrow
+	cmp s_screen_heigth_minus_one
+	bne -
+	lda #$ff
+	sta s_current_screenpos_row ; force recalculation
 s_erase_line
 	; registers: a,x,y
 	lda #0
@@ -610,8 +610,8 @@ toggle_darkmode
 
 !ifdef Z5PLUS {
 z_ins_set_colour
-    ; set_colour foreground background [window]
-    ; (window is not used in Ozmoo)
+	; set_colour foreground background [window]
+	; (window is not used in Ozmoo)
 	jsr printchar_flush
 
 ; Load y with bordercol (needed later)
@@ -619,12 +619,12 @@ z_ins_set_colour
 	ldy bordercol,x
 
 ; Set background colour
-    ldx z_operand_value_low_arr + 1
+	ldx z_operand_value_low_arr + 1
 	beq .current_background
-    lda zcolours,x
-    bpl +
-    ldx story_start + header_default_bg_colour ; default colour
-    lda zcolours,x
+	lda zcolours,x
+	bpl +
+	ldx story_start + header_default_bg_colour ; default colour
+	lda zcolours,x
 +   sta reg_backgroundcolour
 ; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
 	cpy #0
@@ -633,87 +633,88 @@ z_ins_set_colour
 .current_background
 
 ; Set foreground colour
-    ldx z_operand_value_low_arr
+	ldx z_operand_value_low_arr
 	beq .current_foreground
-    lda zcolours,x
-    bpl + ; Branch unless it's the special value $ff, which means "default colour"
-    ldx story_start + header_default_fg_colour ; default colour
-    lda zcolours,x
+	lda zcolours,x
+	bpl + ; Branch unless it's the special value $ff, which means "default colour"
+	ldx story_start + header_default_fg_colour ; default colour
+	lda zcolours,x
 +
 ; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 1
 	cpy #1
 	bne +
 	sta reg_bordercolour
 +
-    jsr s_set_text_colour ; change foreground colour
+	jsr s_set_text_colour ; change foreground colour
 .current_foreground
-    rts
+	rts
 }
 
 !ifdef TESTSCREEN {
 
-.testtext !pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
-          !pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
-          !pet 155,"third",20,13                                ; light gray
-          !pet "fourth line",13
-          !pet 13,13,13,13,13,13
-          !pet 13,13,13,13,13,13,13
-          !pet 13,13,13,13,13,13,13
-          !pet "last line",1
-          !pet "aaaaaaaaabbbbbbbbbbbcccccccccc",1
-          !pet "d",1 ; last char on screen
-          !pet "efg",1 ; should scroll here and put efg on new line
-          !pet 13,"h",1; should scroll again and f is on new line
-          !pet 0
+.testtext
+	!pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
+	!pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
+	!pet 155,"third",20,13                                ; light gray
+	!pet "fourth line",13
+	!pet 13,13,13,13,13,13
+	!pet 13,13,13,13,13,13,13
+	!pet 13,13,13,13,13,13,13
+	!pet "last line",1
+	!pet "aaaaaaaaabbbbbbbbbbbcccccccccc",1
+	!pet "d",1 ; last char on screen
+	!pet "efg",1 ; should scroll here and put efg on new line
+	!pet 13,"h",1; should scroll again and f is on new line
+	!pet 0
 
 testscreen
-    jsr init_screen_colours
+	jsr init_screen_colours
 !ifdef TARGET_PLUS4 {
-    lda #212 ; 212 upper/lower, 208 = upper/special
+	lda #212 ; 212 upper/lower, 208 = upper/special
 } else {
-    lda #23 ; 23 upper/lower, 21 = upper/special (22/20 also ok)
+	lda #23 ; 23 upper/lower, 21 = upper/special (22/20 also ok)
 }
-    sta reg_screen_char_mode
-    jsr s_init
-    ;lda #1
-    ;sta s_scrollstart
-    lda #25
-    sta window_start_row ; 25 lines in window 0
-    lda #1
-    sta window_start_row + 1 ; 1 status line
-    sta window_start_row + 2 ; 1 status line
-    lda #0
-    sta window_start_row + 3
-    ldx #0
+	sta reg_screen_char_mode
+	jsr s_init
+	;lda #1
+	;sta s_scrollstart
+	lda #25
+	sta window_start_row ; 25 lines in window 0
+	lda #1
+	sta window_start_row + 1 ; 1 status line
+	sta window_start_row + 2 ; 1 status line
+	lda #0
+	sta window_start_row + 3
+	ldx #0
 -   lda .testtext,x
-    bne +
-    rts
+	bne +
+	rts
 +   cmp #2
-    bne +
-    ; use upper window
-    lda #1
+	bne +
+	; use upper window
+	lda #1
 	sta current_window
 	jmp ++
 +   cmp #3
-    bne +
-    ; use lower window
-    lda #0
+	bne +
+	; use lower window
+	lda #0
 	sta current_window
 	jmp ++
 +   cmp #1
-    bne +
-    txa
-    pha
+	bne +
+	txa
+	pha
 --  jsr kernal_getchar
-    beq --
-    pla
-    tax
-    bne ++
-    ; NOTE: s_printchar no longer recognizes the colour codes, so the
-    ; colours will not change. But rev on/off still works
+	beq --
+	pla
+	tax
+	bne ++
+	; NOTE: s_printchar no longer recognizes the colour codes, so the
+	; colours will not change. But rev on/off still works
 +   jsr s_printchar
 ++  inx
-    bne -
+	bne -
 }
 }
 

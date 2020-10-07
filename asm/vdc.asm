@@ -28,55 +28,55 @@ VDC_COUNT    = 30
 VDC_DATA     = 31
 
 VDCSetSourceAddr
-    ; sets the current address of the VDC
-    ; input: a low, y = high
-    pha
-    tya
-    ldx     #VDC_DATA_HI
-    jsr     VDCWriteReg
-    pla
-    ldx     #VDC_DATA_LO
-    bne     VDCWriteReg
+	; sets the current address of the VDC
+	; input: a low, y = high
+	pha
+	tya
+	ldx     #VDC_DATA_HI
+	jsr     VDCWriteReg
+	pla
+	ldx     #VDC_DATA_LO
+	bne     VDCWriteReg
 
 VDCReadByte
-    ; reads a byte from the current VDC address
-    ldx     #VDC_DATA ; read data (byte)
+	; reads a byte from the current VDC address
+	ldx     #VDC_DATA ; read data (byte)
 VDCReadReg
-    ; reads from a VDC register
-    stx     VDC_ADDR_REG
+	; reads from a VDC register
+	stx     VDC_ADDR_REG
 -   bit     VDC_ADDR_REG
-    bpl     -
-    lda     VDC_DATA_REG
-    rts
+	bpl     -
+	lda     VDC_DATA_REG
+	rts
 
 VDCWriteByte
-    ; writes a byte (character) from the current VDC address
-    ldx     #VDC_DATA ; write data (byte/character)
+	; writes a byte (character) from the current VDC address
+	ldx     #VDC_DATA ; write data (byte/character)
 VDCWriteReg
-    ; reads to a VDC register
-    stx     VDC_ADDR_REG
+	; reads to a VDC register
+	stx     VDC_ADDR_REG
 -   bit     VDC_ADDR_REG
-    bpl     -
-    sta     VDC_DATA_REG
-    rts
+	bpl     -
+	sta     VDC_DATA_REG
+	rts
 
 !ifdef VDC_INCLUDE_CLEARSCREEN {
 VDCClearScreen
-    lda     #0
-    ldy     #0
-    jsr     VDCSetSourceAddr
-    lda     #0
-    ldx     #VDC_VSCROLL   ; fill mode (blitter)
-    jsr     VDCWriteReg
-    lda     #32            ; space character
-    jsr     VDCWriteByte   ; put first byte (fill value)
-    ldy     #7             ; 7 times
-    lda     #0             ; 256 bytes (since 80*25=7*256+208)
-    ldx     #VDC_COUNT
+	lda     #0
+	ldy     #0
+	jsr     VDCSetSourceAddr
+	lda     #0
+	ldx     #VDC_VSCROLL   ; fill mode (blitter)
+	jsr     VDCWriteReg
+	lda     #32            ; space character
+	jsr     VDCWriteByte   ; put first byte (fill value)
+	ldy     #7             ; 7 times
+	lda     #0             ; 256 bytes (since 80*25=7*256+208)
+	ldx     #VDC_COUNT
 -   jsr     VDCWriteReg
-    dey
-    bne     -
-    lda     #208           ; the remainder
-    jmp     VDCWriteReg
+	dey
+	bne     -
+	lda     #208           ; the remainder
+	jmp     VDCWriteReg
 }
 

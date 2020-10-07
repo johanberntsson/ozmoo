@@ -506,61 +506,61 @@ z_execute
 	bne .not_normal_exe_mode
 
 !ifdef VICE_TRACE {
-    ; send trace info to $DE00-$DE02, which a patched
-    ; version of Vice can use to trace z_pc onto stderr
-    ; and store on a file. To enable, edit src/c64/c64io.c
-    ; void c64io_de00_store(uint16_t addr, uint8_t value)
-    ; if(addr == 0xde01) fprintf(stderr, "%02x", value);
-    ; if(addr == 0xde02) { fprintf(stderr, "\n"); fflush(stderr); }
-    lda z_pc
-    sta $de01
-    lda z_pc + 1
-    sta $de01
-    lda z_pc + 2
-    sta $de01
-    sta $de02
-    ; send a memory dump if at specific address (e.g. $ad30)
-    lda z_pc+1
-    cmp #$ad ; $ad
-    bne +
-    lda z_pc+2
-    cmp #$30 ; $30
-    bne +
-    ; dump dynmem
-    ; first find out how many lines to dump (16 bytes/line)
+	; send trace info to $DE00-$DE02, which a patched
+	; version of Vice can use to trace z_pc onto stderr
+	; and store on a file. To enable, edit src/c64/c64io.c
+	; void c64io_de00_store(uint16_t addr, uint8_t value)
+	; if(addr == 0xde01) fprintf(stderr, "%02x", value);
+	; if(addr == 0xde02) { fprintf(stderr, "\n"); fflush(stderr); }
+	lda z_pc
+	sta $de01
+	lda z_pc + 1
+	sta $de01
+	lda z_pc + 2
+	sta $de01
+	sta $de02
+	; send a memory dump if at specific address (e.g. $ad30)
+	lda z_pc+1
+	cmp #$ad ; $ad
+	bne +
+	lda z_pc+2
+	cmp #$30 ; $30
+	bne +
+	; dump dynmem
+	; first find out how many lines to dump (16 bytes/line)
 dumptovice
-    lda story_start + header_static_mem + 1
-    sta .dyndump + 2
-    lda story_start + header_static_mem 
-    sta .dyndump + 1
-    ldx #4
+	lda story_start + header_static_mem + 1
+	sta .dyndump + 2
+	lda story_start + header_static_mem 
+	sta .dyndump + 1
+	ldx #4
 -   lsr .dyndump + 2
-    ror .dyndump + 1
-    dex
-    bne -
-    ldy .dyndump + 1
-    iny
-    lda #<story_start
-    sta .dyndump + 1
-    lda #>story_start
-    sta .dyndump + 2
+	ror .dyndump + 1
+	dex
+	bne -
+	ldy .dyndump + 1
+	iny
+	lda #<story_start
+	sta .dyndump + 1
+	lda #>story_start
+	sta .dyndump + 2
 -   ldx  #0
 .dyndump
-    lda $8000,x
-    sta $de01 ; dump byte
-    inx
-    cpx #16
-    bne .dyndump
-    sta $de02 ; newline in dump
-    clc
-    lda .dyndump + 1
-    adc #16
-    sta .dyndump + 1
-    lda .dyndump + 2
-    adc #0
-    sta .dyndump + 2
-    dey
-    bne -
+	lda $8000,x
+	sta $de01 ; dump byte
+	inx
+	cpx #16
+	bne .dyndump
+	sta $de02 ; newline in dump
+	clc
+	lda .dyndump + 1
+	adc #16
+	sta .dyndump + 1
+	lda .dyndump + 2
+	adc #0
+	sta .dyndump + 2
+	dey
+	bne -
 +
 }
 
@@ -769,7 +769,7 @@ z_not_implemented
 	jsr printinteger
 	jsr newline
 }
-    lda #ERROR_OPCODE_NOT_IMPLEMENTED
+	lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror
 }
 }
@@ -865,7 +865,7 @@ read_operand
 	bcs .store_operand ; Always branch
 !ifndef UNSAFE {
 .nonexistent_local
-    lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
+	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 }
 
@@ -917,7 +917,7 @@ z_get_variable_reference
 
 !ifndef UNSAFE {
 .nonexistent_local
-    lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
+	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 }
 	
@@ -1005,7 +1005,7 @@ z_set_variable
 
 !zone {
 z_ins_not_supported
-    ldy #>.not_supported_string
+	ldy #>.not_supported_string
 	lda #<.not_supported_string
 	jmp printstring
 .not_supported_string
@@ -1021,7 +1021,7 @@ z_divide
 	lda z_operand_value_high_arr + 1
 	ora z_operand_value_low_arr + 1
 	bne .not_div_by_0
-    lda #ERROR_DIVISION_BY_ZERO
+	lda #ERROR_DIVISION_BY_ZERO
 	jsr fatalerror
 .not_div_by_0	
 }
@@ -2034,7 +2034,7 @@ z_ins_scan_table
 	beq .scan_table_false
 	lda zp_temp + 3
 	ldx zp_temp + 2
-    jsr set_z_address
+	jsr set_z_address
 	jsr read_next_byte
 	ldx zp_temp
 	bpl .scan_byte_compare
@@ -2195,7 +2195,7 @@ z_ins_copy_table
 -	lda z_operand_value_low_arr + 2
 	ora z_operand_value_high_arr + 2
 !ifdef TARGET_C128 {
-    ; when -P is used then the branch becomes too far away
+	; when -P is used then the branch becomes too far away
 	bne +
 	jmp .copy_all_done
 +
