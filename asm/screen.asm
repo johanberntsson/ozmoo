@@ -405,12 +405,21 @@ increase_num_rows
 show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
+
+!ifdef TARGET_C128 {
+    ldx COLS_40_80
+    bne +
+    ; Only show more prompt in C128 VIC-II screen
+}
 .more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
 	sta .more_text_char
 	lda #128 + $2a ; screen code for reversed "*"
 .more_access2
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
+!ifdef TARGET_C128 {
++
+}
 	; wait for ENTER
 .printchar_pressanykey
 !ifndef BENCHMARK {
@@ -424,8 +433,16 @@ show_more_prompt
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
+!ifdef TARGET_C128 {
+    ldy COLS_40_80
+    bne +
+    ; Only show more prompt in C128 VIC-II screen
+}
 .more_access3
 	stx COLOUR_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+!ifdef TARGET_C128 {
++
+}
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
@@ -441,9 +458,17 @@ show_more_prompt
 	beq -- ; Always branch
 +
 }
+!ifdef TARGET_C128 {
+    ldx COLS_40_80
+    bne +
+    ; Only show more prompt in C128 VIC-II screen
+}
 	lda .more_text_char
 .more_access4
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
+!ifdef TARGET_C128 {
++
+}
 .increase_num_rows_done
 	rts
 
