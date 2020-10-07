@@ -674,7 +674,6 @@ def build_interpreter()
 end
 
 def read_labels(label_file_name)
-	$storystart = 0
 	File.open(label_file_name).each do |line|
 		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
 		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
@@ -709,7 +708,6 @@ def build_loader_file()
 		puts "ERROR: There was a problem calling Exomizer"
 		exit 1
 	end
-
 	File.size($loader_zip_file)
 end
 
