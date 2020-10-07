@@ -14,6 +14,7 @@ else
 	# Paths on Linux
     $X64 = "x64 -autostart-delay-random"
     $X128 = "x128 -autostart-delay-random"
+    #$X128 = "x128 -80col -autostart-delay-random"
     $XPLUS4 = "xplus4 -autostart-delay-random"
     $MEGA65 = "xemu-xmega65"
     $C1541 = "c1541"

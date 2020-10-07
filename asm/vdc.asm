@@ -3,6 +3,7 @@
 ; http://john.seikdel.net/vdcmadeeasy01.htm
 ; http://commodore128.mirkosoft.sk/vdc.html
 ; https://devdef.blogspot.com/2018/03/commodore-128-assembly-part-3-80-column.html
+; http://www.oxyron.de/html/registers_vdc.html
 
 MMUCR =  $FF00
 MMU_RAM0 =         %00111111  ; no roms, RAM0
@@ -20,11 +21,11 @@ VDC_DSP_HI   = 12
 VDC_DSP_LO   = 13
 VDC_DATA_HI  = 18
 VDC_DATA_LO  = 19
-VDC_VSCROLL  = 24
+VDC_VSCROLL  = 24 ; $18
 VDC_HSCROLL  = 25
 VDC_COLORS   = 26
 VDC_CSET     = 28
-VDC_COUNT    = 30
+VDC_COUNT    = 30 ; $1e
 VDC_DATA     = 31
 
 VDCSetSourceAddr
