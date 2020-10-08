@@ -17,13 +17,17 @@ init_screen_colours
 	lda s_screen_size + 1
 	clc
 	adc #>COLOUR_ADDRESS
+!ifndef BENCHMARK {
 	sta .more_access3 + 2
+}
 	lda s_screen_size
 	sec
 	sbc #1
 	sta .more_access1 + 1
 	sta .more_access2 + 1
+!ifndef BENCHMARK {
 	sta .more_access3 + 1
+}
 	sta .more_access4 + 1
 	; colours
 	lda zcolours + FGCOL
