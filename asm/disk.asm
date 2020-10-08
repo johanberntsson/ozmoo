@@ -1069,15 +1069,15 @@ do_save
 	jsr kernal_setbnk
 }
 	lda #<(stack_start - zp_bytes_to_save)
-	sta $c1
+	sta savefile_zp_pointer
 	lda #>(stack_start - zp_bytes_to_save)
-	sta $c2
+	sta savefile_zp_pointer + 1
 	ldx story_start + header_static_mem + 1
 	lda story_start + header_static_mem
 	clc
 	adc #>story_start
 	tay
-	lda #$c1      ; start address located in $C1/$C2
+	lda #savefile_zp_pointer ; start address located in zero page
 	jsr kernal_save
 	php ; store c flag so error can be checked by calling routine
 	lda #1 

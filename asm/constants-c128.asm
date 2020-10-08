@@ -17,6 +17,7 @@ z_opcode              !byte 0 ; = $02
 mempointer            = $03 ; 2 bytes
 mem_temp              !byte 0,0 ; = $05 ; 2 bytes
 z_extended_opcode	  !byte 0 ;= $07
+savefile_zp_pointer   = $fe ; $c1 ; 2 bytes
 
 z_opcode_number       !byte 0; = $09
 zp_pc_h               !byte 0; = $0a

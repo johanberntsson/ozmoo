@@ -10,6 +10,7 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
 zp_temp               = $fb ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
 }
 
 !ifdef TARGET_PLUS4 {
@@ -21,6 +22,7 @@ COLOUR_ADDRESS_DIFF   = $10000 + COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ae
 ti_variable           = $a3; 3 bytes
 zp_temp               = $3b ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
 }
 
 !ifdef TARGET_MEGA65 {
@@ -32,6 +34,7 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
 zp_temp               = $fb ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
 }
 
 ; --- ZERO PAGE --
