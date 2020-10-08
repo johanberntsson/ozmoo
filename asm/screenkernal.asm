@@ -27,36 +27,13 @@
 .stored_a !byte 0
 .stored_y !byte 0
 
-; TODO: this can probably be removed if scrolling replaced with blitter
-.vdi_offset !byte 0 ; the current offset between VIC-II and VDC
-
-; TODO: VDCGetChar is only needed for scrolling and should be replaced with blitter
-VDCGetChar
-	; 80 columns, use VDC screen
-	sty .stored_y
-	sta .stored_a
-	lda zp_screenline + 1
-	sec
-	sbc .vdi_offset ; normally adjust from $0400 (VIC-II) to $0000 (VDC)
-	tay
-	lda zp_screenline
-	clc
-	adc .stored_y
-	bcc +
-	iny
-+	jsr VDCSetAddress
-	lda .stored_a
-	ldy .stored_y
-	ldx #VDC_DATA
-	jmp VDCReadReg
-
 VDCPrintChar
 	; 80 columns, use VDC screen
 	sty .stored_y
 	sta .stored_a
 	lda zp_screenline + 1
 	sec
-	sbc .vdi_offset ; normally adjust from $0400 (VIC-II) to $0000 (VDC)
+	sbc #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
 	tay
 	lda zp_screenline
 	clc
@@ -74,18 +51,11 @@ VDCPrintColour
 	; adjust color from VIC-II to VDC format
 	lda #$8f ; white
 	ora #$80 ; lower-case
-	jmp +
-; TODO: VDCCopyColour is only needed for scrolling and should be replaced with blitter
-VDCCopyColour
-	; input: x = memory_offset, a = character/colour,
-	;        y = offset from zp_colorline
-	; registers modified: x
-+	; 80 columns, use VDC screen
 	sty .stored_y
 	sta .stored_a
 	lda zp_colourline + 1
 	sec
-	sbc .vdi_offset ; normally adjust from $d800 (VIC-II) to $0800 (VDC)
+	sbc #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
 	tay
 	lda zp_colourline
 	clc
@@ -264,8 +234,6 @@ s_printchar
 	sta (zp_colourline),y
 	jmp .col80_1_end
 .col80_1
-	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
-	stx .vdi_offset
 	jsr VDCPrintChar
 .col80_1_end
 } else {
@@ -358,11 +326,7 @@ s_printchar
 	sta (zp_colourline),y
 	jmp .col80_2_end
 .col80_2
-	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
-	stx .vdi_offset
 	jsr VDCPrintChar
-	ldx #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
-	stx .vdi_offset
 	lda s_colour
 	jsr VDCPrintColour
 .col80_2_end
@@ -646,12 +610,6 @@ s_erase_window
 	lda zp_screenrow
 	cmp s_screen_heigth_minus_one
 	bne -
-	; s_currentpos_row = $ff
-	; zp_screenrow  18  (24)
-	; zp_screenline  c0 07 
-	; (zp_screencolumn 00)
-	; zp_colourline  98 db
-johan
 	lda #$ff
 	sta s_current_screenpos_row ; force recalculation
 s_erase_line
@@ -673,8 +631,6 @@ s_erase_line
 	bne -
 	jmp .col80_5_end
 .col80_5
-	ldx #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
-	stx .vdi_offset
 -	cpy s_screen_width
 	bcs .done_erasing
 	jsr VDCPrintChar
