@@ -4,6 +4,7 @@
 ; http://commodore128.mirkosoft.sk/vdc.html
 ; https://devdef.blogspot.com/2018/03/commodore-128-assembly-part-3-80-column.html
 ; http://www.oxyron.de/html/registers_vdc.html
+; https://c-128.freeforums.net/thread/32/vdc-right-left-scrolling-demo
 
 MMUCR =  $FF00
 MMU_RAM0 =         %00111111  ; no roms, RAM0
@@ -17,18 +18,22 @@ VDC_ADDR_REG = $D600                 ; VDC address
 VDC_DATA_REG = $D601                 ; VDC data
 
 ; VDC registers
-VDC_DSP_HI   = 12
-VDC_DSP_LO   = 13
-VDC_DATA_HI  = 18
-VDC_DATA_LO  = 19
-VDC_VSCROLL  = 24 ; $18
-VDC_HSCROLL  = 25
-VDC_COLORS   = 26
-VDC_CSET     = 28
-VDC_COUNT    = 30 ; $1e
-VDC_DATA     = 31
+VDC_DSP_HI    = 12 ; $0c
+VDC_DSP_LO    = 13 ; $0d
+VDC_DATA_HI   = 18 ; $12
+VDC_DATA_LO   = 19 ; $13
+VDC_MEMUP_HI  = 20 ; $14
+VDC_MEMUP_LO  = 21 ; $15
+VDC_VSCROLL   = 24 ; $18
+VDC_HSCROLL   = 25 ; $19
+VDC_COLORS    = 26 ; $1a
+VDC_CSET      = 28 ; $1c
+VDC_COUNT     = 30 ; $1e
+VDC_DATA      = 31 ; $1f
+VDC_CPYSRC_HI = 32 ; $20
+VDC_CPYSRC_LO = 33 ; $21
 
-VDCSetSourceAddr
+VDCSetAddress
 	; sets the current address of the VDC
 	; input: a low, y = high
 	pha
@@ -37,6 +42,17 @@ VDCSetSourceAddr
 	jsr     VDCWriteReg
 	pla
 	ldx     #VDC_DATA_LO
+	bne     VDCWriteReg
+
+VDCSetCopySourceAddress
+	; sets the copy source address of the VDC
+	; input: a low, y = high
+	pha
+	tya
+	ldx     #VDC_CPYSRC_HI
+	jsr     VDCWriteReg
+	pla
+	ldx     #VDC_CPYSRC_LO
 	bne     VDCWriteReg
 
 VDCReadByte
@@ -65,7 +81,7 @@ VDCWriteReg
 VDCClearScreen
 	lda     #0
 	ldy     #0
-	jsr     VDCSetSourceAddr
+	jsr     VDCSetAddress
 	lda     #0
 	ldx     #VDC_VSCROLL   ; fill mode (blitter)
 	jsr     VDCWriteReg

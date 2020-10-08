@@ -44,7 +44,7 @@ VDCGetChar
 	adc .stored_y
 	bcc +
 	iny
-+	jsr VDCSetSourceAddr
++	jsr VDCSetAddress
 	lda .stored_a
 	ldy .stored_y
 	ldx #VDC_DATA
@@ -63,7 +63,7 @@ VDCPrintChar
 	adc .stored_y
 	bcc +
 	iny
-+	jsr VDCSetSourceAddr
++	jsr VDCSetAddress
 	lda .stored_a
 	ldy .stored_y
 	ldx #VDC_DATA
@@ -92,7 +92,7 @@ VDCCopyColour
 	adc .stored_y
 	bcc +
 	iny
-+	jsr VDCSetSourceAddr
++	jsr VDCSetAddress
 	lda .stored_a
 	ldy .stored_y
 	ldx #VDC_DATA
