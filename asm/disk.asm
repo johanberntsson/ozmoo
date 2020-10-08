@@ -658,6 +658,11 @@ list_save_files
 	sta .base_screen_pos + 1
 
 	; open the channel file
+!ifdef TARGET_C128 {
+	ldx #$00
+	tax
+	jsr kernal_setbnk
+}
 	lda #1
 	ldx #<.dirname
 	ldy #>.dirname
@@ -667,10 +672,6 @@ list_save_files
 	ldx disk_info + 4 ; Device# for save disk
 +   ldy #0      ; secondary address 2
 	jsr kernal_setlfs ; call SETLFS
-!ifdef TARGET_C128 {
-	ldx #$00
-	jsr kernal_setbnk
-}
 	jsr kernal_open     ; call OPEN
 	bcs .error    ; if carry set, the file could not be opened
 
@@ -998,6 +999,11 @@ save_game
 	jsr printstring_raw
 
 	; Erase old file, if any
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
 	lda #5
 	ldx #<.erase_cmd
 	ldy #>.erase_cmd
@@ -1006,10 +1012,6 @@ save_game
 	ldx disk_info + 4 ; Device# for save disk
 	ldy #$0f      ; secondary address 15
 	jsr kernal_setlfs
-!ifdef TARGET_C128 {
-	ldx #$00
-	jsr kernal_setbnk
-}
 	jsr kernal_open ; open command channel and send delete command)
 	bcs .restore_failed  ; if carry set, the file could not be opened
 	lda #$0f      ; filenumber 15
@@ -1033,6 +1035,11 @@ save_game
 	rts
 
 do_restore
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
 	lda #3
 	ldx #<.restore_filename
 	ldy #>.restore_filename
@@ -1041,10 +1048,6 @@ do_restore
 	ldx disk_info + 4 ; Device# for save disk
 	ldy #1      ; not $01 means: load to address stored in file
 	jsr kernal_setlfs
-!ifdef TARGET_C128 {
-	ldx #$00
-	jsr kernal_setbnk
-}
 	lda #$00      ; $00 means: load to memory (not verify)
 	jsr kernal_load
 	php ; store c flag so error can be checked by calling routine
@@ -1054,6 +1057,11 @@ do_restore
 	rts
 
 do_save
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
 	lda .inputlen
 	clc
 	adc #2 ; add 2 bytes for prefix
@@ -1064,10 +1072,6 @@ do_save
 	ldx disk_info + 4 ; Device# for save disk
 	ldy #1
 	jsr kernal_setlfs
-!ifdef TARGET_C128 {
-	ldx #$00
-	jsr kernal_setbnk
-}
 	lda #<(stack_start - zp_bytes_to_save)
 	sta savefile_zp_pointer
 	lda #>(stack_start - zp_bytes_to_save)

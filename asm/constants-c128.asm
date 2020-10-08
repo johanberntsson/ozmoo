@@ -13,112 +13,138 @@ COLS_40_80            = $d7
 
 ; --- ZERO PAGE --
 ; available zero page variables (pseudo registers)
-z_opcode              !byte 0 ; = $02
-mempointer            = $03 ; 2 bytes
-mem_temp              !byte 0,0 ; = $05 ; 2 bytes
-z_extended_opcode	  !byte 0 ;= $07
-savefile_zp_pointer   = $fe ; $c1 ; 2 bytes
-
-z_opcode_number       !byte 0; = $09
-zp_pc_h               !byte 0; = $0a
-zp_pc_l               !byte 0; = $0b
-z_opcode_opcount      !byte 0; = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
-z_operand_count		  !byte 0; = $0d
-zword				  !byte 0; = $0e ; 6 bytes
-
-zp_mempos             = $14 ; 2 bytes
-
-z_operand_value_high_arr !byte 0, 0, 0, 0, 0, 0, 0, 0 ; = $16
-z_operand_value_low_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0 ; = $1e
 
 ; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
-z_local_vars_ptr      = $26 ; 2 bytes
-z_local_var_count	  !byte 0 ;= $28
-stack_pushed_bytes	  !byte 0, 0 ;= $29 ; !byte 0, 0
-stack_ptr             = $2b ; 2 bytes
-stack_top_value 	  !byte 0, 0 ;= $2d ; 2 bytes !byte 0, 0
-stack_has_top_value   !byte 0 ;= $2f ; !byte 0
-z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
-z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
+z_local_vars_ptr      = $09 ; 2 bytes ### OK C128
+z_local_var_count     = $0b ;         ### OK C128
+stack_pushed_bytes	  = $0c ; 2 bytes ### OK C128
+stack_ptr             = $0e ; 2 bytes ### OK C128
+stack_top_value 	  = $10 ; 2 bytes ### OK C128
+stack_has_top_value   = $12 ; !byte 0 ### OK C128
+z_pc				  = $13 ; 3 bytes (last byte shared with z_pc_mempointer) ### OK C128
+z_pc_mempointer		  = $15 ; 2 bytes (first byte shared with z_pc) ### OK C128
+
+;z_local_vars_ptr      = $26 ; 2 bytes
+;z_local_var_count     = $28
+;stack_pushed_bytes	  = $29 ; !byte 0, 0
+;stack_ptr             = $2b ; 2 bytes
+;stack_top_value 	  = $2d ; 2 bytes !byte 0, 0
+;stack_has_top_value   = $2f ; !byte 0
+;z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
+;z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
 ; z_pc_mempointer_is_unsafe = $34
 
 zp_save_start = z_local_vars_ptr
 zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
 
 
-vmap_max_entries	  !byte 0 ; = $34
+mempointer            = $17 ; 2 bytes ### OK C128
+savefile_zp_pointer   = $19 ; 2 bytes ### OK C128
+zp_mempos             = $1b ; 2 bytes ### OK C128
 
-zchar_triplet_cnt	  !byte 0 ; = $35
-packed_text			  !byte 0, 0 ; = $36 ; 2 bytes
-alphabet_offset		  !byte 0 ;= $38
-escape_char			  !byte 0 ;= $39
-escape_char_counter	  !byte 0 ;= $3a
-abbreviation_command  !byte 0 ;= $40
+z_operand_value_high_arr = $1d ; $1d-$24 !byte 0, 0, 0, 0, 0, 0, 0, 0 ; ### OK C128
+z_operand_value_low_arr  = $25 ; $25-$2c !byte 0, 0, 0, 0, 0, 0, 0, 0 ; ### OK C128
 
-parse_array           = $41 ; 2 bytes
-string_array          = $43 ; 2 bytes
+mem_temp                 = $37 ; 2 bytes ### OK C128
 
-ti_variable           = $a0; 3 bytes
+zp_pc_h                  = $3b ; ### OK C128
+zp_pc_l                  = $3c ; ### OK C128
 
-z_address			  !byte 0, 0, 0 ; = $45 ; 3 bytes
-z_address_temp		  !byte 0 ; = $48
+s_stored_x               = $3f ; ### OK C128
+s_stored_y               = $40 ; ### OK C128
 
-object_tree_ptr       = $49 ; 2 bytes
-object_num			  !byte 0, 0 ; = $4b ; 2 bytes
-object_temp			  !byte 0, 0 ;= $4d ; 2 bytes
+parse_array           = $41 ; 2 bytes ### OK C128
+string_array          = $43 ; 2 bytes ### OK C128
 
-vmap_used_entries	  !byte 0; = $4f
+ti_variable           = $a0; 3 bytes ### OK C128
 
-z_low_global_vars_ptr	  = $50 ; 2 bytes
-z_high_global_vars_ptr	  = $52 ; 2 bytes
-z_trace_index		  !byte 0 ; = $54
-z_exe_mode	  		  !byte 0 ; = $55
+object_tree_ptr       = $45 ; 2 bytes ### OK C128
+object_num			  = $47 ; 2 bytes ### OK C128
+object_temp			  = $49 ; 2 bytes ### OK C128
 
-stack_tmp			  !byte 0,0,0,0,0 ; = $56; ! 5 bytes
-default_properties_ptr = $5b ; 2 bytes
-zchars				  !byte 0, 0, 0 ; = $5d ; 3 bytes
+z_low_global_vars_ptr = $4b ; 2 bytes ### OK C128
+z_high_global_vars_ptr= $4d ; 2 bytes ### OK C128
 
-vmap_quick_index_match !byte 0 ; = $60
-vmap_next_quick_index !byte 0 ; = $61
-vmap_quick_index	  !byte 0, 0, 0, 0, 0, 0 ; = $62 ; Must follow vmap_next_quick_index!
+default_properties_ptr= $4f ; 2 bytes ### OK C128
+
+stack_tmp			  = $51 ; 5 bytes ### OK C128
+
+zchars				  = $56 ; 3 bytes ### OK C128
+
+z_trace_index		  = $59 ;  ### OK C128
+z_exe_mode	  		  = $5a ;  ### OK C128
+
+s_colour              = $5b ;  ### OK C128
+
+vmem_temp             = $5c ;  2 bytes ### OK C128
+
+use_reu	              = $5e ;  ### OK C128
+
+
+
+z_temp				  = $61 ; 12 bytes $61-$6c ### OK C128 but problems if user enters monitor!
+alphabet_table		  = $6d ; 2 bytes ### OK C128
+
+zchar_triplet_cnt     = $6f ; ### OK C128
+packed_text           = $70 ; 2 bytes ### OK C128
+alphabet_offset       = $72 ; ### OK C128
+escape_char			  = $73 ; ### OK C128
+escape_char_counter	  = $74 ; ### OK C128
+abbreviation_command  = $75 ; ### OK C128
+
+z_opcode              = $77 ; ### OK C128
+z_extended_opcode     = $78 ; ### OK C128
+z_opcode_number       = $79 ; ### OK C128
+z_opcode_opcount      = $7b ; ### OK C128
+z_operand_count       = $7c ; ### OK C128
+
+; $80 may be free
+
+zp_cursorswitch       = $81 ; ### OK C128
+
+zword                 = $83 ; ### OK C128  6 bytes : $83-$88
+
+
+vmap_next_quick_index = $89 ; ### OK C128
+vmap_quick_index      = $8a ; ### OK C128	6 bytes; $8a-8f ; Must follow vmap_next_quick_index!
+
 vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
-z_temp				  = $68 ; 12 bytes
+vmap_max_entries      = $92 ; ### OK C128
+vmap_used_entries     = $96 ; ### OK C128
+vmap_quick_index_match= $97 ; ### OK C128
 
-s_colour 			  !byte 0 ; = $74 ; !byte 1 ; white as default
+cursor_row            = $9b ; 2 bytes ### OK C128
+cursor_column         = $a6 ; 2 bytes ### OK C128
 
-vmem_temp			  !byte 0, 0 ; = $92 ; 2 bytes
-alphabet_table		  = $96 ; 2 bytes
 
-use_reu				  !byte 0 ; = $9b
+window_start_row      = $a8 ; 4 bytes ### OK C128
 
-window_start_row	  !byte 0, 0, 0, 0 ; = $9c; 4 bytes
+num_rows              = $b0 ; ### OK C128
+current_window 	      = $b1 ; ### OK C128
 
-num_rows			  !byte 0 ; = $a6 ; !byte 0
-current_window		  !byte 0 ; = $a7 ; !byte 0
-
-is_buffered_window	  !byte 0 ; = $ab;  !byte 1
+is_buffered_window    = $b2 ; ### OK C128
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
-s_ignore_next_linebreak !byte 0, 0, 0 ; = $b0 ; 3 bytes
-s_reverse 			  !byte 0, 0, 0 ; = $b3 ; !byte 0
+s_ignore_next_linebreak=$b3 ; 3 bytes ### OK C128
+s_reverse             = $b6 ; ### OK C128
 
-s_stored_x			  !byte 0 ; = $b4 ; !byte 0
-s_stored_y			  !byte 0 ; = $b5 ; !byte 0
-s_current_screenpos_row !byte 0 ; = $b6 ; !byte $ff
+s_current_screenpos_row=$be ; ### OK C128 ; !byte $ff
 
-max_chars_on_line	  !byte 0 ; = $bd; !byte 0
-buffer_index		  !byte 0 ; = $be ; !byte 0
-last_break_char_buffer_pos !byte 0 ; = $bf ; !byte 0
+max_chars_on_line      = $c5 ; ### OK C128
 
-zp_cursorswitch       !byte 0 ; = $f0 ; 1 byte
-zp_screenline         = $f1 ; 2 bytes current line (pointer to screen memory)
-zp_screencolumn       = $f3 ; 1 byte current cursor column
-zp_screenrow          = $f4 ; 1 byte current cursor row
-zp_colourline         = $f5 ; 2 bytes current line (pointer to colour memory)
-cursor_row			  = $f7 ; 2 bytes
-zp_temp               = $f9 ; 5 bytes (is $fa bad because of kernal bug?)
-cursor_column		  !byte 0, 0 ; = $fe ; 2 bytes ;
+z_address			   = $c8 ; 3 bytes ### OK C128
+z_address_temp		   = $cb ; ### OK C128
+
+zp_screenline          = $f1 ; 2 bytes current line (pointer to screen memory)
+zp_screencolumn        = $f3 ; 1 byte current cursor column
+zp_screenrow           = $f4 ; 1 byte current cursor row
+zp_colourline          = $f5 ; 2 bytes current line (pointer to colour memory)
+zp_temp                = $f8 ; 5 bytes (is $fa bad because of kernal bug?)
+
+buffer_index           = $fd ; ### OK C128
+last_break_char_buffer_pos=$fe ; ### OK C128
+
 
 print_buffer		  = $0c00 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = $0d00 ; SCREEN_WIDTH + 1 bytes
@@ -128,7 +154,7 @@ memory_buffer_length  = 89
 
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
-charset_switchable 	  = $291
+charset_switchable 	  = $f7
 
 datasette_buffer_start= $0ac5 
 datasette_buffer_end  = $0bff

@@ -428,7 +428,7 @@ show_more_prompt
 	tya
 	and #1
 	beq +
-	ldx $d021
+	ldx reg_backgroundcolour
 +
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
