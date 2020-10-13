@@ -21,7 +21,8 @@ The VM system has a cache with vmap_max_entries 512-byte blocks of RAM to use to
 
 If we want to access the byte at $018278, we round that down to the previous 512-byte boundary to get $018200 and then search through all the entries in vmap to see if any of them contain $0182. In this case, entry 4 does, so we'll set mempointer to cache_start_address+4*512+$078 and return. Where does the $078 come from? This is the low 9 bits of the address we were given, which can be though of as an offset to the byte of interest within this 512-byte block.
 
-What if none of the vmap entries contains $0182? In that case we need to pick one to overwrite; let's say we pick entry 7. Because we only use virtual memory for read-only data, we can just read the 512-byte block at offset $018200 in the game file into memory at cache_start_address+7*512 (overwriting whatever was there), set vmap[7] to $0182 and return with mempointer set to cache_start_address+7*512+$078.
+What if none of the vmap entries contains $0182? In that case we need to pick one to overwrite; let's say we pick entry 7. Because we only use virtual memory for read-only data, we can just read the 512-byte block at offset $018200 in the game file into memory at
+cache_start_address+7\*512  (overwriting whatever was there), set vmap[7] to $0182 and return with mempointer set to cache_start_address+7\*512+$078.
 
 At the most basic level, that's all there is to it. But in practice there are some additional details we need to take care of.
 
@@ -112,7 +113,7 @@ blocks in always-visible RAM when necessary.
 
 The first_banked_memory_page variable stored the high byte of the first 512 block of RAM 
 that isn't always visible. On the C64 this is $d0, since the I/O registers are located 
-from $d000, and unrestricted reading/writing to these memory position create all kinds of
+from $d000, and unrestricted reading/writing to these memory position cause all kinds of
 trouble.
 
 When read_byte_at_z_address detects that we want to read data from a block under
