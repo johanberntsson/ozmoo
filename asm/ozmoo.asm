@@ -555,23 +555,7 @@ deletable_init_start
 	sta charset_switchable
 
 !ifdef TARGET_MEGA65 {
-	;; MEGA65 IO enable
-	jsr mega65io
-	;; 40MHz CPU
-	lda #65
-	sta 0
-	;; 80-column mode
-	lda #$c0
-	sta $d031
-	lda #$c9
-	sta $D016
-	;; Screen at $0800
-	lda #$26
-	sta $d018
-	;; Disable VIC-II/VIC-III hot registers
-	lda $d05d
-	and #$7f
-	sta $d05d
+	jsr init_mega65
 }
 
 	jmp init_screen_colours ; _invisible

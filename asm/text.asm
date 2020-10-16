@@ -1119,7 +1119,13 @@ update_cursor
 	lda cursor_character
 	sta (zp_screenline),y
 	lda current_cursor_colour
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
 	sta (zp_colourline),y
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
 	ldy object_temp
 	rts
 

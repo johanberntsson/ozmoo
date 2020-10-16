@@ -71,13 +71,38 @@ VDCPrintColour
 
 !ifdef TARGET_MEGA65 {
 mega65io
+	; enable C65GS/VIC-IV IO registers
+	;
+	; (they will only be active until the first access
+	; so mega65io needs to be called before any extended I/O)
 	lda #$47
 	sta $d02f
 	lda #$53
 	sta $d02f
 	rts
+
+init_mega65
+	; MEGA65 IO enable
+	jsr mega65io
+	; set 40MHz CPU
+	lda #65
+	sta 0
+	; set 80-column mode
+	lda #$c0
+	sta $d031
+	lda #$c9
+	sta $D016
+	; set screen at $0800
+	lda #$26
+	sta $d018
+	; disable VIC-II/VIC-III hot registers
+	lda $d05d
+	and #$7f
+	sta $d05d
+	rts
 	
 colour2k
+	; start mapping 2nd KB of colour RAM to $DC00-$DFFF
 	sei
 	pha
 	jsr mega65io
@@ -87,6 +112,7 @@ colour2k
 	rts
 
 colour1k
+	; stop mapping 2nd KB of colour RAM to $DC00-$DFFF
 	pha
 	jsr mega65io
 	lda #$00
