@@ -1611,7 +1611,7 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # check header.release and serial to find out if beyondzork or not
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
-storyfile_key = "r%d-s%d" % [ release, serial ]
+storyfile_key = "r%d-s%s" % [ release, serial ]
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 
 $no_darkmode = nil
