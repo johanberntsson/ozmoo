@@ -1,6 +1,8 @@
 ; z_address !byte 0,0,0
 ; z_address_temp !byte 0
 
+!zone zaddress {
+
 set_z_address
 	stx z_address + 2
 	sta z_address + 1
@@ -111,3 +113,40 @@ set_z_paddress
 	sta z_address
 	rts
 
+write_next_byte
+; input: value in a 
+; a,x,y are preserved
+	pha
+!ifndef UNSAFE {
+	lda z_address
+	bne .write_outside_dynmem
+	lda z_address + 2
+	cmp dynmem_size
+	lda z_address + 1
+	sbc dynmem_size + 1
+	bcs .write_outside_dynmem
+}	
+	lda z_address + 2
+	sta .write_byte + 1
+	lda z_address + 1
+	clc
+	adc #>story_start
+	sta .write_byte + 2
+	pla
+.write_byte	
+	sta $8000 ; This address is modified above
+	inc z_address + 2
+	bne +
+	inc z_address + 1
+	bne +
+	inc z_address
++	rts
+
+!ifndef UNSAFE {
+.write_outside_dynmem
+	lda #ERROR_WRITE_ABOVE_DYNMEM
+	jsr fatalerror
+}
+	
+	
+} ; End zone zaddress	

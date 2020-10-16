@@ -50,9 +50,11 @@ init_screen_colours
 !ifdef Z5PLUS {
 	; store default colours in header
 	lda #BGCOL ; blue
-	sta story_start + header_default_bg_colour
+	ldy #header_default_bg_colour
+	jsr write_header_byte
 	lda #FGCOL ; white
-	sta story_start + header_default_fg_colour
+	ldy #header_default_fg_colour
+	jsr write_header_byte
 }
 	lda #147 ; clear screen
 	jmp s_printchar
@@ -348,31 +350,40 @@ z_ins_set_text_style
 z_ins_get_cursor
 	; get_cursor array
 	ldx z_operand_value_low_arr
-	stx string_array
+	; stx string_array
 	lda z_operand_value_high_arr
-	clc
-	adc #>story_start
-	sta string_array + 1
-	lda #0
-	ldy #0
-	sta (string_array),y
-	ldy #2
-	sta (string_array),y
+	jsr set_z_address
+	; clc
+	; adc #>story_start
+	; sta string_array + 1
+	; lda #0
+	; ldy #0
+	; sta (string_array),y
+	; ldy #2
+	; sta (string_array),y
 	ldx current_window
 	beq + ; We are in lower window, jump to read last cursor pos in upper window
 	jsr get_cursor ; x=row, y=column	
 -	inx ; In Z-machine, cursor has position 1+
 	iny ; In Z-machine, cursor has position 1+
+	lda #0
+	jsr write_next_byte
+	txa
+	jsr write_next_byte
+	lda #0
+	jsr write_next_byte
 	tya
-	pha
-	ldy #1
-	txa ; row
-	sta (string_array),y
-	pla ; column
-	ldy #3
-	sta (string_array),y
-.do_nothing_2
-	rts
+	jmp write_next_byte
+	; tya
+	; pha
+	; ldy #1
+	; txa ; row
+	; sta (string_array),y
+	; pla ; column
+	; ldy #3
+	; sta (string_array),y
+; .do_nothing_2
+	; rts
 +	ldx cursor_row + 1
 	ldy cursor_column + 1
 	jmp -	
@@ -392,6 +403,7 @@ z_ins_set_cursor
 clear_num_rows
 	lda #0
 	sta num_rows
+.do_nothing_2
 	rts
 
 increase_num_rows
@@ -747,7 +759,8 @@ draw_status_line
 	;
 	; score or time game?
 	;
-+   lda story_start + header_flags_1
++   ldy #header_flags_1
+	jsr read_header_word
 	and #$02
 	bne .timegame
 	; score game

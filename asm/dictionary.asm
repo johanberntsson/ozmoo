@@ -22,8 +22,8 @@ parse_default_dictionary
 	lda #1
 	sta dict_is_default
 }
-	lda story_start + header_dictionary     ; 05
-	ldx story_start + header_dictionary + 1 ; f3
+	ldy #header_dictionary
+	jsr read_header_word
 
 parse_dictionary
 	; parameters: dictionary address in (a,x)

@@ -185,3 +185,33 @@ copy_page
 	cli
 	rts
 }
+
+
+read_header_word
+; y contains the address in the header
+; Returns: Value in a,x
+; y retains its original value
+	iny
+	lda story_start,y
+	tax
+	dey
+	lda story_start,y
+	rts
+
+write_header_word
+; y contains the address in the header
+; a,x contains word value
+; a,x,y are destroyed
+	sta story_start,y
+	iny
+	txa
+	sta story_start,y
+	rts
+
+write_header_byte
+; y contains the address in the header
+; a contains byte value
+; a,x,y are preserved
+	sta story_start,y
+	rts
+		

@@ -520,16 +520,25 @@ streams_print_output
 	rts
 }
 .mem_write
-	lda streams_current_entry + 2
-	sta .print_byte_to_mem + 1
+	stx s_stored_x
+	ldx streams_current_entry + 2
 	lda streams_current_entry + 3
-	sta .print_byte_to_mem + 2
+	jsr streams_set_z_address
 	pla
-.print_byte_to_mem
-	sta $8000 ; Will be modified!
+	jsr write_next_byte
+	
+	; lda streams_current_entry + 2
+	; sta .print_byte_to_mem + 1
+	; lda streams_current_entry + 3
+	; sta .print_byte_to_mem + 2
+	; pla
+; .print_byte_to_mem
+	; sta $8000 ; Will be modified!
 	inc streams_current_entry + 2
-	bne .return
+	bne +
 	inc streams_current_entry + 3
++	jsr streams_unset_z_address
+	ldx s_stored_x
 .return
 	rts
 .pla_and_return
@@ -598,11 +607,12 @@ z_ins_output_stream
 	lda z_operand_value_low_arr + 1
 	sta streams_current_entry
 	lda z_operand_value_high_arr + 1
-	clc
-	adc #>story_start
+;	clc
+;	adc #>story_start
 	sta streams_current_entry + 1
 	; Setup pointer to current storage location
 	lda streams_current_entry
+	clc
 	adc #2
 	sta streams_current_entry + 2
 	lda streams_current_entry + 1
@@ -621,10 +631,15 @@ z_ins_output_stream
 	beq .stream_nesting_error
 }
 	; Copy length to first word in table
-	lda streams_current_entry
-	sta zp_temp
+
+	ldx streams_current_entry
 	lda streams_current_entry + 1
-	sta zp_temp + 1
+	jsr streams_set_z_address
+	
+	; lda streams_current_entry
+	; sta zp_temp
+	; lda streams_current_entry + 1
+	; sta zp_temp + 1
 	lda streams_current_entry + 2
 	sec
 	sbc #2
@@ -634,13 +649,22 @@ z_ins_output_stream
 	tax
 	tya
 	sec
-	sbc zp_temp
-	ldy #1
-	sta (zp_temp),y
+	sbc streams_current_entry
+	tay
 	txa
-	sbc zp_temp + 1
-	dey
-	sta (zp_temp),y
+	sbc streams_current_entry + 1
+	jsr write_next_byte
+	tya
+	jsr write_next_byte
+	jsr streams_unset_z_address
+	
+	; ldy #1
+	; sta (zp_temp),y
+	; txa
+	; sbc zp_temp + 1
+	; dey
+	; sta (zp_temp),y
+
 	; Pop item off stack
 	dec streams_stack_items
 	lda streams_stack_items
@@ -708,5 +732,26 @@ translate_zscii_to_petscii
 	ldy .streams_tmp + 1
 	clc
 	rts
+
+streams_set_z_address
+	ldy z_address
+	sty .z_address
+	ldy z_address + 1
+	sty .z_address + 1
+	ldy z_address + 2
+	sty .z_address + 2
+	jmp set_z_address
+
+streams_unset_z_address
+	ldx #2
+-	lda .z_address,x
+	sta z_address,x
+	dex
+	bpl -
+	rts
+	
+
+.z_address
+	!byte 0, 0, 0
 
 }

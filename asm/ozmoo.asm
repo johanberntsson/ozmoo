@@ -394,77 +394,104 @@ z_init
 	
 	; Modify header to tell game about terp capabilities
 !ifdef Z3 {
-	lda story_start + header_flags_1
+	ldy #header_flags_1
+	jsr read_header_word
 	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
 	ora #32 ; Split screen available
-	sta story_start + header_flags_1
+	jsr write_header_byte
 } else {
 !ifdef Z4 {
-	lda story_start + header_flags_1
+	ldy #header_flags_1
+	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(16 + 128) ; Fixed-space style, timed input available
-	sta story_start + header_flags_1
+	jsr write_header_byte
 } else { ; Z5PLUS
-	lda story_start + header_flags_1
+	ldy #header_flags_1
+	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
-	sta story_start + header_flags_1
-	lda story_start + header_flags_2 + 1
+	jsr write_header_byte
+	ldy #header_flags_2 + 1
+	jsr read_header_word
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
-	sta story_start + header_flags_2 + 1
+	jsr write_header_byte
 }
 }
 !ifdef Z4PLUS {
-	lda #TERPNO
-	sta story_start + header_interpreter_number ; Interpreter number (8 = C64)
+	lda #TERPNO ; Interpreter number (8 = C64)
+	ldy #header_interpreter_number 
+	jsr write_header_byte
 	lda #68 ; "D" = release 4
-	sta story_start + header_interpreter_version ; Interpreter version. Usually ASCII code for a capital letter
+	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
+	jsr write_header_byte
 	lda #25
-	sta story_start + header_screen_height_lines
+	ldy #header_screen_height_lines
+	jsr write_header_byte
 !ifdef Z5PLUS {
-	sta story_start + header_screen_height_units + 1
+	ldy #header_screen_height_units
+	tax
+	lda #0
+	jsr write_header_word
 }
 	lda s_screen_width
-	sta story_start + header_screen_width_chars
+	ldy #header_screen_width_chars
+	jsr write_header_byte
 !ifdef Z5PLUS {
-	sta story_start + header_screen_width_units + 1
-}
-}
+	ldy #header_screen_width_units
+	tax
 	lda #0
-	sta story_start + header_standard_revision_number ; major standard revision number which this terp complies to
-	sta story_start + header_standard_revision_number + 1 ; minor standard revision number which this terp complies to
+	jsr write_header_word
+}
+}
+	lda #0 ; major standard revision number which this terp complies to
+	tax    ; minor standard revision number which this terp complies to
+	ldy #header_standard_revision_number
+	jsr write_header_word
 
 !ifdef Z5PLUS {
-	; a is already 0
-	sta story_start + header_screen_width_units
-	sta story_start + header_screen_height_units
 	lda #1
-	sta story_start + header_font_width_units
-	sta story_start + header_font_height_units
+	ldy #header_font_width_units
+	jsr write_header_byte
+	ldy #header_font_height_units
+	jsr write_header_byte
 	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
 }
 	
 	; Copy alphabet pointer from header, or default
+dummy
+!ifdef Z5PLUS {
+	ldy #header_alphabet_table
+	jsr read_header_word
+	cmp #0
+	bne .custom_alphabet
+	cpx #0
+	beq .store_alphabet_pointer
+.custom_alphabet
+	jsr set_z_address
+	ldy #0
+-	jsr read_next_byte
+	sta default_alphabet,y
+	iny
+	cpy #26*3
+	bcc -
+.store_alphabet_pointer
+}
 	ldx #<default_alphabet
 	ldy #>default_alphabet
-!ifdef Z5PLUS {
-	lda story_start + header_alphabet_table
-	ora story_start + header_alphabet_table + 1
-	beq .no_custom_alphabet
-	ldx story_start + header_alphabet_table + 1
-	lda story_start + header_alphabet_table
-	clc
-	adc #>story_start
-	tay
-.no_custom_alphabet
-}
+;.store_alphabet_pointer
 	stx alphabet_table
 	sty alphabet_table + 1
 	
 	; Copy z_pc from header
+	ldy #header_initial_pc
+	jsr read_header_word
+	pha
+	txa
+	tay
+	pla
+	tax
 	lda #0
-	ldx story_start + header_initial_pc
-	ldy story_start + header_initial_pc + 1
 !ifndef VMEM {
 	sta z_pc
 }
@@ -472,12 +499,15 @@ z_init
 	jsr get_page_at_z_pc
 
 	; Setup globals pointer
-	lda story_start + header_globals + 1
+	ldy #header_globals
+	jsr read_header_word
+	tay
+	txa
 	clc
 	adc #<(story_start - 32)
 	sta z_low_global_vars_ptr
 	sta z_high_global_vars_ptr
-	lda story_start + header_globals
+	tya
 	adc #>(story_start - 32)
 	sta z_low_global_vars_ptr + 1
 	adc #1
@@ -601,8 +631,9 @@ deletable_init
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM
 	sty disk_info + 4
+	ldy #header_static_mem
+	jsr read_header_word
 	ldx #$30 ; First unavailable slot
-	lda story_start + header_static_mem
 	clc
 	adc #(>stack_size) + 4
 	sta zp_temp
@@ -640,7 +671,8 @@ deletable_init
 
 !ifndef UNSAFE {
 	; check z machine version
-	lda story_start + header_version
+	ldy #header_version
+	jsr read_header_word
 	cmp #ZMACHINEVERSION
 	beq .supported_version
 	lda #ERROR_UNSUPPORTED_STORY_VERSION
@@ -648,10 +680,15 @@ deletable_init
 .supported_version
 }
 
-	; Check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+	; Store the size of dynmem AND (if VMEM is enabled)
+	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+	ldy #header_static_mem
+	jsr read_header_word
+	stx dynmem_size
+	sta dynmem_size + 1
 !ifdef VMEM {
-	ldy story_start + header_static_mem
-	lda story_start + header_static_mem + 1
+	tay
+	cpx #0
 	beq .maybe_inc_nonstored_blocks
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
 .maybe_inc_nonstored_blocks

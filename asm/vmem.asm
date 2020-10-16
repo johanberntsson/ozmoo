@@ -1,4 +1,6 @@
 
+dynmem_size !byte 0, 0
+
 !ifdef ALLRAM {
 vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !fill cache_pages + 1, 0

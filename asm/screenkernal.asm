@@ -784,7 +784,8 @@ z_ins_set_colour
 	beq .current_background
 	lda zcolours,x
 	bpl +
-	ldx story_start + header_default_bg_colour ; default colour
+	ldy #header_default_bg_colour
+	jsr read_header_word
 	lda zcolours,x
 +   sta reg_backgroundcolour
 ; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
@@ -798,7 +799,8 @@ z_ins_set_colour
 	beq .current_foreground
 	lda zcolours,x
 	bpl + ; Branch unless it's the special value $ff, which means "default colour"
-	ldx story_start + header_default_fg_colour ; default colour
+	ldy #header_default_fg_colour
+	jsr read_header_word
 	lda zcolours,x
 +
 ; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 1

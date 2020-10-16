@@ -617,7 +617,7 @@ z_ins_get_prop
 .return_property_result
 	jmp z_store_result
 !ifndef UNSAFE {
-.not_two
+.bad_prop_len
 	; error. only 1 or 2 allowed
 	lda #ERROR_BAD_PROPERTY_LENGTH
 	jsr fatalerror
@@ -649,33 +649,40 @@ z_ins_put_prop
 	; put_prop object property value
 	jsr find_first_prop
 	jsr find_prop
-	stx zp_mempos
-	clc
-	adc #>story_start
-	sta zp_mempos + 1
+	jsr set_z_address
+	
+	; stx zp_mempos
+	; clc
+	; adc #>story_start
+	; sta zp_mempos + 1
 	lda .property_length
 	cmp #1
-	bne +
-	ldx z_operand_value_low_arr + 2
-	ldy #0
-	sta (zp_mempos),y
-	rts
-+   
+	beq .write_byte
 !ifndef UNSAFE {
 	cmp #2
-	bne .not_two
+	bne .bad_prop_len
 }
-	ldy #0
 	lda z_operand_value_high_arr + 2
-	sta (zp_mempos),y
-	iny 
+	jsr write_next_byte
+.write_byte
 	lda z_operand_value_low_arr + 2
-	sta (zp_mempos),y
-	rts
+	jmp write_next_byte
+	; ldy #0
+	; sta (zp_mempos),y
+	; rts
+; .write_word   
+	
+	; ldy #0
+	; lda z_operand_value_high_arr + 2
+	; sta (zp_mempos),y
+	; iny 
+	; lda z_operand_value_low_arr + 2
+	; sta (zp_mempos),y
+	; rts
 
 parse_object_table
-	lda story_start + header_object_table     ; high byte
-	ldx story_start + header_object_table + 1 ; low byte
+	ldy #header_object_table
+	jsr read_header_word
 	; property defaults table
 	stx default_properties_ptr
 	clc

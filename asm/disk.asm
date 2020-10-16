@@ -1076,8 +1076,8 @@ do_save
 	sta savefile_zp_pointer
 	lda #>(stack_start - zp_bytes_to_save)
 	sta savefile_zp_pointer + 1
-	ldx story_start + header_static_mem + 1
-	lda story_start + header_static_mem
+	ldy #header_static_mem
+	jsr read_header_word
 	clc
 	adc #>story_start
 	tay
