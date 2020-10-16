@@ -343,7 +343,7 @@ stack_call_routine
 
 !ifndef UNSAFE {
 .stack_full
-    lda #ERROR_STACK_FULL
+	lda #ERROR_STACK_FULL
 	jmp fatalerror
 }
 	
@@ -579,7 +579,7 @@ stack_get_ref_to_top_value
 
 !ifdef DEBUG {	
 .stack_underflow
-    lda #ERROR_STACK_EMPTY
+	lda #ERROR_STACK_EMPTY
 	jmp fatalerror
 }
 

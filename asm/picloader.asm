@@ -117,18 +117,18 @@ interrupt_vector = $314
 
 .loader
 !pseudopc loader_start {
-    lda #5
-    ldx #<.filename
-    ldy #>.filename
-    jsr kernal_setnam
-    lda #1      ; file number
-    ldx $ba ; Device#
+	lda #5
+	ldx #<.filename
+	ldy #>.filename
+	jsr kernal_setnam
+	lda #1      ; file number
+	ldx CURRENT_DEVICE ; Device#
 	ldy #1      ; $01 means: load to address stored in file
-    jsr kernal_setlfs
-    lda #$00      ; $00 means: load to memory (not verify)
-    jsr kernal_load
-    lda #1 
-    jsr kernal_close
+	jsr kernal_setlfs
+	lda #$00      ; $00 means: load to memory (not verify)
+	jsr kernal_load
+	lda #1 
+	jsr kernal_close
 
 !ifdef FLICKER {
 ; Clear interrupt

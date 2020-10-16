@@ -465,11 +465,11 @@ z_execute
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda #0
-	sta $a0
-	sta $a1
-	sta $a2
-	sta $4b
-	sta $4c
+	sta ti_variable
+	sta ti_variable + 1
+	sta ti_variable + 2
+	sta object_num
+	sta object_num + 1
 }
 }
 
@@ -477,27 +477,27 @@ z_execute
 
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
-	lda $a2
+	lda ti_variable + 2
 	cmp #60
 	bcc ++
 	bne +
-	lda $a1
+	lda ti_variable + 1
 	bne +
-	lda $4c
-	ldx $4b
+	lda object_num + 1
+	ldx object_num
 	jsr printinteger
 	jsr comma
 	
 +	lda #0
-	sta $a0
-	sta $a1
-	sta $a2
-	sta $4b
-	sta $4c
+	sta ti_variable
+	sta ti_variable + 1
+	sta ti_variable + 2
+	sta object_num
+	sta object_num + 1
 
-++	inc $4b
+++	inc object_num
 	bne +
-	inc $4c
+	inc object_num + 1
 +
 }
 }
@@ -506,61 +506,61 @@ z_execute
 	bne .not_normal_exe_mode
 
 !ifdef VICE_TRACE {
-    ; send trace info to $DE00-$DE02, which a patched
-    ; version of Vice can use to trace z_pc onto stderr
-    ; and store on a file. To enable, edit src/c64/c64io.c
-    ; void c64io_de00_store(uint16_t addr, uint8_t value)
-    ; if(addr == 0xde01) fprintf(stderr, "%02x", value);
-    ; if(addr == 0xde02) { fprintf(stderr, "\n"); fflush(stderr); }
-    lda z_pc
-    sta $de01
-    lda z_pc + 1
-    sta $de01
-    lda z_pc + 2
-    sta $de01
-    sta $de02
-    ; send a memory dump if at specific address (e.g. $ad30)
-    lda z_pc+1
-    cmp #$ad ; $ad
-    bne +
-    lda z_pc+2
-    cmp #$30 ; $30
-    bne +
-    ; dump dynmem
-    ; first find out how many lines to dump (16 bytes/line)
+	; send trace info to $DE00-$DE02, which a patched
+	; version of Vice can use to trace z_pc onto stderr
+	; and store on a file. To enable, edit src/c64/c64io.c
+	; void c64io_de00_store(uint16_t addr, uint8_t value)
+	; if(addr == 0xde01) fprintf(stderr, "%02x", value);
+	; if(addr == 0xde02) { fprintf(stderr, "\n"); fflush(stderr); }
+	lda z_pc
+	sta $de01
+	lda z_pc + 1
+	sta $de01
+	lda z_pc + 2
+	sta $de01
+	sta $de02
+	; send a memory dump if at specific address (e.g. $ad30)
+	lda z_pc+1
+	cmp #$ad ; $ad
+	bne +
+	lda z_pc+2
+	cmp #$30 ; $30
+	bne +
+	; dump dynmem
+	; first find out how many lines to dump (16 bytes/line)
 dumptovice
-    lda story_start + header_static_mem + 1
-    sta .dyndump + 2
-    lda story_start + header_static_mem 
-    sta .dyndump + 1
-    ldx #4
+	ldy #header_static_mem
+	jsr read_header_word
+	stx .dyndump + 2
+	sta .dyndump + 1
+	ldx #4
 -   lsr .dyndump + 2
-    ror .dyndump + 1
-    dex
-    bne -
-    ldy .dyndump + 1
-    iny
-    lda #<story_start
-    sta .dyndump + 1
-    lda #>story_start
-    sta .dyndump + 2
+	ror .dyndump + 1
+	dex
+	bne -
+	ldy .dyndump + 1
+	iny
+	lda #<story_start
+	sta .dyndump + 1
+	lda #>story_start
+	sta .dyndump + 2
 -   ldx  #0
 .dyndump
-    lda $8000,x
-    sta $de01 ; dump byte
-    inx
-    cpx #16
-    bne .dyndump
-    sta $de02 ; newline in dump
-    clc
-    lda .dyndump + 1
-    adc #16
-    sta .dyndump + 1
-    lda .dyndump + 2
-    adc #0
-    sta .dyndump + 2
-    dey
-    bne -
+	lda $8000,x
+	sta $de01 ; dump byte
+	inx
+	cpx #16
+	bne .dyndump
+	sta $de02 ; newline in dump
+	clc
+	lda .dyndump + 1
+	adc #16
+	sta .dyndump + 1
+	lda .dyndump + 2
+	adc #0
+	sta .dyndump + 2
+	dey
+	bne -
 +
 }
 
@@ -769,7 +769,7 @@ z_not_implemented
 	jsr printinteger
 	jsr newline
 }
-    lda #ERROR_OPCODE_NOT_IMPLEMENTED
+	lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror
 }
 }
@@ -794,7 +794,12 @@ read_operand
 .store_operand
 	ldy z_operand_count
 	sta z_operand_value_high_arr,y
+!ifdef TARGET_C128 {
+	txa
+	sta z_operand_value_low_arr,y
+} else {
 	stx z_operand_value_low_arr,y
+}
 	inc z_operand_count
 	rts
 
@@ -860,7 +865,7 @@ read_operand
 	bcs .store_operand ; Always branch
 !ifndef UNSAFE {
 .nonexistent_local
-    lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
+	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 }
 
@@ -912,7 +917,7 @@ z_get_variable_reference
 
 !ifndef UNSAFE {
 .nonexistent_local
-    lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
+	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 }
 	
@@ -1000,7 +1005,7 @@ z_set_variable
 
 !zone {
 z_ins_not_supported
-    ldy #>.not_supported_string
+	ldy #>.not_supported_string
 	lda #<.not_supported_string
 	jmp printstring
 .not_supported_string
@@ -1016,7 +1021,7 @@ z_divide
 	lda z_operand_value_high_arr + 1
 	ora z_operand_value_low_arr + 1
 	bne .not_div_by_0
-    lda #ERROR_DIVISION_BY_ZERO
+	lda #ERROR_DIVISION_BY_ZERO
 	jsr fatalerror
 .not_div_by_0	
 }
@@ -1092,20 +1097,20 @@ calc_address_in_byte_array
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
-	tay
-	cpx story_start + header_static_mem + 1
-	sbc story_start + header_static_mem
-	tya
-	bcc .is_in_dynmem
-	jsr set_z_address
-	ldy #1
-	rts
-.is_in_dynmem	
-	stx zp_temp
-	adc #>story_start ; Carry is already clear
-	sta zp_temp + 1
-	ldy #0
-	rts
+;	tay
+;	cpx story_start + header_static_mem + 1
+;	sbc story_start + header_static_mem
+;	tya
+;	bcc .is_in_dynmem
+	jmp set_z_address
+;	ldy #1
+;	rts
+;.is_in_dynmem	
+;	stx zp_temp
+;	adc #>story_start ; Carry is already clear
+;	sta zp_temp + 1
+;	ldy #0
+;	rts
 }
 
 !zone rnd {
@@ -1511,81 +1516,32 @@ z_ins_loadw_and_storew
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1
-	sta zp_temp
+;	sta zp_temp
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
-	sta zp_temp + 1
-	ldy #1
+	jsr set_z_address
+;	sta zp_temp + 1
+;	ldy #1
 	lda z_opcode_number
 	cmp #15 ; Code for loadw
 	bne .storew
-	; Check if address is in dynamic memory
-	cpx story_start + header_static_mem + 1
-	lda zp_temp + 1
-	sbc story_start + header_static_mem
-	bcc .word_read_in_dynmem
-; !ifdef DEBUG {
-	; ; Check that address is in z-machine memory
-	; ; THIS CHECK IS ALL WRONG! Need to compute end of file address to compare to!
-	; cpx story_start + header_high_mem + 1
-	; lda zp_temp + 1
-	; sbc story_start + header_high_mem
-	; bcs .read_above_statmem
-; }
-	; Address is in static memory
-	lda zp_temp + 1
-	jsr set_z_address
 	jsr read_next_byte
 	pha
 	jsr read_next_byte
 	tax
 	pla
 	jmp z_store_result
-.word_read_in_dynmem
-	lda zp_temp +1
-	adc #>story_start
-	sta zp_temp + 1
-	lda (zp_temp),y
-	tax
-	dey
-	lda (zp_temp),y
-	jmp z_store_result
 .storew
-!ifdef DEBUG {
-	; Check that address is in dynamic memory
-	cpx story_start + header_static_mem + 1
-	lda zp_temp + 1
-	sbc story_start + header_static_mem
-	bcs .write_outside_dynmem
-}
-	; Ok, write is within dynmem
-	lda zp_temp + 1
-	adc #>story_start ; Carry is already clear
-	sta zp_temp + 1
-	lda z_operand_value_low_arr + 2
-	sta (zp_temp),y
-	dey
 	lda z_operand_value_high_arr + 2
-	sta (zp_temp),y
+	jsr write_next_byte
+	lda z_operand_value_low_arr + 2
+	jsr write_next_byte
 	rts
-!ifdef DEBUG {
-.write_outside_dynmem
-	lda #ERROR_WRITE_ABOVE_DYNMEM
-	jsr fatalerror
-; .read_above_statmem
-	; lda #ERROR_READ_ABOVE_STATMEM
-	; jsr fatalerror
-}
 	
 z_ins_loadb
 	jsr calc_address_in_byte_array
-	bne + ; Z = 0 if address is in statmem
-	lda (zp_temp),y
-	tax
-	tya
-	jmp z_store_result
-+	jsr read_next_byte
+	jsr read_next_byte
 	tax
 	lda #0
 	jmp z_store_result
@@ -1593,12 +1549,8 @@ z_ins_loadb
 ; VAR instruction, moved here to allow relative jump to error	
 z_ins_storeb
 	jsr calc_address_in_byte_array
-!ifdef DEBUG {
-	bne .write_outside_dynmem
-}
 	lda z_operand_value_low_arr + 2
-	sta (zp_temp),y
-	rts
+	jmp write_next_byte
 
 ; z_ins_get_prop (moved to objecttable.asm)
 	
@@ -2029,7 +1981,7 @@ z_ins_scan_table
 	beq .scan_table_false
 	lda zp_temp + 3
 	ldx zp_temp + 2
-    jsr set_z_address
+	jsr set_z_address
 	jsr read_next_byte
 	ldx zp_temp
 	bpl .scan_byte_compare
@@ -2084,11 +2036,11 @@ z_ins_copy_table
 	; Fill with zero
 	; Copy target table address to ZP vector
 	lda z_operand_value_low_arr
-	sta zp_temp
+	sta string_array
 	lda z_operand_value_high_arr
-	clc
-	adc #>story_start
-	sta zp_temp + 1
+;	clc
+;	adc #>story_start
+	sta string_array + 1
 
 	; Perform zero-fill
 	ldy #0
@@ -2097,10 +2049,11 @@ z_ins_copy_table
 	ora z_operand_value_high_arr + 2
 	beq .copy_all_done
 	lda #0
-	sta (zp_temp),y
+	jsr string_array_write_byte
+;	sta (zp_temp),y
 	iny
 	bne +
-	inc zp_temp + 1
+	inc string_array + 1
 +	dex
 	cpx #$ff
 	bne -
@@ -2113,11 +2066,11 @@ z_ins_copy_table
 
 	; Copy target table address to ZP vector
 	lda z_operand_value_low_arr + 1
-	sta zp_temp
+	sta string_array
 	lda z_operand_value_high_arr + 1
-	clc
-	adc #>story_start
-	sta zp_temp + 1
+;	clc
+;	adc #>story_start
+	sta string_array + 1
 
 	; If size is negative, we invert it and copy forwards
 	ldy z_operand_value_high_arr + 2
@@ -2147,20 +2100,20 @@ z_ins_copy_table
 	sbc #0
 	sta z_operand_value_high_arr
 	; Add size - 1 to second
-	lda zp_temp
+	lda string_array
 	clc
 	adc z_operand_value_low_arr + 2
 	tay
-	lda zp_temp + 1
+	lda string_array + 1
 	adc z_operand_value_high_arr + 2
 	tax
 	tya
 	sec
 	sbc #1
-	sta zp_temp
+	sta string_array
 	txa
 	sbc #0
-	sta zp_temp + 1
+	sta string_array + 1
 	; Store direction
 	ldx #$ff
 	stx zp_temp + 2
@@ -2189,21 +2142,29 @@ z_ins_copy_table
 	ldy z_operand_value_low_arr
 -	lda z_operand_value_low_arr + 2
 	ora z_operand_value_high_arr + 2
+!ifdef TARGET_C128 {
+	; when -P is used then the branch becomes too far away
+	bne +
+	jmp .copy_all_done
++
+} else {
 	beq .copy_all_done
+}
 	lda #0
 	; Read next byte from first table
 	jsr read_byte_at_z_address
 	; Store byte in second table
 	ldy #0
-	sta (zp_temp),y
+	jsr string_array_write_byte
+;	sta (zp_temp),y
 	; Increase/decrease pointer to second
-	lda zp_temp
+	lda string_array
 	clc
 	adc zp_temp + 2
-	sta zp_temp
-	lda zp_temp + 1
+	sta string_array
+	lda string_array + 1
 	adc zp_temp + 3
-	sta zp_temp + 1
+	sta string_array + 1
 	; Increase/decrease pointer to first
 	lda z_operand_value_low_arr
 	clc

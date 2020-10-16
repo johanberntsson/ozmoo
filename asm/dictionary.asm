@@ -22,41 +22,41 @@ parse_default_dictionary
 	lda #1
 	sta dict_is_default
 }
-    lda story_start + header_dictionary     ; 05
-    ldx story_start + header_dictionary + 1 ; f3
+	ldy #header_dictionary
+	jsr read_header_word
 
 parse_dictionary
 	; parameters: dictionary address in (a,x)
-    jsr set_z_address
-    ; read terminators
-    jsr read_next_byte
+	jsr set_z_address
+	; read terminators
+	jsr read_next_byte
 !ifndef UNSAFE {
-    cmp #10 ; max num terminators
-    bcc .ok_term
-    lda #ERROR_TOO_MANY_TERMINATORS
-    jsr fatalerror
+	cmp #10 ; max num terminators
+	bcc .ok_term
+	lda #ERROR_TOO_MANY_TERMINATORS
+	jsr fatalerror
 .ok_term
 }
    sta num_terminators
-    ldy #0
+	ldy #0
 -   jsr read_next_byte
-    sta terminators,y
-    iny
-    cpy num_terminators
-    bne -
-    ; read entries
-    jsr read_next_byte
-    sta dict_len_entries
+	sta terminators,y
+	iny
+	cpy num_terminators
+	bne -
+	; read entries
+	jsr read_next_byte
+	sta dict_len_entries
 
 !ifdef Z5PLUS {
 	lda #$ff
 	sta dict_ordered
 }
-    jsr read_next_byte
-    sta dict_num_entries
+	jsr read_next_byte
+	sta dict_num_entries
 	tay
-    jsr read_next_byte
-    sta dict_num_entries + 1
+	jsr read_next_byte
+	sta dict_num_entries + 1
 !ifdef Z5PLUS {
 ; Check if ordered dictionary
 	cpy #$80
@@ -73,10 +73,10 @@ parse_dictionary
 	sta dict_num_entries
 }
 .ordered	
-    jsr get_z_address
-    stx dict_entries
-    sta dict_entries  + 1
-    rts
+	jsr get_z_address
+	stx dict_entries
+	sta dict_entries  + 1
+	rts
 
 ;show_dictionary
 ;    ; show all entries (assume at least one)

@@ -31,35 +31,35 @@ disk_info
 }
 
 readblocks
-    ; read <n> blocks (each 256 bytes) from disc to memory
-    ; set values in readblocks_* before calling this function
-    ; register: a,x,y
+	; read <n> blocks (each 256 bytes) from disc to memory
+	; set values in readblocks_* before calling this function
+	; register: a,x,y
 !ifdef TRACE_FLOPPY {
-    jsr newline
-    jsr print_following_string
-    !pet "readblocks (n,zp,c64) ",0
-    lda readblocks_numblocks
-    jsr printa
-    jsr comma
-    lda readblocks_currentblock + 1
-    jsr print_byte_as_hex
-    lda readblocks_currentblock
-    jsr print_byte_as_hex
-    jsr comma
-    lda readblocks_mempos + 1
-    jsr print_byte_as_hex
-    lda readblocks_mempos 
-    jsr print_byte_as_hex
-    jsr newline
+	jsr newline
+	jsr print_following_string
+	!pet "readblocks (n,zp,c64) ",0
+	lda readblocks_numblocks
+	jsr printa
+	jsr comma
+	lda readblocks_currentblock + 1
+	jsr print_byte_as_hex
+	lda readblocks_currentblock
+	jsr print_byte_as_hex
+	jsr comma
+	lda readblocks_mempos + 1
+	jsr print_byte_as_hex
+	lda readblocks_mempos 
+	jsr print_byte_as_hex
+	jsr newline
 }
 -   jsr readblock ; read block
-    inc readblocks_mempos + 1   ; update mempos,block for next iteration
-    inc readblocks_currentblock
-    bne +
-    inc readblocks_currentblock + 1
+	inc readblocks_mempos + 1   ; update mempos,block for next iteration
+	inc readblocks_currentblock
+	bne +
+	inc readblocks_currentblock + 1
 +   dec readblocks_numblocks        ; loop
-    bne -
-    rts
+	bne -
+	rts
 
 .readblock_from_reu
 	ldx readblocks_currentblock_adjusted
@@ -72,10 +72,10 @@ readblocks
 	jmp copy_page_from_reu
 
 readblock
-    ; read 1 block from floppy
-    ; $mempos (contains address to store in) [in]
-    ; set values in readblocks_* before calling this function
-    ; register a,x,y
+	; read 1 block from floppy
+	; $mempos (contains address to store in) [in]
+	; set values in readblocks_* before calling this function
+	; register a,x,y
 
 !ifdef TRACE_FLOPPY {
 	jsr print_following_string
@@ -100,7 +100,7 @@ readblock
 	bit use_reu
 	bvs .readblock_from_reu
 
-    ; convert block to track/sector
+	; convert block to track/sector
 	
 	lda disk_info + 2 ; Number of disks
 	ldx #0 ; Memory index
@@ -257,7 +257,7 @@ readblock
 .temp_y 		!byte 0
 
 
-    ; convert track/sector to ascii and update drive command
+	; convert track/sector to ascii and update drive command
 read_track_sector
 	; input: a: track, x: sector, y: device#, Word at readblocks_mempos holds storage address
 	sta .track
@@ -265,89 +265,95 @@ read_track_sector
 	sty .device
 .have_set_device_track_sector
 	lda .track
-    jsr conv2dec
-    stx .uname_track
-    sta .uname_track + 1
-    lda .sector
-    jsr conv2dec
-    stx .uname_sector
-    sta .uname_sector + 1
+	jsr conv2dec
+	stx .uname_track
+	sta .uname_track + 1
+	lda .sector
+	jsr conv2dec
+	stx .uname_sector
+	sta .uname_sector + 1
 
 !ifdef TRACE_FLOPPY_VERBOSE {
-    jsr space
-    jsr dollar
-    lda readblocks_mempos + 1
-    jsr print_byte_as_hex
-    lda readblocks_mempos 
-    jsr print_byte_as_hex
-    jsr comma
-    ldx readblocks_currentblock
-    jsr printx
-    ;jsr comma
-    ;lda #<.uname
-    ;ldy #>.uname
-    ;jsr printstring
-    jsr newline
+	jsr space
+	jsr dollar
+	lda readblocks_mempos + 1
+	jsr print_byte_as_hex
+	lda readblocks_mempos 
+	jsr print_byte_as_hex
+	jsr comma
+	ldx readblocks_currentblock
+	jsr printx
+	;jsr comma
+	;lda #<.uname
+	;ldy #>.uname
+	;jsr printstring
+	jsr newline
 }
-    ; open the channel file
-    lda #cname_len
-    ldx #<.cname
-    ldy #>.cname
-    jsr kernal_setnam ; call SETNAM
+	; open the channel file
+	lda #cname_len
+	ldx #<.cname
+	ldy #>.cname
+	jsr kernal_setnam ; call SETNAM
 
-    lda #$02      ; file number 2
-    ldx .device
+	lda #$02      ; file number 2
+	ldx .device
 	tay      ; secondary address 2
-    jsr kernal_setlfs ; call SETLFS
+	jsr kernal_setlfs ; call SETLFS
+!ifdef TARGET_C128 {
+	ldx #$00
+	jsr kernal_setbnk
+}
+	jsr kernal_open     ; call OPEN
+	bcs .error    ; if carry set, the file could not be opened
 
-    jsr kernal_open     ; call OPEN
-    bcs .error    ; if carry set, the file could not be opened
+	; open the command channel
 
-    ; open the command channel
+	lda #uname_len
+	ldx #<.uname
+	ldy #>.uname
+	jsr kernal_setnam ; call SETNAM
+	lda #$0F      ; file number 15
+	ldx .device
+	tay      ; secondary address 15
+	jsr kernal_setlfs ; call SETLFS
+!ifdef TARGET_C128 {
+	ldx #$00
+	jsr kernal_setbnk
+}
+	jsr kernal_open ; call OPEN (open command channel and send U1 command)
+	bcs .error    ; if carry set, the file could not be opened
 
-    lda #uname_len
-    ldx #<.uname
-    ldy #>.uname
-    jsr kernal_setnam ; call SETNAM
-    lda #$0F      ; file number 15
-    ldx .device
-    tay      ; secondary address 15
-    jsr kernal_setlfs ; call SETLFS
+	; check drive error channel here to test for
+	; FILE NOT FOUND error etc.
 
-    jsr kernal_open ; call OPEN (open command channel and send U1 command)
-    bcs .error    ; if carry set, the file could not be opened
+	ldx #$02      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
-    ; check drive error channel here to test for
-    ; FILE NOT FOUND error etc.
+	lda readblocks_mempos
+	sta zp_mempos
+	lda readblocks_mempos+1
+	sta zp_mempos + 1
 
-    ldx #$02      ; filenumber 2
-    jsr kernal_chkin ; call CHKIN (file 2 now used as input)
-
-    lda readblocks_mempos
-    sta zp_mempos
-    lda readblocks_mempos+1
-    sta zp_mempos + 1
-
-    ldy #$00
+	ldy #$00
 -   jsr kernal_readchar ; call CHRIN (get a byte from file)
-    sta (zp_mempos),Y   ; write byte to memory
-    iny
-    bne -         ; next byte, end when 256 bytes are read
+	sta (zp_mempos),Y   ; write byte to memory
+	iny
+	bne -         ; next byte, end when 256 bytes are read
 	jmp close_io
 .error
-    ; accumulator contains BASIC error code
-    ; most likely errors:
-    ; A = $05 (DEVICE NOT PRESENT)
-    jsr close_io    ; even if OPEN failed, the file has to be closed
-    lda #ERROR_FLOPPY_READ_ERROR
-    jsr fatalerror
+	; accumulator contains BASIC error code
+	; most likely errors:
+	; A = $05 (DEVICE NOT PRESENT)
+	jsr close_io    ; even if OPEN failed, the file has to be closed
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
 .cname !text "#"
 cname_len = * - .cname
 
 .uname !text "U1 2 0 "
 .uname_track !text "18 "
 .uname_sector !text "00"
-    !byte 0 ; end of string, so we can print debug messages
+	!byte 0 ; end of string, so we can print debug messages
 
 uname_len = * - .uname
 .track  !byte 0
@@ -360,13 +366,13 @@ uname_len = * - .uname
 } ; End of !ifdef VMEM
 
 close_io
-    lda #$0F      ; filenumber 15
-    jsr kernal_close ; call CLOSE
+	lda #$0F      ; filenumber 15
+	jsr kernal_close ; call CLOSE
 
-    lda #$02      ; filenumber 2
-    jsr kernal_close ; call CLOSE
+	lda #$02      ; filenumber 2
+	jsr kernal_close ; call CLOSE
 
-    jmp kernal_clrchn ; call CLRCHN
+	jmp kernal_clrchn ; call CLRCHN
 
 !zone disk_messages {
 prepare_for_disk_msgs
@@ -425,7 +431,7 @@ print_insert_disk_msg
 	jsr printstring_raw
 	;jsr kernal_readchar ; this shows the standard kernal prompt (not good)
 -	jsr kernal_getchar
-    beq -
+	beq -
 	; lda .print_row
 	; clc
 	; adc #3
@@ -571,68 +577,68 @@ z_ins_save
 .filename !pet "!0" ; 0 is changed to slot number
 .inputstring !fill 15 ; filename max 16 chars (fileprefix + 14)
 .input_alphanum
-    ; read a string with only alphanumeric characters into .inputstring
-    ; return: x = number of characters read
-    ;         .inputstring: null terminated string read (max 20 characters)
-    ; modifies a,x,y
+	; read a string with only alphanumeric characters into .inputstring
+	; return: x = number of characters read
+	;         .inputstring: null terminated string read (max 20 characters)
+	; modifies a,x,y
 	jsr turn_on_cursor
-    lda #0
-    sta .inputlen
+	lda #0
+	sta .inputlen
 -   jsr kernal_getchar
-    cmp #$14 ; delete
-    bne +
-    ldx .inputlen
-    beq -
-    dec .inputlen
+	cmp #$14 ; delete
+	bne +
+	ldx .inputlen
+	beq -
+	dec .inputlen
 	pha
 	jsr turn_off_cursor
 	pla
-    jsr s_printchar
+	jsr s_printchar
 	jsr turn_on_cursor
-    jmp -
+	jmp -
 +   cmp #$0d ; enter
-    beq .input_done
+	beq .input_done
 	cmp #$20
 	beq .char_is_ok
-    sec
-    sbc #$30
-    cmp #$5B-$30
-    bcs -
-    sbc #$09 ;actually -$0a because C=0
-    cmp #$41-$3a
-    bcc -
-    adc #$39 ;actually +$3a because C=1
+	sec
+	sbc #$30
+	cmp #$5B-$30
+	bcs -
+	sbc #$09 ;actually -$0a because C=0
+	cmp #$41-$3a
+	bcc -
+	adc #$39 ;actually +$3a because C=1
 .char_is_ok
-    ldx .inputlen
-    cpx #14
-    bcs -
-    sta .inputstring,x
-    inc .inputlen
-    jsr s_printchar
+	ldx .inputlen
+	cpx #14
+	bcs -
+	sta .inputstring,x
+	inc .inputlen
+	jsr s_printchar
 	jsr update_cursor
-    jmp -
+	jmp -
 .input_done
 	pha
 	jsr turn_off_cursor
 	pla
 	jsr s_printchar ; return
-    ldx .inputlen
-    lda #0
-    sta .inputstring,x
+	ldx .inputlen
+	lda #0
+	sta .inputstring,x
 	rts
 
 .error
-    ; accumulator contains BASIC error code
-    ; most likely errors:
-    ; A = $05 (DEVICE NOT PRESENT)
+	; accumulator contains BASIC error code
+	; most likely errors:
+	; A = $05 (DEVICE NOT PRESENT)
 	sta zp_temp + 1 ; Store error code for printing
-    jsr close_io    ; even if OPEN failed, the file has to be closed
+	jsr close_io    ; even if OPEN failed, the file has to be closed
 	lda #>.disk_error_msg
 	ldx #<.disk_error_msg
 	jsr printstring_raw
 	; Add code to print error code!
-    lda #0
-    rts
+	lda #0
+	rts
 	
 list_save_files
 	lda #13
@@ -651,22 +657,26 @@ list_save_files
 	lda zp_screenline + 1
 	sta .base_screen_pos + 1
 
-    ; open the channel file
-    lda #1
-    ldx #<.dirname
-    ldy #>.dirname
-    jsr kernal_setnam ; call SETNAM
+	; open the channel file
+!ifdef TARGET_C128 {
+	ldx #$00
+	tax
+	jsr kernal_setbnk
+}
+	lda #1
+	ldx #<.dirname
+	ldy #>.dirname
+	jsr kernal_setnam ; call SETNAM
 
-    lda #2      ; file number 2
-    ldx disk_info + 4 ; Device# for save disk
+	lda #2      ; file number 2
+	ldx disk_info + 4 ; Device# for save disk
 +   ldy #0      ; secondary address 2
-    jsr kernal_setlfs ; call SETLFS
+	jsr kernal_setlfs ; call SETLFS
+	jsr kernal_open     ; call OPEN
+	bcs .error    ; if carry set, the file could not be opened
 
-    jsr kernal_open     ; call OPEN
-    bcs .error    ; if carry set, the file could not be opened
-
-    ldx #2      ; filenumber 2
-    jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+	ldx #2      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
 	; Skip load address and disk title
 	ldy #32
@@ -757,7 +767,7 @@ list_save_files
 	bcc -
 	
 	lda #1 ; Signal success
-    rts
+	rts
 
 .insertion_sort_item
 	; Parameters: x, .sort_item: item (1-9)
@@ -841,11 +851,11 @@ list_save_files
 	dey
 	bne -
 .insert_done
-    ldx #0
+	ldx #0
 !ifdef Z5PLUS {
 	jmp erase_window
 } else {
-    jsr erase_window
+	jsr erase_window
 	ldx window_start_row + 1 ; First line in lower window
 	ldy #0
 	jmp set_cursor
@@ -861,7 +871,7 @@ list_save_files
 	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
 +	ldx #0
-    jmp erase_window
+	jmp erase_window
 
 maybe_ask_for_save_device
 	lda ask_for_save_device
@@ -896,7 +906,7 @@ maybe_ask_for_save_device
 restore_game
 	jsr maybe_ask_for_save_device
 
-    jsr .insert_save_disk
+	jsr .insert_save_disk
 
 	; List files on disk
 	jsr list_save_files
@@ -929,13 +939,13 @@ restore_game
 	
 	; Perform restore
 	jsr do_restore
-    bcs .restore_failed    ; if carry set, a file error has happened
+	bcs .restore_failed    ; if carry set, a file error has happened
 
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 	lda use_reu
 	bmi +
-    jsr .insert_story_disk
+	jsr .insert_story_disk
 +	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
@@ -943,7 +953,7 @@ restore_game
 .restore_failed
 	lda use_reu
 	bmi +
-    jsr .insert_story_disk
+	jsr .insert_story_disk
 	; Return failed status
 +	lda #0
 	tax
@@ -953,7 +963,7 @@ save_game
 
 	jsr maybe_ask_for_save_device
 
-    jsr .insert_save_disk
+	jsr .insert_save_disk
 
 	; List files on disk
 	jsr list_save_files
@@ -989,25 +999,30 @@ save_game
 	jsr printstring_raw
 
 	; Erase old file, if any
-    lda #5
-    ldx #<.erase_cmd
-    ldy #>.erase_cmd
-    jsr kernal_setnam
-    lda #$0f      ; file number 15
-    ldx disk_info + 4 ; Device# for save disk
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
+	lda #5
+	ldx #<.erase_cmd
+	ldy #>.erase_cmd
+	jsr kernal_setnam
+	lda #$0f      ; file number 15
+	ldx disk_info + 4 ; Device# for save disk
 	ldy #$0f      ; secondary address 15
-    jsr kernal_setlfs
-    jsr kernal_open ; open command channel and send delete command)
-    bcs .restore_failed  ; if carry set, the file could not be opened
-    lda #$0f      ; filenumber 15
-    jsr kernal_close
+	jsr kernal_setlfs
+	jsr kernal_open ; open command channel and send delete command)
+	bcs .restore_failed  ; if carry set, the file could not be opened
+	lda #$0f      ; filenumber 15
+	jsr kernal_close
 	
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 	
 	; Perform save
 	jsr do_save
-    bcs .restore_failed    ; if carry set, a save error has happened
+	bcs .restore_failed    ; if carry set, a save error has happened
 
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
@@ -1020,49 +1035,59 @@ save_game
 	rts
 
 do_restore
-    lda #3
-    ldx #<.restore_filename
-    ldy #>.restore_filename
-    jsr kernal_setnam
-    lda #1      ; file number
-    ldx disk_info + 4 ; Device# for save disk
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
+	lda #3
+	ldx #<.restore_filename
+	ldy #>.restore_filename
+	jsr kernal_setnam
+	lda #1      ; file number
+	ldx disk_info + 4 ; Device# for save disk
 	ldy #1      ; not $01 means: load to address stored in file
-    jsr kernal_setlfs
-    lda #$00      ; $00 means: load to memory (not verify)
-    jsr kernal_load
-    php ; store c flag so error can be checked by calling routine
-    lda #1 
-    jsr kernal_close
-    plp ; restore c flag
-    rts
+	jsr kernal_setlfs
+	lda #$00      ; $00 means: load to memory (not verify)
+	jsr kernal_load
+	php ; store c flag so error can be checked by calling routine
+	lda #1 
+	jsr kernal_close
+	plp ; restore c flag
+	rts
 
 do_save
-    lda .inputlen
-    clc
-    adc #2 ; add 2 bytes for prefix
-    ldx #<.filename
-    ldy #>.filename
-    jsr kernal_setnam
-    lda #1      ; file# 1
-    ldx disk_info + 4 ; Device# for save disk
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
+	lda .inputlen
+	clc
+	adc #2 ; add 2 bytes for prefix
+	ldx #<.filename
+	ldy #>.filename
+	jsr kernal_setnam
+	lda #1      ; file# 1
+	ldx disk_info + 4 ; Device# for save disk
 	ldy #1
-    jsr kernal_setlfs
-    lda #<(stack_start - zp_bytes_to_save)
-    sta $c1
-    lda #>(stack_start - zp_bytes_to_save)
-    sta $c2
-    ldx story_start + header_static_mem + 1
-    lda story_start + header_static_mem
-    clc
-    adc #>story_start
-    tay
-    lda #$c1      ; start address located in $C1/$C2
-    jsr kernal_save
-    php ; store c flag so error can be checked by calling routine
-    lda #1 
-    jsr kernal_close
-    plp ; restore c flag
-    rts
+	jsr kernal_setlfs
+	lda #<(stack_start - zp_bytes_to_save)
+	sta savefile_zp_pointer
+	lda #>(stack_start - zp_bytes_to_save)
+	sta savefile_zp_pointer + 1
+	ldy #header_static_mem
+	jsr read_header_word
+	clc
+	adc #>story_start
+	tay
+	lda #savefile_zp_pointer ; start address located in zero page
+	jsr kernal_save
+	php ; store c flag so error can be checked by calling routine
+	lda #1 
+	jsr kernal_close
+	plp ; restore c flag
+	rts
 .last_disk	!byte 0
 .saveslot !byte 0
 .saveslot_msg_save	!pet 13,"Save to",0 ; Will be modified to say highest available slot #

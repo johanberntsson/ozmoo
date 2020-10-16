@@ -1,4 +1,6 @@
 
+dynmem_size !byte 0, 0
+
 !ifdef ALLRAM {
 vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !fill cache_pages + 1, 0
@@ -9,20 +11,20 @@ vmem_cache_index !fill cache_pages + 1, 0
 
 !ifndef ALLRAM {
 read_byte_at_z_address
-    ; Subroutine: Read the contents of a byte address in the Z-machine
-    ; x,y (high, low) contains address.
-    ; Returns: value in a
-    sty mempointer ; low byte unchanged
-    ; same page as before?
-    cpx zp_pc_l
-    bne .read_new_byte
-    ; same 256 byte segment, just return
+	; Subroutine: Read the contents of a byte address in the Z-machine
+	; x,y (high, low) contains address.
+	; Returns: value in a
+	sty mempointer ; low byte unchanged
+	; same page as before?
+	cpx zp_pc_l
+	bne .read_new_byte
+	; same 256 byte segment, just return
 -	ldy #0
 	lda (mempointer),y
 	rts
 .read_new_byte
 	txa
-    sta zp_pc_l
+	sta zp_pc_l
 	clc
 	adc #>story_start
 	sta mempointer + 1
@@ -31,21 +33,21 @@ read_byte_at_z_address
 ; No vmem, but ALLRAM 
 
 read_byte_at_z_address
-    ; Subroutine: Read the contents of a byte address in the Z-machine
-    ; a,x,y (high, mid, low) contains address.
-    ; Returns: value in a
-    sty mempointer ; low byte unchanged
-    ; same page as before?
-    cpx zp_pc_l
-    bne .read_new_byte
-    ; same 256 byte segment, just return
+	; Subroutine: Read the contents of a byte address in the Z-machine
+	; a,x,y (high, mid, low) contains address.
+	; Returns: value in a
+	sty mempointer ; low byte unchanged
+	; same page as before?
+	cpx zp_pc_l
+	bne .read_new_byte
+	; same 256 byte segment, just return
 .return_result
 	ldy #0
 	lda (mempointer),y
 	rts
 .read_new_byte
 	txa
-    sta zp_pc_l
+	sta zp_pc_l
 	clc
 	adc #>story_start
 	sta mempointer + 1
@@ -56,17 +58,17 @@ read_byte_at_z_address
 	; adc #>story_start
 	; sta vmap_c64_offset
 	; cmp #first_banked_memory_page
-    ; bcc .unswappable
-    ; this is swappable memory
-    ; update vmem_cache if needed
+	; bcc .unswappable
+	; this is swappable memory
+	; update vmem_cache if needed
 	; Check if this page is in cache
-    ldx #vmem_cache_count - 1
+	ldx #vmem_cache_count - 1
 -   cmp vmem_cache_index,x
-    beq .cache_updated
-    dex
-    bpl -
+	beq .cache_updated
+	dex
+	bpl -
 	; The requested page was not found in the cache
-    ; copy vmem to vmem_cache (banking as needed)
+	; copy vmem to vmem_cache (banking as needed)
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
 	pha
@@ -84,13 +86,13 @@ read_byte_at_z_address
 +	pla
 	sta vmem_cache_index,x
 	pha
-    lda #>vmem_cache_start ; start of cache
-    clc
-    adc vmem_cache_cnt
+	lda #>vmem_cache_start ; start of cache
+	clc
+	adc vmem_cache_cnt
 	tay
 	pla
 	jsr copy_page
-    ; set next cache to use when needed
+	; set next cache to use when needed
 	inx
 	txa
 	dex
@@ -99,11 +101,11 @@ read_byte_at_z_address
 	lda #0
 ++	sta vmem_cache_cnt
 .cache_updated
-    ; x is now vmem_cache (0-4) where we want to read
-    txa
-    clc
-    adc #>vmem_cache_start
-    sta mempointer + 1
+	; x is now vmem_cache (0-4) where we want to read
+	txa
+	clc
+	adc #>vmem_cache_start
+	sta mempointer + 1
 	jmp .return_result 
 } ; End of block for ALLRAM=1
 	
@@ -208,81 +210,81 @@ print_optimized_vm_map
 	jsr dollar
 	jsr dollar
 	jsr newline
-    jsr kernal_readchar   ; read keyboard
-    jmp kernal_reset      ; reset
+	jsr kernal_readchar   ; read keyboard
+	jmp kernal_reset      ; reset
 }
 
 !ifdef TRACE_VM {
 print_vm_map
 !zone {
-    ; print caches
-    jsr space
-    lda #66
-    jsr streams_print_output
-    jsr space
-    lda vmem_cache_cnt
-    jsr printa
-    jsr space
-    jsr dollar
-    lda vmem_cache_index
-    jsr print_byte_as_hex
-    jsr space
-    jsr dollar
-    lda vmem_cache_index + 1
-    jsr print_byte_as_hex
-    jsr space
-    jsr dollar
-    lda vmem_cache_index + 2
-    jsr print_byte_as_hex
-    jsr space
-    jsr dollar
-    lda vmem_cache_index + 3
-    jsr print_byte_as_hex
-    jsr newline
-    ldy #0
+	; print caches
+	jsr space
+	lda #66
+	jsr streams_print_output
+	jsr space
+	lda vmem_cache_cnt
+	jsr printa
+	jsr space
+	jsr dollar
+	lda vmem_cache_index
+	jsr print_byte_as_hex
+	jsr space
+	jsr dollar
+	lda vmem_cache_index + 1
+	jsr print_byte_as_hex
+	jsr space
+	jsr dollar
+	lda vmem_cache_index + 2
+	jsr print_byte_as_hex
+	jsr space
+	jsr dollar
+	lda vmem_cache_index + 3
+	jsr print_byte_as_hex
+	jsr newline
+	ldy #0
 -	; print
-    cpy #10
-    bcs +
-    jsr space ; alignment when <10
+	cpy #10
+	bcs +
+	jsr space ; alignment when <10
 +   jsr printy
-    jsr space
-    lda vmap_z_h,y ; zmachine mem offset ($0 - 
-    and #%11100000
-    jsr print_byte_as_hex
-    jsr space
-    jsr dollar
-    lda vmap_z_h,y ; zmachine mem offset ($0 - 
-    and #%00011111
-    jsr printa
-    lda vmap_z_l,y ; zmachine mem offset ($0 - 
-    jsr print_byte_as_hex
-    lda #0 ; add 00
-    jsr print_byte_as_hex
-    jsr space
+	jsr space
+	lda vmap_z_h,y ; zmachine mem offset ($0 - 
+	and #%11100000
+	jsr print_byte_as_hex
+	jsr space
+	jsr dollar
+	lda vmap_z_h,y ; zmachine mem offset ($0 - 
+	and #%00011111
+	jsr printa
+	lda vmap_z_l,y ; zmachine mem offset ($0 - 
+	jsr print_byte_as_hex
+	lda #0 ; add 00
+	jsr print_byte_as_hex
+	jsr space
 	tya
 	asl
 !ifndef SMALLBLOCK {
 	asl
 }
 	adc vmap_first_ram_page
-    jsr print_byte_as_hex
-    lda #$30
-    jsr streams_print_output
-    lda #$30
-    jsr streams_print_output
-    jsr newline
+	jsr print_byte_as_hex
+	lda #$30
+	jsr streams_print_output
+	lda #$30
+	jsr streams_print_output
+	jsr newline
 .next_entry
-    iny 
-    cpy vmap_used_entries
-    bcc -
-    rts
+	iny 
+	cpy vmap_used_entries
+	bcc -
+	rts
 }
 }
 }
 
 load_blocks_from_index
-    ; vmap_index = index to load
-    ; side effects: a,y,x,status destroyed
+	; vmap_index = index to load
+	; side effects: a,y,x,status destroyed
 !ifdef TRACE_FLOPPY {
 	jsr dollar
 	jsr dollar
@@ -312,8 +314,8 @@ load_blocks_from_index
 	tay ; Store in y so we can use it later.
 ;	cmp #$e0
 ;	bcs +
-    cmp #first_banked_memory_page
-    bcs load_blocks_from_index_using_cache
+	cmp #first_banked_memory_page
+	bcs load_blocks_from_index_using_cache
 +	lda #vmem_block_pagecount ; number of blocks
 	sta readblocks_numblocks
 	sty readblocks_mempos + 1
@@ -324,18 +326,18 @@ load_blocks_from_index
 	sta readblocks_currentblock + 1
 	jsr readblocks
 !ifdef TRACE_VM {
-    jsr print_following_string
-    !pet "load_blocks (normal) ",0
-    jsr print_vm_map
+	jsr print_following_string
+	!pet "load_blocks (normal) ",0
+	jsr print_vm_map
 }
-    rts
+	rts
 
 load_blocks_from_index_using_cache
-    ; vmap_index = index to load
-    ; vmem_cache_cnt = which 256 byte cache use as transfer buffer
+	; vmap_index = index to load
+	; vmem_cache_cnt = which 256 byte cache use as transfer buffer
 	; y = first c64 memory page where it should be loaded
-    ; side effects: a,y,x,status destroyed
-    ; initialise block copy function (see below)
+	; side effects: a,y,x,status destroyed
+	; initialise block copy function (see below)
 
 	; Protect buffer which z_pc points to
 	lda vmem_cache_cnt
@@ -350,56 +352,56 @@ load_blocks_from_index_using_cache
 	ldx #0
 ++	stx vmem_cache_cnt
 +
-    ldx vmap_index
-    lda #>vmem_cache_start ; start of cache
-    clc
-    adc vmem_cache_cnt
+	ldx vmap_index
+	lda #>vmem_cache_start ; start of cache
+	clc
+	adc vmem_cache_cnt
 	sta vmem_temp
 	sty vmem_temp + 1
-    ldx #0 ; Start with page 0 in this 1KB-block
-    ; read next into vmem_cache
+	ldx #0 ; Start with page 0 in this 1KB-block
+	; read next into vmem_cache
 -   lda #>vmem_cache_start ; start of cache
-    clc
-    adc vmem_cache_cnt
-    sta readblocks_mempos + 1
-    txa
-    pha
-    ldx vmap_index
-    ora vmap_z_l,x ; start block
-    sta readblocks_currentblock
-    lda vmap_z_h,x ; start block
-    and #vmem_highbyte_mask
-    sta readblocks_currentblock + 1
-    jsr readblock
-    ; copy vmem_cache to block (banking as needed)
+	clc
+	adc vmem_cache_cnt
+	sta readblocks_mempos + 1
+	txa
+	pha
+	ldx vmap_index
+	ora vmap_z_l,x ; start block
+	sta readblocks_currentblock
+	lda vmap_z_h,x ; start block
+	and #vmem_highbyte_mask
+	sta readblocks_currentblock + 1
+	jsr readblock
+	; copy vmem_cache to block (banking as needed)
 	lda vmem_temp
 	ldy vmem_temp + 1
 	jsr copy_page
 	inc vmem_temp + 1
-    pla
-    tax
-    inx
+	pla
+	tax
+	inx
 	cpx #vmem_block_pagecount ; read 2 or 4 blocks (512 or 1024 bytes) in total
-    bcc -
+	bcc -
 
 	ldx vmem_temp + 1
 	dex
 	txa
 	ldx vmem_cache_cnt
-    sta vmem_cache_index,x
-    rts
+	sta vmem_cache_index,x
+	rts
 
 read_byte_at_z_address
-    ; Subroutine: Read the contents of a byte address in the Z-machine
-    ; a,x,y (high, mid, low) contains address.
-    ; Returns: value in a
-    sty mempointer ; low byte unchanged
-    ; same page as before?
-    cpx zp_pc_l
-    bne .read_new_byte
-    cmp zp_pc_h
-    bne .read_new_byte
-    ; same 256 byte segment, just return
+	; Subroutine: Read the contents of a byte address in the Z-machine
+	; a,x,y (high, mid, low) contains address.
+	; Returns: value in a
+	sty mempointer ; low byte unchanged
+	; same page as before?
+	cpx zp_pc_l
+	bne .read_new_byte
+	cmp zp_pc_h
+	bne .read_new_byte
+	; same 256 byte segment, just return
 -	ldy #0
 	lda (mempointer),y
 	rts
@@ -411,7 +413,7 @@ read_byte_at_z_address
 	; Dynmem access
 	sta zp_pc_h
 	txa
-    sta zp_pc_l
+	sta zp_pc_l
 	adc #>story_start
 	sta mempointer + 1
 	bne - ; Always branch
@@ -420,17 +422,17 @@ read_byte_at_z_address
 	sta vmem_temp + 1
 	lda #0
 	sta vmap_quick_index_match
-    txa
-    sta zp_pc_l
-    and #255 - vmem_blockmask ; keep index into kB chunk
-    sta vmem_offset_in_block
+	txa
+	sta zp_pc_l
+	and #255 - vmem_blockmask ; keep index into kB chunk
+	sta vmem_offset_in_block
 	txa
 	and #vmem_blockmask
 	sta vmem_temp
 	; Check quick index first
 	ldx #vmap_quick_index_length - 1
 -	ldy vmap_quick_index,x
-    cmp vmap_z_l,y ; zmachine mem offset ($0 -
+	cmp vmap_z_l,y ; zmachine mem offset ($0 -
 	beq .quick_index_candidate
 --	dex
 	bpl -
@@ -451,12 +453,12 @@ read_byte_at_z_address
 .no_quick_index_match
 	lda vmem_temp
 
-    ; is there a block with this address in map?
-    ldx vmap_used_entries
+	; is there a block with this address in map?
+	ldx vmap_used_entries
 	dex
 -   ; compare with low byte
-    cmp vmap_z_l,x ; zmachine mem offset ($0 - 
-    beq +
+	cmp vmap_z_l,x ; zmachine mem offset ($0 - 
+	beq +
 .check_next_block
 	dex
 	bpl -
@@ -466,11 +468,11 @@ read_byte_at_z_address
 	and #vmem_highbyte_mask
 	cmp vmem_temp + 1
 	beq .correct_vmap_index_found
-    lda vmem_temp
-    jmp .check_next_block
+	lda vmem_temp
+	jmp .check_next_block
 .correct_vmap_index_found
-    ; vm index for this block found
-    stx vmap_index
+	; vm index for this block found
+	stx vmap_index
 
 	ldy vmap_quick_index_match
 	bne ++ ; This is already in the quick index, don't store it again
@@ -508,14 +510,14 @@ read_byte_at_z_address
 	jmp print_optimized_vm_map
 }	
 }
-        ; Store very recent oldest_age so the first valid index in the following
-        ; loop will be picked as the first candidate.
-        lda #$ff
+	; Store very recent oldest_age so the first valid index in the following
+	; loop will be picked as the first candidate.
+	lda #$ff
 !ifdef DEBUG {
-        sta vmem_oldest_index
+	sta vmem_oldest_index
 }
 	sta vmem_oldest_age
-        bne ++ ; Always branch
+	bne ++ ; Always branch
 	
 	; Check all other indexes to find something older
 -	lda vmap_z_h,x
@@ -530,9 +532,9 @@ read_byte_at_z_address
 	ldy vmap_z_l,x
 	cpy z_pc + 1
 	beq +++
-        iny
-        cpy z_pc + 1
-        bne ++
+	iny
+	cpy z_pc + 1
+	bne ++
 +++	tay
 	and #vmem_highbyte_mask
 	cmp z_pc
@@ -579,11 +581,11 @@ read_byte_at_z_address
 	sty vmap_clock_index
 
 !ifdef DEBUG {
-        lda vmem_oldest_index
-        cmp #$ff
-        bne +
-        lda #ERROR_NO_VMEM_INDEX
-        jsr fatalerror
+	lda vmem_oldest_index
+	cmp #$ff
+	bne +
+	lda #ERROR_NO_VMEM_INDEX
+	jsr fatalerror
 +
 }
 
@@ -610,18 +612,18 @@ read_byte_at_z_address
 	jsr colon
 	cpx vmap_used_entries
 	bcs .printswaps_part_2
-    lda vmap_z_h,x
+	lda vmap_z_h,x
 	and #$7
 	jsr dollar
 	jsr print_byte_as_hex
-    lda vmap_z_l,x
+	lda vmap_z_l,x
 	jsr print_byte_as_hex
 .printswaps_part_2
 	jsr arrow
 	jsr dollar
 	lda zp_pc_h
 	jsr print_byte_as_hex
-    lda zp_pc_l
+	lda zp_pc_l
 	and #vmem_blockmask
 	jsr print_byte_as_hex
 	jsr space
@@ -672,16 +674,16 @@ read_byte_at_z_address
 
 	; Store address of 512 byte block to load, then load it
 	lda zp_pc_h
-    sta vmap_z_h,x
-    lda zp_pc_l
-    and #vmem_blockmask ; skip bit 0 since 512 byte blocks
-    sta vmap_z_l,x
-    stx vmap_index
-    jsr load_blocks_from_index
+	sta vmap_z_h,x
+	lda zp_pc_l
+	and #vmem_blockmask ; skip bit 0 since 512 byte blocks
+	sta vmap_z_l,x
+	stx vmap_index
+	jsr load_blocks_from_index
 .index_found
-    ; index found
+	; index found
 	; Update tick for last access 
-    ldx vmap_index
+	ldx vmap_index
 	lda vmap_z_h,x
 	and #vmem_highbyte_mask
 	ora vmem_tick
@@ -696,19 +698,19 @@ read_byte_at_z_address
 	adc vmap_first_ram_page
 	sta vmap_c64_offset
 	cmp #first_banked_memory_page
-    bcc .unswappable
-    ; this is swappable memory
-    ; update vmem_cache if needed
-    clc
-    adc vmem_offset_in_block
+	bcc .unswappable
+	; this is swappable memory
+	; update vmem_cache if needed
+	clc
+	adc vmem_offset_in_block
 	; Check if this page is in cache
-    ldx #vmem_cache_count - 1
+	ldx #vmem_cache_count - 1
 -   cmp vmem_cache_index,x
-    beq .cache_updated
-    dex
-    bpl -
+	beq .cache_updated
+	dex
+	bpl -
 	; The requested page was not found in the cache
-    ; copy vmem to vmem_cache (banking as needed)
+	; copy vmem to vmem_cache (banking as needed)
 	sta vmem_temp
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
@@ -726,13 +728,13 @@ read_byte_at_z_address
 
 +	pla
 	sta vmem_cache_index,x
-    lda #>vmem_cache_start ; start of cache
-    clc
-    adc vmem_cache_cnt
+	lda #>vmem_cache_start ; start of cache
+	clc
+	adc vmem_cache_cnt
 	tay
 	lda vmem_temp
 	jsr copy_page
-    ; set next cache to use when needed
+	; set next cache to use when needed
 	inx
 	txa
 	dex
@@ -741,21 +743,21 @@ read_byte_at_z_address
 	lda #0
 ++	sta vmem_cache_cnt
 .cache_updated
-    ; x is now vmem_cache (0-3) where current z_pc is
-    txa
-    clc
-    adc #>vmem_cache_start
-    sta mempointer + 1
-    ldx vmap_index
-    bne .return_result ; always true
+	; x is now vmem_cache (0-3) where current z_pc is
+	txa
+	clc
+	adc #>vmem_cache_start
+	sta mempointer + 1
+	ldx vmap_index
+	bne .return_result ; always true
 .unswappable
-    ; update memory pointer
-    lda vmem_offset_in_block
-    clc
-    adc vmap_c64_offset
-    sta mempointer + 1
+	; update memory pointer
+	lda vmem_offset_in_block
+	clc
+	adc vmap_c64_offset
+	sta mempointer + 1
 .return_result
-    ldy #0
-    lda (mempointer),y
-    rts
+	ldy #0
+	lda (mempointer),y
+	rts
 }

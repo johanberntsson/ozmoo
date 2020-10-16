@@ -7,13 +7,18 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
+    $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
 else
 	# Paths on Linux
-    $X64 = "/usr/bin/x64 -autostart-delay-random"
-    $C1541 = "/usr/bin/c1541"
+    $X64 = "x64 -autostart-delay-random"
+    $X128 = "x128 -autostart-delay-random"
+    #$X128 = "x128 -80col -autostart-delay-random"
+    $XPLUS4 = "xplus4 -autostart-delay-random"
+    $MEGA65 = "xemu-xmega65"
+    $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
 end
@@ -77,6 +82,8 @@ $SRCDIR = File.join(__dir__, 'asm')
 $TEMPDIR = File.join(__dir__, 'temp')
 Dir.mkdir($TEMPDIR) unless Dir.exist?($TEMPDIR)
 
+$wrapper_labels_file = File.join($TEMPDIR, 'wrapper_labels.txt')
+$wrapper_file = File.join($TEMPDIR, 'wrapper')
 $labels_file = File.join($TEMPDIR, 'acme_labels.txt')
 $loader_labels_file = File.join($TEMPDIR, 'acme_labels_loader.txt')
 # $loader_pic_file = File.join($EXECDIR, 'loaderpic.kla')
@@ -86,6 +93,7 @@ $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
+$universal_file = File.join($TEMPDIR, 'universal')
 
 $beyondzork_releases = {
     "r47-s870915" => "f347 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
@@ -473,7 +481,7 @@ class D81_image < Disk_image
 	end # initialize
 
 	def create_story_partition
-		if @storydata_start_track > 0 and @storydata_end_track > @storydata_start_track
+		if @storydata_start_track > 0 and @storydata_end_track >= @storydata_start_track
 
 			sector = @contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255]
 			@storydata_start_track -= 1 if @config_track == @storydata_start_track - 1
@@ -641,13 +649,20 @@ def build_interpreter()
 	end
 
 	fontflag = $font_filename ? ' -DCUSTOM_FONT=1' : ''
-    compressionflags = ''
+	compressionflags = ''
 
-    cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
+	if $target == "mega65" then
+		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" asm/c65toc64wrapper.asm"
+		puts cmd
+		ret = system(cmd)
+		exit 0 unless ret
+	end
+    
+	cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
 		"#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd
 	Dir.chdir $SRCDIR
-    ret = system(cmd)
+	ret = system(cmd)
 	Dir.chdir $EXECDIR
 	unless ret
 		puts "ERROR: There was a problem calling Acme"
@@ -667,7 +682,7 @@ def read_labels(label_file_name)
 end
 
 def build_loader_file()
-	necessarysettings =  " --cpu 6510 --format cbm"
+	necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
 	optionalsettings = ""
 	optionalsettings += " -DFLICKER=1" if $loader_flicker
 	
@@ -693,21 +708,29 @@ def build_loader_file()
 		puts "ERROR: There was a problem calling Exomizer"
 		exit 1
 	end
-
 	File.size($loader_zip_file)
 end
 
 
 def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
-	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks + vmem_preload_blocks) * $VMEM_BLOCKSIZE, 0x10000 - $storystart, File.size($compmem_filename)].min}"
+	compmem_clause = " \"#{$compmem_filename}\"@#{$storystart},0,#{[($dynmem_blocks +
+		vmem_preload_blocks) * $VMEM_BLOCKSIZE, $memory_end_address - $storystart, 
+		File.size($compmem_filename)].min}"
 
 	font_clause = ""
-	if $font_filename then
+	if $font_filename
 		font_clause = " \"#{$font_filename}\"@2048"
+	end
+	exo_target = ""
+	if $target == 'plus4'
+		exo_target = " -t4"
+	end
+	if $target == 'c128'
+		exo_target = " -t128"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
 	puts exomizer_cmd
 	ret = system(exomizer_cmd)
@@ -777,18 +800,39 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 end
 
 def add_loader_file(diskimage_filename)
-	puts "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
-	system("#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader")
+	c1541_cmd = "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
+	puts c1541_cmd
+	system(c1541_cmd)
 end
 
 def add_boot_file(finaldiskname, diskimage_filename)
+	if $target == "mega65" then	
+	        # Put C65/C64 mode switch wrapper on the front
+        	cmd = "cat #{$wrapper_file} #{$good_zip_file} > #{$universal_file}";
+	        puts cmd
+	        ret = system(cmd)
+	        exit 0 unless ret
+	end
 	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
-	puts "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
-	system("#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story")
+	
+	c1541_cmd = "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+	if $target == "mega65" then	
+		c1541_cmd = "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
+	end
+	puts c1541_cmd
+	system(c1541_cmd)
 end
 
 def play(filename)
-	command = "#{$X64} #{filename}"
+	if $target == "mega65" then
+	    command = "#{$MEGA65} -8 #{filename}"
+	elsif $target == "plus4" then
+	    command = "#{$XPLUS4} #{filename}"
+	elsif $target == "c128" then
+	    command = "#{$X128} #{filename}"
+	else
+	    command = "#{$X64} #{filename}"
+	end
 	puts command
     system(command)
 end
@@ -1260,7 +1304,7 @@ def print_usage_and_exit
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default)."
+	puts "  -t: specify target machine. Available targets are c64 (default) and mega65."
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
 	puts "  -c: read preload config from preloadfile, previously created with -o"
@@ -1306,6 +1350,7 @@ preload_max_vmem_blocks = 2**16 / $VMEM_BLOCKSIZE
 limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
+$memory_end_address = 0x10000
 $colour_replacements = []
 $default_colours = []
 $default_colours_dm = []
@@ -1348,8 +1393,23 @@ begin
 			limit_preload_vmem_blocks = true
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
-		elsif ARGV[i] =~ /^-t:(c64|mega65)$/ then
+		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
+			if $target == "mega65" then
+			    # d81 as default for Mega65 and different start address
+			    $start_address = 0x1001
+			    mode = MODE_81
+			    # this will not work since mode is default MODE_S1 above
+			    #mode = MODE_81 unless mode 
+			elsif $target == "plus4" then
+			    # Different start address
+			    $start_address = 0x1001
+				$memory_end_address = 0xfd00
+			elsif $target == "c128" then
+			    # Different start address
+			    $start_address = 0x1c01
+				$memory_end_address = 0xfd00
+			end
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then
@@ -1551,7 +1611,7 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 # check header.release and serial to find out if beyondzork or not
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
-storyfile_key = "r%d-s%d" % [ release, serial ]
+storyfile_key = "r%d-s%s" % [ release, serial ]
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 
 $no_darkmode = nil

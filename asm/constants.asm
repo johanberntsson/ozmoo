@@ -1,3 +1,42 @@
+; C128 is now in a separate constants-c128 instead
+;
+
+!ifdef TARGET_C64 {
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 40
+SCREEN_ADDRESS        = $0400
+COLOUR_ADDRESS        = $d800
+COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
+CURRENT_DEVICE        = $ba
+ti_variable           = $a0; 3 bytes
+zp_temp               = $fb ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
+}
+
+!ifdef TARGET_PLUS4 {
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 40
+SCREEN_ADDRESS        = $0c00
+COLOUR_ADDRESS        = $0800
+COLOUR_ADDRESS_DIFF   = $10000 + COLOUR_ADDRESS - SCREEN_ADDRESS
+CURRENT_DEVICE        = $ae
+ti_variable           = $a3; 3 bytes
+zp_temp               = $3b ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
+}
+
+!ifdef TARGET_MEGA65 {
+SCREEN_HEIGHT         = 25
+SCREEN_WIDTH          = 80
+SCREEN_ADDRESS        = $0800
+COLOUR_ADDRESS        = $d800
+COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
+CURRENT_DEVICE        = $ba
+ti_variable           = $a0; 3 bytes
+zp_temp               = $fb ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
+}
+
 ; --- ZERO PAGE --
 ; BASIC not much used, so many positions free to use
 ; memory bank control
@@ -21,20 +60,25 @@ zp_mempos             = $14 ; 2 bytes
 z_operand_value_high_arr = $16 ; !byte 0, 0, 0, 0, 0, 0, 0, 0
 z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
 
-; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
-z_local_vars_ptr      = $26 ; 2 bytes
-z_local_var_count	  = $28
-stack_pushed_bytes	  = $29 ; !byte 0, 0
-stack_ptr             = $2b ; 2 bytes
-stack_top_value 	  = $2d ; 2 bytes !byte 0, 0
-stack_has_top_value   = $2f ; !byte 0
-z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
-z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
-; z_pc_mempointer_is_unsafe = $34
-
-zp_save_start = z_local_vars_ptr
-zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
-
+;
+; NOTE: This entire block of variables, except last byte of z_pc_mempointer
+; and z_pc_mempointer_is_unsafe is included in the save/restore files
+; and _have_ to be stored in a contiguous block of zero page addresses
+;
+	z_local_vars_ptr      = $26 ; 2 bytes
+	z_local_var_count	  = $28
+	stack_pushed_bytes	  = $29 ; !byte 0, 0
+	stack_ptr             = $2b ; 2 bytes
+	stack_top_value 	  = $2d ; 2 bytes !byte 0, 0
+	stack_has_top_value   = $2f ; !byte 0
+	z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
+	z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
+	zp_save_start = z_local_vars_ptr
+	zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
+;
+; End of contiguous zero page block
+;
+;
 
 vmap_max_entries	  = $34
 
@@ -100,25 +144,27 @@ max_chars_on_line	  = $bd; !byte 0
 buffer_index		  = $be ; !byte 0
 last_break_char_buffer_pos = $bf ; !byte 0
 
-
 zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
-zp_screencolumn       = $d3 ; current cursor column
-zp_screenrow          = $d6 ; current cursor row
+zp_screencolumn       = $d3 ; 1 byte current cursor column
+zp_screenrow          = $d6 ; 1 byte current cursor row
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 cursor_row			  = $f7 ; 2 bytes
 cursor_column		  = $f9 ; 2 bytes
-zp_temp               = $fb ; 5 bytes
 
-print_buffer		  = $100 ; 41 bytes
-print_buffer2             = $129 ; 41 bytes
+print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
+print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
 
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
 
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
+!ifdef TARGET_PLUS4 {
+charset_switchable 	  = $547
+} else {
 charset_switchable 	  = $291
+}
 
 datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
 datasette_buffer_end  = $03fb
@@ -128,21 +174,40 @@ datasette_buffer_end  = $03fb
 ;basic_printinteger    = $bdcd ; write integer value in a/x
 
 ; --- I/O registers ---
+!ifdef TARGET_PLUS4 {
+; TED reference here:
+; http://mclauchlan.site.net.au/scott/C=Hacking/C-Hacking12/gfx.html
+reg_screen_char_mode  = $ff13
+reg_bordercolour      = $ff19
+reg_backgroundcolour  = $ff15 
+}
+!ifdef TARGET_MEGA65 {
 reg_screen_char_mode  = $d018 
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
+}
+!ifdef TARGET_C64 {
+reg_screen_char_mode  = $d018 
+reg_bordercolour      = $d020
+reg_backgroundcolour  = $d021 
+}
 
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
-kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
+!ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
-kernal_scnkey         = $ff9f ; scan the keyboard
+}
+!ifdef TARGET_PLUS4 {
+kernal_reset          = $fce2 ; cold reset of the PLUS4
+}
+!ifdef TARGET_MEGA65 {
+kernal_reset          = 58552 ; Reset back to C65 mode
+}
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
 kernal_open           = $ffc0 ; open a file
 kernal_close          = $ffc3 ; close a file
 kernal_chkin          = $ffc6 ; define file as default input
-kernal_chkout         = $ffc9 ; define file as default output
 kernal_clrchn         = $ffcc ; close default input/output files
 kernal_readchar       = $ffcf ; read byte from default input into a
 ;use streams_print_output instead of kernal_printchar
@@ -152,36 +217,3 @@ kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
-kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
-
-
-; story file header constants
-header_version = $0
-header_flags_1 = $1
-header_high_mem = $4
-header_initial_pc = $6
-header_dictionary = $8
-header_object_table = $a
-header_globals = $c
-header_static_mem = $e
-header_flags_2 = $10
-header_serial = $12
-header_abbreviations = $18
-header_filelength = $1a
-header_checksum = $1c
-header_interpreter_number = $1e
-header_interpreter_version = $1f
-header_screen_height_lines = $20
-header_screen_width_chars = $21
-header_screen_width_units = $22
-header_screen_height_units = $24
-header_font_width_units = $26
-header_font_height_units = $27
-header_default_bg_colour = $2c
-header_default_fg_colour = $2d
-header_terminating_chars_table = $2e
-header_standard_revision_number = $32
-header_alphabet_table = $34
-header_header_extension_table = $36
-
-

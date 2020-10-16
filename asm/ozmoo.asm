@@ -9,8 +9,22 @@
 ; Which machine to generate code for
 ; C64 is default and currently the only supported target, but
 ; future versions may include new targets such as Mega65, Plus/4 etc.
-!ifndef TARGET_C64 {
-    TARGET_C64 = 1 ; C64 is the default target
+!ifdef TARGET_MEGA65 {
+	TARGET_ASSIGNED = 1
+}
+!ifdef TARGET_PLUS4 {
+	TARGET_ASSIGNED = 1
+}
+!ifdef TARGET_C64 {
+	TARGET_ASSIGNED = 1
+}
+!ifdef TARGET_C128 {
+	TARGET_ASSIGNED = 1
+}
+
+!ifndef TARGET_ASSIGNED {
+	; No target given. C64 is the default target
+	TARGET_C64 = 1
 }
 
 !ifdef VMEM {
@@ -48,8 +62,6 @@
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
-
-!source "constants.asm"
 
 !ifdef TRACE {
 	z_trace_size = 256
@@ -181,9 +193,24 @@
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
-program_start
 
-    jmp .initialize
+program_start
+!ifdef TARGET_C128 {
+	; initialize is in Basic LO ROM in C128 mode, so we need
+	; to turn off BASIC already here. Since the set_memory_no_basic
+	; macro isn't defined yet we'll have to do it manually
+	lda #%00001110
+	sta $ff00
+}
+	jmp .initialize
+
+!ifdef TARGET_C128 {
+!source "constants-c128.asm"
+} else {
+!source "constants.asm"
+}
+!source "constants-header.asm"
+
 
 ; global variables
 ; filelength !byte 0, 0, 0
@@ -215,7 +242,7 @@ game_id		!byte 0,0,0,0
 
 .initialize
 !ifdef TESTSCREEN {
-    jmp testscreen
+	jmp testscreen
 }
 	jsr deletable_init_start
 ;	jsr init_screen_colours
@@ -226,36 +253,36 @@ game_id		!byte 0,0,0,0
 
 !ifdef VMEM {
 !ifdef TARGET_C64 {
-    ; set up C64 SuperCPU if any
-    ; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
-    lda $d0bc ; SuperCPU control register (read only)
-    and #$80  ; DOS extension mode? 0 if SuperCPU, 1 if standard C64
-    beq .supercpu
-    ;bne .nosupercpu 
-    ; it doesn't matter what you store in the SuperCPU control registers
-    ; it is just the access itself that counts
-    ;sta $d07e ; enable hardware registers
-    ;sta $d076 ; basic optimization
-    ;sta $d077 ; no memory optimization
-    ;sta $d07f ; disable hardware registers
-    ;sta $d07a ; normal speed (1 MHz)
+	; set up C64 SuperCPU if any
+	; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
+	lda $d0bc ; SuperCPU control register (read only)
+	and #$80  ; DOS extension mode? 0 if SuperCPU, 1 if standard C64
+	beq .supercpu
+	;bne .nosupercpu 
+	; it doesn't matter what you store in the SuperCPU control registers
+	; it is just the access itself that counts
+	;sta $d07e ; enable hardware registers
+	;sta $d076 ; basic optimization
+	;sta $d077 ; no memory optimization
+	;sta $d07f ; disable hardware registers
+	;sta $d07a ; normal speed (1 MHz)
 }
-    ; SuperCPU and REU doesn't work well together
-    ; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
-    ;
+	; SuperCPU and REU doesn't work well together
+	; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
+	;
 	jsr reu_start
 .supercpu
 }
 	jsr deletable_init
-    jsr parse_object_table
+	jsr parse_object_table
 !ifndef Z5PLUS {
-    ; Setup default dictionary
+	; Setup default dictionary
 	jsr parse_default_dictionary
 }
 
 !ifdef Z5PLUS {
-    ; set up terminating characters
-    jsr parse_terminating_characters
+	; set up terminating characters
+	jsr parse_terminating_characters
 }
 	
 	jsr streams_init
@@ -275,7 +302,7 @@ game_id		!byte 0,0,0,0
 	;jsr $fd50 ; init memory
 	jsr $fd15 ; set I/O vectors
 	jsr $ff5b ; more init
-    jmp ($a000)
+	jmp ($a000)
 	
 program_end
 
@@ -310,8 +337,8 @@ stack_start
 deletable_screen_init_1
 	; start text output from bottom of the screen
 	
-    lda #147 ; clear screen
-    jsr s_printchar
+	lda #147 ; clear screen
+	jsr s_printchar
 	ldy #0
 	sty current_window
 	sty window_start_row + 3
@@ -320,7 +347,7 @@ deletable_screen_init_1
 }
 	sty window_start_row + 2
 	sty window_start_row + 1
-	ldy #25
+	ldy s_screen_heigth
 	sty window_start_row
 	ldy #0
 	sty is_buffered_window
@@ -330,8 +357,8 @@ deletable_screen_init_1
 deletable_screen_init_2
 	; start text output from bottom of the screen
 	
-    lda #147 ; clear screen
-    jsr s_printchar
+	lda #147 ; clear screen
+	jsr s_printchar
 	ldy #1
 	sty is_buffered_window
 	ldx #$ff
@@ -367,77 +394,104 @@ z_init
 	
 	; Modify header to tell game about terp capabilities
 !ifdef Z3 {
-	lda story_start + header_flags_1
+	ldy #header_flags_1
+	jsr read_header_word
 	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
 	ora #32 ; Split screen available
-	sta story_start + header_flags_1
+	jsr write_header_byte
 } else {
 !ifdef Z4 {
-	lda story_start + header_flags_1
+	ldy #header_flags_1
+	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(16 + 128) ; Fixed-space style, timed input available
-	sta story_start + header_flags_1
+	jsr write_header_byte
 } else { ; Z5PLUS
-	lda story_start + header_flags_1
+	ldy #header_flags_1
+	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
-	sta story_start + header_flags_1
-	lda story_start + header_flags_2 + 1
+	jsr write_header_byte
+	ldy #header_flags_2 + 1
+	jsr read_header_word
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
-	sta story_start + header_flags_2 + 1
+	jsr write_header_byte
 }
 }
 !ifdef Z4PLUS {
-	lda #TERPNO
-	sta story_start + header_interpreter_number ; Interpreter number (8 = C64)
+	lda #TERPNO ; Interpreter number (8 = C64)
+	ldy #header_interpreter_number 
+	jsr write_header_byte
 	lda #68 ; "D" = release 4
-	sta story_start + header_interpreter_version ; Interpreter version. Usually ASCII code for a capital letter
+	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
+	jsr write_header_byte
 	lda #25
-	sta story_start + header_screen_height_lines
+	ldy #header_screen_height_lines
+	jsr write_header_byte
 !ifdef Z5PLUS {
-	sta story_start + header_screen_height_units + 1
-}
-	lda #40
-	sta story_start + header_screen_width_chars
-!ifdef Z5PLUS {
-	sta story_start + header_screen_width_units + 1
-}
-}
+	ldy #header_screen_height_units
+	tax
 	lda #0
-	sta story_start + header_standard_revision_number ; major standard revision number which this terp complies to
-	sta story_start + header_standard_revision_number + 1 ; minor standard revision number which this terp complies to
+	jsr write_header_word
+}
+	lda s_screen_width
+	ldy #header_screen_width_chars
+	jsr write_header_byte
+!ifdef Z5PLUS {
+	ldy #header_screen_width_units
+	tax
+	lda #0
+	jsr write_header_word
+}
+}
+	lda #0 ; major standard revision number which this terp complies to
+	tax    ; minor standard revision number which this terp complies to
+	ldy #header_standard_revision_number
+	jsr write_header_word
 
 !ifdef Z5PLUS {
-	; a is already 0
-	sta story_start + header_screen_width_units
-	sta story_start + header_screen_height_units
 	lda #1
-	sta story_start + header_font_width_units
-	sta story_start + header_font_height_units
+	ldy #header_font_width_units
+	jsr write_header_byte
+	ldy #header_font_height_units
+	jsr write_header_byte
 	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
 }
 	
 	; Copy alphabet pointer from header, or default
+dummy
+!ifdef Z5PLUS {
+	ldy #header_alphabet_table
+	jsr read_header_word
+	cmp #0
+	bne .custom_alphabet
+	cpx #0
+	beq .store_alphabet_pointer
+.custom_alphabet
+	jsr set_z_address
+	ldy #0
+-	jsr read_next_byte
+	sta default_alphabet,y
+	iny
+	cpy #26*3
+	bcc -
+.store_alphabet_pointer
+}
 	ldx #<default_alphabet
 	ldy #>default_alphabet
-!ifdef Z5PLUS {
-	lda story_start + header_alphabet_table
-	ora story_start + header_alphabet_table + 1
-	beq .no_custom_alphabet
-	ldx story_start + header_alphabet_table + 1
-	lda story_start + header_alphabet_table
-	clc
-	adc #>story_start
-	tay
-.no_custom_alphabet
-}
+;.store_alphabet_pointer
 	stx alphabet_table
 	sty alphabet_table + 1
 	
 	; Copy z_pc from header
+	ldy #header_initial_pc
+	jsr read_header_word
+	pha
+	txa
+	tay
+	pla
+	tax
 	lda #0
-	ldx story_start + header_initial_pc
-	ldy story_start + header_initial_pc + 1
 !ifndef VMEM {
 	sta z_pc
 }
@@ -445,12 +499,15 @@ z_init
 	jsr get_page_at_z_pc
 
 	; Setup globals pointer
-	lda story_start + header_globals + 1
+	ldy #header_globals
+	jsr read_header_word
+	tay
+	txa
 	clc
 	adc #<(story_start - 32)
 	sta z_low_global_vars_ptr
 	sta z_high_global_vars_ptr
-	lda story_start + header_globals
+	tya
 	adc #>(story_start - 32)
 	sta z_low_global_vars_ptr + 1
 	adc #1
@@ -486,31 +543,53 @@ z_init
 !zone deletable_init {
 deletable_init_start
 !ifdef CUSTOM_FONT {
-    lda #18
+	lda #18
 } else {
 	lda #23
 }
-    sta reg_screen_char_mode
+!ifdef TARGET_PLUS4 {
+	lda #212
+}
+	sta reg_screen_char_mode
 	lda #$80
 	sta charset_switchable
+
+!ifdef TARGET_MEGA65 {
+	;; MEGA65 IO enable
+	jsr mega65io
+	;; 40MHz CPU
+	lda #65
+	sta 0
+	;; 80-column mode
+	lda #$c0
+	sta $d031
+	lda #$c9
+	sta $D016
+	;; Screen at $0800
+	lda #$26
+	sta $d018
+	;; Disable VIC-II/VIC-III hot registers
+	lda $d05d
+	and #$7f
+	sta $d05d
+}
 
 	jmp init_screen_colours ; _invisible
 
 
 deletable_init
 	cld
-    ; ; check if PAL or NTSC (needed for read_line timer)
+	; ; check if PAL or NTSC (needed for read_line timer)
 ; w0  lda $d012
 ; w1  cmp $d012
-    ; beq w1
-    ; bmi w0
-    ; and #$03
-    ; sta c64_model
-    ; enable lower case mode
+	; beq w1
+	; bmi w0
+	; and #$03
+	; sta c64_model
+	; enable lower case mode
 
 ; Read and parse config from boot disk
-	; $BA holds last used device#
-	ldy $ba
+	ldy CURRENT_DEVICE
 	cpy #8
 	bcc .pick_default_boot_device
 	cpy #12
@@ -552,8 +631,9 @@ deletable_init
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM
 	sty disk_info + 4
+	ldy #header_static_mem
+	jsr read_header_word
 	ldx #$30 ; First unavailable slot
-	lda story_start + header_static_mem
 	clc
 	adc #(>stack_size) + 4
 	sta zp_temp
@@ -590,24 +670,30 @@ deletable_init
 ; parse_header section
 
 !ifndef UNSAFE {
-    ; check z machine version
-    lda story_start + header_version
+	; check z machine version
+	ldy #header_version
+	jsr read_header_word
 	cmp #ZMACHINEVERSION
 	beq .supported_version
-    lda #ERROR_UNSUPPORTED_STORY_VERSION
-    jsr fatalerror
+	lda #ERROR_UNSUPPORTED_STORY_VERSION
+	jsr fatalerror
 .supported_version
 }
 
-	; Check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+	; Store the size of dynmem AND (if VMEM is enabled)
+	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+	ldy #header_static_mem
+	jsr read_header_word
+	stx dynmem_size
+	sta dynmem_size + 1
 !ifdef VMEM {
-	ldy story_start + header_static_mem
-	lda story_start + header_static_mem + 1
+	tay
+	cpx #0
 	beq .maybe_inc_nonstored_blocks
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
 .maybe_inc_nonstored_blocks
 	tya
-    and #255 - vmem_blockmask ; keep index into kB chunk
+	and #255 - vmem_blockmask ; keep index into kB chunk
 	beq .store_nonstored_blocks
 	iny
 !ifndef SMALLBLOCK {
@@ -633,7 +719,7 @@ deletable_init
 ++	
 }
 !ifdef VMEM_STRESS {
-        lda #2 ; one block for PC, one block for data
+	lda #2 ; one block for PC, one block for data
 }
 	sta vmap_max_entries
 
@@ -649,22 +735,22 @@ deletable_init
 } ; End of !ifdef VMEM
 
    ; ; check file length
-    ; ; Start by multiplying file length by 2
+	; ; Start by multiplying file length by 2
 	; lda #0
 	; sta filelength
-    ; lda story_start + header_filelength
+	; lda story_start + header_filelength
 	; sta filelength + 1
-    ; lda story_start + header_filelength + 1
+	; lda story_start + header_filelength + 1
 	; asl
 	; rol filelength + 1
 	; rol filelength
 ; !ifdef Z4PLUS {
-    ; ; Multiply file length by 2 again (for Z4, Z5 and Z8)
+	; ; Multiply file length by 2 again (for Z4, Z5 and Z8)
 	; asl
 	; rol filelength + 1
 	; rol filelength
 ; !ifdef Z8 {
-    ; ; Multiply file length by 2 again (for Z8)
+	; ; Multiply file length by 2 again (for Z8)
 	; asl
 	; rol filelength + 1
 	; rol filelength
@@ -862,11 +948,11 @@ copy_data_from_disk_at_zp_temp_to_reu
 	ldx #<.reu_error_msg
 	jsr printstring_raw
 -	jsr kernal_getchar
-    beq -
+	beq -
 	rts
 
 .reu_error_msg
-    !pet "REU error. [SPACE]",0
+	!pet "REU error. [SPACE]",0
 
 copy_page_to_reu
 	; a,x = REU page
@@ -899,7 +985,7 @@ reu_start
 	ldx #<.use_reu_question
 	jsr printstring_raw
 -	jsr kernal_getchar
-    beq -
+	beq -
 	cmp #89
 	bne .no_reu
 	ldx #$80 ; Use REU, set vmem to reu loading mode
@@ -907,13 +993,13 @@ reu_start
 	ora #$80
 	bne .print_reply_and_return ; Always branch
 .use_reu_question
-    !pet 13,"Use REU? (Y/N) ",0
+	!pet 13,"Use REU? (Y/N) ",0
 
 }
 prepare_static_high_memory
-    lda #$ff
-    sta zp_pc_h
-    sta zp_pc_l
+	lda #$ff
+	sta zp_pc_h
+	sta zp_pc_l
 
 ; ; Clear vmap_z_h
 	; ldy vmap_max_entries
@@ -986,7 +1072,7 @@ prepare_static_high_memory
 	bpl -
 .no_entries
 !ifdef TRACE_VM {
-    jsr print_vm_map
+	jsr print_vm_map
 }
 	rts
 	
@@ -1010,9 +1096,9 @@ load_suggested_pages
 +	stx vmap_clock_index
 
 !ifdef TRACE_VM {
-    jsr print_vm_map
+	jsr print_vm_map
 }
-    rts
+	rts
 } 
 
 !ifndef ALLRAM {
