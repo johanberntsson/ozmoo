@@ -445,7 +445,7 @@ convert_zchar_to_char
 	clc
 	adc alphabet_offset
 	tay
-	lda (alphabet_table),y
+	lda z_alphabet_table,y
 +++	rts
 
 translate_petscii_to_zscii
@@ -494,7 +494,7 @@ convert_char_to_zchar
 ;	jsr translate_petscii_to_zscii
 	sty zp_temp + 4
 	ldy #0
--   cmp (alphabet_table),y
+-   cmp z_alphabet_table,y
 	beq .found_char_in_alphabet
 	iny
 	cpy #26*3
@@ -1869,7 +1869,7 @@ parse_array_write_byte
 ; .zchars !byte 0,0,0
 ; .packedtext !byte 0,0
 ; .alphabet_offset !byte 0
-default_alphabet ; 26 * 3
+z_alphabet_table ; 26 * 3
 	!raw "abcdefghijklmnopqrstuvwxyz"
 	!raw "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	!raw 32,13,"0123456789.,!?_#'",34,47,92,"-:()"

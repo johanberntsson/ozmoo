@@ -121,7 +121,7 @@ z_temp				  = $68 ; 12 bytes
 s_colour 			  = $74 ; !byte 1 ; white as default
 
 vmem_temp			  = $92 ; 2 bytes
-alphabet_table		  = $96 ; 2 bytes
+; alphabet_table		  = $96 ; 2 bytes
 
 use_reu				  = $9b
 

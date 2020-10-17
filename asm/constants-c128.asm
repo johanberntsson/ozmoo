@@ -83,7 +83,7 @@ use_reu	              = $5e ;  ### OK C128
 
 
 z_temp				  = $61 ; 12 bytes $61-$6c ### OK C128 but problems if user enters monitor!
-alphabet_table		  = $6d ; 2 bytes ### OK C128
+; alphabet_table		  = $6d ; 2 bytes ### OK C128
 
 zchar_triplet_cnt     = $6f ; ### OK C128
 packed_text           = $70 ; 2 bytes ### OK C128

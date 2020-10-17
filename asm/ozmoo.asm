@@ -471,17 +471,17 @@ dummy
 	jsr set_z_address
 	ldy #0
 -	jsr read_next_byte
-	sta default_alphabet,y
+	sta z_alphabet_table,y
 	iny
 	cpy #26*3
 	bcc -
 .store_alphabet_pointer
 }
-	ldx #<default_alphabet
-	ldy #>default_alphabet
+;	ldx #<default_alphabet
+;	ldy #>default_alphabet
 ;.store_alphabet_pointer
-	stx alphabet_table
-	sty alphabet_table + 1
+;	stx alphabet_table
+;	sty alphabet_table + 1
 	
 	; Copy z_pc from header
 	ldy #header_initial_pc
