@@ -201,7 +201,7 @@ kernal_reset          = $fce2 ; cold reset of the C64
 kernal_reset          = $fce2 ; cold reset of the PLUS4
 }
 !ifdef TARGET_MEGA65 {
-kernal_reset          = 58552 ; Reset back to C65 mode
+kernal_reset          = $e4b8 ; Reset back to C65 mode
 }
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name

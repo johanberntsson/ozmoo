@@ -32,17 +32,17 @@ init_screen_colours
 	; colours
 	lda zcolours + FGCOL
 !if BORDERCOL_FINAL = 1 {
-	sta reg_bordercolour
+	+SetBorderColour
 }
 +	jsr s_set_text_colour
 	lda zcolours + BGCOL
-	sta reg_backgroundcolour
+	+SetBackgroundColour
 !if BORDERCOL_FINAL = 0 {
-	sta reg_bordercolour
+	+SetBorderColour
 } else {
 	!if BORDERCOL_FINAL != 1 {
 		lda zcolours + BORDERCOL_FINAL
-		sta reg_bordercolour
+		+SetBorderColour
 	}
 }
 	lda zcolours + CURSORCOL

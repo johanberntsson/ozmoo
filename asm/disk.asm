@@ -486,6 +486,10 @@ z_ins_restart
 	jsr print_insert_disk_msg
 +
 
+!ifdef TARGET_MEGA65 {
+	; reset will autoboot the game again from disk
+	jsr kernal_reset
+} else {
 	; Copy restart code
 	ldx #.restart_code_end - .restart_code_begin
 -	lda .restart_code_begin - 1,x
@@ -502,8 +506,7 @@ z_ins_restart
 	bne - ; Always branch
 +	stx 198
 	jsr clear_screen_raw
-	; lda #147
-	; jsr $ffd2
+}
 	lda #z_exe_mode_exit
 	sta z_exe_mode
 	rts
@@ -584,7 +587,8 @@ z_ins_save
 	jsr turn_on_cursor
 	lda #0
 	sta .inputlen
--   jsr kernal_getchar
+-	jsr kernal_getchar
+	beq -
 	cmp #$14 ; delete
 	bne +
 	ldx .inputlen
@@ -806,7 +810,7 @@ list_save_files
 	clc
 -	dec .counter
 	bmi +
-	adc #40
+	adc s_screen_width
 	tax
 	tya
 	adc #0

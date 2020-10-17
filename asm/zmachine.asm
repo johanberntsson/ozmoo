@@ -1172,6 +1172,9 @@ z_ins_rfalse
 ; z_ins_catch (moved to stack.asm)
 
 z_ins_quit
+!ifdef TARGET_MEGA65 {
+	; TODO: how to reset without activating autoboot?
+}
 	jmp kernal_reset
 
 ; z_ins_restart (moved to disk.asm)

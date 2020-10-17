@@ -1119,7 +1119,13 @@ update_cursor
 	lda cursor_character
 	sta (zp_screenline),y
 	lda current_cursor_colour
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
 	sta (zp_colourline),y
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
 	ldy object_temp
 	rts
 
@@ -1504,19 +1510,15 @@ tokenise_text
 ;	sta (parse_array),y ; start index
 	; find the next word
 .find_next_word
-	ldy #1
-	lda .numwords
-	jsr parse_array_write_byte
-;	sta (parse_array),y ; num of words
-
 	ldy .wordend
 	lda .numwords
 	cmp .maxwords
 	bne  .find_word_loop
 .parsing_done
-;    lda .numwords
-;    ldy #1
-;    sta (parse_array),y
+	ldy #1
+	lda .numwords
+	jsr parse_array_write_byte
+;	sta (parse_array),y ; num of words
 	rts
 .maxwords   !byte 0 
 .numwords   !byte 0 
