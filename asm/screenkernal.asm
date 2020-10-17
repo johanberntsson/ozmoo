@@ -19,17 +19,95 @@
 
 ;TESTSCREEN = 1
 
+!ifdef TARGET_C128 {
+!macro SetBorderColour {
+	jsr C128SetBorderColour
+}
+!macro SetBackgroundColour {
+	jsr C128SetBackgroundColour
+}
+} else {
+!macro SetBorderColour {
+	sta reg_bordercolour
+}
+!macro SetBackgroundColour {
+	sta reg_backgroundcolour
+}
+}
+
 !zone screenkernal {
 
 !ifdef TARGET_C128 {
 !source "vdc.asm"
 
 .stored_a !byte 0
-.stored_y !byte 0
+.stored_x_or_y !byte 0
+
+; Mapping between VIC-II and VDC colours
+; VDC:
+; 00 = dark black
+; 01 = light black (dark gray)
+; 02 = dark blue
+; 03 = light blue
+; 04 = dark green
+; 05 = light green
+; 06 = dark cyan
+; 07 = light cyan
+; 08 = dark red
+; 09 = light red
+; 10 = dark purple
+; 11 = light purple
+; 12 = dark yellow (brown/orange)
+; 13 = light yellow
+; 14 = dark white (light gray)
+; 15 = light white
+vdc_vic_colours
+	;     VDC    VIC-II
+	!byte 0    ; black
+	!byte 15   ; white
+	!byte 8    ; red
+	!byte 7    ; cyan
+	!byte 10   ; purple
+	!byte 4    ; green
+	!byte 3    ; blue
+	!byte 13   ; yellow
+	!byte 12   ; orange
+	!byte 12   ; brown 
+	!byte 9    ; light red
+	!byte 1    ; dark grey
+	!byte 14   ; grey
+	!byte 5    ; light green
+	!byte 3    ; light blue
+	!byte 14   ; light grey
+
+C128SetBackgroundColour
+	stx .stored_x_or_y
+	ldx COLS_40_80
+	beq +
+	; 80 columns mode selected
+	sta .stored_a
+	tax
+	lda vdc_vic_colours,x
+	ldx #VDC_COLORS
+	jsr VDCWriteReg
+	lda .stored_a
+	jmp ++
++	sta reg_backgroundcolour
+++	ldx .stored_x_or_y
+	rts
+
+C128SetBorderColour
+	stx .stored_x_or_y
+	ldx COLS_40_80
+	bne + ; no border in VDC, only use background
+	; 40 column mode
+	sta reg_bordercolour
++	ldx .stored_x_or_y
+	rts
 
 VDCPrintChar
 	; 80 columns, use VDC screen
-	sty .stored_y
+	sty .stored_x_or_y
 	sta .stored_a
 	lda zp_screenline + 1
 	sec
@@ -37,21 +115,22 @@ VDCPrintChar
 	tay
 	lda zp_screenline
 	clc
-	adc .stored_y
+	adc .stored_x_or_y
 	bcc +
 	iny
 +	jsr VDCSetAddress
 	lda .stored_a
-	ldy .stored_y
+	ldy .stored_x_or_y
 	ldx #VDC_DATA
 	jmp VDCWriteReg
 
 VDCPrintColour
 	; 80 columns, use VDC screen
+	sty .stored_x_or_y
 	; adjust color from VIC-II to VDC format
-	lda #$8f ; white
+	tax
+	lda vdc_vic_colours,x
 	ora #$80 ; lower-case
-	sty .stored_y
 	sta .stored_a
 	lda zp_colourline + 1
 	sec
@@ -59,12 +138,12 @@ VDCPrintColour
 	tay
 	lda zp_colourline
 	clc
-	adc .stored_y
+	adc .stored_x_or_y
 	bcc +
 	iny
 +	jsr VDCSetAddress
 	lda .stored_a
-	ldy .stored_y
+	ldy .stored_x_or_y
 	ldx #VDC_DATA
 	jmp VDCWriteReg
 }
