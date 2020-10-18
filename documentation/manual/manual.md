@@ -1,6 +1,6 @@
 <!-- pandoc manual.md -o manual.pdf -->
 
-# Preface
+# Overview
 
 Ozmoo is a a redistributable interpreter of Infocom and Inform games that use the Z-code format, and can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative to these concerns.
 
@@ -45,7 +45,7 @@ You need to install:
 - Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
 - The Vice C64/C128/Plus4 emulator, or the Xemu MEGA65 emulator
 
-### Windows
+#### Windows
 
 Acme can be downloaded from SourceForge: https://sourceforge.net/projects/acme-crossass/
 
@@ -55,7 +55,7 @@ Get WinVice from SourceForge: http://vice-emu.sourceforge.net/windows.html
 
 You can get Ruby from RubyInstaller: https://rubyinstaller.org/
 
-### Linux
+########  Linux
 
 Acme is available on Debian/Ubuntu with:
 
@@ -82,26 +82,26 @@ Edit the file make.rb. At the top of the file, you need to specify paths to the 
 
 
 
-## To see all commandline options for make.rb
+## Seeing all commandline options for make.rb
 
 At a command prompt, type "ruby make.rb"
 
 
+## The basic way to build a game
 
-The basic way to build a game
----
 At a command prompt, type "ruby make.rb mygame.z5"
 
 
 
-To build a game which will only consist of a single file, not requiring a disk drive to play
----
-1. At a command prompt, type "ruby make.rb -P mygame.z5"
+## Build a game which will only consist of a single file
+
+At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will only consist of a single file. A game created in this way does, not require a disk drive to play.
 
 
+## Build a game with optimized preloaded virtual memory data
 
-To build a game with optimized preloaded virtual memory data (will make the game as fast as possible in the beginning)
----
+Use these step to build a game with optimized preloaded virtual memory data which will make the game as fast as possible at startup:
+
 1. At a command prompt, type "ruby make.rb -o -s mygame.z5"
 
 2. Play the game, performing the actions you think the player is likely to do first. Keep playing until the game halts, printing a report with lots of numbers. (You can also end it and get the report earlier by typing xxx)
@@ -112,11 +112,9 @@ To build a game with optimized preloaded virtual memory data (will make the game
 
 5. At a command prompt, type "ruby make.rb -c mygame_optimization.txt mygame.z5"
 
-Build Modes
-===========
+# Build Modes
 
-Targets
--------
+## Targets
 
 While the main target for Ozmoo is the Commodore 64, it is possible to target
 other similar computers. make.rb takes a -t:target argument to enable such
@@ -124,13 +122,12 @@ future extensions, but currently only c64 is supported, and the rest of this
 documents is c64 specific.
 
 
-Drives and devices
-------------------
+## Drives and devices
+
 A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drive devices attached to the C64. The device numbers which can be used are 8, 9, 10, 11. Two different story disks can not use the same device number.
 
 
-Build modes
------------
+## List of build modes
 
 Notes: 
 
@@ -138,242 +135,262 @@ Notes:
 
 * Less RAM available for virtual memory system: This means a smaller part of C64 memory can be used for virtual memory handling, which means the game will need to load sectors from disk more often. This will of course slow the game down.
 
-Modes not requiring a disk drive for play:
----
-P: Program file
-	Story file size < ~51 KB: Using full amount of RAM.
-	Story file size < ~40 KB: You may use flag -r to only use RAM up to $CFFF. This means all RAM can be accessed directly without buffers, which makes the interpreter smaller and the game faster.
+### Modes not requiring a disk drive for play:
 
-	Disks used:
-		* Boot / Story disk. This contains a single file, which may be moved to any other medium, like another disk image or a tape image.
+P: _Program file_
+
+- Story file size < ~51 KB: Using full amount of RAM.
+- Story file size < ~40 KB: You may use flag -r to only use RAM up to $CFFF. This means all RAM can be accessed directly without buffers, which makes the interpreter smaller and the game faster.
+
+Disks used:
+
+- Boot / Story disk. This contains a single file, which may be moved to any other medium, like another disk image or a tape image.
 
 
-Modes requiring a single 1541 drive for play:
----
-S1: Single 1541 drive, one disk
-	Story file size < ~140 KB: Full preloading. Full amount of RAM available for virtual memory system.
-	Story file size < ~180 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
+### Modes requiring a single 1541 drive for play:
 
-	Disks used:
-		* Boot / Story disk
+S1: _Single 1541 drive, one disk_
+
+- Story file size < ~140 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~180 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
+
+Disks used:
+- Boot / Story disk
 	
-S2: Single 1541 drive, two disks
-	Story file size < ~210 KB: Full preloading. Full amount of RAM available for virtual memory system.
-	Story file size < ~230 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+S2: _Single 1541 drive, two disks_
 
-	Disks used:
-		* Boot disk
-		* Story disk
+- Story file size < ~210 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~230 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+
+Disks used:
+
+- Boot disk
+- Story disk
 	
-Modes requiring two 1541 drives for play:
----
-D2: Double 1541 drives, two disks
-	Story file size < ~330 KB: Full preloading. Full amount of RAM available for virtual memory system.
-	Story file size < ~370 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
+### Modes requiring two 1541 drives for play:
 
-	Disks used:
-		* Boot disk / Story disk A
-		* Story disk B
+D2: _Double 1541 drives, two disks_
 
-D3: Double 1541 drives, three disks
-	Story file size < ~400 KB: Full preloading. Full amount of RAM available for virtual memory system.
-	Story file size < ~420 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+- Story file size < ~330 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~370 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
 
-	Disks used:
-		* Boot disk
-		* Story disk A
-		* Story disk B
+Disks used:
 
-Modes requiring a 1581 drive for play:
----
-81: Single 1581 drive, one disk
-	Any story size: Full preloading. Full amount of RAM available for virtual memory system.
+- Boot disk / Story disk A
+- Story disk B
+
+D3: _Double 1541 drives, three disks_
+
+- Story file size < ~400 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~420 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+
+Disks used:
+
+- Boot disk
+- Story disk A
+- Story disk B
+
+### Modes requiring a 1581 drive for play:
+
+81: _Single 1581 drive, one disk_
+
+Any story size: Full preloading. Full amount of RAM available for virtual memory system.
 	
-	Thanks to the partitioning available on the 1581, the story data is protected even in the event of a validate command. Thus, the user can safely use the story disk as a save disk as well.
+Thanks to the partitioning available on the 1581, the story data is protected even in the event of a validate command. Thus, the user can safely use the story disk as a save disk as well.
 
-	Disks used:
-		* Boot / Story disk
+Disks used:
 
-Modes requiring a 1571 or an SD2IEC:
----
+- Boot / Story disk
+
+### Modes requiring a 1571 or an SD2IEC:
+
 To be added at a later date. A single drive 1571 mode could be used for story files up to about 360 KB in size. SD2IEC mode could enable full 512 KB story sizes.
 
-Runtime Errors
-==============
+# Runtime Errors
 
-ERROR_UNSUPPORTED_STREAM = 1
+These are the runtime errors that may occur when running Ozmoo:
+
+- ERROR_UNSUPPORTED_STREAM = 1
 
 The Z-machine supports certain streams for input and output of text. If a program tries to open a stream number which is not defined or which is not supported by Ozmoo, this error occurs.
 
-ERROR_CONFIG = 2
+- ERROR_CONFIG = 2
 
 The boot disk of a program built with Ozmoo has config information on sector 1:0 and 1:1 (unless it's built as a single file program). This error means there seems to be something wrong with this information. The information is copied to memory when the game boots and then used whenever a block of game data needs to be copied from disk, so the problems may be discovered when the boot disk is no longer in the drive.
 
-ERROR_STREAM_NESTING_ERROR = 3
+- ERROR_STREAM_NESTING_ERROR = 3
 
 The Z-machine has a stack for memory streams. If the program tries to pull items from this stack when it is empty, this is the resulting error.
 
-ERROR_FLOPPY_READ_ERROR = 4
+- ERROR_FLOPPY_READ_ERROR = 4
 
 There was a problem reading from the disk.
 
-ERROR_STACK_FULL = 6
+- ERROR_STACK_FULL = 6
 
 The program tried to make a routine call or push data onto the stack when there was not enough room. This means there is a bug in the program, or it needs a bigger stack. Stack size can be set with a commandline parameter to make.rb.
 
-ERROR_STACK_EMPTY = 7
+- ERROR_STACK_EMPTY = 7
 
 The program tried to pull a value from the stack when it was empty.
 
-ERROR_OPCODE_NOT_IMPLEMENTED = 8
+- ERROR_OPCODE_NOT_IMPLEMENTED = 8
 
 An unknown Z-machine opcode was encountered. This can happen if the wrong disk is in the drive when Ozmoo tries to retrieve a block of program code.
 
-ERROR_USED_NONEXISTENT_LOCAL_VAR = 9
+- ERROR_USED_NONEXISTENT_LOCAL_VAR = 9
 
 Each routine in Z-code has between 0 and 15 local variables. If an instruction references a local variable number which is not present in this routine, this is what happens. Normally, a compiler like Inform doesn't let the programmer write code which can cause this, unless you skip the highlevel language and write Z-machine assembler. 
 
-ERROR_BAD_PROPERTY_LENGTH = 10
+- ERROR_BAD_PROPERTY_LENGTH = 10
 
 The program tried to use an object property of an illegal length, where a property value has to be one or two bytes.
 
-ERROR_UNSUPPORTED_STORY_VERSION = 11
+- ERROR_UNSUPPORTED_STORY_VERSION = 11
 
 The first byte of the story file must match the Z-machine version for which the interpreter was built (3, 4, 5 or 8). Otherwise, this occurs.
 
-ERROR_OUT_OF_MEMORY = 12
+- ERROR_OUT_OF_MEMORY = 12
 
 The program referenced memory which is higher than the last address in the story file.
 
-ERROR_WRITE_ABOVE_DYNMEM = 13
+- ERROR_WRITE_ABOVE_DYNMEM = 13
 
 The program tried to write to memory which is not part of dynamic (RAM) memory.
 
-ERROR_TOO_MANY_TERMINATORS = 15
+- ERROR_TOO_MANY_TERMINATORS = 15
 
 A dictionary in a Z-machine program holds a list of terminating characters, which are used to separate words. It is illegal for this list to hold more than ten characters. If it does, this error occurs.
 
-ERROR_NO_VMEM_INDEX = 16
+- ERROR_NO_VMEM_INDEX = 16
 
 The vmem_oldest_index is only populated inside the loop if we find a non-PC vmem block older than the initial vmem_oldest_age of $ff. That should always happen, but to assert that the code is correct the debug version of Ozmoo checks that vmem_oldest_index is valid and issues ERROR_NO_VMEM_INDEX if not.
 
-ERROR_DIVISION_BY_ZERO = 17
+- ERROR_DIVISION_BY_ZERO = 17
 
 An attempt was made to divide a number by zero.
 
-Splash Screen
-=============
+# Splash Screen
 
 By default, Ozmoo will show a splash screen just before the game starts. At the bottom of the screen is a line of text stating the version of Ozmoo used and instructions to use F1 to toggle darkmode. After three seconds, or when the player presses a key, the game starts.
 
 You can use the following commandline parameters to alter this behaviour:
 
--ss1:"text"
--ss2:"text"
--ss3:"text"
--ss4:"text"
-	These parameters can be used to add up to four lines of text to the splash screen.
+    -ss1:"text"
+    -ss2:"text"
+    -ss3:"text"
+    -ss4:"text"
+These parameters can be used to add up to four lines of text to the splash screen.
 
--sw:nnn
-	This sets the number of seconds that Ozmoo will pause on the splash screen. The default is three seconds if no text has been added, and ten seconds if text has been added.
+    -sw:nnn
+This sets the number of seconds that Ozmoo will pause on the splash screen. The default is three seconds if no text has been added, and ten seconds if text has been added.
 	
 Example:
 
-ruby make.rb supermm.z5 -ss1:"Super Mario Murders" -ss2:"A coin-op mystery" -ss3:"by" -ss4:"John \"Popeye\" Johnsson" -sw:8
+```
+ruby make.rb supermm.z5 -ss1:"Super Mario Murders" -ss2:"A coin-op mystery" \
+    -ss3:"by" -ss4:"John \"Popeye\" Johnsson" -sw:8
+```
 
-Colours
-=======
+# Colours
 
-Colours in Z-code games
------------------------
+
 Ozmoo lets you pick two different colour schemes for your game. We refer to these to colour schemes as normal mode and darkmode. The idea is that you may want lighter text on a dark background when playing at night, while dark text on a light background has proven to be easier to read, when reading large amounts of text. Ozmoo will always start in normal mode, and the player can switch between normal mode and darkmode using the F1 key. When switching modes, Ozmoo will change the colour of all onscreen text which has the default foreground colour *or* which has the same colour as the background colour in the mode it's switching to and thus would otherwise become invisible.
 
 
+## Colour switches
+
 make.rb has the following switches to control colours:
 
--rc:(Z-code colour)=(C64 colour), ...
-	Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
+    -rc:(Z-code colour)=(C64 colour), ...
+Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
 
--dc:(Default background colour):(Default foreground colour)
-	Default colours: This picks the Z-code colours to use as default background and foreground colours.
+    -dc:(Default background colour):(Default foreground colour)
+Default colours: This picks the Z-code colours to use as default background and foreground colours.
 
--sc:(Statusline colour)
-	Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 3 story files (z3).
+    -sc:(Statusline colour)
+Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 3 story files (z3).
 
--bc:(Border colour)
-	Border colour. This picks the Z-code colour to use as border colour. 
-	Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours,
-	as it may do in Z5+ games, values 0 and 1 mean the border changes too.
+    -bc:(Border colour)
+Border colour. This picks the Z-code colour to use as border colour. 
+Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
 
--dmdc: (same as -dc but for darkmode)
+    -dmdc: (same as -dc but for darkmode)
 
--dmsc: (same as -sc but for darkmode)
+    -dmsc: (same as -sc but for darkmode)
 
--dmbc: (same as -bc but for darkmode)
+    -dmbc: (same as -bc but for darkmode)
+
+## Cursor switches
 
 The color (and shape) of the cursor can also be customized:
 
--cb:(delay)
-	Cursor blinking frequency. delay is 0 to 9, where 9 is fastest.
+    -cb:(delay)
+Cursor blinking frequency. delay is 0 to 9, where 9 is fastest.
 
--cc:(Cursor color)
-	Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
+    -cc:(Cursor color)
+Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
 
--dmcc: (same as -dc but for darkmode)
+    -dmcc: (same as -dc but for darkmode)
 
--cs:(Cursor shape)
-    Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
+    -cs:(Cursor shape)
+Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
 
+## Palette
 
 Z-code has a palette of 8 colours, numbered 2-9:
 
-  2 = black       
-  3 = red         
-  4 = green       
-  5 = yellow      
-  6 = blue        
-  7 = magenta     
-  8 = cyan        
-  9 = white       
+    2 = black       
+    3 = red         
+    4 = green       
+    5 = yellow      
+    6 = blue        
+    7 = magenta     
+    8 = cyan        
+    9 = white       
 
 The Commodore 64 has 16 colours, numbered 0-15:
 
-  0 = black
-  1 = white
-  2 = red
-  3 = cyan
-  4 = purple
-  5 = green
-  6 = blue
-  7 = yellow
-  8 = orange
-  9 = brown
- 10 = pink
- 11 = dark grey
- 12 = grey
- 13 = light green
- 14 = light blue
- 15 = light grey
+    0 = black
+    1 = white
+    2 = red
+    3 = cyan
+    4 = purple
+    5 = green
+    6 = blue
+    7 = yellow
+    8 = orange
+    9 = brown
+    10 = pink
+    11 = dark grey
+    12 = grey
+    13 = light green
+    14 = light blue
+    15 = light grey
 
-Examples
---------
+## Examples
 
 Use cyan text on black background with a yellow statusbar (only works for z3!):
 
+```
 make.rb -dc:2:8 -sc:5 game.z3
+```
 
 
 Change so Z-code color 7 is dark grey instead of magenta and Z-code color 8 is light grey instead of cyan, and use these as default colors:
 
+```
 make.rb -rc:7=11,8=15 -dc:7:8 game.z5
+```
 
 
 Setting up the default palette (even though this isn't useful) is equivalent to using:
 
+```
 make.rb -rc:2=0,3=2,4=5,5=7,6=6,7=4,8=3,9=1 game.z5
+```
 
-Fonts
-=====
+# Fonts
 
 When building a game with make.rb, you can choose to embed a font (character set) with the game using the -f option. This will use up 2 KB of memory which would otherwise have been available for game data. The font file should be exactly 2048 bytes long and just hold the raw data for the font, without load address or other extra information.
 
@@ -412,8 +429,7 @@ You are free to use one of these fonts in a game you make and distribute, regard
 To see all the licensing details for each font, read the corresponding license file in the "fonts" folder. The full information in the license file must also be included with the game distribution if you embed a font with a game.
 
 
-Accented Characters
-===================
+# Accented Characters
 
 Ozmoo has some support for using accented characters in games. Since the Commodore 64 doesn't really support accented characters, some tricks are needed to make this work.
 
@@ -432,22 +448,30 @@ To build a game with Ozmoo with accented characters, we typically need to:
 
 There are already fonts in place for some languages (see documentation/fonts.txt). You can also supply your own font.
 
-The character mappings are created at the beginning of the file streams.asm. There are already mappings for the languages which there are fonts for (see documentation/fonts.txt).
+The character mappings are created at the beginning of the file streams.asm. There are already mappings for the languages which there are fonts for (see the Fonts chapter above).
 
 To build a game using accented characters, the make command may look like this:
 
-<!-- TODO
+```
 ruby make.rb examples\Aventyr.z5 -f fonts\PXLfont-rf-sv.fnt -cm:sv
--->
+```
+where
 
--f sets the font to use.
--cm sets the character mapping to use.
+    -f sets the font to use.
+    -cm sets the character mapping to use.
 
 If you want to create a character mapping for say Czech, and you know you will never want to build a game in Swedish, you can just replace the Swedish mapping in streams.asm and use -cm:sv to refer to your Czech mapping.
 
-The definition of ZSCII can be found at https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight (the accented characters which are available by default, and which Ozmoo can use, are in a table under 3.8.7).
+The definition of ZSCII can be found at
 
-The definition of PETSCII can be found at http://sta.c64.org/cbm64petkey.html . Please read the notes below the table as well.
+https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight
+
+The accented characters which are available by default, and which Ozmoo can
+use, are in a table under 3.8.7.
+
+The definition of PETSCII can be found at:
+http://sta.c64.org/cbm64petkey.html
+Please read the notes below the table as well.
 
 If you compile a game in Debug mode (Uncomment the 'DEBUG' line near the start of make.rb), Ozmoo will print the hexadecimal ZSCII codes for all characters which it can't print. Thus, to create mappings for a game in a new language, you can start by running it in Debug mode to see the ZSCII character codes in use.
 
