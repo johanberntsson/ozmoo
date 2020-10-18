@@ -8,6 +8,7 @@ Ozmoo is a a redistributable interpreter of Infocom and Inform games that use th
 
 Ozmoo supports:
 
+- Z-code version 3, 4, 5 and 8. Essentially this covers all games except for the very first (hard to find) versions of Zork I and II and the Infocom games with graphics.
 - Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
 - Embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, Danish, German, Italian, Spanish and French. And you can supply your own font.
 - Custom alphabets in Z-machine version 5 and 8.
@@ -23,12 +24,11 @@ Ozmoo supports:
 
 ## Limitations
 
-Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game can be up to 512 KB in size).  However, there are some limitations:
+Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game can be up to 512 KB in size). However, there are some limitations:
 
-- Ozmoo only supports version 3, 4, 5 and 8 of Z-code. This means you can't run the very first versions of Zork I and II, or the Infocom games with graphics. 
 - A Z-code file always starts with a section called dynamic memory. Ozmoo will not be able to handle games with more than roughly 35 KB of dynamic memory.
-- If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 191.5 KB. This typically means the game file can be about 210 KB in size.
-- Some Inform 6 games and pretty much all Inform 7 games will never be fast enough to be any fun on Ozmoo. In general, Infocom games are faster than Inform games.
+- If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 170 KB. This typically means the game file can be about 190 KB in size.
+- Some Inform 6 games and pretty much all Inform 7 games are to slow to be much on a Commodore 64. In general Infocom games, PunyInform games and modern-day ZIL games work the best. Inform 5 games and early Inform 6 games (typically using library 6/1 or 6/2) often work well too.
 
 # Quickstart
 
@@ -95,7 +95,7 @@ At a command prompt, type "ruby make.rb mygame.z5"
 
 ## Build a game which will only consist of a single file
 
-At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will only consist of a single file. A game created in this way does, not require a disk drive to play.
+At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will only consist of a single file. A game created in this way does not require a disk drive to play.
 
 
 ## Build a game with optimized preloaded virtual memory data
@@ -116,7 +116,7 @@ Use these step to build a game with optimized preloaded virtual memory data whic
 
 ## Targets
 
-While the main target for Ozmoo is the Commodore 64, it is possible to target
+While Ozmoo was written for the Commodore 64, it is possible to target
 other similar computers. make.rb takes a -t:target argument to enable such
 future extensions, but currently only c64 is supported, and the rest of this
 documents is c64 specific.
@@ -124,7 +124,7 @@ documents is c64 specific.
 
 ## Drives and devices
 
-A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drive devices attached to the C64. The device numbers which can be used are 8, 9, 10, 11. Two different story disks can not use the same device number.
+A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drives attached to the C64. The device numbers which can be used are 8, 9, 10, 11. If the game has two story disks (meaning it was built using mode D2 or D3), the player will need a computer with at least two disk drives OR one disk drive and an REU to play it.
 
 
 ## List of build modes
@@ -146,21 +146,20 @@ Disks used:
 
 - Boot / Story disk. This contains a single file, which may be moved to any other medium, like another disk image or a tape image.
 
-
 ### Modes requiring a single 1541 drive for play:
 
 S1: _Single 1541 drive, one disk_
 
-- Story file size < ~140 KB: Full preloading. Full amount of RAM available for virtual memory system.
-- Story file size < ~180 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
+- Story file size < ~150 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~170 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
 
 Disks used:
 - Boot / Story disk
 	
 S2: _Single 1541 drive, two disks_
 
-- Story file size < ~210 KB: Full preloading. Full amount of RAM available for virtual memory system.
-- Story file size < ~230 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+- Story file size < ~190 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~210 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
 
 Disks used:
 
@@ -172,23 +171,23 @@ Disks used:
 D2: _Double 1541 drives, two disks_
 
 - Story file size < ~330 KB: Full preloading. Full amount of RAM available for virtual memory system.
-- Story file size < ~370 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
+- Story file size < ~360 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
 
 Disks used:
 
-- Boot disk / Story disk A
-- Story disk B
+- Boot disk / Story disk 1
+- Story disk 2
 
 D3: _Double 1541 drives, three disks_
 
-- Story file size < ~400 KB: Full preloading. Full amount of RAM available for virtual memory system.
-- Story file size < ~420 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+- Story file size < ~370 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~390 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
 
 Disks used:
 
 - Boot disk
-- Story disk A
-- Story disk B
+- Story disk 1
+- Story disk 2
 
 ### Modes requiring a 1581 drive for play:
 
