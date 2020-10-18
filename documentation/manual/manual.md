@@ -55,7 +55,7 @@ Get WinVice from SourceForge: http://vice-emu.sourceforge.net/windows.html
 
 You can get Ruby from RubyInstaller: https://rubyinstaller.org/
 
-########  Linux
+####  Linux
 
 Acme is available on Debian/Ubuntu with:
 
@@ -478,7 +478,7 @@ If you compile a game in Debug mode (Uncomment the 'DEBUG' line near the start o
 Virtual Memory
 ==============
 
-This chapter is based on a document written by Steve Flintham, with additions and corrections by Fredrik Ramsberg and Johan Berntsson.
+This chapter is based on a document written by Steve Flintham.
 
 ![Virtual memory overview](vm-data-structures.png)
 
@@ -582,6 +582,8 @@ This also has the advantage that we can access up to 256 entries using our 8-bit
 
 Banking
 -------
+
+![C64 memory overview](MemoryMap.png)
 
 On the Commodore 64 there's an additional wrinkle because some blocks of RAM are hidden
 behind the kernal ROM and there's a mechanism to copy those blocks of RAM into cache 
