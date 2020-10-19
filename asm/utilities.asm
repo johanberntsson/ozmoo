@@ -12,10 +12,10 @@
 
 ; zero_processorports: ...<d000><e000><a000> on/off
 
-;plus4_enable_ram = $ff3f
-;plus4_enable_rom = $ff3e
-plus4_enable_ram = $0c00
-plus4_enable_rom = $0c00
+plus4_enable_ram = $ff3f
+plus4_enable_rom = $ff3e
+;plus4_enable_ram = $0c00
+;plus4_enable_rom = $0c00
 
 !macro set_memory_all_ram {
 	; Don't forget to disable interrupts first!
@@ -26,7 +26,7 @@ plus4_enable_rom = $0c00
 } else {
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -41,7 +41,7 @@ plus4_enable_rom = $0c00
 } else {
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -57,7 +57,7 @@ plus4_enable_rom = $0c00
 } else {
 	lda #%00110110
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -72,7 +72,7 @@ plus4_enable_rom = $0c00
 } else {
 	lda #%00110110
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -88,7 +88,7 @@ plus4_enable_rom = $0c00
 } else {
 	lda #%00110111
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -108,7 +108,15 @@ plus4_enable_rom = $0c00
 !ifdef SLOW {
 read_next_byte_at_z_pc_sub
 	ldy #0
+!ifdef TARGET_PLUS4 {
+	sei
+	sta plus4_enable_ram
 	lda (z_pc_mempointer),y
+	sta plus4_enable_rom
+	cli
+} else {
+	lda (z_pc_mempointer),y
+}
 	inc z_pc_mempointer ; Also increases z_pc
 	beq ++
 	rts

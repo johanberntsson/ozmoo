@@ -463,8 +463,8 @@ show_more_prompt
 	jsr colour1k
 }
 	ldx s_screen_width
----	lda $a2
--	cmp $a2
+---	lda ti_variable + 2 ; $a2
+-	cmp ti_variable + 2 ; $a2
 	beq -
 	jsr getchar_and_maybe_toggle_darkmode
 	cmp #0

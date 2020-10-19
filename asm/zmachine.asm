@@ -923,10 +923,18 @@ z_get_variable_reference_and_value
 
 z_get_referenced_value
 	ldy #1
+!ifdef TARGET_PLUS4 {
+	sei
+	sta plus4_enable_ram
+} 
 	lda (zp_temp),y
 	tax
 	dey
 	lda (zp_temp),y
+!ifdef TARGET_PLUS4 {
+	sta plus4_enable_rom
+	cli
+}
 	rts
 
 .find_global_var
@@ -955,10 +963,18 @@ z_get_low_global_variable_value
 	asl ; Clears carry
 	tay
 	iny
+!ifdef TARGET_PLUS4 {
+	sei
+	sta plus4_enable_ram
+} 
 	lda (z_low_global_vars_ptr),y
 	tax
 	dey
 	lda (z_low_global_vars_ptr),y
+!ifdef TARGET_PLUS4 {
+	sta plus4_enable_rom
+	cli
+}
 	rts ; Note that caller may assume that carry is clear on return!
 
 ; Used by z_set_variable

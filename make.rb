@@ -8,6 +8,7 @@ if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -autostart-delay-random"
+    $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
@@ -1351,6 +1352,7 @@ limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
 $memory_end_address = 0x10000
+$normal_ram_end_address = 0xd000
 $colour_replacements = []
 $default_colours = []
 $default_colours_dm = []
@@ -1404,7 +1406,8 @@ begin
 			elsif $target == "plus4" then
 			    # Different start address
 			    $start_address = 0x1001
-				$memory_end_address = 0xfd00
+				$memory_end_address = 0xfc00
+				$normal_ram_end_address = $memory_end_address
 			elsif $target == "c128" then
 			    # Different start address
 			    $start_address = 0x1c01
@@ -1760,10 +1763,15 @@ File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 
 build_interpreter()
 
-$vmem_size = ($ALLRAM ? 0x10000 : 0xd000) - $storystart
+#if $target == 'plus4'
+#	$vmem_size = $memory_end_address - $storystart
+#else
+	$vmem_size = ($ALLRAM ? $memory_end_address : $normal_ram_end_address) - $storystart
+#	puts "VMEM SIZE IS #{$vmem_size} bytes."
+#end
 
-if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > 0xd000 then
-	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass $D000. Maximum dynmem size is #{0xd000 - $storystart} bytes." 
+if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
+	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
 end
 
