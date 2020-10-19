@@ -148,8 +148,10 @@ z_ins_tokenise_text
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	stx string_array
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 	; setup user dictionary, if supplied
 	lda z_operand_count
@@ -191,8 +193,10 @@ z_ins_encode_text
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	stx string_array
+!ifndef COMPLEX_MEMORY {
 	clc
 	adc #>story_start
+}
 	sta string_array + 1
 	; setup length (seems okay to ignore)
 	; ldx z_operand_value_low_arr + 1
@@ -205,12 +209,15 @@ z_ins_encode_text
 	ldx z_operand_value_low_arr + 3
 	lda z_operand_value_high_arr + 3
 	stx string_array
+!ifndef COMPLEX_MEMORY {
 	clc
 	adc #>story_start
+}
 	sta string_array + 1
 	ldy #0
 -   lda zword,y
-	sta (string_array),y
+	+macro_string_array_write_byte
+;	sta (string_array),y
 	iny
 	cpy #6
 	bne -
@@ -308,7 +315,8 @@ z_ins_read
 }
 	jsr newline
 	ldy #0
--   lda (string_array),y
+-	+macro_string_array_read_byte
+;	lda (string_array),y
 	jsr printa
 	jsr space
 	iny
@@ -343,7 +351,7 @@ z_ins_read
 	jsr tokenise_text
 !ifdef TRACE_TOKENISE {
 	ldy #0
--	jsr parse_array_read_byte
+-	+macro_parse_array_read_byte
 ;	lda (parse_array),y
 	jsr printa
 	jsr space
@@ -357,7 +365,8 @@ z_ins_read
 	; debug - print parsearray
 !ifdef TRACE_PRINT_ARRAYS {
 	ldy #0
--   lda (string_array),y
+-	+macro_string_array_read_byte
+;	lda (string_array),y
 	tax
 	jsr printx
 	lda #$20
@@ -368,7 +377,7 @@ z_ins_read
 	lda #$0d
 	jsr streams_print_output
 	ldy #0
--	jsr parse_array_read_byte
+-	+macro_parse_array_read_byte
 ;	lda (parse_array),y
 	tax
 	jsr printx
@@ -390,7 +399,8 @@ z_ins_read
 	ldy #1
 }
 .check_next_preopt_exit_char
-	lda (string_array),y
+	+macro_string_array_read_byte
+;	lda (string_array),y
 	cmp #$78
 	bne .not_preopt_exit
 	iny
@@ -587,7 +597,7 @@ encode_text
 	; side effects: .last_char_index, .triplet_counter, zword
 	ldy .wordstart ; Pointer to current character
 	ldx #0 ; Next position in z_temp
--	jsr string_array_read_byte
+-	+macro_string_array_read_byte
 ;	lda (string_array),y
 	jsr convert_char_to_zchar
 	cpx #ZCHARS_PER_ENTRY
@@ -866,11 +876,11 @@ find_word_in_dictionary
 .store_find_result
 	ldy .parse_array_index
 	lda .dictionary_address
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y
 	iny
 	lda .dictionary_address + 1
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y
 	iny
 	rts
@@ -1150,8 +1160,10 @@ read_text
 	; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
 	; used registers: a,x,y
 	stx string_array
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 	jsr printchar_flush
 	; clear [More] counter
@@ -1164,7 +1176,7 @@ read_text
 	jsr init_read_text_timer
 }
 	ldy #0
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 !ifdef Z5PLUS {
 	tax
@@ -1179,13 +1191,13 @@ read_text
 ;	tya
 ;	clc
 ;	adc (string_array),y
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 	clc
 	adc #1
 ;
 } else {
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; default is empty string (0 in pos 1)
 	tya
 }
@@ -1213,13 +1225,13 @@ read_text
 	; lda #$3e ; ">"
 	; jsr s_printchar
 	ldy #1
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	tax
 .p0 cpx #0
 	beq .p1
 	iny
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	jsr translate_zscii_to_petscii
 !ifdef DEBUG {
@@ -1242,7 +1254,7 @@ read_text
 .p1   
 } else {
 	ldy #1
-.p0	jsr string_array_read_byte
+.p0	+macro_string_array_read_byte
 ; lda (string_array),y ; default is empty string (0 in pos 1)
 	cmp #0
 	beq .p1
@@ -1274,7 +1286,7 @@ read_text
 	; clear input and return 
 	ldy #1
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y
 	jmp .read_text_done ; a should hold 0 to return 0 here
 	; check terminating characters
@@ -1300,11 +1312,11 @@ read_text
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
 	ldy #1
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y ; number of characters in the array
 	sec
 	sbc #1
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y
 }
 	jmp .readkey ; don't store in the array
@@ -1332,7 +1344,7 @@ read_text
 	txa
 !ifdef Z5PLUS {
 	ldy #1
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; number of characters in the array
 }
 	tay
@@ -1354,13 +1366,13 @@ read_text
 	ora #$20
 
 .dont_invert_case
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; store new character in the array
 	inc .read_text_column	
 !ifndef Z5PLUS {
 	iny
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; store 0 after last char
 }
 	jmp .readkey
@@ -1375,7 +1387,7 @@ read_text
 	; Store terminating 0, in case characters were deleted at the end.
 	ldy .read_text_column ; compare with size of keybuffer
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y
 }	
 	pla ; the terminating character, usually newline
@@ -1418,19 +1430,21 @@ tokenise_text
 	; used registers: a,x,y
 	sty .ignore_unknown_words
 	stx parse_array
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta parse_array + 1
 	lda #2
 	sta .wordoffset ; where to store the next word in parse_array
 	ldy #0
 	sty .numwords ; no words found yet
-	jsr parse_array_read_byte
+	+macro_parse_array_read_byte
 ;	lda (parse_array),y 
 	sta .maxwords
 !ifdef Z5PLUS {
 	iny
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y ; number of chars in text string
 	tax
 	inx
@@ -1438,7 +1452,7 @@ tokenise_text
 	iny ; sets y to 2 = start position in text
 } else {
 -   iny
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	cmp #0
 	bne -
@@ -1452,7 +1466,7 @@ tokenise_text
 	cpy .textend
 	beq +
 	bcs .parsing_done
-+	jsr string_array_read_byte
++	+macro_string_array_read_byte
 ;	lda (string_array),y
 	cmp #$20
 	bne .start_of_word
@@ -1462,7 +1476,7 @@ tokenise_text
 	; start of next word found (y is first character of new word)
 	sty .wordstart
 -   ; look for the end of the word
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	cmp #$20
 	beq .space_found
@@ -1502,11 +1516,11 @@ tokenise_text
 	lda .wordend
 	sec
 	sbc .wordstart
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y ; length
 	iny
 	lda .wordstart
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y ; start index
 	; find the next word
 .find_next_word
@@ -1517,7 +1531,7 @@ tokenise_text
 .parsing_done
 	ldy #1
 	lda .numwords
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y ; num of words
 	rts
 .maxwords   !byte 0 
@@ -1766,101 +1780,6 @@ print_addr
 	jmp .print_chars_loop
 +   rts
 
-string_array_read_byte
-	sty .temp
-	stx .temp + 1
-	lda string_array
-	clc
-	adc .temp
-	tay
-	lda string_array + 1
-	adc #0
-	tax
-	lda #0
-	jsr read_byte_at_z_address
-	sta .temp + 2
-	ldy .temp
-	ldx .temp + 1
-	lda .temp + 2
-	rts
-
-string_array_write_byte
-	sta .temp
-	sty .temp + 1
-	lda z_address
-	pha
-	lda z_address + 1
-	pha
-	lda z_address + 2
-	pha
-	lda string_array
-	clc
-	adc .temp + 1
-	sta z_address + 2
-	lda string_array + 1
-	adc #0
-	sta z_address + 1
-	lda #0
-	sta z_address
-	lda .temp
-	jsr write_next_byte
-	pla
-	sta z_address + 2
-	pla
-	sta z_address + 1
-	pla
-	sta z_address
-	lda .temp
-	rts
-	
-parse_array_read_byte
-	sty .temp
-	stx .temp + 1
-	lda parse_array
-	clc
-	adc .temp
-	tay
-	lda parse_array + 1
-	adc #0
-	tax
-	lda #0
-	jsr read_byte_at_z_address
-	sta .temp + 2
-	ldy .temp
-	ldx .temp + 1
-	lda .temp + 2
-	rts
-
-parse_array_write_byte
-	sta .temp
-	sty .temp + 1
-	lda z_address
-	pha
-	lda z_address + 1
-	pha
-	lda z_address + 2
-	pha
-	lda parse_array
-	clc
-	adc .temp + 1
-	sta z_address + 2
-	lda parse_array + 1
-	adc #0
-	sta z_address + 1
-	lda #0
-	sta z_address
-	lda .temp
-	jsr write_next_byte
-	pla
-	sta z_address + 2
-	pla
-	sta z_address + 1
-	pla
-	sta z_address
-	lda .temp
-	rts
-
-.temp !byte 0,0,0
 
 ; .escape_char !byte 0
 ; .escape_char_counter !byte 0

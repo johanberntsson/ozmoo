@@ -1994,8 +1994,10 @@ z_ins_copy_table
 	lda z_operand_value_low_arr
 	sta string_array
 	lda z_operand_value_high_arr
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 
 	; Perform zero-fill
@@ -2005,7 +2007,7 @@ z_ins_copy_table
 	ora z_operand_value_high_arr + 2
 	beq .copy_all_done
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (zp_temp),y
 	iny
 	bne +
@@ -2024,8 +2026,10 @@ z_ins_copy_table
 	lda z_operand_value_low_arr + 1
 	sta string_array
 	lda z_operand_value_high_arr + 1
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 
 	; If size is negative, we invert it and copy forwards
@@ -2111,7 +2115,7 @@ z_ins_copy_table
 	jsr read_byte_at_z_address
 	; Store byte in second table
 	ldy #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (zp_temp),y
 	; Increase/decrease pointer to second
 	lda string_array

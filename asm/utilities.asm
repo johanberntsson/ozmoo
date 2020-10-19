@@ -131,6 +131,135 @@ read_next_byte_at_z_pc_sub
 
 }
 
+!ifdef COMPLEX_MEMORY {
+string_array_read_byte
+	sty .temp
+	stx .temp + 1
+	lda string_array
+	clc
+	adc .temp
+	tay
+	lda string_array + 1
+	adc #0
+	tax
+	lda #0
+	jsr read_byte_at_z_address
+	sta .temp + 2
+	ldy .temp
+	ldx .temp + 1
+	lda .temp + 2
+	rts
+
+string_array_write_byte
+	sta .temp
+	sty .temp + 1
+	lda z_address
+	pha
+	lda z_address + 1
+	pha
+	lda z_address + 2
+	pha
+	lda string_array
+	clc
+	adc .temp + 1
+	sta z_address + 2
+	lda string_array + 1
+	adc #0
+	sta z_address + 1
+	lda #0
+	sta z_address
+	lda .temp
+	jsr write_next_byte
+	pla
+	sta z_address + 2
+	pla
+	sta z_address + 1
+	pla
+	sta z_address
+	lda .temp
+	rts
+	
+parse_array_read_byte
+	sty .temp
+	stx .temp + 1
+	lda parse_array
+	clc
+	adc .temp
+	tay
+	lda parse_array + 1
+	adc #0
+	tax
+	lda #0
+	jsr read_byte_at_z_address
+	sta .temp + 2
+	ldy .temp
+	ldx .temp + 1
+	lda .temp + 2
+	rts
+
+parse_array_write_byte
+	sta .temp
+	sty .temp + 1
+	lda z_address
+	pha
+	lda z_address + 1
+	pha
+	lda z_address + 2
+	pha
+	lda parse_array
+	clc
+	adc .temp + 1
+	sta z_address + 2
+	lda parse_array + 1
+	adc #0
+	sta z_address + 1
+	lda #0
+	sta z_address
+	lda .temp
+	jsr write_next_byte
+	pla
+	sta z_address + 2
+	pla
+	sta z_address + 1
+	pla
+	sta z_address
+	lda .temp
+	rts
+
+.temp !byte 0,0,0
+
+!macro macro_string_array_read_byte {
+	jsr string_array_read_byte
+}
+!macro macro_string_array_write_byte {
+	jsr string_array_write_byte
+}
+!macro macro_parse_array_read_byte {
+	jsr parse_array_read_byte
+}
+!macro macro_parse_array_write_byte {
+	jsr parse_array_write_byte
+}
+
+} else { ; Not COMPLEX_MEMORY
+
+!macro macro_string_array_read_byte {
+	lda (string_array),y
+}
+!macro macro_string_array_write_byte {
+	sta (string_array),y
+}
+!macro macro_parse_array_read_byte {
+	lda (parse_array),y
+}
+!macro macro_parse_array_write_byte {
+	sta (parse_array),y
+}
+
+
+}
+
+
 ERROR_UNSUPPORTED_STREAM = 1
 ERROR_CONFIG = 2
 ERROR_STREAM_NESTING_ERROR = 3
