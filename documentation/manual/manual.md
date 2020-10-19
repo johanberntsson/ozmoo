@@ -6,7 +6,7 @@ This section of the manual describes how Ozmoo can be configured to work on seve
 
 ## Overview
 
-Ozmoo is a a redistributable interpreter of Infocom and Inform games that use the Z-code format, and can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative to these concerns.
+Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative to these concerns.
 
 ### Features
 
@@ -32,13 +32,13 @@ Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game
 
 - A Z-code file always starts with a section called dynamic memory. Ozmoo will not be able to handle games with more than roughly 35 KB of dynamic memory.
 - If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 170 KB. This typically means the game file can be about 190 KB in size.
-- Some Inform 6 games and pretty much all Inform 7 games are to slow to be much on a Commodore 64. In general Infocom games, PunyInform games and modern-day ZIL games work the best. Inform 5 games and early Inform 6 games (typically using library 6/1 or 6/2) often work well too.
+- Some Inform 6 games and pretty much all Inform 7 games are too slow to be much fun on a Commodore 64. In general Infocom games, PunyInform games and modern-day ZIL games work the best. Inform 5 games and early Inform 6 games (typically using library 6/1 or 6/2) often work well too.
 
 ## Quickstart
 
 The simplest but also somewhat limited option, is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. Ozmoo online is located at: http://microheaven.com/ozmooonline/
 
-The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X. To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. Run make.rb without arguments to view all options.
+The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X. To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. 
 
 ### Dependencies
 
@@ -84,23 +84,17 @@ Ruby is available on Debian/Ubuntu with:
 
 Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, Exomizer, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.  If you are using Windows, you can ignore the section on Linux and vice versa.
 
-
-
-### Seeing all commandline options for make.rb
+### View all commandline options for make.rb
 
 At a command prompt, type "ruby make.rb"
-
 
 ### The basic way to build a game
 
 At a command prompt, type "ruby make.rb mygame.z5"
 
-
-
 ### Build a game which will only consist of a single file
 
 At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will only consist of a single file. A game created in this way does not require a disk drive to play.
-
 
 ### Build a game with optimized preloaded virtual memory data
 
@@ -125,11 +119,9 @@ other similar computers. make.rb takes a -t:target argument to enable such
 future extensions, but currently only c64 is supported, and the rest of this
 documents is c64 specific.
 
-
 ### Drives and devices
 
 A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drives attached to the C64. The device numbers which can be used are 8, 9, 10, 11. If the game has two story disks (meaning it was built using mode D2 or D3), the player will need a computer with at least two disk drives OR one disk drive and an REU to play it.
-
 
 ### List of build modes
 
@@ -222,7 +214,7 @@ You can use the following commandline parameters to alter this behaviour:
 These parameters can be used to add up to four lines of text to the splash screen.
 
     -sw:nnn
-This sets the number of seconds that Ozmoo will pause on the splash screen. The default is three seconds if no text has been added, and ten seconds if text has been added.
+This sets the number of seconds that Ozmoo will pause on the splash screen. The default is three seconds if no text has been added, and ten seconds if text has been added. A value of 0 will remove the splashscreen completely.
 	
 Example:
 
@@ -234,7 +226,7 @@ ruby make.rb supermm.z5 -ss1:"Super Mario Murders" -ss2:"A coin-op mystery" \
 ## Colours
 
 
-Ozmoo lets you pick two different colour schemes for your game. We refer to these to colour schemes as normal mode and darkmode. The idea is that you may want lighter text on a dark background when playing at night, while dark text on a light background has proven to be easier to read, when reading large amounts of text. Ozmoo will always start in normal mode, and the player can switch between normal mode and darkmode using the F1 key. When switching modes, Ozmoo will change the colour of all onscreen text which has the default foreground colour *or* which has the same colour as the background colour in the mode it's switching to and thus would otherwise become invisible.
+Ozmoo lets you pick two different colour schemes for your game. We refer to these two colour schemes as normal mode and darkmode. The idea is that you may want lighter text on a dark background when playing at night, while dark text on a light background has proven to be easier to read, in well-lit conditions. Ozmoo will always start in normal mode, and the player can switch between normal mode and darkmode using the F1 key. When switching modes, Ozmoo will change the colour of all onscreen text which has the default foreground colour *or* which has the same colour as the background colour in the mode it's switching to and thus would otherwise become invisible.
 
 
 ### Colour switches
@@ -254,23 +246,24 @@ Statusline colour: This picks the Z-code colour to use as statusline colour. Thi
 Border colour. This picks the Z-code colour to use as border colour. 
 Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
 
+    -cc:(Cursor color)
+Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
+
+
     -dmdc: (same as -dc but for darkmode)
 
     -dmsc: (same as -sc but for darkmode)
 
     -dmbc: (same as -bc but for darkmode)
 
+    -dmcc: (same as -dc but for darkmode)
+
 ### Cursor switches
 
-The color (and shape) of the cursor can also be customized:
+The shape and the blinking of the cursor can also be customized:
 
     -cb:(delay)
 Cursor blinking frequency. delay is 0 to 9, where 9 is fastest.
-
-    -cc:(Cursor color)
-Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
-
-    -dmcc: (same as -dc but for darkmode)
 
     -cs:(Cursor shape)
 Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
