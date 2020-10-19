@@ -365,6 +365,46 @@ To see all the licensing details for each font, read the corresponding license f
 
 This section of the manual contains a more technical description of how various parts of Ozmoo have been implemented.
 
+## Program and Data Structures
+
+### Overview
+
+The main parts of Ozmoo are as follows:
+
+- The interpreter
+This is the main program that sets up the memory structures, reads the header and dynmem part of the story file into memory, and then starts executing the program instruction by instruction in the Z-machine emulator, taking care to read memory from disk if addressing memory that doesn't fit in the computers RAM.
+
+- Virtual memory buffers if virtual memory used.
+On some computers it is hard to use all the available RAM without time-consuming banking operations. To improve efficiency the virtual memory buffers are used when Ozmoo is compiled with virtual memory support, and located in RAM that is guaranteed to be accessible. By having the buffers in accessible RAM most operations can be done with direct RAM accesss, and banking is only needed when the program counter leaves the buffer.
+
+- Z-machine stack
+This is used to store arguments and function calls.
+
+- Virtual memory
+The rest of the available RAM is divided into 512-byte blocks and used to store parts of the story file as needed by the game state. The virtual memory is a complex topic which is covered in more detail in the next chapter.
+
+The next figure shows how memory may be allocated when playing a game on the Commodore 64.
+
+![C64 memory overview](MemoryMap.png)
+
+### Startup
+
+Ozmoo programs are compressed with Exomizer into a file called Story, which is loaded and run like a Basic program. When Story is executed, the uncompressed Ozmoo program replaces Story and execution starts from the program_start label.
+
+First the screen is initialised and the splash screen displayed (if any). Then the first part of the story file, containing the header and the dynmem part, is read. Optionally the rest of preloaded virtual memory is also read, and then the Z-machine program counter is set to the start of the story, as specified in the header.
+
+### Z-machine
+
+The Z-machine executes instructions, using the Z-machine stack to keep track of calls and arguments.
+
+### Disk I/O, Save and Restore
+
+Ozmoo is designed to use the same floppy disc layout used by Infocom, with the first tracks and sectors being allocated to store the story file, and the remaining space on the floppy used to store the interpreter in the Story file.
+
+The story file is read piece by piece by mapping the program counter to the correct track and sector, and read it into memory. The main function doing this is readblocks located in disk.asm
+
+disk.asm also contains save and restore functionality. The main functions are do_save and do_restore. The save files are normal files that contain some important internal variables such as the program counter, the Z-machine stack, and the dynmem part of the RAM.
+
 ## Virtual Memory
 
 This chapter is based on a document written by Steve Flintham.
@@ -467,7 +507,6 @@ This also has the advantage that we can access up to 256 entries using our 8-bit
 
 ### Banking
 
-![C64 memory overview](MemoryMap.png)
 
 On the Commodore 64 there's an additional wrinkle because some blocks of RAM are hidden
 behind the kernal ROM and there's a mechanism to copy those blocks of RAM into cache 
@@ -529,7 +568,7 @@ Please read the notes below the table as well.
 
 If you compile a game in Debug mode (Uncomment the 'DEBUG' line near the start of make.rb), Ozmoo will print the hexadecimal ZSCII codes for all characters which it can't print. Thus, to create mappings for a game in a new language, you can start by running it in Debug mode to see the ZSCII character codes in use.
 
-## Interpreter Flags
+## Compiler Flags
 
 The flags described here can be set on the Acme commandline using the syntax -D[flag]=1
 
@@ -675,13 +714,19 @@ Contents:
 1 byte: Number of bytes used for disk information, including this byte
 1 byte: Interleave (in range 1-21)
 1 byte: Number of save slots which can fit on a disk (in range 4-132)
-1 byte: Number of disks used (disk 0 is the save disk(s), disk 1 .. are game disks
+1 byte: Number of disks used (disk 0 is the save disk(s), 
+        disk 1 .. are game disks
 For each disk:
 		1 byte: n: Number of bytes used for this entry, including this byte.
-		1 byte: Device#. Should be 8,9,10,11 or 0, meaning it's not decided yet - it's up to the terp to set the device#.
+		1 byte: Device#. Should be 8,9,10,11 or 0, meaning it's not decided
+		                 yet - it's up to the terp to set the device#.
 		2 bytes: Last story block # + 1 (high endian) on this disk 
-		1 byte: t: Number of tracks used for story data (If this number is > 0, this is a story disk!)
-		t bytes: Sectors used for story data: Bit 0-4: # of sectors used. Bit 5-7: First sector# used. (Example: %01010000: Use 16 sectors, starting with #2)
+		1 byte: t: Number of tracks used for story data
+		           (If this number is > 0, this is a story disk!)
+		t bytes: Sectors used for story data: 
+		         Bit 0-4: # of sectors used.
+		         Bit 5-7: First sector# used.
+		         (Example: %01010000: Use 16 sectors, starting with #2)
 		x bytes: Disk name in Petscii. Special codes:
 			0: End of string
 			128: "Boot "
