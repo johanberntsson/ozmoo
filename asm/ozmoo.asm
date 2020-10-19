@@ -206,6 +206,50 @@ program_start
 
 !ifdef TARGET_C128 {
 !source "constants-c128.asm"
+
+; Adding support for 2MHz in the border
+; https://sites.google.com/site/h2obsession/CBM/C128/2mhz-border
+
+;phase 2 of 2MHz speed-up = change CPU to 2MHz
+;and set raster IRQ for top-of-screen less 1 raster
+;and do normal KERNAL routines of IRQ
+c128_border_phase2
+	lda #1
+	sta $d030	;CPU = 2MHz
+	sta $d019	;clear VIC raster IRQ
+	lda #<c128_border_phase1    ;set top-of-screen (phase 1)
+	ldx #>c128_border_phase1
+	sta $0314        ;as new IRQ vector
+	stx $0315
+	lda $d011
+	and #$7f	;high raster bit = 0
+	sta $d011
+	lda #48+3-1	;low raster bits (default + Y_Scroll - 1 early raster = 50)
+	sta $d012
+	cli		;allow sprite/pen IRQs
+	jsr $c22c	;flash VIC cursor, etc.
+	jmp $fa6b	;update Jiffy Clock, control Cassette, handle SOUND/PLAY/MOVSPR
+				;and return from IRQ
+
+;phase 1 of 2MHz speed-up = change CPU back to 1MHz
+;and set raster IRQ for bottom-of-screen
+;NOTE the CPU is in BANK 15 (the VIC will soon start top of visible screen)
+c128_border_phase1
+	lda #<c128_border_phase2    ;set bottom-of-screen (phase 2)
+	ldx #>c128_border_phase2
+	sta $0314        ;as new IRQ vector
+	stx $0315
+	lda $d011
+	and #$7f	;high raster bit = 0
+	sta $d011
+	lda #251	;low raster bits (1 raster beyond visible screen)
+	sta $d012
+	lda #1
+	sta $d019	;clear VIC raster IRQ
+	lsr		; A = 0
+	sta $d030	;CPU = 1MHz
+	jmp $ff33	;return from IRQ
+
 } else {
 !source "constants.asm"
 }
@@ -249,6 +293,31 @@ game_id		!byte 0,0,0,0
 	jsr deletable_screen_init_1
 !if SPLASHWAIT > 0 {
 	jsr splash_screen
+}
+
+!ifdef TARGET_C128 {
+	; Let's speed things up.
+	ldx COLS_40_80
+	beq +
+	; 80 columns mode
+	; switch to 2MHz
+	lda #1
+	sta $d030	;CPU = 2MHz
+	jmp ++
++	; 40 columns mode
+	; use 2MHz only when rasterline is in the border for VIC-II
+	sei 
+	lda #<c128_border_phase2
+	ldx #>c128_border_phase2
+	sta $0314
+	stx $0315
+	lda $d011
+	and #$7f ; high raster bit = 0
+	sta $d011
+	lda #251 ; low raster bit (1 raster beyond visible screen)
+	sta $d012
+	cli
+++
 }
 
 !ifdef VMEM {
