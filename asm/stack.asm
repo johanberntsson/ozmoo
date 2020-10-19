@@ -639,18 +639,12 @@ z_ins_pull
 	pha
 	txa
 	pha
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #1
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	pla
-	sta (zp_temp),y
+	tax
 	pla
-	dey
-	sta (zp_temp),y
+	jsr z_set_variable_reference_to_value
 	rts
-
 	
 }
-

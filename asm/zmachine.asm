@@ -803,10 +803,30 @@ read_operand
 	inc z_operand_count
 	rts
 
+.read_from_stack
+!ifdef SLOW {
+	jsr stack_pull
+} else {
+	ldy stack_has_top_value
+	beq +
+	lda stack_top_value
+	ldx stack_top_value + 1
+	dec stack_has_top_value
+	beq .store_operand ; Always branch
++	jsr stack_pull_no_top_value
+}
+	jmp .store_operand ; Always branch
+
+
 .operand_is_var
 	; Variable# in a
 	cmp #0
 	beq .read_from_stack
+!ifdef COMPLEX_MEMORY {
+	tay
+	jsr z_get_variable_reference_and_value
+	jmp .store_operand
+} else {	
 	bmi .read_high_global_var
 	cmp #16
 	bcs .read_global_var
@@ -825,19 +845,6 @@ read_operand
 	dey
 	lda (z_local_vars_ptr),y
 	bcc .store_operand ; Always branch
-.read_from_stack
-!ifdef SLOW {
-	jsr stack_pull
-} else {
-	ldy stack_has_top_value
-	beq +
-	lda stack_top_value
-	ldx stack_top_value + 1
-	dec stack_has_top_value
-	beq .store_operand ; Always branch
-+	jsr stack_pull_no_top_value
-}
-	jmp .store_operand ; Always branch
 .read_global_var
 	; cmp #128
 	; bcs .read_high_global_var
@@ -863,28 +870,41 @@ read_operand
 	dey
 	lda (z_high_global_vars_ptr),y
 	bcs .store_operand ; Always branch
+}
 !ifndef UNSAFE {
 .nonexistent_local
 	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
-}
+} ; Ifdef SLOW {} else
 
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
 
 !zone {
-z_get_variable_reference
-	; input: Variable in x
-	; output: Address is returned in a,x
+z_set_variable_reference_to_value
+	; input: Value in a,x.
+	;        (zp_temp) must point to variable, possibly using zp_temp + 2 to store bank
+	; affects registers: a,x,y,p
+	ldy #0
+	sta (zp_temp),y
+	iny
+	txa
+	sta (zp_temp),y
+	rts
+
+z_get_variable_reference_and_value
+	; input: Variable in y
+	; output: Address is stored in (zp_temp), bank may be stored in zp_temp + 2
+	;         Value in a,x
 	; affects registers: p
-	sty zp_temp + 3
-	cpx #0
+	cpy #0
 	bne +
 	; Find on stack
 	jsr stack_get_ref_to_top_value
-	ldy zp_temp + 3
-	rts
-+	txa
+	stx zp_temp
+	sta zp_temp + 1
+	jmp z_get_referenced_value
++	tya
 	cmp #16
 	bcs .find_global_var
 	; Local variable
@@ -894,14 +914,21 @@ z_get_variable_reference
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
-	asl
-	clc
+	asl ; Also clears carry
 	adc z_local_vars_ptr
-	tax
+	sta zp_temp
 	lda z_local_vars_ptr + 1
 	adc #0
-	ldy zp_temp + 3
+	sta zp_temp + 1
+
+z_get_referenced_value
+	ldy #1
+	lda (zp_temp),y
+	tax
+	dey
+	lda (zp_temp),y
 	rts
+
 .find_global_var
 	ldx #0
 	stx zp_temp + 1
@@ -909,11 +936,11 @@ z_get_variable_reference
 	rol zp_temp + 1
 	clc
 	adc z_low_global_vars_ptr
-	tax
+	sta zp_temp
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
-	ldy zp_temp + 3
-	rts
+	sta zp_temp + 1
+	jmp z_get_referenced_value
 
 !ifndef UNSAFE {
 .nonexistent_local
@@ -949,17 +976,10 @@ z_set_variable
 	stx z_temp + 1
 	tya
 !ifdef SLOW {
-	tax
-	jsr z_get_variable_reference
-	stx z_temp + 2
-	sta z_temp + 3
-	ldy #0
+	jsr z_get_variable_reference_and_value
 	lda z_temp
-	sta (z_temp + 2),y
-	iny
-	lda z_temp + 1
-	sta (z_temp + 2),y
-	rts
+	ldx z_temp + 1
+	jmp z_set_variable_reference_to_value
 } else {
 	cmp #16
 	bcs .write_global_var
@@ -1097,20 +1117,7 @@ calc_address_in_byte_array
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
-;	tay
-;	cpx story_start + header_static_mem + 1
-;	sbc story_start + header_static_mem
-;	tya
-;	bcc .is_in_dynmem
 	jmp set_z_address
-;	ldy #1
-;	rts
-;.is_in_dynmem	
-;	stx zp_temp
-;	adc #>story_start ; Carry is already clear
-;	sta zp_temp + 1
-;	ldy #0
-;	rts
 }
 
 !zone rnd {
@@ -1209,50 +1216,23 @@ z_ins_ret_popped
 ; z_ins_get_prop_len (moved to objecttable.asm)
 
 z_ins_inc
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-
-	; ldy #1
-	; lda (foo),y
-	; clc
-	; adc #1
-	; sta (foo),y
-	; bne +
-	; dey
-	; lda (foo),y
-	; adc #0
-	; sta (foo),y
-; +	rts
-
-.inc_store_ref	
-	stx .ins_inc + 1
-	sta .ins_inc + 2
-	ldx #1
-.ins_inc
-	inc $0400,x
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
+	inx
 	bne +
-	dex
-	bpl .ins_inc
-z_ins_nop
-+	rts	
+	clc
+	adc #1
++	jmp z_set_variable_reference_to_value
 	
 z_ins_dec
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-.dec_store_ref
-	stx .ins_dec + 1
-	sta .ins_dec + 2
-	stx .ins_dec + 4
-	sta .ins_dec + 5
-	ldx #1
-.ins_dec
-	dec $0400,x
-	lda $0400,x
-	cmp #$ff
-	bne +
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	dex
-	bpl .ins_dec
-+	rts
+	cpx #255
+	bne +
+	sec
+	sbc #1
++	jmp z_set_variable_reference_to_value
 	
 ; z_ins_print_addr (moved to text.asm)
 	
@@ -1280,15 +1260,8 @@ z_ins_jump
 ; z_ins_print_paddr (moved to text.asm)
 
 z_ins_load
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #1
-	lda (zp_temp),y
-	tax
-	dey
-	lda (zp_temp),y
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	jmp z_store_result
 
 z_ins_not
@@ -1321,17 +1294,11 @@ z_ins_jz
 	jmp make_branch_true
 	
 z_ins_inc_chk
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	jsr .inc_store_ref
-	ldy #0
-	lda (zp_temp),y
+	jsr z_ins_inc
+	jsr z_get_referenced_value
 	sta z_operand_value_high_arr
-	iny
-	lda (zp_temp),y
-	sta z_operand_value_low_arr
+	stx z_operand_value_low_arr
+	
 z_ins_jg
 	lda z_operand_value_low_arr + 1
 	cmp z_operand_value_low_arr
@@ -1343,16 +1310,10 @@ z_ins_jg
 	bpl make_branch_false ; Always branch
 
 z_ins_dec_chk
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	jsr .dec_store_ref
-	ldy #0
-	lda (zp_temp),y
+	jsr z_ins_dec
+	jsr z_get_referenced_value
 	sta z_operand_value_high_arr
-	iny
-	lda (zp_temp),y
+	txa
 	jmp .jl_comp
 
 z_ins_je
@@ -1499,17 +1460,11 @@ z_ins_and
 ; z_ins_clear_attr (moved to objecttable.asm)
 	
 z_ins_store
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #0
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	lda z_operand_value_high_arr + 1
-	sta (zp_temp),y
-	iny
-	lda z_operand_value_low_arr + 1
-	sta (zp_temp),y
-	rts
+	ldx z_operand_value_low_arr + 1
+	jmp z_set_variable_reference_to_value
 
 ; z_ins_insert_obj (moved to objecttable.asm)
 	
@@ -1519,13 +1474,10 @@ z_ins_loadw_and_storew
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1
-;	sta zp_temp
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
 	jsr set_z_address
-;	sta zp_temp + 1
-;	ldy #1
 	lda z_opcode_number
 	cmp #15 ; Code for loadw
 	bne .storew
@@ -1540,6 +1492,7 @@ z_ins_loadw_and_storew
 	jsr write_next_byte
 	lda z_operand_value_low_arr + 2
 	jsr write_next_byte
+z_ins_nop
 	rts
 	
 z_ins_loadb

@@ -14,12 +14,20 @@
 }
 !ifdef TARGET_PLUS4 {
 	TARGET_ASSIGNED = 1
+	COMPLEX_MEMORY = 1
+	!ifndef SLOW {
+		SLOW = 1
+	}
 }
 !ifdef TARGET_C64 {
 	TARGET_ASSIGNED = 1
 }
 !ifdef TARGET_C128 {
 	TARGET_ASSIGNED = 1
+	COMPLEX_MEMORY = 1
+	!ifndef SLOW {
+		SLOW = 1
+	}
 }
 
 !ifndef TARGET_ASSIGNED {
