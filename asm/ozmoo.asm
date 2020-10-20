@@ -542,7 +542,6 @@ z_init
 }
 	
 	; Copy alphabet pointer from header, or default
-dummy
 !ifdef Z5PLUS {
 	ldy #header_alphabet_table
 	jsr read_header_word

@@ -424,7 +424,7 @@ show_more_prompt
 
 !ifdef TARGET_C128 {
     ldx COLS_40_80
-    bne +
+    bne .alternate_colours
     ; Only show more prompt in C128 VIC-II screen
 }
 .more_access1
@@ -433,11 +433,9 @@ show_more_prompt
 	lda #128 + $2a ; screen code for reversed "*"
 .more_access2
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
-!ifdef TARGET_C128 {
-+
-}
+
 	; wait for ENTER
-.printchar_pressanykey
+.alternate_colours
 !ifndef BENCHMARK {
 --	ldx s_colour
 	iny
@@ -451,17 +449,15 @@ show_more_prompt
 }
 !ifdef TARGET_C128 {
     ldy COLS_40_80
-    bne +
+    bne .check_for_keypress
     ; Only show more prompt in C128 VIC-II screen
 }
 .more_access3
 	stx COLOUR_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
-!ifdef TARGET_C128 {
-+
-}
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
+.check_for_keypress_
 	ldx s_screen_width
 ---	lda ti_variable + 2 ; $a2
 -	cmp ti_variable + 2 ; $a2
@@ -476,15 +472,12 @@ show_more_prompt
 }
 !ifdef TARGET_C128 {
     ldx COLS_40_80
-    bne +
+    bne .increase_num_rows_done
     ; Only show more prompt in C128 VIC-II screen
 }
 	lda .more_text_char
 .more_access4
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
-!ifdef TARGET_C128 {
-+
-}
 .increase_num_rows_done
 	rts
 
