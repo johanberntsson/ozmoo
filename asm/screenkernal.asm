@@ -20,13 +20,31 @@
 ;TESTSCREEN = 1
 
 !ifdef TARGET_C128 {
+SETBORDERMACRO_DEFINED = 1
 !macro SetBorderColour {
 	jsr C128SetBorderColour
 }
 !macro SetBackgroundColour {
 	jsr C128SetBackgroundColour
 }
-} else {
+}
+
+
+!ifdef TARGET_PLUS4 {
+SETBORDERMACRO_DEFINED = 1
+!macro SetBorderColour {
+	tax
+	lda plus4_vic_colours,x
+	sta reg_bordercolour
+}
+!macro SetBackgroundColour {
+	tax
+	lda plus4_vic_colours,x
+	sta reg_backgroundcolour
+}
+}
+
+!ifndef SETBORDERMACRO_DEFINED {
 !macro SetBorderColour {
 	sta reg_bordercolour
 }
@@ -37,6 +55,26 @@
 
 !zone screenkernal {
 
+!ifdef TARGET_PLUS4 {
+plus4_vic_colours
+	;     PLUS4  VIC-II
+	!byte 0    ; black
+	!byte 113  ; white
+	!byte 2    ; red
+	!byte 67   ; cyan
+	!byte 4    ; purple
+	!byte 21   ; green
+	!byte 6    ; blue
+	!byte 103  ; yellow
+	!byte 40   ; orange
+	!byte 24   ; brown 
+	!byte 66   ; light red
+	!byte 17   ; dark grey
+	!byte 65   ; grey
+	!byte 69   ; light green
+	!byte 70   ; light blue
+	!byte 81   ; light grey
+}
 !ifdef TARGET_C128 {
 !source "vdc.asm"
 
@@ -441,6 +479,10 @@ s_printchar
 		jsr colour2k
 	}
 	lda s_colour
+!ifdef PLUS_4 {
+	tax
+	lda plus4_vic_colours,x
+}
 	sta (zp_colourline),y
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
