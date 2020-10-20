@@ -15,6 +15,7 @@
 !ifdef TARGET_PLUS4 {
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
+	VMEM_END_PAGE = $fc
 	!ifndef SLOW {
 		SLOW = 1
 	}
@@ -34,6 +35,11 @@
 	; No target given. C64 is the default target
 	TARGET_C64 = 1
 }
+
+!ifndef VMEM_END_PAGE {
+	VMEM_END_PAGE = $00 ; Last page of accessible RAM for VMEM, plus 1.
+}
+
 
 !ifdef VMEM {
 !ifndef ALLRAM {
@@ -766,7 +772,7 @@ deletable_init
 	clc
 	adc #>story_start
 	sta vmap_first_ram_page
-	lda #0
+	lda #VMEM_END_PAGE
 	sec
 	sbc vmap_first_ram_page
 	lsr
