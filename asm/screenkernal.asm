@@ -479,7 +479,7 @@ s_printchar
 		jsr colour2k
 	}
 	lda s_colour
-!ifdef PLUS_4 {
+!ifdef TARGET_PLUS4 {
 	tax
 	lda plus4_vic_colours,x
 }
