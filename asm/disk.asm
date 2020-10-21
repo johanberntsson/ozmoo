@@ -501,10 +501,10 @@ z_ins_restart
 	ldx #0
 -	lda .restart_keys,x
 	beq +
-	sta 631,x
+	sta keyboard_buff,x
 	inx
 	bne - ; Always branch
-+	stx 198
++	stx keyboard_buff_len
 	jsr clear_screen_raw
 }
 	lda #z_exe_mode_exit
@@ -526,9 +526,9 @@ z_ins_restart
 	bne -
 	; Setup	key sequence
 +	lda #131
-	sta 631
+	sta keyboard_buff
 	lda #1
-	sta 198
+	sta keyboard_buff_len
 	rts
 		
 .restart_code_string

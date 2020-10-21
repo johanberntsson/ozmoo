@@ -10,6 +10,8 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 num_rows 			  = $a6 ; !byte 0
 CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
+keyboard_buff_len     = $c6
+keyboard_buff         = $277
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b0 ; 3 bytes
@@ -30,17 +32,25 @@ COLOUR_ADDRESS        = $0800
 COLOUR_ADDRESS_DIFF   = $10000 + COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ae
 ti_variable           = $a3; 3 bytes
+keyboard_buff_len     = $ef
+keyboard_buff         = $527
+
+
+zp_temp               = $3b ; 5 bytes
 num_rows 			  = $b7 ; !byte 0
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b8 ; 3 bytes
 s_reverse 			  = $bb ; !byte 0
 
-zp_temp               = $3b ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
 first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
 datasette_buffer_start= $0333
 datasette_buffer_end  = $0437
+
+ted_voice_1           = $ff0e
+ted_volume            = $ff11
+
 }
 
 !ifdef TARGET_MEGA65 {
@@ -52,6 +62,8 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
 num_rows 			  = $a6 ; !byte 0
+keyboard_buff_len     = $c6
+keyboard_buff         = $277
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b0 ; 3 bytes
@@ -62,6 +74,7 @@ savefile_zp_pointer   = $c1 ; 2 bytes
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
 datasette_buffer_end  = $03fb
+
 }
 
 ; --- ZERO PAGE --

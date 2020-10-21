@@ -9,7 +9,8 @@ COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 COLS_40_80            = $d7
-
+keyboard_buff_len     = $d0
+keyboard_buff         = $34a
 
 ; --- ZERO PAGE --
 ; available zero page variables (pseudo registers)

@@ -1912,6 +1912,7 @@ z_ins_sound_effect
 	dex
 	beq .sound_low_pitched_beep
 	rts
+!ifdef HAS_SID {	
 .sound_high_pitched_beep
 	lda #$40
 .sound_low_pitched_beep
@@ -1927,6 +1928,29 @@ z_ins_sound_effect
 	lda #$20
 	sta $d404
 	rts
+} else {
+	!ifdef TARGET_PLUS4 {
+.sound_high_pitched_beep
+	lda #$f0
+.sound_low_pitched_beep
+	sta ted_voice_1
+	lda #16 + 15
+	sta ted_volume
+	ldy #40
+--	ldx #0
+-	dex
+	bne -
+	dey
+	bne --
+	lda #0 + 15
+	sta ted_volume
+	rts
+	} else {
+.sound_high_pitched_beep
+.sound_low_pitched_beep
+	rts
+	}
+}
 
 !ifdef Z4PLUS {
 z_ins_scan_table

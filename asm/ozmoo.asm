@@ -621,6 +621,11 @@ z_init
 	lda #$f2
 	sta $d406
 }
+!ifdef TARGET_PLUS4 {
+	lda #0
+	sta ted_volume
+}
+
 	
 	; Init randomization
 !ifdef HAS_SID {
