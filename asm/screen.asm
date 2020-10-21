@@ -457,7 +457,7 @@ show_more_prompt
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
-.check_for_keypress_
+.check_for_keypress
 	ldx s_screen_width
 ---	lda ti_variable + 2 ; $a2
 -	cmp ti_variable + 2 ; $a2

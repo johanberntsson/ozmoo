@@ -26,6 +26,7 @@
 }
 !ifdef TARGET_C128 {
 	TARGET_ASSIGNED = 1
+	HAS_SID = 1
 	COMPLEX_MEMORY = 1
 	!ifndef SLOW {
 		SLOW = 1
@@ -314,31 +315,6 @@ game_id		!byte 0,0,0,0
 	jsr splash_screen
 }
 
-!ifdef TARGET_C128 {
-	; Let's speed things up.
-	ldx COLS_40_80
-	beq +
-	; 80 columns mode
-	; switch to 2MHz
-	lda #1
-	sta $d030	;CPU = 2MHz
-	jmp ++
-+	; 40 columns mode
-	; use 2MHz only when rasterline is in the border for VIC-II
-	sei 
-	lda #<c128_border_phase2
-	ldx #>c128_border_phase2
-	sta $0314
-	stx $0315
-	lda $d011
-	and #$7f ; high raster bit = 0
-	sta $d011
-	lda #251 ; low raster bit (1 raster beyond visible screen)
-	sta $d012
-	cli
-++
-}
-
 !ifdef VMEM {
 !ifdef TARGET_C64 {
 	; set up C64 SuperCPU if any
@@ -381,6 +357,37 @@ game_id		!byte 0,0,0,0
 	jsr erase_window
 
 	jsr z_init
+
+!ifdef TARGET_C128 {
+	; Let's speed things up.
+	; this needs to be after the z_init call since 
+	; z_init uses SID to initialize the random number generator
+	; and SID doesn't work in fast mode.
+	ldx COLS_40_80
+	beq +
+	; 80 columns mode
+	; switch to 2MHz
+	lda #1
+	sta $d030	;CPU = 2MHz
+	jmp ++
++	; 40 columns mode
+	; use 2MHz only when rasterline is in the border for VIC-II
+	sei 
+	lda #<c128_border_phase2
+	ldx #>c128_border_phase2
+	sta $0314
+	stx $0315
+	lda $d011
+	and #$7f ; high raster bit = 0
+	sta $d011
+	lda #251 ; low raster bit (1 raster beyond visible screen)
+	sta $d012
+	cli
+++
+}
+
+
+
 	jsr z_execute
 
 	; Back to normal memory banks
