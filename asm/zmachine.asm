@@ -1931,10 +1931,11 @@ z_ins_sound_effect
 } else {
 	!ifdef TARGET_PLUS4 {
 .sound_high_pitched_beep
-	lda #$f0
+	lda #$f2
 .sound_low_pitched_beep
-	sta ted_voice_1
-	lda #16 + 15
+	sta ted_voice_2_low
+	sta ted_voice_2_high
+	lda #32 + 15
 	sta ted_volume
 	ldy #40
 --	ldx #0

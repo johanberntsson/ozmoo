@@ -48,7 +48,8 @@ first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking
 datasette_buffer_start= $0333
 datasette_buffer_end  = $0437
 
-ted_voice_1           = $ff0e
+ted_voice_2_low       = $ff0f
+ted_voice_2_high      = $ff10
 ted_volume            = $ff11
 
 }
