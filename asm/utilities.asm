@@ -17,12 +17,35 @@ plus4_enable_rom = $ff3e
 ;plus4_enable_ram = $0c00
 ;plus4_enable_rom = $0c00
 
+; C128 MMU ($ff00)
+; 7–6 Processor RAM bank (0–3)
+;  00:  RAM 0
+;  01:  RAM 1
+;  10:  RAM 2 (but not used/available)
+;  11:  RAM 3 (but not used/available)
+; 5–4 Contents of the area $C000–$FFFF
+;  00 Kernal ROM
+;  01 Internal Function ROM
+;  10 External Function ROM (ROMH)
+;  11 RAM
+; 3–2 Contents of the area $8000–$BFFF
+;  00 BASIC ROM high
+;  01 Internal Function ROM
+;  10 External Function ROM (ROML)
+;  11 RAM
+; 1   Contents of the area $4000–$7FFF
+;   0 BASIC ROM low
+;   1 RAM
+; 0   Contents of the area $D000–$DFFF
+;   0 I/O registers
+;   1 RAM or character generator ROM
+
 !macro set_memory_all_ram {
 	; Don't forget to disable interrupts first!
 	pha
 !ifdef TARGET_C128 {
-	lda #%11111111
-	sta $ff0
+	lda #%00111111 ; all RAM0
+	sta $ff00
 } else {
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
@@ -36,8 +59,8 @@ plus4_enable_rom = $ff3e
 !macro set_memory_all_ram_unsafe {
 	; Don't forget to disable interrupts first!
 !ifdef TARGET_C128 {
-	lda #%11111111
-	sta $ff0
+	lda #%00111111 ; all RAM0
+	sta $ff00
 } else {
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
@@ -51,9 +74,8 @@ plus4_enable_rom = $ff3e
 !macro set_memory_no_basic {
 	pha
 !ifdef TARGET_C128 {
-	; 48K RAM (0-$c000)
-	lda #%00001110
-	sta $ff0
+	lda #%00001110 ; 48K RAM0 (0-$c000)
+	sta $ff00
 } else {
 	lda #%00110110
 !ifdef TARGET_PLUS4 {
@@ -66,9 +88,8 @@ plus4_enable_rom = $ff3e
 }
 !macro set_memory_no_basic_unsafe {
 !ifdef TARGET_C128 {
-	; 48K RAM (0-$c000)
-	lda #%00001110
-	sta $ff0
+	lda #%00001110 ; 48K RAM0 (0-$c000)
+	sta $ff00
 } else {
 	lda #%00110110
 !ifdef TARGET_PLUS4 {
@@ -82,9 +103,8 @@ plus4_enable_rom = $ff3e
 !macro set_memory_normal {
 	pha
 !ifdef TARGET_C128 {
-	; default
-	lda #%00000000
-	sta $ff0
+	lda #%00000000 ; default
+	sta $ff00
 } else {
 	lda #%00110111
 !ifdef TARGET_PLUS4 {

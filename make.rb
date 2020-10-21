@@ -1411,7 +1411,8 @@ begin
 			elsif $target == "c128" then
 			    # Different start address
 			    $start_address = 0x1c01
-				$memory_end_address = 0xfd00
+				$memory_end_address = 0xfc00
+				$normal_ram_end_address = 0xc000
 			end
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
@@ -1763,12 +1764,7 @@ File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 
 build_interpreter()
 
-#if $target == 'plus4'
-#	$vmem_size = $memory_end_address - $storystart
-#else
-	$vmem_size = ($ALLRAM ? $memory_end_address : $normal_ram_end_address) - $storystart
-#	puts "VMEM SIZE IS #{$vmem_size} bytes."
-#end
+$vmem_size = ($ALLRAM ? $memory_end_address : $normal_ram_end_address) - $storystart
 
 if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
