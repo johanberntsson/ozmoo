@@ -19,6 +19,8 @@
 
 ;TESTSCREEN = 1
 
+!zone screenkernal {
+
 !ifdef TARGET_C128 {
 SETBORDERMACRO_DEFINED = 1
 !macro SetBorderColour {
@@ -33,14 +35,22 @@ SETBORDERMACRO_DEFINED = 1
 !ifdef TARGET_PLUS4 {
 SETBORDERMACRO_DEFINED = 1
 !macro SetBorderColour {
+	stx s_stored_x
+	pha
 	tax
 	lda plus4_vic_colours,x
 	sta reg_bordercolour
+	pla
+	ldx s_stored_x
 }
 !macro SetBackgroundColour {
+	stx s_stored_x
+	pha
 	tax
 	lda plus4_vic_colours,x
 	sta reg_backgroundcolour
+	pla
+	ldx s_stored_x
 }
 }
 
@@ -53,7 +63,6 @@ SETBORDERMACRO_DEFINED = 1
 }
 }
 
-!zone screenkernal {
 
 !ifdef TARGET_PLUS4 {
 plus4_vic_colours
