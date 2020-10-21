@@ -11,6 +11,7 @@
 ; future versions may include new targets such as Mega65, Plus/4 etc.
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
+	HAS_SID = 1
 }
 !ifdef TARGET_PLUS4 {
 	TARGET_ASSIGNED = 1
@@ -34,6 +35,10 @@
 !ifndef TARGET_ASSIGNED {
 	; No target given. C64 is the default target
 	TARGET_C64 = 1
+}
+
+!ifdef TARGET_C64 {
+	HAS_SID = 1
 }
 
 !ifndef VMEM_END_PAGE {
@@ -595,6 +600,7 @@ z_init
 	adc #1
 	sta z_high_global_vars_ptr + 1 
 
+!ifdef HAS_SID {
 	; Init sound
 	lda #0
 	ldx #$18
@@ -607,13 +613,16 @@ z_init
 	sta $d405
 	lda #$f2
 	sta $d406
+}
 	
 	; Init randomization
+!ifdef HAS_SID {
 	lda #$ff
 	sta $d40e
 	sta $d40f
 	ldx #$80
 	stx $d412
+}
 !ifdef BENCHMARK {
 	ldy #1
 	jmp z_rnd_init
