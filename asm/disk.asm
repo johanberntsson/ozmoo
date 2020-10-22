@@ -467,6 +467,7 @@ insert_msg_3
 z_ins_restart
 	; Find right device# for boot disk
 
+!ifndef TARGET_PLUS4 {
 	ldx disk_info + 3
 	lda disk_info + 4,x
 	cmp #10
@@ -476,6 +477,7 @@ z_ins_restart
 	sbc #10
 +	ora #$30
 	sta .restart_code_string + 13
+}
 	
 	; Check if disk is in drive
 	lda disk_info + 4,x
@@ -518,6 +520,11 @@ z_ins_restart
 
 .restart_code_begin
 .restart_code_string_final_pos = .restart_code_string - .restart_code_begin + .restart_code_address
+!ifndef TARGET_MEGA65 {
+	jsr $ff84
+	jsr $ff8a
+	jsr $ff81
+}
 	ldx #0
 -	lda .restart_code_string_final_pos,x
 	beq +
@@ -525,14 +532,27 @@ z_ins_restart
 	inx
 	bne -
 	; Setup	key sequence
-+	lda #131
++	
+!ifdef TARGET_PLUS4 {
+	lda #147
+	sta keyboard_buff
+	lda #131
+	sta keyboard_buff + 1
+	lda #2
+} else {
+	lda #131
 	sta keyboard_buff
 	lda #1
+}
 	sta keyboard_buff_len
 	rts
-		
+
 .restart_code_string
+!ifdef TARGET_PLUS4 {
+	!pet 147,17,17,"dL",34,"*",34,17,17,17,"rU",19,0,"       "
+} else {
 	!pet 147,17,17,"    ",34,":*",34,",08",19,0
+}
 ; .restart_code_keys
 	; !pet 131,0
 .restart_code_end

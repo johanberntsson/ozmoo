@@ -390,14 +390,22 @@ game_id		!byte 0,0,0,0
 
 	jsr z_execute
 
+!ifdef TARGET_PLUS4 {
+	lda #$01
+	sta $2b
+	lda #$10
+	sta $2c
+	jmp $8000
+} else {
 	; Back to normal memory banks
 	+set_memory_normal
 
-	jsr $fda3 ; init I/O
-	;jsr $fd50 ; init memory
-	jsr $fd15 ; set I/O vectors
-	jsr $ff5b ; more init
+;	jsr $fda3 ; init I/O
+;	jsr $fd15 ; set I/O vectors
+;	jsr $ff5b ; more init
 	jmp ($a000)
+}
+	
 	
 program_end
 
