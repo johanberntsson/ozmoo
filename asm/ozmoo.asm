@@ -222,8 +222,8 @@ program_start
 !source "constants-c128.asm"
 
 c128_reset_to_basic
-	; this needs to at the start of the program since
-	; I need to bank back the normal memory and the later
+	; this needs to be at the start of the program since
+	; I need to bank back the normal memory and the latter
 	; part of Ozmoo will be under the BASIC ROM.
 	lda #0
 	sta $ff00
