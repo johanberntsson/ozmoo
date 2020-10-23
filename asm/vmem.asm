@@ -116,7 +116,6 @@ read_byte_at_z_address
 
 vmem_blockmask = 255 - (>(vmem_blocksize - 1))
 vmem_block_pagecount = vmem_blocksize / 256
-; vmap_max_length  = (vmem_end-vmem_start) / vmem_blocksize
 vmap_max_size = 102 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
 ; vmap_max_entries	!byte 0 ; Moved to ZP
 ; vmap_used_entries	!byte 0 ; Moved to ZP

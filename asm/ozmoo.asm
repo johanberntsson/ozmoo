@@ -1205,14 +1205,6 @@ end_of_routines_in_stack_space
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 
 story_start
-!ifdef VMEM {
-vmem_start
-	!if $10000 - vmem_start > $cc00 {
-		vmem_end = vmem_start + $cc00
-	} else {
-		vmem_end = $10000
-	}
-}
 
 !ifdef vmem_cache_size {
 !if vmem_cache_size >= $200 {
