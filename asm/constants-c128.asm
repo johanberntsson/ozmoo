@@ -153,7 +153,7 @@ print_buffer2         = $0d00 ; SCREEN_WIDTH + 1 bytes
 memory_buffer         =	$0e00
 memory_buffer_length  = 89
 
-first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+first_banked_memory_page = $c0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
 charset_switchable 	  = $f7
 

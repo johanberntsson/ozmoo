@@ -1411,7 +1411,7 @@ begin
 			elsif $target == "c128" then
 			    # Different start address
 			    $start_address = 0x1c01
-				$memory_end_address = 0xfc00
+				$memory_end_address = 0xc000
 				$normal_ram_end_address = 0xc000
 			end
 		elsif ARGV[i] =~ /^-S1$/ then

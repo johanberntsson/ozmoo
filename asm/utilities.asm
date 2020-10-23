@@ -23,7 +23,7 @@ plus4_enable_rom = $ff3e
 ;  01:  RAM 1
 ;  10:  RAM 2 (but not used/available)
 ;  11:  RAM 3 (but not used/available)
-; 5–4 Contents of the area $C000–$FFFF
+; 5–4 Contents of the area $C000–$FFFF;$E000-$FBFF
 ;  00 Kernal ROM
 ;  01 Internal Function ROM
 ;  10 External Function ROM (ROMH)
