@@ -27,11 +27,11 @@
 !ifdef TARGET_C128 {
 	TARGET_ASSIGNED = 1
 	HAS_SID = 1
-	VMEM_END_PAGE = $c0
-	;COMPLEX_MEMORY = 1
-	;!ifndef SLOW {
-	;	SLOW = 1
-	;}
+	VMEM_END_PAGE = $fc
+	COMPLEX_MEMORY = 1
+	!ifndef SLOW {
+		SLOW = 1
+	}
 }
 
 !ifndef TARGET_ASSIGNED {
