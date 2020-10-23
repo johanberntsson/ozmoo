@@ -14,9 +14,7 @@ COLS_40_80            = $d7
 keyboard_buff_len     = $d0
 keyboard_buff         = $34a
 
-; --- ZERO PAGE --
-; available zero page variables (pseudo registers)
-
+; --- ZERO PAGE -- ; available zero page variables (pseudo registers) 
 ; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
 z_local_vars_ptr      = $09 ; 2 bytes ### OK C128
 z_local_var_count     = $0b ;         ### OK C128
@@ -185,8 +183,4 @@ kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
-;NOTUSED kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
-;NOTUSED kernal_scnkey         = $ff9f ; scan the keyboard
-;NOTUSED kernal_chkout         = $ffc9 ; define file as default output
-;NOTUSED kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
 
