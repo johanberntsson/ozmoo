@@ -14,6 +14,10 @@ ti_variable           = $a0; 3 bytes
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
 
+use_reu				  = $9b
+window_start_row	  = $9c; 4 bytes
+
+
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b0 ; 3 bytes
 s_reverse 			  = $b3 ; !byte 0
@@ -39,6 +43,10 @@ keyboard_buff         = $527
 
 
 zp_temp               = $3b ; 5 bytes
+use_reu				  = $87
+window_start_row	  = $88; 4 bytes
+
+
 num_rows 			  = $b7 ; !byte 0
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
@@ -68,6 +76,9 @@ ti_variable           = $a0; 3 bytes
 num_rows 			  = $a6 ; !byte 0
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
+
+use_reu				  = $9b
+window_start_row	  = $9c; 4 bytes
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b0 ; 3 bytes
@@ -166,10 +177,6 @@ s_colour 			  = $74 ; !byte 1 ; white as default
 
 vmem_temp			  = $92 ; 2 bytes
 ; alphabet_table		  = $96 ; 2 bytes
-
-use_reu				  = $9b
-
-window_start_row	  = $9c; 4 bytes
 
 current_window		  = $a7 ; !byte 0
 

@@ -1139,6 +1139,17 @@ calc_address_in_byte_array
 !zone rnd {
 z_rnd_init_random
 	; in: Nothing
+!ifdef TARGET_PLUS4 {
+	lda $ff1d
+	eor z_rnd_a
+	tay
+	lda $ff1e
+	eor z_rnd_b
+	tax
+	lda ti_variable + 2
+	eor $ff00
+	eor z_rnd_c	
+} else {
 	lda $dc04
 	eor #%10101010
 	eor z_rnd_a
@@ -1150,6 +1161,7 @@ z_rnd_init_random
 	lda $d41b
 	eor $d012
 	eor z_rnd_c
+}
 z_rnd_init
 	; in: a,x,y as seed
 	sta z_rnd_a

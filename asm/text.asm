@@ -1129,6 +1129,12 @@ update_cursor
 	lda cursor_character
 	sta (zp_screenline),y
 	lda current_cursor_colour
+!ifdef TARGET_PLUS4 {
+	stx object_temp + 1
+	tax
+	lda plus4_vic_colours,x
+	ldx object_temp + 1
+}
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }

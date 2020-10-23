@@ -467,8 +467,8 @@ insert_msg_3
 z_ins_restart
 	; Find right device# for boot disk
 
-!ifndef TARGET_PLUS4_OR_C128 {
 	ldx disk_info + 3
+!ifndef TARGET_PLUS4_OR_C128 {
 	lda disk_info + 4,x
 	cmp #10
 	bcc +
@@ -478,6 +478,8 @@ z_ins_restart
 +	ora #$30
 	sta .restart_code_string + 13
 	
+}
+
 	; Check if disk is in drive
 	lda disk_info + 4,x
 	tay
@@ -486,7 +488,7 @@ z_ins_restart
 	beq +
 	jsr print_insert_disk_msg
 +
-}
+
 
 !ifdef TARGET_MEGA65 {
 	; reset will autoboot the game again from disk
@@ -608,11 +610,7 @@ z_ins_save
 	jmp make_branch_true
 +	jmp make_branch_false
 }
-!ifdef Z4 {
-	jsr save_game
-	jmp z_store_result
-}
-!ifdef Z5PLUS {
+!ifdef Z4PLUS {
 	jsr save_game
 	jmp z_store_result
 }

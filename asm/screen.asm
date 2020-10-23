@@ -101,7 +101,7 @@ erase_window
 	inc zp_screenrow
 	lda zp_screenrow
 	cmp #25
-	bne -
+	bcc -
 	jsr clear_num_rows
 	; set cursor to top left (or, if Z4, bottom left)
 	pla
@@ -438,6 +438,10 @@ show_more_prompt
 .alternate_colours
 !ifndef BENCHMARK {
 --	ldx s_colour
+!ifdef TARGET_PLUS4 {
+	lda plus4_vic_colours,x
+	tax
+}
 	iny
 	tya
 	and #1
