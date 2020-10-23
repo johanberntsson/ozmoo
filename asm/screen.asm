@@ -45,7 +45,11 @@ init_screen_colours
 		+SetBorderColour
 	}
 }
+!if CURSORCOL = 1 {
+	lda zcolours + FGCOL
+} else {
 	lda zcolours + CURSORCOL
+}
 	sta current_cursor_colour
 !ifdef Z5PLUS {
 	; store default colours in header

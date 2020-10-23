@@ -113,6 +113,7 @@ New features:
 - make.rb detects if Beyond Zork is built and changes the interpreter number to say it's the Apple IIe interpreter, since this gives the best results on Ozmoo.
 - Interpreter number can now be customized with -in:N in make.rb
 - Darkmode support is automatically removed when building Beyond Zork, since it gets in the way of a built-in keyboard shortcut in the game, and the game restores the colours even if you change them.
+- Cursor colour now defaults to special value 1, meaning "same as current foreground colour".
 
 Fixed bugs:
 - @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.

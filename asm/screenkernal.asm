@@ -845,10 +845,20 @@ toggle_darkmode
 	eor #1
 	sta darkmode
 	tax
+; Set fgcolour
+	ldy fgcol,x
+	lda zcolours,y
+	jsr s_set_text_colour
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
 ; Set cursor colour
 	ldy cursorcol,x
+	lda s_colour
+	cpy #1
+	beq +
 	lda zcolours,y
-	sta current_cursor_colour
++	sta current_cursor_colour
 ; Set bgcolour
 	ldy bgcol,x
 	lda zcolours,y
@@ -879,13 +889,6 @@ toggle_darkmode
 -	sta COLOUR_ADDRESS,y
 	dey
 	bpl -
-}
-; Set fgcolour
-	ldy fgcol,x
-	lda zcolours,y
-	jsr s_set_text_colour
-!ifdef TARGET_MEGA65 {
-	jsr colour2k
 }
 	;; Work out how many pages of colour RAM to examine
 	ldx s_screen_size + 1
@@ -966,6 +969,16 @@ z_ins_set_colour
 +
 	jsr s_set_text_colour ; change foreground colour
 .current_foreground
+
+; Set cursor colour
+	lda s_colour
+	ldx darkmode
+	ldy cursorcol,x
+	cpy #1
+	beq +
+	lda zcolours,y
++	sta current_cursor_colour
+
 	rts
 }
 

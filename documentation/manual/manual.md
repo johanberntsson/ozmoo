@@ -246,7 +246,7 @@ Border colour. This picks the Z-code colour to use as border colour.
 Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
 
     -cc:(Cursor color)
-Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 
+Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 1 = same as foreground colour (default). If the game itself changes the screen colours, as it may do in Z5+ games, value 1 mean the cursor changes too.
 
 
     -dmdc: (same as -dc but for darkmode)
