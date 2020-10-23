@@ -467,7 +467,7 @@ insert_msg_3
 z_ins_restart
 	; Find right device# for boot disk
 
-!ifndef TARGET_PLUS4 {
+!ifndef TARGET_PLUS4_OR_C128 {
 	ldx disk_info + 3
 	lda disk_info + 4,x
 	cmp #10
@@ -477,7 +477,6 @@ z_ins_restart
 	sbc #10
 +	ora #$30
 	sta .restart_code_string + 13
-}
 	
 	; Check if disk is in drive
 	lda disk_info + 4,x
@@ -487,11 +486,13 @@ z_ins_restart
 	beq +
 	jsr print_insert_disk_msg
 +
+}
 
 !ifdef TARGET_MEGA65 {
 	; reset will autoboot the game again from disk
-	jsr kernal_reset
-} else {
+	jmp kernal_reset
+}
+
 	; Copy restart code
 	ldx #.restart_code_end - .restart_code_begin
 -	lda .restart_code_begin - 1,x
@@ -508,22 +509,26 @@ z_ins_restart
 	bne - ; Always branch
 +	stx keyboard_buff_len
 	jsr clear_screen_raw
-}
 	lda #z_exe_mode_exit
 	sta z_exe_mode
 	rts
 .restart_keys
 ;	!pet "lO",34,":*",34,",08:",131,0
+!ifdef TARGET_C128 {
+	; must select memory under $4000 (basic)
+	!pet "sY4864",13,0
+.restart_code_address = 4864 ; $1300
+} else {
 	!pet "sY3e4",13,0
-
-.restart_code_address = 30000
+.restart_code_address = 30000 ; $7530
+}
 
 .restart_code_begin
 .restart_code_string_final_pos = .restart_code_string - .restart_code_begin + .restart_code_address
 !ifndef TARGET_MEGA65 {
-	jsr $ff84
-	jsr $ff8a
-	jsr $ff81
+	jsr $ff84 ; ioinit (Initialize CIA's, SID, memory config, interrupt timer)
+	jsr $ff8a ; restor (Fill vector table at $0314-$0333 with default values)
+	jsr $ff81 ; scinit (Initialize VIC; set nput/output to keyboard/screen)
 }
 	ldx #0
 -	lda .restart_code_string_final_pos,x
@@ -531,16 +536,29 @@ z_ins_restart
 	jsr $ffd2
 	inx
 	bne -
-	; Setup	key sequence
-+	
++	; Setup	key sequence
+!ifdef TARGET_PLUS4_OR_C128 {
 !ifdef TARGET_PLUS4 {
-	lda #147
+	lda #147 ; clear screen
 	sta keyboard_buff
-	lda #131
+	lda #131 ; run
 	sta keyboard_buff + 1
 	lda #2
 } else {
-	lda #131
+	lda #19 ; home
+	sta keyboard_buff
+	lda #17 ; down
+	sta keyboard_buff + 1
+	lda #17 ; down
+	sta keyboard_buff + 2
+	lda #13 ; run
+	sta keyboard_buff + 3
+	lda #13 ; run
+	sta keyboard_buff + 4
+	lda #5
+}
+} else {
+	lda #131 ; run
 	sta keyboard_buff
 	lda #1
 }
@@ -548,8 +566,12 @@ z_ins_restart
 	rts
 
 .restart_code_string
+!ifdef TARGET_PLUS4_OR_C128 {
 !ifdef TARGET_PLUS4 {
-	!pet 147,17,17,"dL",34,"*",34,17,17,17,"rU",19,0,"       "
+	!pet 147,17,17,"dL",34,"*",34,17,17,17,"rU",19,0
+} else {
+	!pet 147,17,17,"dL",34,"*",34,17,17,17,17,"rU",19,0
+}
 } else {
 	!pet 147,17,17,"    ",34,":*",34,",08",19,0
 }

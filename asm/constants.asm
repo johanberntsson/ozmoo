@@ -2,6 +2,7 @@
 ;
 
 !ifdef TARGET_C64 {
+basic_reset           = $a000
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
@@ -25,6 +26,7 @@ datasette_buffer_end  = $03fb
 }
 
 !ifdef TARGET_PLUS4 {
+basic_reset           = $8000
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0c00
@@ -55,6 +57,7 @@ ted_volume            = $ff11
 }
 
 !ifdef TARGET_MEGA65 {
+basic_reset           = $a000 ; the mega65 version is always run in C64 mode
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
 SCREEN_ADDRESS        = $0800
@@ -200,10 +203,6 @@ charset_switchable 	  = $547
 } else {
 charset_switchable 	  = $291
 }
-
-; --- BASIC rom routines ---
-;basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
-;basic_printinteger    = $bdcd ; write integer value in a/x
 
 ; --- I/O registers ---
 !ifdef TARGET_PLUS4 {

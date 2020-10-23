@@ -14,6 +14,7 @@
 	HAS_SID = 1
 }
 !ifdef TARGET_PLUS4 {
+	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
 	VMEM_END_PAGE = $fc
@@ -25,6 +26,7 @@
 	TARGET_ASSIGNED = 1
 }
 !ifdef TARGET_C128 {
+	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	HAS_SID = 1
 	VMEM_END_PAGE = $fc
@@ -219,6 +221,18 @@ program_start
 !ifdef TARGET_C128 {
 !source "constants-c128.asm"
 
+c128_reset_to_basic
+	; this needs to at the start of the program since
+	; I need to bank back the normal memory and the later
+	; part of Ozmoo will be under the BASIC ROM.
+	lda #0
+	sta $ff00
+	lda #$01
+	sta $2b
+	lda #$10
+	sta $2c
+	jmp basic_reset
+
 ; Adding support for 2MHz in the border
 ; https://sites.google.com/site/h2obsession/CBM/C128/2mhz-border
 
@@ -382,22 +396,21 @@ game_id		!byte 0,0,0,0
 
 	jsr z_execute
 
-!ifdef TARGET_PLUS4 {
+!ifdef TARGET_PLUS4_OR_C128 {
+!ifdef TARGET_C128 {
+	jmp c128_reset_to_basic
+} else {
 	lda #$01
 	sta $2b
 	lda #$10
 	sta $2c
-	jmp $8000
+	jmp basic_reset
+}
 } else {
 	; Back to normal memory banks
 	+set_memory_normal
-
-;	jsr $fda3 ; init I/O
-;	jsr $fd15 ; set I/O vectors
-;	jsr $ff5b ; more init
-	jmp ($a000)
+	jmp (basic_reset)
 }
-	
 	
 program_end
 
