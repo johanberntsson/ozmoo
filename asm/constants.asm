@@ -229,7 +229,7 @@ kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_reset          = $fce2 ; cold reset of the C64
 }
 !ifdef TARGET_PLUS4 {
-kernal_reset          = $fcb3 ; cold reset of the PLUS4
+kernal_reset          = $fff6 ; cold reset of the PLUS4
 }
 !ifdef TARGET_MEGA65 {
 kernal_reset          = $e4b8 ; Reset back to C65 mode
