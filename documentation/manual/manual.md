@@ -136,7 +136,6 @@ Notes:
 P: _Program file_
 
 - Story file size < ~51 KB: Using full amount of RAM.
-- Story file size < ~40 KB: You may use flag -r to only use RAM up to $CFFF. This means all RAM can be accessed directly without buffers, which makes the interpreter smaller and the game faster.
 
 Disks used:
 

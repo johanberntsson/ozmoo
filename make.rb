@@ -1299,7 +1299,7 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
 	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
-	puts "         [-s] [-r] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
@@ -1312,7 +1312,6 @@ def print_usage_and_exit
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -s: start game in Vice if build succeeds"
-	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
@@ -1336,7 +1335,6 @@ splashes = [
 ]
 $interpreter_number = nil
 i = 0
-reduced_ram = false
 await_preloadfile = false
 await_fontfile = false
 await_imagefile = false
@@ -1388,8 +1386,6 @@ begin
 			$interpreter_number = $1
 		elsif ARGV[i] =~ /^-s$/ then
 			auto_play = true
-		elsif ARGV[i] =~ /^-r$/ then
-			reduced_ram = true
 		elsif ARGV[i] =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
@@ -1488,10 +1484,6 @@ $GENERALFLAGS.push('FRENCH_CHARS') if $char_map == 'fr'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 
-$GENERALFLAGS.push('ALLRAM') unless reduced_ram
-
-$ALLRAM = $GENERALFLAGS.include?('ALLRAM')
-
 $colour_replacement_clause = ''
 unless $colour_replacements.empty?
 	$colour_replacements.each do |r|
@@ -1508,11 +1500,6 @@ unless $colour_replacements.empty?
 		end
 		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
 	end
-end
-
-if reduced_ram and mode != MODE_P
-	puts "Option -r can't be used with this build mode."
-	exit 1
 end
 
 if $stack_pages < 4 and mode != MODE_P
@@ -1764,7 +1751,7 @@ File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 
 build_interpreter()
 
-$vmem_size = ($ALLRAM ? $memory_end_address : $normal_ram_end_address) - $storystart
+$vmem_size = $memory_end_address - $storystart
 
 if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
@@ -1823,5 +1810,3 @@ end
 
 
 exit 0
-
-

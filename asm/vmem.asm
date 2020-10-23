@@ -1,44 +1,11 @@
 
 dynmem_size !byte 0, 0
 
-!ifdef ALLRAM {
 vmem_cache_cnt !byte 0         ; current execution cache
 vmem_cache_index !fill cache_pages + 1, 0
-}
 
 !ifndef VMEM {
 ; Non-virtual memory
-
-!ifndef ALLRAM {
-read_byte_at_z_address
-	; Subroutine: Read the contents of a byte address in the Z-machine
-	; x,y (high, low) contains address.
-	; Returns: value in a
-	sty mempointer ; low byte unchanged
-	; same page as before?
-	cpx zp_pc_l
-	bne .read_new_byte
-	; same 256 byte segment, just return
--	ldy #0
-!ifdef TARGET_PLUS4 {
-	sei
-	sta plus4_enable_ram
-	lda (mempointer),y
-	sta plus4_enable_rom
-	cli
-} else {
-	lda (mempointer),y
-}
-	rts
-.read_new_byte
-	txa
-	sta zp_pc_l
-	clc
-	adc #>story_start
-	sta mempointer + 1
-	jmp - ; Always branch
-} else {
-; No vmem, but ALLRAM 
 
 read_byte_at_z_address
 	; Subroutine: Read the contents of a byte address in the Z-machine
@@ -123,7 +90,6 @@ read_byte_at_z_address
 	adc #>vmem_cache_start
 	sta mempointer + 1
 	jmp .return_result 
-} ; End of block for ALLRAM=1
 	
 } else {
 ; virtual memory

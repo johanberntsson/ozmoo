@@ -47,19 +47,10 @@
 	VMEM_END_PAGE = $00 ; Last page of accessible RAM for VMEM, plus 1.
 }
 
-
-!ifdef VMEM {
-!ifndef ALLRAM {
-	ALLRAM = 1
-}
-}
-
-!ifdef ALLRAM {
 !ifdef CACHE_PAGES {
 	cache_pages = CACHE_PAGES ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
 } else {
 	cache_pages = 4 ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
-}
 }
 
 !ifndef TERPNO {
@@ -416,10 +407,9 @@ z_trace_page
 
 vmem_cache_start
 
-!ifdef ALLRAM {
-	!if SPLASHWAIT > 0 {
-		!source "splashscreen.asm"
-	}
+!if SPLASHWAIT > 0 {
+	!source "splashscreen.asm"
+}
 
 end_of_routines_in_vmem_cache
 
@@ -429,11 +419,11 @@ end_of_routines_in_vmem_cache
 	!if (stack_size + *) & 256 {
 		!fill 256,0 ; Add one page to avoid vmem alignment issues
 	}
-} 
+}
 
 vmem_cache_size = * - vmem_cache_start
 vmem_cache_count = vmem_cache_size / 256
-}
+
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
 stack_start
@@ -1197,12 +1187,6 @@ load_suggested_pages
 	rts
 } 
 
-!ifndef ALLRAM {
-	!if SPLASHWAIT > 0 {
-		!source "splashscreen.asm"
-	}
-}
-
 end_of_routines_in_stack_space
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
@@ -1210,19 +1194,11 @@ end_of_routines_in_stack_space
 story_start
 !ifdef VMEM {
 vmem_start
-
-!ifdef ALLRAM {
-
-!if $10000 - vmem_start > $cc00 {
-	vmem_end = vmem_start + $cc00
-} else {
-	vmem_end = $10000
-}
-
-} else {
-	vmem_end = $d000
-}	
-
+	!if $10000 - vmem_start > $cc00 {
+		vmem_end = vmem_start + $cc00
+	} else {
+		vmem_end = $10000
+	}
 }
 
 !ifdef vmem_cache_size {

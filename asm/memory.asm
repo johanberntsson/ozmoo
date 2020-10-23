@@ -112,9 +112,7 @@ get_page_at_z_pc
 	pha
 get_page_at_z_pc_did_pha
 	stx mem_temp
-!ifdef ALLRAM {
 	lda z_pc
-}
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address

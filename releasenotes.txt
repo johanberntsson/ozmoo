@@ -119,3 +119,4 @@ Fixed bugs:
 - @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
 - Added support for terminating character array ($2e/$2f in the header)
 - Fixed bug with creating .d81 partition, which made it impossible to use build mode 81 for small games ( non-dynamic memory < ~10KB). 
+- Commandline flag -r for make.rb to use reduced memory has been removed.
