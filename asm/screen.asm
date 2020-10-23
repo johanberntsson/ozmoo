@@ -452,7 +452,7 @@ show_more_prompt
 	jsr colour2k
 }
 !ifdef TARGET_C128 {
-    ldy COLS_40_80
+    lda COLS_40_80
     bne .check_for_keypress
     ; Only show more prompt in C128 VIC-II screen
 }
