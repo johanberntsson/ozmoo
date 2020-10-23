@@ -614,10 +614,6 @@ The flags described here can be set on the Acme commandline using the syntax -D[
 
 ### General flags
 
-    ALLRAM
-
-Utilize all available RAM for game data (Not setting it means RAM at $D000-$FFFF will not be used.)
-
     BGCOL=n
 
 Set the background colour.
@@ -645,9 +641,14 @@ Replace color in Z-machine palette with a certain colur from the C64 palette.
 
 Tell the interpreter that a custom font will be used.
 
-    GERMAN_CHARS
+    DANISH_CHARS
+	FRENCH_CHARS
+	GERMAN_CHARS
+	ITALIAN_CHARS
+	SPANISH_CHARS
+	SWEDISH_CHARS 
 
-Map German characters in ZSCII to their PETSCII equivalents.
+Map national characters in ZSCII to their PETSCII equivalents. No more than one of these can be enabled.
 
     SMALLBLOCK
 
@@ -660,10 +661,6 @@ Set the number of memory pages to use for stack.
     STATCOL=n
 
 Set the statusline colour. (only for z3).
-
-    SWEDISH_CHARS
-
-Map Swedish characters in ZSCII to their PETSCII equivalents.
 
     VMEM
 
