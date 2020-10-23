@@ -26,9 +26,8 @@ end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
-# Typically only SMALLBLOCK should be enabled.
+# Typically none should be enabled.
 $GENERALFLAGS = [
-	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 byte blocks for virtual memory. NOTE: 1024 byte mode is slower and currently broken.
 #	'UNSAFE', # Remove almost all runtime error checking. This makes the terp ~100 bytes smaller.
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
@@ -74,7 +73,7 @@ DISKNAME_DISK = 131
 
 $BUILD_ID = Random.rand(0 .. 2**32-1)
 
-$VMEM_BLOCKSIZE = $GENERALFLAGS.include?('SMALLBLOCK') ? 512 : 1024
+$VMEM_BLOCKSIZE = 512
 
 $ZEROBYTE = 0.chr
 

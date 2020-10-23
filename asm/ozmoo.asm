@@ -795,9 +795,6 @@ deletable_init
 	and #255 - vmem_blockmask ; keep index into kB chunk
 	beq .store_nonstored_blocks
 	iny
-!ifndef SMALLBLOCK {
-	bne .maybe_inc_nonstored_blocks ; Always branch
-}
 .store_nonstored_blocks
 	sty nonstored_blocks
 	tya
@@ -808,15 +805,11 @@ deletable_init
 	sec
 	sbc vmap_first_ram_page
 	lsr
-!ifndef SMALLBLOCK {
-	lsr
-} else {
 	; This space constraint can not be a problem with big (1KB) vmem blocks.
 	cmp #vmap_max_size ; Maximum space available
 	bcc ++
 	lda #vmap_max_size
 ++	
-}
 !ifdef VMEM_STRESS {
 	lda #2 ; one block for PC, one block for data
 }

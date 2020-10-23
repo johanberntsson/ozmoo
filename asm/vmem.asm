@@ -108,12 +108,7 @@ read_byte_at_z_address
 ; will store in datasette_buffer
 ;
 
-!ifdef SMALLBLOCK {
-	vmem_blocksize = 512
-} else {
-	vmem_blocksize = 1024 ; This hasn't been used in a long time, and probably doesn't work anymore.
-}
-
+vmem_blocksize = 512
 vmem_blockmask = 255 - (>(vmem_blocksize - 1))
 vmem_block_pagecount = vmem_blocksize / 256
 vmap_max_size = 102 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
@@ -244,9 +239,6 @@ print_vm_map
 	jsr space
 	tya
 	asl
-!ifndef SMALLBLOCK {
-	asl
-}
 	adc vmap_first_ram_page
 	jsr print_byte_as_hex
 	lda #$30
@@ -282,9 +274,6 @@ load_blocks_from_index
 	lda vmap_index
 	tax
 	asl
-!ifndef SMALLBLOCK {
-	asl
-}
 	; Carry is already clear
 	adc vmap_first_ram_page
 
@@ -515,9 +504,6 @@ read_byte_at_z_address
 ++
 	; Found older
 	; Skip if z_pc points here; it could be in either page of the block.
-!ifndef SMALLBLOCK {
-	!error "Only SMALLBLOCK supported"
-}
 	ldy vmap_z_l,x
 	cpy z_pc + 1
 	beq +++
@@ -555,9 +541,6 @@ read_byte_at_z_address
 +	txa
 	tay
 	asl
-!ifndef SMALLBLOCK {
-	asl
-}
 	; Carry is already clear
 	adc vmap_first_ram_page
 	sta vmap_c64_offset
@@ -680,9 +663,6 @@ read_byte_at_z_address
 	txa
 	
 	asl
-!ifndef SMALLBLOCK {
-	asl
-}
 	; Carry is already clear
 	adc vmap_first_ram_page
 	sta vmap_c64_offset

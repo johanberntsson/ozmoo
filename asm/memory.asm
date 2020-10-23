@@ -72,20 +72,9 @@ set_z_pc
 	bcc .unsafe_2
 	; z_pc is in same vmem_block, but different page.
 	stx z_pc + 1
-!ifdef SMALLBLOCK {
 	lda z_pc_mempointer + 1
 	eor #1
 	sta z_pc_mempointer + 1
-} else {
-	txa
-	and #255-vmem_blockmask
-	sta mem_temp
-	lda z_pc_mempointer + 1
-	and #vmem_blockmask
-	clc
-	adc mem_temp
-	sta z_pc_mempointer + 1
-}
 } else {
 ; No vmem 
 	cpx #(first_banked_memory_page - (>story_start))
