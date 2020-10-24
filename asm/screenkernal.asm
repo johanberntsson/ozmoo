@@ -152,6 +152,23 @@ C128SetBorderColour
 +	ldx .stored_x_or_y
 	rts
 
+VDCGetChar
+	; 80 columns, use VDC screen
+	sty .stored_x_or_y
+	lda zp_screenline + 1
+	sec
+	sbc #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
+	tay
+	lda zp_screenline
+	clc
+	adc .stored_x_or_y
+	bcc +
+	iny
++	jsr VDCSetAddress
+	ldy .stored_x_or_y
+	ldx #VDC_DATA
+	jmp VDCReadReg
+
 VDCPrintChar
 	; 80 columns, use VDC screen
 	sty .stored_x_or_y

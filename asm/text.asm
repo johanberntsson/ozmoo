@@ -1119,13 +1119,25 @@ update_cursor
 	ldy zp_screencolumn
 	lda s_cursorswitch
 	bne +
+!ifdef TARGET_C128 {
+	jsr VDCGetChar
+	and #$7f
+	jsr VDCPrintChar
+} else {
 	; no cursor
 	lda (zp_screenline),y
 	and #$7f
 	sta (zp_screenline),y
+}
 	ldy object_temp
 	rts
 +   ; cursor
+!ifdef TARGET_C128 {
+	lda cursor_character
+	jsr VDCPrintChar
+	lda current_cursor_colour
+	jsr VDCPrintColour
+} else {
 	lda cursor_character
 	sta (zp_screenline),y
 	lda current_cursor_colour
@@ -1141,6 +1153,7 @@ update_cursor
 	sta (zp_colourline),y
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
+}
 }
 	ldy object_temp
 	rts
