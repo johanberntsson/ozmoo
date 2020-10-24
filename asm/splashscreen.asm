@@ -5,6 +5,13 @@ splash_screen
 splash_line_y
 	ldx splash_index_line,y
 	lda splash_index_col,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	clc
+	adc #20
++
+}
 	tay
 	jsr set_cursor
 	ldy z_temp
