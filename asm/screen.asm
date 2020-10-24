@@ -410,6 +410,29 @@ clear_num_rows
 .do_nothing_2
 	rts
 
+!ifdef TARGET_C128 {
+vdc_set_more_address
+    lda #$cf ; low
+    ldy #$07 ; high
+    jmp VDCSetAddress
+
+vdc_show_more
+	jsr vdc_set_more_address
+	ldx #VDC_DATA
+	jsr VDCReadReg
+	sta .more_text_char
+	jsr vdc_set_more_address
+	lda #128 + $2a ; screen code for reversed "*"
+	ldx #VDC_DATA
+	jmp VDCWriteReg
+
+vdc_hide_more
+	jsr vdc_set_more_address
+	lda .more_text_char
+	ldx #VDC_DATA
+	jmp VDCWriteReg
+}
+
 increase_num_rows
 	lda current_window
 	bne .increase_num_rows_done ; Upper window is never buffered
@@ -428,8 +451,12 @@ show_more_prompt
 
 !ifdef TARGET_C128 {
     ldx COLS_40_80
-    bne .alternate_colours
-    ; Only show more prompt in C128 VIC-II screen
+    beq +
+    ; 80 columns
+	jsr vdc_show_more
+	jmp .alternate_colours
+    ; 40 columns
++
 }
 .more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
@@ -480,8 +507,12 @@ show_more_prompt
 }
 !ifdef TARGET_C128 {
     ldx COLS_40_80
-    bne .increase_num_rows_done
-    ; Only show more prompt in C128 VIC-II screen
+    beq +
+    ; 80 columns
+	jsr vdc_hide_more
+	jmp .increase_num_rows_done
+    ; 40 columns
++
 }
 	lda .more_text_char
 .more_access4
