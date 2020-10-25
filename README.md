@@ -46,8 +46,8 @@ The simple answer: Ozmoo should be able to run most Z-code games, regardless of 
 The longer answer:
 * Ozmoo only supports version 3, 4, 5 and 8 of Z-code. This means you can't run the very first versions of Zork I and II, or the Infocom games with graphics.
 * A Z-code file always starts with a section called dynamic memory. Ozmoo will not be able to handle games with more than roughly 35 KB of dynamic memory.
-* If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 191.5 KB. This typically means the game file can be about 210 KB in size.
-* Some Inform 6 games and pretty much all Inform 7 games will never be fast enough to be any fun on Ozmoo. In general, Infocom games are faster than Inform games.
+* If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 170 KB. This typically means the game file can be about 190 KB in size.
+* Most Inform 6 games and all Inform 7 games are too slow to be any fun on Ozmoo. The games that perform well are typically PunyInform games, ZIL games, Infocom games and Inform 5 games. Early Inform 6 games (using library 6/1 or 6/2) may also be fast enough.
 
 ## Nice-to-have features
 
