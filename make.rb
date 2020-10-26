@@ -1587,8 +1587,8 @@ end
 
 $vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x07 : 0x03)
 
-if $statusline_colour and $zcode_version > 3
-	puts "Option -sc can only be used with z3 story files."
+if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
+	puts "Options -sc and -dmsc can only be used with z3 story files."
 	exit 1
 end	
 

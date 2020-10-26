@@ -479,7 +479,7 @@ translate_petscii_to_zscii
 	bcs .not_lower_case
 	; Lower case. $41 -> $61
 	ora #$20
-	bcc .case_conversion_done
+	bcc .case_conversion_done ; Always branch
 .not_lower_case
 	cmp #$c1
 	bcc .case_conversion_done

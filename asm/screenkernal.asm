@@ -879,12 +879,12 @@ toggle_darkmode
 	ldy fgcol,x
 	lda zcolours,y
 	sta z_temp + 6 ; New foreground colour, as C64 colour 
+	jsr s_set_text_colour
 !ifdef TARGET_PLUS4 {
 	tay
 	lda plus4_vic_colours,y
 }
 	sta z_temp + 7 ; New foreground colour, tranformed for target platform
-	jsr s_set_text_colour
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
@@ -976,8 +976,7 @@ toggle_darkmode
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
-	jsr update_cursor
-	rts 
+	jmp update_cursor
 } ; ifndef NODARKMODE
 
 !ifdef Z5PLUS {
