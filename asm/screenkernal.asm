@@ -64,26 +64,43 @@ SETBORDERMACRO_DEFINED = 1
 }
 
 
+; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+zcolours	!byte $ff,$ff ; current/default colour
+			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
+			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
+darkmode	!byte 0
+bgcol		!byte BGCOL, BGCOLDM
+fgcol		!byte FGCOL, FGCOLDM
+bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
+!ifdef Z3 {
+statuslinecol !byte STATCOL, STATCOLDM
+}
+cursorcol !byte CURSORCOL, CURSORCOLDM
+current_cursor_colour !byte CURSORCOL
+cursor_character !byte CURSORCHAR
+
 !ifdef TARGET_PLUS4 {
 plus4_vic_colours
 	;     PLUS4  VIC-II
-	!byte 0    ; black
-	!byte 113  ; white
-	!byte 2    ; red
-	!byte 67   ; cyan
-	!byte 4    ; purple
-	!byte 21   ; green
-	!byte 6    ; blue
-	!byte 103  ; yellow
-	!byte 40   ; orange
-	!byte 24   ; brown 
-	!byte 66   ; light red
-	!byte 17   ; dark grey
-	!byte 65   ; grey
-	!byte 69   ; light green
-	!byte 70   ; light blue
-	!byte 81   ; light grey
+	!byte $00    ; black
+	!byte $71  ; white
+	!byte $32    ; red
+	!byte $63   ; cyan
+	!byte $54    ; purple
+	!byte $55   ; green
+	!byte $36    ; blue
+	!byte $77  ; yellow
+	!byte $28   ; orange
+	!byte $18   ; brown 
+	!byte $72   ; light red
+	!byte $11   ; dark grey
+	!byte $41   ; grey
+	!byte $75   ; light green
+	!byte $76   ; light blue
+	!byte $51   ; light grey
 }
+
+
 !ifdef TARGET_C128 {
 !source "vdc.asm"
 
@@ -825,23 +842,15 @@ s_erase_line_from_cursor
 	jmp .erase_line_from_any_col
 
 
-; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
-zcolours	!byte $ff,$ff ; current/default colour
-			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
-			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
-darkmode	!byte 0
-bgcol		!byte BGCOL, BGCOLDM
-fgcol		!byte FGCOL, FGCOLDM
-bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
-!ifdef Z3 {
-statuslinecol !byte STATCOL, STATCOLDM
-}
-cursorcol !byte CURSORCOL, CURSORCOLDM
-current_cursor_colour !byte CURSORCOL
-cursor_character !byte CURSORCHAR
-
 !ifndef NODARKMODE {
 toggle_darkmode
+
+; z_temp + 6: New foreground colour, as C64 colour 
+; z_temp + 7: New foreground colour, tranformed for target platform
+; z_temp + 8: New background colour, adapted to target platform
+; z_temp + 9: Old foreground colour, adapted to target platform
+; z_temp + 10, 11: Pointer into colour RAM
+
 !ifdef TARGET_C128 {
 	; don't allow dark mode toggle in 80 column mode
 	ldx COLS_40_80
@@ -855,6 +864,10 @@ toggle_darkmode
 	ldx darkmode ; previous darkmode value (0 or 1)
 	ldy fgcol,x
 	lda zcolours,y
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
 	sta z_temp + 9 ; old fg colour
 }
 ; Toggle darkmode
@@ -865,13 +878,19 @@ toggle_darkmode
 ; Set fgcolour
 	ldy fgcol,x
 	lda zcolours,y
+	sta z_temp + 6 ; New foreground colour, as C64 colour 
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
+	sta z_temp + 7 ; New foreground colour, tranformed for target platform
 	jsr s_set_text_colour
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
 ; Set cursor colour
 	ldy cursorcol,x
-	lda s_colour
+	lda z_temp + 6
 	cpy #1
 	beq +
 	lda zcolours,y
@@ -879,6 +898,10 @@ toggle_darkmode
 ; Set bgcolour
 	ldy bgcol,x
 	lda zcolours,y
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
 	sta reg_backgroundcolour
 !ifdef Z5PLUS {
 	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
@@ -896,12 +919,21 @@ toggle_darkmode
 +	
 }
 	lda zcolours,y
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
 .store_bordercol
 	sta reg_bordercolour
 !ifdef Z3 {
-; Set statusline colour
+
+; For Z3: Set statusline colour
 	ldy statuslinecol,x
 	lda zcolours,y
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
 	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
 -	sta COLOUR_ADDRESS,y
 	dey
@@ -915,15 +947,18 @@ toggle_darkmode
 	ldy #0
 	sty z_temp + 10
 !ifdef Z3 {
-	ldy s_screen_width ; #SCREEN_WIDTH
+	ldy s_screen_width ; Since we have coloured the statusline separately, skip it now
 }
-!ifdef Z5PLUS {
-	sta z_temp + 7
+!ifndef Z5PLUS {
+;	ldy #0 ; But y is already 0, so we skip this
+	lda z_temp + 7 ; For Z3 and Z4 we can just load this value before the loop  
 }
 .compare
 !ifdef Z5PLUS {
 	lda (z_temp + 10),y
+!ifndef TARGET_PLUS4 {
 	and #$0f
+}
 	cmp z_temp + 9
 	beq .change
 	cmp z_temp + 8
@@ -963,7 +998,12 @@ z_ins_set_colour
 	ldy #header_default_bg_colour
 	jsr read_header_word
 	lda zcolours,x
-+   sta reg_backgroundcolour
++   
+!ifdef TARGET_PLUS4 {
+	tax
+	lda plus4_vic_colours,x
+}
+	sta reg_backgroundcolour
 ; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
 	cpy #0
 	bne .current_background
@@ -979,6 +1019,10 @@ z_ins_set_colour
 	jsr read_header_word
 	lda zcolours,x
 +
+!ifdef TARGET_PLUS4 {
+	tax
+	lda plus4_vic_colours,x
+}
 ; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 1
 	cpy #1
 	bne +

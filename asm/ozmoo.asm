@@ -687,6 +687,18 @@ deletable_init
 	; sta c64_model
 	; enable lower case mode
 
+; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
+!ifdef TARGET_PLUS4 {
+	ldx #$85
+-	lda #1
+	sta $55f - $85,x
+	txa
+	sta $567 - $85,x
+	inx
+	cpx #$85 + 8
+	bcc -
+}
+
 ; Read and parse config from boot disk
 	ldy CURRENT_DEVICE
 	cpy #8
