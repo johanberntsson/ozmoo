@@ -61,7 +61,7 @@ readblocks
 	bne -
 	rts
 
-!ifndef TARGET_PLUS4 {
+!if SUPPORT_REU = 1 {
 .readblock_from_reu
 	ldx readblocks_currentblock_adjusted
 	ldy readblocks_currentblock_adjusted + 1
@@ -97,7 +97,7 @@ readblock
 	sta readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
 
-!ifndef TARGET_PLUS4 {
+!if SUPPORT_REU = 1 {
 	; Check if game has been cached to REU
 	bit use_reu
 	bvs .readblock_from_reu
@@ -989,7 +989,7 @@ restore_game
 
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
-!ifndef TARGET_PLUS4 {
+!if SUPPORT_REU = 1 {
  	lda use_reu
 	bmi .restore_success_dont_insert_story_disk
 }
@@ -1079,7 +1079,7 @@ save_game
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
-!ifndef TARGET_PLUS4 {
+!if SUPPORT_REU = 1 {
  	lda use_reu
 	bmi .dont_insert_story_disk
 }

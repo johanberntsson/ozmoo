@@ -476,7 +476,7 @@ read_byte_at_z_address
 .no_such_block
 
 	; Load 512 byte block into RAM
-!ifndef TARGET_PLUS4 {
+!if SUPPORT_REU = 1 {
 	; First, check if this is initial REU loading
 	ldx use_reu
 	cpx #$80
