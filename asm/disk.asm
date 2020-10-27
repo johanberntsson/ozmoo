@@ -61,6 +61,7 @@ readblocks
 	bne -
 	rts
 
+!ifndef TARGET_PLUS4 {
 .readblock_from_reu
 	ldx readblocks_currentblock_adjusted
 	ldy readblocks_currentblock_adjusted + 1
@@ -70,7 +71,7 @@ readblocks
 +	tya
 	ldy readblocks_mempos + 1 ; Assuming lowbyte is always 0 (which it should be)
 	jmp copy_page_from_reu
-
+}
 readblock
 	; read 1 block from floppy
 	; $mempos (contains address to store in) [in]
@@ -96,10 +97,11 @@ readblock
 	sta readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
 
+!ifndef TARGET_PLUS4 {
 	; Check if game has been cached to REU
 	bit use_reu
 	bvs .readblock_from_reu
-
+}
 	; convert block to track/sector
 	
 	lda disk_info + 2 ; Number of disks
@@ -987,19 +989,25 @@ restore_game
 
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
-	lda use_reu
-	bmi +
+!ifndef TARGET_PLUS4 {
+ 	lda use_reu
+	bmi .restore_success_dont_insert_story_disk
+}
 	jsr .insert_story_disk
-+	jsr get_page_at_z_pc
+.restore_success_dont_insert_story_disk	
+	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
 	rts
 .restore_failed
-	lda use_reu
-	bmi +
+!ifndef TARGET_PLUS4 {
+ 	lda use_reu
+	bmi .restore_fail_dont_insert_story_disk
+}
 	jsr .insert_story_disk
 	; Return failed status
-+	lda #0
+.restore_fail_dont_insert_story_disk
+	lda #0
 	tax
 	rts
 
@@ -1071,10 +1079,13 @@ save_game
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
+!ifndef TARGET_PLUS4 {
  	lda use_reu
-	bmi +
+	bmi .dont_insert_story_disk
+}
 	jsr .insert_story_disk
-+	lda #0
+.dont_insert_story_disk
+	lda #0
 	ldx #1
 	rts
 

@@ -43,7 +43,7 @@ keyboard_buff         = $527
 
 
 zp_temp               = $3b ; 5 bytes
-use_reu				  = $87
+;use_reu				  = $87
 window_start_row	  = $88; 4 bytes
 
 

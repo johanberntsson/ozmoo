@@ -300,7 +300,9 @@ game_id		!byte 0,0,0,0
 !source "streams.asm"
 !source "disk.asm"
 !ifdef VMEM {
-!source "reu.asm"
+	!ifndef TARGET_PLUS4 {
+	!source "reu.asm"
+	}
 }
 !source "screen.asm"
 !source "memory.asm"
@@ -344,7 +346,9 @@ game_id		!byte 0,0,0,0
 	; SuperCPU and REU doesn't work well together
 	; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
 	;
+!ifndef TARGET_PLUS4 {
 	jsr reu_start
+}
 .supercpu
 }
 	jsr deletable_init
@@ -869,8 +873,10 @@ deletable_init
 
 	jsr insert_disks_at_boot
 
+!ifndef TARGET_PLUS4 {
 	lda use_reu
 	bne .dont_preload
+}
 	jsr load_suggested_pages
 .dont_preload
 
@@ -937,9 +943,11 @@ auto_disk_config
 	bne .select_device ; Always branch
 .not_save_or_boot_disk
 	stx zp_temp ; Store current value of x (memory pointer)
+!ifndef TARGET_PLUS4 {
 	ldx boot_device
 	bit use_reu
 	bmi .use_this_device
+}
 	ldx #8
 -	lda device_map - 8,x
 	beq .use_this_device
@@ -986,6 +994,8 @@ insert_disks_at_boot
 	lda zp_temp
 	sta current_disks - 8,x
 	tax
+
+!ifndef TARGET_PLUS4 {
 	cpy #2
 	bcc .copy_data_from_disk_1_to_reu
 	stx zp_temp
@@ -998,6 +1008,8 @@ insert_disks_at_boot
 .restore_xy_disk_done
 	ldx zp_temp
 	ldy zp_temp + 1
+} ; TARGET_PLUS4
+
 .dont_need_to_insert_this
 +	iny
 	cpy disk_info + 2 ; # of disks
@@ -1006,12 +1018,16 @@ insert_disks_at_boot
 	adc disk_info + 3,x
 	bne .next_disk ; Always branch
 .done
+!ifndef TARGET_PLUS4 {
 	lda use_reu
-	beq +
+	beq .dont_use_reu
 	lda #$ff ; Use REU
 	sta use_reu
-+	rts
+}
+.dont_use_reu
+	rts
 	
+!ifndef TARGET_PLUS4 {
 .copy_data_from_disk_1_to_reu
 	lda use_reu
 	bpl .dont_need_to_insert_this
@@ -1136,6 +1152,7 @@ reu_start
 	bne .print_reply_and_return ; Always branch
 .use_reu_question
 	!pet 13,"Use REU? (Y/N) ",0
+} ; TARGET_PLUS4
 
 }
 prepare_static_high_memory
@@ -1175,11 +1192,13 @@ prepare_static_high_memory
 	lda (zp_temp),y
 	sta vmap_blocks_preloaded ; # of blocks already loaded
 
+!ifndef TARGET_PLUS4 {
 	; If using REU, suggested blocks will just be ignored
 	bit use_reu
-	bpl +
+	bpl .ignore_blocks
+}
 	sta vmap_used_entries
-+
+.ignore_blocks
 ;	sta zp_temp + 3 ; # of blocks already loaded
 
 ; Copy to vmap_z_h

@@ -476,6 +476,7 @@ read_byte_at_z_address
 .no_such_block
 
 	; Load 512 byte block into RAM
+!ifndef TARGET_PLUS4 {
 	; First, check if this is initial REU loading
 	ldx use_reu
 	cpx #$80
@@ -486,6 +487,7 @@ read_byte_at_z_address
 	bne .block_chosen
 	inx ; Set x to 1
 	bne .block_chosen ; Always branch
+}
 
 +	ldx vmap_clock_index
 -	cpx vmap_used_entries
