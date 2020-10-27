@@ -37,9 +37,11 @@ inc_z_pc_page
 	bcc get_page_at_z_pc_did_pha
 } else {
 ; No vmem
-	lda z_pc + 1
-	cmp #(first_banked_memory_page - (>story_start))
-	bcs get_page_at_z_pc_did_pha
+	!ifndef TARGET_PLUS4 {
+		lda z_pc + 1
+		cmp #(first_banked_memory_page - (>story_start))
+		bcs get_page_at_z_pc_did_pha
+	}
 }
 ; safe
 	pla
@@ -77,8 +79,10 @@ set_z_pc
 	sta z_pc_mempointer + 1
 } else {
 ; No vmem 
+!ifndef TARGET_PLUS4 {
 	cpx #(first_banked_memory_page - (>story_start))
 	bcs .unsafe_2
+}
 	stx z_pc + 1
 	txa
 	clc
