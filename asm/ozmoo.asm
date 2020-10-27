@@ -669,15 +669,31 @@ z_init
 
 !zone deletable_init {
 deletable_init_start
-!ifdef CUSTOM_FONT {
-	lda #18
-} else {
-	lda #23
-}
 !ifdef TARGET_PLUS4 {
-	lda #212
-}
+	!ifdef CUSTOM_FONT {
+		lda reg_screen_char_mode
+		and #$07
+		ora #$10
+		sta reg_screen_char_mode
+		lda reg_screen_bitmap_mode
+		and #%11111011
+		sta reg_screen_bitmap_mode
+	} else {
+		lda #$d4
+		sta reg_screen_char_mode
+		lda reg_screen_bitmap_mode
+		ora #%00000100
+		sta reg_screen_bitmap_mode
+	}
+} else {
+	!ifdef CUSTOM_FONT {
+		lda #18
+	} else {
+		lda #23
+	}
 	sta reg_screen_char_mode
+}
+
 	lda #$80
 	sta charset_switchable
 

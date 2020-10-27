@@ -719,7 +719,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 
 	font_clause = ""
 	if $font_filename
-		font_clause = " \"#{$font_filename}\"@2048"
+		font_clause = " \"#{$font_filename}\"@#{$font_address}"
 	end
 	exo_target = ""
 	if $target == 'plus4'
@@ -1339,6 +1339,7 @@ await_fontfile = false
 await_imagefile = false
 preloadfile = nil
 $font_filename = nil
+$font_address = nil
 $loader_pic_file = nil
 $loader_flicker = false
 auto_play = false
@@ -1441,7 +1442,6 @@ begin
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-f$/ then
 			await_fontfile = true
-			$start_address = 0x1000
 		elsif ARGV[i] =~ /^-if?$/ then
 			await_imagefile = true
 			$loader_flicker = ARGV[i] =~ /f$/
@@ -1472,6 +1472,20 @@ rescue
 	print_usage_and_exit()
 end
 
+
+if $font_filename
+	if $target == 'c64' or $target == 'mega65'
+		$font_address = 0x0800
+		$start_address = 0x1000
+	elsif $target == 'plus4'
+		$font_address = 0x1000
+		$start_address = 0x1800
+	else
+		puts "ERROR: Custom fonts are currently not supported for this target platform."
+		exit 1
+	end
+end
+
 $VMEM = (mode != MODE_P)
 
 $GENERALFLAGS.push('DANISH_CHARS') if $char_map == 'da'
@@ -1490,11 +1504,11 @@ unless $colour_replacements.empty?
 		zcode_colour = $1
 		c64_colour = $2
 		if zcode_colour !~ /^[2-9]$/
-			puts "-rc requires a Z-code colour value (2-9) to the left of the = character."
+			puts "ERROR: -rc requires a Z-code colour value (2-9) to the left of the = character."
 			exit 1
 		end
 		if c64_colour !~ /^([0-9]|1[0-5])$/
-			puts "-rc requires a C64 colour value (0-15) to the right of the = character."
+			puts "ERROR: -rc requires a C64 colour value (0-15) to the right of the = character."
 			exit 1
 		end
 		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
@@ -1502,28 +1516,28 @@ unless $colour_replacements.empty?
 end
 
 if $stack_pages < 4 and mode != MODE_P
-	puts "Stack pages < 4 is only allowed in build mode P."
+	puts "ERROR: Stack pages < 4 is only allowed in build mode P."
 	exit 1
 end
 
 if optimize and mode == MODE_P
-	puts "Option -o can't be used with this build mode."
+	puts "ERROR: Option -o can't be used with this build mode."
 	exit 1
 end
 
 if limit_preload_vmem_blocks and !$VMEM
-	puts "Option -p can't be used with this build mode."
+	puts "ERROR: Option -p can't be used with this build mode."
 	exit 1
 end
 
 if extended_tracks and !$VMEM
-	puts "Option -x can't be used with this build mode."
+	puts "ERROR: Option -x can't be used with this build mode."
 	exit 1
 end
 
 if optimize then
 	if preloadfile then
-		puts "-c (preload story data) can not be used with -o."
+		puts "ERROR: -c (preload story data) can not be used with -o."
 		exit 1
 	end
 	$DEBUGFLAGS.push('PREOPT')
@@ -1543,7 +1557,7 @@ if preloadfile then
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{preload_data.length} blocks found for initial caching."
 	else
-		puts "No preload config data found (for vmem type \"#{vmem_type}\")."
+		puts "ERROR: No preload config data found (for vmem type \"#{vmem_type}\")."
 		exit 1
 	end
 end
@@ -1588,7 +1602,7 @@ end
 $vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x07 : 0x03)
 
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
-	puts "Options -sc and -dmsc can only be used with z3 story files."
+	puts "ERROR: Options -sc and -dmsc can only be used with z3 story files."
 	exit 1
 end	
 

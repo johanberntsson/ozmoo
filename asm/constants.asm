@@ -215,6 +215,7 @@ charset_switchable 	  = $291
 !ifdef TARGET_PLUS4 {
 ; TED reference here:
 ; http://mclauchlan.site.net.au/scott/C=Hacking/C-Hacking12/gfx.html
+reg_screen_bitmap_mode = $ff12
 reg_screen_char_mode  = $ff13
 reg_bordercolour      = $ff19
 reg_backgroundcolour  = $ff15 
@@ -231,15 +232,17 @@ reg_backgroundcolour  = $d021
 }
 
 ; --- Kernel routines ---
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
+kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 !ifdef TARGET_PLUS4 {
 kernal_reset          = $fff6 ; cold reset of the PLUS4
+kernal_delay_1ms      = $e2dc ; delay 1 ms
 }
 !ifdef TARGET_MEGA65 {
 kernal_reset          = $e4b8 ; Reset back to C65 mode
+kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
