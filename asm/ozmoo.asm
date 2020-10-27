@@ -49,10 +49,14 @@
 	VMEM_END_PAGE = $00 ; Last page of accessible RAM for VMEM, plus 1.
 }
 
-!ifdef CACHE_PAGES {
-	cache_pages = CACHE_PAGES ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
+!ifdef TARGET_PLUS4 {
+	cache_pages = 0
 } else {
-	cache_pages = 4 ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
+	!ifdef CACHE_PAGES {
+		cache_pages = CACHE_PAGES ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
+	} else {
+		cache_pages = 4 ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
+	}
 }
 
 !ifndef TERPNO {
@@ -411,6 +415,12 @@ game_id		!byte 0,0,0,0
 	+set_memory_normal
 	jmp (basic_reset)
 }
+
+!ifdef TARGET_PLUS4 {
+	!if SPLASHWAIT > 0 {
+		!source "splashscreen.asm"
+	}
+}
 	
 program_end
 
@@ -420,8 +430,10 @@ z_trace_page
 
 vmem_cache_start
 
-!if SPLASHWAIT > 0 {
-	!source "splashscreen.asm"
+!ifndef TARGET_PLUS4 {
+	!if SPLASHWAIT > 0 {
+		!source "splashscreen.asm"
+	}
 }
 
 end_of_routines_in_vmem_cache
@@ -674,6 +686,7 @@ deletable_init_start
 }
 
 	jmp init_screen_colours ; _invisible
+	
 
 
 deletable_init
@@ -710,6 +723,15 @@ deletable_init
 .store_boot_device
 	sty boot_device ; Boot device# stored
 !ifdef VMEM {
+!ifdef TARGET_PLUS4 {
+	; Make 
+	lda reg_backgroundcolour
+	ldx #0
+-	sta COLOUR_ADDRESS,x
+	sta COLOUR_ADDRESS + 256,x
+	inx
+	bne -
+}
 	lda #<config_load_address
 	sta readblocks_mempos
 	lda #>config_load_address
@@ -1217,5 +1239,5 @@ story_start
 }
 }
 !ifndef config_load_address {
-	config_load_address = $0400
+	config_load_address = SCREEN_ADDRESS
 }

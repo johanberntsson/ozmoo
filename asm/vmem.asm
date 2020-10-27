@@ -34,8 +34,11 @@ read_byte_at_z_address
 	clc
 	adc #>story_start
 	sta mempointer + 1
+!ifdef TARGET_PLUS4 {
+	bne .return_result ; Always branch
+} else {	
 	cmp #first_banked_memory_page
-	bcc .return_result ; Always branch
+	bcc .return_result
 ; swapped memory
 	; ; Carry is already clear
 	; adc #>story_start
@@ -90,6 +93,7 @@ read_byte_at_z_address
 	adc #>vmem_cache_start
 	sta mempointer + 1
 	jmp .return_result 
+} ; Not TARGET_PLUS4
 	
 } else {
 ; virtual memory
@@ -284,8 +288,10 @@ load_blocks_from_index
 	tay ; Store in y so we can use it later.
 ;	cmp #$e0
 ;	bcs +
+!ifndef TARGET_PLUS4 {
 	cmp #first_banked_memory_page
 	bcs load_blocks_from_index_using_cache
+}
 +	lda #vmem_block_pagecount ; number of blocks
 	sta readblocks_numblocks
 	sty readblocks_mempos + 1
@@ -302,6 +308,7 @@ load_blocks_from_index
 }
 	rts
 
+!ifndef TARGET_PLUS4 {
 load_blocks_from_index_using_cache
 	; vmap_index = index to load
 	; vmem_cache_cnt = which 256 byte cache use as transfer buffer
@@ -360,6 +367,7 @@ load_blocks_from_index_using_cache
 	ldx vmem_cache_cnt
 	sta vmem_cache_index,x
 	rts
+}
 
 read_byte_at_z_address
 	; Subroutine: Read the contents of a byte address in the Z-machine
@@ -602,7 +610,8 @@ read_byte_at_z_address
 ++	
 }
 }
-	
+
+!ifndef TARGET_PLUS4 {
 	; Forget any cache pages belonging to the old block at this position.
 	lda vmap_c64_offset
 	cmp #first_banked_memory_page
@@ -617,6 +626,7 @@ read_byte_at_z_address
 +	dey
 	bpl -
 .cant_be_in_cache	
+} ; not TARGET_PLUS4
 
 	; Update tick
 	lda vmem_tick
@@ -666,6 +676,8 @@ read_byte_at_z_address
 	; Carry is already clear
 	adc vmap_first_ram_page
 	sta vmap_c64_offset
+
+!ifndef TARGET_PLUS4 {
 	cmp #first_banked_memory_page
 	bcc .unswappable
 	; this is swappable memory
@@ -720,6 +732,8 @@ read_byte_at_z_address
 	ldx vmap_index
 	bne .return_result ; always true
 .unswappable
+} ; not TARGET_PLUS4
+
 	; update memory pointer
 	lda vmem_offset_in_block
 	clc

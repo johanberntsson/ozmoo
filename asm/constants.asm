@@ -54,7 +54,7 @@ s_ignore_next_linebreak = $b8 ; 3 bytes
 s_reverse 			  = $bb ; !byte 0
 
 savefile_zp_pointer   = $c1 ; 2 bytes
-first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
+; first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
 datasette_buffer_start= $0333
 datasette_buffer_end  = $0437
 

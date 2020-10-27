@@ -1,8 +1,8 @@
 ; screen update routines
 
-init_screen_colours_invisible
-	lda zcolours + BGCOL
-	bpl + ; Always branch
+;init_screen_colours_invisible
+;	lda zcolours + BGCOL
+;	bpl + ; Always branch
 init_screen_colours
 	jsr s_init
 	; calculate the position for the more prompt
