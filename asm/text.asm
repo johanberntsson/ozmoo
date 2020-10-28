@@ -1244,7 +1244,10 @@ read_text
 	sty .read_text_cursor + 1
 	jsr read_char
 	cmp #0
-	bne +
+	bne .timer_didnt_return_false
+
+; ########## Start of code for handling that timer routine returned false
+
 	; timer routine returned false
 	; did the routine draw something on the screen?
 	jsr get_cursor ; x=row, y=column
@@ -1286,7 +1289,7 @@ read_text
 	dex
 	jmp .p0
 .p1   
-} else {
+} else { ; not Z5PLUS
 	ldy #1
 .p0	+macro_string_array_read_byte
 ; lda (string_array),y ; default is empty string (0 in pos 1)
@@ -1311,10 +1314,14 @@ read_text
 	iny
 	jmp .p0
 .p1
-}
+} ; not Z5PLUS
 	jsr turn_on_cursor
 	jmp .readkey
-+   cmp #1
+	
+; ########## End of code for handling that timer routine returned false	
+	
+.timer_didnt_return_false
+	cmp #1
 	bne +
 	; timer routine returned true
 	; clear input and return 

@@ -393,7 +393,7 @@ s_printchar
 	bne +++
 	jsr s_delete_cursor
 +++	jmp .perform_newline
-+   
++
 	cmp #20
 	bne +
 	; delete
