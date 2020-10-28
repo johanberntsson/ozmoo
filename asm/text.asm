@@ -1130,8 +1130,9 @@ update_cursor
 	jmp ++
 +	; 40 columns
 }
-	lda (zp_screenline),y
-	and #$7f
+;	lda (zp_screenline),y
+;	and #$7f
+	lda #32 ; Space
 	sta (zp_screenline),y
 !ifdef TARGET_C128 {
 	++

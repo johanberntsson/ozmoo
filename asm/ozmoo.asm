@@ -323,6 +323,7 @@ game_id		!byte 0,0,0,0
 !source "objecttable.asm"
 
 .initialize
+	cld
 !ifdef TESTSCREEN {
 	jmp testscreen
 }
@@ -750,7 +751,7 @@ deletable_init
 	sty boot_device ; Boot device# stored
 !ifdef VMEM {
 !ifdef TARGET_PLUS4 {
-	; Make 
+	; Make config info on screen invisible
 	lda reg_backgroundcolour
 	ldx #0
 -	sta COLOUR_ADDRESS,x
@@ -865,7 +866,6 @@ deletable_init
 	sec
 	sbc vmap_first_ram_page
 	lsr
-	; This space constraint can not be a problem with big (1KB) vmem blocks.
 	cmp #vmap_max_size ; Maximum space available
 	bcc ++
 	lda #vmap_max_size
@@ -1001,20 +1001,24 @@ insert_disks_at_boot
 	sta current_disks - 8,x
 	tax
 
-!if SUPPORT_REU = 1 {
 	cpy #2
+!if SUPPORT_REU = 1 {
 	bcc .copy_data_from_disk_1_to_reu
+} else {
+	bcc .dont_need_to_insert_this
+}
 	stx zp_temp
 	sty zp_temp + 1
 	ldy zp_temp
 	jsr print_insert_disk_msg
+!if SUPPORT_REU = 1 {
 	ldx use_reu
 	beq .restore_xy_disk_done
 	jsr copy_data_from_disk_at_zp_temp_to_reu
+}
 .restore_xy_disk_done
 	ldx zp_temp
 	ldy zp_temp + 1
-} ; SUPPORT_REU = 1
 
 .dont_need_to_insert_this
 +	iny
@@ -1138,7 +1142,7 @@ copy_page_to_reu
 reu_start
 	lda #0
 	sta use_reu
-	sta $c6 ; Empty keyboard buffer
+	sta keyboard_buff_len
 	ldx reu_c64base
 	inc reu_c64base
 	inx

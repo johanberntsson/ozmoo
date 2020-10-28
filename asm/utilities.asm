@@ -72,48 +72,46 @@ plus4_enable_rom = $ff3e
 }
 
 !macro set_memory_no_basic {
-	pha
-!ifdef TARGET_C128 {
-	lda #%00001110 ; 48K RAM0 (0-$c000)
-	sta $ff00
-} else {
-	lda #%00110110
-!ifdef TARGET_PLUS4 {
-;	sta plus4_enable_ram
-} else {
-	sta zero_processorports
+	!ifdef TARGET_PLUS4 {
+	} else {
+			pha
+		!ifdef TARGET_C128 {
+			lda #%00001110 ; 48K RAM0 (0-$c000)
+			sta $ff00
+		} else {
+			lda #%00110110
+			sta zero_processorports
+		}
+			pla
+	} ; not TARGET_PLUS4
 }
-}
-	pla
-}
+
 !macro set_memory_no_basic_unsafe {
-!ifdef TARGET_C128 {
-	lda #%00001110 ; 48K RAM0 (0-$c000)
-	sta $ff00
-} else {
-	lda #%00110110
-!ifdef TARGET_PLUS4 {
-;	sta plus4_enable_ram
-} else {
-	sta zero_processorports
-}
-}
+	!ifdef TARGET_PLUS4 {
+	} else {
+		!ifdef TARGET_C128 {
+			lda #%00001110 ; 48K RAM0 (0-$c000)
+			sta $ff00
+		} else {
+			lda #%00110110
+			sta zero_processorports
+		}
+	} ; not TARGET_PLUS4
 }
 
 !macro set_memory_normal {
-	pha
-!ifdef TARGET_C128 {
-	lda #%00000000 ; default
-	sta $ff00
-} else {
-	lda #%00110111
-!ifdef TARGET_PLUS4 {
-;	sta plus4_enable_ram
-} else {
-	sta zero_processorports
-}
-}
-	pla
+	!ifdef TARGET_PLUS4 {
+	} else {
+			pha
+		!ifdef TARGET_C128 {
+			lda #%00000000 ; default
+			sta $ff00
+		} else {
+			lda #%00110111
+			sta zero_processorports
+		}
+			pla
+	} ; not TARGET_PLUS4
 }
 
 ; to be expanded to disable NMI IRQs later if needed

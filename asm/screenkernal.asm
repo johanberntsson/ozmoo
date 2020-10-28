@@ -97,7 +97,7 @@ plus4_vic_colours
 	!byte $41   ; grey
 	!byte $75   ; light green
 	!byte $76   ; light blue
-	!byte $51   ; light grey
+	!byte $61   ; light grey
 }
 
 
