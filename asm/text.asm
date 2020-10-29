@@ -938,21 +938,19 @@ init_cursor_timer
 	lda #0
 	sta s_cursormode
 	; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
+	lda #USE_BLINKING_CURSOR
 	sta .cursor_time_jiffy
-	sta .cursor_time_jiffy + 1
-	lda USE_BLINKING_CURSOR
-	sta .cursor_time_jiffy + 2
 update_cursor_timer
 	; calculate when the next cursor update occurs
 	jsr kernal_readtime  ; read current time (in jiffys)
 	clc
-	adc .cursor_time_jiffy + 2
+	adc .cursor_time_jiffy
 	sta .cursor_jiffy + 2
 	txa
-	adc .cursor_time_jiffy + 1
+	adc #0
 	sta .cursor_jiffy + 1
 	tya
-	adc .cursor_time_jiffy
+	adc #0
 	sta .cursor_jiffy
 	rts
 }
@@ -1243,6 +1241,7 @@ read_text
 	stx .read_text_cursor
 	sty .read_text_cursor + 1
 	jsr read_char
+!ifdef Z4PLUS {
 	cmp #0
 	bne .timer_didnt_return_false
 
@@ -1282,9 +1281,9 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 .done_printing_this_char
 	dex
 	jmp .p0
@@ -1307,9 +1306,9 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 .done_printing_this_char
 	iny
 	jmp .p0
@@ -1331,7 +1330,11 @@ read_text
 ;	sta (string_array),y
 	jmp .read_text_done ; a should hold 0 to return 0 here
 	; check terminating characters
-+   ldy #0
++   
+} ; Z4PLUS
+
+
+	ldy #0
 -   cmp terminating_characters,y
 	beq .read_text_done
 	iny
@@ -1347,9 +1350,9 @@ read_text
 	jsr turn_off_cursor
 	lda .petscii_char_read
 	jsr s_printchar ; print the delete char
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
 	ldy #1
@@ -1394,9 +1397,9 @@ read_text
 }
 	lda .petscii_char_read
 	jsr s_printchar
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 	jsr update_cursor
 	pla
 	; convert to lower case
@@ -1434,9 +1437,9 @@ read_text
 	pla ; the terminating character, usually newline
 	beq +
 	jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 ;	jsr start_buffering
 +   rts
 .read_parse_buffer !byte 0,0
@@ -1455,7 +1458,7 @@ read_text
 }
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
-.cursor_time_jiffy !byte 0,0,0 ; time between cursor updates
+.cursor_time_jiffy !byte 0 ; time between cursor updates
 }
 
 tokenise_text

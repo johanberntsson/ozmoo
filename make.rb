@@ -1324,7 +1324,7 @@ def print_usage_and_exit
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
-	puts "  -cb: Set cursor blink frequency (0-9, where 9 is fastest)."
+	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
@@ -1457,7 +1457,7 @@ begin
 			$cursor_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-cs:([b|u|l])$/ then
 			$cursor_shape = $1
-		elsif ARGV[i] =~ /^-cb:([0-9])$/ then
+		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]

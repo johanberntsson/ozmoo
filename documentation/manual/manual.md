@@ -258,7 +258,7 @@ Cursor colour: This picks the Z-code colour for the cursor shown when waiting fo
 The shape and the blinking of the cursor can also be customized:
 
     -cb:(delay)
-Cursor blinking frequency. delay is 0 to 9, where 9 is fastest.
+Cursor blinking frequency. delay is 1 to 99, where 1 is fastest.
 
     -cs:(Cursor shape)
 Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
