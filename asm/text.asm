@@ -937,14 +937,11 @@ find_word_in_dictionary
 init_cursor_timer
 	lda #0
 	sta s_cursormode
-	; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
-	lda #USE_BLINKING_CURSOR
-	sta .cursor_time_jiffy
 update_cursor_timer
 	; calculate when the next cursor update occurs
 	jsr kernal_readtime  ; read current time (in jiffys)
 	clc
-	adc .cursor_time_jiffy
+	adc #USE_BLINKING_CURSOR
 	sta .cursor_jiffy + 2
 	txa
 	adc #0
@@ -1458,7 +1455,6 @@ read_text
 }
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
-.cursor_time_jiffy !byte 0 ; time between cursor updates
 }
 
 tokenise_text
