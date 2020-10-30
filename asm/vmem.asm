@@ -705,7 +705,7 @@ read_byte_at_z_address
 	; Update tick for last access 
 	ldx vmap_index
 !if vmem_highbyte_mask > 0 {
-	lda vmap_z_h,y
+	lda vmap_z_h,x
 	and #vmem_highbyte_mask
 	ora vmem_tick
 } else {

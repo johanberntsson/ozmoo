@@ -157,8 +157,10 @@ first_banked_memory_page = $c0 ; Normally $d0 (meaning $d000-$ffff needs banking
 
 charset_switchable 	  = $f7
 
-datasette_buffer_start= $0ac5 
-datasette_buffer_end  = $0bff
+vmap_buffer_start     = $0ac5
+vmap_buffer_end       = $0bff ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+
+
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $0a2c
