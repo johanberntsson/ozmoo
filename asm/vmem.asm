@@ -287,16 +287,14 @@ load_blocks_from_index
 	jsr comma
 	jsr print_byte_as_hex
 }
-	tay ; Store in y so we can use it later.
-;	cmp #$e0
-;	bcs +
+	sta readblocks_mempos + 1
 !ifndef TARGET_PLUS4 {
+	tay ; This value need to be in y if we jump to load_blocks_from_index_using_cache
 	cmp #first_banked_memory_page
 	bcs load_blocks_from_index_using_cache
 }
-+	lda #vmem_block_pagecount ; number of blocks
+	lda #vmem_block_pagecount ; number of blocks
 	sta readblocks_numblocks
-	sty readblocks_mempos + 1
 	lda vmap_z_l,x ; start block
 	asl
 	sta readblocks_currentblock
@@ -395,7 +393,8 @@ read_byte_at_z_address
 	cmp zp_pc_h
 	bne .read_new_byte
 	; same 256 byte segment, just return
--	ldy #0
+.read_and_return_value
+	ldy #0
 !ifdef TARGET_PLUS4 {
 	sei
 	sta plus4_enable_ram
@@ -417,15 +416,15 @@ read_byte_at_z_address
 	sta zp_pc_l
 	adc #>story_start
 	sta mempointer + 1
-	bne - ; Always branch
+	bne .read_and_return_value ; Always branch
 .non_dynmem
 	sta zp_pc_h
+	stx zp_pc_l
 	lsr
 	sta vmem_temp + 1
 	lda #0
 	sta vmap_quick_index_match
 	txa
-	sta zp_pc_l
 	and #vmem_indiv_block_mask ; keep index into kB chunk
 	sta vmem_offset_in_block
 	txa
@@ -443,18 +442,18 @@ read_byte_at_z_address
 !if vmem_highbyte_mask > 0 {
 	lda vmap_z_h,y
 	and #vmem_highbyte_mask
-} else {
-	lda #0
-}
 	cmp vmem_temp + 1
 	beq .quick_index_match
 	lda vmem_temp
 	jmp --
+}
 .quick_index_match
 	inc vmap_quick_index_match
-	tya
-	tax
-	jmp .correct_vmap_index_found ; Always branch
+	sty vmap_index
+	jmp .index_found
+;	tya
+;	tax
+;	jmp .correct_vmap_index_found ; Always branch
 	
 .no_quick_index_match
 	lda vmem_temp
