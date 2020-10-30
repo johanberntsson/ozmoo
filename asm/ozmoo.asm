@@ -1264,7 +1264,7 @@ load_suggested_pages
 	cpx vmap_max_entries
 	bcc +
 	dex
-+	stx vmap_clock_index
++	
 
 !ifdef TRACE_VM {
 	jsr print_vm_map

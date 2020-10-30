@@ -123,8 +123,6 @@ vmap_blocks_preloaded !byte 0
 vmap_z_h = vmap_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_size
 
-vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
-
 vmap_first_ram_page		!byte 0
 vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
@@ -502,7 +500,7 @@ read_byte_at_z_address
 	; First, check if this is initial REU loading
 	ldx use_reu
 	cpx #$80
-	bne +
+	bne .not_initial_reu_loading
 	ldx #0
 	lda vmap_z_l ; ,x is not needed here, since x is always 0
 	asl
@@ -512,15 +510,18 @@ read_byte_at_z_address
 	bne .block_chosen ; Always branch
 }
 
-+	ldx vmap_clock_index
--	cpx vmap_used_entries
-	bcs .block_chosen
+.not_initial_reu_loading
+	ldx vmap_used_entries
+	cpx vmap_max_entries
+	bcc .block_chosen
+
 !ifdef DEBUG {
 !ifdef PREOPT {
 	ldx #0
 	jmp print_optimized_vm_map
 }	
 }	
+	; Find the best block to replace
 
 	; Create a copy of the block z_pc points to, shifted one step to the right, 
 	; to be comparable to vmap entries
@@ -538,13 +539,13 @@ read_byte_at_z_address
 	sta vmem_oldest_index
 }
 	sta vmem_oldest_age
-	bne ++ ; Always branch
 	
-	; Check all other indexes to find something older
+	; Check all indexes to find something older
+	ldx vmap_used_entries
+	dex
 -	lda vmap_z_h,x
 	cmp vmem_oldest_age
 	bcs +
-++
 	; Found older
 	; Skip if z_pc points here; it could be in either page of the block.
 	ldy vmap_z_l,x
@@ -561,11 +562,8 @@ read_byte_at_z_address
 }
 ++	sta vmem_oldest_age
 	stx vmem_oldest_index
-+	inx
-	cpx vmap_used_entries
-	bcc +
-	ldx #0
-+	cpx vmap_clock_index
++	dex
+	cpx #$ff
 	bne -
 
 	; Load chosen index
@@ -581,20 +579,13 @@ read_byte_at_z_address
 	
 	cpx vmap_used_entries
 	bcc +
+	; This block was unoccupied
 	inc vmap_used_entries
 +	txa
-	tay
 	asl
 	; Carry is already clear
 	adc vmap_first_ram_page
 	sta vmap_c64_offset
-	; Pick next index to use
-	iny
-	cpy vmap_max_entries
-	bcc .not_max_index
-	ldy #0
-.not_max_index
-	sty vmap_clock_index
 
 !ifdef DEBUG {
 	lda vmem_oldest_index
