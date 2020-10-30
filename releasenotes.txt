@@ -116,6 +116,9 @@ New features:
 - Cursor colour now defaults to special value 1, meaning "same as current foreground colour".
 - Cursor blink rate is now 1-99 where 1 is the fastest
 
+Optimizations:
+- Increased block age resolution by 1 bit, which may lead to better paging, espescially for z8 games.
+
 Fixed bugs:
 - @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
 - @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
@@ -123,3 +126,4 @@ Fixed bugs:
 - Fixed bug with creating .d81 partition, which made it impossible to use build mode 81 for small games ( non-dynamic memory < ~10KB). 
 - Commandline flag -r for make.rb to use reduced memory has been removed.
 - Cursor timing code was broken
+

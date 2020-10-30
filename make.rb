@@ -1601,7 +1601,7 @@ unless $story_file_data.length % $VMEM_BLOCKSIZE == 0
 end
 
 
-$vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x07 : 0x03)
+$vmem_highbyte_mask = ($zcode_version == 3) ? 0x00 : (($zcode_version == 8) ? 0x03 : 0x01)
 
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
 	puts "ERROR: Options -sc and -dmsc can only be used with z3 story files."
@@ -1720,14 +1720,14 @@ else # No preload data available
 #		vmem_data.push(i <= referenced_blocks ? 0x20 : 0x00)
 		vmem_data.push(256 - 8 * (i / 4) - 32 ) # The later the block, the higher its age
 #		0-25 -> 0-200 -> 32-232
-		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256)
+		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256 / 2)
 	end
 	vmem_data += lowbytes;
 end
 
 vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
 vmem_data[1].times do |i|
-	start_address = (vmem_data[3 + i] & $vmem_highbyte_mask) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
+	start_address = (vmem_data[3 + i] & $vmem_highbyte_mask) * 512 * 256 + vmem_data[3 + vmem_data[1] + i] * 512
 	# puts start_address
 	# puts $story_file_data.length
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]

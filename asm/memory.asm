@@ -30,7 +30,7 @@ inc_z_pc_page
 	bne +
 	inc z_pc
 +	lda z_pc + 1
-	and #255-vmem_blockmask
+	and #vmem_indiv_block_mask
 	beq get_page_at_z_pc_did_pha
 	lda z_pc_mempointer + 1
 	cmp #>story_start
@@ -66,7 +66,7 @@ set_z_pc
 	; Let's find out if it's the same vmem block.
 	txa
 	eor z_pc + 1
-	and #vmem_blockmask
+	and #(255 - vmem_indiv_block_mask)
 	bne .unsafe_2
 	; z_pc is in same vmem_block unless it's in vmem_cache
 	lda z_pc_mempointer + 1

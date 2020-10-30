@@ -853,7 +853,7 @@ deletable_init
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
 .maybe_inc_nonstored_blocks
 	tya
-	and #255 - vmem_blockmask ; keep index into kB chunk
+	and #vmem_indiv_block_mask ; keep index into kB chunk
 	beq .store_nonstored_blocks
 	iny
 .store_nonstored_blocks

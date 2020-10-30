@@ -25,8 +25,8 @@ s_reverse 			  = $b3 ; !byte 0
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
-datasette_buffer_end  = $03fb
+vmap_buffer_start     = $0334
+vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 }
 
 !ifdef TARGET_PLUS4 {
@@ -55,8 +55,8 @@ s_reverse 			  = $bb ; !byte 0
 
 savefile_zp_pointer   = $c1 ; 2 bytes
 ; first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
-datasette_buffer_start= $0333
-datasette_buffer_end  = $0437
+vamp_buffer_start     = $0333
+vmap_buffer_end       = $0437 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 
 ted_voice_2_low       = $ff0f
 ted_voice_2_high      = $ff10
@@ -87,8 +87,8 @@ s_reverse 			  = $b3 ; !byte 0
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
-datasette_buffer_end  = $03fb
+vmap_buffer_start     = $0334
+vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 
 }
 

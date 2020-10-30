@@ -113,13 +113,14 @@ read_byte_at_z_address
 ;
 
 vmem_blocksize = 512
-vmem_blockmask = 255 - (>(vmem_blocksize - 1))
+vmem_indiv_block_mask = >(vmem_blocksize - 1)
 vmem_block_pagecount = vmem_blocksize / 256
-vmap_max_size = 102 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
+vmap_max_size = (vmap_buffer_end - vmap_buffer_start) / 2
+; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
 ; vmap_max_entries	!byte 0 ; Moved to ZP
 ; vmap_used_entries	!byte 0 ; Moved to ZP
 vmap_blocks_preloaded !byte 0
-vmap_z_h = datasette_buffer_start
+vmap_z_h = vmap_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_size
 
 vmap_clock_index !byte 0        ; index where we will attempt to load a block next time
@@ -134,16 +135,18 @@ vmem_tick 			!byte $e0
 vmem_oldest_age		!byte 0
 vmem_oldest_index	!byte 0
 
+vmap_temp			!byte 0,0,0
+
 !ifdef Z8 {
-	vmem_tick_increment = 8
-	vmem_highbyte_mask = $07
-} else {
-!ifdef Z3 {
-	vmem_tick_increment = 2
-	vmem_highbyte_mask = $01
-} else {
 	vmem_tick_increment = 4
 	vmem_highbyte_mask = $03
+} else {
+!ifdef Z3 {
+	vmem_tick_increment = 1
+	vmem_highbyte_mask = $00
+} else {
+	vmem_tick_increment = 2
+	vmem_highbyte_mask = $01
 }
 }
 
@@ -181,7 +184,6 @@ print_optimized_vm_map
 	lda zp_pc_h
 	jsr print_byte_as_hex
 	lda zp_pc_l
-	and #vmem_blockmask
 	jsr print_byte_as_hex
 	jsr colon
 	
@@ -296,9 +298,15 @@ load_blocks_from_index
 	sta readblocks_numblocks
 	sty readblocks_mempos + 1
 	lda vmap_z_l,x ; start block
+	asl
 	sta readblocks_currentblock
+!if vmem_highbyte_mask > 0 {
 	lda vmap_z_h,x ; start block
 	and #vmem_highbyte_mask
+} else {
+	lda #0
+}
+	rol
 	sta readblocks_currentblock + 1
 	jsr readblocks
 !ifdef TRACE_VM {
@@ -329,13 +337,12 @@ load_blocks_from_index_using_cache
 	ldx #0
 ++	stx vmem_cache_cnt
 +
-	ldx vmap_index
 	lda #>vmem_cache_start ; start of cache
 	clc
 	adc vmem_cache_cnt
 	sta vmem_temp
 	sty vmem_temp + 1
-	ldx #0 ; Start with page 0 in this 1KB-block
+	ldx #0 ; Start with page 0 in this 512-byte block
 	; read next into vmem_cache
 -   lda #>vmem_cache_start ; start of cache
 	clc
@@ -343,11 +350,19 @@ load_blocks_from_index_using_cache
 	sta readblocks_mempos + 1
 	txa
 	pha
+	sta vmap_temp
 	ldx vmap_index
-	ora vmap_z_l,x ; start block
+	lda vmap_z_l,x ; start block
+	asl
+	ora vmap_temp
 	sta readblocks_currentblock
+!if vmem_highbyte_mask > 0 {
 	lda vmap_z_h,x ; start block
 	and #vmem_highbyte_mask
+} else {
+	lda #0
+}
+	rol
 	sta readblocks_currentblock + 1
 	jsr readblock
 	; copy vmem_cache to block (banking as needed)
@@ -405,15 +420,16 @@ read_byte_at_z_address
 	bne - ; Always branch
 .non_dynmem
 	sta zp_pc_h
+	lsr
 	sta vmem_temp + 1
 	lda #0
 	sta vmap_quick_index_match
 	txa
 	sta zp_pc_l
-	and #255 - vmem_blockmask ; keep index into kB chunk
+	and #vmem_indiv_block_mask ; keep index into kB chunk
 	sta vmem_offset_in_block
 	txa
-	and #vmem_blockmask
+	ror
 	sta vmem_temp
 	; Check quick index first
 	ldx #vmap_quick_index_length - 1
@@ -424,8 +440,12 @@ read_byte_at_z_address
 	bpl -
 	bmi .no_quick_index_match ; Always branch
 .quick_index_candidate
+!if vmem_highbyte_mask > 0 {
 	lda vmap_z_h,y
 	and #vmem_highbyte_mask
+} else {
+	lda #0
+}
 	cmp vmem_temp + 1
 	beq .quick_index_match
 	lda vmem_temp
@@ -450,12 +470,15 @@ read_byte_at_z_address
 	bpl -
 	bmi .no_such_block ; Always branch
 	; is the highbyte correct?
-+   lda vmap_z_h,x
++
+!if vmem_highbyte_mask > 0 {
+	lda vmap_z_h,x
 	and #vmem_highbyte_mask
 	cmp vmem_temp + 1
 	beq .correct_vmap_index_found
 	lda vmem_temp
 	jmp .check_next_block
+}
 .correct_vmap_index_found
 	; vm index for this block found
 	stx vmap_index
@@ -482,8 +505,9 @@ read_byte_at_z_address
 	cpx #$80
 	bne +
 	ldx #0
-	ldy vmap_z_l ; ,x is not needed here, since x is always 0
-	cpy z_pc + 1
+	lda vmap_z_l ; ,x is not needed here, since x is always 0
+	asl
+	cmp z_pc + 1
 	bne .block_chosen
 	inx ; Set x to 1
 	bne .block_chosen ; Always branch
@@ -497,7 +521,17 @@ read_byte_at_z_address
 	ldx #0
 	jmp print_optimized_vm_map
 }	
-}
+}	
+
+	; Create a copy of the block z_pc points to, shifted one step to the right, 
+	; to be comparable to vmap entries
+	lda z_pc
+	lsr
+	sta vmap_temp + 1
+	lda z_pc + 1
+	ror
+	sta vmap_temp + 2
+
 	; Store very recent oldest_age so the first valid index in the following
 	; loop will be picked as the first candidate.
 	lda #$ff
@@ -515,16 +549,17 @@ read_byte_at_z_address
 	; Found older
 	; Skip if z_pc points here; it could be in either page of the block.
 	ldy vmap_z_l,x
-	cpy z_pc + 1
-	beq +++
-	iny
-	cpy z_pc + 1
+	cpy vmap_temp + 2
+!if vmem_highbyte_mask > 0 {
 	bne ++
-+++	tay
+	tay
 	and #vmem_highbyte_mask
-	cmp z_pc
+	cmp vmap_temp + 1
 	beq +
 	tya
+} else {
+	beq +
+}
 ++	sta vmem_oldest_age
 	stx vmem_oldest_index
 +	inx
@@ -606,7 +641,6 @@ read_byte_at_z_address
 	lda zp_pc_h
 	jsr print_byte_as_hex
 	lda zp_pc_l
-	and #vmem_blockmask
 	jsr print_byte_as_hex
 	jsr space
 ++	
@@ -620,7 +654,7 @@ read_byte_at_z_address
 	bcc .cant_be_in_cache
 	ldy #vmem_cache_count - 1
 -	lda vmem_cache_index,y
-	and #vmem_blockmask
+	and #(255 - vmem_indiv_block_mask)
 	cmp vmap_c64_offset
 	bne +
 	lda #0
@@ -658,9 +692,11 @@ read_byte_at_z_address
 
 	; Store address of 512 byte block to load, then load it
 	lda zp_pc_h
+	lsr
 	sta vmap_z_h,x
 	lda zp_pc_l
-	and #vmem_blockmask ; skip bit 0 since 512 byte blocks
+;	and #(255 - vmem_indiv_block_mask) ; skip bit 0 since 512 byte blocks
+	ror
 	sta vmap_z_l,x
 	stx vmap_index
 	jsr load_blocks_from_index
@@ -668,9 +704,13 @@ read_byte_at_z_address
 	; index found
 	; Update tick for last access 
 	ldx vmap_index
-	lda vmap_z_h,x
+!if vmem_highbyte_mask > 0 {
+	lda vmap_z_h,y
 	and #vmem_highbyte_mask
 	ora vmem_tick
+} else {
+	lda vmem_tick
+}
 	sta vmap_z_h,x
 	txa
 	
