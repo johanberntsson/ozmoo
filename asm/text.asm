@@ -1122,16 +1122,16 @@ update_cursor
 	jsr VDCGetChar
 	and #$7f
 	jsr VDCPrintChar
-	jmp ++
+	jmp .vdc_printed_char
 +	; 40 columns
 }
 ;	lda (zp_screenline),y
 ;	and #$7f
 	lda #32 ; Space
 	sta (zp_screenline),y
-!ifdef TARGET_C128 {
-	++
-}
+
+.vdc_printed_char
+
 	ldy object_temp
 	rts
 +++	; cursor
@@ -1143,7 +1143,7 @@ update_cursor
 	jsr VDCPrintChar
 	lda current_cursor_colour
 	jsr VDCPrintColour
-	jmp ++
+	jmp .vdc_printed_char_and_colour
 +	; 40 columns
 }
 	lda cursor_character
@@ -1162,9 +1162,9 @@ update_cursor
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
-!ifdef TARGET_C128 {
-	++
-}
+
+.vdc_printed_char_and_colour
+
 	ldy object_temp
 	rts
 

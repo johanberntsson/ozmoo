@@ -435,11 +435,18 @@ game_id		!byte 0,0,0,0
 	
 program_end
 
+
+!ifndef TARGET_C128 {
 	!align 255, 0, 0
+}
+
 z_trace_page
 	!fill z_trace_size, 0
 
+!ifndef TARGET_C128 {
 vmem_cache_start
+}
+vmem_cache_start_maybe
 
 !ifndef TARGET_PLUS4 {
 	!if SPLASHWAIT > 0 {
@@ -449,7 +456,12 @@ vmem_cache_start
 
 end_of_routines_in_vmem_cache
 
-	!fill cache_pages * 256 - (* - vmem_cache_start),0 ; Typically 4 pages
+!align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
+
+!ifdef TARGET_C128 {
+} else {
+	!fill cache_pages * 256 - (* - vmem_cache_start_maybe),0 ; Typically 4 pages
+} 
 
 !ifdef VMEM {
 	!if (stack_size + *) & 256 {
@@ -457,8 +469,10 @@ end_of_routines_in_vmem_cache
 	}
 }
 
+!ifndef TARGET_C128 {
 vmem_cache_size = * - vmem_cache_start
 vmem_cache_count = vmem_cache_size / 256
+}
 
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
@@ -679,7 +693,50 @@ z_init
 }
 
 !zone deletable_init {
+
+!ifdef TARGET_C128 {
+; Setup the memory pre-configurations we need:
+; pcra: RAM in bank 0, Basic disabled, Kernal and I/O enabled
+; pcrb: RAM in bank 0, RAM everywhere
+; pcrc: RAM in bank 1, RAM everywhere
+c128_mmu_values !byte $0e,$3f,$7f
+}
+
 deletable_init_start
+
+!ifdef TARGET_C128 {
+	lda #5 ; 4 KB common RAM at bottom only
+	sta c128_mmu_ram_cfg
+	ldx #2
+-	lda c128_mmu_values,x
+	sta c128_mmu_pcra,x
+	dex
+	bpl -
+
+	ldx #copy_page_c128_src_end - copy_page_c128_src
+-	lda copy_page_c128_src - 1,x
+	sta copy_page_c128 - 1,x
+	dex
+	bne -
+
+	txa ; a = 0
+	ldx #9
+-	sta c128_function_key_string_lengths,x
+	dex
+	bpl -
+	
+; Just for testing
+	; lda #$f0
+	; ldy #$08
+	; ldx #0
+	; jsr copy_page_c128
+	
+	; lda #$08
+	; ldy #$d0
+	; ldx #1
+	; jsr copy_page_c128
+	
+}
 !ifdef TARGET_PLUS4 {
 	!ifdef CUSTOM_FONT {
 		lda reg_screen_char_mode

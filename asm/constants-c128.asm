@@ -141,24 +141,34 @@ zp_screenline          = $f1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn        = $f3 ; 1 byte current cursor column
 zp_screenrow           = $f4 ; 1 byte current cursor row
 zp_colourline          = $f5 ; 2 bytes current line (pointer to colour memory)
+
+charset_switchable     = $f7
+
 zp_temp                = $f8 ; 5 bytes (is $fa bad because of kernal bug?)
 
 buffer_index           = $fd ; ### OK C128
 last_break_char_buffer_pos=$fe ; ### OK C128
 
+copy_page_c128         = $380 ; Uses ~30 bytes
 
-print_buffer		  = $0c00 ; SCREEN_WIDTH + 1 bytes
-print_buffer2         = $0d00 ; SCREEN_WIDTH + 1 bytes
 
-memory_buffer         =	$0e00
-memory_buffer_length  = 89
+vmap_buffer_start     = $0800
+vmap_buffer_end       = $09ff ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+
+memory_buffer         =	$0a05
+memory_buffer_length  = 23
+
+vmem_cache_start      = $0b00
+vmem_cache_size = $1000 - vmem_cache_start
+vmem_cache_count = vmem_cache_size / 256
+
+c128_function_key_string_lengths = $1000 ; 10 bytes holding length of strings for F1, F2 etc
+print_buffer		  = $100a ; SCREEN_WIDTH + 1 bytes
+print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
+
 
 first_banked_memory_page = $c0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
-charset_switchable 	  = $f7
-
-vmap_buffer_start     = $0ac5
-vmap_buffer_end       = $0bff ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 
 
 
@@ -166,6 +176,20 @@ vmap_buffer_end       = $0bff ; Last byte + 1. Should not be more than vmap_buff
 reg_screen_char_mode  = $0a2c
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
+
+; --- MMU config ---
+c128_mmu_pcra         = $d501
+c128_mmu_pcrb         = $d502
+c128_mmu_pcrc         = $d503
+c128_mmu_pcrd         = $d504
+
+c128_mmu_ram_cfg      = $d506
+
+c128_mmu_cfg          = $ff00
+c128_mmu_load_pcra    = $ff01
+c128_mmu_load_pcrb    = $ff02
+c128_mmu_load_pcrc    = $ff03
+c128_mmu_load_pcrd    = $ff04
 
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms

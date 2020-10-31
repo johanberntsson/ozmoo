@@ -77,7 +77,14 @@ read_byte_at_z_address
 	adc vmem_cache_cnt
 	tay
 	pla
+!ifdef TARGET_C128 {
+	stx vmem_temp
+	ldx #0
+	jsr copy_page_c128
+	ldx vmem_temp
+} else {
 	jsr copy_page
+}
 	; set next cache to use when needed
 	inx
 	txa
@@ -364,7 +371,12 @@ load_blocks_from_index_using_cache
 	; copy vmem_cache to block (banking as needed)
 	lda vmem_temp
 	ldy vmem_temp + 1
+!ifdef TARGET_C128 {
+	ldx #0
+	jsr copy_page_c128
+} else {
 	jsr copy_page
+}
 	inc vmem_temp + 1
 	pla
 	tax
@@ -746,7 +758,14 @@ read_byte_at_z_address
 	adc vmem_cache_cnt
 	tay
 	lda vmem_temp
+!ifdef TARGET_C128 {
+	stx vmem_temp + 1
+	ldx #0
+	jsr copy_page_c128
+	ldx vmem_temp + 1
+} else {
 	jsr copy_page
+}
 	; set next cache to use when needed
 	inx
 	txa

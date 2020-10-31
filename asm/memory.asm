@@ -153,6 +153,30 @@ get_page_at_z_pc_did_pha
 	; ldy #0
 	; rts
 ; }	
+!ifdef TARGET_C128 {
+copy_page_c128_src
+; a = source
+; y = destination
+; x = bank (0 or 1)
+
+!pseudopc copy_page_c128 {
+	sta .copy + 2
+	sty .copy + 5
+	sei
+	sta c128_mmu_load_pcrb,x
+-   ldy #0
+.copy
+	lda $8000,y
+	sta $8000,y
+	iny
+	bne .copy
+	sta c128_mmu_load_pcra
+	cli
+	rts
+} ; pseudopc
+copy_page_c128_src_end
+
+} else { ; not TARGET_C128
 
 copy_page
 ; a = source
@@ -181,7 +205,9 @@ copy_page
 	+set_memory_no_basic_unsafe
 	cli
 	rts
+} ; not TARGET_C128
 }
+
 
 
 read_header_word
