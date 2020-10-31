@@ -427,7 +427,7 @@ game_id		!byte 0,0,0,0
 	jmp (basic_reset)
 }
 
-!ifdef TARGET_PLUS4 {
+!ifdef TARGET_PLUS4_OR_C128 {
 	!if SPLASHWAIT > 0 {
 		!source "splashscreen.asm"
 	}
@@ -448,7 +448,7 @@ vmem_cache_start
 }
 vmem_cache_start_maybe
 
-!ifndef TARGET_PLUS4 {
+!ifndef TARGET_PLUS4_OR_C128 {
 	!if SPLASHWAIT > 0 {
 		!source "splashscreen.asm"
 	}
@@ -926,11 +926,34 @@ deletable_init
 	cmp #vmap_max_size ; Maximum space available
 	bcc ++
 	lda #vmap_max_size
-++	
+++
 !ifdef VMEM_STRESS {
 	lda #2 ; one block for PC, one block for data
 }
 	sta vmap_max_entries
+
+!ifdef TARGET_C128 {
+	; Copy vmem to bank 1
+	lda #>story_start
+	sta zp_temp
+	lda #$10 + STACK_PAGES + 1
+	sta zp_temp + 1
+	lda nonstored_blocks
+	sta zp_temp + 2
+-	lda zp_temp
+	ldy #>(vmem_cache_start + $200)
+	ldx #0
+	jsr copy_page_c128
+	lda #>(vmem_cache_start + $200)
+	ldy zp_temp + 1
+	ldx #1
+	jsr copy_page_c128
+	inc zp_temp
+	inc zp_temp + 1
+	dec zp_temp + 2
+	bne -
+}
+
 
 	jsr prepare_static_high_memory
 
