@@ -2,11 +2,13 @@
 
 # Overview
 
-Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative to these concerns.
+Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
+
+Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Currently full or partial versions of Ozmoo run on the Commodore 128, Commodore Plus/4 and Mega65 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
 
 ## Features
 
-Ozmoo supports:
+Ozmoo for the Commodore 64 supports:
 
 - Z-code version 3, 4, 5 and 8. Essentially this covers all games except for the very first (hard to find) versions of Zork I and II and the Infocom games with graphics.
 - Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
@@ -106,14 +108,46 @@ Use these step to build a game with optimized preloaded virtual memory data whic
 
 5. At a command prompt, type "ruby make.rb -c mygame_optimization.txt mygame.z5"
 
-# Build Modes
-
-## Targets
+# Targets
 
 While Ozmoo was written for the Commodore 64, it is possible to target
 other similar computers. make.rb takes a -t:target argument to enable such
-future extensions, but currently only c64 is supported, and the rest of this
-documents is c64 specific.
+future extensions, and currently supports these platforms:
+
+| Target | Comment |
+| -- | ---- |
+| -t:c64 | Build Ozmoo for the Commodore 64 (default) |
+| -t:128 | Build Ozmoo for the Commodore 128 |
+| -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
+| -t:mega65 | Build Ozmoo for the Mega65 |
+
+Note that not all build options are supported for every platform. If an option isn't supported, then the make.rb script will stop with an appropriate error message, and no Ozmoo files will be built.
+
+## Commodore 64
+
+The Commodore 64 version is the default build target, and supports all build options.
+
+## Commodore 128
+
+The Commodore 128 version is automatically detecting if it is started from 40 or 80 columns mode, and adjusting itself accordingly. It makes use of the additional ram available compared to the Commodore 64 version, and allows game with up to 50 KB dynamic memory.
+
+Currently the Commodore 128 version does not allow custom fonts or customized cursors in 80 column mode.
+
+## Commodore Plus/4
+
+The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, and allows game with up to 50 KB dynamic memory.
+
+## Mega65
+
+The Mega65 is recreation of the Commodore 65 computer which was never released. It can currently be built on FPGA or run on an emulator. More information can be found at https://mega65.org/
+
+The Mega65 version is always build with the -81 option, but apart from this all options are supported. The screen is always set to 80 columns.
+
+## Other targets
+
+A fork of Ozmoo targets the the Acorn computers (BBC Micro and other variants), and can be found at https://github.com/ZornsLemma/ozmoo/tree/acorn. Note that this fork is using a different build script called maek-acorn.py.
+
+# Build Modes
 
 ## Drives and devices
 

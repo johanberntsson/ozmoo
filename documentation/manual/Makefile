@@ -5,5 +5,5 @@ all:
 	pandoc --metadata-file=custom.yaml --toc -V documentclass=report  --from=markdown+multiline_tables -H custom.tex manual2.md -o manual.pdf
 	pandoc --metadata-file=custom.yaml --toc -V documentclass=report  --from=markdown+multiline_tables -H custom.tex techreport2.md -o techreport.pdf
 	rm manual2.md
-	mv manual.pdf ../ozmoo_4.pdf
-	mv techreport.pdf ../techdocs/techreport_4.pdf
+	mv manual.pdf ../ozmoo_5.pdf
+	mv techreport.pdf ../techdocs/techreport_5.pdf

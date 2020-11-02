@@ -106,6 +106,26 @@ The story file is read piece by piece by mapping the program counter to the corr
 
 disk.asm also contains save and restore functionality. The main functions are do_save and do_restore. The save files are normal files that contain some important internal variables such as the program counter, the Z-machine stack, and the dynmem part of the RAM.
 
+# Screenkernal 
+
+Screenkernal, implemented in screenkernal.asm, is a replacement for the
+low-level screen output routines on the Commodore computers. It is needed
+to abstract away low-level implementation details so that new targets
+can be more easily added, and also to support custom text scrolling to
+to efficiently enable status lines, especially big ones used in games such
+as Border Zone and Nord and Bert. The number of lines to protect when
+scrolling is stored in window_start_row
+
+The main functions of screenkernal are s_printchar, which replaced CHROUT \$FFD2, and s_plot which replaced PLOT \$FFF0. It also provides s_set_textcolour, s_delete_cursor, s_erase_window s_erase_line, s_erase_line_from_cursor and s_init.
+
+Screenkernal is started by calling s_init. Internally it keeps track of the cursor position so it can put a character on the screen when s_printchar is called. 
+
+For the Commodore 64 version the characters are stored directly in the video memory, and the colour in the colour memory. For the Mega65 version, the only difference is that the screen is 80 characters wide which maes the video ram double size, but the colour memory has only space for 40 characters. To solve this the Mega65 version temporarily banks extra colour memory in place when printing a characters, and then removes it afterwards.
+
+The Commodore 128 version detects if 40 or 80 columns mode is used while running the program. If 40 characters are used, then it works like the Commodore 64 version. But if 80 columns are used, then the C128's Video Display Controller chip (VDC) is used. Instead of writing directly into the video memory, character output, scrolling and other screen commands are sent by VDC registers. The file vdc.asm contains functions that make this communication easier.
+
+The Plus/4 and Commodore 128 in 80 column mode doesn't use the same palette as the Commodore 64. Mapping tables (plus4_vic_colours and vdc_vic_colours) are used to assign C64 colours to their closest equivalents on these platforms.
+
 # Virtual Memory
 
 This chapter is based on a document written by Steve Flintham.
