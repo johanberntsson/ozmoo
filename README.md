@@ -2,9 +2,9 @@
 
 *Ozmoo (spell): survive unnatural death*
 
-A Z-machine interpreter for the Commodore 64 
+A Z-machine interpreter for the Commodore 64 and similar computers
 
-Written by Johan Berntsson and Fredrik Ramsberg in 2018
+Written by Johan Berntsson and Fredrik Ramsberg in 2018-2020
 
 ![Curses running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
 
