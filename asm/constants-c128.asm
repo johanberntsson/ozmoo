@@ -169,8 +169,7 @@ print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
 
 first_banked_memory_page = $c0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
-
-
+story_start_bank_1 = $1000 + (STACK_PAGES + 1)  * $100 ; NOTE: This is in bank 1
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $0a2c

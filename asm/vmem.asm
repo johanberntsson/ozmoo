@@ -2,7 +2,10 @@
 dynmem_size !byte 0, 0
 
 vmem_cache_cnt !byte 0         ; current execution cache
-vmem_cache_index !fill cache_pages + 1, 0
+vmem_cache_page_index !fill cache_pages + 1, 0
+!ifdef TARGET_C128 {
+vmem_cache_bank_index !fill cache_pages + 1, 0
+}
 
 !ifndef VMEM {
 ; Non-virtual memory
@@ -11,6 +14,7 @@ read_byte_at_z_address
 	; Subroutine: Read the contents of a byte address in the Z-machine
 	; a,x,y (high, mid, low) contains address.
 	; Returns: value in a
+
 	sty mempointer ; low byte unchanged
 	; same page as before?
 	cpx zp_pc_l
@@ -49,7 +53,7 @@ read_byte_at_z_address
 	; update vmem_cache if needed
 	; Check if this page is in cache
 	ldx #vmem_cache_count - 1
--   cmp vmem_cache_index,x
+-   cmp vmem_cache_page_index,x
 	beq .cache_updated
 	dex
 	bpl -
@@ -70,7 +74,7 @@ read_byte_at_z_address
 ++	stx vmem_cache_cnt
 
 +	pla
-	sta vmem_cache_index,x
+	sta vmem_cache_page_index,x
 	pha
 	lda #>vmem_cache_start ; start of cache
 	clc
@@ -213,19 +217,19 @@ print_vm_map
 	jsr printa
 	jsr space
 	jsr dollar
-	lda vmem_cache_index
+	lda vmem_cache_page_index
 	jsr print_byte_as_hex
 	jsr space
 	jsr dollar
-	lda vmem_cache_index + 1
+	lda vmem_cache_page_index + 1
 	jsr print_byte_as_hex
 	jsr space
 	jsr dollar
-	lda vmem_cache_index + 2
+	lda vmem_cache_page_index + 2
 	jsr print_byte_as_hex
 	jsr space
 	jsr dollar
-	lda vmem_cache_index + 3
+	lda vmem_cache_page_index + 3
 	jsr print_byte_as_hex
 	jsr newline
 	ldy #0
@@ -381,14 +385,18 @@ load_blocks_from_index_using_cache
 	pla
 	tax
 	inx
-	cpx #vmem_block_pagecount ; read 2 or 4 blocks (512 or 1024 bytes) in total
+	cpx #vmem_block_pagecount ; read 2 blocks (512 bytes) in total
 	bcc -
 
 	ldx vmem_temp + 1
 	dex
 	txa
 	ldx vmem_cache_cnt
-	sta vmem_cache_index,x
+	sta vmem_cache_page_index,x
+!ifdef TARGET_C128 {
+	lda #0 ; TODO: This will depend on where in vmap the block is.
+	sta vmem_cache_bank_index,x
+}
 	rts
 }
 
@@ -396,6 +404,30 @@ read_byte_at_z_address
 	; Subroutine: Read the contents of a byte address in the Z-machine
 	; a,x,y (high, mid, low) contains address.
 	; Returns: value in a
+
+!ifdef TARGET_C128 {
+	; TODO: For C128, we do the dynmem check both here and 40 lines down. Make it better!
+	cmp #0
+	bne .not_dynmem
+	cpx nonstored_blocks
+	bcs .not_dynmem
+
+	; This is in dynmem, so we always read from bank 1
+	txa
+	clc
+	adc #>story_start_bank_1
+	sta vmem_temp + 1
+	lda #0
+	sta vmem_temp
+	lda #vmem_temp
+	sta $02aa
+	ldx #$7f
+	jmp $02a2
+	
+.not_dynmem	
+}
+
+
 	sty mempointer ; low byte unchanged
 	; same page as before?
 	cpx zp_pc_l
@@ -655,12 +687,13 @@ read_byte_at_z_address
 	cmp #first_banked_memory_page
 	bcc .cant_be_in_cache
 	ldy #vmem_cache_count - 1
--	lda vmem_cache_index,y
+-	lda vmem_cache_page_index,y
 	and #(255 - vmem_indiv_block_mask)
 	cmp vmap_c64_offset
 	bne +
+; TODO: For C128, check if it's the right bank too, to make this more efficient	
 	lda #0
-	sta vmem_cache_index,y
+	sta vmem_cache_page_index,y
 +	dey
 	bpl -
 .cant_be_in_cache	
@@ -730,16 +763,26 @@ read_byte_at_z_address
 	adc vmem_offset_in_block
 	; Check if this page is in cache
 	ldx #vmem_cache_count - 1
--   cmp vmem_cache_index,x
+	tay
+-	tya
+	cmp vmem_cache_page_index,x
+!ifdef TARGET_C128 {
+	bne .not_a_match
+	lda #0 ; TODO: This should depend on the vmap index.
+	cmp vmem_cache_bank_index,x
+	bne .not_a_match
+	jmp .cache_updated
+.not_a_match
+} else {
 	beq .cache_updated
+}
 	dex
 	bpl -
 	; The requested page was not found in the cache
 	; copy vmem to vmem_cache (banking as needed)
-	sta vmem_temp
+	sty vmem_temp
 	ldx vmem_cache_cnt
 	; Protect page held in z_pc_mempointer + 1
-	pha
 	txa
 	clc
 	adc #>vmem_cache_start
@@ -751,8 +794,12 @@ read_byte_at_z_address
 	ldx #0
 ++	stx vmem_cache_cnt
 
-+	pla
-	sta vmem_cache_index,x
++	tya
+	sta vmem_cache_page_index,x
+!ifdef TARGET_C128 {
+	lda #0 ; TODO: Should depend on the vmap cache index
+	sta vmem_cache_bank_index,x
+}	
 	lda #>vmem_cache_start ; start of cache
 	clc
 	adc vmem_cache_cnt

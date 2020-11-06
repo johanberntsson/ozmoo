@@ -1391,8 +1391,6 @@ begin
 		elsif ARGV[i] =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif ARGV[i] =~ /^-P$/ then
-			mode = MODE_P
 		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
@@ -1412,6 +1410,8 @@ begin
 				$memory_end_address = 0xfc00
 				$normal_ram_end_address = $memory_end_address
 			end
+		elsif ARGV[i] =~ /^-P$/ then
+			mode = MODE_P
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then
@@ -1474,6 +1474,10 @@ rescue
 	print_usage_and_exit()
 end
 
+if mode == MODE_P and $target == 'c128'
+	puts "ERROR: Build mode P is not supported on this target platform."
+	exit 1
+end
 
 if $font_filename
 	if $target == 'c64' or $target == 'mega65'

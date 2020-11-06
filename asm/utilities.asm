@@ -123,7 +123,8 @@ plus4_enable_rom = $ff3e
 	cli
 }
 
-!ifdef SLOW {
+; !ifdef SLOW {
+!ifdef TARGET_PLUS4 {
 read_next_byte_at_z_pc_sub
 	ldy #0
 !ifdef TARGET_PLUS4 {

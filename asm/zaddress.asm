@@ -116,7 +116,7 @@ set_z_paddress
 write_next_byte
 ; input: value in a 
 ; a,x,y are preserved
-	pha
+	sta z_address_temp
 !ifndef UNSAFE {
 	lda z_address
 	bne .write_outside_dynmem
@@ -125,16 +125,43 @@ write_next_byte
 	lda z_address + 1
 	sbc dynmem_size + 1
 	bcs .write_outside_dynmem
-}	
+}
+
+!ifdef TARGET_C128 {
+	txa
+	pha
+	tya
+	pha
+	lda z_address + 2
+	sta mem_temp
+	lda z_address + 1
+	clc
+	adc #>story_start_bank_1
+	sta mem_temp + 1
+	ldx #mem_temp
+	stx $02b9
+	ldx #$7f
+	ldy #0
+	lda z_address_temp
+	jsr $02af ; y has correct value already
+	pla
+	tay
+	pla
+	tax
+	lda z_address_temp
+} else { 
+	; not TARGET_C128
 	lda z_address + 2
 	sta .write_byte + 1
 	lda z_address + 1
 	clc
 	adc #>story_start
 	sta .write_byte + 2
-	pla
-.write_byte	
+	lda z_address_temp
+.write_byte
 	sta $8000 ; This address is modified above
+}
+
 	inc z_address + 2
 	bne +
 	inc z_address + 1
@@ -149,4 +176,4 @@ write_next_byte
 }
 	
 	
-} ; End zone zaddress	
+} ; End zone zaddress

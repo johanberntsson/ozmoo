@@ -647,11 +647,19 @@ z_init
 	tay
 	txa
 	clc
+!ifdef TARGET_C128 {
+	adc #<(story_start_bank_1 - 32)
+	sta z_low_global_vars_ptr
+	sta z_high_global_vars_ptr
+	tya
+	adc #>(story_start_bank_1 - 32)
+} else {
 	adc #<(story_start - 32)
 	sta z_low_global_vars_ptr
 	sta z_high_global_vars_ptr
 	tya
 	adc #>(story_start - 32)
+}
 	sta z_low_global_vars_ptr + 1
 	adc #1
 	sta z_high_global_vars_ptr + 1 
@@ -669,6 +677,13 @@ z_init
 	sta $d405
 	lda #$f2
 	sta $d406
+
+	; Init randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	ldx #$80
+	stx $d412
 }
 !ifdef TARGET_PLUS4 {
 	lda #0
@@ -676,14 +691,6 @@ z_init
 }
 
 	
-	; Init randomization
-!ifdef HAS_SID {
-	lda #$ff
-	sta $d40e
-	sta $d40f
-	ldx #$80
-	stx $d412
-}
 !ifdef BENCHMARK {
 	ldy #1
 	jmp z_rnd_init
@@ -694,49 +701,8 @@ z_init
 
 !zone deletable_init {
 
-!ifdef TARGET_C128 {
-; Setup the memory pre-configurations we need:
-; pcra: RAM in bank 0, Basic disabled, Kernal and I/O enabled
-; pcrb: RAM in bank 0, RAM everywhere
-; pcrc: RAM in bank 1, RAM everywhere
-c128_mmu_values !byte $0e,$3f,$7f
-}
-
 deletable_init_start
 
-!ifdef TARGET_C128 {
-	lda #5 ; 4 KB common RAM at bottom only
-	sta c128_mmu_ram_cfg
-	ldx #2
--	lda c128_mmu_values,x
-	sta c128_mmu_pcra,x
-	dex
-	bpl -
-
-	ldx #copy_page_c128_src_end - copy_page_c128_src
--	lda copy_page_c128_src - 1,x
-	sta copy_page_c128 - 1,x
-	dex
-	bne -
-
-	txa ; a = 0
-	ldx #9
--	sta c128_function_key_string_lengths,x
-	dex
-	bpl -
-	
-; Just for testing
-	; lda #$f0
-	; ldy #$08
-	; ldx #0
-	; jsr copy_page_c128
-	
-	; lda #$08
-	; ldy #$d0
-	; ldx #1
-	; jsr copy_page_c128
-	
-}
 !ifdef TARGET_PLUS4 {
 	!ifdef CUSTOM_FONT {
 		lda reg_screen_char_mode
@@ -773,6 +739,15 @@ deletable_init_start
 	
 
 
+!ifdef TARGET_C128 {
+; Setup the memory pre-configurations we need:
+; pcra: RAM in bank 0, Basic disabled, Kernal and I/O enabled
+; pcrb: RAM in bank 0, RAM everywhere
+; pcrc: RAM in bank 1, RAM everywhere
+c128_mmu_values !byte $0e,$3f,$7f
+}
+
+
 deletable_init
 	cld
 	; ; check if PAL or NTSC (needed for read_line timer)
@@ -783,6 +758,42 @@ deletable_init
 	; and #$03
 	; sta c64_model
 	; enable lower case mode
+
+!ifdef TARGET_C128 {
+	lda #5 ; 4 KB common RAM at bottom only
+	sta c128_mmu_ram_cfg
+	ldx #2
+-	lda c128_mmu_values,x
+	sta c128_mmu_pcra,x
+	dex
+	bpl -
+
+	ldx #copy_page_c128_src_end - copy_page_c128_src
+-	lda copy_page_c128_src - 1,x
+	sta copy_page_c128 - 1,x
+	dex
+	bne -
+
+	txa ; a = 0
+	ldx #9
+-	sta c128_function_key_string_lengths,x
+	dex
+	bpl -
+	
+; Just for testing
+	; lda #$f0
+	; ldy #$08
+	; ldx #0
+	; jsr copy_page_c128
+	
+	; lda #$08
+	; ldy #$d0
+	; ldx #1
+	; jsr copy_page_c128
+	
+} ; TARGET_C128
+
+
 
 ; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
 !ifdef TARGET_PLUS4 {
@@ -849,7 +860,7 @@ deletable_init
 } else { ; End of !ifdef VMEM
 	sty disk_info + 4
 	ldy #header_static_mem
-	jsr read_header_word
+	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
 	ldx #$30 ; First unavailable slot
 	clc
 	adc #(>stack_size) + 4
@@ -886,21 +897,18 @@ deletable_init
 
 ; parse_header section
 
-!ifndef UNSAFE {
-	; check z machine version
-	ldy #header_version
-	jsr read_header_word
-	cmp #ZMACHINEVERSION
-	beq .supported_version
-	lda #ERROR_UNSUPPORTED_STORY_VERSION
-	jsr fatalerror
-.supported_version
-}
-
 	; Store the size of dynmem AND (if VMEM is enabled)
 	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+!ifdef TARGET_C128 {
+	; Special case because we need to read a header word from dynmem before dynmem
+	; has been moved to its final location.
+	lda story_start + header_static_mem
+	ldx story_start + header_static_mem + 1
+} else {
+	; Target is not C128
 	ldy #header_static_mem
 	jsr read_header_word
+}
 	stx dynmem_size
 	sta dynmem_size + 1
 !ifdef VMEM {
@@ -933,10 +941,10 @@ deletable_init
 	sta vmap_max_entries
 
 !ifdef TARGET_C128 {
-	; Copy vmem to bank 1
+	; Copy dynmem to bank 1
 	lda #>story_start
 	sta zp_temp
-	lda #$10 + STACK_PAGES + 1
+	lda #>story_start_bank_1
 	sta zp_temp + 1
 	lda nonstored_blocks
 	sta zp_temp + 2
@@ -954,7 +962,6 @@ deletable_init
 	bne -
 }
 
-
 	jsr prepare_static_high_memory
 
 	jsr insert_disks_at_boot
@@ -967,6 +974,19 @@ deletable_init
 .dont_preload
 
 } ; End of !ifdef VMEM
+
+!ifndef UNSAFE {
+	; check z machine version
+	ldy #header_version
+	jsr read_header_word
+	cmp #ZMACHINEVERSION
+	beq .supported_version
+	lda #ERROR_UNSUPPORTED_STORY_VERSION
+	jsr fatalerror
+.supported_version
+}
+
+
 
    ; ; check file length
 	; ; Start by multiplying file length by 2
@@ -1356,7 +1376,11 @@ end_of_routines_in_stack_space
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 
+; !ifdef TARGET_C128 {
+; initial_story_start ; (story_start is defined in constants-c128.asm)
+; } else {
 story_start
+;}
 
 !ifdef vmem_cache_size {
 !if vmem_cache_size >= $200 {

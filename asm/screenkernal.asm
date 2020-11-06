@@ -818,15 +818,15 @@ s_erase_line
 	bcs .done_erasing
 	sta (zp_screenline),y
 	iny
-	bne -
-	jmp .col80_5_end
+	bne - ; Always branch
+;	jmp .col80_5_end
 .col80_5
 -	cpy s_screen_width
 	bcs .done_erasing
 	jsr VDCPrintChar
 	iny
 	bne -
-.col80_5_end
+;.col80_5_end
 } else {
 -	cpy s_screen_width
 	bcs .done_erasing

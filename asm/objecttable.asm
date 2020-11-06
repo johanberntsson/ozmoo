@@ -43,17 +43,39 @@ z_ins_get_child
 	pla
 	tay
 !ifndef Z4PLUS {
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (object_tree_ptr),y
+}
+
 	pha ; Value is zero if object is zero, non-zero if object is non-zero
 	tax
 	lda #0
 } else  {
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	dey
+	jsr read_word_from_bank_1_c128
+	stx object_temp
+	tay
+	ora object_temp
+	pha
+	tya
+} else {
 	lda (object_tree_ptr),y
 	tax
 	dey
 	ora (object_tree_ptr),y
 	pha ; Value is zero if object is zero, non-zero if object is non-zero
 	lda (object_tree_ptr),y
+}
+
 }
 	jsr z_store_result
 	pla ; Value is zero if object is zero, non-zero if object is non-zero
@@ -69,16 +91,32 @@ z_ins_get_parent
 	jsr calculate_object_address
 !ifndef Z4PLUS {
 	ldy #4
-	ldx #0
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (object_tree_ptr),y
+}
+
 	tax
 	lda #0
 } else  {
+
+!ifdef TARGET_C128 {
+	ldy #6
+	lda #object_tree_ptr
+	jsr read_word_from_bank_1_c128
+} else {
 	ldy #7
 	lda (object_tree_ptr),y
 	tax
 	dey
 	lda (object_tree_ptr),y
+}
+
 }
 	jmp z_store_result
 
@@ -158,22 +196,39 @@ z_ins_remove_obj_body
 	; get parent number
 !ifdef Z4PLUS {
 	ldy #6  ; parent
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	jsr read_word_from_bank_1_c128
+	sta .parent_num
+	stx .parent_num + 1
+} else {
 	lda (.zp_object),y
 	sta .parent_num
 	iny
 	lda (.zp_object),y
 	sta .parent_num + 1
+}
+
 } else {
 	ldy #4  ; parent
 	lda #0
 	sta .parent_num
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (.zp_object),y
+}
+
 	sta .parent_num + 1
 }
 	; is there a parent?
 	lda .parent_num
-	bne .has_parent
-	lda .parent_num + 1
+	ora .parent_num + 1
 	bne .has_parent
 	; no parent, nothing to do
 	jmp .remove_obj_done
@@ -186,19 +241,37 @@ z_ins_remove_obj_body
 	; get child number
 !ifdef Z4PLUS {
 	ldy #10  ; child
+
+!ifdef TARGET_C128 {
+	lda #.zp_parent
+	jsr read_word_from_bank_1_c128
+	sta .child_num
+	stx .child_num + 1
+} else {
 	lda (.zp_parent),y
 	sta .child_num
 	iny
 	lda (.zp_parent),y
 	sta .child_num + 1
+}
+
 } else {
 	ldy #6  ; child
 	lda #0
 	sta .child_num
+
+!ifdef TARGET_C128 {
+	lda #.zp_parent
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (.zp_parent),y
+}
+
 	sta .child_num + 1
 }
-	; num_child == num_object?
+	; child_num == object_num?
 	lda .child_num
 	cmp object_num
 	bne .not_child
@@ -209,6 +282,16 @@ z_ins_remove_obj_body
 	; set child of parent to object's sibling
 !ifdef Z4PLUS {
 	ldy #8  ; sibling
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	jsr read_word_from_bank_1_c128
+	ldy #.zp_parent
+	sty write_word_c128_zp_1
+	sty write_word_c128_zp_2
+	ldy #10
+	jsr write_word_to_bank_1_c128
+} else {
 	lda (.zp_object),y
 	pha
 	iny
@@ -218,11 +301,31 @@ z_ins_remove_obj_body
 	dey
 	pla
 	sta (.zp_parent),y
+}
+
 } else {
 	ldy #5  ; sibling
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (.zp_object),y
+}
+
 	ldy #6  ; child
+
+!ifdef TARGET_C128 {
+	ldx #.zp_parent
+	stx $02b9
+	ldx #$7f
+	jsr $02af
+} else {
 	sta (.zp_parent),y
+}
+
 }
 	jmp .remove_obj_done
 .not_child
@@ -238,16 +341,34 @@ z_ins_remove_obj_body
 	; get next sibling number
 !ifdef Z4PLUS {
 	ldy #8  ; sibling
+
+!ifdef TARGET_C128 {
+	lda #.zp_sibling
+	jsr read_word_from_bank_1_c128
+	sta .sibling_num
+	stx .sibling_num + 1
+} else {
 	lda (.zp_sibling),y
 	sta .sibling_num
 	iny
 	lda (.zp_sibling),y
 	sta .sibling_num + 1
+}
+
 } else {
 	ldy #5  ; sibling
 	lda #0
 	sta .sibling_num
+
+!ifdef TARGET_C128 {
+	lda #.zp_sibling
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (.zp_sibling),y
+}
+
 	sta .sibling_num + 1
 }
 	; while sibling != object
@@ -260,21 +381,59 @@ z_ins_remove_obj_body
 	; .zp_sibling.sibling == object. set to object.sibling instead
 !ifdef Z4PLUS {
 	ldy #8  ; sibling
+
+!ifdef TARGET_C128 {
+	lda #.zp_sibling
+	sta write_word_c128_zp_1
+	sta write_word_c128_zp_2
+	lda #.zp_object
+	jsr read_word_from_bank_1_c128
+	jsr write_word_to_bank_1_c128
+} else {
 	lda (.zp_object),y
 	sta (.zp_sibling),y
 	iny
 	lda (.zp_object),y
 	sta (.zp_sibling),y
+}
+
 } else {
 	ldy #5  ; sibling
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+	ldx #.zp_sibling
+	stx $02b9
+	ldx #$7f
+	jsr $02af
+} else {
 	lda (.zp_object),y
 	sta (.zp_sibling),y
+}
+
+
 }
 .remove_obj_done
 	; always set obj.parent and obj.sibling to 0
 	lda #0
 !ifdef Z4PLUS {
 	ldy #6  ; parent
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	sta write_word_c128_zp_1
+	sta write_word_c128_zp_2
+	lda #0
+	tax
+	jsr write_word_to_bank_1_c128 ; increases y by 1
+	lda #0
+	tax
+	iny ; sibling (8)
+	jsr write_word_to_bank_1_c128
+} else {
 	sta (.zp_object),y
 	iny
 	sta (.zp_object),y
@@ -282,11 +441,25 @@ z_ins_remove_obj_body
 	sta (.zp_object),y
 	iny
 	sta (.zp_object),y
+}
+
+
 } else {
 	ldy #4  ; parent
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	sta write_word_c128_zp_1
+	sta write_word_c128_zp_2
+	lda #0
+	tax
+	jmp write_word_to_bank_1_c128 ; increases y by 1
+} else {
 	sta (.zp_object),y
 	iny ; sibling (5)
 	sta (.zp_object),y
+}
+
 }
 	rts
 
@@ -330,10 +503,18 @@ print_obj
 !ifdef Z4PLUS {
 	ldy #13
 }
+
+!ifdef TARGET_C128 {
+	dey
+	lda #object_tree_ptr
+	jsr read_word_from_bank_1_c128
+} else {
 	lda (object_tree_ptr),y ; low byte
 	tax
 	dey
 	lda (object_tree_ptr),y ; high byte
+}
+
 	jsr set_z_address
 	jsr read_next_byte ; length of object short name
 	jmp print_addr
@@ -345,32 +526,62 @@ z_ins_jin
 	jsr calculate_object_address
 !ifndef Z4PLUS {
 	ldy #4  ; parent
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+} else {
 	lda (object_tree_ptr),y
+}
+
 	cmp z_operand_value_low_arr + 1
 	bne .branch_false
 	beq .branch_true
 } else {
 	ldy #6  ; parent
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	jsr read_word_from_bank_1_c128
+	cmp z_operand_value_high_arr + 1
+	bne .branch_false
+	cpx z_operand_value_low_arr + 1
+} else {
 	lda (object_tree_ptr),y
 	cmp z_operand_value_high_arr + 1
 	bne .branch_false
 	iny
 	lda (object_tree_ptr),y
 	cmp z_operand_value_low_arr + 1
+}
+
 	bne .branch_false
-	beq .branch_true
+	beq .branch_true ; Always branch
 }
 
 z_ins_test_attr
 	; test_attr object attribute ?(label)
 	jsr find_attr
+
+!ifdef TARGET_C128 {
+	stx object_temp
+	lda #object_tree_ptr
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+	ldx object_temp
+} else {
 	lda (object_tree_ptr),y
+}
+
 	and .bitmask,x
 	beq .branch_false
 .branch_true 
 	jmp make_branch_true
 .branch_false
-   jmp make_branch_false
+	jmp make_branch_false
 
 z_ins_set_attr
 	; set_attr object attribute
@@ -382,11 +593,30 @@ z_ins_set_attr
 	bne .do_set_attr
 	rts
 .do_set_attr
-	ldx .bitmask_index
 	ldy .attribute_index
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	sta $02aa
+	sta $02b9
+	ldx #$7f
+	jsr $02a2
+	sta object_temp
+	ldx .bitmask_index
+	and .bitmask,x
+	bne +
+	lda object_temp
+	ora .bitmask,x
+	ldx #$7f
+	jmp $02af
+} else {
+	ldx .bitmask_index
 	lda (object_tree_ptr),y
 	ora .bitmask,x
 	sta (object_tree_ptr),y
+}
+
++
 	rts
 
 z_ins_clear_attr
@@ -399,14 +629,32 @@ z_ins_clear_attr
 	bne .do_clear_attr
 	rts
 .do_clear_attr
-	ldx .bitmask_index
 	ldy .attribute_index
+
+!ifdef TARGET_C128 {
+	lda #object_tree_ptr
+	sta $02aa
+	sta $02b9
+	ldx #$7f
+	jsr $02a2
+	sta object_temp
+	ldx .bitmask_index
+	and .bitmask,x
+	beq +
+	lda object_temp
+	eor .bitmask,x
+	ldx #$7f
+	jmp $02af
+} else {
+	ldx .bitmask_index
 	lda (object_tree_ptr),y
 	and .bitmask,x
 	beq +
 	lda (object_tree_ptr),y
 	eor .bitmask,x
 	sta (object_tree_ptr),y
+}
+
 +
 	rts
 
@@ -429,6 +677,27 @@ z_ins_insert_obj
 !ifdef Z4PLUS {
 	; object.parent = destination
 	ldy #6 ; parent
+
+!ifdef TARGET_C128 {
+	lda #.zp_object
+	sta write_word_c128_zp_1
+	sta write_word_c128_zp_2
+	lda .dest_num
+	ldx .dest_num + 1
+	jsr write_word_to_bank_1_c128 ; increases y by 1
+	ldy #10 ; child
+	lda #.zp_dest
+	jsr read_word_from_bank_1_c128
+	ldy #8
+	jsr write_word_to_bank_1_c128 ; increases y by 1
+	lda #.zp_dest
+	sta write_word_c128_zp_1
+	sta write_word_c128_zp_2
+	lda object_num
+	ldx object_num + 1
+	ldy #10
+	jmp write_word_to_bank_1_c128 ; increases y by 1
+} else {
 	lda .dest_num
 	sta (.zp_object),y
 	iny
@@ -452,6 +721,36 @@ z_ins_insert_obj
 	iny
 	lda object_num + 1
 	sta (.zp_dest),y
+	rts
+}
+
+} else {
+
+!ifdef TARGET_C128 {
+	; object.parent = destination
+	lda #.zp_object
+	sta $02b9
+	ldx #$7f
+	ldy #4 ; parent
+	lda .dest_num + 1
+	jsr $02af
+	; object.sibling = destination.child
+	lda #.zp_dest
+	sta $02aa
+	ldy #6; child
+	ldx #$7f
+	jsr $02a2
+	dey
+	ldx #$7f
+	jsr $02af
+	; destination.child = object
+	lda #.zp_dest
+	sta $02b9
+	ldy #6 ; child
+	lda object_num + 1
+	ldx #$7f
+	jmp $02af
+	
 } else {
 	; object.parent = destination
 	ldy #4 ; parent
@@ -466,8 +765,10 @@ z_ins_insert_obj
 	ldy #6 ; child
 	lda object_num + 1
 	sta (.zp_dest),y
-}
 	rts
+}
+
+}
 
 calculate_property_length_number
 	; must call set_z_address before this subroutine
@@ -529,10 +830,18 @@ find_first_prop
 } else {
 	ldy #8
 }
+
+!ifdef TARGET_C128 {
+	dey
+	lda #object_tree_ptr
+	jsr read_word_from_bank_1_c128
+} else {
 	lda (object_tree_ptr),y ; low byte
 	tax
 	dey
 	lda (object_tree_ptr),y ; high byte
+}
+
 	pha ; a is destroyed by set_z_address
 	jsr set_z_address
 	pla
@@ -593,10 +902,18 @@ z_ins_get_prop
 	asl ; default property is words (2 bytes each)
 	tay
 	dey
+
+!ifdef TARGET_C128 {
+	dey
+	lda #default_properties_ptr
+	jsr read_word_from_bank_1_c128
+} else {
 	lda (default_properties_ptr),y
 	tax
 	dey
 	lda (default_properties_ptr),y
+}
+	
 	jmp .return_property_result
 .property_found
 	lda .property_length
@@ -686,7 +1003,11 @@ parse_object_table
 	; property defaults table
 	stx default_properties_ptr
 	clc
+!ifdef TARGET_C128 {
+	adc #>story_start_bank_1
+} else {
 	adc #>story_start
+}
 	sta default_properties_ptr + 1
 !ifndef Z4PLUS {
 	lda #62 ; 31 words

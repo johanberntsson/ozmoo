@@ -62,7 +62,7 @@ set_z_pc
 	cpx z_pc + 1
 	beq .same_page 
 	; Different page.
-!ifdef VMEM {	
+!ifdef VMEM {
 	; Let's find out if it's the same vmem block.
 	txa
 	eor z_pc + 1
@@ -105,6 +105,56 @@ get_page_at_z_pc
 	pha
 get_page_at_z_pc_did_pha
 	stx mem_temp
+!ifdef TARGET_C128 {
+	; Special treatment if PC is in same block as end of dynmem
+	lda z_pc
+	bne .not_in_dynmem_block
+	lda z_pc + 1
+	cmp nonstored_blocks
+	bcs .not_in_dynmem_block
+	; This is in a dynmem block
+	adc #>story_start_bank_1 ; Carry already clear
+	sta mem_temp + 1
+	ldy #0
+-	cmp vmem_cache_page_index,y
+	bne +
+	lda vmem_cache_bank_index,y
+	bne .found_it ; The page we're looking for belongs to bank 1, so this is a match!
+	lda mem_temp + 1
++	iny
+	cpy #vmem_cache_count
+	bcc -
+	; Block not found, will copy it to vmem_cache
+	ldy vmem_cache_cnt
+	sta vmem_cache_page_index,y
+	lda #1
+	sta vmem_cache_bank_index,y
+	tya
+	clc
+	adc #>vmem_cache_start
+	tay
+	lda mem_temp + 1
+	ldx #1
+	jsr copy_page_c128
+	ldy vmem_cache_cnt
+	sty mem_temp + 1
+	iny
+	cpy #vmem_cache_count
+	bcc +
+	ldy #0
++	sty vmem_cache_cnt	
+	ldy mem_temp + 1
+.found_it
+	tya
+	clc
+	adc #>vmem_cache_start
+	sta z_pc_mempointer + 1
+	ldy #0
+	ldx mem_temp
+	pla
+	rts
+.not_in_dynmem_block
+}
 	lda z_pc
 	ldx z_pc + 1
 	ldy z_pc + 2
@@ -173,6 +223,49 @@ copy_page_c128_src
 	sta c128_mmu_load_pcra
 	cli
 	rts
+
+read_word_from_bank_1_c128
+; a = zp vector pointing to base address
+; y = offset from address in zp vector
+; Returns word in a,x (byte 1, byte 2)
+; y retains its value
+	sta .read_word + 1
+	sta .read_word_2 + 1
+	sei
+	sta c128_mmu_load_pcrc
+	iny
+.read_word
+	lda ($fb),y
+	tax
+	dey
+.read_word_2
+	lda ($fb),y
+	sta c128_mmu_load_pcra
+	cli
+	rts
+
+write_word_to_bank_1_c128
+; zp vector pointing to base address must be stored in
+;   write_word_c128_zp_1 and write_word_c128_zp_2 before call 
+; a,x = value (byte 1, byte 2)
+; y = offset from address in zp vector
+; y is increased by 1
+	sei
+	sta c128_mmu_load_pcrc
+.write_word
+	sta ($fb),y
+	txa
+	iny
+.write_word_2
+	sta ($fb),y
+	sta c128_mmu_load_pcra
+	cli
+	rts
+
+write_word_c128_zp_1 = .write_word + 1
+write_word_c128_zp_2 = .write_word_2 + 1
+
+
 } ; pseudopc
 copy_page_c128_src_end
 
@@ -214,27 +307,86 @@ read_header_word
 ; y contains the address in the header
 ; Returns: Value in a,x
 ; y retains its original value
+!ifdef TARGET_C128 {
+	lda #<story_start_bank_1
+	sta mem_temp
+	lda #>story_start_bank_1
+	sta mem_temp + 1
+	lda #mem_temp
+	jmp read_word_from_bank_1_c128
+	; sta $02aa
+	; ldx #$7f
+	; iny
+	; jsr $02a2
+	; sta .tmp
+	; dey
+	; ldx #$7f
+	; jsr $02a2
+	; ldx .tmp
+	; rts
+} else {
 	iny
 	lda story_start,y
 	tax
 	dey
 	lda story_start,y
 	rts
+}
 
 write_header_word
 ; y contains the address in the header
 ; a,x contains word value
 ; a,x,y are destroyed
+!ifdef TARGET_C128 {
+	stx .tmp
+	jsr setup_to_write_to_header_c128
+	ldx #mem_temp
+	stx write_word_c128_zp_1
+	stx write_word_c128_zp_2
+	ldx .tmp
+	jmp write_word_to_bank_1_c128
+
+	; ldx #$7f
+	; jsr $02af
+	; iny
+	; lda .tmp
+	; ldx #$7f
+	; jmp $02af
+} else {
 	sta story_start,y
 	iny
 	txa
 	sta story_start,y
 	rts
+}
 
 write_header_byte
 ; y contains the address in the header
 ; a contains byte value
 ; a,x,y are preserved
+!ifdef TARGET_C128 {
+	sta .tmp
+	stx .tmp + 1
+	jsr setup_to_write_to_header_c128
+	ldx #mem_temp
+	stx $02b9
+	ldx #$7f
+	jsr $02af
+	lda .tmp
+	ldx .tmp + 1
+	rts
+} else {
 	sta story_start,y
 	rts
-	
+}
+
+!ifdef TARGET_C128 {
+setup_to_write_to_header_c128
+	ldx #<story_start_bank_1
+	stx mem_temp
+	ldx #>story_start_bank_1
+	stx mem_temp + 1
+	rts
+
+.tmp !byte 0, 0
+}

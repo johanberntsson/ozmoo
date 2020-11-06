@@ -845,6 +845,7 @@ read_operand
 	dey
 	lda (z_local_vars_ptr),y
 	bcc .store_operand ; Always branch
+!ifndef COMPLEX_MEMORY {
 .read_global_var
 	; cmp #128
 	; bcs .read_high_global_var
@@ -870,6 +871,7 @@ read_operand
 	dey
 	lda (z_high_global_vars_ptr),y
 	bcs .store_operand ; Always branch
+} ; end COMPLEX_MEMORY
 }
 !ifndef UNSAFE {
 .nonexistent_local
@@ -885,6 +887,25 @@ z_set_variable_reference_to_value
 	; input: Value in a,x.
 	;        (zp_temp) must point to variable, possibly using zp_temp + 2 to store bank
 	; affects registers: a,x,y,p
+!ifdef TARGET_C128 {
+	bit zp_temp + 2
+	bpl .set_in_bank_0
+	ldy #zp_temp
+	sty write_word_c128_zp_1
+	sty write_word_c128_zp_2
+	ldy #0
+	jmp write_word_to_bank_1_c128
+	; sty $02b9
+	; stx zp_temp + 3
+	; ldx #$7f
+	; ldy #0
+	; jsr $02af
+	; lda zp_temp + 3
+	; iny
+	; ldx #$7f
+	; jmp $02af
+.set_in_bank_0
+}
 	ldy #0
 	sta (zp_temp),y
 	iny
@@ -900,6 +921,10 @@ z_get_variable_reference_and_value
 	cpy #0
 	bne +
 	; Find on stack
+!ifdef TARGET_C128 {
+	ldx #0
+	stx zp_temp + 2
+}
 	jsr stack_get_ref_to_top_value
 	stx zp_temp
 	sta zp_temp + 1
@@ -908,7 +933,10 @@ z_get_variable_reference_and_value
 	cmp #16
 	bcs .find_global_var
 	; Local variable
-	tay
+!ifdef TARGET_C128 {
+	ldx #0
+	stx zp_temp + 2
+}
 	dey
 !ifndef UNSAFE {
 	cpy z_local_var_count
@@ -922,6 +950,25 @@ z_get_variable_reference_and_value
 	sta zp_temp + 1
 
 z_get_referenced_value
+!ifdef TARGET_C128 {
+	bit zp_temp + 2
+	bpl .in_bank_0
+	lda #zp_temp
+	ldy #0
+	jmp read_word_from_bank_1_c128
+	; sta $02aa
+	; ldx #$7f
+	; ldy #0
+	; jsr $02a2
+	; pha
+	; iny
+	; ldx #$7f
+	; jsr $02a2
+	; tax
+	; pla
+	; rts
+.in_bank_0
+}
 	ldy #1
 !ifdef TARGET_PLUS4 {
 	sei
@@ -940,10 +987,13 @@ z_get_referenced_value
 .find_global_var
 	ldx #0
 	stx zp_temp + 1
+!ifdef TARGET_C128 {
+	dex
+	stx zp_temp + 2 ; Value $ff, meaning bank = 1
+}
 	asl
 	rol zp_temp + 1
-	clc
-	adc z_low_global_vars_ptr
+	adc z_low_global_vars_ptr ; Carry is already clear after rol
 	sta zp_temp
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
@@ -962,6 +1012,21 @@ z_get_low_global_variable_value
 	; input: a = variable# + 16 (16-127)
 	asl ; Clears carry
 	tay
+!ifdef TARGET_C128 {
+	lda #z_low_global_vars_ptr
+	jmp read_word_from_bank_1_c128
+	; sta $02aa
+	; ldx #$7f
+	; jsr $02a2
+	; pha
+	; iny
+	; ldx #$7f
+	; jsr $02a2
+	; tax
+	; pla
+	; rts
+} else {
+	; Not TARGET_C128
 	iny
 !ifdef TARGET_PLUS4 {
 	sei
@@ -976,11 +1041,12 @@ z_get_low_global_variable_value
 	cli
 }
 	rts ; Note that caller may assume that carry is clear on return!
+} ; End else - Not TARGET_C128
+
 
 ; Used by z_set_variable
 .write_to_stack
-	jsr stack_push
-	rts
+	jmp stack_push
 	
 z_set_variable
 	; Value in a,x
@@ -1125,8 +1191,7 @@ z_divide
 
 !zone {
 calc_address_in_byte_array
-	; output: If address is in dynmem, y = 0 and address is in (zp_temp). Otherwise, y = 1 and address is in .addr
-	; y value is loaded last, so beq/bne can be used to check y value
+	; output: z_address is set
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1

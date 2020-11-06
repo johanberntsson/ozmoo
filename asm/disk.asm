@@ -980,13 +980,27 @@ restore_game
 	lda #>.restore_msg
 	ldx #<.restore_msg
 	jsr printstring_raw
-
 	jsr .swap_pointers_for_save
 	
 	; Perform restore
 	jsr do_restore
 	bcs .restore_failed    ; if carry set, a file error has happened
 
+!ifdef TARGET_C128 {
+	; Copy stack and pointers from bank 1 to bank 0
+	jsr .copy_stack_and_pointers_to_bank_0
+	; z_temp + 4 now holds the page# where the zp registers are stored in vmem_cache
+	lda #(>stack_start) - 1
+	sta z_temp + 2
+	lda #($100 - zp_bytes_to_save)
+	sta z_temp + 1
+	sta z_temp + 3
+	ldy #zp_bytes_to_save - 1
+-	lda (z_temp + 3),y
+	sta (z_temp + 1),y
+	dey
+	bpl -
+}
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 !if SUPPORT_REU = 1 {
@@ -995,6 +1009,7 @@ restore_game
 }
 	jsr .insert_story_disk
 .restore_success_dont_insert_story_disk	
+;	inc zp_pc_l ; Make sure read_byte_at_z_address 
 	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
@@ -1062,7 +1077,7 @@ save_game
 	jsr kernal_setnam
 	lda #$0f      ; file number 15
 	ldx disk_info + 4 ; Device# for save disk
-	ldy #$0f      ; secondary address 15
+	tay           ; secondary address 15
 	jsr kernal_setlfs
 	jsr kernal_open ; open command channel and send delete command)
 	bcs .restore_failed  ; if carry set, the file could not be opened
@@ -1071,6 +1086,9 @@ save_game
 	
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
+!ifdef TARGET_C128 {
+	jsr .copy_stack_and_pointers_to_bank_1
+}
 	
 	; Perform save
 	jsr do_save
@@ -1091,8 +1109,8 @@ save_game
 
 do_restore
 !ifdef TARGET_C128 {
-	lda #$00
-	tax
+	lda #$01
+	ldx #$00
 	jsr kernal_setbnk
 }
 	lda #3
@@ -1113,8 +1131,8 @@ do_restore
 
 do_save
 !ifdef TARGET_C128 {
-	lda #$00
-	tax
+	lda #$01
+	ldx #$00
 	jsr kernal_setbnk
 }
 	lda .inputlen
@@ -1125,16 +1143,27 @@ do_save
 	jsr kernal_setnam
 	lda #1      ; file# 1
 	ldx disk_info + 4 ; Device# for save disk
-	ldy #1
+	tay         ; secondary address: 1
 	jsr kernal_setlfs
+!ifdef TARGET_C128 {
+	lda #<(story_start_bank_1 - stack_size - zp_bytes_to_save)
+	ldx #>(story_start_bank_1 - stack_size - zp_bytes_to_save)
+} else {
 	lda #<(stack_start - zp_bytes_to_save)
+	ldx #>(stack_start - zp_bytes_to_save)
+}
 	sta savefile_zp_pointer
-	lda #>(stack_start - zp_bytes_to_save)
-	sta savefile_zp_pointer + 1
-	ldy #header_static_mem
-	jsr read_header_word
+	stx savefile_zp_pointer + 1
+	ldx dynmem_size
+	lda dynmem_size + 1
+;	ldy #header_static_mem
+;	jsr read_header_word
 	clc
+!ifdef TARGET_C128 {
+	adc #>story_start_bank_1
+} else {
 	adc #>story_start
+}	
 	tay
 	lda #savefile_zp_pointer ; start address located in zero page
 	jsr kernal_save
@@ -1163,6 +1192,79 @@ do_save
 	dex
 	bpl -
 	rts
+	
+!ifdef TARGET_C128 {
+.copy_stack_and_pointers_to_bank_1
+	; Pick a cache page to use, one that the z_pc_mempointer isn't pointing to
+	ldy #>vmem_cache_start
+	ldx #0
+	txa
+	cpy z_pc_mempointer + 1
+	bne +
+	inx
++	sta vmem_cache_page_index,x ; Mark as unused
+	txa
+	clc
+	adc #>vmem_cache_start
+	sta z_temp ; vmem_cache page for copying
+	lda #(>stack_start) - 1
+	sta z_temp + 1 ; Source page
+	lda #(>story_start_bank_1) - (>stack_size) - 1
+	sta z_temp + 2 ; Destination page
+	lda #(>stack_size) + 1
+	sta z_temp + 3 ; # of pages to copy
+-	lda z_temp + 1
+	ldy z_temp
+	ldx #0
+	jsr copy_page_c128 ; Copy a page to vmem_cache
+	lda z_temp
+	ldy z_temp + 2
+	ldx #1
+	jsr copy_page_c128
+	inc z_temp + 1
+	inc z_temp + 2
+	dec z_temp + 3
+	bne -
+	rts
+
+.copy_stack_and_pointers_to_bank_0
+	; ; Pick a cache page to use, one that the z_pc_mempointer isn't pointing to
+	ldy #>vmem_cache_start
+	ldx #0
+	txa
+	cpy z_pc_mempointer + 1
+	bne +
+	inx
++	
+	sta vmem_cache_page_index,x ; Mark as unused
+	txa
+	clc
+	adc #>vmem_cache_start
+	sta z_temp + 4 ; vmem_cache page for copying
+	tay
+	lda #(>story_start_bank_1) - 1
+	sta z_temp + 1 ; Source page
+	lda #(>story_start) - 1
+	sta z_temp + 2 ; Destination page
+	lda #(>stack_size) + 1
+	sta z_temp + 3 ; # of pages to copy
+-	lda z_temp + 1
+	ldy z_temp + 4
+	ldx #1
+	jsr copy_page_c128 ; Copy a page to vmem_cache
+	dec z_temp + 3
+	beq + ; Stop after copying the last page to vmem_cache
+	lda z_temp + 4
+	ldy z_temp + 2
+	ldx #0
+	jsr copy_page_c128
+	dec z_temp + 1
+	dec z_temp + 2
+	bne - ; Always branch
++	rts
+
+}	
+	
 }
 
 
