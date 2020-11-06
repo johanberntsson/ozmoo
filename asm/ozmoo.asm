@@ -432,6 +432,65 @@ game_id		!byte 0,0,0,0
 		!source "splashscreen.asm"
 	}
 }
+
+!ifdef TARGET_C128 {
+
+c128_prepare_vmem
+	; Make old dynmem space available for vmem
+	lda nonstored_blocks
+	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
+	sta object_temp
+;	sta object_temp + 1
+	; ldx #0
+	; ldy object_temp
+; -	lda vmap_z_l,y
+;	sta
+	ldy vmap_used_entries
+	dey
+	clc
+	adc vmap_used_entries
+	sta vmap_used_entries
+	tax
+	dex
+-	lda vmap_z_h,y
+	sta vmap_z_h,x
+	lda vmap_z_l,y
+	sta vmap_z_l,x
+	dex
+	dey
+	cpy #$ff
+	bne -
+	lda #0
+-	sta vmap_z_h,x
+	sta vmap_z_l,x
+	dex
+	bpl -
+	
+	; lda vmap_used_entries
+	; clc
+	; adc object_temp
+	; sta vmap_used_entries
+
+	lda vmap_first_ram_page
+	sec
+	sbc nonstored_blocks
+	sta vmap_first_ram_page
+
+	lda vmap_blocks_preloaded
+	clc
+	adc object_temp
+	sta vmap_blocks_preloaded
+
+	lda vmap_max_entries
+	clc
+	adc object_temp
+	cmp #vmap_max_size
+	bcc +
+	lda #vmap_max_size
++	sta vmap_max_entries
+	rts
+}
+
 	
 program_end
 
@@ -453,6 +512,7 @@ vmem_cache_start_maybe
 		!source "splashscreen.asm"
 	}
 }
+
 
 end_of_routines_in_vmem_cache
 
@@ -940,6 +1000,8 @@ deletable_init
 }
 	sta vmap_max_entries
 
+	jsr prepare_static_high_memory
+
 !ifdef TARGET_C128 {
 	; Copy dynmem to bank 1
 	lda #>story_start
@@ -960,9 +1022,10 @@ deletable_init
 	inc zp_temp + 1
 	dec zp_temp + 2
 	bne -
-}
 
-	jsr prepare_static_high_memory
+	jsr c128_prepare_vmem
+
+}
 
 	jsr insert_disks_at_boot
 
