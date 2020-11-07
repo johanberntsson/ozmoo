@@ -365,16 +365,6 @@ game_id		!byte 0,0,0,0
 	jsr parse_default_dictionary
 }
 
-	; stop repeating space (preventing problems with input in emulators)
-!ifdef TARGET_C64 {
-	lda #127
-	sta $028a
-}
-!ifdef TARGET_C128 {
-	lda #96
-	sta $0a22
-}
-
 !ifdef Z5PLUS {
 	; set up terminating characters
 	jsr parse_terminating_characters
@@ -828,6 +818,16 @@ deletable_init
 	; and #$03
 	; sta c64_model
 	; enable lower case mode
+
+	; stop repeating space (preventing problems with input in emulators)
+!ifdef TARGET_C64 {
+	lda #127
+	sta $028a
+}
+!ifdef TARGET_C128 {
+	lda #96
+	sta $0a22
+}
 
 !ifdef TARGET_C128 {
 	lda #5 ; 4 KB common RAM at bottom only
