@@ -471,9 +471,10 @@ c128_prepare_vmem
 	; adc object_temp
 	; sta vmap_used_entries
 
-	lda vmap_first_ram_page
-	sec
-	sbc nonstored_blocks
+	; lda vmap_first_ram_page
+	; sec
+	; sbc nonstored_blocks
+	lda #>story_start
 	sta vmap_first_ram_page
 
 	lda vmap_blocks_preloaded
