@@ -725,7 +725,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	exo_target = ""
 	if $target == 'plus4'
 		exo_target = " -t4"
-		asm_clause = "-s \"lda $ff06 and \#\$ef sta $ff06\" -f \"lda $ff06 ora \#\$10 sta $ff06\""
+		asm_clause = "-s 'lda $ff06 and \#$ef sta $ff06' -f 'lda $ff06 ora \#$10 sta $ff06'"
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
