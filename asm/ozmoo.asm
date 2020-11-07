@@ -810,16 +810,8 @@ c128_mmu_values !byte $0e,$3f,$7f
 
 deletable_init
 	cld
-	; ; check if PAL or NTSC (needed for read_line timer)
-; w0  lda $d012
-; w1  cmp $d012
-	; beq w1
-	; bmi w0
-	; and #$03
-	; sta c64_model
-	; enable lower case mode
 
-	; stop repeating space (preventing problems with input in emulators)
+	; stop key repeat (preventing problems with input in fast emulators)
 !ifdef TARGET_C64 {
 	lda #127
 	sta $028a
@@ -827,6 +819,10 @@ deletable_init
 !ifdef TARGET_C128 {
 	lda #96
 	sta $0a22
+}
+!ifdef TARGET_PLUS4 {
+	lda #96
+	sta $0540
 }
 
 !ifdef TARGET_C128 {
