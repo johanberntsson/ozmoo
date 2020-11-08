@@ -152,8 +152,12 @@ last_break_char_buffer_pos=$fe ; ### OK C128
 copy_page_c128         = $380 ; Uses ~30 bytes
 
 
+; C128 terp can use a maximum of 106,5 KB of RAM for dynmem + vmem in z3 mode
+; (This is when story_start is $4e00), less in z4+, so vmap buffer should be 
+; big enough to hold 2*106,5 = 213 entries, using 426 = $1aa bytes.
+; Important: Interpreter breaks if area given is larger than $1ffe
 vmap_buffer_start     = $0800
-vmap_buffer_end       = $09fe ; Last byte + 1. Should not be more than vmap_buffer_start + 510
+vmap_buffer_end       = $09aa ; last usable byte + 1
 
 memory_buffer         =	$0a05
 memory_buffer_length  = 23

@@ -440,34 +440,30 @@ c128_prepare_vmem
 	lda nonstored_blocks
 	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
 	sta object_temp
-;	sta object_temp + 1
-	; ldx #0
-	; ldy object_temp
-; -	lda vmap_z_l,y
-;	sta
-	ldy vmap_used_entries
-	dey
+
+	lda #>story_start
+	sta zp_temp + 1 ; First destination page
 	clc
-	adc vmap_used_entries
-	sta vmap_used_entries
-	tax
-	dex
--	lda vmap_z_h,y
-	sta vmap_z_h,x
-	lda vmap_z_l,y
-	sta vmap_z_l,x
-	dex
-	dey
-	cpy #$ff
+	adc nonstored_blocks
+	sta zp_temp ; First source page
+	lda vmap_used_entries
+	asl
+	sta zp_temp + 2 ; How many pages to copy
+	beq .done_vmem_move
+
+-	lda zp_temp
+	ldy zp_temp + 1
+	ldx #0
+	jsr copy_page_c128
+	inc zp_temp
+	inc zp_temp + 1
+	dec zp_temp + 2
 	bne -
-	lda #0
--	sta vmap_z_h,x
-	sta vmap_z_l,x
-	dex
-	bpl -
+
+.done_vmem_move
 
 	; Add free RAM in bank 1 as vmem memory
-dummy	
+
 	; First clear all vmap entries after the one which is currently the last
 	ldx vmap_used_entries
 	lda #0
@@ -478,22 +474,15 @@ dummy
 	bcc -
 
 	
-	
-	; lda vmap_used_entries
-	; clc
-	; adc object_temp
-	; sta vmap_used_entries
-
-	; lda vmap_first_ram_page
-	; sec
-	; sbc nonstored_blocks
 	lda #>story_start
 	sta vmap_first_ram_page
 
+!ifdef XYZZY_WOHOO {
 	lda vmap_blocks_preloaded
 	clc
 	adc object_temp
 	sta vmap_blocks_preloaded
+}
 
 	; Remember above which index in vmem the blocks are in bank 1
 	lda vmap_max_entries
