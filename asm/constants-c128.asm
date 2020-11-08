@@ -99,7 +99,7 @@ z_opcode_number       = $79 ; ### OK C128
 z_opcode_opcount      = $7b ; ### OK C128
 z_operand_count       = $7c ; ### OK C128
 
-; $80 may be free
+vmap_max_entries      = $80 ; ### OK C128 Was $92
 
 zp_cursorswitch       = $81 ; ### OK C128
 
@@ -111,7 +111,7 @@ vmap_quick_index      = $8a ; ### OK C128	6 bytes; $8a-8f ; Must follow vmap_nex
 
 vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
-vmap_max_entries      = $92 ; ### OK C128
+; $92 is bad
 vmap_used_entries     = $96 ; ### OK C128
 vmap_quick_index_match= $97 ; ### OK C128
 
@@ -153,7 +153,7 @@ copy_page_c128         = $380 ; Uses ~30 bytes
 
 
 vmap_buffer_start     = $0800
-vmap_buffer_end       = $09ff ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+vmap_buffer_end       = $09fe ; Last byte + 1. Should not be more than vmap_buffer_start + 510
 
 memory_buffer         =	$0a05
 memory_buffer_length  = 23
@@ -169,7 +169,7 @@ print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
 
 first_banked_memory_page = $c0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 
-story_start_bank_1 = $1000 + (STACK_PAGES + 1)  * $100 ; NOTE: This is in bank 1
+story_start_bank_1 = $1000 + (STACK_PAGES + 2 -  (STACK_PAGES & 1))  * $100 ; NOTE: This is in bank 1
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $0a2c

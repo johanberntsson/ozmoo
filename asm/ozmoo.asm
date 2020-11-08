@@ -465,6 +465,19 @@ c128_prepare_vmem
 	sta vmap_z_l,x
 	dex
 	bpl -
+
+	; Add free RAM in bank 1 as vmem memory
+dummy	
+	; First clear all vmap entries after the one which is currently the last
+	ldx vmap_used_entries
+	lda #0
+-	sta vmap_z_h,x
+	sta vmap_z_l,x
+	inx
+	cpx #vmap_max_size
+	bcc -
+
+	
 	
 	; lda vmap_used_entries
 	; clc
@@ -482,9 +495,25 @@ c128_prepare_vmem
 	adc object_temp
 	sta vmap_blocks_preloaded
 
+	; Remember above which index in vmem the blocks are in bank 1
 	lda vmap_max_entries
 	clc
 	adc object_temp
+	sta first_vmap_entry_in_bank_1
+
+	; Remember the first page used for vmem in bank 1
+	lda #>story_start_bank_1
+	adc nonstored_blocks ; Carry is already clear
+	sta vmap_first_ram_page_in_bank_1
+
+	; Calculate how many vmem pages we can fit in bank 1
+	lda #VMEM_END_PAGE
+	sec
+	sbc vmap_first_ram_page_in_bank_1
+	lsr ; Convert from 256-bytes pages to 512-byte vmem blocks
+	; Now A holds the # of vmem blocks we can fit in bank 1
+	adc vmap_max_entries ; Add the # we had room for in bank 0 from the start
+	adc object_temp ; Add the # we made room for by moving dynmem to bank 1
 	cmp #vmap_max_size
 	bcc +
 	lda #vmap_max_size

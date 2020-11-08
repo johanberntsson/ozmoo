@@ -81,14 +81,8 @@ read_byte_at_z_address
 	adc vmem_cache_cnt
 	tay
 	pla
-!ifdef TARGET_C128 {
-	stx vmem_temp
-	ldx #0
-	jsr copy_page_c128
-	ldx vmem_temp
-} else {
 	jsr copy_page
-}
+
 	; set next cache to use when needed
 	inx
 	txa
@@ -135,16 +129,24 @@ vmap_z_h = vmap_buffer_start
 vmap_z_l = vmap_z_h + vmap_max_size
 
 vmap_first_ram_page		!byte 0
-vmap_c64_offset !byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
 vmem_offset_in_block !byte 0         ; 256 byte offset in 512 byte block (0-1)
 ; vmem_temp !byte 0
 
+vmap_temp			!byte 0,0,0
+
+vmap_c64_offset !byte 0
+
+!ifdef TARGET_C128 {
+vmap_c64_offset_bank !byte 0
+first_vmap_entry_in_bank_1 !byte 0
+vmap_first_ram_page_in_bank_1 !byte 0
+vmem_bank_temp !byte 0
+}
+
 vmem_tick 			!byte $e0
 vmem_oldest_age		!byte 0
 vmem_oldest_index	!byte 0
-
-vmap_temp			!byte 0,0,0
 
 !ifdef Z8 {
 	vmem_tick_increment = 4
@@ -288,6 +290,19 @@ load_blocks_from_index
 
 	lda vmap_index
 	tax
+!ifdef TARGET_C128 {
+	ldy #0
+	sty vmem_bank_temp
+	cmp first_vmap_entry_in_bank_1
+	bcc .in_bank_0
+	sbc first_vmap_entry_in_bank_1 ; Carry is already set
+	asl
+	adc vmap_first_ram_page_in_bank_1 ; Carry is already clear
+	tay ; This value need to be in y when we jump to load_blocks_from_index_using_cache 
+	inc vmem_bank_temp
+	bne load_blocks_from_index_using_cache ; Always branch
+.in_bank_0
+}	
 	asl
 	; Carry is already clear
 	adc vmap_first_ram_page
@@ -328,6 +343,7 @@ load_blocks_from_index_using_cache
 	; vmap_index = index to load
 	; vmem_cache_cnt = which 256 byte cache use as transfer buffer
 	; y = first c64 memory page where it should be loaded
+	; For C128: vmem_bank_temp = RAM bank in which page y resides
 	; side effects: a,y,x,status destroyed
 	; initialise block copy function (see below)
 
@@ -376,7 +392,7 @@ load_blocks_from_index_using_cache
 	lda vmem_temp
 	ldy vmem_temp + 1
 !ifdef TARGET_C128 {
-	ldx #0
+	ldx vmem_bank_temp
 	jsr copy_page_c128
 } else {
 	jsr copy_page
@@ -394,7 +410,7 @@ load_blocks_from_index_using_cache
 	ldx vmem_cache_cnt
 	sta vmem_cache_page_index,x
 !ifdef TARGET_C128 {
-	lda #0 ; TODO: This will depend on where in vmap the block is.
+	lda vmem_bank_temp
 	sta vmem_cache_bank_index,x
 }
 	rts
@@ -508,8 +524,9 @@ read_byte_at_z_address
 	beq +
 .check_next_block
 	dex
-	bpl -
-	bmi .no_such_block ; Always branch
+	cpx #$ff
+	bne -
+	beq .no_such_block ; Always branch
 	; is the highbyte correct?
 +
 !if vmem_highbyte_mask > 0 {
@@ -625,11 +642,31 @@ read_byte_at_z_address
 	bcc +
 	; This block was unoccupied
 	inc vmap_used_entries
-+	txa
++	
+	txa
+	
+!ifdef TARGET_C128 {
+	; TODO: C128: Check if x is >= vmap_first_ram_page_in_bank_1
+	cmp first_vmap_entry_in_bank_1
+	bcc + ; Not in bank 1
+	ldy #1
+	sty vmap_c64_offset_bank
+	sbc first_vmap_entry_in_bank_1 ; Carry already set
+	clc
+	asl ; Multiply by 2 to count in 256-byte pages rather than 512-byte vmem blocks
+	adc vmap_first_ram_page_in_bank_1
+	bne ++ ; Always branch
++
+	ldy #0
+	sty vmap_c64_offset_bank
+}	
 	asl
+	
 	; Carry is already clear
 	adc vmap_first_ram_page
-	sta vmap_c64_offset
+++	sta vmap_c64_offset
+
+
 
 !ifdef DEBUG {
 	lda vmem_oldest_index
@@ -691,7 +728,11 @@ read_byte_at_z_address
 	and #(255 - vmem_indiv_block_mask)
 	cmp vmap_c64_offset
 	bne +
-; TODO: For C128, check if it's the right bank too, to make this more efficient	
+!ifdef TARGET_C128 {
+	lda vmem_cache_bank_index,y
+	cmp vmap_c64_offset_bank
+	bne +
+}
 	lda #0
 	sta vmem_cache_page_index,y
 +	dey
@@ -730,7 +771,6 @@ read_byte_at_z_address
 	lsr
 	sta vmap_z_h,x
 	lda zp_pc_l
-;	and #(255 - vmem_indiv_block_mask) ; skip bit 0 since 512 byte blocks
 	ror
 	sta vmap_z_l,x
 	stx vmap_index
@@ -748,15 +788,36 @@ read_byte_at_z_address
 }
 	sta vmap_z_h,x
 	txa
-	
+
+!ifdef TARGET_C128 {
+	cmp first_vmap_entry_in_bank_1
+	bcc .not_in_bank_1
+	ldy #1
+	sty vmap_c64_offset_bank
+	sbc first_vmap_entry_in_bank_1 ; Carry already set
+	asl ; Multiply by 2 to count in 256-byte pages rather than 512-byte vmem blocks
+	adc vmap_first_ram_page_in_bank_1 ; Carry already clear
+	bne .store_offset ; Always branch
+.not_in_bank_1	
+	ldy #0
+	sty vmap_c64_offset_bank
+}	
+
 	asl
 	; Carry is already clear
 	adc vmap_first_ram_page
+.store_offset	
 	sta vmap_c64_offset
 
 !ifndef TARGET_PLUS4 {
+!ifdef TARGET_C128 {
+	; Bank is in y at this point
+	cpy #0
+	bne .swappable_memory
+}
 	cmp #first_banked_memory_page
 	bcc .unswappable
+.swappable_memory
 	; this is swappable memory
 	; update vmem_cache if needed
 	clc
@@ -768,10 +829,10 @@ read_byte_at_z_address
 	cmp vmem_cache_page_index,x
 !ifdef TARGET_C128 {
 	bne .not_a_match
-	lda #0 ; TODO: This should depend on the vmap index.
+	lda vmap_c64_offset_bank
 	cmp vmem_cache_bank_index,x
 	bne .not_a_match
-	jmp .cache_updated
+	beq.cache_updated
 .not_a_match
 } else {
 	beq .cache_updated
@@ -797,7 +858,7 @@ read_byte_at_z_address
 +	tya
 	sta vmem_cache_page_index,x
 !ifdef TARGET_C128 {
-	lda #0 ; TODO: Should depend on the vmap cache index
+	lda vmap_c64_offset_bank
 	sta vmem_cache_bank_index,x
 }	
 	lda #>vmem_cache_start ; start of cache
@@ -807,7 +868,7 @@ read_byte_at_z_address
 	lda vmem_temp
 !ifdef TARGET_C128 {
 	stx vmem_temp + 1
-	ldx #0
+	ldx vmap_c64_offset_bank
 	jsr copy_page_c128
 	ldx vmem_temp + 1
 } else {
