@@ -477,13 +477,6 @@ c128_prepare_vmem
 	lda #>story_start
 	sta vmap_first_ram_page
 
-!ifdef XYZZY_WOHOO {
-	lda vmap_blocks_preloaded
-	clc
-	adc object_temp
-	sta vmap_blocks_preloaded
-}
-
 	; Remember above which index in vmem the blocks are in bank 1
 	lda vmap_max_entries
 	clc
