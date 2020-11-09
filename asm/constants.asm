@@ -55,8 +55,12 @@ s_reverse 			  = $bb ; !byte 0
 
 savefile_zp_pointer   = $c1 ; 2 bytes
 ; first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
+
+fkey_string_lengths = $55f
+fkey_string_area = $567
+
 vmap_buffer_start     = $0333
-vmap_buffer_end       = $0437 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+vmap_buffer_end       = $0437 ; Last byte + 1. Should not be more than vmap_buffer_start + 510
 
 ted_voice_2_low       = $ff0f
 ted_voice_2_high      = $ff10

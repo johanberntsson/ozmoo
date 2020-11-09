@@ -166,8 +166,11 @@ vmem_cache_start      = $0b00
 vmem_cache_size = $1000 - vmem_cache_start
 vmem_cache_count = vmem_cache_size / 256
 
-c128_function_key_string_lengths = $1000 ; 10 bytes holding length of strings for F1, F2 etc
-print_buffer		  = $100a ; SCREEN_WIDTH + 1 bytes
+fkey_string_lengths   = $1000
+fkey_string_area      = $100a
+
+;c128_function_key_string_lengths = $1000 ; 10 bytes holding length of strings for F1, F2 etc
+print_buffer		  = $100a + 10 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
 
 

@@ -852,11 +852,11 @@ deletable_init
 	dex
 	bne -
 
-	txa ; a = 0
-	ldx #9
--	sta c128_function_key_string_lengths,x
-	dex
-	bpl -
+	; txa ; a = 0
+	; ldx #9
+; -	sta c128_function_key_string_lengths,x
+	; dex
+	; bpl -
 	
 ; Just for testing
 	; lda #$f0
@@ -874,16 +874,21 @@ deletable_init
 
 
 ; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
-!ifdef TARGET_PLUS4 {
+!ifdef TARGET_PLUS4_OR_C128 {
 	ldx #$85
 -	lda #1
-	sta $55f - $85,x
+	sta fkey_string_lengths - $85,x
 	txa
-	sta $567 - $85,x
+	sta fkey_string_area - $85,x
 	inx
 	cpx #$85 + 8
 	bcc -
+!ifdef TARGET_C128 {
+	lda #0
+	sta fkey_string_lengths + 8
+	sta fkey_string_lengths + 9
 }
+
 
 ; Read and parse config from boot disk
 	ldy CURRENT_DEVICE
