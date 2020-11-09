@@ -927,14 +927,6 @@ toggle_darkmode
 	+SetBorderColour
 
 	; update colour memory with new colours
-!ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
-	; 80 columns mode selected
-	; TODO: change color in VCD instead
-	jmp update_cursor
-+
-}
 !ifdef Z3 {
 
 ; For Z3: Set statusline colour
@@ -953,7 +945,28 @@ toggle_darkmode
 	lda plus4_vic_colours,y
 }
 	ldy s_screen_width_minus_one
--	sta COLOUR_ADDRESS,y
+-
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	bne +
+	sta COLOUR_ADDRESS,y
+	jmp ++
++
+	; 80 columns mode selected
+	sty s_stored_y
+	pha
+	ldy #$08
+	lda s_stored_y
+	jsr VDCSetAddress
+	pla
+	ora #$80 ; lower-case
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	ldy s_stored_y
+++
+} else {
+	sta COLOUR_ADDRESS,y
+}
 	dey
 	bpl -
 }
@@ -984,7 +997,37 @@ toggle_darkmode
 .change	
 	lda z_temp + 7
 }
+!ifdef TARGET_C128 {
+	pha
+	lda COLS_40_80
+	bne +
+	pla
 	sta (z_temp + 10),y
+	jmp ++
++
+	; 80 columns mode selected
+	stx s_stored_x
+	sty s_stored_y
+	lda z_temp + 11
+	sec
+	sbc #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
+	tay
+	lda z_temp + 10
+	clc
+	adc s_stored_y
+	bcc +
+	iny
++	jsr VDCSetAddress
+	pla
+	ora #$80 ; lower-case
+	ldy s_stored_y
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	ldx s_stored_x
+++
+} else {
+	sta (z_temp + 10),y
+}
 .dont_change
 	iny
 	bne .compare
