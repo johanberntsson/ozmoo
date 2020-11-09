@@ -12,6 +12,7 @@ if $is_windows then
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
+	$commandline_quotemark = "\""
 else
 	# Paths on Linux
     $X64 = "x64 -autostart-delay-random"
@@ -22,6 +23,7 @@ else
     $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
+	$commandline_quotemark = "'"
 end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
@@ -725,7 +727,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	exo_target = ""
 	if $target == 'plus4'
 		exo_target = " -t4"
-		asm_clause = "-s 'lda $ff06 and \#$ef sta $ff06' -f 'lda $ff06 ora \#$10 sta $ff06'"
+		asm_clause = "-s #{$commandline_quotemark}lda $ff06 and \#$ef sta $ff06#{$commandline_quotemark} -f #{$commandline_quotemark}lda $ff06 ora \#$10 sta $ff06#{$commandline_quotemark}"
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
@@ -1358,7 +1360,7 @@ $default_colours = []
 $default_colours_dm = []
 $statusline_colour = nil
 $statusline_colour_dm = nil
-$target = nil
+$target = 'c64'
 $border_colour = nil
 $border_colour_dm = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
