@@ -925,6 +925,16 @@ toggle_darkmode
 	lda zcolours,y
 .store_bordercol
 	+SetBorderColour
+
+	; update colour memory with new colours
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	; TODO: change color in VCD instead
+	jmp update_cursor
++
+}
 !ifdef Z3 {
 
 ; For Z3: Set statusline colour
@@ -942,7 +952,7 @@ toggle_darkmode
 	tay
 	lda plus4_vic_colours,y
 }
-	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
+	ldy s_screen_width_minus_one
 -	sta COLOUR_ADDRESS,y
 	dey
 	bpl -
@@ -964,7 +974,7 @@ toggle_darkmode
 .compare
 !ifdef Z5PLUS {
 	lda (z_temp + 10),y
-!ifndef TARGET_PLUS4_OR_C128 {
+!ifndef TARGET_PLUS4 {
 	and #$0f
 }
 	cmp z_temp + 9
