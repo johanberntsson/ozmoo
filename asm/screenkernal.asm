@@ -851,19 +851,19 @@ toggle_darkmode
 ; z_temp + 9: Old foreground colour, adapted to target platform
 ; z_temp + 10, 11: Pointer into colour RAM
 
-!ifdef TARGET_C128 {
-	; don't allow dark mode toggle in 80 column mode
-	ldx COLS_40_80
-	beq +
-	; don't allow dark mode toggle in 80 column mode
-	rts
-+
-}
 !ifdef Z5PLUS {
 	; We will need the old fg colour later, to check which characters have the default colour
 	ldx darkmode ; previous darkmode value (0 or 1)
 	ldy fgcol,x
 	lda zcolours,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
 !ifdef TARGET_PLUS4 {
 	tay
 	lda plus4_vic_colours,y
@@ -880,6 +880,14 @@ toggle_darkmode
 	lda zcolours,y
 	sta z_temp + 6 ; New foreground colour, as C64 colour 
 	jsr s_set_text_colour
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
 !ifdef TARGET_PLUS4 {
 	tay
 	lda plus4_vic_colours,y
@@ -898,11 +906,7 @@ toggle_darkmode
 ; Set bgcolour
 	ldy bgcol,x
 	lda zcolours,y
-!ifdef TARGET_PLUS4 {
-	tay
-	lda plus4_vic_colours,y
-}
-	sta reg_backgroundcolour
+	+SetBackgroundColour
 !ifdef Z5PLUS {
 	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
 	sta z_temp + 8 ; new background colour
@@ -919,17 +923,21 @@ toggle_darkmode
 +	
 }
 	lda zcolours,y
-!ifdef TARGET_PLUS4 {
-	tay
-	lda plus4_vic_colours,y
-}
 .store_bordercol
-	sta reg_bordercolour
+	+SetBorderColour
 !ifdef Z3 {
 
 ; For Z3: Set statusline colour
 	ldy statuslinecol,x
 	lda zcolours,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
 !ifdef TARGET_PLUS4 {
 	tay
 	lda plus4_vic_colours,y
@@ -956,7 +964,7 @@ toggle_darkmode
 .compare
 !ifdef Z5PLUS {
 	lda (z_temp + 10),y
-!ifndef TARGET_PLUS4 {
+!ifndef TARGET_PLUS4_OR_C128 {
 	and #$0f
 }
 	cmp z_temp + 9
@@ -998,15 +1006,11 @@ z_ins_set_colour
 	jsr read_header_word
 	lda zcolours,x
 +   
-!ifdef TARGET_PLUS4 {
-	tax
-	lda plus4_vic_colours,x
-}
-	sta reg_backgroundcolour
+	+SetBackgroundColour
 ; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
 	cpy #0
 	bne .current_background
-	sta reg_bordercolour
+	+SetBorderColour
 .current_background
 
 ; Set foreground colour
@@ -1018,14 +1022,10 @@ z_ins_set_colour
 	jsr read_header_word
 	lda zcolours,x
 +
-!ifdef TARGET_PLUS4 {
-	tax
-	lda plus4_vic_colours,x
-}
 ; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 1
 	cpy #1
 	bne +
-	sta reg_bordercolour
+	+SetBorderColour
 +
 	jsr s_set_text_colour ; change foreground colour
 .current_foreground
