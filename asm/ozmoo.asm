@@ -888,6 +888,7 @@ deletable_init
 	sta fkey_string_lengths + 8
 	sta fkey_string_lengths + 9
 }
+}
 
 
 ; Read and parse config from boot disk
