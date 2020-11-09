@@ -362,6 +362,12 @@ s_set_text_colour
 
 s_delete_cursor
 	lda #$20 ; blank space
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	beq +
+	jmp VDCPrintChar
++
+}
 	ldy zp_screencolumn
 	sta (zp_screenline),y
 	rts
