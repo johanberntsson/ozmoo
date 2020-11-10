@@ -324,6 +324,7 @@ game_id		!byte 0,0,0,0
 
 .initialize
 	cld
+	cli
 !ifdef TESTSCREEN {
 	jmp testscreen
 }
@@ -801,7 +802,7 @@ deletable_init_start
 		;lda #4
 		sta $d9
 		sta $01
-		lda #$16 ; 0001 011X = $0400 $1800
+		lda #$17 ; 0001 011X = $0400 $1800
 	} else {
 		lda #$16
 	}

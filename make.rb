@@ -721,20 +721,25 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 
 	font_clause = ""
 	asm_clause = ""
+	decrunch_effect = ""
 	if $font_filename
 		font_clause = " \"#{$font_filename}\"@#{$font_address}"
 	end
 	exo_target = ""
 	if $target == 'plus4'
 		exo_target = " -t4"
-		asm_clause = "-s #{$commandline_quotemark}lda $ff06 and \#$ef sta $ff06#{$commandline_quotemark} -f #{$commandline_quotemark}lda $ff06 ora \#$10 sta $ff06#{$commandline_quotemark}"
+		asm_clause = " -s #{$commandline_quotemark}lda $ff06 and \#$ef sta $ff06#{$commandline_quotemark} -f #{$commandline_quotemark}lda $ff06 ora \#$10 sta $ff06#{$commandline_quotemark}"
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
+#		decrunch_effect = " -X #{$commandline_quotemark}txa and \#$1f sta $0400 sty $d800#{$commandline_quotemark}"
+#		decrunch_effect = " -X #{$commandline_quotemark}stx $0400#{$commandline_quotemark}"
+		decrunch_effect = " -x2"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{font_clause} #{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+ #  -Di_irq_during=0 -Di_irq_exit=0
+	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{decrunch_effect}#{font_clause}#{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
 	puts exomizer_cmd
 	ret = system(exomizer_cmd)
