@@ -1482,7 +1482,13 @@ if mode == MODE_P and $target == 'c128'
 end
 
 if $font_filename
-	if $target == 'c64' or $target == 'mega65'
+	if $target == 'c64' 
+		$font_address = 0x0800
+		$start_address = 0x1000
+	elsif $target == 'c128' 
+		$font_address = 0x1800
+		$start_address = 0x2000
+	elsif $target == 'mega65'
 		$font_address = 0x0800
 		$start_address = 0x1000
 	elsif $target == 'plus4'

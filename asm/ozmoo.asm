@@ -791,11 +791,35 @@ deletable_init_start
 		ora #%00000100
 		sta reg_screen_bitmap_mode
 	}
-} else {
+}
+!ifdef TARGET_C128 {
+	!ifdef CUSTOM_FONT {
+		; set bit 2 in $01/$d9 to disable character ROM shadowing
+		; Page 364, https://www.cubic.org/~doj/c64/mapping128.pdf
+		lda $01
+		ora #$04
+		;lda #4
+		sta $d9
+		sta $01
+		lda #$16 ; 0001 011X = $0400 $1800
+	} else {
+		lda #$16
+	}
+	sta reg_screen_char_mode
+}
+!ifdef TARGET_C64 {
 	!ifdef CUSTOM_FONT {
 		lda #18
 	} else {
 		lda #23
+	}
+	sta reg_screen_char_mode
+}
+!ifdef TARGET_MEGA65 {
+	!ifdef CUSTOM_FONT {
+		lda #$26 
+	} else {
+		lda #$26
 	}
 	sta reg_screen_char_mode
 }

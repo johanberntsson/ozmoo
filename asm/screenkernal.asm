@@ -253,8 +253,8 @@ init_mega65
 	lda #$c9
 	sta $D016
 	; set screen at $0800
-	lda #$26
-	sta $d018
+	;lda #$26
+	;sta $d018
 	; disable VIC-II/VIC-III hot registers
 	lda $d05d
 	and #$7f
