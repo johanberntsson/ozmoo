@@ -292,6 +292,7 @@ c128_border_phase1
 !source "constants-header.asm"
 
 
+
 ; global variables
 ; filelength !byte 0, 0, 0
 ; fileblocks !byte 0, 0
@@ -300,27 +301,6 @@ c128_border_phase1
 game_id		!byte 0,0,0,0
 }
 
-; include other assembly files
-!source "utilities.asm"
-!source "screenkernal.asm"
-!source "streams.asm"
-!source "disk.asm"
-!ifdef VMEM {
-	!if SUPPORT_REU = 1 {
-	!source "reu.asm"
-	}
-}
-!source "screen.asm"
-!source "memory.asm"
-!source "stack.asm"
-;##!ifdef VMEM {
-!source "vmem.asm"
-;##}
-!source "zmachine.asm"
-!source "zaddress.asm"
-!source "text.asm"
-!source "dictionary.asm"
-!source "objecttable.asm"
 
 .initialize
 	cld
@@ -424,9 +404,35 @@ game_id		!byte 0,0,0,0
 }
 } else {
 	; Back to normal memory banks
-	+set_memory_normal
+	lda #%00110111
+	sta 1
+;	+set_memory_normal
 	jmp (basic_reset)
 }
+
+
+; include other assembly files
+!source "utilities.asm"
+!source "screenkernal.asm"
+!source "streams.asm"
+!source "disk.asm"
+!ifdef VMEM {
+	!if SUPPORT_REU = 1 {
+	!source "reu.asm"
+	}
+}
+!source "screen.asm"
+!source "memory.asm"
+!source "stack.asm"
+;##!ifdef VMEM {
+!source "vmem.asm"
+;##}
+!source "zmachine.asm"
+!source "zaddress.asm"
+!source "text.asm"
+!source "dictionary.asm"
+!source "objecttable.asm"
+
 
 !ifdef TARGET_PLUS4_OR_C128 {
 	!if SPLASHWAIT > 0 {
@@ -437,6 +443,26 @@ game_id		!byte 0,0,0,0
 !ifdef TARGET_C128 {
 
 c128_prepare_vmem
+	; Copy dynmem to bank 1
+	lda #>story_start
+	sta zp_temp
+	lda #>story_start_bank_1
+	sta zp_temp + 1
+	lda nonstored_blocks
+	sta zp_temp + 2
+-	lda zp_temp
+	ldy #>(vmem_cache_start + $200)
+	ldx #0
+	jsr copy_page_c128
+	lda #>(vmem_cache_start + $200)
+	ldy zp_temp + 1
+	ldx #1
+	jsr copy_page_c128
+	inc zp_temp
+	inc zp_temp + 1
+	dec zp_temp + 2
+	bne -
+
 	; Make old dynmem space available for vmem
 	lda nonstored_blocks
 	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
@@ -1050,28 +1076,7 @@ deletable_init
 	jsr prepare_static_high_memory
 
 !ifdef TARGET_C128 {
-	; Copy dynmem to bank 1
-	lda #>story_start
-	sta zp_temp
-	lda #>story_start_bank_1
-	sta zp_temp + 1
-	lda nonstored_blocks
-	sta zp_temp + 2
--	lda zp_temp
-	ldy #>(vmem_cache_start + $200)
-	ldx #0
-	jsr copy_page_c128
-	lda #>(vmem_cache_start + $200)
-	ldy zp_temp + 1
-	ldx #1
-	jsr copy_page_c128
-	inc zp_temp
-	inc zp_temp + 1
-	dec zp_temp + 2
-	bne -
-
 	jsr c128_prepare_vmem
-
 }
 
 	jsr insert_disks_at_boot

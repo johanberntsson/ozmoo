@@ -30,7 +30,6 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically none should be enabled.
 $GENERALFLAGS = [
-#	'UNSAFE', # Remove almost all runtime error checking. This makes the terp ~100 bytes smaller.
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
@@ -728,7 +727,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	exo_target = ""
 	if $target == 'plus4'
 		exo_target = " -t4"
-		asm_clause = " -s #{$commandline_quotemark}lda $ff06 and \#$ef sta $ff06#{$commandline_quotemark} -f #{$commandline_quotemark}lda $ff06 ora \#$10 sta $ff06#{$commandline_quotemark}"
+		asm_clause = " -s #{$commandline_quotemark}lda $ff15 sta $ff19 lda $ff06 and \#$ef sta $ff06#{$commandline_quotemark} -f #{$commandline_quotemark}lda $ff06 ora \#$10 sta $ff06#{$commandline_quotemark}"
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
@@ -858,7 +857,7 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	
 	boot_disk = false
 	
-	diskfilename = "#{storyname}.d64"
+	diskfilename = "#{$target}_#{storyname}.d64"
 	
 	if $vmem_size < $story_size
 		puts "#{$vmem_size} < #{$story_size}"
@@ -906,7 +905,7 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	
 	boot_disk = true
 
-	diskfilename = "#{storyname}.d64"
+	diskfilename = "#{$target}_#{storyname}.d64"
 
 	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
@@ -974,8 +973,8 @@ end
 def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 3 # 3 disks used in total
-	outfile1name = "#{storyname}_boot.d64"
-	outfile2name = "#{storyname}_story.d64"
+	outfile1name = "#{$target}_#{storyname}_boot.d64"
+	outfile2name = "#{$target}_#{storyname}_story.d64"
 	max_story_blocks = 9999
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
@@ -1046,8 +1045,8 @@ end
 def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 3 # 3 disks used in total
-	outfile1name = "#{storyname}_boot_story_1.d64"
-	outfile2name = "#{storyname}_story_2.d64"
+	outfile1name = "#{$target}_#{storyname}_boot_story_1.d64"
+	outfile2name = "#{$target}_#{storyname}_story_2.d64"
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 
@@ -1144,9 +1143,9 @@ end
 def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 4 # 4 disks used in total
-	outfile1name = "#{storyname}_boot.d64"
-	outfile2name = "#{storyname}_story_1.d64"
-	outfile3name = "#{storyname}_story_2.d64"
+	outfile1name = "#{$target}_#{storyname}_boot.d64"
+	outfile2name = "#{$target}_#{storyname}_story_1.d64"
+	outfile3name = "#{$target}_#{storyname}_story_2.d64"
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	disk3 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
@@ -1238,7 +1237,7 @@ end
 
 def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
 
-	diskfilename = "#{storyname}.d81"
+	diskfilename = "#{$target}_#{storyname}.d81"
 	
 	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
 
@@ -1306,7 +1305,7 @@ end
 
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
-	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
+	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] -u"
 	puts "         [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
@@ -1319,6 +1318,7 @@ def print_usage_and_exit
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
+	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
@@ -1413,7 +1413,7 @@ begin
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "c128" then
 			    # Different start address
-			    $start_address = 0x1c01
+			    $start_address = 0x1200
 				$memory_end_address = 0xfc00
 				$normal_ram_end_address = $memory_end_address
 			end
@@ -1466,6 +1466,8 @@ begin
 			$cursor_shape = $1
 		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
+		elsif ARGV[i] =~ /^-u$/ then
+			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"

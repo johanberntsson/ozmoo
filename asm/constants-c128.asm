@@ -2,7 +2,7 @@
 ;
 ; ZP allocation: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 
-basic_reset           = $8000
+basic_reset           = $4000
 
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40 ; default, adjusted if needed in s_init
@@ -154,10 +154,10 @@ copy_page_c128         = $380 ; Uses ~30 bytes
 
 ; C128 terp can use a maximum of 106,5 KB of RAM for dynmem + vmem in z3 mode
 ; (This is when story_start is $4e00), less in z4+, so vmap buffer should be 
-; big enough to hold 2*106,5 = 213 entries, using 426 = $1aa bytes.
+; big enough to hold 2*109 = 218 entries, using 426 = $1b4 bytes.
 ; Important: Interpreter breaks if area given is larger than $1ffe
 vmap_buffer_start     = $0800
-vmap_buffer_end       = $09aa ; last usable byte + 1
+vmap_buffer_end       = $09b4 ; last usable byte + 1
 
 memory_buffer         =	$0a05
 memory_buffer_length  = 23

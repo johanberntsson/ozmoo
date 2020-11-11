@@ -470,16 +470,15 @@ z_ins_restart
 	; Find right device# for boot disk
 
 	ldx disk_info + 3
-!ifndef TARGET_PLUS4_OR_C128 {
+!ifndef TARGET_MEGA65 {
 	lda disk_info + 4,x
 	cmp #10
 	bcc +
-	inc .restart_code_string + 12
+	inc .device_no
 	sec
 	sbc #10
 +	ora #$30
-	sta .restart_code_string + 13
-	
+	sta .device_no + 1
 }
 
 	; Check if disk is in drive
@@ -495,6 +494,19 @@ z_ins_restart
 !ifdef TARGET_MEGA65 {
 	; reset will autoboot the game again from disk
 	jmp kernal_reset
+}
+
+!ifndef TARGET_MEGA65 {
+	sei
+	cld
+!ifdef TARGET_C128 {
+	lda #0
+	sta c128_mmu_cfg
+}
+	jsr $ff8a ; restor (Fill vector table at $0314-$0333 with default values)
+	jsr $ff84 ; ioinit (Initialize CIA's, SID, memory config, interrupt timer)
+	jsr $ff81 ; scinit (Initialize VIC; set nput/output to keyboard/screen)
+	cli
 }
 
 	; Copy restart code
@@ -520,8 +532,8 @@ z_ins_restart
 ;	!pet "lO",34,":*",34,",08:",131,0
 !ifdef TARGET_C128 {
 	; must select memory under $4000 (basic)
-	!pet "sY4864",13,0
-.restart_code_address = 4864 ; $1300
+	!pet "sY4e3",13,0
+.restart_code_address = 4000
 } else {
 	!pet "sY3e4",13,0
 .restart_code_address = 30000 ; $7530
@@ -529,11 +541,6 @@ z_ins_restart
 
 .restart_code_begin
 .restart_code_string_final_pos = .restart_code_string - .restart_code_begin + .restart_code_address
-!ifndef TARGET_MEGA65 {
-	jsr $ff84 ; ioinit (Initialize CIA's, SID, memory config, interrupt timer)
-	jsr $ff8a ; restor (Fill vector table at $0314-$0333 with default values)
-	jsr $ff81 ; scinit (Initialize VIC; set nput/output to keyboard/screen)
-}
 	ldx #0
 -	lda .restart_code_string_final_pos,x
 	beq +
@@ -542,13 +549,6 @@ z_ins_restart
 	bne -
 +	; Setup	key sequence
 !ifdef TARGET_PLUS4_OR_C128 {
-!ifdef TARGET_PLUS4 {
-	lda #147 ; clear screen
-	sta keyboard_buff
-	lda #131 ; run
-	sta keyboard_buff + 1
-	lda #2
-} else {
 	lda #19 ; home
 	sta keyboard_buff
 	lda #17 ; down
@@ -560,7 +560,6 @@ z_ins_restart
 	lda #13 ; run
 	sta keyboard_buff + 4
 	lda #5
-}
 } else {
 	lda #131 ; run
 	sta keyboard_buff
@@ -571,13 +570,13 @@ z_ins_restart
 
 .restart_code_string
 !ifdef TARGET_PLUS4_OR_C128 {
-!ifdef TARGET_PLUS4 {
-	!pet 147,17,17,"dL",34,"*",34,17,17,17,"rU",19,0
-} else {
-	!pet 147,17,17,"dL",34,"*",34,17,17,17,17,"rU",19,0
-}
-} else {
-	!pet 147,17,17,"    ",34,":*",34,",08",19,0
+	!pet 147,17,17,"lO",34,":*",34,","
+.device_no
+	!pet "00",17,17,17,17,17,"rU",19,0
+} else { ; Not Plus4 or C128
+	!pet 147,17,17,"    ",34,":*",34,","
+.device_no
+	!pet "08",19,0
 }
 ; .restart_code_keys
 	; !pet 131,0
