@@ -72,7 +72,11 @@ ted_volume            = $ff11
 basic_reset           = $a000 ; the mega65 version is always run in C64 mode
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
+!ifdef CUSTOM_FONT {
+SCREEN_ADDRESS        = $1000
+} else {
 SCREEN_ADDRESS        = $0800
+}
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba

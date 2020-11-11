@@ -819,19 +819,16 @@ deletable_init_start
 }
 !ifdef TARGET_MEGA65 {
 	!ifdef CUSTOM_FONT {
-		lda #$29 
+		lda #$42 ; screen/font: $1000 $0800
 	} else {
-		lda #$26
+		lda #$26 ; screen/font: $0800 $1800 (character ROM)
 	}
 	sta reg_screen_char_mode
+	jsr init_mega65
 }
 
 	lda #$80
 	sta charset_switchable
-
-!ifdef TARGET_MEGA65 {
-	jsr init_mega65
-}
 
 	jmp init_screen_colours ; _invisible
 	
