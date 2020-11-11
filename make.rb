@@ -1488,6 +1488,11 @@ if mode == MODE_P and $target == 'c128'
 	exit 1
 end
 
+if $loader_pic_file and $target != 'c64'
+	puts "ERROR: Image loader is not supported on this target platform."
+	exit 1
+end
+
 if $font_filename
 	if $target == 'c64' 
 		$font_address = 0x0800
