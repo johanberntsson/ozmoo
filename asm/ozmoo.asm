@@ -811,15 +811,15 @@ deletable_init_start
 }
 !ifdef TARGET_C64 {
 	!ifdef CUSTOM_FONT {
-		lda #18
+		lda #$12
 	} else {
-		lda #23
+		lda #$17
 	}
 	sta reg_screen_char_mode
 }
 !ifdef TARGET_MEGA65 {
 	!ifdef CUSTOM_FONT {
-		lda #$26 
+		lda #$29 
 	} else {
 		lda #$26
 	}
