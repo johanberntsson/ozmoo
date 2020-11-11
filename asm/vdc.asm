@@ -77,6 +77,43 @@ VDCWriteReg
 	sta     VDC_DATA_REG
 	rts
 
+VDCCopyFont
+	; set VDC to start address
+	; we are not using the first character set ($2000-$3000)
+	lda #$00
+	ldy #$30
+	jsr VDCSetAddress
+	; set pointer to start of data ($1800)
+	lda #$00
+	sta z_temp
+	lda #$18
+	sta z_temp + 1
+	lda #$20
+	; high byte of data end
+	sta z_temp + 2  
+	; start copying data
+.loop
+	ldy #0
+-	lda (z_temp),y
+	jsr VDCWriteByte
+	iny
+	cpy #8
+	bne -
+	lda #0     ; add 8 bytes as padding
+-	jsr VDCWriteReg
+	dey
+	bne -
+	clc
+	lda z_temp
+	adc #8
+	sta z_temp
+	bcc .loop
+	inc z_temp + 1
+	lda z_temp + 1
+	cmp z_temp + 2  ; done all?
+	bne .loop
+	rts
+
 !ifdef VDC_INCLUDE_CLEARSCREEN {
 VDCClearScreen
 	lda     #0

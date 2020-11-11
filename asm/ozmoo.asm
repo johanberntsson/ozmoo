@@ -795,13 +795,14 @@ deletable_init_start
 }
 !ifdef TARGET_C128 {
 	!ifdef CUSTOM_FONT {
+		; make font available to VDC as well
+		jsr VDCCopyFont
+
 		; set bit 2 in $01/$d9 to disable character ROM shadowing
 		; Page 364, https://www.cubic.org/~doj/c64/mapping128.pdf
-		lda $01
-		ora #$04
-		;lda #4
+		lda #4
 		sta $d9
-		sta $01
+
 		lda #$17 ; 0001 011X = $0400 $1800
 	} else {
 		lda #$16
