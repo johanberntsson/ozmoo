@@ -683,7 +683,16 @@ def read_labels(label_file_name)
 end
 
 def build_loader_file()
-	necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
+	necessarysettings =  ""
+	exo_target = ""
+	if $target == 'c64'
+		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
+	end
+	if $target == 'plus4'
+		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_PLUS4=1"
+		exo_target = " -t4"
+	end
+
 	optionalsettings = ""
 	optionalsettings += " -DFLICKER=1" if $loader_flicker
 	
@@ -701,7 +710,7 @@ def build_loader_file()
 	puts "Loader pic address: #{$loader_pic_start}"
 
 	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2,10001"
-	exomizer_cmd = "#{$EXOMIZER} sfx basic -B \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
+	exomizer_cmd = "#{$EXOMIZER} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
 
 	puts exomizer_cmd
 	ret = system(exomizer_cmd)
@@ -1488,7 +1497,7 @@ if mode == MODE_P and $target == 'c128'
 	exit 1
 end
 
-if $loader_pic_file and $target != 'c64'
+if $loader_pic_file and $target != 'c64' and $target != 'plus4'
 	puts "ERROR: Image loader is not supported on this target platform."
 	exit 1
 end

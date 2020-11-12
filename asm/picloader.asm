@@ -1,58 +1,147 @@
 ; !to "picload.prg", cbm
-* = $801
 
-loader_start = $334
+!ifdef TARGET_MEGA65 {
+	TARGET_ASSIGNED = 1
+	* = $801
+}
+!ifdef TARGET_PLUS4 {
+	TARGET_PLUS4_OR_C128 = 1
+	TARGET_ASSIGNED = 1
+	* = $1001
+	bitmap_source = loader_pic_start + $800
+	bitmap_target = $c000
+	bitmap_end_highbyte = $e0
+	screen_source = loader_pic_start
+	screen_target = $0800
+	colour_source = loader_pic_start + $400
+	colour_target = $0c00
+	loader_start  = $332
+	character_colour = $53b
+}
+!ifdef TARGET_C64 {
+	TARGET_ASSIGNED = 1
+}
+!ifdef TARGET_C128 {
+	TARGET_PLUS4_OR_C128 = 1
+	TARGET_ASSIGNED = 1
+	* = $1c01
+}
+
+!ifndef TARGET_ASSIGNED {
+	; No target given. C64 is the default target
+	TARGET_C64 = 1
+}
+
+!ifdef TARGET_C64 {
+	* = $801
+	bitmap_source = loader_pic_start
+	bitmap_target = $e000
+	bitmap_end_highbyte = $00
+	screen_source = loader_pic_start + 8000
+	screen_target = $cc00
+	colour_source = loader_pic_start + 9000
+	colour_target = $d800
+	loader_start  = $334
+	character_colour = 646
+}
+
+
 interrupt_vector = $314
 
-!source "constants.asm"
 
+!ifdef TARGET_C128 {
+!source "constants-c128.asm"
+} else {
+!source "constants.asm"
+}
+
+!ifdef TARGET_C64 {
 ; Basic line: "1 sys2061"
 !byte $0b, $08, $01,$00, $9e, $32, $30, $36, $31, 0, 0, 0
+} 
+!ifdef TARGET_PLUS4 {
+; Basic line: "1 sys4109"
+!byte $0b, $08, $01,$00, $9e, $34, $31, $30, $39, 0, 0, 0
+} 
 
 !zone picloader {
 
 ; Copy background colour
+!ifdef TARGET_C64 {	
 	ldx loader_pic_start + 10000
-	stx $d020
-	stx $d021
-
+	stx reg_bordercolour
+	stx reg_backgroundcolour
+}
+!ifdef TARGET_PLUS4 {
+	lda loader_pic_start + $3fe
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .temp
+	lda loader_pic_start + $3fe
+	asl
+	asl
+	asl
+	asl
+	ora .temp
+	sta $ff16
+	lda loader_pic_start + $3ff
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .temp
+	lda loader_pic_start + $3ff
+	asl
+	asl
+	asl
+	asl
+	ora .temp
+	sta reg_bordercolour
+	sta reg_backgroundcolour
+}
 ; Copy bitmap data
 
 	ldx #0
 .copy_bitmap
-	lda loader_pic_start,x
-	sta $e000,x
+	lda bitmap_source,x
+	sta bitmap_target,x
 	inx
 	bne .copy_bitmap
 	inc .copy_bitmap + 2
 	inc .copy_bitmap + 5
+	lda .copy_bitmap + 5
+	cmp #bitmap_end_highbyte
 	bne .copy_bitmap ; Copies to $e000-$ffff, stops when target address is $0000
 	
 ; Copy screen RAM and colour RAM
 
 .copy_screen
-	lda loader_pic_start + 8000,x
-	sta $cc00,x
-	lda loader_pic_start + 8000 + 250,x
-	sta $cc00 + 250,x
-	lda loader_pic_start + 8000 + 500,x
-	sta $cc00 + 500,x
-	lda loader_pic_start + 8000 + 750,x
-	sta $cc00 + 750,x
-	lda loader_pic_start + 8000 + 1000,x
-	sta $d800,x
-	lda loader_pic_start + 8000 + 1250,x
-	sta $d800 + 250,x
-	lda loader_pic_start + 8000 + 1500,x
-	sta $d800 + 500,x
-	lda loader_pic_start + 8000 + 1750,x
-	sta $d800 + 750,x
+	lda screen_source,x
+	sta screen_target,x
+	lda screen_source + 250,x
+	sta screen_target + 250,x
+	lda screen_source + 500,x
+	sta screen_target + 500,x
+	lda screen_source + 750,x
+	sta screen_target + 750,x
+	lda colour_source,x
+	sta colour_target,x
+	lda colour_source + 250,x
+	sta colour_target + 250,x
+	lda colour_source + 500,x
+	sta colour_target + 500,x
+	lda colour_source + 750,x
+	sta colour_target + 750,x
 	inx
 	cpx #250
 	bcc .copy_screen
 
 
 ; Show image
+
+!ifdef TARGET_C64 {
 
 	; Set bank
 	lda $dd00
@@ -77,12 +166,36 @@ interrupt_vector = $314
 	and #%11101111
 	ora #%00010000
 	sta $d016
+}
+!ifdef TARGET_PLUS4 {
+
+;	sta $ff3f
+
+	LDA #$3B
+	STA $FF06
+	
+; Set bitmap address to $c000
+	lda #$30
+	sta $ff12
+	
+; Set luminance/colour address to $e000/$e400
+;	lda #$e0
+;	sta $ff14
+
+; Set graphics mode
+
+	lda $ff07
+	and #$40
+	ora #%00011000
+	sta $ff07
+
+}
 
 ; Wait for <SPACE>
-;.getchar
-;	jsr $ffe4
-;	cmp #32
-;	bne .getchar
+; .getchar
+	; jsr kernal_getchar
+	; cmp #32
+	; bne .getchar
 
 ; Copy loader
 
@@ -94,11 +207,18 @@ interrupt_vector = $314
 
 !ifdef FLICKER {
 ; Copy background colour to loader code
+!ifdef TARGET_C64 {
 	lda loader_pic_start + 10000
 	and #15 ; Make sure we don't have any noise in the high nybble
 	tax
 	lda .alt_col,x
 	sta .load_alt_col + 1
+}
+!ifdef TARGET_PLUS4 {
+	lda loader_pic_start + $3fe
+	eor #$ff
+	sta .load_alt_col + 1
+}
 	
 ; Setup interrupt
 	sei
@@ -142,6 +262,8 @@ interrupt_vector = $314
 }
 ; Hide image and set default graphics bank
 
+
+!ifdef TARGET_C64 {
 ; Set graphics mode
 
 	lda $d011
@@ -160,6 +282,17 @@ interrupt_vector = $314
 	; Set screen address to $0400 and charmem to $d000 
 	lda #%00010100
 	sta $d018
+}
+!ifdef TARGET_PLUS4 {
+;	sta $ff3e
+	lda #$1B
+	sta $FF06
+
+	lda $ff07
+	and #$40
+	ora #%00001000
+	sta $ff07
+}
 
 	; Clear screen
 	lda #147
@@ -167,29 +300,29 @@ interrupt_vector = $314
 	
 	; Add keys to run program into keyboard buffer
 	lda #$52 ; r
-	sta 631
+	sta keyboard_buff
 	lda #$d5 ; U
-	sta 632
+	sta keyboard_buff + 1
 	lda #13 ;  Enter
-	sta 633
+	sta keyboard_buff + 2
 	lda #3  ; 3 chars are now in keyboard buffer
-	sta 198
+	sta keyboard_buff_len
 	
 	; Set text colour to background colour
-	lda $d021
-	sta 646
+	lda reg_backgroundcolour
+	sta character_colour
 
 	rts
 
 !ifdef FLICKER {
 .interrupt
-	ldx $d020
+	ldx reg_bordercolour
 .load_alt_col
 	lda #0
-	sta $d020
+	sta reg_bordercolour
 	nop
 	nop
-	stx $d020
+	stx reg_bordercolour
 .jmp_kernal_interrupt
 	jmp $ea31
 }
@@ -198,6 +331,8 @@ interrupt_vector = $314
 !pet "story"
 }
 .end_of_loader
+
+.temp !byte 0
 
 !ifdef FLICKER {
 .alt_col
