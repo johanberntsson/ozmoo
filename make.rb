@@ -709,7 +709,7 @@ def build_loader_file()
 	read_labels($loader_labels_file);
 	puts "Loader pic address: #{$loader_pic_start}"
 
-	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2,10001"
+	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2"
 	exomizer_cmd = "#{$EXOMIZER} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
 
 	puts exomizer_cmd
