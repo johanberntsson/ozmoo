@@ -42,6 +42,8 @@ z_ins_get_child
 	jsr calculate_object_address
 	pla
 	tay
+
+	+before_dynmem_read
 !ifndef Z4PLUS {
 
 !ifdef TARGET_C128 {
@@ -77,6 +79,8 @@ z_ins_get_child
 }
 
 }
+	+after_dynmem_read
+
 	jsr z_store_result
 	pla ; Value is zero if object is zero, non-zero if object is non-zero
 	bne .get_child_branch_true
@@ -89,6 +93,8 @@ z_ins_get_parent
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr calculate_object_address
+
+	+before_dynmem_read
 !ifndef Z4PLUS {
 	ldy #4
 
@@ -118,6 +124,7 @@ z_ins_get_parent
 }
 
 }
+	+after_dynmem_read
 	jmp z_store_result
 
 z_ins_get_prop_len
@@ -193,7 +200,9 @@ z_ins_remove_obj_body
 	sta .zp_object
 	lda object_tree_ptr + 1
 	sta .zp_object + 1
+	
 	; get parent number
+	+before_dynmem_read
 !ifdef Z4PLUS {
 	ldy #6  ; parent
 
@@ -226,6 +235,8 @@ z_ins_remove_obj_body
 
 	sta .parent_num + 1
 }
+	+after_dynmem_read
+
 	; is there a parent?
 	lda .parent_num
 	ora .parent_num + 1
@@ -238,7 +249,9 @@ z_ins_remove_obj_body
 	lda .parent_num
 	ldx .parent_num + 1
 	jsr calculate_object_address
+
 	; get child number
+	+before_dynmem_read
 !ifdef Z4PLUS {
 	ldy #10  ; child
 
@@ -271,6 +284,8 @@ z_ins_remove_obj_body
 
 	sta .child_num + 1
 }
+	+after_dynmem_read
+
 	; child_num == object_num?
 	lda .child_num
 	cmp object_num
@@ -278,8 +293,11 @@ z_ins_remove_obj_body
 	lda .child_num + 1
 	cmp object_num + 1
 	bne .not_child
+	
 	; object is the child of parent
 	; set child of parent to object's sibling
+
+	+before_dynmem_read
 !ifdef Z4PLUS {
 	ldy #8  ; sibling
 
@@ -327,6 +345,8 @@ z_ins_remove_obj_body
 }
 
 }
+	+after_dynmem_read
+
 	jmp .remove_obj_done
 .not_child
 	; find sibling in dynmen
@@ -334,10 +354,13 @@ z_ins_remove_obj_body
 	ldx .child_num + 1
 	sta .sibling_num
 	stx .sibling_num + 1
+
+	+before_dynmem_read
 -
 	lda .sibling_num
 	ldx .sibling_num + 1
 	jsr calculate_object_address
+
 	; get next sibling number
 !ifdef Z4PLUS {
 	ldy #8  ; sibling
@@ -371,6 +394,7 @@ z_ins_remove_obj_body
 
 	sta .sibling_num + 1
 }
+
 	; while sibling != object
 	lda .sibling_num
 	cmp object_num
@@ -378,6 +402,7 @@ z_ins_remove_obj_body
 	lda .sibling_num + 1
 	cmp object_num + 1
 	bne -
+
 	; .zp_sibling.sibling == object. set to object.sibling instead
 !ifdef Z4PLUS {
 	ldy #8  ; sibling
@@ -416,6 +441,8 @@ z_ins_remove_obj_body
 
 
 }
+	+after_dynmem_read
+
 .remove_obj_done
 	; always set obj.parent and obj.sibling to 0
 	lda #0
@@ -497,13 +524,14 @@ z_ins_print_obj
 
 print_obj
 	jsr calculate_object_address
-!ifndef Z4PLUS {
-	ldy #8
-}
+
 !ifdef Z4PLUS {
 	ldy #13
+} else {
+	ldy #8
 }
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	dey
 	lda #object_tree_ptr
@@ -514,6 +542,7 @@ print_obj
 	dey
 	lda (object_tree_ptr),y ; high byte
 }
+	+after_dynmem_read
 
 	jsr set_z_address
 	jsr read_next_byte ; length of object short name
@@ -524,9 +553,11 @@ z_ins_jin
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr calculate_object_address
+
 !ifndef Z4PLUS {
 	ldy #4  ; parent
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
 	sta $02aa
@@ -535,6 +566,7 @@ z_ins_jin
 } else {
 	lda (object_tree_ptr),y
 }
+	+after_dynmem_read
 
 	cmp z_operand_value_low_arr + 1
 	bne .branch_false
@@ -542,6 +574,7 @@ z_ins_jin
 } else {
 	ldy #6  ; parent
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
 	jsr read_word_from_bank_1_c128
@@ -556,6 +589,7 @@ z_ins_jin
 	lda (object_tree_ptr),y
 	cmp z_operand_value_low_arr + 1
 }
+	+after_dynmem_read
 
 	bne .branch_false
 	beq .branch_true ; Always branch
@@ -565,6 +599,7 @@ z_ins_test_attr
 	; test_attr object attribute ?(label)
 	jsr find_attr
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	stx object_temp
 	lda #object_tree_ptr
@@ -575,6 +610,7 @@ z_ins_test_attr
 } else {
 	lda (object_tree_ptr),y
 }
+	+after_dynmem_read
 
 	and .bitmask,x
 	beq .branch_false
@@ -595,6 +631,7 @@ z_ins_set_attr
 .do_set_attr
 	ldy .attribute_index
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
 	sta $02aa
@@ -615,8 +652,8 @@ z_ins_set_attr
 	ora .bitmask,x
 	sta (object_tree_ptr),y
 }
-
 +
+	+after_dynmem_read
 	rts
 
 z_ins_clear_attr
@@ -631,6 +668,7 @@ z_ins_clear_attr
 .do_clear_attr
 	ldy .attribute_index
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
 	sta $02aa
@@ -654,8 +692,8 @@ z_ins_clear_attr
 	eor .bitmask,x
 	sta (object_tree_ptr),y
 }
-
 +
+	+after_dynmem_read
 	rts
 
 z_ins_insert_obj
@@ -678,6 +716,7 @@ z_ins_insert_obj
 	; object.parent = destination
 	ldy #6 ; parent
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #.zp_object
 	sta write_word_c128_zp_1
@@ -696,6 +735,7 @@ z_ins_insert_obj
 	lda object_num
 	ldx object_num + 1
 	ldy #10
+	+after_dynmem_read
 	jmp write_word_to_bank_1_c128 ; increases y by 1
 } else {
 	lda .dest_num
@@ -721,6 +761,7 @@ z_ins_insert_obj
 	iny
 	lda object_num + 1
 	sta (.zp_dest),y
+	+after_dynmem_read
 	rts
 }
 
@@ -749,6 +790,7 @@ z_ins_insert_obj
 	ldy #6 ; child
 	lda object_num + 1
 	ldx #$7f
+	+after_dynmem_read
 	jmp $02af
 	
 } else {
@@ -765,6 +807,7 @@ z_ins_insert_obj
 	ldy #6 ; child
 	lda object_num + 1
 	sta (.zp_dest),y
+	+after_dynmem_read
 	rts
 }
 
@@ -831,6 +874,7 @@ find_first_prop
 	ldy #8
 }
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	dey
 	lda #object_tree_ptr
@@ -841,6 +885,7 @@ find_first_prop
 	dey
 	lda (object_tree_ptr),y ; high byte
 }
+	+after_dynmem_read
 
 	pha ; a is destroyed by set_z_address
 	jsr set_z_address
@@ -849,7 +894,7 @@ find_first_prop
 	cpx #0
 	bne +
 	rts ; 0,0: no prop block exists, do nothing
-+    jsr read_next_byte ; length of object short name (# of zchars)
++	jsr read_next_byte ; length of object short name (# of zchars)
 	; skip short name (2 * bytes, since in words)
 	pha ; a is destroyed by skip_bytes_z_address
 	jsr skip_bytes_z_address
@@ -903,6 +948,7 @@ z_ins_get_prop
 	tay
 	dey
 
+	+before_dynmem_read
 !ifdef TARGET_C128 {
 	dey
 	lda #default_properties_ptr
@@ -913,7 +959,7 @@ z_ins_get_prop
 	dey
 	lda (default_properties_ptr),y
 }
-	
+	+after_dynmem_read	
 	jmp .return_property_result
 .property_found
 	lda .property_length

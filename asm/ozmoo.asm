@@ -246,13 +246,17 @@ c128_reset_to_basic
 ; Adding support for 2MHz in the border
 ; https://sites.google.com/site/h2obsession/CBM/C128/2mhz-border
 
+allow_2mhz !byte $ff
+
 ;phase 2 of 2MHz speed-up = change CPU to 2MHz
 ;and set raster IRQ for top-of-screen less 1 raster
 ;and do normal KERNAL routines of IRQ
 c128_border_phase2
 	lda #1
+	ldx allow_2mhz
+	beq +
 	sta $d030	;CPU = 2MHz
-	sta $d019	;clear VIC raster IRQ
++	sta $d019	;clear VIC raster IRQ
 	lda #<c128_border_phase1    ;set top-of-screen (phase 1)
 	ldx #>c128_border_phase1
 	sta $0314        ;as new IRQ vector
@@ -791,6 +795,8 @@ z_init
 
 	
 !ifdef BENCHMARK {
+	lda #$ff
+	ldx #$80
 	ldy #1
 	jmp z_rnd_init
 } else {
@@ -1341,8 +1347,28 @@ copy_page_to_reu
 	; a,x = REU page
 	; y = C64 page
 	jsr store_reu_transfer_params
+
+!ifdef TARGET_C128 {	
+	lda #0
+	sta allow_2mhz
+	lda #0
+	sta $d030	;CPU = 1MHz
+}
+
 	lda #%10010000;  c64 -> REU with immediate execution
 	sta reu_command
+
+!ifdef TARGET_C128 {	
+	lda #1
+	sta allow_2mhz
+	lda COLS_40_80
+	beq +
+	lda #1
+	sta $d030	;CPU = 2MHz
++
+}
+
+
 	rts
 
 .no_reu

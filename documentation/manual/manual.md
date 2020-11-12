@@ -4,7 +4,7 @@
 
 Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
 
-Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Currently full or partial versions of Ozmoo run on the Commodore 128, Commodore Plus/4 and Mega65 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
+Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Apart from Commodore 64, Ozmoo can currently target the Commodore 128, Commodore Plus/4 and Mega65 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
 
 ## Features
 
@@ -23,18 +23,19 @@ Ozmoo for the Commodore 64 supports:
 - Building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
 - Building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator. Ozmoo uses the 1581 disk format's partitioning mechanism to protect the game data from being overwritten, which means you can safely use the game disk for game saves as well, thus eliminating the need for disk swapping when saving/restoring.
 - Using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
+- Adding a loader which shows an image while the game loads.
 
 ## Limitations
 
 Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game can be up to 512 KB in size). However, there are some limitations:
 
-- A Z-code file always starts with a section called dynamic memory. Ozmoo will not be able to handle games with more than roughly 35 KB of dynamic memory.
+- A Z-code file always starts with a section called dynamic memory. Ozmoo on the Commodore 64 can't handle games with more than roughly 35 KB of dynamic memory.
 - If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 170 KB. This typically means the game file can be about 190 KB in size.
 - Some Inform 6 games and pretty much all Inform 7 games are too slow to be much fun on a Commodore 64. In general Infocom games, PunyInform games and modern-day ZIL games work the best. Inform 5 games and early Inform 6 games (typically using library 6/1 or 6/2) often work well too.
 
 # Quickstart
 
-The simplest but also somewhat limited option, is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. Ozmoo online is located at: http://microheaven.com/ozmooonline/
+The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: http://microheaven.com/ozmooonline/
 
 The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X. To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. 
 
@@ -110,9 +111,7 @@ Use these step to build a game with optimized preloaded virtual memory data whic
 
 # Targets
 
-While Ozmoo was written for the Commodore 64, it is possible to target
-other similar computers. make.rb takes a -t:target argument to enable such
-future extensions, and currently supports these platforms:
+Ozmoo was originally written for the Commodore 64, but has been adapted for some other computers as well. make.rb takes a -t:target argument to build for other computers, and currently supports these platforms:
 
 | Target | Comment |
 | -- | ---- |
@@ -121,31 +120,31 @@ future extensions, and currently supports these platforms:
 | -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
 | -t:mega65 | Build Ozmoo for the Mega65 |
 
-Note that not all build options are supported for every platform. If an option isn't supported, then the make.rb script will stop with an appropriate error message, and no Ozmoo files will be built.
+Note that not all build options are supported for every platform. If an option isn't supported, the make.rb script will stop with an appropriate error message, and no Ozmoo files will be produced.
 
 ## Commodore 64
 
-The Commodore 64 version is the default build target, and supports all build options.
+The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than ~30 KB may not be advisable. An REU can be used for caching if present.
 
 ## Commodore 128
 
-The Commodore 128 version is automatically detecting if it is started from 40 or 80 columns mode, and adjusting itself accordingly. It makes use of the additional ram available compared to the Commodore 64 version, and allows game with up to 50 KB dynamic memory.
+The Commodore 128 version automatically detects if it is started from 40 or 80 columns mode, and adjusts to the screen size. When run in 80 column mode, the CPU runs at 2 MHz, making for quite responsive games. It makes use of the additional ram available compared to the Commodore 64 version, and allows for games with up to 44 KB dynamic memory. An REU can be used for caching if present. 
 
-Currently the Commodore 128 version does not allow custom fonts or customized cursors in 80 column mode.
+The Commodore 128 version does not allow a loader image, and build mode -P is not supported.
 
 ## Commodore Plus/4
 
-The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, and allows game with up to 50 KB dynamic memory.
+The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than ~30 KB may still not be advisable.
 
 ## Mega65
 
-The Mega65 is recreation of the Commodore 65 computer which was never released. It can currently be built on FPGA or run on an emulator. More information can be found at https://mega65.org/
+The Mega65 is a recreation of the Commodore 65 computer which was never released. It can currently be built on FPGA or run on an emulator. More information can be found at https://mega65.org/
 
-The Mega65 version is always build with the -81 option, but apart from this all options are supported. The screen is always set to 80 columns.
+The Mega65 version is always built using the -81 build mode, but apart from this all options are supported. The screen is always set to 80 columns.
 
 ## Other targets
 
-A fork of Ozmoo targets the the Acorn computers (BBC Micro and other variants), and can be found at https://github.com/ZornsLemma/ozmoo/tree/acorn. Note that this fork is using a different build script called maek-acorn.py.
+A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at https://github.com/ZornsLemma/ozmoo/tree/acorn. Note that this fork is using a different build script called make-acorn.py.
 
 # Build Modes
 
@@ -184,7 +183,7 @@ Disks used:
 S2: _Single 1541 drive, two disks_
 
 - Story file size < ~190 KB: Full preloading. Full amount of RAM available for virtual memory system.
-- Story file size < ~210 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+<!-- - Story file size < ~210 KB: Full preloading. Less RAM available for virtual memory system the larger the story file. -->
 
 Disks used:
 
@@ -206,13 +205,24 @@ Disks used:
 D3: _Double 1541 drives, three disks_
 
 - Story file size < ~370 KB: Full preloading. Full amount of RAM available for virtual memory system.
-- Story file size < ~390 KB: Full preloading. Less RAM available for virtual memory system the larger the story file.
+<!-- - Story file size < ~390 KB: Full preloading. Less RAM available for virtual memory system the larger the story file. -->
 
 Disks used:
 
 - Boot disk
 - Story disk 1
 - Story disk 2
+
+### Modes requiring a 1571 drive for play:
+
+71: _Single 1571 drive, one disk_
+
+- Story file size < ~320 KB: Full preloading. Full amount of RAM available for virtual memory system.
+- Story file size < ~340 KB: Less preloading the larger the story file. Full amount of RAM available for virtual memory system.
+
+Disks used:
+
+- Boot / Story disk
 
 ### Modes requiring a 1581 drive for play:
 
@@ -226,25 +236,24 @@ Disks used:
 
 - Boot / Story disk
 
-### Modes requiring a 1571 or an SD2IEC:
+### Modes requiring an SD2IEC:
 
-To be added at a later date. A single drive 1571 mode could be used for story files up to about 360 KB in size. SD2IEC mode could enable full 512 KB story sizes.
+To be added at a later date. An SD2IEC mode could enable full 512 KB story sizes.
 
 # Splash Screen
 
 By default, Ozmoo will show a splash screen just before the game starts. At the bottom of the screen is a line of text stating the version of Ozmoo used and instructions to use F1 to toggle darkmode. After three seconds, or when the player presses a key, the game starts.
 
-You can use the following commandline parameters to alter this behaviour:
+You can use the following commandline parameters add up to four lines of text to the splash screen:
 
     -ss1:"text"
     -ss2:"text"
     -ss3:"text"
     -ss4:"text"
-These parameters can be used to add up to four lines of text to the splash screen.
 
     -sw:nnn
 This sets the number of seconds that Ozmoo will pause on the splash screen. The default is three seconds if no text has been added, and ten seconds if text has been added. A value of 0 will remove the splashscreen completely.
-	
+
 Example:
 
 ```
@@ -329,21 +338,23 @@ The Commodore 64 has 16 colours, numbered 0-15:
     14 = light blue
     15 = light grey
 
+When building Ozmoo for the Plus/4, Ozmoo has a list of Plus/4 colours which are approximately equivalent to the 16 colours of the C64. Thus, you use the same colour numbers as for the C64 when referring to "native" (non Z-code) colours.
+
+The 80-column mode of the C128 has a different and rather limited palette. Ozmoo tries to use colours which are approximately the same as the C64 colours.
+
 ## Examples
 
-Use cyan text on black background with a yellow statusbar (only works for z3!):
+Use cyan text on black background with a yellow statusbar (Please note that specifying the colour of the statusbar only works for z3!):
 
 ```
 make.rb -dc:2:8 -sc:5 game.z3
 ```
-
 
 Change so Z-code color 7 is dark grey instead of magenta and Z-code color 8 is light grey instead of cyan, and use these as default colors:
 
 ```
 make.rb -rc:7=11,8=15 -dc:7:8 game.z5
 ```
-
 
 Setting up the default palette (even though this isn't useful) is equivalent to using:
 
@@ -389,4 +400,13 @@ You are free to use one of these fonts in a game you make and distribute, regard
 
 To see all the licensing details for each font, read the corresponding license file in the "fonts" folder. The full information in the license file must also be included with the game distribution if you embed a font with a game.
 
+
+# Loader image
+
+When building for the Commodore 64 or Plus/4, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be a Koala paint multicolour image (10003 bytes in size) when building a game for the C64, or a Multi Botticelli multicolour image (10050 bytes in size) when building a game for the Plus/4. Border flicker is not supported for the Plus/4. Example commands:
+
+```
+make.rb -if mountain.kla game.z5
+make.rb -i spaceship.mb -t:plus4 game.z5
+```
 

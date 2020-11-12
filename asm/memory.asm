@@ -283,18 +283,14 @@ copy_page
 	sty .copy + 5
 	sei
 	+set_memory_all_ram_unsafe
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
-} 
+	+before_dynmem_read
 -   ldy #0
 .copy
 	lda $8000,y
 	sta $8000,y
 	iny
 	bne .copy
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_rom
-} 
+	+after_dynmem_read
 	+set_memory_no_basic_unsafe
 	cli
 	rts

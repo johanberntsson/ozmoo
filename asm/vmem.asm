@@ -22,15 +22,9 @@ read_byte_at_z_address
 	; same 256 byte segment, just return
 .return_result
 	ldy #0
-!ifdef TARGET_PLUS4 {
-	sei
-	sta plus4_enable_ram
+	+before_dynmem_read
 	lda (mempointer),y
-	sta plus4_enable_rom
-	cli
-} else {
-	lda (mempointer),y
-}
+	+after_dynmem_read
 	rts
 .read_new_byte
 	txa
@@ -453,15 +447,10 @@ read_byte_at_z_address
 	; same 256 byte segment, just return
 .read_and_return_value
 	ldy #0
-!ifdef TARGET_PLUS4 {
-	sei
-	sta plus4_enable_ram
+	+before_dynmem_read
 	lda (mempointer),y
-	sta plus4_enable_rom
-	cli
-} else {
-	lda (mempointer),y
-}
+	+after_dynmem_read
+
 	rts
 .read_new_byte
 	cmp #0
@@ -900,14 +889,8 @@ read_byte_at_z_address
 	sta mempointer + 1
 .return_result
 	ldy #0
-!ifdef TARGET_PLUS4 {
-	sei
-	sta plus4_enable_ram
+	+before_dynmem_read
 	lda (mempointer),y
-	sta plus4_enable_rom
-	cli
-} else {
-	lda (mempointer),y
-}
+	+after_dynmem_read
 	rts
 }

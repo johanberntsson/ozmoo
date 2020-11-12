@@ -14,8 +14,6 @@
 
 plus4_enable_ram = $ff3f
 plus4_enable_rom = $ff3e
-;plus4_enable_ram = $0c00
-;plus4_enable_rom = $0c00
 
 ; C128 MMU ($ff00)
 ; 7–6 Processor RAM bank (0–3)
@@ -39,6 +37,19 @@ plus4_enable_rom = $ff3e
 ; 0   Contents of the area $D000–$DFFF
 ;   0 I/O registers
 ;   1 RAM or character generator ROM
+
+!macro before_dynmem_read {
+!ifdef TARGET_PLUS4 {
+	sei
+	sta plus4_enable_ram
+}
+}
+!macro after_dynmem_read {
+!ifdef TARGET_PLUS4 {
+	sta plus4_enable_rom
+	cli
+}
+}
 
 !macro set_memory_all_ram {
 	; Don't forget to disable interrupts first!

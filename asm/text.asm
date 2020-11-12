@@ -1120,22 +1120,23 @@ update_cursor
 	lda s_cursorswitch
 	bne +++
 	; no cursor
-!ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq +
-	; 80 columns
-	jsr VDCGetChar
-	and #$7f
-	jsr VDCPrintChar
-	jmp .vdc_printed_char
-+	; 40 columns
-}
-;	lda (zp_screenline),y
-;	and #$7f
-	lda #32 ; Space
-	sta (zp_screenline),y
+	jsr s_delete_cursor
+; !ifdef TARGET_C128 {
+	; ldx COLS_40_80
+	; beq +
+	; ; 80 columns
+	; jsr VDCGetChar
+	; and #$7f
+	; jsr VDCPrintChar
+	; jmp .vdc_printed_char
+; +	; 40 columns
+; }
+; ;	lda (zp_screenline),y
+; ;	and #$7f
+	; lda #32 ; Space
+	; sta (zp_screenline),y
 
-.vdc_printed_char
+; .vdc_printed_char
 
 	ldy object_temp
 	rts

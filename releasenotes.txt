@@ -125,6 +125,7 @@ New features:
 - New option -u to do less checks for runtime errors, making the interpreter 
   a little smaller and faster
 - All produced disk images get names starting with the platform name
+- New build mode -71, producing 1571 disk images. Can only be used for target C128.
 
 Optimizations:
 - Increased block age resolution by 1 bit, which should lead to better paging,

@@ -12,8 +12,26 @@ copy_page_from_reu
 	; a,x = REU page
 	; y = C64 page
 	jsr store_reu_transfer_params
+
+!ifdef TARGET_C128 {	
+	lda #0
+	sta allow_2mhz
+	lda #0
+	sta $d030	;CPU = 1MHz
+}
+
 	lda #%10010001;  REU -> c64 with immediate execution
 	sta reu_command
+
+!ifdef TARGET_C128 {	
+	lda #1
+	sta allow_2mhz
+	lda COLS_40_80
+	beq +
+	lda #1
+	sta $d030	;CPU = 2MHz
++
+}
 	rts
 
 store_reu_transfer_params

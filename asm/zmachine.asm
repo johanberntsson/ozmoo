@@ -970,18 +970,12 @@ z_get_referenced_value
 .in_bank_0
 }
 	ldy #1
-!ifdef TARGET_PLUS4 {
-	sei
-	sta plus4_enable_ram
-} 
+	+before_dynmem_read
 	lda (zp_temp),y
 	tax
 	dey
 	lda (zp_temp),y
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_rom
-	cli
-}
+	+after_dynmem_read
 	rts
 
 .find_global_var
@@ -1028,18 +1022,12 @@ z_get_low_global_variable_value
 } else {
 	; Not TARGET_C128
 	iny
-!ifdef TARGET_PLUS4 {
-	sei
-	sta plus4_enable_ram
-} 
+	+before_dynmem_read
 	lda (z_low_global_vars_ptr),y
 	tax
 	dey
 	lda (z_low_global_vars_ptr),y
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_rom
-	cli
-}
+	+after_dynmem_read
 	rts ; Note that caller may assume that carry is clear on return!
 } ; End else - Not TARGET_C128
 

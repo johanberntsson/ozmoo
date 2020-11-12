@@ -63,9 +63,8 @@ MODE_S1 = 2
 MODE_S2 = 3
 MODE_D2 = 4
 MODE_D3 = 5
-MODE_81 = 6
-
-mode = MODE_S1
+MODE_71 = 6
+MODE_81 = 7
 
 DISKNAME_BOOT = 128
 DISKNAME_STORY = 129
@@ -390,6 +389,218 @@ class D64_image < Disk_image
 	end
 	
 end # class D64_image
+
+class D71_image < Disk_image
+	def initialize(disk_title:, diskimage_filename:, is_boot_disk:)
+		puts "Creating disk image..."
+
+		@disk_title = disk_title
+		@diskimage_filename = diskimage_filename
+		@is_boot_disk = is_boot_disk
+
+		@tracks = 70
+		@track_length = Array.new(@tracks + 1) {|track| 
+			track == 0 ? 0 :
+			track < 18 ? 21 : 
+			track < 25 ? 19 : 
+			track < 31 ? 18 :
+			track < 36 ? 17 :
+			track < 53 ? 21 :
+			track < 60 ? 19 :
+			track < 66 ? 18 :
+			17
+		}
+#		puts "Tracks: #{@track_length.to_s}"
+
+		base_initialize()
+
+		@interleave = 5
+
+		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
+		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@reserved_sectors[53] = 2 # 2: Skip BAM and 1 extra block (we can't skip just 1 block)
+		@reserved_sectors[@config_track] = 2 if @is_boot_disk
+
+		calculate_initial_free_blocks()
+			
+		# BAM
+		@track1800 = [
+			# $16500 = 91392 = 357 (18,0)
+			0x12,0x01, # track/sector
+			0x41, # DOS version
+			0x80, # $80 = Double-sided
+			# <free sectors>,<0-7>,<8-15>,<16-?, remaining bits 0>
+			0x15,0xff,0xff,0x1f, # 16504, track 01 (21 sectors)
+			0x15,0xff,0xff,0x1f, # 16508, track 02
+			0x15,0xff,0xff,0x1f, # 1650c, track 03
+			0x15,0xff,0xff,0x1f, # 16510, track 04
+			0x15,0xff,0xff,0x1f, # 16514, track 05
+			0x15,0xff,0xff,0x1f, # 16518, track 06
+			0x15,0xff,0xff,0x1f, # 1651c, track 07
+			0x15,0xff,0xff,0x1f, # 16520, track 08
+			0x15,0xff,0xff,0x1f, # 16524, track 09
+			0x15,0xff,0xff,0x1f, # 16528, track 10
+			0x15,0xff,0xff,0x1f, # 1652c, track 11
+			0x15,0xff,0xff,0x1f, # 16530, track 12
+			0x15,0xff,0xff,0x1f, # 16534, track 13
+			0x15,0xff,0xff,0x1f, # 16538, track 14
+			0x15,0xff,0xff,0x1f, # 1653c, track 15
+			0x15,0xff,0xff,0x1f, # 16540, track 16
+			0x15,0xff,0xff,0x1f, # 16544, track 17
+			0x11,0xfc,0xff,0x07, # 16548, track 18 (19 sectors)
+			0x13,0xff,0xff,0x07, # 1654c, track 19
+			0x13,0xff,0xff,0x07, # 16550, track 20
+			0x13,0xff,0xff,0x07, # 16554, track 21
+			0x13,0xff,0xff,0x07, # 16558, track 22
+			0x13,0xff,0xff,0x07, # 1655c, track 23
+			0x13,0xff,0xff,0x07, # 16560, track 24
+			0x12,0xff,0xff,0x03, # 16564, track 25 (18 sectors)
+			0x12,0xff,0xff,0x03, # 16568, track 26
+			0x12,0xff,0xff,0x03, # 1656c, track 27
+			0x12,0xff,0xff,0x03, # 16570, track 28
+			0x12,0xff,0xff,0x03, # 16574, track 29
+			0x12,0xff,0xff,0x03, # 16578, track 30
+			0x11,0xff,0xff,0x01, # 1657c, track 31 (17 sectors)
+			0x11,0xff,0xff,0x01, # track 32
+			0x11,0xff,0xff,0x01, # track 33
+			0x11,0xff,0xff,0x01, # track 34
+			0x11,0xff,0xff,0x01, # track 35
+			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0, # label (game name)
+			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,
+			0xa0,0xa0,0x30,0x30,0xa0,0x32,0x41,0xa0,
+			0xa0,0xa0,0xa0,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00, # -$dc
+			0x15,0x15,0x15, # $dd- (free sector count for track 36-70)
+			0x15,0x15,0x15,0x15,0x15,0x15,0x15,0x15,
+			0x15,0x15,0x15,0x15,0x15,0x15,0x11,0x13,
+			0x13,0x13,0x13,0x13,0x13,0x12,0x12,0x12,
+			0x12,0x12,0x12,0x11,0x11,0x11,0x11,0x11
+		]
+		@track5300 = [
+			# <0-7>,<8-15>,<16-?, remaining bits 0>
+			0xff,0xff,0x1f, # track 36 (21 sectors)
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xfc,0xff,0x07, # track 53 (19 sectors, 2 used)
+			0xff,0xff,0x07, # track 54 (19 sectors)
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x03, # track 60 (18 sectors)
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x01, # track 66 (17 sectors)
+			0xff,0xff,0x01,
+			0xff,0xff,0x01,
+			0xff,0xff,0x01,
+			0xff,0xff,0x01,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00, # $69-$6f
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$70-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$80-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$90-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$a0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$b0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$c0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$d0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$e0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$f0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+		]
+		# Create a disk image. Return number of free blocks, or -1 for failure.
+
+#		for track in 36 .. 40 do
+#			@track1800[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > @tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
+#		end
+		
+		# Set disk title
+		c64_title = name_to_c64(disk_title)
+		@track1800[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
+		[c64_title.length, 0x10].min.times do |charno|
+			@track1800[0x90 + charno] = c64_title[charno].ord
+		end
+		
+		if @is_boot_disk then
+			allocate_sector(@config_track, 0)
+			allocate_sector(@config_track, 1)
+		end
+
+		@free_blocks
+	end # initialize
+
+
+	private
+	
+	def allocate_sector(track, sector)
+		print "*" if $PRINT_DISK_MAP
+		if track > 35 then # BAM is (mostly) in sector 53:0
+			index1 = 0xdd + track - 36
+			index2 = 3 * (track - 1) + (sector / 8)
+			# adjust number of free sectors
+			@track1800[index1] -= 1
+			# allocate sector
+			index3 = 255 - 2**(sector % 8)
+			@track5300[index2] &= index3
+		else
+			index1 = 4 * track
+			index2 = 4 * track + 1 + (sector / 8)
+			if track > 35 then # BAM is (mostly) in sector 53:0
+				index1 += 0x30
+				index2 += 0x30
+			end
+			# adjust number of free sectors
+			@track1800[index1] -= 1
+			# allocate sector
+			index3 = 255 - 2**(sector % 8)
+			@track1800[index2] &= index3
+		end
+	end
+
+	def add_directory()
+		# Add disk info and BAM at 18:00
+		@contents[@track_offset[18] * 256 .. @track_offset[18] * 256 + 255] = @track1800
+
+		# Add directory at 18:01
+		@contents[@track_offset[18] * 256 + 256] = 0 
+		@contents[@track_offset[18] * 256 + 257] = 0xff 
+
+		# Add BAM 53:00
+		@contents[@track_offset[53] * 256 .. @track_offset[53] * 256 + 255] = @track5300
+
+	end
+	
+end # class D71_image
 
 class D81_image < Disk_image
 	def initialize(disk_title:, diskimage_filename:)
@@ -740,9 +951,10 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
+		asm_clause = " -s #{$commandline_quotemark}lda $d021 sta $d020 lda \#1 sta $d030#{$commandline_quotemark} -f #{$commandline_quotemark}lda \#0 sta $d030#{$commandline_quotemark}"
 #		decrunch_effect = " -X #{$commandline_quotemark}txa and \#$1f sta $0400 sty $d800#{$commandline_quotemark}"
 #		decrunch_effect = " -X #{$commandline_quotemark}stx $0400#{$commandline_quotemark}"
-		decrunch_effect = " -x2"
+		decrunch_effect = " -n"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
@@ -1244,6 +1456,76 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	nil # Signal success
 end
 
+def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
+	max_story_blocks = 9999
+	
+	boot_disk = true
+
+	diskfilename = "#{$target}_#{storyname}.d71"
+
+	disk = D71_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk)
+
+	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: nil)
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
+		exit 1
+	end
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}"
+
+#	# Build picture loader
+#	if $loader_pic_file
+#		loader_size = build_loader_file()
+#		free_blocks -= (loader_size / 254.0).ceil
+#		puts "Free disk blocks after loader has been written: #{free_blocks}"
+#	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
+#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
+#	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
+	if vmem_preload_blocks < 0
+		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
+		exit 1
+	end
+	vmem_data[2] = vmem_preload_blocks
+
+	# Add config data about boot / story disk
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+	
+	config_data += vmem_data
+
+	#	puts config_data
+	disk.set_config_data(config_data)
+	
+	disk.save()
+	
+#	# Add picture loader
+#	if $loader_pic_file
+#		if add_loader_file(diskimage_filename) != true
+#			puts "ERROR: Failed to write loader to disk."
+#			exit 1
+#		end
+#	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
+	if add_boot_file(diskfilename, diskimage_filename) != true
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
+		exit 1
+	end
+
+	$bootdiskname = "#{diskfilename}"
+	puts "Successfully built game as #{$bootdiskname}"
+	nil # Signal success
+end
+
 def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
 
 	diskfilename = "#{$target}_#{storyname}.d81"
@@ -1313,7 +1595,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 end
 
 def print_usage_and_exit
-	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P]"
 	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] -u"
 	puts "         [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
@@ -1350,6 +1632,7 @@ end
 splashes = [
 "", "", "", ""
 ]
+mode = nil
 $interpreter_number = nil
 i = 0
 await_preloadfile = false
@@ -1436,6 +1719,8 @@ begin
 			mode = MODE_D2
 		elsif ARGV[i] =~ /^-D3$/ then
 			mode = MODE_D3
+		elsif ARGV[i] =~ /^-71$/ then
+			mode = MODE_71
 		elsif ARGV[i] =~ /^-81$/ then
 			mode = MODE_81
 		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
@@ -1492,14 +1777,33 @@ rescue
 	print_usage_and_exit()
 end
 
+if mode == nil
+	if $target == 'c128'
+		mode = MODE_71
+	else 
+		target = MODE_S1
+	end
+end
+
+if mode == MODE_71 and $target != 'c128'
+	puts "ERROR: Build mode 71 is not supported on this target platform."
+	exit 1
+end
+
 if mode == MODE_P and $target == 'c128'
 	puts "ERROR: Build mode P is not supported on this target platform."
 	exit 1
 end
 
-if $loader_pic_file and $target != 'c64' and $target != 'plus4'
-	puts "ERROR: Image loader is not supported on this target platform."
-	exit 1
+if $loader_pic_file
+	if $target != 'c64' and $target != 'plus4'
+		puts "ERROR: Image loader is not supported on this target platform."
+		exit 1
+	end
+	if $target == 'plus4' and $loader_flicker
+		puts "ERROR: Flicker during loading is not supported on this target platform."
+		exit 1
+	end
 end
 
 if $font_filename
@@ -1850,6 +2154,9 @@ when MODE_D3
 	d64_filename_3 = File.join($TEMPDIR, "temp3.d64")
 	error = build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, 
 		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+when MODE_71
+	diskimage_filename = File.join($TEMPDIR, "temp1.d71")
+	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
 	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
