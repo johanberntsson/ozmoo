@@ -566,9 +566,10 @@ class D71_image < Disk_image
 		print "*" if $PRINT_DISK_MAP
 		if track > 35 then # BAM is (mostly) in sector 53:0
 			index1 = 0xdd + track - 36
-			index2 = 3 * (track - 1) + (sector / 8)
+			index2 = 3 * (track - 36) + (sector / 8)
 			# adjust number of free sectors
 			@track1800[index1] -= 1
+
 			# allocate sector
 			index3 = 255 - 2**(sector % 8)
 			@track5300[index2] &= index3
