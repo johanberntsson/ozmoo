@@ -375,6 +375,9 @@ game_id		!byte 0,0,0,0
 	; switch to 2MHz
 	lda #1
 	sta $d030	;CPU = 2MHz
+	lda $d011
+	and #$ef
+	sta $d011
 	jmp ++
 +	; 40 columns mode
 	; use 2MHz only when rasterline is in the border for VIC-II
