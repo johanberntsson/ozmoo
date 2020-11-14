@@ -1707,6 +1707,7 @@ begin
 			elsif $target == "c128" then
 			    # Different start address
 			    $start_address = 0x1200
+#			    $start_address = 0x1c00
 				$memory_end_address = 0xfc00
 				$normal_ram_end_address = $memory_end_address
 			end
@@ -1778,11 +1779,11 @@ rescue
 	print_usage_and_exit()
 end
 
-if mode == nil
+unless mode
 	if $target == 'c128'
 		mode = MODE_71
 	else 
-		target = MODE_S1
+		mode = MODE_S1
 	end
 end
 
