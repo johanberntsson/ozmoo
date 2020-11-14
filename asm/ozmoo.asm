@@ -1349,14 +1349,15 @@ copy_data_from_disk_at_zp_temp_to_reu
 copy_page_to_reu
 	; a,x = REU page
 	; y = C64 page
-	jsr store_reu_transfer_params
-
-!ifdef TARGET_C128 {	
+!ifdef TARGET_C128 {
+	pha
 	lda #0
 	sta allow_2mhz
-	lda #0
 	sta $d030	;CPU = 1MHz
+	pla
 }
+
+	jsr store_reu_transfer_params
 
 	lda #%10010000;  c64 -> REU with immediate execution
 	sta reu_command
@@ -1370,7 +1371,6 @@ copy_page_to_reu
 	sta $d030	;CPU = 2MHz
 +
 }
-
 
 	rts
 

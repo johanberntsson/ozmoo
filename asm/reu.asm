@@ -11,14 +11,15 @@ reu_control  = $DF0A
 copy_page_from_reu
 	; a,x = REU page
 	; y = C64 page
-	jsr store_reu_transfer_params
-
-!ifdef TARGET_C128 {	
+!ifdef TARGET_C128 {
+	pha
 	lda #0
 	sta allow_2mhz
-	lda #0
 	sta $d030	;CPU = 1MHz
+	pla
 }
+
+	jsr store_reu_transfer_params
 
 	lda #%10010001;  REU -> c64 with immediate execution
 	sta reu_command
