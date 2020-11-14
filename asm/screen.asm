@@ -411,23 +411,34 @@ clear_num_rows
 	rts
 
 !ifdef TARGET_C128 {
-vdc_set_more_address
+vdc_set_more_char_address
     lda #$cf ; low
     ldy #$07 ; high
     jmp VDCSetAddress
 
+vdc_set_more_colour_address
+    lda #$cf ; low
+    ldy #$0f ; high
+    jmp VDCSetAddress
+
 vdc_show_more
-	jsr vdc_set_more_address
+	; character
+	jsr vdc_set_more_char_address
 	ldx #VDC_DATA
 	jsr VDCReadReg
 	sta .more_text_char
-	jsr vdc_set_more_address
+	jsr vdc_set_more_char_address
 	lda #128 + $2a ; screen code for reversed "*"
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	; colour
+	jsr vdc_set_more_colour_address
+	lda s_colour
 	ldx #VDC_DATA
 	jmp VDCWriteReg
 
 vdc_hide_more
-	jsr vdc_set_more_address
+	jsr vdc_set_more_char_address
 	lda .more_text_char
 	ldx #VDC_DATA
 	jmp VDCWriteReg

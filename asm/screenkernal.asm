@@ -991,6 +991,9 @@ toggle_darkmode
 	lda z_temp + 7 ; For Z3 and Z4 we can just load this value before the loop  
 }
 .compare
+!ifdef TARGET_C128 {
+	lda z_temp + 7  ; too much work to read old colour from VDC
+} else {
 !ifdef Z5PLUS {
 	lda (z_temp + 10),y
 !ifndef TARGET_PLUS4 {
@@ -1002,6 +1005,7 @@ toggle_darkmode
 	bne .dont_change
 .change	
 	lda z_temp + 7
+}
 }
 !ifdef TARGET_C128 {
 	pha
