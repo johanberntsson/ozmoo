@@ -136,4 +136,4 @@ Special thanks to:
 * Eric Sherman for adding cursor customization support
 * Paul Gardner-Stephen for porting Ozmoo to the Mega65
 * Steve Flintham for bug fixes and porting Ozmoo to Acorn computers
-
+* Bart van Leeuwen for testing Ozmoo on the C128
