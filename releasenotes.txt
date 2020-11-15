@@ -126,6 +126,7 @@ New features:
   a little smaller and faster
 - All produced disk images get names starting with the platform name
 - New build mode -71, producing 1571 disk images. Can only be used for target C128.
+- Disk drives with device# 8-15 can now be used.
 
 Optimizations:
 - Increased block age resolution by 1 bit, which should lead to better paging,

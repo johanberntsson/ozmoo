@@ -1,5 +1,5 @@
 first_unavailable_save_slot_charcode	!byte 0
-current_disks !byte $ff, $ff, $ff, $ff
+current_disks !byte $ff, $ff, $ff, $ff,$ff, $ff, $ff, $ff
 boot_device !byte 0
 ask_for_save_device !byte $ff
 
@@ -9,7 +9,7 @@ disk_info
 	!byte 8, 8, 0, 0, 0, 130, 131, 0 
 } else {
 
-device_map !byte 0,0,0,0
+device_map !byte 0,0,0,0,0,0,0,0
 
 nonstored_blocks		!byte 0
 readblocks_numblocks	!byte 0 
@@ -920,36 +920,51 @@ list_save_files
 
 maybe_ask_for_save_device
 	lda ask_for_save_device
-	beq .dont_ask
-	lda #0
-	sta ask_for_save_device
+	beq .ok_dont_ask
 .ask_again
 	lda #>.save_device_msg ; high
 	ldx #<.save_device_msg ; low
 	jsr printstring_raw
 	jsr .input_alphanum
 	cpx #0
-	beq .dont_ask
+	beq .ok_dont_ask
 	cpx #3
-	bcs .ask_again
+	bcs .incorrect_device
 	; One or two digits
 	cpx #1
 	bne .two_digits
 	lda .inputstring
-	and #1
-	ora #8
+	cmp #$38
+	bcc .incorrect_device
+	cmp #$3a
+	bcs .incorrect_device
+	and #$0f
 	bne .store_device ; Always jump
 .two_digits
+	lda .inputstring
+	cmp #$31
+	bne .incorrect_device
 	lda .inputstring + 1
-	and #1
-	ora #10
+	cmp #$30
+	bcc .incorrect_device
+	cmp #$36
+	bcs .incorrect_device
+	and #$0f
+	adc #$10 ; Carry already clear
 .store_device
 	sta disk_info + 4
-.dont_ask
+.ok_dont_ask
+	lda #0
+	sta ask_for_save_device
+	clc ; All OK
+	rts
+.incorrect_device
+	sec
 	rts
 	
 restore_game
 	jsr maybe_ask_for_save_device
+	bcs .restore_failed
 
 	jsr .insert_save_disk
 
@@ -1028,6 +1043,7 @@ restore_game
 save_game
 
 	jsr maybe_ask_for_save_device
+	bcs .restore_failed
 
 	jsr .insert_save_disk
 
@@ -1173,13 +1189,13 @@ do_save
 	rts
 .last_disk	!byte 0
 .saveslot !byte 0
-.saveslot_msg_save	!pet 13,"Save to",0 ; Will be modified to say highest available slot #
-.saveslot_msg_restore	!pet 13,"Restore from",0 ; Will be modified to say highest available slot #
+.saveslot_msg_save	!pet 13,"Save to",0
+.saveslot_msg_restore	!pet 13,"Restore from",0
 .saveslot_msg	!pet " slot (0-9, RETURN=cancel): ",0 ; Will be modified to say highest available slot #
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,"Saving...",13,0
 .restore_msg	!pet 13,"Restoring...",13,0
-.save_device_msg !pet 13,"Device# (8-11, RETURN=default): ",0
+.save_device_msg !pet 13,"Device# (8-15, RETURN=default): ",0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save

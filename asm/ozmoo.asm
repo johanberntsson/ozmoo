@@ -954,7 +954,7 @@ deletable_init
 	ldy CURRENT_DEVICE
 	cpy #8
 	bcc .pick_default_boot_device
-	cpy #12
+	cpy #16
 	bcc .store_boot_device
 .pick_default_boot_device
 	ldy #8
