@@ -1592,7 +1592,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		exit 1
 	end
 
-	$bootdiskname = "#{storyname}.d81"
+	$bootdiskname = "#{diskfilename}"
 	puts "Successfully built game as #{$bootdiskname}"
 	nil # Signal success
 end
