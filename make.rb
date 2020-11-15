@@ -867,7 +867,9 @@ def build_interpreter()
 	if $target == "mega65" then
 		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" asm/c65toc64wrapper.asm"
 		puts cmd
+		Dir.chdir $SRCDIR
 		ret = system(cmd)
+		Dir.chdir $EXECDIR
 		exit 0 unless ret
 	end
     
