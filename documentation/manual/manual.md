@@ -116,7 +116,7 @@ Ozmoo was originally written for the Commodore 64, but has been adapted for some
 | Target | Comment |
 | -- | ---- |
 | -t:c64 | Build Ozmoo for the Commodore 64 (default) |
-| -t:128 | Build Ozmoo for the Commodore 128 |
+| -t:c128 | Build Ozmoo for the Commodore 128 |
 | -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
 | -t:mega65 | Build Ozmoo for the Mega65 |
 
