@@ -886,15 +886,9 @@ list_save_files
 	ldx disk_info + 4 ; Device# for save disk
 	lda #0
 	sta current_disks - 8,x
-	beq .insert_done
-.dont_print_insert_save_disk	
-	ldx #0
-	ldy #5
--	jsr kernal_delay_1ms
-	dex
-	bne -
-	dey
-	bne -
+	beq .insert_done ; Always branch
+.dont_print_insert_save_disk
+	jsr wait_a_sec
 .insert_done
 	ldx #0
 !ifdef Z5PLUS {
@@ -950,7 +944,7 @@ maybe_ask_for_save_device
 	cmp #$36
 	bcs .incorrect_device
 	and #$0f
-	adc #$10 ; Carry already clear
+	adc #10 ; Carry already clear
 .store_device
 	sta disk_info + 4
 .ok_dont_ask
@@ -1279,6 +1273,31 @@ do_save
 +	rts
 
 }	
+
+wait_a_sec
+; Delay ~1.2 s so player can read the last text before screen is cleared
+!ifdef TARGET_C128 {
+	ldx #40 ; How many frames to wait
+--	ldy #1
+-	bit $d011
+	bmi --
+	cpy #0
+	beq -
+	; This is the beginning of a new frame
+	dey
+	dex
+	bne -
+} else {
+	ldx #0
+	ldy #5
+-	jsr kernal_delay_1ms
+	dex
+	bne -
+	dey
+	bne -
+}
+	rts
+
 	
 }
 

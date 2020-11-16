@@ -212,7 +212,22 @@ copy_page_c128_src
 !pseudopc copy_page_c128 {
 	sta .copy + 2
 	sty .copy + 5
-	sei
+
+; Skip speed decrease if we can
+	lda COLS_40_80
+	bne + ; In 80 col mode, there is no reason to lower speed
+	bit $d011
+	bmi + ; If we're at raster line > 255, stay at 2 MHz
+	lda $d012
+	cmp #52
+	bcs + ; If at line 52-255, stay at 2 Mhz
+	cmp #19
+	bcc + ; If at line 0-18, stay at 2 MHz
+	; Go down to 1 MHz, to avoid screen glitches
+	lda #0
+	sta $d030	;CPU = 1MHz
+
++	sei
 	sta c128_mmu_load_pcrb,x
 -   ldy #0
 .copy
@@ -222,6 +237,7 @@ copy_page_c128_src
 	bne .copy
 	sta c128_mmu_load_pcra
 	cli
+
 	rts
 
 read_word_from_bank_1_c128

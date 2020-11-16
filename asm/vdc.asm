@@ -51,7 +51,7 @@ VDCInit
 	ldx #VDC_ATTR_LO
 	jsr VDCWriteReg
 	; char mem
-	lda #$3f
+	lda #$2f
 	ldx #VDC_CSET
 	jsr VDCWriteReg
 	; colours
@@ -62,6 +62,8 @@ VDCInit
 	lda #$19
 	ldx #VDC_VDISP
 	jsr VDCWriteReg
+	
+	jsr $c027
 	rts
 	
 VDCSetAddress
