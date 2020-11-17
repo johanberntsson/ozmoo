@@ -632,6 +632,8 @@ z_ins_save
 	jsr turn_on_cursor
 	lda #0
 	sta .inputlen
+	cli
+	jsr kernal_clrchn
 -	jsr kernal_getchar
 	beq -
 	cmp #$14 ; delete
@@ -763,12 +765,17 @@ list_save_files
 	lda .occupied_slots - $30,x
 	bne .not_a_save_file ; Since there is another save file with the same number, we ignore this file.
 
+!ifdef TARGET_C128 {
+	lda COLS_40_80
+	bne +++
+}
 ; Set the first 40 chars of each row to the current text colour	
 	ldy #39
 	lda s_colour
 -	sta (zp_colourline),y
 	dey
 	bpl -
++++
 	
 	txa
 	sta .occupied_slots - $30,x
@@ -805,12 +812,17 @@ list_save_files
 -	lda .occupied_slots,x
 	bne +
 
+!ifdef TARGET_C128 {
+	lda COLS_40_80
+	bne +++
+}
 ; Set the first 40 chars of each row to the current text colour	
 	ldy #39
 	lda s_colour
 ---	sta (zp_colourline),y
 	dey
 	bpl ---
++++
 
 	txa
 	ora #$30
@@ -1123,7 +1135,12 @@ restore_game
 }
 	jsr .insert_story_disk
 .restore_success_dont_insert_story_disk	
-;	inc zp_pc_l ; Make sure read_byte_at_z_address 
+;	inc zp_pc_l ; Make sure read_byte_at_z_address
+!ifdef Z4PLUS {
+!ifdef TARGET_C128 {
+	jsr update_screen_width_in_header
+}
+}
 	jsr get_page_at_z_pc
 	lda #0
 	ldx #1

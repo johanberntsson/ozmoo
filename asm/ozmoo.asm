@@ -384,9 +384,9 @@ game_id		!byte 0,0,0,0
 	; switch to 2MHz
 	lda #1
 	sta $d030	;CPU = 2MHz
-;	lda $d011
-;	and #$ef
-;	sta $d011
+	lda $d011
+	and #$ef
+	sta $d011
 	jmp ++
 +	; 40 columns mode
 	; use 2MHz only when rasterline is in the border for VIC-II
@@ -457,6 +457,21 @@ game_id		!byte 0,0,0,0
 }
 
 !ifdef TARGET_C128 {
+
+!ifdef Z4PLUS {
+update_screen_width_in_header
+	lda s_screen_width
+	ldy #header_screen_width_chars
+!ifdef Z5PLUS {
+	jsr write_header_byte
+	ldy #header_screen_width_units
+	tax
+	lda #0
+	jmp write_header_word
+} else {
+	jmp write_header_byte
+}
+}
 
 c128_prepare_vmem
 	; Copy dynmem to bank 1
@@ -693,6 +708,9 @@ z_init
 	lda #0
 	jsr write_header_word
 }
+!ifdef TARGET_C128 {
+	jsr update_screen_width_in_header
+} else {
 	lda s_screen_width
 	ldy #header_screen_width_chars
 	jsr write_header_byte
@@ -702,7 +720,8 @@ z_init
 	lda #0
 	jsr write_header_word
 }
-}
+} ; End not TARGET_C128
+} ; End Z4PLUS
 	lda #0 ; major standard revision number which this terp complies to
 	tax    ; minor standard revision number which this terp complies to
 	ldy #header_standard_revision_number
