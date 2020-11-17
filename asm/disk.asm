@@ -507,6 +507,9 @@ z_ins_restart
 	jsr $ff84 ; ioinit (Initialize CIA's, SID, memory config, interrupt timer)
 	jsr $ff81 ; scinit (Initialize VIC; set nput/output to keyboard/screen)
 	cli
+!ifdef TARGET_C128 {
+	sta c128_mmu_load_pcra
+}
 }
 
 	; Copy restart code
@@ -524,7 +527,8 @@ z_ins_restart
 	inx
 	bne - ; Always branch
 +	stx keyboard_buff_len
-	jsr clear_screen_raw
+	lda #147
+	jsr kernal_printchar
 	lda #z_exe_mode_exit
 	sta z_exe_mode
 	rts
@@ -758,6 +762,14 @@ list_save_files
 	tax
 	lda .occupied_slots - $30,x
 	bne .not_a_save_file ; Since there is another save file with the same number, we ignore this file.
+
+; Set the first 40 chars of each row to the current text colour	
+	ldy #39
+	lda s_colour
+-	sta (zp_colourline),y
+	dey
+	bpl -
+	
 	txa
 	sta .occupied_slots - $30,x
 	jsr printchar_raw
@@ -792,6 +804,14 @@ list_save_files
 	ldx #0
 -	lda .occupied_slots,x
 	bne +
+
+; Set the first 40 chars of each row to the current text colour	
+	ldy #39
+	lda s_colour
+---	sta (zp_colourline),y
+	dey
+	bpl ---
+
 	txa
 	ora #$30
 	jsr printchar_raw

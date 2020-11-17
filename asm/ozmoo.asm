@@ -219,6 +219,14 @@
 
 
 program_start
+
+;	lda #4
+;	sta $d020
+
+;	lda #$41
+;	jsr $ffd2
+;	jsr wait_a_sec
+
 !ifdef TARGET_C128 {
 	jsr VDCInit
 	; initialize is in Basic LO ROM in C128 mode, so we need
@@ -376,9 +384,9 @@ game_id		!byte 0,0,0,0
 	; switch to 2MHz
 	lda #1
 	sta $d030	;CPU = 2MHz
-	lda $d011
-	and #$ef
-	sta $d011
+;	lda $d011
+;	and #$ef
+;	sta $d011
 	jmp ++
 +	; 40 columns mode
 	; use 2MHz only when rasterline is in the border for VIC-II
@@ -1398,9 +1406,10 @@ reu_start
 	ldx #<.use_reu_question
 	jsr printstring_raw
 -	jsr kernal_getchar
-	beq -
+	cmp #78
+	beq .no_reu
 	cmp #89
-	bne .no_reu
+	bne -
 	ldx #$80 ; Use REU, set vmem to reu loading mode
 	stx use_reu
 	ora #$80

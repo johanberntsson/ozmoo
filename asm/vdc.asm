@@ -62,8 +62,6 @@ VDCInit
 	lda #$19
 	ldx #VDC_VDISP
 	jsr VDCWriteReg
-	
-	jsr $c027
 	rts
 	
 VDCSetAddress
