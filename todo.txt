@@ -39,6 +39,7 @@ Possible alternative versions / extensions
 * Atari version
 * Oric Atmos/Telestrat version
 * NES/Famicom version
+* Commander X16
 
 Alternate versions / extensions which have been done
 ----------------------------------------------------
