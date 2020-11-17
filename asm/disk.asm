@@ -957,6 +957,13 @@ maybe_ask_for_save_device
 	rts
 	
 restore_game
+
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz
+	sta $d030	;CPU = 1MHz
+}
+
 	jsr maybe_ask_for_save_device
 	bcs .restore_failed
 
@@ -1030,11 +1037,20 @@ restore_game
 	jsr .insert_story_disk
 	; Return failed status
 .restore_fail_dont_insert_story_disk
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
 	lda #0
 	tax
 	rts
 
 save_game
+
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz
+	sta $d030	;CPU = 1MHz
+}
 
 	jsr maybe_ask_for_save_device
 	bcs .restore_failed
@@ -1101,7 +1117,9 @@ save_game
 	
 	; Perform save
 	jsr do_save
-	bcs .restore_failed    ; if carry set, a save error has happened
+	bcc +
+	jmp .restore_failed    ; if carry set, a save error has happened
++
 
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
@@ -1112,6 +1130,9 @@ save_game
 }
 	jsr .insert_story_disk
 .dont_insert_story_disk
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
 	lda #0
 	ldx #1
 	rts
@@ -1181,6 +1202,21 @@ do_save
 	jsr kernal_close
 	plp ; restore c flag
 	rts
+	
+
+!ifdef TARGET_C128 {
+restore_2mhz
+	lda #1
+	sta allow_2mhz
+	lda COLS_40_80
+	beq +
+	lda #1
+	sta $d030	;CPU = 2MHz
++
+	rts
+}
+	
+	
 .last_disk	!byte 0
 .saveslot !byte 0
 .saveslot_msg_save	!pet 13,"Save to",0
