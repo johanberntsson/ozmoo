@@ -127,6 +127,8 @@ New features:
 - All produced disk images get names starting with the platform name
 - New build mode -71, producing 1571 disk images. Can only be used for target C128.
 - Disk drives with device# 8-15 can now be used.
+- Question to use REU can now only be answered by Y or N (any other key would
+  work like N before, making it easy to accidentally answer no).
 
 Optimizations:
 - Increased block age resolution by 1 bit, which should lead to better paging,
@@ -142,4 +144,5 @@ Fixed bugs:
   build mode 81 for small games ( non-dynamic memory < ~10KB). 
 - Commandline flag -r for make.rb to use reduced memory has been removed.
 - Cursor timing code was broken
+- Some characters could get a weird colour in the save slot listing.
 
