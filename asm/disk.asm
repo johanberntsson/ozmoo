@@ -817,6 +817,10 @@ list_save_files
 .insertion_sort_item
 	; Parameters: x, .sort_item: item (1-9)
 	stx .current_item
+!ifdef TARGET_C128 {
+    lda COLS_40_80
+    bne vdc_insertion_sort
+}
 --	jsr .calc_screen_address
 	stx zp_temp + 2
 	sta zp_temp + 3
@@ -844,6 +848,81 @@ list_save_files
 	bne --
 .done_sort
 	rts
+!ifdef TARGET_C128 {
+vdc_insertion_sort
+	jsr .calc_screen_address
+	stx zp_temp + 2 ; convert from $0400 (VIC-II) to $0000 (VDC)
+	sec
+	sbc #$04
+	sta zp_temp + 3
+	ldx .current_item
+	dex
+	jsr .calc_screen_address
+	stx zp_temp ; convert from $0400 (VIC-II) to $0000 (VDC)
+	sec
+	sbc #$04
+	sta zp_temp + 1
+	; read  both rows from VCD into temp buffers
+	lda zp_temp
+	ldy zp_temp + 1
+	jsr VDCSetAddress
+	ldy #0
+-	jsr VDCReadByte
+	sta $0400,y
+	iny
+	cpy #17
+	bne -
+	lda zp_temp + 2
+	ldy zp_temp + 3
+	jsr VDCSetAddress
+	ldy #0
+-	jsr VDCReadByte
+	sta $0428,y
+	iny
+	cpy #17
+	bne -
+johan
+	; sort in the buffer
+	ldy #0
+	lda $0428,y ; (zp_temp + 2),y
+	cmp $0400,y ; (zp_temp),y
+	bcs .done_sort
+	; Swap items
+	ldy #17
+-	lda $0400,y ; (zp_temp),y
+	pha
+	lda $0428,y ; (zp_temp + 2),y
+	sta $0400,y ; (zp_temp),y
+	pla
+	sta $0428,y ; (zp_temp + 2),y
+	dey
+	bpl -
+	; copy back from the buffers into VDC
+	lda zp_temp
+	ldy zp_temp + 1
+	jsr VDCSetAddress
+	ldy #0
+-	lda $0400,y
+	jsr VDCWriteByte
+	iny
+	cpy #17
+	bne -
+	lda zp_temp + 2
+	ldy zp_temp + 3
+	jsr VDCSetAddress
+	ldy #0
+-	lda $0428,y
+	jsr VDCWriteByte
+	iny
+	cpy #17
+	bne -
+	; check next line
+	dec .current_item
+	ldx .current_item
+	beq +
+	jmp vdc_insertion_sort
++	rts
+}
 .calc_screen_address
 	lda .base_screen_pos
 	ldy .base_screen_pos + 1
