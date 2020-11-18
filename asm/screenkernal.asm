@@ -825,14 +825,26 @@ s_erase_line
 	sta (zp_screenline),y
 	iny
 	bne - ; Always branch
-;	jmp .col80_5_end
+	jmp .done_erasing	
 .col80_5
+	; erase line in VDC
+	tya
+	pha
 -	cpy s_screen_width
-	bcs .done_erasing
+	bcs +
+	lda #$20
 	jsr VDCPrintChar
 	iny
 	bne -
-;.col80_5_end
+	; also reset attributes
++	pla
+	tay
+-	cpy s_screen_width
+	bcs .done_erasing
+	lda s_colour
+	jsr VDCPrintColour
+	iny
+	bne -
 } else {
 -	cpy s_screen_width
 	bcs .done_erasing
