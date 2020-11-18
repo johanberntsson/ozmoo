@@ -994,12 +994,7 @@ getchar_and_maybe_toggle_darkmode
 	jmp kernal_getchar
 } else {
 	jsr kernal_getchar
-; !ifdef TARGET_C128 {
-	; ; TODO: remove this when F1 works on C128
- 	; cmp #$91 ; Charcode for cursor up
-; } else {
  	cmp #133 ; Charcode for F1
-; }
 	bne +
 	jsr toggle_darkmode
 	ldx #40 ; Side effect to help when called from MORE prompt

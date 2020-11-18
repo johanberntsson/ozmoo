@@ -913,7 +913,6 @@ vdc_insertion_sort
 	iny
 	cpy #17
 	bne -
-johan
 	; sort in the buffer
 	ldy #0
 	lda $0428,y ; (zp_temp + 2),y

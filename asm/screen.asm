@@ -433,7 +433,8 @@ vdc_show_more
 	jsr VDCWriteReg
 	; colour
 	jsr vdc_set_more_colour_address
-	lda s_colour
+	ldy s_colour
+	lda vdc_vic_colours,y
 	ldx #VDC_DATA
 	jmp VDCWriteReg
 
