@@ -12,6 +12,10 @@ splash_line_y
 	adc #20
 +
 }
+!ifdef TARGET_MEGA65 {
+	clc
+	adc #20
+}
 	tay
 	jsr set_cursor
 	ldy z_temp
