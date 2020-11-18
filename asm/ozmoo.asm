@@ -385,7 +385,8 @@ game_id		!byte 0,0,0,0
 	lda #1
 	sta $d030	;CPU = 2MHz
 	lda $d011
-	and #$ef
+	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
+	and #$%01101111 
 	sta $d011
 	jmp ++
 +	; 40 columns mode
