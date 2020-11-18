@@ -400,10 +400,9 @@ game_id		!byte 0,0,0,0
 	sta $d011
 	lda #251 ; low raster bit (1 raster beyond visible screen)
 	sta $d012
-	cli
 ++
 }
-
+	cli
 
 
 	jsr z_execute
