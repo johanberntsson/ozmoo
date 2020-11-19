@@ -770,8 +770,12 @@ list_save_files
 	bne +++
 }
 ; Set the first 40 chars of each row to the current text colour	
-	ldy #39
 	lda s_colour
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y 
+}
+	ldy #39
 -	sta (zp_colourline),y
 	dey
 	bpl -
@@ -817,8 +821,12 @@ list_save_files
 	bne +++
 }
 ; Set the first 40 chars of each row to the current text colour	
-	ldy #39
 	lda s_colour
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y 
+}
+	ldy #39
 ---	sta (zp_colourline),y
 	dey
 	bpl ---

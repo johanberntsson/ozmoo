@@ -59,8 +59,10 @@ savefile_zp_pointer   = $c1 ; 2 bytes
 fkey_string_lengths = $55f
 fkey_string_area = $567
 
-vmap_buffer_start     = $0333
-vmap_buffer_end       = $0437 ; Last byte + 1. Should not be more than vmap_buffer_start + 510
+vmap_buffer_start     = $0332
+vmap_buffer_end       = $03f2 ; Last byte + 1. Should not be more than vmap_buffer_start + 510
+;vmap_buffer_start     = $0333
+;vmap_buffer_end       = $0437 ; Last byte + 1. Should not be more than vmap_buffer_start + 510
 
 ted_voice_2_low       = $ff0f
 ted_voice_2_high      = $ff10
