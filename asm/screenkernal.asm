@@ -816,14 +816,18 @@ s_erase_line
 	jsr .update_screenpos
 	ldy #0
 .erase_line_from_any_col	
-	lda #$20
 !ifdef TARGET_C128 {
 	ldx COLS_40_80
 	bne .col80_5
 	; 40 columns, use VIC-II screen
 -	cpy s_screen_width
 	bcs .done_erasing
+	lda #$20
 	sta (zp_screenline),y
+	lda s_colour
+	txa
+	lda vdc_vic_colours,x
+	sta (zp_colourline),y
 	iny
 	bne - ; Always branch
 	jmp .done_erasing	
@@ -849,7 +853,14 @@ s_erase_line
 } else {
 -	cpy s_screen_width
 	bcs .done_erasing
+	lda #$20
 	sta (zp_screenline),y
+	lda s_colour
+!ifdef TARGET_PLUS4 {
+	txa
+	lda plus4_vic_colours,x
+}
+	sta (zp_colourline),y
 	iny
 	bne -
 }
