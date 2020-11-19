@@ -841,7 +841,7 @@ s_erase_line
 	jsr VDCPrintChar
 	iny
 	bne -
-	; also reset attributes
+	; also reset attributes/colours
 +	pla
 	tay
 -	cpy s_screen_width
@@ -853,14 +853,22 @@ s_erase_line
 } else {
 -	cpy s_screen_width
 	bcs .done_erasing
+	; set character
 	lda #$20
 	sta (zp_screenline),y
+    ; set colour
+    !ifdef TARGET_MEGA65 {
+        jsr colour2k
+    }
 	lda s_colour
 !ifdef TARGET_PLUS4 {
 	txa
 	lda plus4_vic_colours,x
 }
 	sta (zp_colourline),y
+    !ifdef TARGET_MEGA65 {
+        jsr colour1k
+    }
 	iny
 	bne -
 }
