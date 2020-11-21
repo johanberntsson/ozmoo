@@ -473,6 +473,40 @@ update_screen_width_in_header
 }
 }
 
+c128_setup_mmu
+	lda #5 ; 4 KB common RAM at bottom only
+	sta c128_mmu_ram_cfg
+	ldx #2
+-	lda c128_mmu_values,x
+	sta c128_mmu_pcra,x
+	dex
+	bpl -
+
+	ldx #copy_page_c128_src_end - copy_page_c128_src
+-	lda copy_page_c128_src - 1,x
+	sta copy_page_c128 - 1,x
+	dex
+	bne -
+	rts
+	
+	; txa ; a = 0
+	; ldx #9
+; -	sta c128_function_key_string_lengths,x
+	; dex
+	; bpl -
+	
+; Just for testing
+	; lda #$f0
+	; ldy #$08
+	; ldx #0
+	; jsr copy_page_c128
+	
+	; lda #$08
+	; ldy #$d0
+	; ldx #1
+	; jsr copy_page_c128
+
+
 c128_prepare_vmem
 	; Copy dynmem to bank 1
 	lda #>story_start
@@ -588,8 +622,7 @@ end_of_routines_in_vmem_cache
 
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
-!ifdef TARGET_C128 {
-} else {
+!ifndef TARGET_C128 {
 	!fill cache_pages * 256 - (* - vmem_cache_start_maybe),0 ; Typically 4 pages
 } 
 
@@ -924,38 +957,8 @@ deletable_init
 }
 
 !ifdef TARGET_C128 {
-	lda #5 ; 4 KB common RAM at bottom only
-	sta c128_mmu_ram_cfg
-	ldx #2
--	lda c128_mmu_values,x
-	sta c128_mmu_pcra,x
-	dex
-	bpl -
-
-	ldx #copy_page_c128_src_end - copy_page_c128_src
--	lda copy_page_c128_src - 1,x
-	sta copy_page_c128 - 1,x
-	dex
-	bne -
-
-	; txa ; a = 0
-	; ldx #9
-; -	sta c128_function_key_string_lengths,x
-	; dex
-	; bpl -
-	
-; Just for testing
-	; lda #$f0
-	; ldy #$08
-	; ldx #0
-	; jsr copy_page_c128
-	
-	; lda #$08
-	; ldy #$d0
-	; ldx #1
-	; jsr copy_page_c128
-	
-} ; TARGET_C128
+	jsr c128_setup_mmu
+}
 
 
 
