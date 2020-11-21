@@ -1459,7 +1459,7 @@ prepare_static_high_memory
 	dex
 	bpl -
 	
-	lda #5
+	lda #6
 	clc
 	adc config_load_address + 4
 	sta zp_temp

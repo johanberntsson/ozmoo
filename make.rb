@@ -1070,9 +1070,8 @@ def play(filename)
 end
 
 def limit_vmem_data(vmem_data)
-#	puts "### #{$vmem_size} < #{(vmem_data[2] + $dynmem_blocks) * $VMEM_BLOCKSIZE} ###"
-	if $vmem_size < (vmem_data[2] + $dynmem_blocks) * $VMEM_BLOCKSIZE
-		vmem_data[2] = $vmem_size / $VMEM_BLOCKSIZE - $dynmem_blocks
+	if $vmem_size < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
+		vmem_data[3] = $vmem_size / $VMEM_BLOCKSIZE - $dynmem_blocks
 	end
 end
 
@@ -1156,7 +1155,7 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
@@ -1219,7 +1218,7 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 	
 	# Add config data about boot disk
 	disk_info_size = 8
@@ -1314,7 +1313,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 	
 	# Add config data about boot disk / story disk 1
 	disk_info_size = 13 + disk1.config_track_map.length
@@ -1399,7 +1398,7 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 	
 	# Add config data about boot disk
 	disk_info_size = 8
@@ -1491,7 +1490,7 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
@@ -1554,7 +1553,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
@@ -1781,6 +1780,8 @@ rescue
 	print_usage_and_exit()
 end
 
+print_usage_and_exit() if await_preloadfile or await_fontfile or await_imagefile
+
 unless mode
 	if $target == 'c128'
 		mode = MODE_71
@@ -1894,8 +1895,6 @@ end
 
 $DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
 
-
-print_usage_and_exit() if await_preloadfile
 
 # Check for file specifying which blocks to preload
 preload_data = nil
@@ -2025,8 +2024,10 @@ save_slots, # Save slots, change later if wrong
 
 # Create config data for vmem
 if preload_data then
+	total_length = 4 + 2 * preload_data.length
 	vmem_data = [
-		3 + 2 * preload_data.length, # Size of vmem data
+		total_length % 256,
+		total_length / 256,
 		preload_data.length, # Number of suggested blocks
 		preload_data.length, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
@@ -2057,8 +2058,11 @@ else # No preload data available
 		end
 		referenced_blocks = mapped_vmem_blocks / 2 # Mark the first half of the non-dynmem blocks as referenced 
 	end
+	total_length = 4 + 2 * mapped_vmem_blocks # Size of vmem data
+#	puts "total_length is #{total_length}"
 	vmem_data = [
-		3 + 2 * mapped_vmem_blocks, # Size of vmem data
+		total_length % 256,
+		total_length / 256,
 		mapped_vmem_blocks, # Number of suggested blocks
 		mapped_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
@@ -2073,8 +2077,8 @@ else # No preload data available
 end
 
 vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
-vmem_data[1].times do |i|
-	start_address = (vmem_data[3 + i] & $vmem_highbyte_mask) * 512 * 256 + vmem_data[3 + vmem_data[1] + i] * 512
+vmem_data[2].times do |i|
+	start_address = (vmem_data[4 + i] & $vmem_highbyte_mask) * 512 * 256 + vmem_data[4 + vmem_data[2] + i] * 512
 	# puts start_address
 	# puts $story_file_data.length
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
@@ -2122,9 +2126,9 @@ end
 
 limit_vmem_data(vmem_data)
 
-if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] then
-	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[2]}."
-	preload_max_vmem_blocks = vmem_data[2]
+if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
+	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
+	preload_max_vmem_blocks = vmem_data[3]
 end
 
 if $VMEM 
