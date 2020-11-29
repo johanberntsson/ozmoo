@@ -297,16 +297,23 @@ The flags described here can be set on the Acme commandline using the syntax -D[
 ## General flags
 
     BGCOL=n
+    BGCOLDM=n
 
-Set the background colour.
+Set the background colour for normal mode and darkmode.
 
     BORDERCOL=n
+    BORDERCOLDM=n
 
-Set the border colour.
+Set the border colour for normal mode and darkmode.
 
     CACHE_PAGES=n
 
 Set the minimum number of memory pages to use for the cache (used to buffer pages otherwise residing at $D000-$FFFF).
+
+    CURSORCOL=n
+	CURSORCOLDM=n
+
+Set the cursor colour for normal mode and darkmode.
 
     COL2=n
     COL3=n
@@ -319,22 +326,22 @@ Set the minimum number of memory pages to use for the cache (used to buffer page
 
 Replace color in Z-machine palette with a certain colur from the C64 palette.
 
+    CONF_TRK=n
+
+Tell the interpreter on which track the config blocks are located (in sector 0 and 1).
+
     CUSTOM_FONT
 
 Tell the interpreter that a custom font will be used.
 
-    DANISH_CHARS
-	FRENCH_CHARS
-	GERMAN_CHARS
-	ITALIAN_CHARS
-	SPANISH_CHARS
-	SWEDISH_CHARS 
+    FGCOL=n
+    FGCOLDM=n
 
-Map national characters in ZSCII to their PETSCII equivalents. No more than one of these can be enabled.
+Set the foreground colour for normal mode and darkmode.
 
-    SMALLBLOCK
+    SLOW
 
-When using virtual memory, use a blocksize of 512 bytes rather than 1024 bytes.
+Prioritise small size over speed, making the interpreter smaller and slower. For C128 and Plus/4, this is enabled by default and cant be disabled, due to their memory models.
 
     STACK_PAGES=n
 
@@ -344,9 +351,24 @@ Set the number of memory pages to use for stack.
 
 Set the statusline colour. (only for z3).
 
+    TARGET_C128
+    TARGET_C64
+    TARGET_MEGA65
+    TARGET_PLUS4
+
+Set the target platform.
+
+    TERPNO=n
+
+Set the interpreter number (0-19) as reported by the interpreter to the game. Default is 2 (Apple II) for Beyond Zork and 8 (C64) for other games.
+
+    UNSAFE
+
+Remove some checks for runtime errors, making the interpreter smaller and faster.	
+
     VMEM
 
-Utilize virtual memory. Without this, the complete game must fit in C64 RAM available above the interpreter and below $D000, all in all about 40 KB. Also check section "Virtual memory flags" below. 
+Utilize virtual memory. Without this, the complete game must fit in C64 RAM available above the interpreter, all in all about 50 KB. Also check section "Virtual memory flags" below. 
 
     Z3
     Z4
@@ -354,6 +376,15 @@ Utilize virtual memory. Without this, the complete game must fit in C64 RAM avai
     Z8
 
 Build the interpreter to run Z-machine version 3, 4, 5 or 8.
+
+    DANISH_CHARS
+	FRENCH_CHARS
+	GERMAN_CHARS
+	ITALIAN_CHARS
+	SPANISH_CHARS
+	SWEDISH_CHARS 
+
+Map national characters in ZSCII to their PETSCII equivalents. No more than one of these can be enabled.
 
 ## Debug flags 
 
@@ -453,7 +484,7 @@ For each disk:
 			131: "disk "
 
 --- Vmem information block ---
-1 byte: Number of bytes used for vmem information, including this byte
+2 bytes: Number of bytes used for vmem information, including this byte (LB, HB)
 1 byte: Number of vmem blocks suggested for initial caching
 1 byte: Number of vmem blocks already preloaded
 x bytes: vmap_z_h contents for the suggested blocks
@@ -473,14 +504,17 @@ z3: 1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + (1 + 1 + 2 + 1 + 40 + 6) = 4 +
 
 z4/z5/z8:  1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 4 + 2 * 8 + 2 * 50 = 120 bytes
 
-1581 drive support: This system should work, without extending the limits above, using only 31 sectors per track for story data, while allowing z8 games of up to 512 KB in size on a single disk. If we want to store several games on a single 1581 disk, we should add a track offset in each disk entry (i.e. saying that tracks below track x are considered empty).
-
-
-Possible 1571 support:
+1571 drive support:
 
 - z3 games: No change
 - z4/z5 games: A single disk using only track 1-53 can hold all story data. Disk information will then fit in less than the number of bytes stated above.
-- z8 games: Disk information for a single drive game will fit in the number of bytes stated above. Double 1571 drive support is possible but not a high priority. 
+- z8 games: Disk information for a single drive game will fit in the number of bytes stated above. 
+
+Double 1571 drive support is possible but not a high priority. 
+
+1581 drive support: This system should work, without extending the limits above, using only 31 sectors per track for story data, while allowing z8 games of up to 512 KB in size on a single disk. If we want to store several games on a single 1581 disk, we should add a track offset in each disk entry (i.e. saying that tracks below track x are considered empty).
+
+
 
 # Printer Support
 

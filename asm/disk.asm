@@ -592,8 +592,13 @@ z_ins_restore
 !ifdef Z3 {
 	jsr restore_game
 	beq +
+	ldx #0
+	jsr split_window
 	jmp make_branch_true
-+	jmp make_branch_false
++
+	ldx #0
+	jsr split_window
+	jmp make_branch_false
 }
 !ifdef Z4 {
 	jsr restore_game
