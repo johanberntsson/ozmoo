@@ -17,7 +17,7 @@ else
 	# Paths on Linux
     $X64 = "x64 -autostart-delay-random"
     $X128 = "x128 -autostart-delay-random"
-    $X128 = "x128 -80col -autostart-delay-random"
+    #$X128 = "x128 -80col -autostart-delay-random"
     $XPLUS4 = "xplus4 -autostart-delay-random"
     $MEGA65 = "xemu-xmega65"
     $C1541 = "c1541"
@@ -94,6 +94,10 @@ $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
+
+$trinity_releases = {
+	"r15-s870628" => "fd93 ba bb e2"
+}
 
 $beyondzork_releases = {
     "r47-s870915" => "f347 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
@@ -1964,6 +1968,7 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
 storyfile_key = "r%d-s%s" % [ release, serial ]
+is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 
 $no_darkmode = nil
@@ -1984,6 +1989,24 @@ if is_beyondzork
 		puts "Successfully patched Beyond Zork story file."
 	else
 		puts "### WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
+	end
+end
+if is_trinity
+	patch_data_string = $trinity_releases[storyfile_key]
+	patch_data_arr = patch_data_string.split(/ /)
+	patch_address = patch_data_arr.shift.to_i(16)
+	patch_check = patch_data_arr.shift.to_i(16)
+	# Change all hex strings to 8-bit unsigned ints instead, due to bug in Ruby's array.pack("H")
+	patch_data_arr.length.times do |i|
+		patch_data_arr[i] = patch_data_arr[i].to_i(16)
+	end
+	if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
+		puts patch_data_arr.length
+		$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
+			patch_data_arr.pack("C*")
+		puts "Successfully patched Trinity story file."
+	else
+		puts "### WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
 	end
 end
 
