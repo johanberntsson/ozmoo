@@ -133,6 +133,7 @@ New features:
 Optimizations:
 - Increased block age resolution by 1 bit, which should lead to better paging,
   espescially for z8 games.
+- Centralized code to pick a free vmem buffer.
 
 Fixed bugs:
 - @tokenise could use arbitrary value for parameter "flag" if it wasn't

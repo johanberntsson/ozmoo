@@ -1,26 +1,5 @@
 ; Routines to handle memory
 
-; !ifndef VMEM {
-; !zone {
-; read_byte_at_z_address
-	; ; Subroutine: Read the contents of a byte address in the Z-machine
-	; ; a,x,y (high, mid, low) contains address.
-	; ; Returns: value in a
-	; sty mempointer
-	; txa
-	; clc
-	; adc #>story_start
-	; sta mempointer + 1
-	; ldy #0
-	; lda (mempointer),y
-	; rts
-; .too_high
-	; lda #ERROR_MEMORY_OVER_64KB
-	; jsr fatalerror
-
-; }
-; }
-
 inc_z_pc_page
 !zone {
 	pha
@@ -95,8 +74,6 @@ set_z_pc
 	sta z_pc
 .unsafe_2
 	stx z_pc + 1
-	; jsr get_page_at_z_pc
-	; rts
 }
 
 ; Must follow set_z_pc
@@ -115,37 +92,30 @@ get_page_at_z_pc_did_pha
 	; This is in a dynmem block
 	adc #>story_start_bank_1 ; Carry already clear
 	sta mem_temp + 1
-	ldy #0
--	cmp vmem_cache_page_index,y
+	ldx #0
+-	cmp vmem_cache_page_index,x
 	bne +
-	lda vmem_cache_bank_index,y
+	lda vmem_cache_bank_index,x
 	bne .found_it ; The page we're looking for belongs to bank 1, so this is a match!
 	lda mem_temp + 1
-+	iny
-	cpy #vmem_cache_count
++	inx
+	cpx #vmem_cache_count
 	bcc -
 	; Block not found, will copy it to vmem_cache
-	ldy vmem_cache_cnt
-	sta vmem_cache_page_index,y
-	lda #1
-	sta vmem_cache_bank_index,y
-	tya
-	clc
-	adc #>vmem_cache_start
+	jsr get_free_vmem_buffer
 	tay
+	lda #1
+	sta vmem_cache_bank_index,x
 	lda mem_temp + 1
+	sta vmem_cache_page_index,x
 	ldx #1
 	jsr copy_page_c128
-	ldy vmem_cache_cnt
-	sty mem_temp + 1
-	iny
-	cpy #vmem_cache_count
-	bcc +
-	ldy #0
-+	sty vmem_cache_cnt	
-	ldy mem_temp + 1
+	ldx vmem_cache_cnt
+	stx mem_temp + 1
+	jsr inc_vmem_cache_cnt
+	ldx mem_temp + 1
 .found_it
-	tya
+	txa
 	clc
 	adc #>vmem_cache_start
 	sta z_pc_mempointer + 1
@@ -237,7 +207,6 @@ copy_page_c128_src
 	bne .copy
 	sta c128_mmu_load_pcra
 	cli
-
 	rts
 
 read_word_from_bank_1_c128
@@ -326,16 +295,6 @@ read_header_word
 	sta mem_temp + 1
 	lda #mem_temp
 	jmp read_word_from_bank_1_c128
-	; sta $02aa
-	; ldx #$7f
-	; iny
-	; jsr $02a2
-	; sta .tmp
-	; dey
-	; ldx #$7f
-	; jsr $02a2
-	; ldx .tmp
-	; rts
 } else {
 	iny
 	lda story_start,y
@@ -357,13 +316,6 @@ write_header_word
 	stx write_word_c128_zp_2
 	ldx .tmp
 	jmp write_word_to_bank_1_c128
-
-	; ldx #$7f
-	; jsr $02af
-	; iny
-	; lda .tmp
-	; ldx #$7f
-	; jmp $02af
 } else {
 	sta story_start,y
 	iny

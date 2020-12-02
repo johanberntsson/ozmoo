@@ -7,6 +7,41 @@ vmem_cache_page_index !fill cache_pages + 1, 0
 vmem_cache_bank_index !fill cache_pages + 1, 0
 }
 
+!ifndef TARGET_PLUS4 {
+get_free_vmem_buffer
+	; Protect buffer which z_pc points to
+	lda vmem_cache_cnt
+	tax
+	clc
+	adc #>vmem_cache_start
+	cmp z_pc_mempointer + 1
+	bne +
+	jsr inc_vmem_cache_cnt
+	txa
+	clc
+	adc #>vmem_cache_start ; start of cache
++	cmp mempointer + 1
+	bne +
+	; mempointer points to this page. Store $ff in zp_pc_h so mempointer won't be used
+	pha
+	lda #$ff
+	sta zp_pc_h
+	pla
++	stx vmem_cache_cnt
+	rts
+
+inc_vmem_cache_cnt
+	ldx vmem_cache_cnt
+	inx
+	cpx #vmem_cache_count
+	bcc +
+	ldx #0
++	stx vmem_cache_cnt
+	rts
+
+
+}
+
 !ifndef VMEM {
 ; Non-virtual memory
 
@@ -38,59 +73,34 @@ read_byte_at_z_address
 	cmp #first_banked_memory_page
 	bcc .return_result
 ; swapped memory
-	; ; Carry is already clear
-	; adc #>story_start
-	; sta vmap_c64_offset
-	; cmp #first_banked_memory_page
-	; bcc .unswappable
-	; this is swappable memory
-	; update vmem_cache if needed
 	; Check if this page is in cache
 	ldx #vmem_cache_count - 1
 -   cmp vmem_cache_page_index,x
-	beq .cache_updated
-	dex
-	bpl -
-	; The requested page was not found in the cache
-	; copy vmem to vmem_cache (banking as needed)
-	ldx vmem_cache_cnt
-	; Protect page held in z_pc_mempointer + 1
-	pha
-	txa
-	clc
-	adc #>vmem_cache_start
-	cmp z_pc_mempointer + 1
 	bne +
-	inx
-	cpx #vmem_cache_count
-	bcc ++
-	ldx #0
-++	stx vmem_cache_cnt
-
-+	pla
-	sta vmem_cache_page_index,x
-	pha
-	lda #>vmem_cache_start ; start of cache
-	clc
-	adc vmem_cache_cnt
-	tay
-	pla
-	jsr copy_page
-
-	; set next cache to use when needed
-	inx
-	txa
-	dex
-	cmp #vmem_cache_count
-	bcc ++
-	lda #0
-++	sta vmem_cache_cnt
-.cache_updated
-	; x is now vmem_cache (0-4) where we want to read
 	txa
 	clc
 	adc #>vmem_cache_start
 	sta mempointer + 1
+	bne .return_result ; Always branch
++	dex
+	bpl -
+	; The requested page was not found in the cache
+	; copy vmem to vmem_cache (banking as needed)
+	pha
+	
+	jsr get_free_vmem_buffer
+	sta mempointer + 1
+	sta vmem_temp
+	ldx vmem_cache_cnt
+	pla
+	sta vmem_cache_page_index,x
+	pha
+	ldy vmem_temp
+	pla
+	jsr copy_page
+
+	; set next cache to use when needed
+	jsr inc_vmem_cache_cnt
 	jmp .return_result 
 } ; Not TARGET_PLUS4
 	
@@ -341,29 +351,13 @@ load_blocks_from_index_using_cache
 	; side effects: a,y,x,status destroyed
 	; initialise block copy function (see below)
 
-	; Protect buffer which z_pc points to
-	lda vmem_cache_cnt
-	tax
-	clc
-	adc #>vmem_cache_start
-	cmp z_pc_mempointer + 1
-	bne +
-	inx
-	cpx #vmem_cache_count
-	bcc ++
-	ldx #0
-++	stx vmem_cache_cnt
-+
-	lda #>vmem_cache_start ; start of cache
-	clc
-	adc vmem_cache_cnt
+	jsr get_free_vmem_buffer
 	sta vmem_temp
+	
 	sty vmem_temp + 1
 	ldx #0 ; Start with page 0 in this 512-byte block
 	; read next into vmem_cache
--   lda #>vmem_cache_start ; start of cache
-	clc
-	adc vmem_cache_cnt
+-   lda vmem_temp ; start of cache
 	sta readblocks_mempos + 1
 	txa
 	pha
@@ -498,9 +492,6 @@ read_byte_at_z_address
 	inc vmap_quick_index_match
 	sty vmap_index
 	jmp .index_found
-;	tya
-;	tax
-;	jmp .correct_vmap_index_found ; Always branch
 	
 .no_quick_index_match
 	lda vmem_temp
@@ -831,30 +822,14 @@ read_byte_at_z_address
 	; The requested page was not found in the cache
 	; copy vmem to vmem_cache (banking as needed)
 	sty vmem_temp
-	ldx vmem_cache_cnt
-	; Protect page held in z_pc_mempointer + 1
-	txa
-	clc
-	adc #>vmem_cache_start
-	cmp z_pc_mempointer + 1
-	bne +
-	inx
-	cpx #vmem_cache_count
-	bcc ++
-	ldx #0
-++	stx vmem_cache_cnt
-
-+	tya
-	sta vmem_cache_page_index,x
+	jsr get_free_vmem_buffer
+	tay
 !ifdef TARGET_C128 {
 	lda vmap_c64_offset_bank
 	sta vmem_cache_bank_index,x
-}	
-	lda #>vmem_cache_start ; start of cache
-	clc
-	adc vmem_cache_cnt
-	tay
+}
 	lda vmem_temp
+	sta vmem_cache_page_index,x
 !ifdef TARGET_C128 {
 	stx vmem_temp + 1
 	ldx vmap_c64_offset_bank
@@ -863,14 +838,9 @@ read_byte_at_z_address
 } else {
 	jsr copy_page
 }
-	; set next cache to use when needed
-	inx
-	txa
-	dex
-	cmp #vmem_cache_count
-	bcc ++
-	lda #0
-++	sta vmem_cache_cnt
+	lda vmem_cache_cnt
+	jsr inc_vmem_cache_cnt
+	tax
 .cache_updated
 	; x is now vmem_cache (0-3) where current z_pc is
 	txa
