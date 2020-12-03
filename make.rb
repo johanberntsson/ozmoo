@@ -1073,9 +1073,27 @@ def play(filename)
     system(command)
 end
 
-def limit_vmem_data(vmem_data)
+def limit_vmem_data_preload(vmem_data)
 	if $vmem_size < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
 		vmem_data[3] = $vmem_size / $VMEM_BLOCKSIZE - $dynmem_blocks
+	end
+end
+
+def limit_vmem_data(vmem_data, max_length)
+	oversize = vmem_data.length - max_length
+	if oversize > 0
+		entries = vmem_data[2]
+		part1 = vmem_data[4..(entries + 3)]
+		part2 = vmem_data[(4 + entries)..(3 + entries + entries)]
+		trim = (oversize / 2.0).ceil()
+		keep = part1.length - trim
+		vmem_data[(4 + entries)..(3 + entries + entries)] = part2.take(keep)
+		vmem_data[4 ..(entries + 3)] = part1.take(keep)
+		vmem_data[2] = keep
+		vmem_data[3] = keep if vmem_data[3] > keep
+		size = 4 + 2 * keep
+		vmem_data [0 .. 1] = [size % 256, size / 256]
+		puts "Limited vmem_data to #{max_length} bytes by removing #{trim} blocks."
 	end
 end
 
@@ -1171,6 +1189,8 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1241,6 +1261,8 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1339,6 +1361,8 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1431,6 +1455,8 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1506,6 +1532,8 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1569,6 +1597,8 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1816,7 +1846,7 @@ if $loader_pic_file
 end
 
 if $font_filename
-	if $target == 'c64' 
+	if $target == 'c64'
 		$font_address = 0x0800
 		$start_address = 0x1000
 	elsif $target == 'c128' 
@@ -1839,6 +1869,11 @@ if $font_filename
 		exit 1
 	end
 end
+
+$max_vmem_kb = ($memory_end_address - $start_address) / 1024 - 11 # Interpreter + stack is always > 11 KB
+$max_vmem_kb += ($memory_end_address - 0x1200 - 256 * $stack_pages) / 1024 if $target == 'c128'
+puts "VMEM is < #{$max_vmem_kb} KB" 
+
 
 $VMEM = (mode != MODE_P)
 
@@ -2077,7 +2112,7 @@ else # No preload data available
 		if mode == MODE_P 
 			mapped_vmem_blocks = total_vmem_blocks - $dynmem_blocks
 		else
-			mapped_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
+			mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
 		end
 		referenced_blocks = mapped_vmem_blocks / 2 # Mark the first half of the non-dynmem blocks as referenced 
 	end
@@ -2147,7 +2182,7 @@ if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	exit 1
 end
 
-limit_vmem_data(vmem_data)
+limit_vmem_data_preload(vmem_data)
 
 if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
 	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
