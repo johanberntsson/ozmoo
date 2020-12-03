@@ -447,20 +447,20 @@ read_byte_at_z_address
 
 	rts
 .read_new_byte
+	sta zp_pc_h
+	stx zp_pc_l
+!ifndef TARGET_C128 {
 	cmp #0
 	bne .non_dynmem
 	cpx nonstored_blocks
 	bcs .non_dynmem
 	; Dynmem access
-	sta zp_pc_h
 	txa
-	sta zp_pc_l
 	adc #>story_start
 	sta mempointer + 1
 	bne .read_and_return_value ; Always branch
+}	
 .non_dynmem
-	sta zp_pc_h
-	stx zp_pc_l
 	lsr
 	sta vmem_temp + 1
 	lda #0
