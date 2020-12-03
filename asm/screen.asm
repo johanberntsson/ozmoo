@@ -255,8 +255,12 @@ z_ins_buffer_mode
 }
 
 start_buffering
-	jsr get_cursor
-	sty first_buffered_column
+	lda current_window
+	beq + ; If lower window (0) is selected, we will get cursor pos
+	ldy cursor_column
+	jmp ++
++	jsr get_cursor
+++	sty first_buffered_column
 	sty buffer_index
 	ldy #0
 	sty last_break_char_buffer_pos

@@ -146,4 +146,5 @@ Fixed bugs:
 - Commandline flag -r for make.rb to use reduced memory has been removed.
 - Cursor timing code was broken
 - Some characters could get a weird colour in the save slot listing.
-
+- Fixed line breaks in the wrong place in games which started buffering in 
+  window 0 while window 1 was selected, like AMFV.
