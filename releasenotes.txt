@@ -148,3 +148,4 @@ Fixed bugs:
 - Some characters could get a weird colour in the save slot listing.
 - Fixed line breaks in the wrong place in games which started buffering in 
   window 0 while window 1 was selected, like AMFV.
+- Added a progress bar when there are block to load at game start.

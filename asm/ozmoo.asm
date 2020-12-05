@@ -1515,16 +1515,42 @@ prepare_static_high_memory
 }
 	rts
 	
+.progress !byte 0	
+
 load_suggested_pages
 ; Load all suggested pages which have not been pre-loaded
+	lda #13
+	jsr s_printchar
+	lda #13
+	jsr s_printchar
+	lda vmap_used_entries
+	sec
+	sbc vmap_blocks_preloaded
+	tax
+-	cpx #6
+	bcc +
+	lda #47
+	jsr s_printchar
+	txa
+	sec
+	sbc #6
+	tax
+	bne -
++	lda #6
+	sta .progress
 -	lda vmap_blocks_preloaded ; First index which has not been loaded
 	beq ++ ; First block was loaded with header
 	cmp vmap_used_entries ; Total # of indexes in the list
 	bcs +
-	; jsr dollar
 	sta vmap_index
 	tax
 	jsr load_blocks_from_index
+	dec .progress
+	bne ++
+	lda #20
+	jsr s_printchar
+	lda #6
+	sta .progress
 ++	inc vmap_blocks_preloaded
 	bne - ; Always branch
 +
