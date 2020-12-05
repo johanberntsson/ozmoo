@@ -507,7 +507,7 @@ c128_setup_mmu
 	; jsr copy_page_c128
 
 
-c128_prepare_vmem
+c128_move_dynmem_and_calc_vmem
 	; Copy dynmem to bank 1
 	lda #>story_start
 	sta zp_temp
@@ -528,51 +528,51 @@ c128_prepare_vmem
 	dec zp_temp + 2
 	bne -
 
-	; Make old dynmem space available for vmem
-	lda nonstored_blocks
-	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
-	sta object_temp
-
 	lda #>story_start
 	sta zp_temp + 1 ; First destination page
 	clc
 	adc nonstored_blocks
 	sta zp_temp ; First source page
-	lda vmap_used_entries
-	asl
-	sta zp_temp + 2 ; How many pages to copy
-	beq .done_vmem_move
+	; lda vmap_used_entries
+	; asl
+	; sta zp_temp + 2 ; How many pages to copy
+	; beq .done_vmem_move
 
 -	lda zp_temp
+	cmp #VMEM_END_PAGE
+	bcs .done_vmem_move
 	ldy zp_temp + 1
 	ldx #0
 	jsr copy_page_c128
 	inc zp_temp
 	inc zp_temp + 1
-	dec zp_temp + 2
-	bne -
+;	dec zp_temp + 2
+	bne - ; Always branch
 
 .done_vmem_move
 
 	; Add free RAM in bank 1 as vmem memory
 
-	; First clear all vmap entries after the one which is currently the last
-	ldx vmap_used_entries
-	lda #0
--	sta vmap_z_h,x
-	sta vmap_z_l,x
-	inx
-	cpx #vmap_max_size
-	bcc -
-
+	; ; First clear all vmap entries after the one which is currently the last
+	; ldx vmap_used_entries
+	; lda #0
+; -	sta vmap_z_h,x
+	; sta vmap_z_l,x
+	; inx
+	; cpx #vmap_max_size
+	; bcc -
 	
 	lda #>story_start
 	sta vmap_first_ram_page
 
 	; Remember above which index in vmem the blocks are in bank 1
-	lda vmap_max_entries
-	clc
-	adc object_temp
+	lda #VMEM_END_PAGE
+	sec
+	sbc #>story_start
+	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
+	; lda vmap_max_entries
+	; clc
+	; adc object_temp
 	sta first_vmap_entry_in_bank_1
 
 	; Remember the first page used for vmem in bank 1
@@ -581,10 +581,13 @@ c128_prepare_vmem
 	sta vmap_first_ram_page_in_bank_1
 
 	; Calculate how many vmem pages we can fit in bank 1
+	lda nonstored_blocks
+	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
+	sta object_temp
 	lda #VMEM_END_PAGE
 	sec
 	sbc vmap_first_ram_page_in_bank_1
-	lsr ; Convert from 256-bytes pages to 512-byte vmem blocks
+	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
 	; Now A holds the # of vmem blocks we can fit in bank 1
 	adc vmap_max_entries ; Add the # we had room for in bank 0 from the start
 	adc object_temp ; Add the # we made room for by moving dynmem to bank 1
@@ -1113,11 +1116,13 @@ deletable_init
 }
 	sta vmap_max_entries
 
-	jsr prepare_static_high_memory
+hello
 
 !ifdef TARGET_C128 {
-	jsr c128_prepare_vmem
+	jsr c128_move_dynmem_and_calc_vmem
 }
+
+	jsr prepare_static_high_memory
 
 	jsr insert_disks_at_boot
 
@@ -1446,14 +1451,8 @@ prepare_static_high_memory
 	sta zp_pc_h
 	sta zp_pc_l
 
-; ; Clear vmap_z_h
-	; ldy vmap_max_entries
-	lda #0
-; -	sta vmap_z_h - 1,y
-	; dey
-	; bne -
-
 ; Clear quick index
+	lda #0
 	ldx #vmap_quick_index_length
 -	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
 	dex
@@ -1470,6 +1469,7 @@ prepare_static_high_memory
 	lda (zp_temp),y ; # of blocks in the list
 	tax
 	cpx vmap_max_entries
+;	cpx #vmap_max_size
 	bcc +
 	beq +
 	ldx vmap_max_entries
@@ -1494,15 +1494,6 @@ prepare_static_high_memory
 	dex
 	bne -
 	
-	; ldy #vmap_max_length - 1
-; -	lda vmap_z_h,y
-	; and #%01000000 ; Check if non-swappable memory
-	; bne .dont_set
-	; sty vmap_first_swappable_index
-	; dey
-	; bpl -
-; .dont_set
-	
 ; Point to lowbyte array	
 	ldy #0
 	lda (zp_temp),y
@@ -1516,7 +1507,8 @@ prepare_static_high_memory
 -	lda (zp_temp),y
 	sta vmap_z_l,y
 	dey
-	bpl -
+	cpy #$ff
+	bne -
 .no_entries
 !ifdef TRACE_VM {
 	jsr print_vm_map
@@ -1552,11 +1544,7 @@ end_of_routines_in_stack_space
 
 	!fill stack_size - (* - stack_start),0 ; 4 pages
 
-; !ifdef TARGET_C128 {
-; initial_story_start ; (story_start is defined in constants-c128.asm)
-; } else {
 story_start
-;}
 
 !ifdef vmem_cache_size {
 !if vmem_cache_size >= $200 {
