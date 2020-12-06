@@ -488,24 +488,6 @@ c128_setup_mmu
 	dex
 	bne -
 	rts
-	
-	; txa ; a = 0
-	; ldx #9
-; -	sta c128_function_key_string_lengths,x
-	; dex
-	; bpl -
-	
-; Just for testing
-	; lda #$f0
-	; ldy #$08
-	; ldx #0
-	; jsr copy_page_c128
-	
-	; lda #$08
-	; ldy #$d0
-	; ldx #1
-	; jsr copy_page_c128
-
 
 c128_move_dynmem_and_calc_vmem
 	; Copy dynmem to bank 1
@@ -533,10 +515,6 @@ c128_move_dynmem_and_calc_vmem
 	clc
 	adc nonstored_blocks
 	sta zp_temp ; First source page
-	; lda vmap_used_entries
-	; asl
-	; sta zp_temp + 2 ; How many pages to copy
-	; beq .done_vmem_move
 
 -	lda zp_temp
 	cmp #VMEM_END_PAGE
@@ -546,22 +524,12 @@ c128_move_dynmem_and_calc_vmem
 	jsr copy_page_c128
 	inc zp_temp
 	inc zp_temp + 1
-;	dec zp_temp + 2
 	bne - ; Always branch
 
 .done_vmem_move
 
 	; Add free RAM in bank 1 as vmem memory
 
-	; ; First clear all vmap entries after the one which is currently the last
-	; ldx vmap_used_entries
-	; lda #0
-; -	sta vmap_z_h,x
-	; sta vmap_z_l,x
-	; inx
-	; cpx #vmap_max_size
-	; bcc -
-	
 	lda #>story_start
 	sta vmap_first_ram_page
 
@@ -570,9 +538,6 @@ c128_move_dynmem_and_calc_vmem
 	sec
 	sbc #>story_start
 	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
-	; lda vmap_max_entries
-	; clc
-	; adc object_temp
 	sta first_vmap_entry_in_bank_1
 
 	; Remember the first page used for vmem in bank 1
@@ -597,6 +562,51 @@ c128_move_dynmem_and_calc_vmem
 +	sta vmap_max_entries
 	rts
 }
+
+!if SUPPORT_REU = 1 {
+progress_reu = zword
+reu_progress_ticks = zword + 1
+;statmem_blocks = zword + 2 ; two bytes
+
+print_reu_progress_bar
+
+	bit use_reu
+	bpl .skip_reu
+	lda nonstored_blocks
+	lsr
+!ifdef Z4PLUS {
+	lsr
+!ifdef Z8 {
+	lsr
+}
+}
+	sta reu_progress_ticks ; Scaled-down version of nonstored_blocks
+	lda story_start + header_filelength
+	sec
+	sbc reu_progress_ticks
+	lsr
+	lsr
+	lsr
+	sta reu_progress_ticks
+
+	lda reu_progress_base
+	sta progress_reu
+
+; Print progress bar
+	lda #13
+	jsr s_printchar
+	ldx reu_progress_ticks
+	beq +
+-	lda #47
+	jsr s_printchar
+	dex
+	bne -
++
+
+.skip_reu
+	rts
+}
+
 
 	
 program_end
@@ -1064,14 +1074,11 @@ deletable_init
 	sta disk_info + 1 ; # of save slots
 }
 
-	; ldy #0
-	; ldx #0
-	; jsr set_cursor
-	
 	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
 	+set_memory_no_basic
 
 ; parse_header section
+
 
 	; Store the size of dynmem AND (if VMEM is enabled)
 	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
@@ -1116,7 +1123,9 @@ deletable_init
 }
 	sta vmap_max_entries
 
-hello
+!if SUPPORT_REU=1 {
+	jsr print_reu_progress_bar
+}
 
 !ifdef TARGET_C128 {
 	jsr c128_move_dynmem_and_calc_vmem
@@ -1146,39 +1155,6 @@ hello
 .supported_version
 }
 
-
-
-   ; ; check file length
-	; ; Start by multiplying file length by 2
-	; lda #0
-	; sta filelength
-	; lda story_start + header_filelength
-	; sta filelength + 1
-	; lda story_start + header_filelength + 1
-	; asl
-	; rol filelength + 1
-	; rol filelength
-; !ifdef Z4PLUS {
-	; ; Multiply file length by 2 again (for Z4, Z5 and Z8)
-	; asl
-	; rol filelength + 1
-	; rol filelength
-; !ifdef Z8 {
-	; ; Multiply file length by 2 again (for Z8)
-	; asl
-	; rol filelength + 1
-	; rol filelength
-; }
-; }
-	; sta filelength + 2
-	; ldy filelength
-	; ldx filelength + 1
-	; beq +
-	; inx
-	; bne +
-	; iny
-; +	sty fileblocks
-	; stx fileblocks + 1
 	rts
 }
 
@@ -1345,7 +1321,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 	ldx z_temp + 2
 	ldy mempointer + 1
 	jsr copy_page_to_reu
-	bcs .reu_error
+;	bcs .reu_error
 
 	ldx z_temp ; (Not) Already loaded
 	stx $7ff
@@ -1369,18 +1345,29 @@ copy_data_from_disk_at_zp_temp_to_reu
 .done_copying
 	rts
 
-.reu_error
-	lda #0
-	sta use_reu
-	lda #>.reu_error_msg
-	ldx #<.reu_error_msg
-	jsr printstring_raw
--	jsr kernal_getchar
-	beq -
-	rts
 
-.reu_error_msg
-	!pet "REU error. [SPACE]",0
+; .reu_error
+	; lda #0
+	; sta use_reu
+	; lda #>.reu_error_msg
+	; ldx #<.reu_error_msg
+	; jsr printstring_raw
+; -	jsr kernal_getchar
+	; beq -
+	; rts
+
+; .reu_error_msg
+	; !pet "REU error. [SPACE]",0
+reu_progress_base
+!ifdef Z3 {
+	!byte 16 ; blocks read to REU per tick of progress bar
+} else {
+!ifdef Z8 {
+	!byte 64 ; blocks read to REU per tick of progress bar
+} else {
+	!byte 32 ; blocks read to REU per tick of progress bar
+}
+}
 
 copy_page_to_reu
 	; a,x = REU page
@@ -1398,6 +1385,15 @@ copy_page_to_reu
 	lda #%10010000;  c64 -> REU with immediate execution
 	sta reu_command
 
+	; Update progress bar
+	dec progress_reu
+	bne +
+	lda reu_progress_base
+	sta progress_reu
+	lda #20
+	jsr s_printchar
++
+
 !ifdef TARGET_C128 {	
 	lda #1
 	sta allow_2mhz
@@ -1407,7 +1403,7 @@ copy_page_to_reu
 	sta $d030	;CPU = 2MHz
 +
 }
-
+;	clc ; Only needed if we check for C (meaning error) on return
 	rts
 
 .no_reu
@@ -1415,7 +1411,7 @@ copy_page_to_reu
 .print_reply_and_return
 	jsr s_printchar
 	lda #13
-	jsr s_printchar
+	jmp s_printchar
 .no_reu_present	
 	rts
 
@@ -1441,6 +1437,7 @@ reu_start
 	stx use_reu
 	ora #$80
 	bne .print_reply_and_return ; Always branch
+	
 .use_reu_question
 	!pet 13,"Use REU? (Y/N) ",0
 } ; SUPPORT_REU = 1
@@ -1463,13 +1460,12 @@ prepare_static_high_memory
 	adc config_load_address + 4
 	sta zp_temp
 	lda #>config_load_address
-;	adc #0 ; Not needed if disk info is always <= 249 bytes
+;	adc #0 ; Not needed, as disk info is always <= 249 bytes
 	sta zp_temp + 1
 	ldy #0
 	lda (zp_temp),y ; # of blocks in the list
 	tax
 	cpx vmap_max_entries
-;	cpx #vmap_max_size
 	bcc +
 	beq +
 	ldx vmap_max_entries
@@ -1485,7 +1481,6 @@ prepare_static_high_memory
 }
 	sta vmap_used_entries
 .ignore_blocks
-;	sta zp_temp + 3 ; # of blocks already loaded
 
 ; Copy to vmap_z_h
 -	iny
@@ -1498,9 +1493,11 @@ prepare_static_high_memory
 	ldy #0
 	lda (zp_temp),y
 	clc
+	adc #2 ; This can't set the carry
 	adc zp_temp
-	adc #2
-	sta zp_temp
+	bcc +
+	inc zp_temp + 1
++	sta zp_temp
 	ldy vmap_used_entries
 	beq .no_entries
 	dey
@@ -1515,12 +1512,12 @@ prepare_static_high_memory
 }
 	rts
 	
-.progress !byte 0	
+.progress_suggested !byte 6
 
 load_suggested_pages
 ; Load all suggested pages which have not been pre-loaded
-	lda #13
-	jsr s_printchar
+
+; Print progress bar
 	lda #13
 	jsr s_printchar
 	lda vmap_used_entries
@@ -1528,7 +1525,7 @@ load_suggested_pages
 	sbc vmap_blocks_preloaded
 	tax
 -	cpx #6
-	bcc +
+	bcc .start_loading
 	lda #47
 	jsr s_printchar
 	txa
@@ -1536,23 +1533,21 @@ load_suggested_pages
 	sbc #6
 	tax
 	bne -
-+	lda #6
-	sta .progress
--	lda vmap_blocks_preloaded ; First index which has not been loaded
-	beq ++ ; First block was loaded with header
+.start_loading
+	lda vmap_blocks_preloaded ; First index which has not been loaded
 	cmp vmap_used_entries ; Total # of indexes in the list
 	bcs +
 	sta vmap_index
 	tax
 	jsr load_blocks_from_index
-	dec .progress
+	dec .progress_suggested
 	bne ++
 	lda #20
 	jsr s_printchar
 	lda #6
-	sta .progress
+	sta .progress_suggested
 ++	inc vmap_blocks_preloaded
-	bne - ; Always branch
+	bne .start_loading ; Always branch
 +
 	ldx vmap_used_entries
 	cpx vmap_max_entries
