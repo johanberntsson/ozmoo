@@ -484,7 +484,7 @@ For each disk:
 			131: "disk "
 
 --- Vmem information block ---
-2 bytes: Number of bytes used for vmem information, including this byte (LB, HB)
+2 bytes: Number of bytes used for vmem information, including this byte (high endian)
 1 byte: Number of vmem blocks suggested for initial caching
 1 byte: Number of vmem blocks already preloaded
 x bytes: vmap_z_h contents for the suggested blocks

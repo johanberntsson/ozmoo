@@ -1093,12 +1093,13 @@ def limit_vmem_data(vmem_data, max_length)
 		vmem_data[2] = keep
 		vmem_data[3] = keep if vmem_data[3] > keep
 		size = 4 + 2 * keep
-		vmem_data [0 .. 1] = [size % 256, size / 256]
+		vmem_data [0 .. 1] = [size / 256, size % 256]
 		puts "Limited vmem_data to #{max_length} bytes by removing #{trim} blocks."
 	end
 end
 
-def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 0
 	
 	boot_disk = false
@@ -1146,7 +1147,8 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	nil # Signal success
 end
 
-def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 9999
 	
 	boot_disk = true
@@ -1218,7 +1220,8 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
-def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot.d64"
@@ -1292,7 +1295,8 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	nil # Signal success
 end
 
-def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot_story_1.d64"
@@ -1392,7 +1396,8 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	nil # Signal success
 end
 
-def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data,
+				vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 4 # 4 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot.d64"
@@ -1489,7 +1494,8 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	nil # Signal success
 end
 
-def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
+def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
+				preload_max_vmem_blocks)
 	max_story_blocks = 9999
 	
 	boot_disk = true
@@ -1561,7 +1567,8 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
-def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
+def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
+				preload_max_vmem_blocks)
 
 	diskfilename = "#{$target}_#{storyname}.d81"
 	
@@ -2085,8 +2092,8 @@ save_slots, # Save slots, change later if wrong
 if preload_data then
 	total_length = 4 + 2 * preload_data.length
 	vmem_data = [
-		total_length % 256,
 		total_length / 256,
+		total_length % 256,
 		preload_data.length, # Number of suggested blocks
 		preload_data.length, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
@@ -2120,8 +2127,8 @@ else # No preload data available
 	total_length = 4 + 2 * mapped_vmem_blocks # Size of vmem data
 #	puts "total_length is #{total_length}"
 	vmem_data = [
-		total_length % 256,
 		total_length / 256,
+		total_length % 256,
 		mapped_vmem_blocks, # Number of suggested blocks
 		mapped_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
 		]
