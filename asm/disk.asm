@@ -291,6 +291,14 @@ read_track_sector
 	;jsr printstring
 	jsr newline
 }
+
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta $d030	;CPU = 1MHz
+}
+
+
 	; open the channel file
 	lda #cname_len
 	ldx #<.cname
@@ -319,7 +327,8 @@ read_track_sector
 	tay      ; secondary address 15
 	jsr kernal_setlfs ; call SETLFS
 !ifdef TARGET_C128 {
-	ldx #$00
+	lda #$00
+	tax
 	jsr kernal_setbnk
 }
 	jsr kernal_open ; call OPEN (open command channel and send U1 command)
@@ -341,7 +350,13 @@ read_track_sector
 	sta (zp_mempos),Y   ; write byte to memory
 	iny
 	bne -         ; next byte, end when 256 bytes are read
+!ifdef TARGET_C128 {
+	jsr close_io
+	jmp restore_2mhz
+} else {
 	jmp close_io
+}
+
 .error
 	; accumulator contains BASIC error code
 	; most likely errors:
@@ -1125,6 +1140,7 @@ restore_game
 	bcs .restore_failed    ; if carry set, a file error has happened
 
 !ifdef TARGET_C128 {
+	jsr restore_2mhz
 	; Copy stack and pointers from bank 1 to bank 0
 	jsr .copy_stack_and_pointers_to_bank_0
 	; z_temp + 4 now holds the page# where the zp registers are stored in vmem_cache
@@ -1248,7 +1264,9 @@ save_game
 	bcc +
 	jmp .restore_failed    ; if carry set, a save error has happened
 +
-
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
 	; Swap out z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 
@@ -1258,9 +1276,6 @@ save_game
 }
 	jsr .insert_story_disk
 .dont_insert_story_disk
-!ifdef TARGET_C128 {
-	jsr restore_2mhz
-}
 	lda #0
 	ldx #1
 	rts
