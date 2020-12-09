@@ -569,28 +569,28 @@ c128_move_dynmem_and_calc_vmem
 !if SUPPORT_REU = 1 {
 progress_reu = parse_array
 reu_progress_ticks = parse_array + 1
-;statmem_blocks = zword + 2 ; two bytes
+reu_last_disk_end_block = string_array ; 2 bytes
 
 print_reu_progress_bar
-
-	bit use_reu
-	bpl .skip_reu
-	lda nonstored_blocks
-	lsr
-!ifdef Z4PLUS {
-	lsr
-!ifdef Z8 {
-	lsr
-}
-}
-	sta reu_progress_ticks ; Scaled-down version of nonstored_blocks
-	lda story_start + header_filelength
+	lda z_temp + 4
 	sec
-	sbc reu_progress_ticks
-	lsr
-	lsr
-	lsr
+	sbc reu_last_disk_end_block
 	sta reu_progress_ticks
+	lda z_temp + 5
+	sbc reu_last_disk_end_block + 1
+!ifdef Z4PLUS {
+!ifdef Z8 {
+	ldx #6
+} else {
+	ldx #5
+}
+} else {
+	ldx #4
+}
+-	lsr 
+	ror reu_progress_ticks
+	dex
+	bne -
 
 	lda reu_progress_base
 	sta progress_reu
@@ -606,10 +606,32 @@ print_reu_progress_bar
 	bne -
 +
 
-.skip_reu
 	rts
 }
 
+!ifdef HAS_SID {
+init_sid
+	; Init sound
+	lda #0
+	ldx #$18
+-	sta $d400,x
+	dex
+	bpl -
+	lda #$f
+	sta $d418
+	lda #$00
+	sta $d405
+	lda #$f2
+	sta $d406
+
+	; Init randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	ldx #$80
+	stx $d412
+	rts
+}
 
 	
 program_end
@@ -783,10 +805,8 @@ z_init
 	ldy #header_font_height_units
 	jsr write_header_byte
 	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
-}
 	
 	; Copy alphabet pointer from header, or default
-!ifdef Z5PLUS {
 	ldy #header_alphabet_table
 	jsr read_header_word
 	cmp #0
@@ -848,25 +868,7 @@ z_init
 	sta z_high_global_vars_ptr + 1 
 
 !ifdef HAS_SID {
-	; Init sound
-	lda #0
-	ldx #$18
--	sta $d400,x
-	dex
-	bpl -
-	lda #$f
-	sta $d418
-	lda #$00
-	sta $d405
-	lda #$f2
-	sta $d406
-
-	; Init randomization
-	lda #$ff
-	sta $d40e
-	sta $d40f
-	ldx #$80
-	stx $d412
+	jsr init_sid
 }
 !ifdef TARGET_PLUS4 {
 	lda #0
@@ -1126,9 +1128,9 @@ deletable_init
 }
 	sta vmap_max_entries
 
-!if SUPPORT_REU=1 {
-	jsr print_reu_progress_bar
-}
+; !if SUPPORT_REU=1 {
+	; jsr print_reu_progress_bar
+; }
 
 !ifdef TARGET_C128 {
 	jsr c128_move_dynmem_and_calc_vmem
@@ -1223,6 +1225,12 @@ auto_disk_config
 }
 !zone insert_disks_at_boot {
 insert_disks_at_boot
+!if SUPPORT_REU = 1 {
+	lda #0
+	sta reu_last_disk_end_block
+	sta reu_last_disk_end_block + 1
+}
+
 ;	jsr dollar
 ;	jsr kernal_readchar
 	jsr prepare_for_disk_msgs
@@ -1253,6 +1261,8 @@ insert_disks_at_boot
 !if SUPPORT_REU = 1 {
 	ldx use_reu
 	beq .restore_xy_disk_done
+	lda #13
+	jsr s_printchar
 	jsr copy_data_from_disk_at_zp_temp_to_reu
 }
 .restore_xy_disk_done
@@ -1305,6 +1315,8 @@ copy_data_from_disk_at_zp_temp_to_reu
 	sta z_temp + 4 ; Last sector# on this disk. Store low-endian
 	lda disk_info + 5,x
 	sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+	
+	jsr print_reu_progress_bar
 
 .initial_copy_loop
 	lda z_temp + 6
@@ -1343,6 +1355,12 @@ copy_data_from_disk_at_zp_temp_to_reu
 +	bne .initial_copy_loop ; Always branch
 
 .done_copying
+
+	lda z_temp + 4
+	sta reu_last_disk_end_block
+	lda z_temp + 5
+	sta reu_last_disk_end_block + 1
+
 	rts
 
 
