@@ -717,16 +717,6 @@ clear_screen_raw
 	jsr s_printchar
 	rts
 
-printchar_raw
-	php
-	stx .save_x
-	sty .save_y
-	jsr s_printchar
-	ldy .save_y
-	ldx .save_x
-	plp
-	rts
-
 printstring_raw
 ; Parameters: Address in a,x to 0-terminated string
 	stx .read_byte + 1
@@ -735,7 +725,7 @@ printstring_raw
 .read_byte
 	lda $8000,x
 	beq +
-	jsr printchar_raw
+	jsr s_printchar
 	inx
 	bne .read_byte
 +	rts

@@ -398,7 +398,7 @@ print_insert_disk_msg
 -	lda disk_info + 8,y
 	beq .disk_name_done
 	bmi .special_string
-	jsr printchar_raw
+	jsr s_printchar
 	iny
 	bne - ; Always branch
 .special_string
@@ -421,13 +421,13 @@ print_insert_disk_msg
 	cmp #10
 	bcc +
 	lda #$31
-	jsr printchar_raw
+	jsr s_printchar
 	txa
 	sec
 	sbc #10
 +	clc
 	adc #$30
-	jsr printchar_raw
+	jsr s_printchar
 	lda #>insert_msg_3
 	ldx #<insert_msg_3
 	jsr printstring_raw
@@ -788,11 +788,11 @@ list_save_files
 	
 	txa
 	sta .occupied_slots - $30,x
-	jsr printchar_raw
+	jsr s_printchar
 	lda #58
-	jsr printchar_raw
+	jsr s_printchar
 	lda #32
-	jsr printchar_raw
+	jsr s_printchar
 	dec zp_temp + 1
 	
 -	jsr kernal_readchar
@@ -801,8 +801,8 @@ list_save_files
 	beq .end_of_name
 	bit zp_temp + 1
 	bpl - ; Skip printing if not a save file
-	jsr printchar_raw
-	bne - ; Always branch
+	jsr s_printchar
+	jmp -
 .end_of_name
 -	jsr kernal_readchar
 	cmp #0 ; EOL
@@ -810,8 +810,8 @@ list_save_files
 	bit zp_temp + 1
 	bpl .read_next_line ; Skip printing if not a save file
 	lda #13
-	jsr printchar_raw
-	bne .read_next_line
+	jsr s_printchar
+	jmp .read_next_line
 	
 .end_of_dir
 	jsr close_io
@@ -839,11 +839,11 @@ list_save_files
 
 	txa
 	ora #$30
-	jsr printchar_raw
+	jsr s_printchar
 	lda #58
-	jsr printchar_raw
+	jsr s_printchar
 	lda #13
-	jsr printchar_raw
+	jsr s_printchar
 +	inx
 	cpx disk_info + 1 ; # of save slots
 	bcc -
