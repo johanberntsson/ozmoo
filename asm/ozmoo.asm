@@ -255,17 +255,19 @@ c128_reset_to_basic
 ; Adding support for 2MHz in the border
 ; https://sites.google.com/site/h2obsession/CBM/C128/2mhz-border
 
-allow_2mhz !byte $ff
+allow_2mhz_in_40_col !byte 1
+use_2mhz_in_80_col !byte 0 ; Initial value should always be 0
+
+use_2mhz_in_80_col_in_game_value = 1 ; This value is used after setup
 
 ;phase 2 of 2MHz speed-up = change CPU to 2MHz
 ;and set raster IRQ for top-of-screen less 1 raster
 ;and do normal KERNAL routines of IRQ
 c128_border_phase2
 	lda #1
-	ldx allow_2mhz
-	beq +
-	sta $d030	;CPU = 2MHz
-+	sta $d019	;clear VIC raster IRQ
+	ldx allow_2mhz_in_40_col
+	stx $d030	;CPU = 2MHz
+	sta $d019	;clear VIC raster IRQ
 	lda #<c128_border_phase1    ;set top-of-screen (phase 1)
 	ldx #>c128_border_phase1
 	sta $0314        ;as new IRQ vector
@@ -382,7 +384,8 @@ game_id		!byte 0,0,0,0
 	beq +
 	; 80 columns mode
 	; switch to 2MHz
-	lda #1
+	lda #use_2mhz_in_80_col_in_game_value
+	sta use_2mhz_in_80_col
 	sta $d030	;CPU = 2MHz
 	lda $d011
 	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
@@ -564,8 +567,8 @@ c128_move_dynmem_and_calc_vmem
 }
 
 !if SUPPORT_REU = 1 {
-progress_reu = zword
-reu_progress_ticks = zword + 1
+progress_reu = parse_array
+reu_progress_ticks = parse_array + 1
 ;statmem_blocks = zword + 2 ; two bytes
 
 print_reu_progress_bar
@@ -1312,8 +1315,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 
 	lda z_temp + 1
 	ldx z_temp ; (Not) Already loaded
-	sta $7fd
-	stx $7fe
 	ldy #0 ; Value is unimportant except for the last block, where anything > 0 may be after file end
 	jsr read_byte_at_z_address
 	; Current Z-machine page is now in C64 page held in mempointer + 1
@@ -1321,10 +1322,9 @@ copy_data_from_disk_at_zp_temp_to_reu
 	ldx z_temp + 2
 	ldy mempointer + 1
 	jsr copy_page_to_reu
-;	bcs .reu_error
+	bcs .reu_error
 
 	ldx z_temp ; (Not) Already loaded
-	stx $7ff
 
 	; Inc Z-machine page
 	inc z_temp
@@ -1338,7 +1338,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 
 	; Inc disk block#
 +	inc z_temp + 6
-	bne +
+	bne .initial_copy_loop
 	inc z_temp + 7
 +	bne .initial_copy_loop ; Always branch
 
@@ -1346,18 +1346,18 @@ copy_data_from_disk_at_zp_temp_to_reu
 	rts
 
 
-; .reu_error
-	; lda #0
-	; sta use_reu
-	; lda #>.reu_error_msg
-	; ldx #<.reu_error_msg
-	; jsr printstring_raw
-; -	jsr kernal_getchar
-	; beq -
-	; rts
+.reu_error
+	lda #0
+	sta use_reu
+	lda #>.reu_error_msg
+	ldx #<.reu_error_msg
+	jsr printstring_raw
+-	jsr kernal_getchar
+	beq -
+	rts
 
-; .reu_error_msg
-	; !pet "REU error. [SPACE]",0
+.reu_error_msg
+	!pet 13,"REU error, disabled. [SPACE]",0
 reu_progress_base
 !ifdef Z3 {
 	!byte 16 ; blocks read to REU per tick of progress bar
@@ -1372,19 +1372,25 @@ reu_progress_base
 copy_page_to_reu
 	; a,x = REU page
 	; y = C64 page
-!ifdef TARGET_C128 {
-	pha
-	lda #0
-	sta allow_2mhz
-	sta $d030	;CPU = 1MHz
-	pla
-}
 
 	jsr store_reu_transfer_params
 
-	lda #%10010000;  c64 -> REU with immediate execution
+-	lda #%10110000;  c64 -> REU with immediate execution
 	sta reu_command
 
+	; Verify
+	
+	lda #%10110011;  compare c64 to REU with immediate execution
+	sta reu_command
+	lda reu_status
+	and #%00100000
+	beq +
+
+	; Signal REU error and return
+	sec
+	rts
+
++
 	; Update progress bar
 	dec progress_reu
 	bne +
@@ -1394,16 +1400,7 @@ copy_page_to_reu
 	jsr s_printchar
 +
 
-!ifdef TARGET_C128 {	
-	lda #1
-	sta allow_2mhz
-	lda COLS_40_80
-	beq +
-	lda #1
-	sta $d030	;CPU = 2MHz
-+
-}
-;	clc ; Only needed if we check for C (meaning error) on return
+	clc
 	rts
 
 .no_reu
@@ -1435,6 +1432,14 @@ reu_start
 	bne -
 	ldx #$80 ; Use REU, set vmem to reu loading mode
 	stx use_reu
+!ifdef TARGET_C128 {
+	; Make sure REU uses RAM bank 0
+	pha
+	lda $d506
+	and #%00111111
+	sta $d506
+	pla
+}
 	ora #$80
 	bne .print_reply_and_return ; Always branch
 	

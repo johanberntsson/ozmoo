@@ -475,6 +475,14 @@ z_execute
 
 .main_loop
 
+; Timing
+!ifdef TIMING {
+	lda ti_variable + 1
+	ldx ti_variable + 2
+	ldy header_high_mem
+	jsr write_header_word
+}
+
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda ti_variable + 2

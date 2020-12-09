@@ -1083,7 +1083,7 @@ restore_game
 
 !ifdef TARGET_C128 {
 	lda #0
-	sta allow_2mhz
+	sta allow_2mhz_in_40_col
 	sta $d030	;CPU = 1MHz
 }
 
@@ -1176,7 +1176,7 @@ save_game
 
 !ifdef TARGET_C128 {
 	lda #0
-	sta allow_2mhz
+	sta allow_2mhz_in_40_col
 	sta $d030	;CPU = 1MHz
 }
 
@@ -1330,20 +1330,6 @@ do_save
 	jsr kernal_close
 	plp ; restore c flag
 	rts
-	
-
-!ifdef TARGET_C128 {
-restore_2mhz
-	lda #1
-	sta allow_2mhz
-	lda COLS_40_80
-	beq +
-	lda #1
-	sta $d030	;CPU = 2MHz
-+
-	rts
-}
-	
 	
 .last_disk	!byte 0
 .saveslot !byte 0

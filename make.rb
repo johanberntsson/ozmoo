@@ -34,6 +34,7 @@ $GENERALFLAGS = [
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
+#   'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 ]
 
 # For a production build, none of these flags should be enabled.

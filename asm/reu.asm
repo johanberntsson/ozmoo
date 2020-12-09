@@ -14,26 +14,28 @@ copy_page_from_reu
 !ifdef TARGET_C128 {
 	pha
 	lda #0
-	sta allow_2mhz
+	sta allow_2mhz_in_40_col
 	sta $d030	;CPU = 1MHz
 	pla
 }
 
 	jsr store_reu_transfer_params
 
-	lda #%10010001;  REU -> c64 with immediate execution
+	lda #%10110001;  REU -> c64 with immediate execution
 	sta reu_command
 
-!ifdef TARGET_C128 {	
+!ifdef TARGET_C128 {
+restore_2mhz
 	lda #1
-	sta allow_2mhz
-	lda COLS_40_80
+	sta allow_2mhz_in_40_col
+	ldx COLS_40_80
 	beq +
-	lda #1
+	lda use_2mhz_in_80_col
 	sta $d030	;CPU = 2MHz
 +
 }
 	rts
+
 
 store_reu_transfer_params
 	; a,x = REU page
@@ -42,6 +44,7 @@ store_reu_transfer_params
 	stx reu_reubase + 1
 	sty reu_c64base + 1
 	lda #0
+	sta reu_irqmask
 	sta reu_control ; to make sure both addresses are counted up
 	sta reu_c64base
 	sta reu_reubase
