@@ -1640,8 +1640,8 @@ end
 
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P]"
-	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]] -u"
-	puts "         [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-p:[n]] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
+	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
@@ -1650,8 +1650,9 @@ def print_usage_and_exit
 	puts "  -t: specify target machine. Available targets are c64 (default) and mega65."
 	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
-	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
+	puts "  -c: read preload config from preloadfile, previously created with -o"
+	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
 	puts "  -s: start game in Vice if build succeeds"
@@ -1679,6 +1680,7 @@ splashes = [
 mode = nil
 $interpreter_number = nil
 i = 0
+fill_preload = nil
 await_preloadfile = false
 await_fontfile = false
 await_imagefile = false
@@ -1690,7 +1692,7 @@ $loader_flicker = false
 auto_play = false
 optimize = false
 extended_tracks = false
-preload_max_vmem_blocks = 2**16 / $VMEM_BLOCKSIZE
+preload_max_vmem_blocks = 2**17 / $VMEM_BLOCKSIZE
 limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
@@ -1786,6 +1788,9 @@ begin
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
+		elsif ARGV[i] =~ /^-cf$/ then
+			await_preloadfile = true
+			fill_preload = true
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-f$/ then
@@ -1950,7 +1955,7 @@ if preloadfile then
 	vmem_type = "clock"
 	if preload_raw_data =~ /^\$po\$:(([0-9a-f]{4}:\n?)+)\n?\$\$\$\$/i
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
-		puts "#{preload_data.length} blocks found for initial caching."
+		puts "#{preload_data.length} vmem blocks found for optimized preload."
 	else
 		puts "ERROR: No preload config data found (for vmem type \"#{vmem_type}\")."
 		exit 1
@@ -2089,7 +2094,40 @@ save_slots, # Save slots, change later if wrong
 ]
 
 # Create config data for vmem
+total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
+mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
+unless $DEBUGFLAGS.include?('PREOPT') then
+	if mode == MODE_P 
+		mapped_vmem_blocks = total_vmem_blocks - $dynmem_blocks
+	else
+		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
+			total_vmem_blocks - $dynmem_blocks].min()
+	end
+end
 if preload_data then
+
+	# Add extra blocks if there is room
+	cursor = $dynmem_blocks
+	added = 0
+	if fill_preload == true and mapped_vmem_blocks > preload_data.length then
+		used_block = Hash.new
+		mask = $zcode_version == 8 ? 0b0000001111111111 :
+			($zcode_version == 4 or $zcode_version == 5) ? 0b0000000111111111 :
+			0b0000000011111111
+		preload_data.each do |preload_value|
+			block_address = preload_value.to_i(16) & mask
+			used_block[block_address] = 1
+		end
+		while mapped_vmem_blocks > preload_data.length do
+			cursor += 1 while cursor < total_vmem_blocks and used_block.has_key?(cursor)
+			break if cursor >= total_vmem_blocks
+			preload_data.push(cursor.to_s(16).rjust(4,'0'))
+			used_block[cursor] = 1
+			added += 1
+		end
+	end
+	puts "Added #{added} best-guess vmem blocks to optimized preload." if added > 0
+	
 	total_length = 4 + 2 * preload_data.length
 	vmem_data = [
 		total_length / 256,
@@ -2109,21 +2147,6 @@ if preload_data then
 	end
 else # No preload data available
 #	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
-	referenced_blocks = -1
-	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
-	mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
-	if $DEBUGFLAGS.include?('PREOPT') then
-#		all_vmem_blocks = $dynmem_blocks
-		mapped_vmem_blocks = 0
-	else
-#		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
-		if mode == MODE_P 
-			mapped_vmem_blocks = total_vmem_blocks - $dynmem_blocks
-		else
-			mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
-		end
-		referenced_blocks = mapped_vmem_blocks / 2 # Mark the first half of the non-dynmem blocks as referenced 
-	end
 	total_length = 4 + 2 * mapped_vmem_blocks # Size of vmem data
 #	puts "total_length is #{total_length}"
 	vmem_data = [
@@ -2134,9 +2157,7 @@ else # No preload data available
 		]
 	lowbytes = []
 	mapped_vmem_blocks.times do |i|
-#		vmem_data.push(i <= referenced_blocks ? 0x20 : 0x00)
 		vmem_data.push(256 - 8 * (i / 4) - 32 ) # The later the block, the higher its age
-#		0-25 -> 0-200 -> 32-232
 		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256 / 2)
 	end
 	vmem_data += lowbytes;

@@ -131,6 +131,8 @@ New features:
   work like N before, making it easy to accidentally answer no).
 - Added a progress bar when loading data into REU or memory at game start.
 - Added re-use of game data in REU after a restart.
+- make.rb can optionally fill up with more vmem blocks to load when using
+  preload optimization.
 
 Optimizations:
 - Increased block age resolution by 1 bit, which should lead to better paging,
