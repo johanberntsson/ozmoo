@@ -593,7 +593,7 @@ z_ins_restart
 .device_no
 	!pet "00",17,17,17,17,17,"rU",19,0
 } else { ; Not Plus4 or C128
-	!pet 147,17,17,"    ",34,":*",34,","
+	!pet 147,17,17,"    ",34,":story",34,","
 .device_no
 	!pet "08",19,0
 }
