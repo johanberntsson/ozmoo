@@ -310,7 +310,8 @@ read_track_sector
 	tay      ; secondary address 2
 	jsr kernal_setlfs ; call SETLFS
 !ifdef TARGET_C128 {
-	ldx #$00
+	lda #$00
+	tax
 	jsr kernal_setbnk
 }
 	jsr kernal_open     ; call OPEN
@@ -505,7 +506,6 @@ z_ins_restart
 	jsr print_insert_disk_msg
 +
 
-
 !ifdef TARGET_MEGA65 {
 	; reset will autoboot the game again from disk
 	jmp kernal_reset
@@ -589,7 +589,7 @@ z_ins_restart
 
 .restart_code_string
 !ifdef TARGET_PLUS4_OR_C128 {
-	!pet 147,17,17,"lO",34,":*",34,","
+	!pet 147,17,17,"lO",34,":story",34,","
 .device_no
 	!pet "00",17,17,17,17,17,"rU",19,0
 } else { ; Not Plus4 or C128
@@ -730,7 +730,7 @@ list_save_files
 
 	; open the channel file
 !ifdef TARGET_C128 {
-	ldx #$00
+	lda #$00
 	tax
 	jsr kernal_setbnk
 }
