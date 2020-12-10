@@ -159,6 +159,8 @@ copy_page_c128         = $380 ; Uses ~30 bytes
 vmap_buffer_start     = $0800
 vmap_buffer_end       = $09b4 ; last usable byte + 1
 
+reu_filled            = $09fc ; 4 bytes
+
 memory_buffer         =	$0a05
 memory_buffer_length  = 23
 

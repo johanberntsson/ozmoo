@@ -518,6 +518,18 @@ z_ins_restart
 	jsr print_insert_disk_msg
 +
 
+!if SUPPORT_REU = 1 {
+	lda use_reu
+	beq +
+	; Write the game id as a signature to say that REU is already loaded.
+	ldx #3
+-	lda game_id,x
+	sta reu_filled,x
+	dex
+	bpl -
++
+}
+
 !ifdef TARGET_MEGA65 {
 	; reset will autoboot the game again from disk
 	jmp kernal_reset

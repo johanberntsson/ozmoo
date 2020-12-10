@@ -1035,9 +1035,16 @@ deletable_init
 ; Copy game id
 	ldx #3
 -	lda config_load_address,x
+!if SUPPORT_REU = 1 {
+	cmp reu_filled,x
+	beq +
+	dec reu_needs_loading
++
+}
 	sta game_id,x
 	dex
 	bpl -
+
 ; Copy disk info
 	ldx config_load_address + 4
 	dex
@@ -1251,6 +1258,8 @@ insert_disks_at_boot
 	cpy #2
 !if SUPPORT_REU = 1 {
 	bcc .copy_data_from_disk_1_to_reu
+	lda reu_needs_loading
+	beq .dont_need_to_insert_this
 } else {
 	bcc .dont_need_to_insert_this
 }
@@ -1290,6 +1299,8 @@ insert_disks_at_boot
 .copy_data_from_disk_1_to_reu
 	lda use_reu
 	bpl .dont_need_to_insert_this
+	lda reu_needs_loading
+	beq .dont_need_to_insert_this
 
 	sty zp_temp + 1
 

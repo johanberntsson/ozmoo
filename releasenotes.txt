@@ -130,6 +130,7 @@ New features:
 - Question to use REU can now only be answered by Y or N (any other key would
   work like N before, making it easy to accidentally answer no).
 - Added a progress bar when loading data into REU or memory at game start.
+- Added re-use of game data in REU after a restart.
 
 Optimizations:
 - Increased block age resolution by 1 bit, which should lead to better paging,
