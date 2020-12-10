@@ -174,15 +174,14 @@ vmem_swap_count !byte 0,0
 print_optimized_vm_map
 	stx zp_temp ; Nonzero means premature exit
 	jsr printchar_flush
+	ldx #$ff
+	jsr erase_window
 	lda #0
 	sta streams_output_selected + 2
 	sta is_buffered_window
-	jsr newline
-	jsr dollar
-	jsr dollar
-	jsr dollar
 	jsr print_following_string
-	!pet "clock",13,0
+	!pet 13,"$po$:",0
+
 	ldx #0
 -	lda vmap_z_h,x
 	jsr print_byte_as_hex
@@ -202,11 +201,9 @@ print_optimized_vm_map
 	jsr print_byte_as_hex
 	jsr colon
 	
-+++	jsr newline
-	jsr dollar
-	jsr dollar
-	jsr dollar
-	jsr newline
++++	
+	jsr print_following_string
+	!pet "$$$$",0
 	jsr kernal_readchar   ; read keyboard
 	jmp kernal_reset      ; reset
 }

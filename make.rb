@@ -1948,7 +1948,7 @@ preload_data = nil
 if preloadfile then
 	preload_raw_data = File.read(preloadfile)
 	vmem_type = "clock"
-	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\n?\$\$\$/i
+	if preload_raw_data =~ /^\$po\$:(([0-9a-f]{4}:\n?)+)\n?\$\$\$\$/i
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
 		puts "#{preload_data.length} blocks found for initial caching."
 	else
