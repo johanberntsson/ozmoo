@@ -267,11 +267,11 @@ read_track_sector
 	sty .device
 .have_set_device_track_sector
 	lda .track
-	jsr conv2dec
+	jsr convert_byte_to_two_digits
 	stx .uname_track
 	sta .uname_track + 1
 	lda .sector
-	jsr conv2dec
+	jsr convert_byte_to_two_digits
 	stx .uname_sector
 	sta .uname_sector + 1
 
@@ -433,17 +433,25 @@ print_insert_disk_msg
 	jsr printstring_raw
 	ldy .save_y
 	lda disk_info + 4,y
-	tax
-	cmp #10
-	bcc +
-	lda #$31
-	jsr s_printchar
+	jsr convert_byte_to_two_digits
+	cpx #$30
+	beq +
+	pha
 	txa
-	sec
-	sbc #10
-+	clc
-	adc #$30
 	jsr s_printchar
+	pla
++	jsr s_printchar
+	; tax
+	; cmp #10
+	; bcc +
+	; lda #$31
+	; jsr s_printchar
+	; txa
+	; sec
+	; sbc #10
+; +	clc
+	; adc #$30
+	; jsr s_printchar
 	lda #>insert_msg_3
 	ldx #<insert_msg_3
 	jsr printstring_raw
@@ -484,17 +492,21 @@ insert_msg_3
 !ifdef VMEM {
 z_ins_restart
 	; Find right device# for boot disk
-
 	ldx disk_info + 3
+
 !ifndef TARGET_MEGA65 {
 	lda disk_info + 4,x
-	cmp #10
-	bcc +
-	inc .device_no
-	sec
-	sbc #10
-+	ora #$30
+	jsr convert_byte_to_two_digits
+	stx .device_no
 	sta .device_no + 1
+	; cmp #10
+	; bcc +
+	; inc .device_no
+	; sec
+	; sbc #10
+; +	ora #$30
+	; sta .device_no + 1
+	ldx disk_info + 3
 }
 
 	; Check if disk is in drive
@@ -591,7 +603,7 @@ z_ins_restart
 !ifdef TARGET_PLUS4_OR_C128 {
 	!pet 147,17,17,"lO",34,":story",34,","
 .device_no
-	!pet "00",17,17,17,17,17,"rU",19,0
+	!pet "08",17,17,17,17,17,"rU",19,0
 } else { ; Not Plus4 or C128
 	!pet 147,17,17,"    ",34,":story",34,","
 .device_no
@@ -1174,7 +1186,7 @@ restore_game
 	ldx #1
 	rts
 .restore_failed
-!ifndef TARGET_PLUS4 {
+!if SUPPORT_REU = 1 {
  	lda use_reu
 	bmi .restore_fail_dont_insert_story_disk
 }

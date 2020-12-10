@@ -298,6 +298,23 @@ parse_array_write_byte
 }
 
 
+!ifdef TARGET_C128 {
+convert_byte_to_two_digits = $f9fb
+} else {
+convert_byte_to_two_digits
+; In: A (value 0-99)
+; Out: X: top digit, A: Bottom digit
+	ldx #$30
+	sec
+-	inx
+	sbc #10
+	bcs -
+	dex
+	adc #10 + $30 ; Carry already clear. Add 10 to fix going < 0. Add $30 to make it a digit
+	rts
+}
+
+
 ERROR_UNSUPPORTED_STREAM = 1
 ERROR_CONFIG = 2
 ERROR_STREAM_NESTING_ERROR = 3
@@ -807,20 +824,20 @@ printstring
 +   rts
 }
 
-!ifdef VMEM {
-conv2dec
-	; convert a to decimal in x,a
-	; for example a=#$0f -> x='1', a='5'
-	ldx #$30 ; store '0' in x
--   cmp #10
-	bcc +    ; a < 10
-	inx
-	sec
-	sbc #10
-	jmp -
-+   adc #$30
-	rts
-}
+; !ifdef VMEM {
+; conv2dec
+	; ; convert a to decimal in x,a
+	; ; for example a=#$0f -> x='1', a='5'
+	; ldx #$30 ; store '0' in x
+; -   cmp #10
+	; bcc +    ; a < 10
+	; inx
+	; sec
+	; sbc #10
+	; jmp -
+; +   adc #$30
+	; rts
+; }
 
 mult16
 	;16-bit multiply with 32-bit product
