@@ -139,6 +139,7 @@ New/changed features:
   modified to be used again.
 - When game restarts, it now loads the file "story". This means restart won't
   work if you rename the file.
+- make.rb now prints a lot less, unless you use option -v (verbose).
 
 Optimizations:
 - Increased vmem block age resolution by 1 bit, which should lead to better
