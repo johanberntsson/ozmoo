@@ -104,7 +104,7 @@ Fixed bugs:
 ================================================
 Release 5: C128/Plus4/Mega65 targets, Beyond Zork mode and bug fixes
 
-New features:
+New/changed features:
 - Plus/4 support
 - C128 support (both 40 and 80 column screens)
 - Mega65 support based on the Mega65 port written by Paul Gardner-Stephen,
@@ -125,18 +125,24 @@ New features:
 - New option -u to do less checks for runtime errors, making the interpreter 
   a little smaller and faster
 - All produced disk images get names starting with the platform name
-- New build mode -71, producing 1571 disk images. Can only be used for target C128.
+- New build mode -71, producing 1571 disk images. Can only be used for target 
+  C128.
 - Disk drives with device# 8-15 can now be used.
 - Question to use REU can now only be answered by Y or N (any other key would
   work like N before, making it easy to accidentally answer no).
 - Added a progress bar when loading data into REU or memory at game start.
 - Added re-use of game data in REU after a restart.
 - make.rb can optionally fill up with more vmem blocks to load when using
-  preload optimization.
+  preload optimization (commandline switch -cf).
+- Changed format of output from preload optimization slightly to make more 
+  data fit on screen. This means old preload optimization files need to be
+  modified to be used again.
+- When game restarts, it now loads the file "story". This means restart won't
+  work if you rename the file.
 
 Optimizations:
-- Increased block age resolution by 1 bit, which should lead to better paging,
-  espescially for z8 games.
+- Increased vmem block age resolution by 1 bit, which should lead to better
+  paging, espescially for z8 games which only had a five bit resolution.
 - Centralized code to pick a free vmem buffer.
 
 Fixed bugs:
@@ -152,4 +158,3 @@ Fixed bugs:
 - Some characters could get a weird colour in the save slot listing.
 - Fixed line breaks in the wrong place in games which started buffering in 
   window 0 while window 1 was selected, like AMFV.
-- Added a progress bar when there are block to load at game start.

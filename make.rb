@@ -2094,14 +2094,14 @@ save_slots, # Save slots, change later if wrong
 ]
 
 # Create config data for vmem
-total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
+total_storyfile_blocks = $story_size / $VMEM_BLOCKSIZE
 mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
 unless $DEBUGFLAGS.include?('PREOPT') then
 	if mode == MODE_P 
-		mapped_vmem_blocks = total_vmem_blocks - $dynmem_blocks
+		mapped_vmem_blocks = total_storyfile_blocks - $dynmem_blocks
 	else
 		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
-			total_vmem_blocks - $dynmem_blocks].min()
+			total_storyfile_blocks - $dynmem_blocks].min()
 	end
 end
 if preload_data then
@@ -2112,15 +2112,14 @@ if preload_data then
 	if fill_preload == true and mapped_vmem_blocks > preload_data.length then
 		used_block = Hash.new
 		mask = $zcode_version == 8 ? 0b0000001111111111 :
-			($zcode_version == 4 or $zcode_version == 5) ? 0b0000000111111111 :
-			0b0000000011111111
+			$zcode_version == 3 ? 0b0000000011111111 : 0b0000000111111111
 		preload_data.each do |preload_value|
 			block_address = preload_value.to_i(16) & mask
 			used_block[block_address] = 1
 		end
 		while mapped_vmem_blocks > preload_data.length do
-			cursor += 1 while cursor < total_vmem_blocks and used_block.has_key?(cursor)
-			break if cursor >= total_vmem_blocks
+			cursor += 1 while cursor < total_storyfile_blocks and used_block.has_key?(cursor)
+			break if cursor >= total_storyfile_blocks
 			preload_data.push(cursor.to_s(16).rjust(4,'0'))
 			used_block[cursor] = 1
 			added += 1
