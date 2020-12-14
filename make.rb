@@ -1129,10 +1129,10 @@ def limit_vmem_data(vmem_data, max_length)
 		vmem_data [0 .. 1] = [size / 256, size % 256]
 		puts "Limited vmem_data to #{max_length} bytes by removing #{trim} blocks."
 	end
-	if $unbanked_vmem_blocks > 0 
+	if $unbanked_vmem_blocks > 1 # and vmem_data[3] vmem_data[2] - vmem_data[3]
 		# Vmem blocks are entirely or partially in unbanked memory
 		first_block_to_sort = vmem_data[3]
-		last_block_to_sort = [vmem_data[3], $unbanked_vmem_blocks].max() - 1
+		last_block_to_sort = [vmem_data[3], [$unbanked_vmem_blocks, vmem_data[2]].min()].max() - 1
 		if first_block_to_sort < last_block_to_sort then
 			sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
 			puts "Sorted unbanked VMEM blocks #{first_block_to_sort} to " + 

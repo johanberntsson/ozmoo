@@ -306,6 +306,12 @@ c128_border_phase1
 }
 !source "constants-header.asm"
 
+!if SUPPORT_REU = 1 {
+progress_reu = parse_array
+reu_progress_ticks = parse_array + 1
+reu_last_disk_end_block = string_array ; 2 bytes
+}
+
 
 
 ; global variables
@@ -567,9 +573,21 @@ c128_move_dynmem_and_calc_vmem
 }
 
 !if SUPPORT_REU = 1 {
-progress_reu = parse_array
-reu_progress_ticks = parse_array + 1
-reu_last_disk_end_block = string_array ; 2 bytes
+; progress_reu = parse_array
+; reu_progress_ticks = parse_array + 1
+; reu_last_disk_end_block = string_array ; 2 bytes
+
+reu_progress_base
+!ifdef Z3 {
+	!byte 16 ; blocks read to REU per tick of progress bar
+} else {
+!ifdef Z8 {
+	!byte 64 ; blocks read to REU per tick of progress bar
+} else {
+	!byte 32 ; blocks read to REU per tick of progress bar
+}
+}
+
 
 print_reu_progress_bar
 	lda z_temp + 4
@@ -1376,61 +1394,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 
 
 .reu_error
-	lda #0
-	sta use_reu
-	lda #>.reu_error_msg
-	ldx #<.reu_error_msg
-	jsr printstring_raw
--	jsr kernal_getchar
-	beq -
-	rts
-
-.reu_error_msg
-	!pet 13,"REU error, disabled. [SPACE]",0
-reu_progress_base
-!ifdef Z3 {
-	!byte 16 ; blocks read to REU per tick of progress bar
-} else {
-!ifdef Z8 {
-	!byte 64 ; blocks read to REU per tick of progress bar
-} else {
-	!byte 32 ; blocks read to REU per tick of progress bar
-}
-}
-
-copy_page_to_reu
-	; a,x = REU page
-	; y = C64 page
-
-	jsr store_reu_transfer_params
-
--	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
-
-	; Verify
-	
-	lda #%10110011;  compare c64 to REU with immediate execution
-	sta reu_command
-	lda reu_status
-	and #%00100000
-	beq +
-
-	; Signal REU error and return
-	sec
-	rts
-
-+
-	; Update progress bar
-	dec progress_reu
-	bne +
-	lda reu_progress_base
-	sta progress_reu
-	lda #20
-	jsr s_printchar
-+
-
-	clc
-	rts
+	jmp reu_error
 
 .no_reu
 	lda #78 + 128

@@ -10,6 +10,54 @@ reu_needs_loading !byte 0 ; Should be 0 from the start
 
 !zone reu {
 
+reu_error
+	lda #0
+	sta use_reu
+	lda #>.reu_error_msg
+	ldx #<.reu_error_msg
+	jsr printstring_raw
+-	jsr kernal_getchar
+	beq -
+	rts
+
+.reu_error_msg
+	!pet 13,"REU error, disabled. [SPACE]",0
+
+
+copy_page_to_reu
+	; a,x = REU page
+	; y = C64 page
+
+	jsr store_reu_transfer_params
+
+-	lda #%10110000;  c64 -> REU with immediate execution
+	sta reu_command
+
+	; Verify
+	
+	lda #%10110011;  compare c64 to REU with immediate execution
+	sta reu_command
+	lda reu_status
+	and #%00100000
+	beq +
+
+	; Signal REU error and return
+	sec
+	rts
+
++
+	; Update progress bar
+	dec progress_reu
+	bne +
+	lda reu_progress_base
+	sta progress_reu
+	lda #20
+	jsr s_printchar
++	clc
+	rts
+
+
+
 copy_page_from_reu
 	; a,x = REU page
 	; y = C64 page
