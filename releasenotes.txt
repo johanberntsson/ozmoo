@@ -143,6 +143,7 @@ New/changed features:
 - Data to be read from disk when game starts in a game using preload
   optimization will now be read in the order it appears on disk, making load 
   time shorter and causing less drive noise.
+- Changed so C128 interpreter uses interpreter# 7.
 
 Optimizations:
 - Increased vmem block age resolution by 1 bit, which should lead to better

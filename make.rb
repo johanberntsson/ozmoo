@@ -2116,6 +2116,11 @@ if is_trinity
 	end
 end
 
+if $target == 'c128' and $interpreter_number == nil
+	$interpreter_number = 7
+end
+
+
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
 puts "Dynmem blocks: #{$dynmem_blocks}" if $verbose
