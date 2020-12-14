@@ -1083,10 +1083,35 @@ def play(filename)
 end
 
 def limit_vmem_data_preload(vmem_data)
-	if $vmem_size < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
-		vmem_data[3] = $vmem_size / $VMEM_BLOCKSIZE - $dynmem_blocks
+	if $dynmem_and_vmem_size_bank_0 < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
+		vmem_data[3] = $dynmem_and_vmem_size_bank_0 / $VMEM_BLOCKSIZE - $dynmem_blocks
 	end
 end
+
+def	sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
+	entries = vmem_data[2]
+	sort_array = []
+	mask = $zcode_version == 8 ? 0b0000001111111111 :
+		$zcode_version == 3 ? 0b0000000011111111 : 0b0000000111111111
+	(last_block_to_sort - first_block_to_sort + 1).times do |i|
+		blockid_with_age = 256 * vmem_data[first_block_to_sort + 4 + i] + 
+			vmem_data[first_block_to_sort + entries + 4 + i]
+		blockid = blockid_with_age & mask
+		age = blockid_with_age - blockid
+		sort_array.push [blockid, age]
+	end
+	sort_array.sort_by! {|a| a[0]}
+	(last_block_to_sort - first_block_to_sort + 1).times do |i|
+		value = sort_array[i][0]
+		age = sort_array[i][1]
+		age_and_value = age + value
+		lowbyte = age_and_value & 255
+		highbyte = (age_and_value - lowbyte) >> 8
+		vmem_data[first_block_to_sort + 4 + i] = highbyte
+		vmem_data[first_block_to_sort + entries + 4 + i] = lowbyte
+	end
+end
+
 
 def limit_vmem_data(vmem_data, max_length)
 	oversize = vmem_data.length - max_length
@@ -1104,6 +1129,29 @@ def limit_vmem_data(vmem_data, max_length)
 		vmem_data [0 .. 1] = [size / 256, size % 256]
 		puts "Limited vmem_data to #{max_length} bytes by removing #{trim} blocks."
 	end
+	if $unbanked_vmem_blocks > 0 
+		# Vmem blocks are entirely or partially in unbanked memory
+		first_block_to_sort = vmem_data[3]
+		last_block_to_sort = [vmem_data[3], $unbanked_vmem_blocks].max() - 1
+		if first_block_to_sort < last_block_to_sort then
+			sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
+			puts "Sorted unbanked VMEM blocks #{first_block_to_sort} to " + 
+				"#{last_block_to_sort}" if $verbose
+		end
+	end
+	if vmem_data[3] < vmem_data[2] then
+		# There are vmem block load suggestions
+		if $vmem_blocks_in_ram > $unbanked_vmem_blocks
+			# Vmem blocks are entirely or partially in banked memory
+			first_block_to_sort = [vmem_data[3], $unbanked_vmem_blocks].max()
+			last_block_to_sort = vmem_data[2] - 1
+			if first_block_to_sort < last_block_to_sort then
+				sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
+				puts "Sorted banked VMEM blocks #{first_block_to_sort} to " + 
+					"#{last_block_to_sort}" if $verbose
+			end
+		end
+	end
 end
 
 def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents,
@@ -1114,8 +1162,8 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	
 	diskfilename = "#{$target}_#{storyname}.d64"
 	
-	if $vmem_size < $story_size
-		puts "#{$vmem_size} < #{$story_size}"
+	if $dynmem_and_vmem_size_bank_0 < $story_size
+		puts "#{$dynmem_and_vmem_size_bank_0} < #{$story_size}"
 		puts "ERROR: The whole story doesn't fit in memory. Please try another build mode."
 		exit 1
 	end
@@ -1707,6 +1755,7 @@ $start_address = 0x0801
 $program_end_address = 0x10000
 $memory_end_address = 0x10000
 $normal_ram_end_address = 0xd000
+$unbanked_ram_end_address = 0xd000
 $colour_replacements = []
 $default_colours = []
 $default_colours_dm = []
@@ -1758,12 +1807,14 @@ begin
 			    # Different start address
 			    $start_address = 0x1001
 				$memory_end_address = 0xfc00
+				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "c128" then
 			    # Different start address
 			    $start_address = 0x1200
 #			    $start_address = 0x1c00
 				$memory_end_address = 0xfc00
+				$unbanked_ram_end_address = 0xc000
 				$normal_ram_end_address = $memory_end_address
 			end
 		elsif ARGV[i] =~ /^-P$/ then
@@ -1894,11 +1945,6 @@ if $font_filename
 		exit 1
 	end
 end
-
-$max_vmem_kb = ($memory_end_address - $start_address) / 1024 - 11 # Interpreter + stack is always > 11 KB
-$max_vmem_kb += ($memory_end_address - 0x1200 - 256 * $stack_pages) / 1024 if $target == 'c128'
-#puts "VMEM is < #{$max_vmem_kb} KB" 
-
 
 $VMEM = (mode != MODE_P)
 
@@ -2089,6 +2135,58 @@ if $verbose then
 	puts "$story_size = #{$story_size}"
 end
 
+
+
+
+# Splashscreen
+
+# splashes = [
+# "", "", "", ""
+# ]
+# splashes[0] = filename_to_title(storyname, 40)
+splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
+version = File.read(File.join(__dir__, 'version.txt'))
+version.gsub!(/[^\d\.]/m,'')
+splash.sub!("@vs@", version)
+splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
+4.times do |i|
+	text = splashes[i]
+	indent = 0
+	if text.length > 0
+		$splash_wait = 10 unless $splash_wait
+		text.gsub!(/(\n|\t)+/, ' ')
+		if text.length > 40
+			puts "Splashline #{i + 1} is longer than 40 characters."
+			exit 1
+		end
+		indent = (40 - text.length) / 2
+		text.gsub!(/"/, '",34,"')
+	end
+	splash.sub!("@#{i}s@", text)
+	splash.sub!("@#{i}c@", indent.to_s)
+end
+File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+
+build_interpreter()
+
+$dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart
+
+if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
+	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
+	exit 1
+end
+
+$vmem_blocks_in_ram = ($memory_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+$unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+if $target == 'c128' then
+	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
+	$unbanked_vmem_blocks += $dynmem_blocks
+end
+puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
+puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
+
+############################# End of moved block
+
 save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
 #puts "Static mem start: #{$static_mem_start}"
 #puts "Save blocks: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}"
@@ -2113,8 +2211,9 @@ unless $DEBUGFLAGS.include?('PREOPT') then
 	if mode == MODE_P 
 		mapped_vmem_blocks = total_storyfile_blocks - $dynmem_blocks
 	else
-		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
-			total_storyfile_blocks - $dynmem_blocks].min()
+		mapped_vmem_blocks = [$vmem_blocks_in_ram, total_storyfile_blocks - $dynmem_blocks].min()
+#		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
+#			total_storyfile_blocks - $dynmem_blocks].min()
 	end
 end
 if preload_data then
@@ -2182,46 +2281,7 @@ vmem_data[2].times do |i|
 	# puts $story_file_data.length
 	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
 end
-
-
-
-# Splashscreen
-
-# splashes = [
-# "", "", "", ""
-# ]
-# splashes[0] = filename_to_title(storyname, 40)
-splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
-version = File.read(File.join(__dir__, 'version.txt'))
-version.gsub!(/[^\d\.]/m,'')
-splash.sub!("@vs@", version)
-splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
-4.times do |i|
-	text = splashes[i]
-	indent = 0
-	if text.length > 0
-		$splash_wait = 10 unless $splash_wait
-		text.gsub!(/(\n|\t)+/, ' ')
-		if text.length > 40
-			puts "Splashline #{i + 1} is longer than 40 characters."
-			exit 1
-		end
-		indent = (40 - text.length) / 2
-		text.gsub!(/"/, '",34,"')
-	end
-	splash.sub!("@#{i}s@", text)
-	splash.sub!("@#{i}c@", indent.to_s)
-end
-File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
-
-build_interpreter()
-
-$vmem_size = $memory_end_address - $storystart
-
-if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
-	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
-	exit 1
-end
+############################# End of moved block
 
 limit_vmem_data_preload(vmem_data)
 
@@ -2230,15 +2290,15 @@ if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] 
 	preload_max_vmem_blocks = vmem_data[3]
 end
 
-if $VMEM 
-	if mode == MODE_P
-		puts "ERROR: Tried to use build mode -P with VMEM."
-		exit 1
-	end
-elsif mode != MODE_P
-	puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-	exit 1
-end
+# if $VMEM 
+	# if mode == MODE_P
+		# puts "ERROR: Tried to use build mode -P with VMEM."
+		# exit 1
+	# end
+# elsif mode != MODE_P
+	# puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+	# exit 1
+# end
 
 case mode
 when MODE_P

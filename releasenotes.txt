@@ -140,6 +140,9 @@ New/changed features:
 - When game restarts, it now loads the file "story". This means restart won't
   work if you rename the file.
 - make.rb now prints a lot less, unless you use option -v (verbose).
+- Data to be read from disk when game starts in a game using preload
+  optimization will now be read in the order it appears on disk, making load 
+  time shorter and causing less drive noise.
 
 Optimizations:
 - Increased vmem block age resolution by 1 bit, which should lead to better
