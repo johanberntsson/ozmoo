@@ -1153,10 +1153,6 @@ deletable_init
 }
 	sta vmap_max_entries
 
-; !if SUPPORT_REU=1 {
-	; jsr print_reu_progress_bar
-; }
-
 !ifdef TARGET_C128 {
 	jsr c128_move_dynmem_and_calc_vmem
 }
@@ -1165,12 +1161,16 @@ deletable_init
 
 	jsr insert_disks_at_boot
 
+!ifndef NOSECTORPRELOAD {
+
 !if SUPPORT_REU = 1 {
 	lda use_reu
 	bne .dont_preload
 }
+
 	jsr load_suggested_pages
 .dont_preload
+} ; ifndef NOSECTORPRELOAD
 
 } ; End of !ifdef VMEM
 
@@ -1509,7 +1509,8 @@ prepare_static_high_memory
 	jsr print_vm_map
 }
 	rts
-	
+
+!ifndef NOSECTORPRELOAD {
 .progress_suggested !byte 6
 
 load_suggested_pages
@@ -1558,6 +1559,7 @@ load_suggested_pages
 }
 	rts
 } 
+}
 
 end_of_routines_in_stack_space
 

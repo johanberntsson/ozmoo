@@ -144,6 +144,8 @@ New/changed features:
   optimization will now be read in the order it appears on disk, making load 
   time shorter and causing less drive noise.
 - Changed so C128 interpreter uses interpreter# 7.
+- Added option -b to not preload virtual memory blocks from disk when the
+  game starts.
 
 Optimizations:
 - Increased vmem block age resolution by 1 bit, which should lead to better

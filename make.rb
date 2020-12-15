@@ -819,6 +819,7 @@ def build_interpreter()
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
+	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
@@ -1696,7 +1697,7 @@ end
 
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
-	puts "         [-p:[n]] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
+	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
@@ -1706,7 +1707,8 @@ def print_usage_and_exit
 	puts "  -t: specify target machine. Available targets are c64 (default) and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: specify build mode. Defaults to S1. See docs for details."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
-	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
+	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start."
+	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
@@ -1772,6 +1774,7 @@ $cursor_colour = nil
 $cursor_shape = nil
 $cursor_blink = nil
 $verbose = nil
+$no_sector_preload = nil
 
 begin
 	while i < ARGV.length
@@ -1784,8 +1787,6 @@ begin
 		elsif await_imagefile then
 			await_imagefile = false
 			$loader_pic_file = ARGV[i]
-#		elsif ARGV[i] =~ /^-x$/ then
-#			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/ then
 			optimize = true
 		elsif ARGV[i] =~ /^-in:(1?\d)$/ then
@@ -1833,6 +1834,8 @@ begin
 			mode = MODE_81
 		elsif ARGV[i] =~ /^-v$/ then
 			$verbose = true
+		elsif ARGV[i] =~ /^-b$/ then
+			$no_sector_preload = true
 		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
 			$colour_replacements = $1.split(/,/)
 		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
