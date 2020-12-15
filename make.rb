@@ -1789,6 +1789,7 @@ begin
 			$loader_pic_file = ARGV[i]
 		elsif ARGV[i] =~ /^-o$/ then
 			optimize = true
+			$no_sector_preload = true
 		elsif ARGV[i] =~ /^-in:(1?\d)$/ then
 			$interpreter_number = $1
 		elsif ARGV[i] =~ /^-s$/ then
@@ -2174,6 +2175,23 @@ splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 	splash.sub!("@#{i}c@", indent.to_s)
 end
 File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+
+# Set $no_sector_preload if we can be almost certain it won't be needed anyway
+if $target != 'c128'
+	loader_kb = $loader_pic_file ? 5 : 0
+	story_kb = ($story_size - $dynmem_blocks * $VMEM_BLOCKSIZE) / 1024
+	bootfile_kb = 46
+	used_kb = bootfile_kb + story_kb + loader_kb 
+	case mode
+	when MODE_S1
+		$no_sector_preload = true if 170 - used_kb > 3
+	when MODE_S2, MODE_D3, MODE_81
+		$no_sector_preload = true
+	when MODE_D2, MODE_71
+		$no_sector_preload = true if 340 - used_kb > 3
+	end
+end
+
 
 build_interpreter()
 

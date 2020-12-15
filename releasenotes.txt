@@ -145,7 +145,9 @@ New/changed features:
   time shorter and causing less drive noise.
 - Changed so C128 interpreter uses interpreter# 7.
 - Added option -b to not preload virtual memory blocks from disk when the
-  game starts.
+  game starts. This makes the interpreter a little smaller. Option is 
+  automatically enabled if make.rb is certain no preloading from disk will
+  be needed anyway.
 
 Optimizations:
 - Increased vmem block age resolution by 1 bit, which should lead to better

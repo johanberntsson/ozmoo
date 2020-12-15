@@ -47,8 +47,10 @@
 	HAS_SID = 1
 }
 
-!ifndef SUPPORT_REU {
-	SUPPORT_REU = 1
+!ifdef VMEM {
+	!ifndef SUPPORT_REU {
+		SUPPORT_REU = 1
+	}
 }
 
 !ifndef VMEM_END_PAGE {
@@ -572,84 +574,57 @@ c128_move_dynmem_and_calc_vmem
 	rts
 }
 
-!if SUPPORT_REU = 1 {
-; progress_reu = parse_array
-; reu_progress_ticks = parse_array + 1
-; reu_last_disk_end_block = string_array ; 2 bytes
+!ifdef VMEM {
+!ifndef NOSECTORPRELOAD {
+.progress_suggested !byte 6
 
-reu_progress_base
-!ifdef Z3 {
-	!byte 16 ; blocks read to REU per tick of progress bar
-} else {
-!ifdef Z8 {
-	!byte 64 ; blocks read to REU per tick of progress bar
-} else {
-	!byte 32 ; blocks read to REU per tick of progress bar
-}
-}
-
-
-print_reu_progress_bar
-	lda z_temp + 4
-	sec
-	sbc reu_last_disk_end_block
-	sta reu_progress_ticks
-	lda z_temp + 5
-	sbc reu_last_disk_end_block + 1
-!ifdef Z4PLUS {
-!ifdef Z8 {
-	ldx #6
-} else {
-	ldx #5
-}
-} else {
-	ldx #4
-}
--	lsr 
-	ror reu_progress_ticks
-	dex
-	bne -
-
-	lda reu_progress_base
-	sta progress_reu
+load_suggested_pages
+; Load all suggested pages which have not been pre-loaded
 
 ; Print progress bar
 	lda #13
 	jsr s_printchar
-	ldx reu_progress_ticks
-	beq +
--	lda #47
+	lda vmap_used_entries
+	sec
+	sbc vmap_blocks_preloaded
+	tax
+-	cpx #6
+	bcc .start_loading
+	lda #47
 	jsr s_printchar
-	dex
+	txa
+	sec
+	sbc #6
+	tax
 	bne -
+.start_loading
+	lda vmap_blocks_preloaded ; First index which has not been loaded
+	cmp vmap_used_entries ; Total # of indexes in the list
+	bcs +
+	sta vmap_index
+	tax
+	jsr load_blocks_from_index
+	dec .progress_suggested
+	bne ++
+	lda #20
+	jsr s_printchar
+	lda #6
+	sta .progress_suggested
+++	inc vmap_blocks_preloaded
+	bne .start_loading ; Always branch
 +
-
-	rts
-}
-
-!ifdef HAS_SID {
-init_sid
-	; Init sound
-	lda #0
-	ldx #$18
--	sta $d400,x
+	ldx vmap_used_entries
+	cpx vmap_max_entries
+	bcc +
 	dex
-	bpl -
-	lda #$f
-	sta $d418
-	lda #$00
-	sta $d405
-	lda #$f2
-	sta $d406
++	
 
-	; Init randomization
-	lda #$ff
-	sta $d40e
-	sta $d40f
-	ldx #$80
-	stx $d412
-	rts
+!ifdef TRACE_VM {
+	jsr print_vm_map
 }
+	rts
+} ; ifndef NOSECTORPRELOAD
+} ; ifdef VMEM
 
 	
 program_end
@@ -1440,6 +1415,64 @@ reu_start
 	!pet 13,"Use REU? (Y/N) ",0
 } ; SUPPORT_REU = 1
 
+!if SUPPORT_REU = 1 {
+; progress_reu = parse_array
+; reu_progress_ticks = parse_array + 1
+; reu_last_disk_end_block = string_array ; 2 bytes
+
+reu_progress_base
+!ifdef Z3 {
+	!byte 16 ; blocks read to REU per tick of progress bar
+} else {
+!ifdef Z8 {
+	!byte 64 ; blocks read to REU per tick of progress bar
+} else {
+	!byte 32 ; blocks read to REU per tick of progress bar
+}
+}
+
+
+print_reu_progress_bar
+	lda z_temp + 4
+	sec
+	sbc reu_last_disk_end_block
+	sta reu_progress_ticks
+	lda z_temp + 5
+	sbc reu_last_disk_end_block + 1
+!ifdef Z4PLUS {
+!ifdef Z8 {
+	ldx #6
+} else {
+	ldx #5
+}
+} else {
+	ldx #4
+}
+-	lsr 
+	ror reu_progress_ticks
+	dex
+	bne -
+
+	lda reu_progress_base
+	sta progress_reu
+
+; Print progress bar
+	lda #13
+	jsr s_printchar
+	ldx reu_progress_ticks
+	beq +
+-	lda #47
+	jsr s_printchar
+	dex
+	bne -
++
+
+	rts
+} ; zone insert_disks_at_boot
+
+
+
+
 }
 prepare_static_high_memory
 	lda #$ff
@@ -1510,56 +1543,33 @@ prepare_static_high_memory
 }
 	rts
 
-!ifndef NOSECTORPRELOAD {
-.progress_suggested !byte 6
+}
 
-load_suggested_pages
-; Load all suggested pages which have not been pre-loaded
-
-; Print progress bar
-	lda #13
-	jsr s_printchar
-	lda vmap_used_entries
-	sec
-	sbc vmap_blocks_preloaded
-	tax
--	cpx #6
-	bcc .start_loading
-	lda #47
-	jsr s_printchar
-	txa
-	sec
-	sbc #6
-	tax
-	bne -
-.start_loading
-	lda vmap_blocks_preloaded ; First index which has not been loaded
-	cmp vmap_used_entries ; Total # of indexes in the list
-	bcs +
-	sta vmap_index
-	tax
-	jsr load_blocks_from_index
-	dec .progress_suggested
-	bne ++
-	lda #20
-	jsr s_printchar
-	lda #6
-	sta .progress_suggested
-++	inc vmap_blocks_preloaded
-	bne .start_loading ; Always branch
-+
-	ldx vmap_used_entries
-	cpx vmap_max_entries
-	bcc +
+!ifdef HAS_SID {
+init_sid
+	; Init sound
+	lda #0
+	ldx #$18
+-	sta $d400,x
 	dex
-+	
+	bpl -
+	lda #$f
+	sta $d418
+	lda #$00
+	sta $d405
+	lda #$f2
+	sta $d406
 
-!ifdef TRACE_VM {
-	jsr print_vm_map
-}
+	; Init randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	ldx #$80
+	stx $d412
 	rts
-} 
 }
+
+
 
 end_of_routines_in_stack_space
 
