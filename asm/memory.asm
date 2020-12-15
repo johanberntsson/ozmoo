@@ -195,7 +195,7 @@ copy_page_c128_src
 	bcc + ; If at line 0-18, stay at 2 MHz
 	; Go down to 1 MHz, to avoid screen glitches
 	lda #0
-	sta $d030	;CPU = 1MHz
+	sta reg_2mhz	;CPU = 1MHz
 
 +	sei
 	sta c128_mmu_load_pcrb,x

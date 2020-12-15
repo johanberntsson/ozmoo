@@ -65,7 +65,7 @@ copy_page_from_reu
 	pha
 	lda #0
 	sta allow_2mhz_in_40_col
-	sta $d030	;CPU = 1MHz
+	sta reg_2mhz	;CPU = 1MHz
 	pla
 }
 
@@ -81,7 +81,7 @@ restore_2mhz
 	ldx COLS_40_80
 	beq +
 	lda use_2mhz_in_80_col
-	sta $d030	;CPU = 2MHz
+	sta reg_2mhz	;CPU = 2MHz
 +
 }
 	rts

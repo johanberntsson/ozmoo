@@ -7,7 +7,7 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
-    $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -autostart-delay-random"
+    $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -80col -autostart-delay-random"
     $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"

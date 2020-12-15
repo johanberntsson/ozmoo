@@ -184,6 +184,7 @@ story_start_bank_1 = $1000 + (STACK_PAGES + 2 -  (STACK_PAGES & 1))  * $100 ; NO
 reg_screen_char_mode  = $0a2c
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
+reg_2mhz			  = $d030
 
 ; --- MMU config ---
 c128_mmu_pcra         = $d501

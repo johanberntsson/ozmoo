@@ -295,7 +295,7 @@ read_track_sector
 !ifdef TARGET_C128 {
 	lda #0
 	sta allow_2mhz_in_40_col
-	sta $d030	;CPU = 1MHz
+	sta reg_2mhz	;CPU = 1MHz
 }
 
 
@@ -1123,7 +1123,7 @@ restore_game
 !ifdef TARGET_C128 {
 	lda #0
 	sta allow_2mhz_in_40_col
-	sta $d030	;CPU = 1MHz
+	sta reg_2mhz	;CPU = 1MHz
 }
 
 	jsr maybe_ask_for_save_device
@@ -1217,7 +1217,7 @@ save_game
 !ifdef TARGET_C128 {
 	lda #0
 	sta allow_2mhz_in_40_col
-	sta $d030	;CPU = 1MHz
+	sta reg_2mhz	;CPU = 1MHz
 }
 
 	jsr maybe_ask_for_save_device

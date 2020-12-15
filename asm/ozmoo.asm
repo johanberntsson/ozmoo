@@ -266,7 +266,7 @@ use_2mhz_in_80_col_in_game_value = 1 ; This value is used after setup
 c128_border_phase2
 	lda #1
 	ldx allow_2mhz_in_40_col
-	stx $d030	;CPU = 2MHz
+	stx reg_2mhz	;CPU = 2MHz
 	sta $d019	;clear VIC raster IRQ
 	lda #<c128_border_phase1    ;set top-of-screen (phase 1)
 	ldx #>c128_border_phase1
@@ -298,7 +298,7 @@ c128_border_phase1
 	lda #1
 	sta $d019	;clear VIC raster IRQ
 	lsr		; A = 0
-	sta $d030	;CPU = 1MHz
+	sta reg_2mhz	;CPU = 1MHz
 	jmp $ff33	;return from IRQ
 
 } else {
@@ -392,7 +392,7 @@ game_id		!byte 0,0,0,0
 	; switch to 2MHz
 	lda #use_2mhz_in_80_col_in_game_value
 	sta use_2mhz_in_80_col
-	sta $d030	;CPU = 2MHz
+	sta reg_2mhz	;CPU = 2MHz
 	lda $d011
 	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
 	and #$%01101111 
