@@ -102,13 +102,11 @@ Fixed bugs:
 - Merged VM bug fixes from Steven Flintham
 
 ================================================
-Release 5: C128/Plus4/Mega65 targets, Beyond Zork mode and bug fixes
+Release 5: C128/Plus4 targets, Beyond Zork mode and bug fixes
 
 New/changed features:
 - Plus/4 support
 - C128 support (both 40 and 80 column screens)
-- Mega65 support based on the Mega65 port written by Paul Gardner-Stephen,
-  with various improvements and bug fixes.
 - make.rb will now patch Beyond Zork story file before writing it to disk
   image(s) to make it work better on 40 column screen. Original story file
   is left untouched.
