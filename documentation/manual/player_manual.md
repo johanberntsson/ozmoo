@@ -51,7 +51,7 @@ When you meet intelligent creatures, you can talk to them by typing their name, 
 Ozmoo games can toggle between normal colours and a dark mode. This is done by pushing the F1 key whenever the game is waiting for input. The colours used by normal and dark mode are decided by the game author.
 
 # Saving
-The "save" commands creates a snapshot of your current position. You can return to a saved position in the future by using the "restore" command. When you use "save" or "restore" you will be asked to insert a save disk. If your game disk is a 1581 floppy disk (or a .d81 floppy image) then you can safely use it as a save disk as well, otherwise you will need to prepare a floppy disk or a disk image with at least 664 blocks free to use as a save disk (any freshly formatted floppy will work, as long as you don't save other files on it).
+The "save" commands creates a snapshot of your current position. You can return to a saved position in the future by using the "restore" command. When you use "save" or "restore" you will be asked to insert a save disk. If your game disk is a 1581 floppy disk (or a .d81 floppy image) then you can safely use it as a save disk as well, otherwise you will need to prepare an empty floppy disk or a disk image (d64, d71 or d81) to use as a save disk. Do not store other files on this disk, and do not use the same disk as a save disk for several games!
 
 # Large games
 Ozmoo has several build modes to allow even large game files to be played, which may require more than one floppy disk. Small games fit on one floppy (called the Boot / Story disk), while large games have one Boot disk and one Story disk. You start the game from the Boot disk, and then change to the Story disk when prompted.
