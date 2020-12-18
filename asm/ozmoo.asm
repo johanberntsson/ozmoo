@@ -397,7 +397,7 @@ game_id		!byte 0,0,0,0
 	sta reg_2mhz	;CPU = 2MHz
 	lda $d011
 	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
-	and #$%01101111 
+	and #%01101111
 	sta $d011
 	jmp ++
 +	; 40 columns mode
