@@ -4,7 +4,7 @@
 
 Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
 
-Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Apart from Commodore 64, Ozmoo can currently target the Commodore 128, Commodore Plus/4 and Mega65 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
+Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Apart from Commodore 64, Ozmoo can currently target the Commodore 128 and the Commodore Plus/4 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
 
 ## Features
 
@@ -46,7 +46,7 @@ You need to install:
 - Acme cross-assembler
 - Exomizer file compression program (tested with 3.0.0, 3.0.1 and 3.0.2)
 - Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
-- The Vice C64/C128/Plus4 emulator, or the Xemu MEGA65 emulator
+- The Vice C64/C128/Plus4 emulator
 
 #### Windows
 
@@ -118,7 +118,6 @@ Ozmoo was originally written for the Commodore 64, but has been adapted for some
 | -t:c64 | Build Ozmoo for the Commodore 64 (default) |
 | -t:c128 | Build Ozmoo for the Commodore 128 |
 | -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
-| -t:mega65 | Build Ozmoo for the Mega65 |
 
 Note that not all build options are supported for every platform. If an option isn't supported, the make.rb script will stop with an appropriate error message, and no Ozmoo files will be produced.
 
@@ -135,12 +134,6 @@ The Commodore 128 version does not allow a loader image, and build mode -P is no
 ## Commodore Plus/4
 
 The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than ~30 KB may still not be advisable.
-
-## Mega65
-
-The Mega65 is a recreation of the Commodore 65 computer which was never released. It can currently be built on FPGA or run on an emulator. More information can be found at https://mega65.org/
-
-The Mega65 version is always built using the -81 build mode, but apart from this all options are supported. The screen is always set to 80 columns.
 
 ## Other targets
 

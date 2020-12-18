@@ -78,7 +78,6 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | utilities.asm | various utilities |
 |  |  |
-| c65toc64wrapper.asm | wrapper file for Mega65 version. It makes sure that Ozmoo runs in enhanced C64 mode |
 
 ## Startup
 
@@ -122,9 +121,7 @@ The main functions of screenkernal are s_printchar, which replaced CHROUT \$FFD2
 
 Screenkernal is started by calling s_init. Internally it keeps track of the cursor position so it can put a character on the screen when s_printchar is called. 
 
-For the Commodore 64 version the characters are stored directly in the video memory, and the colour in the colour memory. For the Mega65 version, the only difference is that the screen is 80 characters wide which maes the video ram double size, but the colour memory has only space for 40 characters. To solve this the Mega65 version temporarily banks extra colour memory in place when printing a characters, and then removes it afterwards.
-
-The Commodore 128 version detects if 40 or 80 columns mode is used while running the program. If 40 characters are used, then it works like the Commodore 64 version. But if 80 columns are used, then the C128's Video Display Controller chip (VDC) is used. Instead of writing directly into the video memory, character output, scrolling and other screen commands are sent by VDC registers. The file vdc.asm contains functions that make this communication easier.
+For the Commodore 64 version the characters are stored directly in the video memory, and the colour in the colour memory.  The Commodore 128 version detects if 40 or 80 columns mode is used while running the program. If 40 characters are used, then it works like the Commodore 64 version. But if 80 columns are used, then the C128's Video Display Controller chip (VDC) is used. Instead of writing directly into the video memory, character output, scrolling and other screen commands are sent by VDC registers. The file vdc.asm contains functions that make this communication easier.
 
 The Plus/4 and Commodore 128 in 80 column mode doesn't use the same palette as the Commodore 64. Mapping tables (plus4_vic_colours and vdc_vic_colours) are used to assign C64 colours to their closest equivalents on these platforms.
 
@@ -419,7 +416,6 @@ Set the statusline colour. (only for z3).
 
     TARGET_C128
     TARGET_C64
-    TARGET_MEGA65
     TARGET_PLUS4
 
 Set the target platform.
