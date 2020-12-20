@@ -165,3 +165,11 @@ Fixed bugs:
 - Some characters could get a weird colour in the save slot listing.
 - Fixed line breaks in the wrong place in games which started buffering in 
   window 0 while window 1 was selected, like AMFV.
+
+
+Release 6: Bugfix release
+
+Fixed bugs:
+- Warning with latest Acme due to typo ("Hex literal without any digits")
+- Builds crashed if -t:c64 was specified, due to SUPPORT_REU being undefined.
+

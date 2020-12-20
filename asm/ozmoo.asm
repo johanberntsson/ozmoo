@@ -51,7 +51,12 @@
 	!ifndef SUPPORT_REU {
 		SUPPORT_REU = 1
 	}
+} else {
+	!ifndef SUPPORT_REU {
+		SUPPORT_REU = 0
+	}
 }
+
 
 !ifndef VMEM_END_PAGE {
 	VMEM_END_PAGE = $00 ; Last page of accessible RAM for VMEM, plus 1.
