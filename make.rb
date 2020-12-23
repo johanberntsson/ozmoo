@@ -10,7 +10,7 @@ if $is_windows then
     $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -80col -autostart-delay-random"
     $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
+    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
 	$commandline_quotemark = "\""
 else
@@ -960,7 +960,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
-		asm_clause = " -s #{$commandline_quotemark}lda $d021 sta $d020 lda \#1 sta $d030#{$commandline_quotemark} -f #{$commandline_quotemark}lda \#0 sta $d030#{$commandline_quotemark}"
+		asm_clause = " -s #{$commandline_quotemark}lda $d021 sta $d020 lda \#1 sta $d030 lda $d011 and \#111 sta $d011#{$commandline_quotemark} -f #{$commandline_quotemark}lda \#0 sta $d030 lda $d011 ora \#16 and \#127 sta $d011#{$commandline_quotemark}"
 #		decrunch_effect = " -X #{$commandline_quotemark}txa and \#$1f sta $0400 sty $d800#{$commandline_quotemark}"
 #		decrunch_effect = " -X #{$commandline_quotemark}stx $0400#{$commandline_quotemark}"
 		decrunch_effect = " -n"

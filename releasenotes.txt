@@ -169,7 +169,11 @@ Fixed bugs:
 
 Release 6: Bugfix release
 
+New/changed features:
+- Updated to Exomizer 3.1.0.
+
 Fixed bugs:
 - Warning with latest Acme due to typo ("Hex literal without any digits")
 - Builds crashed if -t:c64 was specified, due to SUPPORT_REU being undefined.
+- Blank out 40 col screen when decruncing using 2MHz on C128.
 
