@@ -283,10 +283,10 @@ colour1k
 }
 
 s_screen_width !byte 0
-s_screen_heigth !byte 0
+s_screen_height !byte 0
 s_screen_width_plus_one !byte 0
 s_screen_width_minus_one !byte 0
-s_screen_heigth_minus_one !byte 0
+s_screen_height_minus_one !byte 0
 s_screen_size !byte 0, 0
 
 s_init
@@ -309,12 +309,12 @@ s_init
 
 	; set up screen_height and screen_width_minus_one
 	lda #SCREEN_HEIGHT
-	sta s_screen_heigth
-	sta s_screen_heigth_minus_one
-	dec s_screen_heigth_minus_one
+	sta s_screen_height
+	sta s_screen_height_minus_one
+	dec s_screen_height_minus_one
 
 	; calculate total screen size
-	lda s_screen_heigth
+	lda s_screen_height
 	sta multiplier
 	lda s_screen_width
 	sta multiplicand
@@ -349,9 +349,9 @@ s_plot
 	ldy zp_screencolumn
 	rts
 .set_cursor_pos
-+	cpx s_screen_heigth
++	cpx s_screen_height
 	bcc +
-	ldx s_screen_heigth_minus_one
+	ldx s_screen_height_minus_one
 +	stx zp_screenrow
 	sty zp_screencolumn
 	jmp .update_screenpos
@@ -549,7 +549,7 @@ s_printchar
 	sta zp_screencolumn
 	inc zp_screenrow
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bcs +
 	jsr .update_screenpos
 	jmp .printchar_end
@@ -622,7 +622,7 @@ s_erase_window
 -   jsr s_erase_line
 	inc zp_screenrow
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bne -
 	lda #0
 	sta zp_screenrow
@@ -691,7 +691,7 @@ s_erase_window
 .s_scroll_vdc
 	; scroll routine for 80 column C128 mode, using the blitter
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bpl +
 	rts
 +   ; set up copy mode
@@ -742,14 +742,14 @@ s_erase_window
 	ldx #VDC_COUNT
 	jsr VDCWriteReg
 	iny
-	cpy s_screen_heigth_minus_one
+	cpy s_screen_height_minus_one
 	bne -
 	rts
 }
 
 .s_scroll
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bpl +
 	rts
 +   ldx window_start_row + 1 ; how many top lines to protect
@@ -805,7 +805,7 @@ s_erase_window
 	pla
 	sta zp_screenline + 1
 	lda zp_screenrow
-	cmp s_screen_heigth_minus_one
+	cmp s_screen_height_minus_one
 	bne -
 	lda #$ff
 	sta s_current_screenpos_row ; force recalculation
@@ -860,10 +860,11 @@ s_erase_line
     !ifdef TARGET_MEGA65 {
         jsr colour2k
     }
-	lda s_colour
 !ifdef TARGET_PLUS4 {
-	txa
+	ldx s_colour
 	lda plus4_vic_colours,x
+} else {
+	lda s_colour
 }
 	sta (zp_colourline),y
     !ifdef TARGET_MEGA65 {

@@ -690,7 +690,7 @@ deletable_screen_init_1
 }
 	sty window_start_row + 2
 	sty window_start_row + 1
-	ldy s_screen_heigth
+	ldy s_screen_height
 	sty window_start_row
 	ldy #0
 	sty is_buffered_window
