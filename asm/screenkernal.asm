@@ -19,14 +19,42 @@
 
 ;TESTSCREEN = 1
 
+!zone screenkernal {
+
 !ifdef TARGET_C128 {
+SETBORDERMACRO_DEFINED = 1
 !macro SetBorderColour {
 	jsr C128SetBorderColour
 }
 !macro SetBackgroundColour {
 	jsr C128SetBackgroundColour
 }
-} else {
+}
+
+
+!ifdef TARGET_PLUS4 {
+SETBORDERMACRO_DEFINED = 1
+!macro SetBorderColour {
+	stx s_stored_x
+	pha
+	tax
+	lda plus4_vic_colours,x
+	sta reg_bordercolour
+	pla
+	ldx s_stored_x
+}
+!macro SetBackgroundColour {
+	stx s_stored_x
+	pha
+	tax
+	lda plus4_vic_colours,x
+	sta reg_backgroundcolour
+	pla
+	ldx s_stored_x
+}
+}
+
+!ifndef SETBORDERMACRO_DEFINED {
 !macro SetBorderColour {
 	sta reg_bordercolour
 }
@@ -35,7 +63,43 @@
 }
 }
 
-!zone screenkernal {
+
+; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+zcolours	!byte $ff,$ff ; current/default colour
+			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
+			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
+darkmode	!byte 0
+bgcol		!byte BGCOL, BGCOLDM
+fgcol		!byte FGCOL, FGCOLDM
+bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
+!ifdef Z3 {
+statuslinecol !byte STATCOL, STATCOLDM
+}
+cursorcol !byte CURSORCOL, CURSORCOLDM
+current_cursor_colour !byte CURSORCOL
+cursor_character !byte CURSORCHAR
+
+!ifdef TARGET_PLUS4 {
+plus4_vic_colours
+	;     PLUS4  VIC-II
+	!byte $00    ; black
+	!byte $71  ; white
+	!byte $32    ; red
+	!byte $63   ; cyan
+	!byte $54    ; purple
+	!byte $55   ; green
+	!byte $36    ; blue
+	!byte $77  ; yellow
+	!byte $28   ; orange
+	!byte $18   ; brown 
+	!byte $72   ; light red
+	!byte $11   ; dark grey
+	!byte $41   ; grey
+	!byte $75   ; light green
+	!byte $76   ; light blue
+	!byte $61   ; light grey
+}
+
 
 !ifdef TARGET_C128 {
 !source "vdc.asm"
@@ -105,6 +169,23 @@ C128SetBorderColour
 +	ldx .stored_x_or_y
 	rts
 
+VDCGetChar
+	; 80 columns, use VDC screen
+	sty .stored_x_or_y
+	lda zp_screenline + 1
+	sec
+	sbc #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
+	tay
+	lda zp_screenline
+	clc
+	adc .stored_x_or_y
+	bcc +
+	iny
++	jsr VDCSetAddress
+	ldy .stored_x_or_y
+	ldx #VDC_DATA
+	jmp VDCReadReg
+
 VDCPrintChar
 	; 80 columns, use VDC screen
 	sty .stored_x_or_y
@@ -172,8 +253,8 @@ init_mega65
 	lda #$c9
 	sta $D016
 	; set screen at $0800
-	lda #$26
-	sta $d018
+	;lda #$26
+	;sta $d018
 	; disable VIC-II/VIC-III hot registers
 	lda $d05d
 	and #$7f
@@ -202,10 +283,10 @@ colour1k
 }
 
 s_screen_width !byte 0
-s_screen_heigth !byte 0
+s_screen_height !byte 0
 s_screen_width_plus_one !byte 0
 s_screen_width_minus_one !byte 0
-s_screen_heigth_minus_one !byte 0
+s_screen_height_minus_one !byte 0
 s_screen_size !byte 0, 0
 
 s_init
@@ -228,12 +309,12 @@ s_init
 
 	; set up screen_height and screen_width_minus_one
 	lda #SCREEN_HEIGHT
-	sta s_screen_heigth
-	sta s_screen_heigth_minus_one
-	dec s_screen_heigth_minus_one
+	sta s_screen_height
+	sta s_screen_height_minus_one
+	dec s_screen_height_minus_one
 
 	; calculate total screen size
-	lda s_screen_heigth
+	lda s_screen_height
 	sta multiplier
 	lda s_screen_width
 	sta multiplicand
@@ -268,9 +349,9 @@ s_plot
 	ldy zp_screencolumn
 	rts
 .set_cursor_pos
-+	cpx s_screen_heigth
++	cpx s_screen_height
 	bcc +
-	ldx s_screen_heigth_minus_one
+	ldx s_screen_height_minus_one
 +	stx zp_screenrow
 	sty zp_screencolumn
 	jmp .update_screenpos
@@ -281,6 +362,12 @@ s_set_text_colour
 
 s_delete_cursor
 	lda #$20 ; blank space
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	beq +
+	jmp VDCPrintChar
++
+}
 	ldy zp_screencolumn
 	sta (zp_screenline),y
 	rts
@@ -312,10 +399,11 @@ s_printchar
 	bne +++
 	jsr s_delete_cursor
 +++	jmp .perform_newline
-+   
++
 	cmp #20
 	bne +
 	; delete
+	ldy zp_screencolumn
 	jsr s_delete_cursor
 	dec zp_screencolumn ; move back
 	bpl ++
@@ -441,6 +529,10 @@ s_printchar
 		jsr colour2k
 	}
 	lda s_colour
+!ifdef TARGET_PLUS4 {
+	tax
+	lda plus4_vic_colours,x
+}
 	sta (zp_colourline),y
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
@@ -457,7 +549,7 @@ s_printchar
 	sta zp_screencolumn
 	inc zp_screenrow
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bcs +
 	jsr .update_screenpos
 	jmp .printchar_end
@@ -530,7 +622,7 @@ s_erase_window
 -   jsr s_erase_line
 	inc zp_screenrow
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bne -
 	lda #0
 	sta zp_screenrow
@@ -599,7 +691,7 @@ s_erase_window
 .s_scroll_vdc
 	; scroll routine for 80 column C128 mode, using the blitter
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bpl +
 	rts
 +   ; set up copy mode
@@ -650,14 +742,14 @@ s_erase_window
 	ldx #VDC_COUNT
 	jsr VDCWriteReg
 	iny
-	cpy s_screen_heigth_minus_one
+	cpy s_screen_height_minus_one
 	bne -
 	rts
 }
 
 .s_scroll
 	lda zp_screenrow
-	cmp s_screen_heigth
+	cmp s_screen_height
 	bpl +
 	rts
 +   ldx window_start_row + 1 ; how many top lines to protect
@@ -713,7 +805,7 @@ s_erase_window
 	pla
 	sta zp_screenline + 1
 	lda zp_screenrow
-	cmp s_screen_heigth_minus_one
+	cmp s_screen_height_minus_one
 	bne -
 	lda #$ff
 	sta s_current_screenpos_row ; force recalculation
@@ -724,28 +816,60 @@ s_erase_line
 	jsr .update_screenpos
 	ldy #0
 .erase_line_from_any_col	
-	lda #$20
 !ifdef TARGET_C128 {
 	ldx COLS_40_80
 	bne .col80_5
 	; 40 columns, use VIC-II screen
 -	cpy s_screen_width
 	bcs .done_erasing
+	lda #$20
 	sta (zp_screenline),y
+	lda s_colour
+	txa
+	lda vdc_vic_colours,x
+	sta (zp_colourline),y
 	iny
-	bne -
-	jmp .col80_5_end
+	bne - ; Always branch
+	jmp .done_erasing	
 .col80_5
+	; erase line in VDC
+	tya
+	pha
 -	cpy s_screen_width
-	bcs .done_erasing
+	bcs +
+	lda #$20
 	jsr VDCPrintChar
 	iny
 	bne -
-.col80_5_end
+	; also reset attributes/colours
++	pla
+	tay
+-	cpy s_screen_width
+	bcs .done_erasing
+	lda s_colour
+	jsr VDCPrintColour
+	iny
+	bne -
 } else {
 -	cpy s_screen_width
 	bcs .done_erasing
+	; set character
+	lda #$20
 	sta (zp_screenline),y
+    ; set colour
+    !ifdef TARGET_MEGA65 {
+        jsr colour2k
+    }
+!ifdef TARGET_PLUS4 {
+	ldx s_colour
+	lda plus4_vic_colours,x
+} else {
+	lda s_colour
+}
+	sta (zp_colourline),y
+    !ifdef TARGET_MEGA65 {
+        jsr colour1k
+    }
 	iny
 	bne -
 }
@@ -757,36 +881,32 @@ s_erase_line_from_cursor
 	jmp .erase_line_from_any_col
 
 
-; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
-zcolours	!byte $ff,$ff ; current/default colour
-			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
-			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
-darkmode	!byte 0
-bgcol		!byte BGCOL, BGCOLDM
-fgcol		!byte FGCOL, FGCOLDM
-bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
-!ifdef Z3 {
-statuslinecol !byte STATCOL, STATCOLDM
-}
-cursorcol !byte CURSORCOL, CURSORCOLDM
-current_cursor_colour !byte CURSORCOL
-cursor_character !byte CURSORCHAR
-
 !ifndef NODARKMODE {
 toggle_darkmode
-!ifdef TARGET_C128 {
-	; don't allow dark mode toggle in 80 column mode
-	ldx COLS_40_80
-	beq +
-	; don't allow dark mode toggle in 80 column mode
-	rts
-+
-}
+
+; z_temp + 6: New foreground colour, as C64 colour 
+; z_temp + 7: New foreground colour, tranformed for target platform
+; z_temp + 8: New background colour, adapted to target platform
+; z_temp + 9: Old foreground colour, adapted to target platform
+; z_temp + 10, 11: Pointer into colour RAM
+
 !ifdef Z5PLUS {
 	; We will need the old fg colour later, to check which characters have the default colour
 	ldx darkmode ; previous darkmode value (0 or 1)
 	ldy fgcol,x
 	lda zcolours,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
 	sta z_temp + 9 ; old fg colour
 }
 ; Toggle darkmode
@@ -794,14 +914,38 @@ toggle_darkmode
 	eor #1
 	sta darkmode
 	tax
+; Set fgcolour
+	ldy fgcol,x
+	lda zcolours,y
+	sta z_temp + 6 ; New foreground colour, as C64 colour 
+	jsr s_set_text_colour
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
+	sta z_temp + 7 ; New foreground colour, tranformed for target platform
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
 ; Set cursor colour
 	ldy cursorcol,x
+	lda z_temp + 6
+	cpy #1
+	beq +
 	lda zcolours,y
-	sta current_cursor_colour
++	sta current_cursor_colour
 ; Set bgcolour
 	ldy bgcol,x
 	lda zcolours,y
-	sta reg_backgroundcolour
+	+SetBackgroundColour
 !ifdef Z5PLUS {
 	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
 	sta z_temp + 8 ; new background colour
@@ -819,22 +963,51 @@ toggle_darkmode
 }
 	lda zcolours,y
 .store_bordercol
-	sta reg_bordercolour
+	+SetBorderColour
+
+	; update colour memory with new colours
 !ifdef Z3 {
-; Set statusline colour
+
+; For Z3: Set statusline colour
 	ldy statuslinecol,x
 	lda zcolours,y
-	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
--	sta COLOUR_ADDRESS,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
+	ldy s_screen_width_minus_one
+-
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	bne +
+	sta COLOUR_ADDRESS,y
+	jmp ++
++
+	; 80 columns mode selected
+	sty s_stored_y
+	pha
+	ldy #$08
+	lda s_stored_y
+	jsr VDCSetAddress
+	pla
+	ora #$80 ; lower-case
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	ldy s_stored_y
+++
+} else {
+	sta COLOUR_ADDRESS,y
+}
 	dey
 	bpl -
-}
-; Set fgcolour
-	ldy fgcol,x
-	lda zcolours,y
-	jsr s_set_text_colour
-!ifdef TARGET_MEGA65 {
-	jsr colour2k
 }
 	;; Work out how many pages of colour RAM to examine
 	ldx s_screen_size + 1
@@ -844,15 +1017,21 @@ toggle_darkmode
 	ldy #0
 	sty z_temp + 10
 !ifdef Z3 {
-	ldy s_screen_width ; #SCREEN_WIDTH
+	ldy s_screen_width ; Since we have coloured the statusline separately, skip it now
 }
-!ifdef Z5PLUS {
-	sta z_temp + 7
+!ifndef Z5PLUS {
+;	ldy #0 ; But y is already 0, so we skip this
+	lda z_temp + 7 ; For Z3 and Z4 we can just load this value before the loop  
 }
 .compare
+!ifdef TARGET_C128 {
+	lda z_temp + 7  ; too much work to read old colour from VDC
+} else {
 !ifdef Z5PLUS {
 	lda (z_temp + 10),y
+!ifndef TARGET_PLUS4 {
 	and #$0f
+}
 	cmp z_temp + 9
 	beq .change
 	cmp z_temp + 8
@@ -860,7 +1039,38 @@ toggle_darkmode
 .change	
 	lda z_temp + 7
 }
+}
+!ifdef TARGET_C128 {
+	pha
+	lda COLS_40_80
+	bne +
+	pla
 	sta (z_temp + 10),y
+	jmp ++
++
+	; 80 columns mode selected
+	stx s_stored_x
+	sty s_stored_y
+	lda z_temp + 11
+	sec
+	sbc #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
+	tay
+	lda z_temp + 10
+	clc
+	adc s_stored_y
+	bcc +
+	iny
++	jsr VDCSetAddress
+	pla
+	ora #$80 ; lower-case
+	ldy s_stored_y
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	ldx s_stored_x
+++
+} else {
+	sta (z_temp + 10),y
+}
 .dont_change
 	iny
 	bne .compare
@@ -870,8 +1080,7 @@ toggle_darkmode
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
-	jsr update_cursor
-	rts 
+	jmp update_cursor
 } ; ifndef NODARKMODE
 
 !ifdef Z5PLUS {
@@ -892,11 +1101,12 @@ z_ins_set_colour
 	ldy #header_default_bg_colour
 	jsr read_header_word
 	lda zcolours,x
-+   sta reg_backgroundcolour
++   
+	+SetBackgroundColour
 ; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
 	cpy #0
 	bne .current_background
-	sta reg_bordercolour
+	+SetBorderColour
 .current_background
 
 ; Set foreground colour
@@ -911,10 +1121,20 @@ z_ins_set_colour
 ; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 1
 	cpy #1
 	bne +
-	sta reg_bordercolour
+	+SetBorderColour
 +
 	jsr s_set_text_colour ; change foreground colour
 .current_foreground
+
+; Set cursor colour
+	lda s_colour
+	ldx darkmode
+	ldy cursorcol,x
+	cpy #1
+	beq +
+	lda zcolours,y
++	sta current_cursor_colour
+
 	rts
 }
 

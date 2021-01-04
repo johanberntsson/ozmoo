@@ -2,18 +2,36 @@
 ;
 
 !ifdef TARGET_C64 {
+basic_reset           = $a000
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
+num_rows 			  = $a6 ; !byte 0
 CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
+keyboard_buff_len     = $c6
+keyboard_buff         = $277
+
+use_reu				  = $9b
+window_start_row	  = $9c; 4 bytes
+
+
+; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+s_ignore_next_linebreak = $b0 ; 3 bytes
+s_reverse 			  = $b3 ; !byte 0
+
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
+first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+reu_filled            = $0255 ; 4 bytes
+vmap_buffer_start     = $0334
+vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 }
 
 !ifdef TARGET_PLUS4 {
+basic_reset           = $8000
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0c00
@@ -21,20 +39,69 @@ COLOUR_ADDRESS        = $0800
 COLOUR_ADDRESS_DIFF   = $10000 + COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ae
 ti_variable           = $a3; 3 bytes
+keyboard_buff_len     = $ef
+keyboard_buff         = $527
+
+
 zp_temp               = $3b ; 5 bytes
+;use_reu				  = $87
+window_start_row	  = $88; 4 bytes
+
+
+num_rows 			  = $b7 ; !byte 0
+
+; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+s_ignore_next_linebreak = $b8 ; 3 bytes
+s_reverse 			  = $bb ; !byte 0
+
 savefile_zp_pointer   = $c1 ; 2 bytes
+; first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
+
+fkey_string_lengths = $55f
+fkey_string_area = $567
+
+vmap_buffer_start     = $0332
+vmap_buffer_end       = $03f2 ; Last byte + 1. Should not be more than vmap_buffer_start + 510
+;vmap_buffer_start     = $0333
+;vmap_buffer_end       = $0437 ; Last byte + 1. Should not be more than vmap_buffer_start + 510
+
+ted_voice_2_low       = $ff0f
+ted_voice_2_high      = $ff10
+ted_volume            = $ff11
+
 }
 
 !ifdef TARGET_MEGA65 {
+basic_reset           = $a000 ; the mega65 version is always run in C64 mode
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
+!ifdef CUSTOM_FONT {
+SCREEN_ADDRESS        = $1000
+} else {
 SCREEN_ADDRESS        = $0800
+}
 COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
+num_rows 			  = $a6 ; !byte 0
+keyboard_buff_len     = $c6
+keyboard_buff         = $277
+
+use_reu				  = $9b
+window_start_row	  = $9c; 4 bytes
+
+; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+s_ignore_next_linebreak = $b0 ; 3 bytes
+s_reverse 			  = $b3 ; !byte 0
+
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
+first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+reu_filled            = $0255 ; 4 bytes
+vmap_buffer_start     = $0334
+vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+
 }
 
 ; --- ZERO PAGE --
@@ -121,20 +188,12 @@ z_temp				  = $68 ; 12 bytes
 s_colour 			  = $74 ; !byte 1 ; white as default
 
 vmem_temp			  = $92 ; 2 bytes
-alphabet_table		  = $96 ; 2 bytes
+; alphabet_table		  = $96 ; 2 bytes
 
-use_reu				  = $9b
-
-window_start_row	  = $9c; 4 bytes
-
-num_rows			  = $a6 ; !byte 0
 current_window		  = $a7 ; !byte 0
 
 is_buffered_window	  = $ab;  !byte 1
 
-; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
-s_ignore_next_linebreak = $b0 ; 3 bytes
-s_reverse 			  = $b3 ; !byte 0
 
 s_stored_x			  = $b4 ; !byte 0
 s_stored_y			  = $b5 ; !byte 0
@@ -158,25 +217,17 @@ print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
 memory_buffer         =	$02a7
 memory_buffer_length  = 89
 
-first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-
 !ifdef TARGET_PLUS4 {
 charset_switchable 	  = $547
 } else {
 charset_switchable 	  = $291
 }
 
-datasette_buffer_start= $0334 ; Actually starts at 33c, but the eight bytes before that are unused
-datasette_buffer_end  = $03fb
-
-; --- BASIC rom routines ---
-;basic_printstring     = $ab1e ; write string in a/y (LO </HI >)
-;basic_printinteger    = $bdcd ; write integer value in a/x
-
 ; --- I/O registers ---
 !ifdef TARGET_PLUS4 {
 ; TED reference here:
 ; http://mclauchlan.site.net.au/scott/C=Hacking/C-Hacking12/gfx.html
+reg_screen_bitmap_mode = $ff12
 reg_screen_char_mode  = $ff13
 reg_bordercolour      = $ff19
 reg_backgroundcolour  = $ff15 
@@ -193,15 +244,17 @@ reg_backgroundcolour  = $d021
 }
 
 ; --- Kernel routines ---
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
+kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 !ifdef TARGET_PLUS4 {
-kernal_reset          = $fce2 ; cold reset of the PLUS4
+kernal_reset          = $fff6 ; cold reset of the PLUS4
+kernal_delay_1ms      = $e2dc ; delay 1 ms
 }
 !ifdef TARGET_MEGA65 {
 kernal_reset          = $e4b8 ; Reset back to C65 mode
+kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name

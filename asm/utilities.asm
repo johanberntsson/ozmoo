@@ -12,21 +12,55 @@
 
 ; zero_processorports: ...<d000><e000><a000> on/off
 
-;plus4_enable_ram = $ff3f
-;plus4_enable_rom = $ff3e
-plus4_enable_ram = $0c00
-plus4_enable_rom = $0c00
+plus4_enable_ram = $ff3f
+plus4_enable_rom = $ff3e
+
+; C128 MMU ($ff00)
+; 7–6 Processor RAM bank (0–3)
+;  00:  RAM 0
+;  01:  RAM 1
+;  10:  RAM 2 (but not used/available)
+;  11:  RAM 3 (but not used/available)
+; 5–4 Contents of the area $C000–$FFFF;$E000-$FBFF
+;  00 Kernal ROM
+;  01 Internal Function ROM
+;  10 External Function ROM (ROMH)
+;  11 RAM
+; 3–2 Contents of the area $8000–$BFFF
+;  00 BASIC ROM high
+;  01 Internal Function ROM
+;  10 External Function ROM (ROML)
+;  11 RAM
+; 1   Contents of the area $4000–$7FFF
+;   0 BASIC ROM low
+;   1 RAM
+; 0   Contents of the area $D000–$DFFF
+;   0 I/O registers
+;   1 RAM or character generator ROM
+
+!macro before_dynmem_read {
+!ifdef TARGET_PLUS4 {
+	sei
+	sta plus4_enable_ram
+}
+}
+!macro after_dynmem_read {
+!ifdef TARGET_PLUS4 {
+	sta plus4_enable_rom
+	cli
+}
+}
 
 !macro set_memory_all_ram {
 	; Don't forget to disable interrupts first!
 	pha
 !ifdef TARGET_C128 {
-	lda #%11111111
-	sta $ff0
+	lda #%00111111 ; all RAM0
+	sta $ff00
 } else {
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -36,12 +70,12 @@ plus4_enable_rom = $0c00
 !macro set_memory_all_ram_unsafe {
 	; Don't forget to disable interrupts first!
 !ifdef TARGET_C128 {
-	lda #%11111111
-	sta $ff0
+	lda #%00111111 ; all RAM0
+	sta $ff00
 } else {
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
+;	sta plus4_enable_ram
 } else {
 	sta zero_processorports
 }
@@ -49,51 +83,46 @@ plus4_enable_rom = $0c00
 }
 
 !macro set_memory_no_basic {
-	pha
-!ifdef TARGET_C128 {
-	; 48K RAM (0-$c000)
-	lda #%00001110
-	sta $ff0
-} else {
-	lda #%00110110
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
-} else {
-	sta zero_processorports
+	!ifdef TARGET_PLUS4 {
+	} else {
+			pha
+		!ifdef TARGET_C128 {
+			lda #%00001110 ; 48K RAM0 (0-$c000)
+			sta $ff00
+		} else {
+			lda #%00110110
+			sta zero_processorports
+		}
+			pla
+	} ; not TARGET_PLUS4
 }
-}
-	pla
-}
+
 !macro set_memory_no_basic_unsafe {
-!ifdef TARGET_C128 {
-	; 48K RAM (0-$c000)
-	lda #%00001110
-	sta $ff0
-} else {
-	lda #%00110110
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
-} else {
-	sta zero_processorports
-}
-}
+	!ifdef TARGET_PLUS4 {
+	} else {
+		!ifdef TARGET_C128 {
+			lda #%00001110 ; 48K RAM0 (0-$c000)
+			sta $ff00
+		} else {
+			lda #%00110110
+			sta zero_processorports
+		}
+	} ; not TARGET_PLUS4
 }
 
 !macro set_memory_normal {
-	pha
-!ifdef TARGET_C128 {
-	; default
-	lda #%00000000
-	sta $ff0
-} else {
-	lda #%00110111
-!ifdef TARGET_PLUS4 {
-	sta plus4_enable_ram
-} else {
-	sta zero_processorports
-}
-}
-	pla
+	!ifdef TARGET_PLUS4 {
+	} else {
+			pha
+		!ifdef TARGET_C128 {
+			lda #%00000000 ; default
+			sta $ff00
+		} else {
+			lda #%00110111
+			sta zero_processorports
+		}
+			pla
+	} ; not TARGET_PLUS4
 }
 
 ; to be expanded to disable NMI IRQs later if needed
@@ -105,10 +134,19 @@ plus4_enable_rom = $0c00
 	cli
 }
 
-!ifdef SLOW {
+; !ifdef SLOW {
+!ifdef TARGET_PLUS4 {
 read_next_byte_at_z_pc_sub
 	ldy #0
+!ifdef TARGET_PLUS4 {
+	sei
+	sta plus4_enable_ram
 	lda (z_pc_mempointer),y
+	sta plus4_enable_rom
+	cli
+} else {
+	lda (z_pc_mempointer),y
+}
 	inc z_pc_mempointer ; Also increases z_pc
 	beq ++
 	rts
@@ -130,6 +168,152 @@ read_next_byte_at_z_pc_sub
 }	
 
 }
+
+!ifdef COMPLEX_MEMORY {
+string_array_read_byte
+	sty .temp
+	stx .temp + 1
+	lda string_array
+	clc
+	adc .temp
+	tay
+	lda string_array + 1
+	adc #0
+	tax
+	lda #0
+	jsr read_byte_at_z_address
+	sta .temp + 2
+	ldy .temp
+	ldx .temp + 1
+	lda .temp + 2
+	rts
+
+string_array_write_byte
+	sta .temp
+	sty .temp + 1
+	lda z_address
+	pha
+	lda z_address + 1
+	pha
+	lda z_address + 2
+	pha
+	lda string_array
+	clc
+	adc .temp + 1
+	sta z_address + 2
+	lda string_array + 1
+	adc #0
+	sta z_address + 1
+	lda #0
+	sta z_address
+	lda .temp
+	jsr write_next_byte
+	pla
+	sta z_address + 2
+	pla
+	sta z_address + 1
+	pla
+	sta z_address
+	lda .temp
+	rts
+	
+parse_array_read_byte
+	sty .temp
+	stx .temp + 1
+	lda parse_array
+	clc
+	adc .temp
+	tay
+	lda parse_array + 1
+	adc #0
+	tax
+	lda #0
+	jsr read_byte_at_z_address
+	sta .temp + 2
+	ldy .temp
+	ldx .temp + 1
+	lda .temp + 2
+	rts
+
+parse_array_write_byte
+	sta .temp
+	sty .temp + 1
+	lda z_address
+	pha
+	lda z_address + 1
+	pha
+	lda z_address + 2
+	pha
+	lda parse_array
+	clc
+	adc .temp + 1
+	sta z_address + 2
+	lda parse_array + 1
+	adc #0
+	sta z_address + 1
+	lda #0
+	sta z_address
+	lda .temp
+	jsr write_next_byte
+	pla
+	sta z_address + 2
+	pla
+	sta z_address + 1
+	pla
+	sta z_address
+	lda .temp
+	rts
+
+.temp !byte 0,0,0
+
+!macro macro_string_array_read_byte {
+	jsr string_array_read_byte
+}
+!macro macro_string_array_write_byte {
+	jsr string_array_write_byte
+}
+!macro macro_parse_array_read_byte {
+	jsr parse_array_read_byte
+}
+!macro macro_parse_array_write_byte {
+	jsr parse_array_write_byte
+}
+
+} else { ; Not COMPLEX_MEMORY
+
+!macro macro_string_array_read_byte {
+	lda (string_array),y
+}
+!macro macro_string_array_write_byte {
+	sta (string_array),y
+}
+!macro macro_parse_array_read_byte {
+	lda (parse_array),y
+}
+!macro macro_parse_array_write_byte {
+	sta (parse_array),y
+}
+
+
+}
+
+
+!ifdef TARGET_C128 {
+convert_byte_to_two_digits = $f9fb
+} else {
+convert_byte_to_two_digits
+; In: A (value 0-99)
+; Out: X: top digit, A: Bottom digit
+	ldx #$30
+	sec
+-	inx
+	sbc #10
+	bcs -
+	dex
+	adc #10 + $30 ; Carry already clear. Add 10 to fix going < 0. Add $30 to make it a digit
+	rts
+}
+
 
 ERROR_UNSUPPORTED_STREAM = 1
 ERROR_CONFIG = 2
@@ -640,20 +824,20 @@ printstring
 +   rts
 }
 
-!ifdef VMEM {
-conv2dec
-	; convert a to decimal in x,a
-	; for example a=#$0f -> x='1', a='5'
-	ldx #$30 ; store '0' in x
--   cmp #10
-	bcc +    ; a < 10
-	inx
-	sec
-	sbc #10
-	jmp -
-+   adc #$30
-	rts
-}
+; !ifdef VMEM {
+; conv2dec
+	; ; convert a to decimal in x,a
+	; ; for example a=#$0f -> x='1', a='5'
+	; ldx #$30 ; store '0' in x
+; -   cmp #10
+	; bcc +    ; a < 10
+	; inx
+	; sec
+	; sbc #10
+	; jmp -
+; +   adc #$30
+	; rts
+; }
 
 mult16
 	;16-bit multiply with 32-bit product

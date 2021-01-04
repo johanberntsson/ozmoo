@@ -7,32 +7,34 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 if $is_windows then
 	# Paths on Windows
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
-    $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -autostart-delay-random"
+    $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -80col -autostart-delay-random"
+    $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.0.2\\win32\\exomizer.exe"
+    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
+	$commandline_quotemark = "\""
 else
 	# Paths on Linux
     $X64 = "x64 -autostart-delay-random"
     $X128 = "x128 -autostart-delay-random"
-    $X128 = "x128 -80col -autostart-delay-random"
+    #$X128 = "x128 -80col -autostart-delay-random"
     $XPLUS4 = "xplus4 -autostart-delay-random"
     $MEGA65 = "xemu-xmega65"
     $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
+	$commandline_quotemark = "'"
 end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
-# Typically only SMALLBLOCK should be enabled.
+# Typically none should be enabled.
 $GENERALFLAGS = [
-	'SMALLBLOCK', # Use 512 byte blocks instead of 1024 byte blocks for virtual memory. NOTE: 1024 byte mode is slower and currently broken.
-#	'UNSAFE', # Remove almost all runtime error checking. This makes the terp ~100 bytes smaller.
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
+#   'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -62,9 +64,8 @@ MODE_S1 = 2
 MODE_S2 = 3
 MODE_D2 = 4
 MODE_D3 = 5
-MODE_81 = 6
-
-mode = MODE_S1
+MODE_71 = 6
+MODE_81 = 7
 
 DISKNAME_BOOT = 128
 DISKNAME_STORY = 129
@@ -73,7 +74,7 @@ DISKNAME_DISK = 131
 
 $BUILD_ID = Random.rand(0 .. 2**32-1)
 
-$VMEM_BLOCKSIZE = $GENERALFLAGS.include?('SMALLBLOCK') ? 512 : 1024
+$VMEM_BLOCKSIZE = 512
 
 $ZEROBYTE = 0.chr
 
@@ -94,6 +95,10 @@ $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
+
+$trinity_releases = {
+	"r15-s870628" => "fd93 ba bb e2"
+}
 
 $beyondzork_releases = {
     "r47-s870915" => "f347 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
@@ -121,7 +126,7 @@ class Disk_image
 
 	def calculate_initial_free_blocks
 		@free_blocks = @track_length.inject(0, :+) - @reserved_sectors.inject(0, :+)
-		puts "Free disk blocks at start: #{@free_blocks}"
+		puts "Free disk blocks at start: #{@free_blocks}" if $verbose
 	end
 	
 	def free_blocks
@@ -258,7 +263,7 @@ end  # class Disk_image
 
 class D64_image < Disk_image
 	def initialize(disk_title:, diskimage_filename:, is_boot_disk:, forty_tracks:)
-		puts "Creating disk image..."
+		puts "Creating disk image..." if $verbose
 
 		@disk_title = disk_title
 		@diskimage_filename = diskimage_filename
@@ -390,9 +395,222 @@ class D64_image < Disk_image
 	
 end # class D64_image
 
+class D71_image < Disk_image
+	def initialize(disk_title:, diskimage_filename:, is_boot_disk:)
+		puts "Creating disk image..." if $verbose
+
+		@disk_title = disk_title
+		@diskimage_filename = diskimage_filename
+		@is_boot_disk = is_boot_disk
+
+		@tracks = 70
+		@track_length = Array.new(@tracks + 1) {|track| 
+			track == 0 ? 0 :
+			track < 18 ? 21 : 
+			track < 25 ? 19 : 
+			track < 31 ? 18 :
+			track < 36 ? 17 :
+			track < 53 ? 21 :
+			track < 60 ? 19 :
+			track < 66 ? 18 :
+			17
+		}
+#		puts "Tracks: #{@track_length.to_s}"
+
+		base_initialize()
+
+		@interleave = 5
+
+		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
+		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@reserved_sectors[53] = 2 # 2: Skip BAM and 1 extra block (we can't skip just 1 block)
+		@reserved_sectors[@config_track] = 2 if @is_boot_disk
+
+		calculate_initial_free_blocks()
+			
+		# BAM
+		@track1800 = [
+			# $16500 = 91392 = 357 (18,0)
+			0x12,0x01, # track/sector
+			0x41, # DOS version
+			0x80, # $80 = Double-sided
+			# <free sectors>,<0-7>,<8-15>,<16-?, remaining bits 0>
+			0x15,0xff,0xff,0x1f, # 16504, track 01 (21 sectors)
+			0x15,0xff,0xff,0x1f, # 16508, track 02
+			0x15,0xff,0xff,0x1f, # 1650c, track 03
+			0x15,0xff,0xff,0x1f, # 16510, track 04
+			0x15,0xff,0xff,0x1f, # 16514, track 05
+			0x15,0xff,0xff,0x1f, # 16518, track 06
+			0x15,0xff,0xff,0x1f, # 1651c, track 07
+			0x15,0xff,0xff,0x1f, # 16520, track 08
+			0x15,0xff,0xff,0x1f, # 16524, track 09
+			0x15,0xff,0xff,0x1f, # 16528, track 10
+			0x15,0xff,0xff,0x1f, # 1652c, track 11
+			0x15,0xff,0xff,0x1f, # 16530, track 12
+			0x15,0xff,0xff,0x1f, # 16534, track 13
+			0x15,0xff,0xff,0x1f, # 16538, track 14
+			0x15,0xff,0xff,0x1f, # 1653c, track 15
+			0x15,0xff,0xff,0x1f, # 16540, track 16
+			0x15,0xff,0xff,0x1f, # 16544, track 17
+			0x11,0xfc,0xff,0x07, # 16548, track 18 (19 sectors)
+			0x13,0xff,0xff,0x07, # 1654c, track 19
+			0x13,0xff,0xff,0x07, # 16550, track 20
+			0x13,0xff,0xff,0x07, # 16554, track 21
+			0x13,0xff,0xff,0x07, # 16558, track 22
+			0x13,0xff,0xff,0x07, # 1655c, track 23
+			0x13,0xff,0xff,0x07, # 16560, track 24
+			0x12,0xff,0xff,0x03, # 16564, track 25 (18 sectors)
+			0x12,0xff,0xff,0x03, # 16568, track 26
+			0x12,0xff,0xff,0x03, # 1656c, track 27
+			0x12,0xff,0xff,0x03, # 16570, track 28
+			0x12,0xff,0xff,0x03, # 16574, track 29
+			0x12,0xff,0xff,0x03, # 16578, track 30
+			0x11,0xff,0xff,0x01, # 1657c, track 31 (17 sectors)
+			0x11,0xff,0xff,0x01, # track 32
+			0x11,0xff,0xff,0x01, # track 33
+			0x11,0xff,0xff,0x01, # track 34
+			0x11,0xff,0xff,0x01, # track 35
+			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0, # label (game name)
+			0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,0xa0,
+			0xa0,0xa0,0x30,0x30,0xa0,0x32,0x41,0xa0,
+			0xa0,0xa0,0xa0,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00, # -$dc
+			0x15,0x15,0x15, # $dd- (free sector count for track 36-70)
+			0x15,0x15,0x15,0x15,0x15,0x15,0x15,0x15,
+			0x15,0x15,0x15,0x15,0x15,0x15,0x11,0x13,
+			0x13,0x13,0x13,0x13,0x13,0x12,0x12,0x12,
+			0x12,0x12,0x12,0x11,0x11,0x11,0x11,0x11
+		]
+		@track5300 = [
+			# <0-7>,<8-15>,<16-?, remaining bits 0>
+			0xff,0xff,0x1f, # track 36 (21 sectors)
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xff,0xff,0x1f,
+			0xfc,0xff,0x07, # track 53 (19 sectors, 2 used)
+			0xff,0xff,0x07, # track 54 (19 sectors)
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x07,
+			0xff,0xff,0x03, # track 60 (18 sectors)
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x03,
+			0xff,0xff,0x01, # track 66 (17 sectors)
+			0xff,0xff,0x01,
+			0xff,0xff,0x01,
+			0xff,0xff,0x01,
+			0xff,0xff,0x01,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00, # $69-$6f
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$70-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$80-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$90-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$a0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$b0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$c0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$d0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$e0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, #$f0-
+			0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+		]
+		# Create a disk image. Return number of free blocks, or -1 for failure.
+
+#		for track in 36 .. 40 do
+#			@track1800[0xc0 + 4 * (track - 36) .. 0xc0 + 4 * (track - 36) + 3] = (track > @tracks ? [0,0,0,0] : [0x11,0xff,0xff,0x01])
+#		end
+		
+		# Set disk title
+		c64_title = name_to_c64(disk_title)
+		@track1800[0x90 .. 0x9f] = Array.new(0x10, 0xa0)
+		[c64_title.length, 0x10].min.times do |charno|
+			@track1800[0x90 + charno] = c64_title[charno].ord
+		end
+		
+		if @is_boot_disk then
+			allocate_sector(@config_track, 0)
+			allocate_sector(@config_track, 1)
+		end
+
+		@free_blocks
+	end # initialize
+
+
+	private
+	
+	def allocate_sector(track, sector)
+		print "*" if $PRINT_DISK_MAP
+		if track > 35 then # BAM is (mostly) in sector 53:0
+			index1 = 0xdd + track - 36
+			index2 = 3 * (track - 36) + (sector / 8)
+			# adjust number of free sectors
+			@track1800[index1] -= 1
+
+			# allocate sector
+			index3 = 255 - 2**(sector % 8)
+			@track5300[index2] &= index3
+		else
+			index1 = 4 * track
+			index2 = 4 * track + 1 + (sector / 8)
+			if track > 35 then # BAM is (mostly) in sector 53:0
+				index1 += 0x30
+				index2 += 0x30
+			end
+			# adjust number of free sectors
+			@track1800[index1] -= 1
+			# allocate sector
+			index3 = 255 - 2**(sector % 8)
+			@track1800[index2] &= index3
+		end
+	end
+
+	def add_directory()
+		# Add disk info and BAM at 18:00
+		@contents[@track_offset[18] * 256 .. @track_offset[18] * 256 + 255] = @track1800
+
+		# Add directory at 18:01
+		@contents[@track_offset[18] * 256 + 256] = 0 
+		@contents[@track_offset[18] * 256 + 257] = 0xff 
+
+		# Add BAM 53:00
+		@contents[@track_offset[53] * 256 .. @track_offset[53] * 256 + 255] = @track5300
+
+	end
+	
+end # class D71_image
+
 class D81_image < Disk_image
 	def initialize(disk_title:, diskimage_filename:)
-		puts "Creating disk image..."
+		puts "Creating disk image..." if $verbose
 
 		@disk_title = disk_title
 		@diskimage_filename = diskimage_filename
@@ -601,6 +819,7 @@ def build_interpreter()
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
+	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
@@ -652,15 +871,17 @@ def build_interpreter()
 	compressionflags = ''
 
 	if $target == "mega65" then
-		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" asm/c65toc64wrapper.asm"
-		puts cmd
+		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" c65toc64wrapper.asm"
+		puts cmd if $verbose
+		Dir.chdir $SRCDIR
 		ret = system(cmd)
+		Dir.chdir $EXECDIR
 		exit 0 unless ret
 	end
     
 	cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
 		"#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
-	puts cmd
+	puts cmd if $verbose
 	Dir.chdir $SRCDIR
 	ret = system(cmd)
 	Dir.chdir $EXECDIR
@@ -670,7 +891,7 @@ def build_interpreter()
 	end
 	$storystart = 0
 	read_labels($labels_file);
-	puts "Interpreter size: #{$program_end_address - $start_address} bytes."
+	puts "Interpreter size: #{$program_end_address - $start_address} bytes." if $verbose
 end
 
 def read_labels(label_file_name)
@@ -682,13 +903,22 @@ def read_labels(label_file_name)
 end
 
 def build_loader_file()
-	necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
+	necessarysettings =  ""
+	exo_target = ""
+	if $target == 'c64'
+		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
+	end
+	if $target == 'plus4'
+		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_PLUS4=1"
+		exo_target = " -t4"
+	end
+
 	optionalsettings = ""
 	optionalsettings += " -DFLICKER=1" if $loader_flicker
 	
     cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}" +
 		" -l \"#{$loader_labels_file}\" --outfile \"#{$loader_file}\" picloader.asm"
-	puts cmd
+	puts cmd if $verbose
 	Dir.chdir $SRCDIR
     ret = system(cmd)
 	Dir.chdir $EXECDIR
@@ -699,10 +929,10 @@ def build_loader_file()
 	read_labels($loader_labels_file);
 	puts "Loader pic address: #{$loader_pic_start}"
 
-	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2,10001"
-	exomizer_cmd = "#{$EXOMIZER} sfx basic -B \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
+	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2"
+	exomizer_cmd = "#{$EXOMIZER} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
 
-	puts exomizer_cmd
+	puts exomizer_cmd if $verbose
 	ret = system(exomizer_cmd)
 	unless ret
 		puts "ERROR: There was a problem calling Exomizer"
@@ -718,21 +948,29 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 		File.size($compmem_filename)].min}"
 
 	font_clause = ""
+	asm_clause = ""
+	decrunch_effect = ""
 	if $font_filename
-		font_clause = " \"#{$font_filename}\"@2048"
+		font_clause = " \"#{$font_filename}\"@#{$font_address}"
 	end
 	exo_target = ""
 	if $target == 'plus4'
 		exo_target = " -t4"
+		asm_clause = " -s #{$commandline_quotemark}lda $ff15 sta $ff19 lda $ff06 and \#$ef sta $ff06#{$commandline_quotemark} -f #{$commandline_quotemark}lda $ff06 ora \#$10 sta $ff06#{$commandline_quotemark}"
 	end
 	if $target == 'c128'
 		exo_target = " -t128"
+		asm_clause = " -s #{$commandline_quotemark}lda $d021 sta $d020 lda \#1 sta $d030 lda $d011 and \#111 sta $d011#{$commandline_quotemark} -f #{$commandline_quotemark}lda \#0 sta $d030 lda $d011 ora \#16 and \#127 sta $d011#{$commandline_quotemark}"
+#		decrunch_effect = " -X #{$commandline_quotemark}txa and \#$1f sta $0400 sty $d800#{$commandline_quotemark}"
+#		decrunch_effect = " -X #{$commandline_quotemark}stx $0400#{$commandline_quotemark}"
+		decrunch_effect = " -n"
 	end
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+ #  -Di_irq_during=0 -Di_irq_exit=0
+	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{decrunch_effect}#{font_clause}#{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
-	puts exomizer_cmd
+	puts exomizer_cmd if $verbose
 	ret = system(exomizer_cmd)
 	unless ret
 		puts "ERROR: There was a problem calling Exomizer"
@@ -759,7 +997,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	compmem_filehandle.close
 
 	max_file_size = free_blocks * 254
-	puts "Max file size is #{max_file_size} bytes."
+	puts "Max file size is #{max_file_size} bytes." if $verbose
 	if build_specific_boot_file(vmem_preload_blocks, vmem_contents) <= max_file_size then
 		save_good_boot_file()
 		return vmem_preload_blocks
@@ -801,7 +1039,7 @@ end
 
 def add_loader_file(diskimage_filename)
 	c1541_cmd = "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
-	puts c1541_cmd
+	puts c1541_cmd if $verbose
 	system(c1541_cmd)
 end
 
@@ -809,18 +1047,26 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	if $target == "mega65" then	
 	        # Put C65/C64 mode switch wrapper on the front
         	cmd = "cat #{$wrapper_file} #{$good_zip_file} > #{$universal_file}";
-	        puts cmd
+	        puts cmd if $verbose
 	        ret = system(cmd)
 	        exit 0 unless ret
 	end
 	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
+
+	opt = ""
+	opt = "-silent " unless $verbose
 	
-	c1541_cmd = "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
 	if $target == "mega65" then	
-		c1541_cmd = "#{$C1541} -attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
+		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 	end
-	puts c1541_cmd
-	system(c1541_cmd)
+	if $verbose
+		puts c1541_cmd 
+		system(c1541_cmd)
+	else
+		`#{c1541_cmd}`
+		return true
+	end
 end
 
 def play(filename)
@@ -833,26 +1079,92 @@ def play(filename)
 	else
 	    command = "#{$X64} #{filename}"
 	end
-	puts command
+	puts command if $verbose
     system(command)
 end
 
-def limit_vmem_data(vmem_data)
-#	puts "### #{$vmem_size} < #{(vmem_data[2] + $dynmem_blocks) * $VMEM_BLOCKSIZE} ###"
-	if $vmem_size < (vmem_data[2] + $dynmem_blocks) * $VMEM_BLOCKSIZE
-		vmem_data[2] = $vmem_size / $VMEM_BLOCKSIZE - $dynmem_blocks
+def limit_vmem_data_preload(vmem_data)
+	if $dynmem_and_vmem_size_bank_0 < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
+		vmem_data[3] = $dynmem_and_vmem_size_bank_0 / $VMEM_BLOCKSIZE - $dynmem_blocks
 	end
 end
 
-def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def	sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
+	entries = vmem_data[2]
+	sort_array = []
+	mask = $zcode_version == 8 ? 0b0000001111111111 :
+		$zcode_version == 3 ? 0b0000000011111111 : 0b0000000111111111
+	(last_block_to_sort - first_block_to_sort + 1).times do |i|
+		blockid_with_age = 256 * vmem_data[first_block_to_sort + 4 + i] + 
+			vmem_data[first_block_to_sort + entries + 4 + i]
+		blockid = blockid_with_age & mask
+		age = blockid_with_age - blockid
+		sort_array.push [blockid, age]
+	end
+	sort_array.sort_by! {|a| a[0]}
+	(last_block_to_sort - first_block_to_sort + 1).times do |i|
+		value = sort_array[i][0]
+		age = sort_array[i][1]
+		age_and_value = age + value
+		lowbyte = age_and_value & 255
+		highbyte = (age_and_value - lowbyte) >> 8
+		vmem_data[first_block_to_sort + 4 + i] = highbyte
+		vmem_data[first_block_to_sort + entries + 4 + i] = lowbyte
+	end
+end
+
+
+def limit_vmem_data(vmem_data, max_length)
+	oversize = vmem_data.length - max_length
+	if oversize > 0
+		entries = vmem_data[2]
+		part1 = vmem_data[4..(entries + 3)]
+		part2 = vmem_data[(4 + entries)..(3 + entries + entries)]
+		trim = (oversize / 2.0).ceil()
+		keep = part1.length - trim
+		vmem_data[(4 + entries)..(3 + entries + entries)] = part2.take(keep)
+		vmem_data[4 ..(entries + 3)] = part1.take(keep)
+		vmem_data[2] = keep
+		vmem_data[3] = keep if vmem_data[3] > keep
+		size = 4 + 2 * keep
+		vmem_data [0 .. 1] = [size / 256, size % 256]
+		puts "Limited vmem_data to #{max_length} bytes by removing #{trim} blocks."
+	end
+	if $unbanked_vmem_blocks > 1 # and vmem_data[3] vmem_data[2] - vmem_data[3]
+		# Vmem blocks are entirely or partially in unbanked memory
+		first_block_to_sort = vmem_data[3]
+		last_block_to_sort = [vmem_data[3], [$unbanked_vmem_blocks, vmem_data[2]].min()].max() - 1
+		if first_block_to_sort < last_block_to_sort then
+			sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
+			puts "Sorted unbanked VMEM blocks #{first_block_to_sort} to " + 
+				"#{last_block_to_sort}" if $verbose
+		end
+	end
+	if vmem_data[3] < vmem_data[2] then
+		# There are vmem block load suggestions
+		if $vmem_blocks_in_ram > $unbanked_vmem_blocks
+			# Vmem blocks are entirely or partially in banked memory
+			first_block_to_sort = [vmem_data[3], $unbanked_vmem_blocks].max()
+			last_block_to_sort = vmem_data[2] - 1
+			if first_block_to_sort < last_block_to_sort then
+				sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
+				puts "Sorted banked VMEM blocks #{first_block_to_sort} to " + 
+					"#{last_block_to_sort}" if $verbose
+			end
+		end
+	end
+end
+
+def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 0
 	
 	boot_disk = false
 	
-	diskfilename = "#{storyname}.d64"
+	diskfilename = "#{$target}_#{storyname}.d64"
 	
-	if $vmem_size < $story_size
-		puts "#{$vmem_size} < #{$story_size}"
+	if $dynmem_and_vmem_size_bank_0 < $story_size
+		puts "#{$dynmem_and_vmem_size_bank_0} < #{$story_size}"
 		puts "ERROR: The whole story doesn't fit in memory. Please try another build mode."
 		exit 1
 	end
@@ -864,13 +1176,13 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	disk.save()
 
 	free_blocks = disk.free_blocks()
-	puts "Free disk blocks after story data has been written: #{free_blocks}"
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 
 	# Build picture loader
 	if $loader_pic_file
 		loader_size = build_loader_file()
 		free_blocks -= (loader_size / 254.0).ceil
-		puts "Free disk blocks after loader has been written: #{free_blocks}"
+		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
 		if add_loader_file(diskimage_filename) != true
 			puts "ERROR: Failed to write loader to disk."
 			exit 1
@@ -892,12 +1204,13 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	nil # Signal success
 end
 
-def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 	max_story_blocks = 9999
 	
 	boot_disk = true
 
-	diskfilename = "#{storyname}.d64"
+	diskfilename = "#{$target}_#{storyname}.d64"
 
 	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
@@ -907,13 +1220,13 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		exit 1
 	end
 	free_blocks = disk.free_blocks()
-	puts "Free disk blocks after story data has been written: #{free_blocks}"
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 
 	# Build picture loader
 	if $loader_pic_file
 		loader_size = build_loader_file()
 		free_blocks -= (loader_size / 254.0).ceil
-		puts "Free disk blocks after loader has been written: #{free_blocks}"
+		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
 	end
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
@@ -924,7 +1237,7 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
@@ -936,6 +1249,8 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -962,17 +1277,18 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
-def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 3 # 3 disks used in total
-	outfile1name = "#{storyname}_boot.d64"
-	outfile2name = "#{storyname}_story.d64"
+	outfile1name = "#{$target}_#{storyname}_boot.d64"
+	outfile2name = "#{$target}_#{storyname}_story.d64"
 	max_story_blocks = 9999
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	free_blocks = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
 	free_blocks = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
-	puts "Free disk blocks after story data has been written: #{free_blocks}"
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
@@ -982,12 +1298,12 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	if $loader_pic_file
 		loader_size = build_loader_file()
 		free_blocks -= (loader_size / 254.0).ceil
-		puts "Free disk blocks after loader has been written: #{free_blocks}"
+		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
 	end
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 	
 	# Add config data about boot disk
 	disk_info_size = 8
@@ -1006,6 +1322,8 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1034,11 +1352,12 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	nil # Signal success
 end
 
-def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 3 # 3 disks used in total
-	outfile1name = "#{storyname}_boot_story_1.d64"
-	outfile2name = "#{storyname}_story_2.d64"
+	outfile1name = "#{$target}_#{storyname}_boot_story_1.d64"
+	outfile2name = "#{$target}_#{storyname}_story_2.d64"
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 
@@ -1061,9 +1380,9 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	end
 	
 	free_blocks_1 = disk1.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
-	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}"
+	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}" if $verbose
 	free_blocks_2 = disk2.add_story_data(max_story_blocks: 9999, add_at_end: false)
-	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}"
+	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}" if $verbose
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
@@ -1073,7 +1392,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	if $loader_pic_file
 		loader_size = build_loader_file()
 		free_blocks_1 -= (loader_size / 254.0).ceil
-		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}"
+		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}" if $verbose
 	end
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
@@ -1082,7 +1401,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 	
 	# Add config data about boot disk / story disk 1
 	disk_info_size = 13 + disk1.config_track_map.length
@@ -1104,6 +1423,8 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1132,12 +1453,13 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	nil # Signal success
 end
 
-def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data,
+				vmem_contents, preload_max_vmem_blocks, extended_tracks)
 
 	config_data[7] = 4 # 4 disks used in total
-	outfile1name = "#{storyname}_boot.d64"
-	outfile2name = "#{storyname}_story_1.d64"
-	outfile3name = "#{storyname}_story_2.d64"
+	outfile1name = "#{$target}_#{storyname}_boot.d64"
+	outfile2name = "#{$target}_#{storyname}_story_1.d64"
+	outfile3name = "#{$target}_#{storyname}_story_2.d64"
 	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
 	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	disk3 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
@@ -1148,11 +1470,11 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	max_story_blocks = total_raw_story_blocks / 2
 	
 	free_blocks_1 = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
-	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}"
+	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}" if $verbose
 	free_blocks_2 = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
-	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}"
+	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}" if $verbose
 	free_blocks_3 = disk3.add_story_data(max_story_blocks: 9999, add_at_end: false)
-	puts "Free disk blocks on disk #3 after story data has been written: #{free_blocks_3}"
+	puts "Free disk blocks on disk #3 after story data has been written: #{free_blocks_3}" if $verbose
 	if $story_file_cursor < $story_file_data.length
 		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
 		exit 1
@@ -1162,12 +1484,12 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	if $loader_pic_file
 		loader_size = build_loader_file()
 		free_blocks_1 -= (loader_size / 254.0).ceil
-		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}"
+		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}" if $verbose
 	end
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, 664)
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 	
 	# Add config data about boot disk
 	disk_info_size = 8
@@ -1196,6 +1518,8 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1227,22 +1551,30 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	nil # Signal success
 end
 
-def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, preload_max_vmem_blocks)
-
-	diskfilename = "#{storyname}.d81"
+def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
+				preload_max_vmem_blocks)
+	max_story_blocks = 9999
 	
-	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
+	boot_disk = true
 
-	disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
-	free_blocks = disk.free_blocks()
-	puts "Free disk blocks after story data has been written: #{free_blocks}"
+	diskfilename = "#{$target}_#{storyname}.d71"
 
-	# Build picture loader
-	if $loader_pic_file
-		loader_size = build_loader_file()
-		free_blocks -= (loader_size / 254.0).ceil
-		puts "Free disk blocks after loader has been written: #{free_blocks}"
+	disk = D71_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk)
+
+	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: nil)
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk. Please try another build mode."
+		exit 1
 	end
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
+
+#	# Build picture loader
+#	if $loader_pic_file
+#		loader_size = build_loader_file()
+#		free_blocks -= (loader_size / 254.0).ceil
+#		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
+#	end
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
@@ -1252,7 +1584,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
 		exit 1
 	end
-	vmem_data[2] = vmem_preload_blocks
+	vmem_data[3] = vmem_preload_blocks
 
 	# Add config data about boot / story disk
 	disk_info_size = 11 + disk.config_track_map.length
@@ -1264,6 +1596,74 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	
+	config_data += vmem_data
+
+	#	puts config_data
+	disk.set_config_data(config_data)
+	
+	disk.save()
+	
+#	# Add picture loader
+#	if $loader_pic_file
+#		if add_loader_file(diskimage_filename) != true
+#			puts "ERROR: Failed to write loader to disk."
+#			exit 1
+#		end
+#	end
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
+	if add_boot_file(diskfilename, diskimage_filename) != true
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
+		exit 1
+	end
+
+	$bootdiskname = "#{diskfilename}"
+	puts "Successfully built game as #{$bootdiskname}"
+	nil # Signal success
+end
+
+def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
+				preload_max_vmem_blocks)
+
+	diskfilename = "#{$target}_#{storyname}.d81"
+	
+	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
+
+	disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
+
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
+#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
+#	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
+	if vmem_preload_blocks < 0
+		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
+		exit 1
+	end
+	vmem_data[3] = vmem_preload_blocks
+
+	# Add config data about boot / story disk
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -1290,28 +1690,31 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		exit 1
 	end
 
-	$bootdiskname = "#{storyname}.d81"
+	$bootdiskname = "#{diskfilename}"
 	puts "Successfully built game as #{$bootdiskname}"
 	nil # Signal success
 end
 
 def print_usage_and_exit
-	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-81|-P]"
-	puts "         [-p:[n]] [-c <preloadfile>] [-o] [-sp:[n]]"
-	puts "         [-s] [-r] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
+	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
+	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default) and mega65."
-	puts "  -S1|-S2|-D2|-D3|-81|-P: specify build mode. Defaults to S1. See docs for details."
-	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start"
-	puts "  -c: read preload config from preloadfile, previously created with -o"
+	puts "  -t: specify target machine. Available targets are c64 (default), c128 and plus4."
+	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: specify build mode. Defaults to S1 (71 for C128). See docs."
+	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
+	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start."
+	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
+	puts "  -c: read preload config from preloadfile, previously created with -o"
+	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
+	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
 	puts "  -s: start game in Vice if build succeeds"
-	puts "  -r: Use reduced amount of RAM (-$CFFF). Only with -P."
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
@@ -1323,7 +1726,7 @@ def print_usage_and_exit
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
-	puts "  -cb: Set cursor blink frequency (0-9, where 9 is fastest)."
+	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
@@ -1333,30 +1736,34 @@ end
 splashes = [
 "", "", "", ""
 ]
+mode = nil
 $interpreter_number = nil
 i = 0
-reduced_ram = false
+fill_preload = nil
 await_preloadfile = false
 await_fontfile = false
 await_imagefile = false
 preloadfile = nil
 $font_filename = nil
+$font_address = nil
 $loader_pic_file = nil
 $loader_flicker = false
 auto_play = false
 optimize = false
 extended_tracks = false
-preload_max_vmem_blocks = 2**16 / $VMEM_BLOCKSIZE
+preload_max_vmem_blocks = 2**17 / $VMEM_BLOCKSIZE
 limit_preload_vmem_blocks = false
 $start_address = 0x0801
 $program_end_address = 0x10000
 $memory_end_address = 0x10000
+$normal_ram_end_address = 0xd000
+$unbanked_ram_end_address = 0xd000
 $colour_replacements = []
 $default_colours = []
 $default_colours_dm = []
 $statusline_colour = nil
 $statusline_colour_dm = nil
-$target = nil
+$target = 'c64'
 $border_colour = nil
 $border_colour_dm = nil
 $stack_pages = 4 # Should normally be 2-6. Use 4 unless you have a good reason not to.
@@ -1366,6 +1773,8 @@ $splash_wait = nil
 $cursor_colour = nil
 $cursor_shape = nil
 $cursor_blink = nil
+$verbose = nil
+$no_sector_preload = nil
 
 begin
 	while i < ARGV.length
@@ -1378,21 +1787,16 @@ begin
 		elsif await_imagefile then
 			await_imagefile = false
 			$loader_pic_file = ARGV[i]
-#		elsif ARGV[i] =~ /^-x$/ then
-#			extended_tracks = true
 		elsif ARGV[i] =~ /^-o$/ then
 			optimize = true
+			$no_sector_preload = true
 		elsif ARGV[i] =~ /^-in:(1?\d)$/ then
 			$interpreter_number = $1
 		elsif ARGV[i] =~ /^-s$/ then
 			auto_play = true
-		elsif ARGV[i] =~ /^-r$/ then
-			reduced_ram = true
 		elsif ARGV[i] =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif ARGV[i] =~ /^-P$/ then
-			mode = MODE_P
 		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
@@ -1404,12 +1808,19 @@ begin
 			elsif $target == "plus4" then
 			    # Different start address
 			    $start_address = 0x1001
-				$memory_end_address = 0xfd00
+				$memory_end_address = 0xfc00
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
 			elsif $target == "c128" then
 			    # Different start address
-			    $start_address = 0x1c01
-				$memory_end_address = 0xfd00
+			    $start_address = 0x1200
+#			    $start_address = 0x1c00
+				$memory_end_address = 0xfc00
+				$unbanked_ram_end_address = 0xc000
+				$normal_ram_end_address = $memory_end_address
 			end
+		elsif ARGV[i] =~ /^-P$/ then
+			mode = MODE_P
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then
@@ -1418,8 +1829,14 @@ begin
 			mode = MODE_D2
 		elsif ARGV[i] =~ /^-D3$/ then
 			mode = MODE_D3
+		elsif ARGV[i] =~ /^-71$/ then
+			mode = MODE_71
 		elsif ARGV[i] =~ /^-81$/ then
 			mode = MODE_81
+		elsif ARGV[i] =~ /^-v$/ then
+			$verbose = true
+		elsif ARGV[i] =~ /^-b$/ then
+			$no_sector_preload = true
 		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
 			$colour_replacements = $1.split(/,/)
 		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
@@ -1438,11 +1855,13 @@ begin
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
+		elsif ARGV[i] =~ /^-cf$/ then
+			await_preloadfile = true
+			fill_preload = true
 		elsif ARGV[i] =~ /^-c$/ then
 			await_preloadfile = true
 		elsif ARGV[i] =~ /^-f$/ then
 			await_fontfile = true
-			$start_address = 0x1000
 		elsif ARGV[i] =~ /^-if?$/ then
 			await_imagefile = true
 			$loader_flicker = ARGV[i] =~ /f$/
@@ -1456,8 +1875,10 @@ begin
 			$cursor_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-cs:([b|u|l])$/ then
 			$cursor_shape = $1
-		elsif ARGV[i] =~ /^-cb:([0-9])$/ then
+		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
+		elsif ARGV[i] =~ /^-u$/ then
+			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -1473,6 +1894,62 @@ rescue
 	print_usage_and_exit()
 end
 
+print_usage_and_exit() if await_preloadfile or await_fontfile or await_imagefile
+
+unless mode
+	if $target == 'c128'
+		mode = MODE_71
+	else 
+		mode = MODE_S1
+	end
+end
+
+if mode == MODE_71 and $target != 'c128'
+	puts "ERROR: Build mode 71 is not supported on this target platform."
+	exit 1
+end
+
+if mode == MODE_P and $target == 'c128'
+	puts "ERROR: Build mode P is not supported on this target platform."
+	exit 1
+end
+
+if $loader_pic_file
+	if $target != 'c64' and $target != 'plus4'
+		puts "ERROR: Image loader is not supported on this target platform."
+		exit 1
+	end
+	if $target == 'plus4' and $loader_flicker
+		puts "ERROR: Flicker during loading is not supported on this target platform."
+		exit 1
+	end
+end
+
+if $font_filename
+	if $target == 'c64'
+		$font_address = 0x0800
+		$start_address = 0x1000
+	elsif $target == 'c128' 
+		$font_address = 0x1800
+		$start_address = 0x2000
+	elsif $target == 'mega65'
+		# It is not possible to disable shadow character roms on
+		# the C64 and the Mega65, so we cannot use $1000-$2000
+		# for custom fonts. Instead we put the font in $0800, but
+		# we also need to move the scren to $1000, since it will no
+		# longer fit at $0400 because it is now 80 characters wide
+		# and needs more space.
+		$font_address = 0x0800
+		$start_address = 0x1800
+	elsif $target == 'plus4'
+		$font_address = 0x1000
+		$start_address = 0x1800
+	else
+		puts "ERROR: Custom fonts are currently not supported for this target platform."
+		exit 1
+	end
+end
+
 $VMEM = (mode != MODE_P)
 
 $GENERALFLAGS.push('DANISH_CHARS') if $char_map == 'da'
@@ -1484,10 +1961,6 @@ $GENERALFLAGS.push('FRENCH_CHARS') if $char_map == 'fr'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 
-$GENERALFLAGS.push('ALLRAM') unless reduced_ram
-
-$ALLRAM = $GENERALFLAGS.include?('ALLRAM')
-
 $colour_replacement_clause = ''
 unless $colour_replacements.empty?
 	$colour_replacements.each do |r|
@@ -1495,45 +1968,40 @@ unless $colour_replacements.empty?
 		zcode_colour = $1
 		c64_colour = $2
 		if zcode_colour !~ /^[2-9]$/
-			puts "-rc requires a Z-code colour value (2-9) to the left of the = character."
+			puts "ERROR: -rc requires a Z-code colour value (2-9) to the left of the = character."
 			exit 1
 		end
 		if c64_colour !~ /^([0-9]|1[0-5])$/
-			puts "-rc requires a C64 colour value (0-15) to the right of the = character."
+			puts "ERROR: -rc requires a C64 colour value (0-15) to the right of the = character."
 			exit 1
 		end
 		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
 	end
 end
 
-if reduced_ram and mode != MODE_P
-	puts "Option -r can't be used with this build mode."
-	exit 1
-end
-
 if $stack_pages < 4 and mode != MODE_P
-	puts "Stack pages < 4 is only allowed in build mode P."
+	puts "ERROR: Stack pages < 4 is only allowed in build mode P."
 	exit 1
 end
 
 if optimize and mode == MODE_P
-	puts "Option -o can't be used with this build mode."
+	puts "ERROR: Option -o can't be used with this build mode."
 	exit 1
 end
 
 if limit_preload_vmem_blocks and !$VMEM
-	puts "Option -p can't be used with this build mode."
+	puts "ERROR: Option -p can't be used with this build mode."
 	exit 1
 end
 
 if extended_tracks and !$VMEM
-	puts "Option -x can't be used with this build mode."
+	puts "ERROR: Option -x can't be used with this build mode."
 	exit 1
 end
 
 if optimize then
 	if preloadfile then
-		puts "-c (preload story data) can not be used with -o."
+		puts "ERROR: -c (preload story data) can not be used with -o."
 		exit 1
 	end
 	$DEBUGFLAGS.push('PREOPT')
@@ -1542,18 +2010,16 @@ end
 $DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
 
 
-print_usage_and_exit() if await_preloadfile
-
 # Check for file specifying which blocks to preload
 preload_data = nil
 if preloadfile then
 	preload_raw_data = File.read(preloadfile)
 	vmem_type = "clock"
-	if preload_raw_data =~ /\$\$\$#{vmem_type}\n(([0-9a-f]{4}:\n?)+)\n?\$\$\$/i
+	if preload_raw_data =~ /^\$po\$:(([0-9a-f]{4}:\n?)+)\n?\$\$\$\$/i
 		preload_data = $1.gsub(/\n/, '').gsub(/:$/,'').split(':')
-		puts "#{preload_data.length} blocks found for initial caching."
+		puts "#{preload_data.length} vmem blocks found for optimized preload."
 	else
-		puts "No preload config data found (for vmem type \"#{vmem_type}\")."
+		puts "ERROR: No preload config data found (for vmem type \"#{vmem_type}\")."
 		exit 1
 	end
 end
@@ -1566,7 +2032,7 @@ storyname = File.basename($story_file, extension)
 #puts "storyname: #{storyname}" 
 
 begin
-	puts "Reading file #{$story_file}..."
+	puts "Reading file #{$story_file}..." if $verbose
 	$story_file_data = IO.binread($story_file)
 rescue
 	puts "ERROR: Can't open #{$story_file} for reading"
@@ -1595,10 +2061,10 @@ unless $story_file_data.length % $VMEM_BLOCKSIZE == 0
 end
 
 
-$vmem_highbyte_mask = ($zcode_version == 3) ? 0x01 : (($zcode_version == 8) ? 0x07 : 0x03)
+$vmem_highbyte_mask = ($zcode_version == 3) ? 0x00 : (($zcode_version == 8) ? 0x03 : 0x01)
 
-if $statusline_colour and $zcode_version > 3
-	puts "Option -sc can only be used with z3 story files."
+if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
+	puts "ERROR: Options -sc and -dmsc can only be used with z3 story files."
 	exit 1
 end	
 
@@ -1612,6 +2078,7 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
 storyfile_key = "r%d-s%s" % [ release, serial ]
+is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 
 $no_darkmode = nil
@@ -1634,10 +2101,33 @@ if is_beyondzork
 		puts "### WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
 	end
 end
+if is_trinity
+	patch_data_string = $trinity_releases[storyfile_key]
+	patch_data_arr = patch_data_string.split(/ /)
+	patch_address = patch_data_arr.shift.to_i(16)
+	patch_check = patch_data_arr.shift.to_i(16)
+	# Change all hex strings to 8-bit unsigned ints instead, due to bug in Ruby's array.pack("H")
+	patch_data_arr.length.times do |i|
+		patch_data_arr[i] = patch_data_arr[i].to_i(16)
+	end
+	if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
+		puts patch_data_arr.length
+		$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
+			patch_data_arr.pack("C*")
+		puts "Successfully patched Trinity story file."
+	else
+		puts "### WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
+	end
+end
+
+if $target == 'c128' and $interpreter_number == nil
+	$interpreter_number = 7
+end
+
 
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
-puts "Dynmem blocks: #{$dynmem_blocks}"
+puts "Dynmem blocks: #{$dynmem_blocks}" if $verbose
 # if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks < $dynmem_blocks then
 	# puts "Max preload blocks adjusted to dynmem size, from #{preload_max_vmem_blocks} to #{$dynmem_blocks}."
 	# preload_max_vmem_blocks = $dynmem_blocks
@@ -1648,84 +2138,12 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 $story_size = $story_file_data.length
 
 
- 
-puts "$zmachine_memory_size = #{$zmachine_memory_size}"
-puts "$story_size = #{$story_size}"
 
-
-save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
-#puts "Static mem start: #{$static_mem_start}"
-#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}"
-#puts "Save slots: #{save_slots}"
-
-config_data = 
-[$BUILD_ID].pack("I>").unpack("CCCC") + 
-[
-# 0, 0, 0, 0, # Game ID
-12, # Number of bytes used for disk information, including this byte
-1, #Interleave value (can be changed later)
-save_slots, # Save slots, change later if wrong
-2, # Number of disks, change later if wrong
-# Data for save disk: 8 bytes used, device# = 0 (auto), Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
-8, 0, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 
-]
-
-# Create config data for vmem
-if preload_data then
-	vmem_data = [
-		3 + 2 * preload_data.length, # Size of vmem data
-		preload_data.length, # Number of suggested blocks
-		preload_data.length, # Number of preloaded blocks (May change later due to lack of space on disk)
-		]
-	lowbytes = []
-	preload_data.each do |block|
-		vmem_data.push(block[0 .. 1].to_i(16))
-		lowbytes.push(block[2 .. 3].to_i(16))
-	end
-	vmem_data += lowbytes;
-	if preload_max_vmem_blocks and preload_max_vmem_blocks > preload_data.length then
-		puts "Max preload blocks adjusted to suggested preload blocks, from #{preload_max_vmem_blocks} to #{preload_data.length}."
-		preload_max_vmem_blocks = preload_data.length
-	end
-else # No preload data available
-#	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
-	referenced_blocks = -1
-	total_vmem_blocks = $story_size / $VMEM_BLOCKSIZE
-	mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
-	if $DEBUGFLAGS.include?('PREOPT') then
-#		all_vmem_blocks = $dynmem_blocks
-		mapped_vmem_blocks = 0
-	else
-#		all_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE, total_vmem_blocks].min()
-		if mode == MODE_P 
-			mapped_vmem_blocks = total_vmem_blocks - $dynmem_blocks
-		else
-			mapped_vmem_blocks = [51 * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks, total_vmem_blocks - $dynmem_blocks].min()
-		end
-		referenced_blocks = mapped_vmem_blocks / 2 # Mark the first half of the non-dynmem blocks as referenced 
-	end
-	vmem_data = [
-		3 + 2 * mapped_vmem_blocks, # Size of vmem data
-		mapped_vmem_blocks, # Number of suggested blocks
-		mapped_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
-		]
-	lowbytes = []
-	mapped_vmem_blocks.times do |i|
-#		vmem_data.push(i <= referenced_blocks ? 0x20 : 0x00)
-		vmem_data.push(256 - 8 * (i / 4) - 32 ) # The later the block, the higher its age
-#		0-25 -> 0-200 -> 32-232
-		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256)
-	end
-	vmem_data += lowbytes;
+if $verbose then 
+	puts "$zmachine_memory_size = #{$zmachine_memory_size}"
+	puts "$story_size = #{$story_size}"
 end
 
-vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
-vmem_data[1].times do |i|
-	start_address = (vmem_data[3 + i] & $vmem_highbyte_mask) * 256 * 256 + vmem_data[3 + vmem_data[1] + i] * 256
-	# puts start_address
-	# puts $story_file_data.length
-	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
-end
 
 
 
@@ -1758,31 +2176,155 @@ splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 end
 File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 
+# Set $no_sector_preload if we can be almost certain it won't be needed anyway
+if $target != 'c128'
+	loader_kb = $loader_pic_file ? 5 : 0
+	story_kb = ($story_size - $dynmem_blocks * $VMEM_BLOCKSIZE) / 1024
+	bootfile_kb = 46
+	used_kb = bootfile_kb + story_kb + loader_kb 
+	case mode
+	when MODE_S1
+		$no_sector_preload = true if 170 - used_kb > 3
+	when MODE_S2, MODE_D3, MODE_81
+		$no_sector_preload = true
+	when MODE_D2, MODE_71
+		$no_sector_preload = true if 340 - used_kb > 3
+	end
+end
+
+
 build_interpreter()
 
-$vmem_size = ($ALLRAM ? 0x10000 : 0xd000) - $storystart
+$dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart
 
-if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > 0xd000 then
-	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass $D000. Maximum dynmem size is #{0xd000 - $storystart} bytes." 
+if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
+	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
 end
 
-limit_vmem_data(vmem_data)
-
-if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[2] then
-	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[2]}."
-	preload_max_vmem_blocks = vmem_data[2]
+$vmem_blocks_in_ram = ($memory_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+$unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+if $target == 'c128' then
+	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
+	$unbanked_vmem_blocks += $dynmem_blocks
 end
+puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
+puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
 
-if $VMEM 
-	if mode == MODE_P
-		puts "ERROR: Tried to use build mode -P with VMEM."
-		exit 1
+############################# End of moved block
+
+save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
+#puts "Static mem start: #{$static_mem_start}"
+#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}"
+#puts "Save slots: #{save_slots}"
+
+config_data = 
+[$BUILD_ID].pack("I>").unpack("CCCC") + 
+[
+# 0, 0, 0, 0, # Game ID
+12, # Number of bytes used for disk information, including this byte
+1, #Interleave value (can be changed later)
+save_slots, # Save slots, change later if wrong
+2, # Number of disks, change later if wrong
+# Data for save disk: 8 bytes used, device# = 0 (auto), Last story data sector + 1 = 0 (word), tracks used for story data, name = "Save disk"
+8, 0, 0, 0, 0, DISKNAME_SAVE, DISKNAME_DISK, 0 
+]
+
+# Create config data for vmem
+total_storyfile_blocks = $story_size / $VMEM_BLOCKSIZE
+mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
+unless $DEBUGFLAGS.include?('PREOPT') then
+	if mode == MODE_P 
+		mapped_vmem_blocks = total_storyfile_blocks - $dynmem_blocks
+	else
+		mapped_vmem_blocks = [$vmem_blocks_in_ram, total_storyfile_blocks - $dynmem_blocks].min()
+#		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
+#			total_storyfile_blocks - $dynmem_blocks].min()
 	end
-elsif mode != MODE_P
-	puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-	exit 1
 end
+if preload_data then
+
+	# Add extra blocks if there is room
+	cursor = $dynmem_blocks
+	added = 0
+	if fill_preload == true and mapped_vmem_blocks > preload_data.length then
+		used_block = Hash.new
+		mask = $zcode_version == 8 ? 0b0000001111111111 :
+			$zcode_version == 3 ? 0b0000000011111111 : 0b0000000111111111
+		preload_data.each do |preload_value|
+			block_address = preload_value.to_i(16) & mask
+			used_block[block_address] = 1
+		end
+		while mapped_vmem_blocks > preload_data.length do
+			cursor += 1 while cursor < total_storyfile_blocks and used_block.has_key?(cursor)
+			break if cursor >= total_storyfile_blocks
+			preload_data.push(cursor.to_s(16).rjust(4,'0'))
+			used_block[cursor] = 1
+			added += 1
+		end
+	end
+	puts "Added #{added} best-guess vmem blocks to optimized preload." if added > 0
+	
+	total_length = 4 + 2 * preload_data.length
+	vmem_data = [
+		total_length / 256,
+		total_length % 256,
+		preload_data.length, # Number of suggested blocks
+		preload_data.length, # Number of preloaded blocks (May change later due to lack of space on disk)
+		]
+	lowbytes = []
+	preload_data.each do |block|
+		vmem_data.push(block[0 .. 1].to_i(16))
+		lowbytes.push(block[2 .. 3].to_i(16))
+	end
+	vmem_data += lowbytes;
+	if preload_max_vmem_blocks and preload_max_vmem_blocks > preload_data.length then
+		puts "Max preload blocks adjusted to suggested preload blocks, from #{preload_max_vmem_blocks} to #{preload_data.length}."
+		preload_max_vmem_blocks = preload_data.length
+	end
+else # No preload data available
+#	$dynmem_blocks = $dynmem_size / $VMEM_BLOCKSIZE
+	total_length = 4 + 2 * mapped_vmem_blocks # Size of vmem data
+#	puts "total_length is #{total_length}"
+	vmem_data = [
+		total_length / 256,
+		total_length % 256,
+		mapped_vmem_blocks, # Number of suggested blocks
+		mapped_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
+		]
+	lowbytes = []
+	mapped_vmem_blocks.times do |i|
+		vmem_data.push(256 - 8 * (i / 4) - 32 ) # The later the block, the higher its age
+		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256 / 2)
+	end
+	vmem_data += lowbytes;
+end
+
+vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
+vmem_data[2].times do |i|
+	start_address = (vmem_data[4 + i] & $vmem_highbyte_mask) * 512 * 256 + vmem_data[4 + vmem_data[2] + i] * 512
+	# puts start_address
+	# puts $story_file_data.length
+	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
+end
+############################# End of moved block
+
+limit_vmem_data_preload(vmem_data)
+
+if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
+	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
+	preload_max_vmem_blocks = vmem_data[3]
+end
+
+# if $VMEM 
+	# if mode == MODE_P
+		# puts "ERROR: Tried to use build mode -P with VMEM."
+		# exit 1
+	# end
+# elsif mode != MODE_P
+	# puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
+	# exit 1
+# end
 
 case mode
 when MODE_P
@@ -1805,6 +2347,9 @@ when MODE_D3
 	d64_filename_3 = File.join($TEMPDIR, "temp3.d64")
 	error = build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, 
 		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+when MODE_71
+	diskimage_filename = File.join($TEMPDIR, "temp1.d71")
+	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
 	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
@@ -1819,5 +2364,3 @@ end
 
 
 exit 0
-
-

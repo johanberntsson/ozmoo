@@ -521,6 +521,7 @@ streams_print_output
 }
 .mem_write
 	stx s_stored_x
+	sty s_stored_y
 	ldx streams_current_entry + 2
 	lda streams_current_entry + 3
 	jsr streams_set_z_address
@@ -539,6 +540,7 @@ streams_print_output
 	inc streams_current_entry + 3
 +	jsr streams_unset_z_address
 	ldx s_stored_x
+	ldy s_stored_y
 .return
 	rts
 .pla_and_return

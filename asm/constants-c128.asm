@@ -2,6 +2,8 @@
 ;
 ; ZP allocation: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 
+basic_reset           = $4000
+
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40 ; default, adjusted if needed in s_init
 SCREEN_ADDRESS        = $0400
@@ -9,11 +11,10 @@ COLOUR_ADDRESS        = $d800
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 CURRENT_DEVICE        = $ba
 COLS_40_80            = $d7
+keyboard_buff_len     = $d0
+keyboard_buff         = $34a
 
-
-; --- ZERO PAGE --
-; available zero page variables (pseudo registers)
-
+; --- ZERO PAGE -- ; available zero page variables (pseudo registers) 
 ; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
 z_local_vars_ptr      = $09 ; 2 bytes ### OK C128
 z_local_var_count     = $0b ;         ### OK C128
@@ -83,7 +84,7 @@ use_reu	              = $5e ;  ### OK C128
 
 
 z_temp				  = $61 ; 12 bytes $61-$6c ### OK C128 but problems if user enters monitor!
-alphabet_table		  = $6d ; 2 bytes ### OK C128
+; alphabet_table		  = $6d ; 2 bytes ### OK C128
 
 zchar_triplet_cnt     = $6f ; ### OK C128
 packed_text           = $70 ; 2 bytes ### OK C128
@@ -98,7 +99,7 @@ z_opcode_number       = $79 ; ### OK C128
 z_opcode_opcount      = $7b ; ### OK C128
 z_operand_count       = $7c ; ### OK C128
 
-; $80 may be free
+vmap_max_entries      = $80 ; ### OK C128 Was $92
 
 zp_cursorswitch       = $81 ; ### OK C128
 
@@ -110,7 +111,7 @@ vmap_quick_index      = $8a ; ### OK C128	6 bytes; $8a-8f ; Must follow vmap_nex
 
 vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
-vmap_max_entries      = $92 ; ### OK C128
+; $92 is bad
 vmap_used_entries     = $96 ; ### OK C128
 vmap_quick_index_match= $97 ; ### OK C128
 
@@ -140,33 +141,68 @@ zp_screenline          = $f1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn        = $f3 ; 1 byte current cursor column
 zp_screenrow           = $f4 ; 1 byte current cursor row
 zp_colourline          = $f5 ; 2 bytes current line (pointer to colour memory)
+
+charset_switchable     = $f7
+
 zp_temp                = $f8 ; 5 bytes (is $fa bad because of kernal bug?)
 
 buffer_index           = $fd ; ### OK C128
 last_break_char_buffer_pos=$fe ; ### OK C128
 
+copy_page_c128         = $380 ; Uses ~30 bytes
 
-print_buffer		  = $0c00 ; SCREEN_WIDTH + 1 bytes
-print_buffer2         = $0d00 ; SCREEN_WIDTH + 1 bytes
 
-memory_buffer         =	$0e00
-memory_buffer_length  = 89
+; C128 terp can use a maximum of 109 KB of RAM for dynmem + vmem in z3 mode
+; (This is when story_start is $4e00), less in z4+, so vmap buffer should be 
+; big enough to hold 2*109 = 218 entries, using 436 = $1b4 bytes.
+; Important: Interpreter breaks if area given is larger than $1ffe
+vmap_buffer_start     = $0800
+vmap_buffer_end       = $09b4 ; last usable byte + 1
 
-first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+reu_filled            = $09fc ; 4 bytes
 
-charset_switchable 	  = $f7
+memory_buffer         =	$0a05
+memory_buffer_length  = 23
 
-datasette_buffer_start= $0ac5 
-datasette_buffer_end  = $0bff
+vmem_cache_start      = $0b00
+vmem_cache_size = $1000 - vmem_cache_start
+vmem_cache_count = vmem_cache_size / 256
+
+fkey_string_lengths   = $1000
+fkey_string_area      = $100a
+
+;c128_function_key_string_lengths = $1000 ; 10 bytes holding length of strings for F1, F2 etc
+print_buffer		  = $100a + 10 ; SCREEN_WIDTH + 1 bytes
+print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
+
+
+first_banked_memory_page = $c0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+
+story_start_bank_1 = $1000 + (STACK_PAGES + 2 -  (STACK_PAGES & 1))  * $100 ; NOTE: This is in bank 1
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $0a2c
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
+reg_2mhz			  = $d030
+
+; --- MMU config ---
+c128_mmu_pcra         = $d501
+c128_mmu_pcrb         = $d502
+c128_mmu_pcrc         = $d503
+c128_mmu_pcrd         = $d504
+
+c128_mmu_ram_cfg      = $d506
+
+c128_mmu_cfg          = $ff00
+c128_mmu_load_pcra    = $ff01
+c128_mmu_load_pcrb    = $ff02
+c128_mmu_load_pcrc    = $ff03
+c128_mmu_load_pcrd    = $ff04
 
 ; --- Kernel routines ---
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
-kernal_reset          = $fce2 ; cold reset of the C128
+kernal_reset          = $ff3d ; cold reset of the C128
 kernal_setbnk         = $ff68 ; set bank for I/O
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
@@ -182,8 +218,4 @@ kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
-;NOTUSED kernal_setcursor      = $e50c ; set cursor to x/y (row/column)
-;NOTUSED kernal_scnkey         = $ff9f ; scan the keyboard
-;NOTUSED kernal_chkout         = $ffc9 ; define file as default output
-;NOTUSED kernal_plot           = $fff0 ; set (c=1)/get (c=0) cursor: x=row, y=column
 

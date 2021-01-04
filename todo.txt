@@ -9,8 +9,6 @@ Verify that game data was written correctly to REU and signal error if not.
 
 Keep everything in residential memory area in RAM rather than just the dynamic RAM. Decrease residential area as needed to make a game fit.
 
-Let user embed a start screen with the game. This can be put in the main file and displayed until the user presses a key, at which time the rest of the game is uncompressed and started. This would also make it useful for non vmem (single file) games. For disk-based games, one may want to put the image in a small loader program which shows the image, enables a disk turbo if the user agrees, and then loads the game, without blanking the screen.
-
 Support REU for fast memory copying.
 
 Add fast-loader code.
@@ -25,8 +23,6 @@ Allow user to choose save/restore device, including tape, in non vmem mode. (Is 
 
 Build config utility. Could be in same location as Z-machine stack and accessible on boot.
 
-Figure out if some commandline flags to Acme are no longer useful enough to be kept.
-
 Setup profiling, where we can see how much time is spent in different instructions over a session (Log # of executions and # of timer ticks).
 
 Output transcript to printer support.
@@ -38,281 +34,18 @@ Possible alternative versions / extensions
 ------------------------------------------
 * Support for SD2IEC, which can use fileseek operators to load any part of a file in the file system.
 * A build mode where the whole game fits in memory from the start, and load/save will use the same device as the game was loaded from (tape or a disk drive)
-* C128 version which can use a C1571, additional RAM and 80-column mode.
 * PET version
-* Plus/4 version
 * Apple II version
+* Atari version
+* Oric Atmos/Telestrat version
+* NES/Famicom version
+* Commander X16
+
+Alternate versions / extensions which have been done
+----------------------------------------------------
+* C128 version which can use a C1571, additional RAM and 80-column mode.
+* Plus/4 version
+* Mega 65 version
 * BBC Micro version
 
-
-DONE (Implemented features and fixed bugs)
-------------------------------------------
-Less error checking in production builds to increase speed (Remove: Stack overflow, Maybe: Stack underflow. What else?)
-
-A Bear's Night Out: Extra reversed space after quote box at start of game, and "[Please press SPACE to begin]" not shown.
-
-MORE prompt hides two characters of text, which the player may miss entirely.
-
-Cursor doesn't show up in initial form in Bureaucracy.
-
-Support for C1581 disks (can hold 3160 blocks of user data)
-
-auto sonarscope mode in Seastalker is buggy. 
-
-REU loading breaks down for Freefall (because entire game fits in memory?).
-
-Printing to last column and then a newline creates an extra linebreak. (mst3k1)
-
-Supply documentation for all runtime errors.
-
-When REU is used, don't make user go back to story disk after save, but make sure story disk 1 is in drive before restart.
-
-REU mode: Building BorderZone with -p:0 -S2 and choosing to use REU crashes the terp at the end of loading (Error 8: Reference to invalid Z-machine address?)
-
-Support REU for caching.
-
-Create easy-to-use tool (Wizard style?) to pick a story file and build disk image(s) with the right interpreter etc. Shouldn't require building anything from source code, installing third-party software etc.
-
-Seastalker refuses to go into auto mode for sonarscope. This is because Ozmoo says in the header that it doesn't support split-screen. Does it? Should it?
-
-Early version of MST3K1 dies with a CPU jam. May or may not be a bug in Ozmoo.
-Root cause: Calling erase_window 1 when statusline window is 0 lines high corrupts interpreter.
-
-print_table seems buggy. This produces garbage text output in statusline in Planetfall Solid Gold, and in dialogue in MST3K1.
-
-s_plot in screenkernal can place the cursor in columns > 39, thus effectively putting the cursor on the next row, but thinking it's still on the same screen line.
-
-get_cursor returns 0,0 for upper left corner. Should be 1,1.
-
-Quote boxes are broken. The text is printed in the quote box AND in the regular text flow.
-
-; input_stream (Now giving a message that it's not supported)
-
-Timed input in v4 games may be broken.
-
-Bug in timed input (Borderzone): If an interrupt is called and it returns false, we print a newline and ">" to make it look like the regular prompts, before printing the characters that are in the input buffer. This is not what Infocom's terp does, and not correct behaviour. Remove the newline and ">".
-
-Refined vmem system which keeps track of how long ago a block was last referenced.
-
-"xxx" doesn't work to exit PREOPT mode in Temple.
-
-No words are recognized in Tethered.
-
-Simple config: Ask user to specify disk drive for saves. Ask on first save or restore, then again if a save or restore fails or is cancelled. -- Implemented, but never asks again.
-
-Save and restore may not check properly if a disk is already in the right drive before printing a message to insert the disk. This will only matter if we allow the user to choose device# for save/restore.
-
-device_map and current_disks in disk.asm can and should perhaps be unified into one list (if they have the same purpose?) -- No, they serve quite different purposes.
-
-Add command line option to make.rb to select default colours. 
-
-Add command line option to make.rb to select colours in palette. 
-
-Restart doesn't check in which drive the boot disk is, or if the disk is currently in the drive (With build modes like -S2 the boot disk is typically not in the drive during play).
-
-A message which ends in the last column gets an extra line break.
-- test by writing a long unknown word in BZ. If the error message is just
-long enough to reach the last column there will be an extra newline
-
-Make sure stack can be reduced to two pages. (Reduce code to <= two pages)
-
-No cursor when entering save name.
-
-Space should also be allowed in save name.
-
-After clearing screen to save or restore, there is no text saying whether you are doing a save or a restore.
-
-Statusline messed up after restore in BZ.
-
-Statusline longer than 40 characters overflows into main window.
-
-Underscore is printed as $ with the new screenkernal.
-
-After a text has been printed by an interrupt routine in BZ, the space above the new prompt gets reversed.
-
-Restart doesn't check if it's a disk-based game.
-
-The cursor doesn't show when read has printed the prompt and is awaiting player input in HH.
-
-If player input ends with one or more space characters, the game thinks you've written an extra word.
-
-It's possible to type any number of characters when read is used to get player input.
-
-New screenkernal can't print a delete character in column 0.
-
-Cursor on a line which is not at the bottom of screen, inverses character on line above when going from column 39 on a line to column 0 on next.
-
-Player input line longer than one screen line (40 characters) doesn't work.
-
-*** Speed ***
-- Optimize player input encoding
-- Figure out what the cause of slowness in printing the test suite names in Praxix is. See if it can be made faster.
-- Make memory reading more efficient. While reading continuous memory, we only need to check RAM address at first byte and when entering a new page.
-    Old todo: - reuse index and skip tests if same block as previous call to read_z_*
-- Optimize finding memory blocks in dynmem (predictable position) / not in dynmem. Figure out if quick-access table should be used for both or just for non-dynmem
-- Optimize screen kernal
-- Optimize object manipulation and object tree manipulation
-
-Color support
-
-set_colour implemented
-
-Create our own screen handling routines to give us full control, including not scrolling status line off screen.
-
-Timed input using an interval of more than 255 tenths of a second hasn't been implemented properly.
-
-Timing during timed input is off on NTSC computers.
-
-Praxix: Streamtrip test fails on character 0 and character 64 (@) being mixed up, and the character count being off by one.
-
-BZ: flush toilet twice with the document and the towel inside goes wrong. First the document disappears, but a shred of the document remains. However, the toilet is empty. -- EXAMINE TOILET says the toilet is empty, but SEARCH TOILET reveals the shred. Works the same in Infocoms C64 terp.
-
-Vmem optimization  mode ( -o ) is not working. Game freezes after the initial message has been printed.
-
-Files are listen in the wrong order in save/restore.
-
-Restore doesn't list files in non-vmem game.
-
-Restoring from an empty save slot crashes the game.
-
-Player gets no chance to read message printed just before save, as used in HH and Planetfall.
-
-Status line covering several lines isn't working correctly (Nord and Bert).
-
-AMFV: Status line updates are printed in the main window.
-- works, but AMFV is designed for 80 characters, so the status line still
-looks strange. This can't be fixed.
-
-Can't write @ with new screenkernal
-
-Make non vmem mode work, and build exactly the code that is needed.
-
-Make non all_ram mode work, and build exactly the code that is needed.
-
-Variable stack size. 
-
-Optionally limit stack to allow no more than 127 values pushed in a single frame. This would make code faster and smaller. -- Tried this.
-
-A 256 word stack, which can be made faster and with simpler code to access it. -- Tried this, and it gave very small gains in both speed and size. Also, some games definitely need a bigger stack. Will not do.
-
-Restore prints "Restore failed." in Borderzone, even if the restore succeeded.
-
-Borderzone shows bad random phrases in the intro text
-"He will... greet you with the words 'mk'...", or similar, should be
-"Pardon me" or similar instead of mk
-(This was because of older versions of Vice not handling 40-track disks correctly)
-
-Option to display whenever then stack size hits a new record, either in total bytes used, or in bytes pushed onto the stack in a single frame.
-
-Bug in Ad Verbum: No words are understood.
-
-If you hit enter at the more-prompt when the game asks you to choose a chapter in Borderzone, it is interpreted as a choice (which is invalid).
-
-You can't pick anything up at the beginning of part 1 in Borderzone: "[I beg your pardon?]".
-
-If you try to move around on the train in Borderzone, you get some surprising results: "kill man" is treated like a direction, "w" is confused with "n" etc. 
-
-Clearing screen doesn't always reset the number of rows printed, so a MORE prompt can appear too early. (Run Borderzone, choose part 1)
-
-save/restore
-	Copy SP and PC (and stack_pushed_bytes?) to below stack. Save this, stack and dynmem as one file.
-
-- support custom alphabets in Z5 onwards
-
-Ending player input with Commodore-Enter puts the game in a state where it doesn't register player input, and thus becomes unplayable.
-
-Entering uppercase letters or PETSCII graphic characters as player input results in a fatal error.
-
-Move config information to location in memory where it is now loaded on game start. Keep in temp directory to aid debugging. (Didn't do, since this would make it impossible to write a config utility)
-
-Simplify code to find sector if interleave = 1. (Tried it, but with no apparent gain in speed)
-
-Typing "TURN BUCK EAS" and then pressing backspace twice gives an error saying the word "EAS" isn't recognized.
-
-copy_table can't copy from statmem (and maybe it has other bugs as well).
-
-* A possibility to embed a custom font
-
-TAKE AUNT in HH prints "You can't see !unt here!"
-
-Room description in Top Landing (E, N, E) in HH lacks last ".". This may have something to do with the dot being the only character which doesn't fit on the last line. 
-
-Buffered printing should be able to break lines after a dash (-).
-
-Objects in the room are not shown in minform.z5
-
-It's impossible to choose scenario at the beginning of Nord and Bert.
-
-Tokenize using a non-ordered dictionary doesn't work.
-
-Support for all possible build modes for one or two 1541 drives.
-
-Calling print_trace destroys value in $fb. Haven't been able to figure out why.
-
-Put story data *last* on combined boot+story disk if using an extended disk (since DOS can't read files on track 36+)
-
-Don't try preload sizes smaller than dynmem.
-
-make.rb should figure out the Z-machine version from the story file.
-
-Put z_operand_value_(low/high)_arr, z_operand_type_arr and other locals in zmachine.asm on zeropage. Saves 200+ bytes and makes all instructions faster.
-
-Make game ask to insert disk X in drive Y at the right times.
-
-Print messages at game start telling player which disks to insert into which drives.
-
-Build auto-config routine, which selects sensible device numbers for all disks which have device# = 0 (auto select).
-
-Allow PREOPT mode to be ended with a special command (xxx).
-
-Use binary search to search dictionary faster.
-
-Figure out how to best place loader, interpreter and different parts of story file on 1, 2 or 3 disk sides.
-Old todo: - rewrite floppy access code to use all available sectors
-Old todo: - support splitting of large files onto two floppies
-
-Don't store dynmem in raw disk sectors if it is part of the preloaded data. (Requires restart opcode to load the loader again)
-
-Alter make.rb so it can decrease the amount of data to preload, just enough to make a game fit on a disk.
-
-Write a guide on how to build a game, with two sections: As simple as possible, and with preload optimizations.
-
-Print a line before each prompt in preload optimization mode: "[PREOPT mode. Type $$$ to exit early.]"
-
-Add a flag (-o) to build the terp and game in PREOPT mode. Give reference to the build guide for the details of PREOPT mode.
-
-Start using the term PREOPT mode to describe the mode which you can use to optimize the blocks which are to be preloaded when the game starts. Change the flag name to PREOPT and make sure this term is used consistently in make.rb and in the docs.
-
-Document all flags which can be used to change how the interpreter is assembled. 
-
-Typing SCORE gives a text with words "pointS" and "turnS".
-
-- the .block range in readblocks need to be increased
-
-Fix random opcode (see notes under Instructions... below)
-
-- Czech tests: https://github.com/DustinCampbell/ZGo/tree/master/zcode/czech
-  https://www.ifarchive.org/indexes/if-archiveXinfocomXinterpretersXtools.html
-
-- space, comma, newline, printx, printy, printa, etc. only in DEBUG
-
-catch/throw
-
-Buffering/word wrap
-
-[MORE] prompts
-
-Timed input
-Old todo: - allow delay/routine in read_text
-
-Basic sound effect support (low-pitched beep and high-pitched beep)
-
-Extend virtual memory RAM up to $ffff (And disable trace automatically if RAM at page $cf00 is used for Vmem)
-Old todo: - use more memory, $E000-$FFFF, perhaps also $D000-$E000?
-
-Create PETSCII <-> ZSCII conversion routines. Make them fast.
-
-Improve ZSCII / PETSCII conversion with special cases for accented characters
-
-System to enable support for Swedish, German, French games etc. Maybe with option to include custom character set?
 

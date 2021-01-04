@@ -1,8 +1,8 @@
 ; screen update routines
 
-init_screen_colours_invisible
-	lda zcolours + BGCOL
-	bpl + ; Always branch
+;init_screen_colours_invisible
+;	lda zcolours + BGCOL
+;	bpl + ; Always branch
 init_screen_colours
 	jsr s_init
 	; calculate the position for the more prompt
@@ -45,7 +45,11 @@ init_screen_colours
 		+SetBorderColour
 	}
 }
+!if CURSORCOL = 1 {
+	lda zcolours + FGCOL
+} else {
 	lda zcolours + CURSORCOL
+}
 	sta current_cursor_colour
 !ifdef Z5PLUS {
 	; store default colours in header
@@ -101,7 +105,7 @@ erase_window
 	inc zp_screenrow
 	lda zp_screenrow
 	cmp #25
-	bne -
+	bcc -
 	jsr clear_num_rows
 	; set cursor to top left (or, if Z4, bottom left)
 	pla
@@ -251,8 +255,12 @@ z_ins_buffer_mode
 }
 
 start_buffering
-	jsr get_cursor
-	sty first_buffered_column
+	lda current_window
+	beq + ; If lower window (0) is selected, we will get cursor pos
+	ldy cursor_column
+	jmp ++
++	jsr get_cursor
+++	sty first_buffered_column
 	sty buffer_index
 	ldy #0
 	sty last_break_char_buffer_pos
@@ -406,6 +414,41 @@ clear_num_rows
 .do_nothing_2
 	rts
 
+!ifdef TARGET_C128 {
+vdc_set_more_char_address
+    lda #$cf ; low
+    ldy #$07 ; high
+    jmp VDCSetAddress
+
+vdc_set_more_colour_address
+    lda #$cf ; low
+    ldy #$0f ; high
+    jmp VDCSetAddress
+
+vdc_show_more
+	; character
+	jsr vdc_set_more_char_address
+	ldx #VDC_DATA
+	jsr VDCReadReg
+	sta .more_text_char
+	jsr vdc_set_more_char_address
+	lda #128 + $2a ; screen code for reversed "*"
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	; colour
+	jsr vdc_set_more_colour_address
+	ldy s_colour
+	lda vdc_vic_colours,y
+	ldx #VDC_DATA
+	jmp VDCWriteReg
+
+vdc_hide_more
+	jsr vdc_set_more_char_address
+	lda .more_text_char
+	ldx #VDC_DATA
+	jmp VDCWriteReg
+}
+
 increase_num_rows
 	lda current_window
 	bne .increase_num_rows_done ; Upper window is never buffered
@@ -424,8 +467,12 @@ show_more_prompt
 
 !ifdef TARGET_C128 {
     ldx COLS_40_80
-    bne +
-    ; Only show more prompt in C128 VIC-II screen
+    beq +
+    ; 80 columns
+	jsr vdc_show_more
+	jmp .alternate_colours
+    ; 40 columns
++
 }
 .more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
@@ -433,13 +480,15 @@ show_more_prompt
 	lda #128 + $2a ; screen code for reversed "*"
 .more_access2
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
-!ifdef TARGET_C128 {
-+
-}
+
 	; wait for ENTER
-.printchar_pressanykey
+.alternate_colours
 !ifndef BENCHMARK {
 --	ldx s_colour
+!ifdef TARGET_PLUS4 {
+	lda plus4_vic_colours,x
+	tax
+}
 	iny
 	tya
 	and #1
@@ -450,21 +499,19 @@ show_more_prompt
 	jsr colour2k
 }
 !ifdef TARGET_C128 {
-    ldy COLS_40_80
-    bne +
+    lda COLS_40_80
+    bne .check_for_keypress
     ; Only show more prompt in C128 VIC-II screen
 }
 .more_access3
 	stx COLOUR_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
-!ifdef TARGET_C128 {
-+
-}
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
+.check_for_keypress
 	ldx s_screen_width
----	lda $a2
--	cmp $a2
+---	lda ti_variable + 2 ; $a2
+-	cmp ti_variable + 2 ; $a2
 	beq -
 	jsr getchar_and_maybe_toggle_darkmode
 	cmp #0
@@ -476,15 +523,16 @@ show_more_prompt
 }
 !ifdef TARGET_C128 {
     ldx COLS_40_80
-    bne +
-    ; Only show more prompt in C128 VIC-II screen
+    beq +
+    ; 80 columns
+	jsr vdc_hide_more
+	jmp .increase_num_rows_done
+    ; 40 columns
++
 }
 	lda .more_text_char
 .more_access4
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
-!ifdef TARGET_C128 {
-+
-}
 .increase_num_rows_done
 	rts
 
@@ -669,16 +717,6 @@ clear_screen_raw
 	jsr s_printchar
 	rts
 
-printchar_raw
-	php
-	stx .save_x
-	sty .save_y
-	jsr s_printchar
-	ldy .save_y
-	ldx .save_x
-	plp
-	rts
-
 printstring_raw
 ; Parameters: Address in a,x to 0-terminated string
 	stx .read_byte + 1
@@ -687,7 +725,7 @@ printstring_raw
 .read_byte
 	lda $8000,x
 	beq +
-	jsr printchar_raw
+	jsr s_printchar
 	inx
 	bne .read_byte
 +	rts

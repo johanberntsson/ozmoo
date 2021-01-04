@@ -475,6 +475,14 @@ z_execute
 
 .main_loop
 
+; Timing
+!ifdef TIMING {
+	lda ti_variable + 1
+	ldx ti_variable + 2
+	ldy header_high_mem
+	jsr write_header_word
+}
+
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda ti_variable + 2
@@ -803,10 +811,30 @@ read_operand
 	inc z_operand_count
 	rts
 
+.read_from_stack
+!ifdef SLOW {
+	jsr stack_pull
+} else {
+	ldy stack_has_top_value
+	beq +
+	lda stack_top_value
+	ldx stack_top_value + 1
+	dec stack_has_top_value
+	beq .store_operand ; Always branch
++	jsr stack_pull_no_top_value
+}
+	jmp .store_operand ; Always branch
+
+
 .operand_is_var
 	; Variable# in a
 	cmp #0
 	beq .read_from_stack
+!ifdef COMPLEX_MEMORY {
+	tay
+	jsr z_get_variable_reference_and_value
+	jmp .store_operand
+} else {	
 	bmi .read_high_global_var
 	cmp #16
 	bcs .read_global_var
@@ -825,19 +853,7 @@ read_operand
 	dey
 	lda (z_local_vars_ptr),y
 	bcc .store_operand ; Always branch
-.read_from_stack
-!ifdef SLOW {
-	jsr stack_pull
-} else {
-	ldy stack_has_top_value
-	beq +
-	lda stack_top_value
-	ldx stack_top_value + 1
-	dec stack_has_top_value
-	beq .store_operand ; Always branch
-+	jsr stack_pull_no_top_value
-}
-	jmp .store_operand ; Always branch
+!ifndef COMPLEX_MEMORY {
 .read_global_var
 	; cmp #128
 	; bcs .read_high_global_var
@@ -863,57 +879,128 @@ read_operand
 	dey
 	lda (z_high_global_vars_ptr),y
 	bcs .store_operand ; Always branch
+} ; end COMPLEX_MEMORY
+}
 !ifndef UNSAFE {
 .nonexistent_local
 	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
-}
+} ; Ifdef SLOW {} else
 
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
 
 !zone {
-z_get_variable_reference
-	; input: Variable in x
-	; output: Address is returned in a,x
+z_set_variable_reference_to_value
+	; input: Value in a,x.
+	;        (zp_temp) must point to variable, possibly using zp_temp + 2 to store bank
+	; affects registers: a,x,y,p
+!ifdef TARGET_C128 {
+	bit zp_temp + 2
+	bpl .set_in_bank_0
+	ldy #zp_temp
+	sty write_word_c128_zp_1
+	sty write_word_c128_zp_2
+	ldy #0
+	jmp write_word_to_bank_1_c128
+	; sty $02b9
+	; stx zp_temp + 3
+	; ldx #$7f
+	; ldy #0
+	; jsr $02af
+	; lda zp_temp + 3
+	; iny
+	; ldx #$7f
+	; jmp $02af
+.set_in_bank_0
+}
+	ldy #0
+	sta (zp_temp),y
+	iny
+	txa
+	sta (zp_temp),y
+	rts
+
+z_get_variable_reference_and_value
+	; input: Variable in y
+	; output: Address is stored in (zp_temp), bank may be stored in zp_temp + 2
+	;         Value in a,x
 	; affects registers: p
-	sty zp_temp + 3
-	cpx #0
+	cpy #0
 	bne +
 	; Find on stack
+!ifdef TARGET_C128 {
+	ldx #0
+	stx zp_temp + 2
+}
 	jsr stack_get_ref_to_top_value
-	ldy zp_temp + 3
-	rts
-+	txa
+	stx zp_temp
+	sta zp_temp + 1
+	jmp z_get_referenced_value
++	tya
 	cmp #16
 	bcs .find_global_var
 	; Local variable
-	tay
+!ifdef TARGET_C128 {
+	ldx #0
+	stx zp_temp + 2
+}
 	dey
 !ifndef UNSAFE {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
-	asl
-	clc
+	asl ; Also clears carry
 	adc z_local_vars_ptr
-	tax
+	sta zp_temp
 	lda z_local_vars_ptr + 1
 	adc #0
-	ldy zp_temp + 3
+	sta zp_temp + 1
+
+z_get_referenced_value
+!ifdef TARGET_C128 {
+	bit zp_temp + 2
+	bpl .in_bank_0
+	lda #zp_temp
+	ldy #0
+	jmp read_word_from_bank_1_c128
+	; sta $02aa
+	; ldx #$7f
+	; ldy #0
+	; jsr $02a2
+	; pha
+	; iny
+	; ldx #$7f
+	; jsr $02a2
+	; tax
+	; pla
+	; rts
+.in_bank_0
+}
+	ldy #1
+	+before_dynmem_read
+	lda (zp_temp),y
+	tax
+	dey
+	lda (zp_temp),y
+	+after_dynmem_read
 	rts
+
 .find_global_var
 	ldx #0
 	stx zp_temp + 1
+!ifdef TARGET_C128 {
+	dex
+	stx zp_temp + 2 ; Value $ff, meaning bank = 1
+}
 	asl
 	rol zp_temp + 1
-	clc
-	adc z_low_global_vars_ptr
-	tax
+	adc z_low_global_vars_ptr ; Carry is already clear after rol
+	sta zp_temp
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
-	ldy zp_temp + 3
-	rts
+	sta zp_temp + 1
+	jmp z_get_referenced_value
 
 !ifndef UNSAFE {
 .nonexistent_local
@@ -927,17 +1014,35 @@ z_get_low_global_variable_value
 	; input: a = variable# + 16 (16-127)
 	asl ; Clears carry
 	tay
+!ifdef TARGET_C128 {
+	lda #z_low_global_vars_ptr
+	jmp read_word_from_bank_1_c128
+	; sta $02aa
+	; ldx #$7f
+	; jsr $02a2
+	; pha
+	; iny
+	; ldx #$7f
+	; jsr $02a2
+	; tax
+	; pla
+	; rts
+} else {
+	; Not TARGET_C128
 	iny
+	+before_dynmem_read
 	lda (z_low_global_vars_ptr),y
 	tax
 	dey
 	lda (z_low_global_vars_ptr),y
+	+after_dynmem_read
 	rts ; Note that caller may assume that carry is clear on return!
+} ; End else - Not TARGET_C128
+
 
 ; Used by z_set_variable
 .write_to_stack
-	jsr stack_push
-	rts
+	jmp stack_push
 	
 z_set_variable
 	; Value in a,x
@@ -949,17 +1054,10 @@ z_set_variable
 	stx z_temp + 1
 	tya
 !ifdef SLOW {
-	tax
-	jsr z_get_variable_reference
-	stx z_temp + 2
-	sta z_temp + 3
-	ldy #0
+	jsr z_get_variable_reference_and_value
 	lda z_temp
-	sta (z_temp + 2),y
-	iny
-	lda z_temp + 1
-	sta (z_temp + 2),y
-	rts
+	ldx z_temp + 1
+	jmp z_set_variable_reference_to_value
 } else {
 	cmp #16
 	bcs .write_global_var
@@ -1089,33 +1187,30 @@ z_divide
 
 !zone {
 calc_address_in_byte_array
-	; output: If address is in dynmem, y = 0 and address is in (zp_temp). Otherwise, y = 1 and address is in .addr
-	; y value is loaded last, so beq/bne can be used to check y value
+	; output: z_address is set
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
-;	tay
-;	cpx story_start + header_static_mem + 1
-;	sbc story_start + header_static_mem
-;	tya
-;	bcc .is_in_dynmem
 	jmp set_z_address
-;	ldy #1
-;	rts
-;.is_in_dynmem	
-;	stx zp_temp
-;	adc #>story_start ; Carry is already clear
-;	sta zp_temp + 1
-;	ldy #0
-;	rts
 }
 
 !zone rnd {
 z_rnd_init_random
 	; in: Nothing
+!ifdef TARGET_PLUS4 {
+	lda $ff1d
+	eor z_rnd_a
+	tay
+	lda $ff1e
+	eor z_rnd_b
+	tax
+	lda ti_variable + 2
+	eor $ff00
+	eor z_rnd_c	
+} else {
 	lda $dc04
 	eor #%10101010
 	eor z_rnd_a
@@ -1127,6 +1222,7 @@ z_rnd_init_random
 	lda $d41b
 	eor $d012
 	eor z_rnd_c
+}
 z_rnd_init
 	; in: a,x,y as seed
 	sta z_rnd_a
@@ -1209,50 +1305,23 @@ z_ins_ret_popped
 ; z_ins_get_prop_len (moved to objecttable.asm)
 
 z_ins_inc
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-
-	; ldy #1
-	; lda (foo),y
-	; clc
-	; adc #1
-	; sta (foo),y
-	; bne +
-	; dey
-	; lda (foo),y
-	; adc #0
-	; sta (foo),y
-; +	rts
-
-.inc_store_ref	
-	stx .ins_inc + 1
-	sta .ins_inc + 2
-	ldx #1
-.ins_inc
-	inc $0400,x
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
+	inx
 	bne +
-	dex
-	bpl .ins_inc
-z_ins_nop
-+	rts	
+	clc
+	adc #1
++	jmp z_set_variable_reference_to_value
 	
 z_ins_dec
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-.dec_store_ref
-	stx .ins_dec + 1
-	sta .ins_dec + 2
-	stx .ins_dec + 4
-	sta .ins_dec + 5
-	ldx #1
-.ins_dec
-	dec $0400,x
-	lda $0400,x
-	cmp #$ff
-	bne +
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	dex
-	bpl .ins_dec
-+	rts
+	cpx #255
+	bne +
+	sec
+	sbc #1
++	jmp z_set_variable_reference_to_value
 	
 ; z_ins_print_addr (moved to text.asm)
 	
@@ -1280,15 +1349,8 @@ z_ins_jump
 ; z_ins_print_paddr (moved to text.asm)
 
 z_ins_load
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #1
-	lda (zp_temp),y
-	tax
-	dey
-	lda (zp_temp),y
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	jmp z_store_result
 
 z_ins_not
@@ -1321,17 +1383,11 @@ z_ins_jz
 	jmp make_branch_true
 	
 z_ins_inc_chk
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	jsr .inc_store_ref
-	ldy #0
-	lda (zp_temp),y
+	jsr z_ins_inc
+	jsr z_get_referenced_value
 	sta z_operand_value_high_arr
-	iny
-	lda (zp_temp),y
-	sta z_operand_value_low_arr
+	stx z_operand_value_low_arr
+	
 z_ins_jg
 	lda z_operand_value_low_arr + 1
 	cmp z_operand_value_low_arr
@@ -1343,16 +1399,10 @@ z_ins_jg
 	bpl make_branch_false ; Always branch
 
 z_ins_dec_chk
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	jsr .dec_store_ref
-	ldy #0
-	lda (zp_temp),y
+	jsr z_ins_dec
+	jsr z_get_referenced_value
 	sta z_operand_value_high_arr
-	iny
-	lda (zp_temp),y
+	txa
 	jmp .jl_comp
 
 z_ins_je
@@ -1499,17 +1549,11 @@ z_ins_and
 ; z_ins_clear_attr (moved to objecttable.asm)
 	
 z_ins_store
-	ldx z_operand_value_low_arr
-	jsr z_get_variable_reference
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #0
+	ldy z_operand_value_low_arr
+	jsr z_get_variable_reference_and_value
 	lda z_operand_value_high_arr + 1
-	sta (zp_temp),y
-	iny
-	lda z_operand_value_low_arr + 1
-	sta (zp_temp),y
-	rts
+	ldx z_operand_value_low_arr + 1
+	jmp z_set_variable_reference_to_value
 
 ; z_ins_insert_obj (moved to objecttable.asm)
 	
@@ -1519,13 +1563,10 @@ z_ins_loadw_and_storew
 	lda z_operand_value_low_arr
 	clc
 	adc z_operand_value_low_arr + 1
-;	sta zp_temp
 	tax
 	lda z_operand_value_high_arr
 	adc z_operand_value_high_arr + 1
 	jsr set_z_address
-;	sta zp_temp + 1
-;	ldy #1
 	lda z_opcode_number
 	cmp #15 ; Code for loadw
 	bne .storew
@@ -1540,6 +1581,7 @@ z_ins_loadw_and_storew
 	jsr write_next_byte
 	lda z_operand_value_low_arr + 2
 	jsr write_next_byte
+z_ins_nop
 	rts
 	
 z_ins_loadb
@@ -1943,6 +1985,7 @@ z_ins_sound_effect
 	dex
 	beq .sound_low_pitched_beep
 	rts
+!ifdef HAS_SID {	
 .sound_high_pitched_beep
 	lda #$40
 .sound_low_pitched_beep
@@ -1958,6 +2001,30 @@ z_ins_sound_effect
 	lda #$20
 	sta $d404
 	rts
+} else {
+	!ifdef TARGET_PLUS4 {
+.sound_high_pitched_beep
+	lda #$f2
+.sound_low_pitched_beep
+	sta ted_voice_2_low
+	sta ted_voice_2_high
+	lda #32 + 15
+	sta ted_volume
+	ldy #40
+--	ldx #0
+-	dex
+	bne -
+	dey
+	bne --
+	lda #0 + 15
+	sta ted_volume
+	rts
+	} else {
+.sound_high_pitched_beep
+.sound_low_pitched_beep
+	rts
+	}
+}
 
 !ifdef Z4PLUS {
 z_ins_scan_table
@@ -2041,8 +2108,10 @@ z_ins_copy_table
 	lda z_operand_value_low_arr
 	sta string_array
 	lda z_operand_value_high_arr
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 
 	; Perform zero-fill
@@ -2052,7 +2121,7 @@ z_ins_copy_table
 	ora z_operand_value_high_arr + 2
 	beq .copy_all_done
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (zp_temp),y
 	iny
 	bne +
@@ -2071,8 +2140,10 @@ z_ins_copy_table
 	lda z_operand_value_low_arr + 1
 	sta string_array
 	lda z_operand_value_high_arr + 1
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 
 	; If size is negative, we invert it and copy forwards
@@ -2158,7 +2229,7 @@ z_ins_copy_table
 	jsr read_byte_at_z_address
 	; Store byte in second table
 	ldy #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (zp_temp),y
 	; Increase/decrease pointer to second
 	lda string_array

@@ -148,8 +148,10 @@ z_ins_tokenise_text
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	stx string_array
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 	; setup user dictionary, if supplied
 	lda z_operand_count
@@ -191,8 +193,10 @@ z_ins_encode_text
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	stx string_array
+!ifndef COMPLEX_MEMORY {
 	clc
 	adc #>story_start
+}
 	sta string_array + 1
 	; setup length (seems okay to ignore)
 	; ldx z_operand_value_low_arr + 1
@@ -205,12 +209,15 @@ z_ins_encode_text
 	ldx z_operand_value_low_arr + 3
 	lda z_operand_value_high_arr + 3
 	stx string_array
+!ifndef COMPLEX_MEMORY {
 	clc
 	adc #>story_start
+}
 	sta string_array + 1
 	ldy #0
 -   lda zword,y
-	sta (string_array),y
+	+macro_string_array_write_byte
+;	sta (string_array),y
 	iny
 	cpy #6
 	bne -
@@ -308,7 +315,8 @@ z_ins_read
 }
 	jsr newline
 	ldy #0
--   lda (string_array),y
+-	+macro_string_array_read_byte
+;	lda (string_array),y
 	jsr printa
 	jsr space
 	iny
@@ -343,7 +351,7 @@ z_ins_read
 	jsr tokenise_text
 !ifdef TRACE_TOKENISE {
 	ldy #0
--	jsr parse_array_read_byte
+-	+macro_parse_array_read_byte
 ;	lda (parse_array),y
 	jsr printa
 	jsr space
@@ -357,7 +365,8 @@ z_ins_read
 	; debug - print parsearray
 !ifdef TRACE_PRINT_ARRAYS {
 	ldy #0
--   lda (string_array),y
+-	+macro_string_array_read_byte
+;	lda (string_array),y
 	tax
 	jsr printx
 	lda #$20
@@ -368,7 +377,7 @@ z_ins_read
 	lda #$0d
 	jsr streams_print_output
 	ldy #0
--	jsr parse_array_read_byte
+-	+macro_parse_array_read_byte
 ;	lda (parse_array),y
 	tax
 	jsr printx
@@ -390,7 +399,8 @@ z_ins_read
 	ldy #1
 }
 .check_next_preopt_exit_char
-	lda (string_array),y
+	+macro_string_array_read_byte
+;	lda (string_array),y
 	cmp #$78
 	bne .not_preopt_exit
 	iny
@@ -445,7 +455,7 @@ convert_zchar_to_char
 	clc
 	adc alphabet_offset
 	tay
-	lda (alphabet_table),y
+	lda z_alphabet_table,y
 +++	rts
 
 translate_petscii_to_zscii
@@ -469,7 +479,7 @@ translate_petscii_to_zscii
 	bcs .not_lower_case
 	; Lower case. $41 -> $61
 	ora #$20
-	bcc .case_conversion_done
+	bcc .case_conversion_done ; Always branch
 .not_lower_case
 	cmp #$c1
 	bcc .case_conversion_done
@@ -494,7 +504,7 @@ convert_char_to_zchar
 ;	jsr translate_petscii_to_zscii
 	sty zp_temp + 4
 	ldy #0
--   cmp (alphabet_table),y
+-   cmp z_alphabet_table,y
 	beq .found_char_in_alphabet
 	iny
 	cpy #26*3
@@ -587,7 +597,7 @@ encode_text
 	; side effects: .last_char_index, .triplet_counter, zword
 	ldy .wordstart ; Pointer to current character
 	ldx #0 ; Next position in z_temp
--	jsr string_array_read_byte
+-	+macro_string_array_read_byte
 ;	lda (string_array),y
 	jsr convert_char_to_zchar
 	cpx #ZCHARS_PER_ENTRY
@@ -866,11 +876,11 @@ find_word_in_dictionary
 .store_find_result
 	ldy .parse_array_index
 	lda .dictionary_address
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y
 	iny
 	lda .dictionary_address + 1
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y
 	iny
 	rts
@@ -927,22 +937,17 @@ find_word_in_dictionary
 init_cursor_timer
 	lda #0
 	sta s_cursormode
-	; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
-	sta .cursor_time_jiffy
-	sta .cursor_time_jiffy + 1
-	lda USE_BLINKING_CURSOR
-	sta .cursor_time_jiffy + 2
 update_cursor_timer
 	; calculate when the next cursor update occurs
 	jsr kernal_readtime  ; read current time (in jiffys)
 	clc
-	adc .cursor_time_jiffy + 2
+	adc #USE_BLINKING_CURSOR
 	sta .cursor_jiffy + 2
 	txa
-	adc .cursor_time_jiffy + 1
+	adc #0
 	sta .cursor_jiffy + 1
 	tya
-	adc .cursor_time_jiffy
+	adc #0
 	sta .cursor_jiffy
 	rts
 }
@@ -989,7 +994,7 @@ getchar_and_maybe_toggle_darkmode
 	jmp kernal_getchar
 } else {
 	jsr kernal_getchar
- 	cmp #133
+ 	cmp #133 ; Charcode for F1
 	bne +
 	jsr toggle_darkmode
 	ldx #40 ; Side effect to help when called from MORE prompt
@@ -1108,17 +1113,49 @@ update_cursor
 	sty object_temp
 	ldy zp_screencolumn
 	lda s_cursorswitch
-	bne +
+	bne +++
 	; no cursor
-	lda (zp_screenline),y
-	and #$7f
-	sta (zp_screenline),y
+	jsr s_delete_cursor
+; !ifdef TARGET_C128 {
+	; ldx COLS_40_80
+	; beq +
+	; ; 80 columns
+	; jsr VDCGetChar
+	; and #$7f
+	; jsr VDCPrintChar
+	; jmp .vdc_printed_char
+; +	; 40 columns
+; }
+; ;	lda (zp_screenline),y
+; ;	and #$7f
+	; lda #32 ; Space
+	; sta (zp_screenline),y
+
+; .vdc_printed_char
+
 	ldy object_temp
 	rts
-+   ; cursor
++++	; cursor
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	beq +
+	; 80 columns
+	lda cursor_character
+	jsr VDCPrintChar
+	lda current_cursor_colour
+	jsr VDCPrintColour
+	jmp .vdc_printed_char_and_colour
++	; 40 columns
+}
 	lda cursor_character
 	sta (zp_screenline),y
 	lda current_cursor_colour
+!ifdef TARGET_PLUS4 {
+	stx object_temp + 1
+	tax
+	lda plus4_vic_colours,x
+	ldx object_temp + 1
+}
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
@@ -1126,6 +1163,9 @@ update_cursor
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
+
+.vdc_printed_char_and_colour
+
 	ldy object_temp
 	rts
 
@@ -1150,8 +1190,10 @@ read_text
 	; side effects: zp_screencolumn, zp_screenline, .read_text_jiffy
 	; used registers: a,x,y
 	stx string_array
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta string_array + 1
 	jsr printchar_flush
 	; clear [More] counter
@@ -1164,7 +1206,7 @@ read_text
 	jsr init_read_text_timer
 }
 	ldy #0
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 !ifdef Z5PLUS {
 	tax
@@ -1179,13 +1221,13 @@ read_text
 ;	tya
 ;	clc
 ;	adc (string_array),y
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 	clc
 	adc #1
 ;
 } else {
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; default is empty string (0 in pos 1)
 	tya
 }
@@ -1197,8 +1239,12 @@ read_text
 	stx .read_text_cursor
 	sty .read_text_cursor + 1
 	jsr read_char
+!ifdef Z4PLUS {
 	cmp #0
-	bne +
+	bne .timer_didnt_return_false
+
+; ########## Start of code for handling that timer routine returned false
+
 	; timer routine returned false
 	; did the routine draw something on the screen?
 	jsr get_cursor ; x=row, y=column
@@ -1213,13 +1259,13 @@ read_text
 	; lda #$3e ; ">"
 	; jsr s_printchar
 	ldy #1
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	tax
 .p0 cpx #0
 	beq .p1
 	iny
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	jsr translate_zscii_to_petscii
 !ifdef DEBUG {
@@ -1233,16 +1279,16 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 .done_printing_this_char
 	dex
 	jmp .p0
 .p1   
-} else {
+} else { ; not Z5PLUS
 	ldy #1
-.p0	jsr string_array_read_byte
+.p0	+macro_string_array_read_byte
 ; lda (string_array),y ; default is empty string (0 in pos 1)
 	cmp #0
 	beq .p1
@@ -1258,27 +1304,35 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 .done_printing_this_char
 	iny
 	jmp .p0
 .p1
-}
+} ; not Z5PLUS
 	jsr turn_on_cursor
 	jmp .readkey
-+   cmp #1
+	
+; ########## End of code for handling that timer routine returned false	
+	
+.timer_didnt_return_false
+	cmp #1
 	bne +
 	; timer routine returned true
 	; clear input and return 
 	ldy #1
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y
 	jmp .read_text_done ; a should hold 0 to return 0 here
 	; check terminating characters
-+   ldy #0
++   
+} ; Z4PLUS
+
+
+	ldy #0
 -   cmp terminating_characters,y
 	beq .read_text_done
 	iny
@@ -1294,17 +1348,17 @@ read_text
 	jsr turn_off_cursor
 	lda .petscii_char_read
 	jsr s_printchar ; print the delete char
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
 	ldy #1
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y ; number of characters in the array
 	sec
 	sbc #1
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y
 }
 	jmp .readkey ; don't store in the array
@@ -1332,7 +1386,7 @@ read_text
 	txa
 !ifdef Z5PLUS {
 	ldy #1
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; number of characters in the array
 }
 	tay
@@ -1341,9 +1395,9 @@ read_text
 }
 	lda .petscii_char_read
 	jsr s_printchar
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 	jsr update_cursor
 	pla
 	; convert to lower case
@@ -1354,13 +1408,13 @@ read_text
 	ora #$20
 
 .dont_invert_case
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; store new character in the array
 	inc .read_text_column	
 !ifndef Z5PLUS {
 	iny
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y ; store 0 after last char
 }
 	jmp .readkey
@@ -1375,15 +1429,15 @@ read_text
 	; Store terminating 0, in case characters were deleted at the end.
 	ldy .read_text_column ; compare with size of keybuffer
 	lda #0
-	jsr string_array_write_byte
+	+macro_string_array_write_byte
 ;	sta (string_array),y
 }	
 	pla ; the terminating character, usually newline
 	beq +
 	jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-}
+;!ifdef USE_BLINKING_CURSOR {
+;	jsr reset_cursor_blink
+;}
 ;	jsr start_buffering
 +   rts
 .read_parse_buffer !byte 0,0
@@ -1402,7 +1456,6 @@ read_text
 }
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
-.cursor_time_jiffy !byte 0,0,0 ; time between cursor updates
 }
 
 tokenise_text
@@ -1418,19 +1471,21 @@ tokenise_text
 	; used registers: a,x,y
 	sty .ignore_unknown_words
 	stx parse_array
-;	clc
-;	adc #>story_start
+!ifndef COMPLEX_MEMORY {
+	clc
+	adc #>story_start
+}
 	sta parse_array + 1
 	lda #2
 	sta .wordoffset ; where to store the next word in parse_array
 	ldy #0
 	sty .numwords ; no words found yet
-	jsr parse_array_read_byte
+	+macro_parse_array_read_byte
 ;	lda (parse_array),y 
 	sta .maxwords
 !ifdef Z5PLUS {
 	iny
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y ; number of chars in text string
 	tax
 	inx
@@ -1438,7 +1493,7 @@ tokenise_text
 	iny ; sets y to 2 = start position in text
 } else {
 -   iny
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	cmp #0
 	bne -
@@ -1452,7 +1507,7 @@ tokenise_text
 	cpy .textend
 	beq +
 	bcs .parsing_done
-+	jsr string_array_read_byte
++	+macro_string_array_read_byte
 ;	lda (string_array),y
 	cmp #$20
 	bne .start_of_word
@@ -1462,7 +1517,7 @@ tokenise_text
 	; start of next word found (y is first character of new word)
 	sty .wordstart
 -   ; look for the end of the word
-	jsr string_array_read_byte
+	+macro_string_array_read_byte
 ;	lda (string_array),y
 	cmp #$20
 	beq .space_found
@@ -1502,11 +1557,11 @@ tokenise_text
 	lda .wordend
 	sec
 	sbc .wordstart
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y ; length
 	iny
 	lda .wordstart
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y ; start index
 	; find the next word
 .find_next_word
@@ -1517,7 +1572,7 @@ tokenise_text
 .parsing_done
 	ldy #1
 	lda .numwords
-	jsr parse_array_write_byte
+	+macro_parse_array_write_byte
 ;	sta (parse_array),y ; num of words
 	rts
 .maxwords   !byte 0 
@@ -1766,101 +1821,6 @@ print_addr
 	jmp .print_chars_loop
 +   rts
 
-string_array_read_byte
-	sty .temp
-	stx .temp + 1
-	lda string_array
-	clc
-	adc .temp
-	tay
-	lda string_array + 1
-	adc #0
-	tax
-	lda #0
-	jsr read_byte_at_z_address
-	sta .temp + 2
-	ldy .temp
-	ldx .temp + 1
-	lda .temp + 2
-	rts
-
-string_array_write_byte
-	sta .temp
-	sty .temp + 1
-	lda z_address
-	pha
-	lda z_address + 1
-	pha
-	lda z_address + 2
-	pha
-	lda string_array
-	clc
-	adc .temp + 1
-	sta z_address + 2
-	lda string_array + 1
-	adc #0
-	sta z_address + 1
-	lda #0
-	sta z_address
-	lda .temp
-	jsr write_next_byte
-	pla
-	sta z_address + 2
-	pla
-	sta z_address + 1
-	pla
-	sta z_address
-	lda .temp
-	rts
-	
-parse_array_read_byte
-	sty .temp
-	stx .temp + 1
-	lda parse_array
-	clc
-	adc .temp
-	tay
-	lda parse_array + 1
-	adc #0
-	tax
-	lda #0
-	jsr read_byte_at_z_address
-	sta .temp + 2
-	ldy .temp
-	ldx .temp + 1
-	lda .temp + 2
-	rts
-
-parse_array_write_byte
-	sta .temp
-	sty .temp + 1
-	lda z_address
-	pha
-	lda z_address + 1
-	pha
-	lda z_address + 2
-	pha
-	lda parse_array
-	clc
-	adc .temp + 1
-	sta z_address + 2
-	lda parse_array + 1
-	adc #0
-	sta z_address + 1
-	lda #0
-	sta z_address
-	lda .temp
-	jsr write_next_byte
-	pla
-	sta z_address + 2
-	pla
-	sta z_address + 1
-	pla
-	sta z_address
-	lda .temp
-	rts
-
-.temp !byte 0,0,0
 
 ; .escape_char !byte 0
 ; .escape_char_counter !byte 0
@@ -1869,7 +1829,7 @@ parse_array_write_byte
 ; .zchars !byte 0,0,0
 ; .packedtext !byte 0,0
 ; .alphabet_offset !byte 0
-default_alphabet ; 26 * 3
+z_alphabet_table ; 26 * 3
 	!raw "abcdefghijklmnopqrstuvwxyz"
 	!raw "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	!raw 32,13,"0123456789.,!?_#'",34,47,92,"-:()"

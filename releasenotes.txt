@@ -102,20 +102,79 @@ Fixed bugs:
 - Merged VM bug fixes from Steven Flintham
 
 ================================================
-Release 5: C128/Plus4/Mega65 targets, Beyond Zork mode and bug fixes
+Release 5: C128/Plus4 targets, Beyond Zork mode and bug fixes
 
-New features:
+New/changed features:
 - Plus/4 support
-- C128 support for both 40 and 80 column screens
-- Mega65 support based on the Mega65 port written by Paul Gardner-Stephen,
-  with various improvements and bug fixes.
-- make.rb will now patch Beyond Zork story file before writing it to disk image(s) to make it work better on 40 column screen. Original story file is left untouched.
-- make.rb detects if Beyond Zork is built and changes the interpreter number to say it's the Apple IIe interpreter, since this gives the best results on Ozmoo.
+- C128 support (both 40 and 80 column screens)
+- make.rb will now patch Beyond Zork story file before writing it to disk
+  image(s) to make it work better on 40 column screen. Original story file
+  is left untouched.
+- make.rb detects if Beyond Zork is built and changes the interpreter number
+  to say it's the Apple IIe interpreter, since this gives the best results on
+  Ozmoo.
 - Interpreter number can now be customized with -in:N in make.rb
-- Darkmode support is automatically removed when building Beyond Zork, since it gets in the way of a built-in keyboard shortcut in the game, and the game restores the colours even if you change them.
+- Darkmode support is automatically removed when building Beyond Zork, since
+  it gets in the way of a built-in keyboard shortcut in the game, and the
+  game restores the colours even if you change them.
+- Cursor colour now defaults to special value 1, meaning "same as current
+  foreground colour".
+- Cursor blink rate is now 1-99 where 1 is the fastest
+- New option -u to do less checks for runtime errors, making the interpreter 
+  a little smaller and faster
+- All produced disk images get names starting with the platform name
+- New build mode -71, producing 1571 disk images. Can only be used for target 
+  C128.
+- Disk drives with device# 8-15 can now be used.
+- Question to use REU can now only be answered by Y or N (any other key would
+  work like N before, making it easy to accidentally answer no).
+- Added a progress bar when loading data into REU or memory at game start.
+- Added re-use of game data in REU after a restart.
+- make.rb can optionally fill up with more vmem blocks to load when using
+  preload optimization (commandline switch -cf).
+- Changed format of output from preload optimization slightly to make more 
+  data fit on screen. This means old preload optimization files need to be
+  modified to be used again.
+- When game restarts, it now loads the file "story". This means restart won't
+  work if you rename the file.
+- make.rb now prints a lot less, unless you use option -v (verbose).
+- Data to be read from disk when game starts in a game using preload
+  optimization will now be read in the order it appears on disk, making load 
+  time shorter and causing less drive noise.
+- Changed so C128 interpreter uses interpreter# 7.
+- Added option -b to not preload virtual memory blocks from disk when the
+  game starts. This makes the interpreter a little smaller. Option is 
+  automatically enabled if make.rb is certain no preloading from disk will
+  be needed anyway.
+
+Optimizations:
+- Increased vmem block age resolution by 1 bit, which should lead to better
+  paging, espescially for z8 games which only had a five bit resolution.
+- Centralized code to pick a free vmem buffer.
 
 Fixed bugs:
-- @tokenise could use arbitrary value for parameter "flag" if it wasn't supplied.
-- @tokenise didn't skip words the way it should if parameter "flag" was set. (which stopped Beyond Zork from recognizing any commands).
+- @tokenise could use arbitrary value for parameter "flag" if it wasn't
+  supplied.
+- @tokenise didn't skip words the way it should if parameter "flag" was set.
+  (which stopped Beyond Zork from recognizing any commands).
 - Added support for terminating character array ($2e/$2f in the header)
-- Fixed bug with creating .d81 partition, which made it impossible to use build mode 81 for small games ( non-dynamic memory < ~10KB). 
+- Fixed bug with creating .d81 partition, which made it impossible to use
+  build mode 81 for small games ( non-dynamic memory < ~10KB). 
+- Commandline flag -r for make.rb to use reduced memory has been removed.
+- Cursor timing code was broken
+- Some characters could get a weird colour in the save slot listing.
+- Fixed line breaks in the wrong place in games which started buffering in 
+  window 0 while window 1 was selected, like AMFV.
+
+
+Release 6: Bugfix release
+
+New/changed features:
+- Updated to Exomizer 3.1.0.
+
+Fixed bugs:
+- Warning with latest Acme due to typo ("Hex literal without any digits")
+- Builds crashed if -t:c64 was specified, due to SUPPORT_REU being undefined.
+- Blank out 40 col screen when decruncing using 2MHz on C128.
+- Fixed bug which set colour incorrectly when clearing lines or entire screen
+  on Plus/4
