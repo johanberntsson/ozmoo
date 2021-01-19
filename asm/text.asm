@@ -100,6 +100,8 @@ z_ins_read_char
 	; ldy z_operand_value_low_arr
 	; optional time routine arguments
 	jsr printchar_flush
+	; clear [More] counter
+	jsr clear_num_rows
 	jsr turn_on_cursor
 	ldy #0
 	tya
