@@ -178,3 +178,5 @@ Fixed bugs:
 - Blank out 40 col screen when decruncing using 2MHz on C128.
 - Fixed bug which set colour incorrectly when clearing lines or entire screen
   on Plus/4
+- @read_char didn't reset the row counter for the MORE prompt.
+
