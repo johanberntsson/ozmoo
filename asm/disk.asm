@@ -569,7 +569,7 @@ z_ins_restart
 	lda #147
 	jsr kernal_printchar
 	lda #z_exe_mode_exit
-	sta z_exe_mode
+	+set_z_exe_mode
 	rts
 .restart_keys
 ;	!pet "lO",34,":*",34,",08:",131,0
