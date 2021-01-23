@@ -811,7 +811,7 @@ draw_status_line
 	lda z_operand_value_high_arr + 1
 	pha
 	ldx #0
-	clc
+	sec
 	lda s_screen_width
 	sbc #15
 	tay
@@ -846,7 +846,10 @@ draw_status_line
 .timegame
 	; time game
 	ldx #0
-	ldy #25
+	sec
+	lda s_screen_width
+	sbc #15
+	tay
 	jsr set_cursor
 	lda #>.time_str
 	ldx #<.time_str
