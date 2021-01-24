@@ -722,8 +722,8 @@ z_init
 }
 
 
-	ldy #0
-	sty z_exe_mode ; 0 = Normal
+	lda #0
+        +set_z_exe_mode ; 0 = Normal
 	
 !ifdef TRACE {
 	; Setup trace

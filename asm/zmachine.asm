@@ -28,6 +28,24 @@ z_test_mode_print_and_store = 2
 ; opcountvar = 64
 ; opcountext = 96
 
+!ifndef COMPLEX_MAIN_LOOP {
+; Entered with A containing new z_exe_mode value; Z flag should reflect A.
+set_z_exe_mode_subroutine
+	sta z_exe_mode
+	beq .normal
+	lda #<main_loop
+	sta jmp_main_loop + 1
+	lda #>main_loop
+	bne .finish ; Always branch
+.normal
+	lda #<main_loop_no_z_exe_mode_check
+	sta jmp_main_loop + 1
+	lda #>main_loop_no_z_exe_mode_check
+.finish
+	sta jmp_main_loop + 2
+	rts
+}
+
 ; =========================================== Highbytes of jump table
 
 z_jump_high_arr
@@ -448,7 +466,7 @@ z_exe_mode_exit = $ff
 	bne .return_from_z_execute
 }
 	lda #z_exe_mode_normal
-	sta z_exe_mode
+	+set_z_exe_mode
 }
 .return_from_z_execute
 	rts
@@ -473,7 +491,7 @@ z_execute
 }
 }
 
-.main_loop
+main_loop
 
 ; Timing
 !ifdef TIMING {
@@ -512,6 +530,7 @@ z_execute
 	
 	lda z_exe_mode
 	bne .not_normal_exe_mode
+main_loop_no_z_exe_mode_check
 
 !ifdef VICE_TRACE {
 	; send trace info to $DE00-$DE02, which a patched
@@ -757,7 +776,8 @@ dumptovice
 	sta .jsr_perform + 2
 .jsr_perform
 	jsr $8000
-	jmp .main_loop
+jmp_main_loop
+	jmp main_loop ; target may be patched at runtime by set_z_exe_mode_subroutine
 
 
 z_not_implemented
@@ -790,7 +810,7 @@ read_operand
 	+read_next_byte_at_z_pc
 	tax
 	pla
-	jmp .store_operand ; Always branch
+	jmp .store_operand ; Always branch
 .operand_is_not_large_constant
 	+read_next_byte_at_z_pc
 	cpx #%00000010
