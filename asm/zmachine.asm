@@ -28,23 +28,21 @@ z_test_mode_print_and_store = 2
 ; opcountvar = 64
 ; opcountext = 96
 
-!ifndef COMPLEX_MAIN_LOOP {
 ; Entered with A containing new z_exe_mode value; Z flag should reflect A.
-set_z_exe_mode_subroutine
+set_z_exe_mode
 	sta z_exe_mode
 	beq .normal
-	lda #<main_loop
+	lda #<not_normal_exe_mode
 	sta jmp_main_loop + 1
-	lda #>main_loop
+	lda #>not_normal_exe_mode
 	bne .finish ; Always branch
 .normal
-	lda #<main_loop_no_z_exe_mode_check
+	lda #<main_loop_normal_exe_mode
 	sta jmp_main_loop + 1
-	lda #>main_loop_no_z_exe_mode_check
+	lda #>main_loop_normal_exe_mode
 .finish
 	sta jmp_main_loop + 2
 	rts
-}
 
 ; =========================================== Highbytes of jump table
 
@@ -459,14 +457,15 @@ z_exe_mode_exit = $ff
 
 !zone z_execute {
 
-.not_normal_exe_mode
+not_normal_exe_mode
 !ifdef Z4PLUS {
 !ifdef VMEM { ; Non-VMEM games can't be restarted, so they don't get z_exe_mode_exit and don't need this code.
+	lda z_exe_mode
 	cmp #z_exe_mode_return_from_read_interrupt
 	bne .return_from_z_execute
 }
 	lda #z_exe_mode_normal
-	+set_z_exe_mode
+	jsr set_z_exe_mode
 }
 .return_from_z_execute
 	rts
@@ -491,7 +490,7 @@ z_execute
 }
 }
 
-main_loop
+main_loop_normal_exe_mode
 
 ; Timing
 !ifdef TIMING {
@@ -527,10 +526,6 @@ main_loop
 +
 }
 }
-	
-	lda z_exe_mode
-	bne .not_normal_exe_mode
-main_loop_no_z_exe_mode_check
 
 !ifdef VICE_TRACE {
 	; send trace info to $DE00-$DE02, which a patched
@@ -777,7 +772,7 @@ dumptovice
 .jsr_perform
 	jsr $8000
 jmp_main_loop
-	jmp main_loop ; target may be patched at runtime by set_z_exe_mode_subroutine
+	jmp main_loop_normal_exe_mode ; target patched by set_z_exe_mode_subroutine
 
 
 z_not_implemented

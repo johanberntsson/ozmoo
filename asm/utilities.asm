@@ -909,20 +909,4 @@ divide16
 	rts
 }
 
-!ifdef TIMING {
-	COMPLEX_MAIN_LOOP = 1
-}
-!ifdef PRINTSPEED {
-	COMPLEX_MAIN_LOOP = 1
-}
-!ifdef COMPLEX_MAIN_LOOP {
-!macro set_z_exe_mode {
-	sta z_exe_mode
-}
-} else {
-!macro set_z_exe_mode {
-	jsr set_z_exe_mode_subroutine
-}
-}
-
 ; screen update routines
