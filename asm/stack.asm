@@ -435,7 +435,7 @@ stack_return_from_routine
 !ifdef Z4PLUS {
 	txa
 	and #$f8
-	+set_z_exe_mode
+	jsr set_z_exe_mode
 }
 	iny
 	lda (z_local_vars_ptr),y

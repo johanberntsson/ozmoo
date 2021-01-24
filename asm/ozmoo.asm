@@ -723,7 +723,7 @@ z_init
 
 
 	lda #0
-        +set_z_exe_mode ; 0 = Normal
+	jsr set_z_exe_mode ; 0 = Normal
 	
 !ifdef TRACE {
 	; Setup trace
