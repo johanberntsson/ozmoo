@@ -772,7 +772,7 @@ dumptovice
 .jsr_perform
 	jsr $8000
 jmp_main_loop
-	jmp $8000 ; target patched by set_z_exe_mode_subroutine
+	jmp main_loop_normal_exe_mode ; target patched by set_z_exe_mode_subroutine
 
 
 z_not_implemented
