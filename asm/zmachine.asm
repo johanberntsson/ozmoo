@@ -496,7 +496,7 @@ main_loop_normal_exe_mode
 !ifdef TIMING {
 	lda ti_variable + 1
 	ldx ti_variable + 2
-	ldy header_high_mem
+	ldy #header_high_mem
 	jsr write_header_word
 }
 

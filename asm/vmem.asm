@@ -129,8 +129,8 @@ vmap_max_size = (vmap_buffer_end - vmap_buffer_start) / 2
 ; vmap_max_entries	!byte 0 ; Moved to ZP
 ; vmap_used_entries	!byte 0 ; Moved to ZP
 vmap_blocks_preloaded !byte 0
-vmap_z_h = vmap_buffer_start
-vmap_z_l = vmap_z_h + vmap_max_size
+vmap_z_l = vmap_buffer_start
+vmap_z_h = vmap_z_l + vmap_max_size
 
 vmap_first_ram_page		!byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
