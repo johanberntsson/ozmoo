@@ -129,8 +129,8 @@ vmap_max_size = (vmap_buffer_end - vmap_buffer_start) / 2
 ; vmap_max_entries	!byte 0 ; Moved to ZP
 ; vmap_used_entries	!byte 0 ; Moved to ZP
 vmap_blocks_preloaded !byte 0
-vmap_z_h = vmap_buffer_start
-vmap_z_l = vmap_z_h + vmap_max_size
+vmap_z_l = vmap_buffer_start
+vmap_z_h = vmap_z_l + vmap_max_size
 
 vmap_first_ram_page		!byte 0
 vmap_index !byte 0              ; current vmap index matching the z pointer
@@ -495,19 +495,20 @@ read_byte_at_z_address
 
 	; is there a block with this address in map?
 	ldx vmap_used_entries
-	dex
 -   ; compare with low byte
-	cmp vmap_z_l,x ; zmachine mem offset ($0 - 
+	; TODO: It would be helpful to ensure vmap_z_l - 1 is near the start of
+	; a page, so the following frequently executed instruction doesn't
+	; incur too many extra page-crossing cycles.
+	cmp vmap_z_l - 1,x ; zmachine mem offset ($0 - 
 	beq +
 .check_next_block
 	dex
-	cpx #$ff
 	bne -
 	beq .no_such_block ; Always branch
 	; is the highbyte correct?
 +
 !if vmem_highbyte_mask > 0 {
-	lda vmap_z_h,x
+	lda vmap_z_h - 1,x
 	and #vmem_highbyte_mask
 	cmp vmem_temp + 1
 	beq .correct_vmap_index_found
@@ -516,6 +517,7 @@ read_byte_at_z_address
 }
 .correct_vmap_index_found
 	; vm index for this block found
+        dex
 	stx vmap_index
 
 	ldy vmap_quick_index_match
