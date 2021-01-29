@@ -112,6 +112,7 @@ zero_processorports   = $01
 ; available zero page variables (pseudo registers)
 z_opcode              = $02
 mempointer            = $03 ; 2 bytes
+mempointer_y          = $96 ; 1 byte TODO: OK?
 mem_temp              = $05 ; 2 bytes
 z_extended_opcode	  = $07
 

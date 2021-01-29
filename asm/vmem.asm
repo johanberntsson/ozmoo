@@ -50,18 +50,19 @@ read_byte_at_z_address
 	; a,x,y (high, mid, low) contains address.
 	; Returns: value in a
 
-	sty mempointer ; low byte unchanged
 	; same page as before?
 	cpx zp_pc_l
 	bne .read_new_byte
 	; same 256 byte segment, just return
 .return_result
-	ldy #0
 	+before_dynmem_read
 	lda (mempointer),y
 	+after_dynmem_read
 	rts
 .read_new_byte
+!ifndef TARGET_PLUS4 {
+	sty mempointer_y
+}
 	txa
 	sta zp_pc_l
 	clc
@@ -101,6 +102,7 @@ read_byte_at_z_address
 
 	; set next cache to use when needed
 	jsr inc_vmem_cache_cnt
+	ldy mempointer_y
 	jmp .return_result 
 } ; Not TARGET_PLUS4
 	
@@ -429,7 +431,6 @@ read_byte_at_z_address
 }
 
 
-	sty mempointer ; low byte unchanged
 	; same page as before?
 	cpx zp_pc_l
 	bne .read_new_byte
@@ -437,7 +438,6 @@ read_byte_at_z_address
 	bne .read_new_byte
 	; same 256 byte segment, just return
 .read_and_return_value
-	ldy #0
 	+before_dynmem_read
 	lda (mempointer),y
 	+after_dynmem_read
@@ -458,6 +458,7 @@ read_byte_at_z_address
 	bne .read_and_return_value ; Always branch
 }	
 .non_dynmem
+	sty mempointer_y
 	lsr
 	sta vmem_temp + 1
 	lda #0
@@ -857,7 +858,7 @@ read_byte_at_z_address
 	adc vmap_c64_offset
 	sta mempointer + 1
 .return_result
-	ldy #0
+	ldy mempointer_y
 	+before_dynmem_read
 	lda (mempointer),y
 	+after_dynmem_read

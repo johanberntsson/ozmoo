@@ -40,6 +40,7 @@ zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
 
 
 mempointer            = $17 ; 2 bytes ### OK C128
+mempointer_y          = $34 ; 2 bytes ### TODO: OK C128?
 savefile_zp_pointer   = $19 ; 2 bytes ### OK C128
 zp_mempos             = $1b ; 2 bytes ### OK C128
 
