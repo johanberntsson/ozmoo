@@ -14,7 +14,9 @@ COLS_40_80            = $d7
 keyboard_buff_len     = $d0
 keyboard_buff         = $34a
 
-; --- ZERO PAGE -- ; available zero page variables (pseudo registers) 
+; --- ZERO PAGE -- ; available zero page variables (pseudo registers)
+mempointer_y          = $08 ; !byte 0 ### OK C128
+
 ; NOTE: This entire block, except last byte of z_pc_mempointer and z_pc_mempointer_is_unsafe is saved!
 z_local_vars_ptr      = $09 ; 2 bytes ### OK C128
 z_local_var_count     = $0b ;         ### OK C128
