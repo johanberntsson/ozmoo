@@ -913,15 +913,12 @@ find_prop
 .property_loop
 	jsr calculate_property_length_number
 	lda .property_number
-	cmp #0
 	beq .find_prop_not_found
-	lda .property_number
 	cmp z_operand_value_low_arr + 1; max 63 properties so only low_arr
 	beq .find_prop_found
 	; skip property data
--   jsr read_next_byte
-	dec .property_length
-	bne -
+	lda .property_length
+	jsr skip_bytes_z_address
 	jmp .property_loop
 .find_prop_not_found
 	ldx #0
