@@ -115,6 +115,7 @@ mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
 z_extended_opcode	  = $07
 
+mempointer_y          = $08 ; 1 byte
 z_opcode_number       = $09
 zp_pc_h               = $0a
 zp_pc_l               = $0b
