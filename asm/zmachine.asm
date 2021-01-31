@@ -266,16 +266,8 @@ dumptovice
 .top_bits_are_10
 !ifdef Z5PLUS {
 	cmp #z_opcode_extended
-	bne .short_form
-	; Form = Extended
-	lda #z_opcode_opcount_ext
-	sta z_opcode_opcount ; Set to EXT
-	+read_next_byte_at_z_pc
-	sta z_extended_opcode
-	sta z_opcode_number
-	jmp .get_4_op_types
+	beq .extended_form
 }
-.short_form
 	; Form = Short
 	and #%00001111
 	sta z_opcode_number
@@ -296,7 +288,18 @@ dumptovice
 	lda #z_opcode_opcount_0op 
 	sta z_opcode_opcount
 	beq .perform_instruction ; Always branch
-	
+
+!ifdef Z5PLUS {
+.extended_form
+	; Form = Extended
+	lda #z_opcode_opcount_ext
+	sta z_opcode_opcount ; Set to EXT
+	+read_next_byte_at_z_pc
+	sta z_extended_opcode
+	sta z_opcode_number
+	jmp .get_4_op_types
+}
+
 .top_bits_are_0x
 	; Form = Long
 	and #%00011111
@@ -309,9 +312,9 @@ dumptovice
 	ldx #%00000010
 	bcs +
 	dex
-+	pha
++	sta z_temp + 3 ; Temporary storage while we jsr
 	jsr read_operand
-	pla
+	lda z_temp + 3
 	asl
 	ldx #%00000010
 	bcs +
@@ -345,9 +348,9 @@ dumptovice
 	bcc .store_optype
 	inx
 .store_optype
-	pha
+	sta z_temp + 3 ; Temporary storage while we jsr
 	jsr read_operand
-	pla
+	lda z_temp + 3
 	ldx z_operand_count
 	cpx z_temp
 	bcc .get_next_op_type
@@ -410,22 +413,50 @@ z_not_implemented
 }
 }
 
+.operand_is_small_constant
+	; Operand is small constant
+	tax
+	lda #0
+	beq .store_operand
+
 read_operand
 ; Operand type in x - Zero flag must reflect if X is 0 upon entry
 	bne .operand_is_not_large_constant
 	+read_next_byte_at_z_pc
-	pha
+	sta z_temp + 2 ; Temporary storage while we read another byte
 	+read_next_byte_at_z_pc
 	tax
-	pla
+	lda z_temp + 2
 	jmp .store_operand ; Always branch
 .operand_is_not_large_constant
 	+read_next_byte_at_z_pc
-	cpx #%00000010
-	beq .operand_is_var
-	; Operand is small constant
+	cpx #%00000001
+	beq .operand_is_small_constant
+
+	; Variable# in a
+	cmp #0
+	beq .read_from_stack
+!ifdef COMPLEX_MEMORY {
+	tay
+	jsr z_get_variable_reference_and_value
+	jmp .store_operand
+} else {
+	cmp #16
+	bcs .read_global_var
+	; Local variable
+!ifndef UNSAFE {
+	tay
+	dey
+	cpy z_local_var_count
+	bcs .nonexistent_local
+}
+	asl ; This clears carry
+	tay
+	iny
+	lda (z_local_vars_ptr),y
 	tax
-	lda #0
+	dey
+	lda (z_local_vars_ptr),y
 
 .store_operand
 	ldy z_operand_count
@@ -454,37 +485,10 @@ read_operand
 	jmp .store_operand ; Always branch
 
 
-.operand_is_var
-	; Variable# in a
-	cmp #0
-	beq .read_from_stack
-!ifdef COMPLEX_MEMORY {
-	tay
-	jsr z_get_variable_reference_and_value
-	jmp .store_operand
-} else {	
-	bmi .read_high_global_var
-	cmp #16
-	bcs .read_global_var
-	; Local variable
-!ifndef UNSAFE {
-	tay
-	dey
-	cpy z_local_var_count
-	bcs .nonexistent_local
-}
-	asl ; This clears carry
-	tay
-	iny
-	lda (z_local_vars_ptr),y
-	tax
-	dey
-	lda (z_local_vars_ptr),y
-	bcc .store_operand ; Always branch
 !ifndef COMPLEX_MEMORY {
 .read_global_var
-	; cmp #128
-	; bcs .read_high_global_var
+	cmp #128
+	bcs .read_high_global_var
 !ifdef SLOW {
 	jsr z_get_low_global_variable_value
 } else {
