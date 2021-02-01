@@ -413,6 +413,7 @@ z_not_implemented
 }
 }
 
+!zone read_operand {
 .operand_is_small_constant
 	; Operand is small constant
 	tax
@@ -439,7 +440,7 @@ read_operand
 !ifdef COMPLEX_MEMORY {
 	tay
 	jsr z_get_variable_reference_and_value
-	jmp .store_operand
+;	jmp .store_operand
 } else {
 	cmp #16
 	bcs .read_global_var
@@ -457,6 +458,7 @@ read_operand
 	tax
 	dey
 	lda (z_local_vars_ptr),y
+} ; Not COMPLEX_MEMORY
 
 .store_operand
 	ldy z_operand_count
@@ -512,13 +514,13 @@ read_operand
 	lda (z_high_global_vars_ptr),y
 	bcs .store_operand ; Always branch
 } ; end COMPLEX_MEMORY
-}
+
 !ifndef UNSAFE {
 .nonexistent_local
 	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 } ; Ifdef SLOW {} else
-
+} ; zone read_operand
 
 ; These instructions use variable references: inc,  dec,  inc_chk,  dec_chk,  store,  pull,  load
 
