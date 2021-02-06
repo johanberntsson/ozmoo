@@ -633,7 +633,7 @@ s_erase_window
 	; set screenpos (current line) using row
 	ldx zp_screenrow
 	cpx s_current_screenpos_row
-	beq +
+	beq .same_row
 	; need to recalculate zp_screenline
 	stx s_current_screenpos_row
 !ifdef TARGET_MEGA65 {
@@ -666,14 +666,25 @@ s_erase_window
 	sta zp_colourline+1
 } else {
 	; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
-	stx multiplier
-	lda s_screen_width
-	sta multiplicand
-	lda #0
-	sta multiplier + 1
-	sta multiplicand + 1
-	jsr mult16
-	lda product
+	stx product + 1
+	txa
+	asl ; 2x
+	asl ; 4x
+	adc product + 1 ; 5x
+	asl ; 10x
+	asl
+	ldx #0
+	stx product + 1
+	rol product + 1 ; 20x
+	asl
+	rol product + 1 ; 40x
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	beq ++
+	asl
+	rol product + 1
+++
+}
 	sta zp_screenline
 	sta zp_colourline
 	lda product + 1
@@ -685,7 +696,8 @@ s_erase_window
 	adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
 	sta zp_colourline + 1
 }
-+   rts
+.same_row
+	rts
 
 !ifdef TARGET_C128 {
 .s_scroll_vdc
