@@ -184,7 +184,7 @@ Optimizations:
   page, to avoid cycle penalty in lookup.
 - Optimized lookup in vmem table to it's faster and so the lowbyte part 
   doesn't pass a page boundary.
-- Fixed slowness in printing which was introduced in Ozmoo 4.5.
+- Made scrolling faster. A lot.
 
 Fixed bugs:
 - Warning with latest Acme due to typo ("Hex literal without any digits")
