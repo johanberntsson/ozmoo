@@ -2051,12 +2051,7 @@ else
 	$zmachine_memory_size *= 4
 end
 
-# unless $story_file_data.length == $zmachine_memory_size
-	# $story_file_data.slice!($zmachine_memory_size)
-# end
-
-
-unless $story_file_data.length % $VMEM_BLOCKSIZE == 0
+if $story_file_data.length % $VMEM_BLOCKSIZE != 0 && mode != MODE_P
 	$story_file_data += $ZEROBYTE * ($VMEM_BLOCKSIZE - ($story_file_data.length % $VMEM_BLOCKSIZE))
 end
 
