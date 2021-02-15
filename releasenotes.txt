@@ -195,3 +195,5 @@ Fixed bugs:
 - @read_char didn't reset the row counter for the MORE prompt.
 - Score/Time in z3 statusline is now placed close to the right-hand border 
   even on 80 column screens.
+- Fixed bug in calculate_propery_length_number (issue 29)
+
