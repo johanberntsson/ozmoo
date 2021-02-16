@@ -633,7 +633,7 @@ s_erase_window
 	; set screenpos (current line) using row
 	ldx zp_screenrow
 	cpx s_current_screenpos_row
-	beq +
+	beq .same_row
 	; need to recalculate zp_screenline
 	stx s_current_screenpos_row
 !ifdef TARGET_MEGA65 {
@@ -666,14 +666,25 @@ s_erase_window
 	sta zp_colourline+1
 } else {
 	; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
-	stx multiplier
-	lda s_screen_width
-	sta multiplicand
-	lda #0
-	sta multiplier + 1
-	sta multiplicand + 1
-	jsr mult16
-	lda product
+	stx product + 1
+	txa
+	asl ; 2x
+	asl ; 4x
+	adc product + 1 ; 5x
+	asl ; 10x
+	asl
+	ldx #0
+	stx product + 1
+	rol product + 1 ; 20x
+	asl
+	rol product + 1 ; 40x
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	beq ++
+	asl
+	rol product + 1
+++
+}
 	sta zp_screenline
 	sta zp_colourline
 	lda product + 1
@@ -685,7 +696,8 @@ s_erase_window
 	adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
 	sta zp_colourline + 1
 }
-+   rts
+.same_row
+	rts
 
 !ifdef TARGET_C128 {
 .s_scroll_vdc
@@ -752,61 +764,75 @@ s_erase_window
 	cmp s_screen_height
 	bpl +
 	rts
-+   ldx window_start_row + 1 ; how many top lines to protect
++	
+!ifdef TARGET_MEGA65 {
+	jsr colour2k	
+}
+	ldx window_start_row + 1 ; how many top lines to protect
 	stx zp_screenrow
--   jsr .update_screenpos
-	lda zp_screenline
-	pha
-	lda zp_screenline + 1
-	pha
 	inc zp_screenrow
 	jsr .update_screenpos
-	pla
-	sta zp_colourline + 1
-	pla
-	sta zp_colourline
-	; move characters
-	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
---
-	!ifdef TARGET_MEGA65 {
-		jsr colour2k	
-	}
-	lda (zp_screenline),y ; zp_screenrow
-	sta (zp_colourline),y ; zp_screenrow - 1
-	dey
-	bpl --
-	!ifdef TARGET_MEGA65 {
-		jsr colour1k
-	}
-	; move colour info
+	lda zp_screenline
+	sta .scroll_load_screen + 1
 	lda zp_screenline + 1
-	pha
-	clc
-;    adc #>($D800 - SCREEN_ADDRESS)
-	adc #>COLOUR_ADDRESS_DIFF
-	sta zp_screenline + 1
+	sta .scroll_load_screen + 2
+	lda zp_colourline
+	sta .scroll_load_colour + 1
 	lda zp_colourline + 1
-	clc
-;    adc #>($D800 - SCREEN_ADDRESS)
-	adc #>COLOUR_ADDRESS_DIFF
-	sta zp_colourline + 1
-	ldy s_screen_width_minus_one ; #SCREEN_WIDTH-1
---
-	!ifdef TARGET_MEGA65 {
-		jsr colour2k
-	}
-	lda (zp_screenline),y ; zp_screenrow
-	sta (zp_colourline),y ; zp_screenrow - 1
+	sta .scroll_load_colour + 2
+	dec zp_screenrow
+	jsr .update_screenpos
+	lda s_screen_height_minus_one
+	sec
+	sbc zp_screenrow
+	tax
+-
+	ldy s_screen_width_minus_one
+.scroll_load_screen
+	lda $8000,y ; This address is modified above
+	sta (zp_screenline),y
+.scroll_load_colour
+	lda $8000,y ; This address is modified above
+	sta (zp_colourline),y
 	dey
-	bpl --
-	!ifdef TARGET_MEGA65 {
-		jsr colour1k
-	}
-	pla
-	sta zp_screenline + 1
-	lda zp_screenrow
-	cmp s_screen_height_minus_one
-	bne -
+	bpl .scroll_load_screen
+	dex
+	beq .done_scrolling
+	lda zp_screenline
+	clc
+	adc s_screen_width
+	sta zp_screenline
+	bcc +
+	inc zp_screenline + 1
++		
+	lda zp_colourline
+	clc
+	adc s_screen_width
+	sta zp_colourline
+	bcc +
+	inc zp_colourline + 1
++	
+	lda .scroll_load_screen + 1
+	clc
+	adc s_screen_width
+	sta .scroll_load_screen + 1
+	bcc +
+	inc .scroll_load_screen + 2
++		
+	lda .scroll_load_colour + 1
+	clc
+	adc s_screen_width
+	sta .scroll_load_colour + 1
+	bcc +
+	inc .scroll_load_colour + 2
++	jmp -
+
+.done_scrolling
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
+	lda s_screen_height_minus_one
+	sta zp_screenrow
 	lda #$ff
 	sta s_current_screenpos_row ; force recalculation
 s_erase_line

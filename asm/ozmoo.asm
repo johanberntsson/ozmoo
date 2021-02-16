@@ -768,8 +768,6 @@ game_id		!byte 0,0,0,0
 	jsr stack_init
 
 	jsr deletable_screen_init_2
-	ldx #$ff
-	jsr erase_window
 
 	jsr z_init
 
@@ -1083,17 +1081,11 @@ deletable_screen_init_1
 	jmp erase_window
 
 deletable_screen_init_2
-	; start text output from bottom of the screen
-	
-	lda #147 ; clear screen
-	jsr s_printchar
+	; clear and unsplit screen, start text output from bottom of the screen (top of screen if z5)
 	ldy #1
 	sty is_buffered_window
 	ldx #$ff
 	jsr erase_window
-	ldy #0
-	ldx #1
-	jsr set_cursor
 	jmp start_buffering
 
 z_init

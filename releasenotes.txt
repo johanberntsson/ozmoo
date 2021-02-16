@@ -172,6 +172,20 @@ Release 6: Bugfix release
 New/changed features:
 - Updated to Exomizer 3.1.0.
 
+Optimizations:
+- Reordered and optimized code in the main loop to shave off some cycles,
+  based on how often differect code paths are used.
+- Changed jump in main loop using self-modifying code to avoid checking the
+  z_exe_mode for every instruction.
+- Optimized reading of object property data.
+- Cache y value in new ZP register (mempointer_y) in vmem routines.
+- Optimized skip_bytes_z_address.
+- Moved Z-code instruction jump table to where it will always be in the same
+  page, to avoid cycle penalty in lookup.
+- Optimized lookup in vmem table to it's faster and so the lowbyte part 
+  doesn't pass a page boundary.
+- Made scrolling faster. A lot.
+
 Fixed bugs:
 - Warning with latest Acme due to typo ("Hex literal without any digits")
 - Builds crashed if -t:c64 was specified, due to SUPPORT_REU being undefined.
@@ -179,4 +193,7 @@ Fixed bugs:
 - Fixed bug which set colour incorrectly when clearing lines or entire screen
   on Plus/4
 - @read_char didn't reset the row counter for the MORE prompt.
+- Score/Time in z3 statusline is now placed close to the right-hand border 
+  even on 80 column screens.
+- Fixed bug in calculate_propery_length_number (issue 29)
 
