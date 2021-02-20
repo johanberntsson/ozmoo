@@ -171,6 +171,9 @@ Release 6: Bugfix release
 
 New/changed features:
 - Updated to Exomizer 3.1.0.
+- Changed so when Ozmoo is built without vmem (mode -P), SLOW mode is 
+  automatically enabled, and no buffers are used - memory access under IO /ROM
+  is instead done with banking.
 
 Optimizations:
 - Reordered and optimized code in the main loop to shave off some cycles,
@@ -196,4 +199,12 @@ Fixed bugs:
 - Score/Time in z3 statusline is now placed close to the right-hand border 
   even on 80 column screens.
 - Fixed bug in calculate_propery_length_number (issue 29)
-
+- Moved calls to before_dynmem_read and after_dynmem_read in objecttable.asm 
+  around to make sure they're always executed.
+- Changed so the number of cache pages is always set to 4 when building for
+  C128, since it has to be that size or Ozmoo crashes.
+- Changed so the number of cache pages is set to 0 or 1 (depending on splash
+  screen) when using build mode -P (which doesn't use the cache).
+- SLOW mode wasn't really working any more for platforms other than Plus/4.
+  Fixed.
+  

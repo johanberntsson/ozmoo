@@ -554,10 +554,10 @@ z_ins_jin
 	lda z_operand_value_high_arr
 	jsr calculate_object_address
 
+	+before_dynmem_read
 !ifndef Z4PLUS {
 	ldy #4  ; parent
 
-	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
 	sta $02aa
@@ -566,7 +566,6 @@ z_ins_jin
 } else {
 	lda (object_tree_ptr),y
 }
-	+after_dynmem_read
 
 	cmp z_operand_value_low_arr + 1
 	bne .branch_false
@@ -574,7 +573,6 @@ z_ins_jin
 } else {
 	ldy #6  ; parent
 
-	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
 	jsr read_word_from_bank_1_c128
@@ -589,7 +587,6 @@ z_ins_jin
 	lda (object_tree_ptr),y
 	cmp z_operand_value_low_arr + 1
 }
-	+after_dynmem_read
 
 	bne .branch_false
 	beq .branch_true ; Always branch
@@ -610,13 +607,14 @@ z_ins_test_attr
 } else {
 	lda (object_tree_ptr),y
 }
-	+after_dynmem_read
 
 	and .bitmask,x
 	beq .branch_false
 .branch_true 
+	+after_dynmem_read
 	jmp make_branch_true
 .branch_false
+	+after_dynmem_read
 	jmp make_branch_false
 
 z_ins_set_attr
