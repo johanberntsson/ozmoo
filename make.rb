@@ -1818,9 +1818,11 @@ begin
 				$memory_end_address = 0xfc00
 				$unbanked_ram_end_address = 0xc000
 				$normal_ram_end_address = $memory_end_address
+				$CACHE_PAGES = 4 # Cache is static size on C128
 			end
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
+			$CACHE_PAGES = 1 # We're not actually using the cache, but there may be a splash screen in it
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then
@@ -1903,6 +1905,10 @@ unless mode
 		mode = MODE_S1
 	end
 end
+
+if mode == MODE_P && $splash_wait == "0"
+	$CACHE_PAGES = 0 # We're not actually using the cache, but there may be a splash screen in it
+end	
 
 if mode == MODE_71 and $target != 'c128'
 	puts "ERROR: Build mode 71 is not supported on this target platform."
@@ -2051,7 +2057,7 @@ else
 	$zmachine_memory_size *= 4
 end
 
-if $story_file_data.length % $VMEM_BLOCKSIZE != 0 && mode != MODE_P
+if $story_file_data.length % $VMEM_BLOCKSIZE != 0 # && mode != MODE_P
 	$story_file_data += $ZEROBYTE * ($VMEM_BLOCKSIZE - ($story_file_data.length % $VMEM_BLOCKSIZE))
 end
 

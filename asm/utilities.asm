@@ -134,8 +134,9 @@ plus4_enable_rom = $ff3e
 	cli
 }
 
-; !ifdef SLOW {
-!ifdef TARGET_PLUS4 {
+
+
+!ifdef SLOW {
 read_next_byte_at_z_pc_sub
 	ldy #0
 !ifdef TARGET_PLUS4 {
@@ -145,7 +146,15 @@ read_next_byte_at_z_pc_sub
 	sta plus4_enable_rom
 	cli
 } else {
+!ifdef SKIP_BUFFER {
+	+disable_interrupts
+	+set_memory_all_ram_unsafe
 	lda (z_pc_mempointer),y
+	+set_memory_no_basic
+	+enable_interrupts
+} else {
+	lda (z_pc_mempointer),y
+}
 }
 	inc z_pc_mempointer ; Also increases z_pc
 	beq ++

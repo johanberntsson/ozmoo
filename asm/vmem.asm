@@ -7,7 +7,15 @@ vmem_cache_page_index !fill cache_pages + 1, 0
 vmem_cache_bank_index !fill cache_pages + 1, 0
 }
 
-!ifndef TARGET_PLUS4 {
+!ifdef TARGET_PLUS4 {
+	SKIP_VMEM_BUFFERS = 1
+} else {
+!ifdef SKIP_BUFFER {
+	SKIP_VMEM_BUFFERS = 1
+}
+}
+
+!ifndef SKIP_VMEM_BUFFERS {
 get_free_vmem_buffer
 	; Protect buffer which z_pc points to
 	lda vmem_cache_cnt
@@ -54,6 +62,13 @@ read_byte_at_z_address
 	cpx zp_pc_l
 	bne .read_new_byte
 	; same 256 byte segment, just return
+!ifdef SKIP_BUFFER {
+	txa
+	clc
+	adc #>story_start
+	cmp #first_banked_memory_page
+	bcs .read_under_rom
+}
 .return_result
 	+before_dynmem_read
 	lda (mempointer),y
@@ -70,10 +85,19 @@ read_byte_at_z_address
 	sta mempointer + 1
 !ifdef TARGET_PLUS4 {
 	bne .return_result ; Always branch
-} else {	
+} else {
 	cmp #first_banked_memory_page
 	bcc .return_result
-; swapped memory
+; Memory under IO / ROM
+!ifdef SKIP_BUFFER {
+.read_under_rom
+	+disable_interrupts
+	+set_memory_all_ram_unsafe
+	lda (mempointer),y
+	+set_memory_no_basic
+	+enable_interrupts
+	rts
+} else { 	
 	; Check if this page is in cache
 	ldx #vmem_cache_count - 1
 -   cmp vmem_cache_page_index,x
@@ -104,6 +128,7 @@ read_byte_at_z_address
 	jsr inc_vmem_cache_cnt
 	ldy mempointer_y
 	jmp .return_result 
+} ; Not SKIP_VMEM_BUFFERS
 } ; Not TARGET_PLUS4
 	
 } else {
