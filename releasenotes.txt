@@ -188,6 +188,7 @@ Optimizations:
 - Optimized lookup in vmem table to it's faster and so the lowbyte part 
   doesn't pass a page boundary.
 - Made scrolling faster. A lot.
+- Slight optimizations in test_attr, set_attr and clear_attr.
 
 Fixed bugs:
 - Warning with latest Acme due to typo ("Hex literal without any digits")

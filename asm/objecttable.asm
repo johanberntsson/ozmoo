@@ -598,16 +598,14 @@ z_ins_test_attr
 
 	+before_dynmem_read
 !ifdef TARGET_C128 {
-	stx object_temp
 	lda #object_tree_ptr
 	sta $02aa
 	ldx #$7f
 	jsr $02a2
-	ldx object_temp
+	ldx .bitmask_index
 } else {
 	lda (object_tree_ptr),y
 }
-
 	and .bitmask,x
 	beq .branch_false
 .branch_true 
@@ -619,16 +617,13 @@ z_ins_test_attr
 
 z_ins_set_attr
 	; set_attr object attribute
-	jsr find_attr
 	; don't continue if object = 0
-	ldx z_operand_value_low_arr
+	lda z_operand_value_low_arr
 	bne .do_set_attr
-	ldx z_operand_value_high_arr
-	bne .do_set_attr
-	rts
+	lda z_operand_value_high_arr
+	beq .done
 .do_set_attr
-	ldy .attribute_index
-
+	jsr find_attr
 	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
@@ -645,27 +640,24 @@ z_ins_set_attr
 	ldx #$7f
 	jmp $02af
 } else {
-	ldx .bitmask_index
 	lda (object_tree_ptr),y
 	ora .bitmask,x
 	sta (object_tree_ptr),y
 }
 +
 	+after_dynmem_read
+.done
 	rts
 
 z_ins_clear_attr
 	; clear_attr object attribute
-	jsr find_attr
 	; don't continue if object = 0
-	ldx z_operand_value_low_arr
+	lda z_operand_value_low_arr
 	bne .do_clear_attr
-	ldx z_operand_value_high_arr
-	bne .do_clear_attr
-	rts
+	lda z_operand_value_high_arr
+	beq .done
 .do_clear_attr
-	ldy .attribute_index
-
+	jsr find_attr
 	+before_dynmem_read
 !ifdef TARGET_C128 {
 	lda #object_tree_ptr
@@ -682,7 +674,6 @@ z_ins_clear_attr
 	ldx #$7f
 	jmp $02af
 } else {
-	ldx .bitmask_index
 	lda (object_tree_ptr),y
 	and .bitmask,x
 	beq +
