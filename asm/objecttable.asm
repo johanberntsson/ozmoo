@@ -520,7 +520,7 @@ z_ins_print_obj
 	; print_obj object
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
-	jmp print_obj
+;	jmp print_obj ; Not needed since print_obj follows just after
 
 print_obj
 	jsr calculate_object_address
@@ -1052,9 +1052,20 @@ parse_object_table
 	; store start of objects
 	clc
 	adc default_properties_ptr
-	sta objects_start_ptr
+	tay
 	lda default_properties_ptr + 1
 	adc #0
+	tax
+	tya
+	sec
+!Ifdef Z3 {
+	sbc #9
+} else {
+	sbc #14
+}
+	sta objects_start_ptr
+	txa
+	sbc #0
 	sta objects_start_ptr + 1
 	rts
 
@@ -1065,8 +1076,9 @@ calculate_object_address
 	; used registers: a,x,y
 	; side effects:
 !ifdef Z3 {
-	; To get address, decrease obj# by 1 and multiply by 9 (Calculate 8 * (obj# - 1) + (obj# - 1))
-	dex ; x is one too high, since the first object is #1
+	; To get address, multiply by 9 (Calculate 8 * obj# + obj#)
+;	dex ;  (object_start_ptr points 9 bytes before first obj, so no need for dex)
+
 	stx object_tree_ptr
 	lda #0
 	sta object_tree_ptr + 1
@@ -1081,34 +1093,9 @@ calculate_object_address
 	tax
 	lda object_tree_ptr + 1
 	adc #0
-} else {
-	; To get address, decrease obj# by 1 and multiply by 14 (Calculate 16 * (obj# - 1) - 2 * (obj# - 1))
-	dex
-	cpx #$ff
-	bne +
-	sbc #1
-+	sta object_temp + 1
-	txa
-	asl ; * 2
-	sta object_temp
-	rol object_temp + 1 ; * 2
-	; Now we have (obj# - 1) * 2 in object_temp
-	ldy object_temp + 1
-	sty object_tree_ptr + 1
-	asl ; * 4
-	rol object_tree_ptr + 1 ; * 4
-	asl ; * 8
-	rol object_tree_ptr + 1 ; * 8
-	asl ; * 16
-	rol object_tree_ptr + 1 ; * 16
-	sec
-	sbc object_temp
-	tax
-	lda object_tree_ptr + 1
-	sbc object_temp + 1
-	clc
-}
-	; Object offset is now in a,x (high, low). Just need to add start address of object 1.
+
+	; Object offset is now in a,x (high, low). Just need to add start address of object 0
+	; Ofcourse object 0 doesn't exist, but objects_start_ptr points to it, to make calculations faster
 	tay
 	txa
 	adc objects_start_ptr
@@ -1116,5 +1103,41 @@ calculate_object_address
 	tya
 	adc objects_start_ptr + 1
 	sta object_tree_ptr + 1
+	
+} else {
+	; To get address, multiply by 14 (Calculate (8 * obj# - obj#) * 2)
+;	dex ;  (object_start_ptr points 14 bytes before first obj, so no need for dex)
+;	cpx #$ff
+;	bne +
+;	sbc #1
+;+	
+	stx object_temp
+	sta object_temp + 1
+	sta object_tree_ptr + 1
+	txa
+	asl ; * 2
+	rol object_tree_ptr + 1
+	asl ; * 4
+	rol object_tree_ptr + 1
+	asl ; * 8
+	rol object_tree_ptr + 1
+	sec
+	sbc object_temp ; * 7
+	tax
+	lda	object_tree_ptr + 1
+	sbc object_temp + 1
+	sta object_tree_ptr + 1
+	txa
+	asl ; * 14
+	rol object_tree_ptr + 1
+	
+	; Object offset is now in (object_tree_ptr + 1),a (high, low). Just need to add start address of object 0
+	; Ofcourse object 0 doesn't exist, but objects_start_ptr points to it, to make calculations faster
+	adc objects_start_ptr
+	sta object_tree_ptr
+	lda object_tree_ptr + 1
+	adc objects_start_ptr + 1
+	sta object_tree_ptr + 1
+}
 	rts
 	

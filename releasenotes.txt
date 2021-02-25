@@ -189,6 +189,7 @@ Optimizations:
   doesn't pass a page boundary.
 - Made scrolling faster. A lot.
 - Slight optimizations in test_attr, set_attr and clear_attr.
+- Optimized calculation of object address
 
 Fixed bugs:
 - Warning with latest Acme due to typo ("Hex literal without any digits")
