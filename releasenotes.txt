@@ -173,11 +173,11 @@ New/changed features:
 - Updated to Exomizer 3.1.0.
 - Changed so when Ozmoo is built without vmem (mode -P), SLOW mode is 
   automatically enabled, and no buffers are used - memory access under IO /ROM
-  is instead done with banking.
+  is instead done with banking. This allows for bigger games to use this mode.
 
 Optimizations:
 - Reordered and optimized code in the main loop to shave off some cycles,
-  based on how often differect code paths are used.
+  based on how often different code paths are used.
 - Changed jump in main loop using self-modifying code to avoid checking the
   z_exe_mode for every instruction.
 - Optimized reading of object property data.
@@ -205,7 +205,7 @@ Fixed bugs:
   around to make sure they're always executed.
 - Changed so the number of cache pages is always set to 4 when building for
   C128, since it has to be that size or Ozmoo crashes.
-- Changed so the number of cache pages is set to 0 or 1 (depending on splash
+- Changed so the number of cache pages is set to 0, 1 or 2 (depending on splash
   screen) when using build mode -P (which doesn't use the cache).
 - SLOW mode wasn't really working any more for platforms other than Plus/4.
   Fixed.

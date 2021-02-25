@@ -1822,7 +1822,7 @@ begin
 			end
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
-			$CACHE_PAGES = 1 # We're not actually using the cache, but there may be a splash screen in it
+			$CACHE_PAGES = 2 # We're not actually using the cache, but there may be a splash screen in it
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then
@@ -1868,7 +1868,7 @@ begin
 			await_imagefile = true
 			$loader_flicker = ARGV[i] =~ /f$/
 		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
-			splashes[$1.to_i - 1] = $2 
+			splashes[$1.to_i - 1] = $2
 		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
 			$splash_wait = $1
 		elsif ARGV[i] =~ /^-cc:([0-9])$/ then
@@ -1906,8 +1906,18 @@ unless mode
 	end
 end
 
-if mode == MODE_P && $splash_wait == "0"
-	$CACHE_PAGES = 0 # We're not actually using the cache, but there may be a splash screen in it
+if mode == MODE_P
+	# In this mode, we don't use the vmem buffer for holding vmem data. However, the
+	# splash screen resides in the buffer too. By default it's 2 pages in this mode.
+	if $splash_wait == "0"
+		$CACHE_PAGES = 0 # We don't have any use for the cache whatsoever
+	else
+		len = 0
+		splashes.each { |s| len += s.length }
+		if len <= 100
+			$CACHE_PAGES = 1 # With this little text, we can go down from 2 pages to 1
+		end
+	end
 end	
 
 if mode == MODE_71 and $target != 'c128'
