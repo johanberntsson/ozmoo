@@ -1771,15 +1771,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 .reu_error
 	jmp reu_error
 
-.no_reu
-	lda #78 + 128
-.print_reply_and_return
-	jsr s_printchar
-	lda #13
-	jmp s_printchar
-.no_reu_present	
-	rts
-
 reu_start
 	lda #0
 	sta use_reu
@@ -1789,7 +1780,11 @@ reu_start
 	inx
 	cpx reu_c64base
 	bne .no_reu_present
-; REU detected
+; REU detected, check size
+;	jsr check_reu_size
+;	sta $0700
+	
+
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
 	jsr printstring_raw
@@ -1810,6 +1805,15 @@ reu_start
 }
 	ora #$80
 	bne .print_reply_and_return ; Always branch
+
+.no_reu
+	lda #78 + 128
+.print_reply_and_return
+	jsr s_printchar
+	lda #13
+	jmp s_printchar
+.no_reu_present	
+	rts
 	
 .use_reu_question
 	!pet 13,"Use REU? (Y/N) ",0
