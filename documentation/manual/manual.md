@@ -273,6 +273,9 @@ Default colours: This picks the Z-code colours to use as default background and 
     -sc:(Statusline colour)
 Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 3 story files (z3).
 
+    -ic:(Statusline colour)
+Input colour: This picks the Z-code colour to use for player input text. This is only possible with version 3 and 4 story files (z3 and z4).
+
     -bc:(Border colour)
 Border colour. This picks the Z-code colour to use as border colour. 
 Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
@@ -284,6 +287,8 @@ Cursor colour: This picks the Z-code colour for the cursor shown when waiting fo
     -dmdc: (same as -dc but for darkmode)
 
     -dmsc: (same as -sc but for darkmode)
+
+    -dmic: (same as -ic but for darkmode)
 
     -dmbc: (same as -bc but for darkmode)
 

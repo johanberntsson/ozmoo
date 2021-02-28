@@ -154,12 +154,18 @@
 !ifndef FGCOL {
 	FGCOL = 2
 }
+!ifndef INPUTCOL {
+	INPUTCOL = FGCOL
+}
 
 !ifndef BGCOLDM {
 	BGCOLDM = 2
 }
 !ifndef FGCOLDM {
 	FGCOLDM = 4
+}
+!ifndef INPUTCOLDM {
+	INPUTCOLDM = FGCOLDM
 }
 
 ; Border color: 0 = as background, 1 = as foreground, 2-9: specified Z-code colour. Default: as background

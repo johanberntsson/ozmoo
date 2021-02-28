@@ -837,6 +837,9 @@ def build_interpreter()
 	if $statusline_colour
 		colourflags += " -DSTATCOL=#{$statusline_colour}"
 	end
+	if $input_colour
+		colourflags += " -DINPUTCOL=#{$input_colour}"
+	end
 	if $no_darkmode
 		colourflags += " -DNODARKMODE=1"
 	else
@@ -848,6 +851,9 @@ def build_interpreter()
 		end
 		if $statusline_colour_dm
 			colourflags += " -DSTATCOLDM=#{$statusline_colour_dm}"
+		end
+		if $input_colour_dm
+			colourflags += " -DINPUTCOLDM=#{$input_colour_dm}"
 		end
 		if $cursor_colour_dm
 			colourflags += " -DCURSORCOLDM=#{$cursor_colour_dm}"
@@ -1701,8 +1707,8 @@ def print_usage_and_exit
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>]"
-	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
-	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
+	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
+	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128 and plus4."
@@ -1725,6 +1731,7 @@ def print_usage_and_exit
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
@@ -1764,6 +1771,8 @@ $default_colours = []
 $default_colours_dm = []
 $statusline_colour = nil
 $statusline_colour_dm = nil
+$input_colour = nil
+$input_colour_dm = nil
 $target = 'c64'
 $border_colour = nil
 $border_colour_dm = nil
@@ -1854,6 +1863,10 @@ begin
 			$statusline_colour = $1.to_i
 		elsif ARGV[i] =~ /^-dmsc:([2-9])$/ then
 			$statusline_colour_dm = $1.to_i
+		elsif ARGV[i] =~ /^-ic:([2-9])$/ then
+			$input_colour = $1.to_i
+		elsif ARGV[i] =~ /^-dmic:([2-9])$/ then
+			$input_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
@@ -2077,6 +2090,11 @@ $vmem_highbyte_mask = ($zcode_version == 3) ? 0x00 : (($zcode_version == 8) ? 0x
 
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
 	puts "ERROR: Options -sc and -dmsc can only be used with z3 story files."
+	exit 1
+end	
+
+if ($input_colour or $input_colour_dm) and $zcode_version > 4
+	puts "ERROR: Options -ic and -dmic can only be used with z3 and z4 story files."
 	exit 1
 end	
 

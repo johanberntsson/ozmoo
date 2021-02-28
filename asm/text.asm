@@ -292,6 +292,23 @@ z_ins_read
 +	sta .read_text_time
 	sty .read_text_time + 1
 }
+
+!ifndef Z5PLUS {
+
+!ifdef Z4 {
+	cpx #3
+	bcs .dont_colour_input ; time and routine are set
+}
+
+; Set inputcolour
+	ldx darkmode
+	ldy inputcol,x
+	lda zcolours,y
+	jsr s_set_text_colour
+
+.dont_colour_input
+}
+
 	; Read input
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
@@ -423,6 +440,24 @@ z_ins_read
 	ldx .read_text_return_value
 	jmp z_store_result
 } else {
+
+
+!ifndef Z5PLUS {
+
+!ifdef Z4 {
+	ldx .read_text_operand_count
+	cpx #3
+	bcs .dont_colour_input_2 ; time and routine are set
+}
+
+; Restore normal text colour
+	ldx darkmode
+	ldy fgcol,x
+	lda zcolours,y
+	jsr s_set_text_colour
+.dont_colour_input_2
+}
+
 	rts
 }
 ; ============================= End of new unified read instruction
