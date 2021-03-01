@@ -937,12 +937,64 @@ toggle_darkmode
 	lda plus4_vic_colours,y
 }
 	sta z_temp + 9 ; old fg colour
+} else { ; This is z3 or z4
+!ifdef USE_INPUTCOL {
+
+	; We will need the old input colour later, to check which characters are input text
+	ldx darkmode ; previous darkmode value (0 or 1)
+	ldy inputcol,x
+	lda zcolours,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
 }
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
+	sta z_temp + 9 ; old input colour
+
+	; If the mode we switch *from* has inputcol = fgcol, make sure inputcol is never matched
+	lda inputcol,x
+	cmp fgcol,x
+	bne +
+	inc z_temp + 9
++
+} ; USE_INPUTCOL
+
+} ; else (not Z5PLUS)
+
+
+
 ; Toggle darkmode
 	lda darkmode
 	eor #1
 	sta darkmode
 	tax
+	
+!ifdef USE_INPUTCOL {
+	ldy inputcol,x
+	lda zcolours,y
+!ifdef TARGET_C128 {
+	ldy COLS_40_80
+	beq +
+	; 80 columns mode selected
+	tay
+	lda vdc_vic_colours,y
++
+}
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
+	sta z_temp + 8 ; new input colour
+
+} ; USE_INPUTCOL	
+	
 ; Set fgcolour
 	ldy fgcol,x
 	lda zcolours,y
@@ -1068,6 +1120,21 @@ toggle_darkmode
 .change	
 	lda z_temp + 7
 }
+
+!ifdef USE_INPUTCOL {
+	lda (z_temp + 10),y
+!ifndef TARGET_PLUS4 {
+	and #$0f
+}
+	cmp z_temp + 9
+	bne .change
+	lda z_temp + 8
+	bne + ; Always branch
+.change	
+	lda z_temp + 7
++
+}
+
 }
 !ifdef TARGET_C128 {
 	pha
@@ -1108,6 +1175,15 @@ toggle_darkmode
 	bne .compare
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
+}
+
+!ifdef USE_INPUTCOL {
+	; Switch to the new input colour, if input colour is active (we could be at a MORE prompt or in a timed input)
+	lda input_colour_active
+	beq +
+	jsr activate_inputcol
+	ldx darkmode
++
 }
 	jmp update_cursor
 } ; ifndef NODARKMODE

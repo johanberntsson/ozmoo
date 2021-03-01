@@ -7,6 +7,9 @@
 .text_tmp	!byte 0
 .current_character !byte 0
 .petscii_char_read = zp_temp
+!ifdef USE_INPUTCOL {
+input_colour_active !byte 0
+}
 
 ; only ENTER + cursor + F1-F8 possible on a C64
 num_terminating_characters !byte 1
@@ -261,6 +264,26 @@ z_ins_print_ret
 	jmp stack_return_from_routine
 
 
+!ifdef USE_INPUTCOL {
+activate_inputcol
+!ifdef Z4 {
+	lda #0
+	sta input_colour_active
+	cpx #3
+	bcs .dont_colour_input ; time and routine are set
+}
+; Set inputcolour
+	ldx darkmode
+	ldy inputcol,x
+	lda zcolours,y
+	jsr s_set_text_colour
+	lda #$ff
+	sta input_colour_active
+.dont_colour_input
+	rts
+}
+
+
 ; ============================= New unified read instruction
 z_ins_read
 	; z3: sread text parse
@@ -293,20 +316,10 @@ z_ins_read
 	sty .read_text_time + 1
 }
 
+
+
 !ifdef USE_INPUTCOL {
-
-!ifdef Z4 {
-	cpx #3
-	bcs .dont_colour_input ; time and routine are set
-}
-
-; Set inputcolour
-	ldx darkmode
-	ldy inputcol,x
-	lda zcolours,y
-	jsr s_set_text_colour
-
-.dont_colour_input
+	jsr activate_inputcol
 }
 
 	; Read input
@@ -444,6 +457,8 @@ z_ins_read
 
 !ifdef USE_INPUTCOL {
 ; Restore normal text colour
+	lda #0
+	sta input_colour_active
 	ldx darkmode
 	ldy fgcol,x
 	lda zcolours,y
