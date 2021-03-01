@@ -168,6 +168,13 @@
 	INPUTCOLDM = FGCOLDM
 }
 
+!ifndef Z5PLUS {
+	!if (INPUTCOL != FGCOL) OR (INPUTCOLDM != FGCOLDM) {
+		USE_INPUTCOL = 1
+	}
+}
+
+
 ; Border color: 0 = as background, 1 = as foreground, 2-9: specified Z-code colour. Default: as background
 
 !ifndef BORDERCOL {

@@ -293,7 +293,7 @@ z_ins_read
 	sty .read_text_time + 1
 }
 
-!ifndef Z5PLUS {
+!ifdef USE_INPUTCOL {
 
 !ifdef Z4 {
 	cpx #3
@@ -442,7 +442,7 @@ z_ins_read
 } else {
 
 
-!ifndef Z5PLUS {
+!ifdef USE_INPUTCOL {
 
 !ifdef Z4 {
 	ldx .read_text_operand_count

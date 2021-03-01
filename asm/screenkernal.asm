@@ -72,7 +72,7 @@ darkmode	!byte 0
 bgcol		!byte BGCOL, BGCOLDM
 fgcol		!byte FGCOL, FGCOLDM
 bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
-!ifndef Z5PLUS {
+!ifdef USE_INPUTCOL {
 inputcol	!byte INPUTCOL, INPUTCOLDM
 }
 !ifdef Z3 {
