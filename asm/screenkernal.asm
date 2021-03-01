@@ -1107,7 +1107,9 @@ toggle_darkmode
 .compare
 !ifdef TARGET_C128 {
 	lda z_temp + 7  ; too much work to read old colour from VDC
-} else {
+	bit COLS_40_80
+	bmi .toggle_80
+} ; else {
 !ifdef Z5PLUS {
 	lda (z_temp + 10),y
 !ifndef TARGET_PLUS4 {
@@ -1135,7 +1137,9 @@ toggle_darkmode
 +
 }
 
-}
+.toggle_80
+
+; }
 !ifdef TARGET_C128 {
 	pha
 	lda COLS_40_80
