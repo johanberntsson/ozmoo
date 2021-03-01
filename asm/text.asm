@@ -443,19 +443,11 @@ z_ins_read
 
 
 !ifdef USE_INPUTCOL {
-
-!ifdef Z4 {
-	ldx .read_text_operand_count
-	cpx #3
-	bcs .dont_colour_input_2 ; time and routine are set
-}
-
 ; Restore normal text colour
 	ldx darkmode
 	ldy fgcol,x
 	lda zcolours,y
 	jsr s_set_text_colour
-.dont_colour_input_2
 }
 
 	rts
