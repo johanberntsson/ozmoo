@@ -56,7 +56,6 @@
 
 !ifdef TARGET_C64 {
 	HAS_SID = 1
-	; USE_HISTORY = 1
 	!ifdef SLOW {
 		!ifndef VMEM {
 			SKIP_BUFFER = 1
@@ -1053,9 +1052,9 @@ program_end
 
 !ifdef USE_HISTORY {
 history_start
-	!fill 40, 0 ; make sure that there is some command line memory available
-	            ; (however, the actual size can vary between 40 and 255
-	            ; depending on the alignment below)
+	!fill 40, $ff ; make sure that there is some command line memory available
+	              ; (however, the actual size can vary between 40 and 255
+	              ; depending on the alignment below)
 }
 
 !ifndef TARGET_C128 {

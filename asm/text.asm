@@ -1504,11 +1504,32 @@ read_text
 
 !ifdef USE_HISTORY {
 ;
+; entries are stored as:
 ; xxxxx,0,yyyyy,0,zzzz,0....
+; in the area history_start - history_stop
+; 
 ;
+handle_history
+	; update 
+	; input
+	; a is current key (either 129 for cursor up, or 130 for cursor down)
+	;
+	ldy .history_disabled
+	bne ++
+	cmp #129
+	bne +
+	; cursor up
+	inc $d020
+	jmp .readkey
++	; cursor down
+	inc $d021
+++	jmp .readkey
+
 init_history
 	; command history between program_end and z_trace_page
 	lda #0 ; we know that history_end is aligned
+	;sta .history_last
+	;sta .history_current
 	sec
 	sbc #>history_start
 	sta .history_size
@@ -1527,26 +1548,38 @@ enable_history_keys
 
 add_line_to_history
 	; copy the current input to history, if there is space
+	lda .read_text_column
+	clc
+	adc .history_last
+	cmp .history_size
+	bcc +
+	; keep removing lines until the new line fits
+	jsr remove_oldest_history
+	jmp add_line_to_history
++	; add the new line
+	ldy #0
+	ldx .history_last
+-	iny ; since text in string_array,y+2
+	iny
+	+macro_string_array_read_byte
+	sta history_start,x
+	dey ; only one dey since we want to y++ before cpy
+	inx
+	cpy .read_text_column
+	bne -
+	stx .history_last
+	lda #0
+	dex
+	sta history_start,x
 	rts
 
-handle_history
-	; update 
-	; input
-	; a is current key (either 129 for cursor up, or 130 for cursor down)
-	;
-	ldy .history_disabled
-	bne ++
-	cmp #129
-	bne +
-	; cursor up
-	inc $d020
-	jmp .readkey
-+	; cursor down
-	inc $d021
-++	jmp .readkey
+remove_oldest_history
+	rts
 
-.history_size !byte 0
-.history_disabled !byte 0 ; 0 means unedited, otherwise edited
+.history_size !byte 0     ; size of history buffer
+.history_current !byte 0  ; the current entry (when selecting with up/down)
+.history_last !byte 0     ; where to start the next entry
+.history_disabled !byte 0 ; 0 means disabled, otherwise enabled
 }
 
 .read_parse_buffer !byte 0,0
