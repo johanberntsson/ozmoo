@@ -4,12 +4,14 @@
 
 A Z-machine interpreter for the Commodore 64 and similar computers
 
-Written by Johan Berntsson and Fredrik Ramsberg in 2018-2020
+Written by Johan Berntsson and Fredrik Ramsberg in 2018-2021
 
 ![Curses running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
 
 
 ## Status
+
+Update 2021-Mar-02: There is now an official port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmoo.html).
 
 Update 2020-Dec-20: Release 5 with new C128 and Plus/4 targets, Beyond Zork mode, preload updates and bug fixes.
 
@@ -73,6 +75,10 @@ Ozmoo supports:
 ![Ozmoo running Hollywood Hijinx vs Infocom's interpreter running Hollywood Hijinx](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/hollywood.png)
 
 The differences in screen handling are evident in this comparison between Infocom's interpreter (left) and Ozmoo, both showing the first screenful of text in Hollywood Hijinx. Ozmoo manages to squeeze in 872 characters of text, which is 34% more than Infocom's interpreter (650 characters). Both interpreters have reserved the top line for the statusline, but Ozmoo doesn't actually print the statusline until the first prompt.
+
+## Other versions
+
+There is a port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmoo.html).
 
 ## Building and running
 
