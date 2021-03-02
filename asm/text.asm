@@ -1249,6 +1249,9 @@ read_text
 	; check timer usage
 	jsr init_read_text_timer
 }
+!ifdef USE_HISTORY {
+	jsr enable_history_keys
+}
 	ldy #0
 	+macro_string_array_read_byte
 ;	lda (string_array),y
@@ -1388,7 +1391,15 @@ read_text
 	ldy .read_text_column
 	cpy #2
 	bcc .readkey
-	dec .read_text_column
+	dey
+	sty .read_text_column
+	dey ; the length of the text
+!ifdef USE_HISTORY {
+	bne ++
+	; all input deleted, so enable history again
+	jsr enable_history_keys
+++
+}
 	jsr turn_off_cursor
 	lda .petscii_char_read
 	jsr s_printchar ; print the delete char
@@ -1397,11 +1408,8 @@ read_text
 ;}
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
+	tya ; y is still the length of the text
 	ldy #1
-	+macro_string_array_read_byte
-;	lda (string_array),y ; number of characters in the array
-	sec
-	sbc #1
 	+macro_string_array_write_byte
 ;	sta (string_array),y
 }
@@ -1412,13 +1420,16 @@ read_text
 	jmp .readkey
 ++	cmp #128
 	bcc .char_is_ok
+!ifdef USE_HISTORY {
+	cmp #131
+	bcc handle_history ; 129 and 130 are cursor up and down
+}
 	cmp #155
 	bpl +
 	jmp .readkey
 +	cmp #252
 	bcc .char_is_ok
-	jmp .readkey
-	
+	jmp .readkey	
 	; print the allowed char and store in the array
 .char_is_ok
 	ldx .read_text_column ; compare with size of keybuffer
@@ -1438,6 +1449,9 @@ read_text
 	iny
 }
 	lda .petscii_char_read
+!ifdef USE_HISTORY {
+	jsr disable_history_keys
+}
 	jsr s_printchar
 ;!ifdef USE_BLINKING_CURSOR {
 ;	jsr reset_cursor_blink
@@ -1476,6 +1490,9 @@ read_text
 	+macro_string_array_write_byte
 ;	sta (string_array),y
 }	
+!ifdef USE_HISTORY {
+	jsr add_line_to_history
+}
 	pla ; the terminating character, usually newline
 	beq +
 	jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
@@ -1484,6 +1501,54 @@ read_text
 ;}
 ;	jsr start_buffering
 +   rts
+
+!ifdef USE_HISTORY {
+;
+; xxxxx,0,yyyyy,0,zzzz,0....
+;
+init_history
+	; command history between program_end and z_trace_page
+	lda #0 ; we know that history_end is aligned
+	sec
+	sbc #>history_start
+	sta .history_size
+	rts
+
+disable_history_keys
+	pha
+	lda #1
+	bne + ; uncondinal jump for code sharing with enable_history_keys
+enable_history_keys
+	pha
+	lda #0
++	sta .history_disabled
+	pla
+	rts
+
+add_line_to_history
+	; copy the current input to history, if there is space
+	rts
+
+handle_history
+	; update 
+	; input
+	; a is current key (either 129 for cursor up, or 130 for cursor down)
+	;
+	ldy .history_disabled
+	bne ++
+	cmp #129
+	bne +
+	; cursor up
+	inc $d020
+	jmp .readkey
++	; cursor down
+	inc $d021
+++	jmp .readkey
+
+.history_size !byte 0
+.history_disabled !byte 0 ; 0 means unedited, otherwise edited
+}
+
 .read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
 .read_text_column !byte 0
