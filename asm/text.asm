@@ -1491,7 +1491,10 @@ read_text
 ;	sta (string_array),y
 }	
 !ifdef USE_HISTORY {
+	lda .history_disabled
+	beq +
 	jsr add_line_to_history
++
 }
 	pla ; the terminating character, usually newline
 	beq +
@@ -1503,43 +1506,107 @@ read_text
 +   rts
 
 !ifdef USE_HISTORY {
-;
-; entries are stored as:
-; xxxxx,0,yyyyy,0,zzzz,0....
-; in the area history_start - history_stop
-; 
-;
+	; MAIN DATASTRUCTURE:
+	; history_start   <-  size ->   history_end
+	; ond0........first0sec........
+	;     ^last   ^first
+
 handle_history
-	; update 
-	; input
-	; a is current key (either 129 for cursor up, or 130 for cursor down)
+	; reacts to history command keys
+	; input: 
+	;  - a is current key (either 129 for cursor up, or 130 for cursor down)
+	; output: 
+	; side effects: 
+	;  - string_array
+	;  - .read_text_column
+	; used registers: 
 	;
 	ldy .history_disabled
 	bne ++
 	cmp #129
 	bne +
 	; cursor up
-	inc $d020
+	jsr get_input_from_history
 	jmp .readkey
 +	; cursor down
-	inc $d021
+	jsr get_input_from_history
 ++	jmp .readkey
 
+get_input_from_history
+	; copies data from history to input
+	; input: 
+	;  - .history_current
+	; output: 
+	; side effects: 
+	;  - string_array
+	;  - .read_text_column
+	; used registers: 
+
+	; remove any old input first
+	ldx .read_text_column
+-	cpx #1
+	beq +
+	lda #$14 ; delete character
+	jsr s_printchar
+	dex
+	bne -
++	; update string_array and write characters
+!ifdef Z5PLUS {
+	ldy #2 ; start from position 2
+} else {
+	ldy #1 ; start from position 1 (z3)
+}
+	ldx .history_current
+-	lda history_start,x
+	+macro_string_array_write_byte
+	beq ++
+	jsr s_printchar
+	iny
+	; x = (x + 1) % .history_size
+	inx
+	cpx .history_size 
+	bcc -
+	ldx #0
+	bne - ; unconditional jump
+++  ; store string length
+	dey
+	sty .read_text_column
+!ifdef Z5PLUS {
+	dey
+	tya
+	ldy #1
+	+macro_string_array_write_byte
+}
+	rts
+
 init_history
-	; command history between program_end and z_trace_page
+	; init command history
+	; input: history_start
+	; output: -
+	; side effects: .history_size
+	; used registers: a
 	lda #0 ; we know that history_end is aligned
-	;sta .history_last
-	;sta .history_current
 	sec
 	sbc #>history_start
+	lda #10
 	sta .history_size
 	rts
 
 disable_history_keys
+	; disable cursor up/down for history
+	; input: -
+	; output: -
+	; side effects: -
+	; used registers: -
 	pha
 	lda #1
 	bne + ; uncondinal jump for code sharing with enable_history_keys
 enable_history_keys
+	; enable cursor up/down for history
+	; input: -
+	; output: -
+	; side effects: -
+	; used registers: -
 	pha
 	lda #0
 +	sta .history_disabled
@@ -1548,37 +1615,57 @@ enable_history_keys
 
 add_line_to_history
 	; copy the current input to history, if there is space
-	lda .read_text_column
-	clc
-	adc .history_last
-	cmp .history_size
-	bcc +
-	; keep removing lines until the new line fits
-	jsr remove_oldest_history
-	jmp add_line_to_history
-+	; add the new line
+	; input: 
+	; - string_array
+	; output:
+	; side effects:
+	; used registers: a,x,y
+	ldx .read_text_column
+	cpx .history_size
+	bcs ++
+	; there is space
+	pha
 	ldy #0
 	ldx .history_last
--	iny ; since text in string_array,y+2
-	iny
+-	iny
+!ifdef Z5PLUS {
+	iny ; since text in string_array,y+2
+}
 	+macro_string_array_read_byte
 	sta history_start,x
+!ifdef Z5PLUS {
 	dey ; only one dey since we want to y++ before cpy
+}
+	; x = (x + 1) % .history_size
 	inx
-	cpy .read_text_column
+	cpx .history_size 
+	bcc +
+	ldx #0
++   ; check if we are overwriting the oldest entry
+    cpx .history_first
+    bne +
+    ; drop the oldest entry
+    txa
+    pha
+--	lda history_start,x
+	inx
+	bne --
+	stx .history_first
+	pla
+	tax
++	cpy .read_text_column
 	bne -
 	stx .history_last
 	lda #0
 	dex
 	sta history_start,x
-	rts
-
-remove_oldest_history
-	rts
+	pla
+++  rts
 
 .history_size !byte 0     ; size of history buffer
 .history_current !byte 0  ; the current entry (when selecting with up/down)
-.history_last !byte 0     ; where to start the next entry
+.history_first !byte 0    ; offset to the first (oldest) entry
+.history_last !byte 0     ; offset to the end of the last (newest) entry
 .history_disabled !byte 0 ; 0 means disabled, otherwise enabled
 }
 
