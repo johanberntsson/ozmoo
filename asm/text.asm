@@ -1491,7 +1491,7 @@ read_text
 ;	sta (string_array),y
 }	
 !ifdef USE_HISTORY {
-	lda .history_disabled
+	lda history_disabled
 	beq +
 	jsr add_line_to_history
 +
@@ -1519,23 +1519,49 @@ handle_history
 	; side effects: 
 	;  - string_array
 	;  - .read_text_column
-	; used registers: 
+	; used registers: a,x
 	;
-	ldy .history_disabled
-	bne ++
+	ldy history_disabled
+	bne .handle_history_done
 	cmp #129
-	bne +
+	bne history_cursor_down
 	; cursor up
+	; check if already at the oldest entry
+	ldx history_current
+	cpx history_first
+	beq .handle_history_done
+	; move backwards to the previous entry
+	; x = (x - 1) % history_size
+	dex
+	bne +
+	ldx history_size
++	; x = (x - 1) % history_size
+-	cpx #0
+	bne +
+	ldx history_size
++	txa
+	tay
+	dex
+	; check if at start of oldest entry
+	cpx history_first
+	beq +
+	; check if at start of the new entry
+	lda history_start,x
+	bne -
+	tya
+	tax
++	stx history_current
 	jsr get_input_from_history
 	jmp .readkey
-+	; cursor down
-	jsr get_input_from_history
-++	jmp .readkey
+history_cursor_down
+	; cursor down
+.handle_history_done
+	jmp .readkey
 
 get_input_from_history
 	; copies data from history to input
 	; input: 
-	;  - .history_current
+	;  - history_current
 	; output: 
 	; side effects: 
 	;  - string_array
@@ -1556,15 +1582,15 @@ get_input_from_history
 } else {
 	ldy #1 ; start from position 1 (z3)
 }
-	ldx .history_current
+	ldx history_current
 -	lda history_start,x
 	+macro_string_array_write_byte
 	beq ++
 	jsr s_printchar
 	iny
-	; x = (x + 1) % .history_size
+	; x = (x + 1) % history_size
 	inx
-	cpx .history_size 
+	cpx history_size 
 	bcc -
 	ldx #0
 	bne - ; unconditional jump
@@ -1583,12 +1609,12 @@ init_history
 	; init command history
 	; input: history_start
 	; output: -
-	; side effects: .history_size
+	; side effects: history_size
 	; used registers: a
 	lda #0 ; we know that history_end is aligned
 	sec
 	sbc #>history_start
-	sta .history_size
+	sta history_size
 	rts
 
 disable_history_keys
@@ -1599,7 +1625,7 @@ disable_history_keys
 	; used registers: -
 	pha
 	lda #1
-	bne + ; uncondinal jump for code sharing with enable_history_keys
+	bne + ; unconditional jump for code sharing with enable_history_keys
 enable_history_keys
 	; enable cursor up/down for history
 	; input: -
@@ -1608,12 +1634,14 @@ enable_history_keys
 	; used registers: -
 	; only enable if we have any history stored
 	pha
-	lda .history_first
-	cmp .history_last
+	lda history_first
+	cmp history_last
 	beq ++
 	; something was stored, so proceed and enable it.
+	lda history_last
+	sta history_current
 	lda #0
-+	sta .history_disabled
++	sta history_disabled
 ++	pla
 	rts
 
@@ -1625,12 +1653,12 @@ add_line_to_history
 	; side effects:
 	; used registers: a,x,y
 	ldx .read_text_column
-	cpx .history_size
+	cpx history_size
 	bcs ++
 	; there is space
 	pha
 	ldy #0
-	ldx .history_last
+	ldx history_last
 -	iny
 !ifdef Z5PLUS {
 	iny ; since text in string_array,y+2
@@ -1640,13 +1668,13 @@ add_line_to_history
 !ifdef Z5PLUS {
 	dey ; only one dey since we want to y++ before cpy
 }
-	; x = (x + 1) % .history_size
+	; x = (x + 1) % history_size
 	inx
-	cpx .history_size 
+	cpx history_size 
 	bcc +
 	ldx #0
 +   ; check if we are overwriting the oldest entry
-    cpx .history_first
+    cpx history_first
     bne +
     ; drop the oldest entry
     txa
@@ -1654,23 +1682,24 @@ add_line_to_history
 --	lda history_start,x
 	inx
 	bne --
-	stx .history_first
+	stx history_first
 	pla
 	tax
 +	cpy .read_text_column
 	bne -
-	stx .history_last
+johan
+	stx history_last
 	lda #0
 	dex
 	sta history_start,x
 	pla
 ++  rts
 
-.history_size !byte 0     ; size of history buffer
-.history_current !byte 0  ; the current entry (when selecting with up/down)
-.history_first !byte 0    ; offset to the first (oldest) entry
-.history_last !byte 0     ; offset to the end of the last (newest) entry
-.history_disabled !byte 1 ; 0 means disabled, otherwise enabled
+history_size !byte 0     ; size of history buffer
+history_current !byte 0  ; the current entry (when selecting with up/down)
+history_first !byte 0    ; offset to the first (oldest) entry
+history_last !byte 0     ; offset to the end of the last (newest) entry
+history_disabled !byte 1 ; 0 means disabled, otherwise enabled
 }
 
 .read_parse_buffer !byte 0,0
