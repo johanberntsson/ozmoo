@@ -1588,7 +1588,6 @@ init_history
 	lda #0 ; we know that history_end is aligned
 	sec
 	sbc #>history_start
-	lda #10
 	sta .history_size
 	rts
 
@@ -1607,10 +1606,15 @@ enable_history_keys
 	; output: -
 	; side effects: -
 	; used registers: -
+	; only enable if we have any history stored
 	pha
+	lda .history_first
+	cmp .history_last
+	beq ++
+	; something was stored, so proceed and enable it.
 	lda #0
 +	sta .history_disabled
-	pla
+++	pla
 	rts
 
 add_line_to_history
@@ -1666,7 +1670,7 @@ add_line_to_history
 .history_current !byte 0  ; the current entry (when selecting with up/down)
 .history_first !byte 0    ; offset to the first (oldest) entry
 .history_last !byte 0     ; offset to the end of the last (newest) entry
-.history_disabled !byte 0 ; 0 means disabled, otherwise enabled
+.history_disabled !byte 1 ; 0 means disabled, otherwise enabled
 }
 
 .read_parse_buffer !byte 0,0
