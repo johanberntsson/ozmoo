@@ -1598,7 +1598,11 @@ get_input_from_history
 -	lda history_start,x
 	+macro_string_array_write_byte
 	beq ++
-	jsr s_printchar
+	; convert back to lowercase if A-Z ($61 - $7a)
+	cmp #$61
+	bcc +
+	and #$df ; convert to lowercase
++	jsr s_printchar
 	iny
 	; x = (x + 1) % history_size
 	inx
