@@ -825,7 +825,21 @@ def build_interpreter()
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
 	if $use_history
-		optionalsettings += " -DUSE_HISTORY=1"
+		# set default history size
+		if $use_history == 0 then
+			if $target == "c128" then
+				# c128 doesn't adjust the buffer to .align so we need
+				# to specify the size we actually want.
+				$use_history = 200
+			else
+			    # history will use all available space until the next 
+    			# .align command, but since we can't predict how much
+    			# space will be available allocate minimal buffer.
+				# The real size is in the range [40,255] bytes.
+				$use_history = 40
+			end
+		end
+		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
 	end
 	
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
@@ -1709,7 +1723,7 @@ def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
-	puts "         [-i <imagefile>] [-if <imagefile>] [-h]"
+	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
@@ -1730,7 +1744,7 @@ def print_usage_and_exit
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
-	puts "  -h: use command line history."
+	puts "  -ch: use command line history, with default size of <n> bytes."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1850,8 +1864,8 @@ begin
 			mode = MODE_71
 		elsif ARGV[i] =~ /^-81$/ then
 			mode = MODE_81
-		elsif ARGV[i] =~ /^-h$/ then
-			$use_history = true
+		elsif ARGV[i] =~ /^-ch:?(\d\d*)?$/ then
+			$use_history = $1.to_i
 		elsif ARGV[i] =~ /^-v$/ then
 			$verbose = true
 		elsif ARGV[i] =~ /^-b$/ then
