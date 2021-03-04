@@ -1052,8 +1052,16 @@ program_end
 
 !ifdef USE_HISTORY {
 history_start
-!ifdef TARGET_C128 {
-	!fill 200, $00 ; make sure that there is some history available on C128
+!ifndef TARGET_C128 {
+	; history will use all available space between here and the
+	; .align command below, but since we can't predict how much
+	; space will be available we add a fill here to make sure
+	; that at least a minimal buffer is allocated.
+	!fill 40, $00 ; make sure that there is some history available
+} else {
+	; C128 doesn't align below, so we have to allocate the buffer
+	; size we actually want.
+	!fill 200, $00 ; make sure that there is some history available
 }
 }
 

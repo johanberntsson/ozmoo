@@ -1513,6 +1513,9 @@ read_text
 	;     ^.history_last
 	;             ^.history_current (used when selecting)
 	;
+	; use the space between history_start and history_end, but
+	; not more than 255 bytes so that history_start,x addressing works
+
 handle_history
 	; reacts to history command keys
 	; input: 
@@ -1631,10 +1634,17 @@ init_history
 	; output: -
 	; side effects: history_size
 	; used registers: a
-	lda #0 ; we know that history_end is aligned
+	;
 	sec
-	sbc #>history_start
+	lda #<history_end
+	sbc #<history_start
 	sta .history_size
+	lda #>history_end
+	sbc #>history_start
+	beq +
+	lda #$ff ; limit size to 255
+	sta .history_size
++	lda .history_size
 	sta .history_lastpos
 	dec .history_lastpos
 	rts
