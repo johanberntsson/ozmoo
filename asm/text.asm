@@ -1507,10 +1507,12 @@ read_text
 
 !ifdef USE_HISTORY {
 	; MAIN DATASTRUCTURE:
-	; history_start   <-  size ->   history_end
-	; ond0........first0sec........
-	;     ^last   ^first
-
+	; history_start        history_end
+	; ond0........first0sec
+	;             ^.history_first
+	;     ^.history_last
+	;             ^.history_current (used when selecting)
+	;
 handle_history
 	; reacts to history command keys
 	; input: 
@@ -1611,13 +1613,15 @@ get_input_from_history
 	ldx #0
 	bne - ; unconditional jump
 ++  ; store string length
+!ifdef Z5PLUS {
 	dey
 	sty .read_text_column
-!ifdef Z5PLUS {
 	dey
 	tya
 	ldy #1
 	+macro_string_array_write_byte
+} else {
+	sty .read_text_column
 }
 	rts
 

@@ -1052,9 +1052,9 @@ program_end
 
 !ifdef USE_HISTORY {
 history_start
-;	!fill 40, $ff ; make sure that there is some command line memory available
-	              ; (however, the actual size can vary between 40 and 255
-	              ; depending on the alignment below)
+!ifdef TARGET_C128 {
+	!fill 200, $00 ; make sure that there is some history available on C128
+}
 }
 
 !ifndef TARGET_C128 {

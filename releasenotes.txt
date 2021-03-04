@@ -175,6 +175,7 @@ New/changed features:
   automatically enabled, and no buffers are used - memory access under IO /ROM
   is instead done with banking. This allows for bigger games to use this mode.
 - Added player input colour parameters -ic and -dmic
+- Optional input history implemented. Activate with -h
 
 Optimizations:
 - Reordered and optimized code in the main loop to shave off some cycles,
