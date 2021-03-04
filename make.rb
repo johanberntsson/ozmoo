@@ -1744,7 +1744,7 @@ def print_usage_and_exit
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
-	puts "  -ch: use command line history, with default size of <n> bytes."
+	puts "  -ch: use command line history, with minimum size of <n> bytes."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
