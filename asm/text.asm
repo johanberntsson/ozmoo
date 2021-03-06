@@ -1491,10 +1491,7 @@ read_text
 ;	sta (string_array),y
 }	
 !ifdef USE_HISTORY {
-	lda .history_disabled
-	beq +
 	jsr add_line_to_history
-+
 }
 	pla ; the terminating character, usually newline
 	beq +
@@ -1540,7 +1537,7 @@ handle_history
 	dex
 -	cpx #0
 	bne +
-	ldx .history_lastpos
+	ldx #history_lastpos
 +	txa
 	tay
 	dex
@@ -1565,7 +1562,7 @@ handle_history
 	; x = (x + 1) % history_size
 -	lda history_start,x
 	inx
-	cpx .history_size 
+	cpx #history_size 
 	bcc +
 	ldx #0
 +	cmp #0
@@ -1609,7 +1606,7 @@ get_input_from_history
 	iny
 	; x = (x + 1) % history_size
 	inx
-	cpx .history_size 
+	cpx #history_size 
 	bcc -
 	ldx #0
 	bne - ; unconditional jump
@@ -1624,28 +1621,7 @@ get_input_from_history
 } else {
 	sty .read_text_column
 }
-	rts
-
-init_history
-	; init command history
-	; input: history_start
-	; output: -
-	; side effects: history_size
-	; used registers: a
-	;
-	sec
-	lda #<history_end
-	sbc #<history_start
-	sta .history_size
-	lda #>history_end
-	sbc #>history_start
-	beq +
-	lda #$ff ; limit size to 255
-	sta .history_size
-+	lda .history_size
-	sta .history_lastpos
-	dec .history_lastpos
-	rts
+	jmp turn_on_cursor
 
 disable_history_keys
 	; disable cursor up/down for history
@@ -1683,7 +1659,7 @@ add_line_to_history
 	; side effects:
 	; used registers: a,x,y
 	ldx .read_text_column
-	cpx .history_size
+	cpx #history_size
 	bcs ++
 	; there is space
 	pha
@@ -1700,7 +1676,7 @@ add_line_to_history
 }
 	; x = (x + 1) % history_size
 	inx
-	cpx .history_size 
+	cpx #history_size 
 	bcc +
 	ldx #0
 +   ; check if we are overwriting the oldest entry
@@ -1724,8 +1700,6 @@ add_line_to_history
 	pla
 ++  rts
 
-.history_size !byte 0     ; size of history buffer
-.history_lastpos !byte 0  ; last pos (size of history buffer - 1)
 .history_current !byte 0  ; the current entry (when selecting with up/down)
 .history_first !byte 0    ; offset to the first (oldest) entry
 .history_last !byte 0     ; offset to the end of the last (newest) entry

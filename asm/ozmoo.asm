@@ -793,10 +793,6 @@ game_id		!byte 0,0,0,0
 	jsr parse_terminating_characters
 }
 	
-!ifdef USE_HISTORY {
-	jsr init_history
-}
-	
 	jsr streams_init
 	jsr stack_init
 
@@ -1061,6 +1057,12 @@ history_start
 
 !ifdef USE_HISTORY {
 history_end
+!if history_end - history_start < 255 {
+  history_size = history_end - history_start
+} else {
+  history_size = 255  ; max size of history buffer
+}
+history_lastpos = history_size -1 ; last pos (size of history buffer - 1)
 }
 
 z_trace_page
