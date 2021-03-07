@@ -437,7 +437,7 @@ read_byte_at_z_address
 	; TODO: For C128, we do the dynmem check both here and 40 lines down. Make it better!
 	cmp #0
 	bne .not_dynmem
-	cpx nonstored_blocks
+	cpx nonstored_pages
 	bcs .not_dynmem
 
 	; This is in dynmem, so we always read from bank 1
@@ -474,7 +474,7 @@ read_byte_at_z_address
 !ifndef TARGET_C128 {
 	cmp #0
 	bne .non_dynmem
-	cpx nonstored_blocks
+	cpx nonstored_pages
 	bcs .non_dynmem
 	; Dynmem access
 	txa

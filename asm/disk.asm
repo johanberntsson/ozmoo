@@ -11,7 +11,7 @@ disk_info
 
 device_map !byte 0,0,0,0,0,0,0,0
 
-nonstored_blocks		!byte 0
+nonstored_pages			!byte 0
 readblocks_numblocks	!byte 0 
 readblocks_currentblock	!byte 0,0 ; 257 = ff 1
 readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
@@ -89,7 +89,7 @@ readblock
 
 	lda readblocks_currentblock
 	sec
-	sbc nonstored_blocks
+	sbc nonstored_pages
 	sta readblocks_currentblock_adjusted
 	sta .blocks_to_go
 	lda readblocks_currentblock + 1

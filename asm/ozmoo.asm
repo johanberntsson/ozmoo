@@ -923,7 +923,7 @@ c128_move_dynmem_and_calc_vmem
 	sta zp_temp
 	lda #>story_start_bank_1
 	sta zp_temp + 1
-	lda nonstored_blocks
+	lda nonstored_pages
 	sta zp_temp + 2
 -	lda zp_temp
 	ldy #>(vmem_cache_start + $200)
@@ -941,7 +941,7 @@ c128_move_dynmem_and_calc_vmem
 	lda #>story_start
 	sta zp_temp + 1 ; First destination page
 	clc
-	adc nonstored_blocks
+	adc nonstored_pages
 	sta zp_temp ; First source page
 
 -	lda zp_temp
@@ -970,11 +970,11 @@ c128_move_dynmem_and_calc_vmem
 
 	; Remember the first page used for vmem in bank 1
 	lda #>story_start_bank_1
-	adc nonstored_blocks ; Carry is already clear
+	adc nonstored_pages ; Carry is already clear
 	sta vmap_first_ram_page_in_bank_1
 
 	; Calculate how many vmem pages we can fit in bank 1
-	lda nonstored_blocks
+	lda nonstored_pages
 	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
 	sta object_temp
 	lda #VMEM_END_PAGE
@@ -1529,15 +1529,15 @@ deletable_init
 !ifdef VMEM {
 	tay
 	cpx #0
-	beq .maybe_inc_nonstored_blocks
+	beq .maybe_inc_nonstored_pages
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_blocks
+.maybe_inc_nonstored_pages
 	tya
 	and #vmem_indiv_block_mask ; keep index into kB chunk
-	beq .store_nonstored_blocks
+	beq .store_nonstored_pages
 	iny
-.store_nonstored_blocks
-	sty nonstored_blocks
+.store_nonstored_pages
+	sty nonstored_pages
 	tya
 	clc
 	adc #>story_start
@@ -1726,7 +1726,7 @@ insert_disks_at_boot
 
 	; Prepare for copying data to REU
 	lda #0
-	ldx nonstored_blocks
+	ldx nonstored_pages
 	stx z_temp ; Lowbyte of current page in Z-machine memory
 	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
 	ldx #1

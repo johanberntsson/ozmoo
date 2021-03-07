@@ -87,7 +87,7 @@ get_page_at_z_pc_did_pha
 	lda z_pc
 	bne .not_in_dynmem_block
 	lda z_pc + 1
-	cmp nonstored_blocks
+	cmp nonstored_pages
 	bcs .not_in_dynmem_block
 	; This is in a dynmem block
 	adc #>story_start_bank_1 ; Carry already clear
