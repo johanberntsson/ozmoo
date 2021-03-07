@@ -1701,12 +1701,15 @@ add_line_to_history
     txa
     pha
 --	lda history_start,x
+	pha
+	lda #0 ; null the oldest entry as we skip forwards
+	sta history_start,x
 	; x = (x + 1) % history_size
 	inx
 	cpx #history_size 
 	bcc +++
 	ldx #0
-+++	cmp #0 ; check if we found the 0 at the end of the string
++++	pla ; check if we found the 0 at the end of the string
 	bne --
 	stx .history_first
 	pla
