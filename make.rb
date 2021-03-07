@@ -1694,9 +1694,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	#	puts config_data
 	disk.set_config_data(config_data)
 	
-	if disk.create_story_partition() == false
-		puts "ERROR: Could not create partition to protect data on disk."
-		exit 1
+	if $statmem_blocks > 0
+		if disk.create_story_partition() == false
+			puts "ERROR: Could not create partition to protect data on disk."
+			exit 1
+		end
 	end
 	
 	disk.save()
@@ -2120,9 +2122,6 @@ if ($input_colour or $input_colour_dm) and $zcode_version > 4
 	exit 1
 end	
 
-# check header.high_mem_start (size of dynmem + statmem)
-high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
-
 # check header.static_mem_start (size of dynmem)
 $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 
@@ -2189,7 +2188,7 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
-
+$statmem_blocks = $story_size / $VMEM_BLOCKSIZE - $dynmem_blocks
 
 if $verbose then 
 	puts "$zmachine_memory_size = #{$zmachine_memory_size}"
