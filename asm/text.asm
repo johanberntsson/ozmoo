@@ -1674,7 +1674,9 @@ add_line_to_history
 	; side effects:
 	; used registers: a,x,y
 	ldx .read_text_column
-	cpx #history_size
+	cpx #1 ; skip if the line is empty
+	beq ++ 
+	cpx #history_size ; skip if the line larger than the history buffer
 	bcs ++
 	; there is space
 	pha
