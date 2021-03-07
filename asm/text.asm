@@ -4,6 +4,7 @@
 ;TRACE_TOKENISE = 1
 ;TRACE_SHOW_DICT_ENTRIES = 1
 ;TRACE_PRINT_ARRAYS = 1
+;TRACE_HISTORY = 1
 .text_tmp	!byte 0
 .current_character !byte 0
 .petscii_char_read = zp_temp
@@ -1513,6 +1514,15 @@ read_text
 	; use the space between history_start and history_end, but
 	; not more than 255 bytes so that history_start,x addressing works
 
+.dec_history_current
+	; move backwards to the previous entry
+	; x = (x - 1) % history_size
+	dex
+	cpx #$ff
+	bne +
+	ldx #history_lastpos
++	rts
+
 handle_history
 	; reacts to history command keys
 	; input: 
@@ -1533,23 +1543,28 @@ handle_history
 	cpx .history_first
 	beq .handle_history_done
 	; move backwards to the previous entry
-	; x = (x - 1) % history_size
-	dex
--	cpx #0
-	bne +
-	ldx #history_lastpos
-+	txa
+	jsr .dec_history_current ; move to 0 in the previous string
+-	txa ; save x value in y before calling .dec_history_current
 	tay
-	dex
 	; check if at start of oldest entry
 	cpx .history_first
 	beq +
-	; check if at start of the new entry
-	lda history_start,x
+	jsr .dec_history_current ; move to prev char
+	lda history_start,x ; check if at start of the new entry
+!ifdef TRACE_HISTORY {
+	jsr printx
+	jsr space
+	jsr printa
+	jsr colon
+}
 	bne -
 	tya
 	tax
 +	stx .history_current
+!ifdef TRACE_HISTORY {
+	jsr printx
+	jsr newline
+}
 	jsr get_input_from_history
 	jmp .readkey
 .history_cursor_down
@@ -1609,7 +1624,7 @@ get_input_from_history
 	cpx #history_size 
 	bcc -
 	ldx #0
-	bne - ; unconditional jump
+	beq - ; unconditional jump
 ++  ; store string length
 !ifdef Z5PLUS {
 	dey
@@ -1686,7 +1701,12 @@ add_line_to_history
     txa
     pha
 --	lda history_start,x
+	; x = (x + 1) % history_size
 	inx
+	cpx #history_size 
+	bcc +++
+	ldx #0
++++	cmp #0 ; check if we found the 0 at the end of the string
 	bne --
 	stx .history_first
 	pla
@@ -1698,7 +1718,19 @@ add_line_to_history
 	dex
 	sta history_start,x
 	pla
-++  rts
+++  ; done
+!ifdef TRACE_HISTORY {
+	ldx #history_size
+	jsr printx
+	jsr space
+	ldx .history_first
+	jsr printx
+	jsr space
+	ldx .history_last
+	jsr printx
+	jsr newline
+}
+	rts
 
 .history_current !byte 0  ; the current entry (when selecting with up/down)
 .history_first !byte 0    ; offset to the first (oldest) entry
