@@ -410,6 +410,8 @@ make.rb -i spaceship.mb -t:plus4 game.z5
 
 # Command line history
 
-There is an optional command line history feature that can be activated by -cb. If activated, it uses the waste space between the interpreter and the virtual memory buffers to store command lines, that can later be selected and retrieved using the cursor up and down keys. The maximum space allowed for the history is 256 bytes, but the stored lines are saved compactly so if only show commands like directions, "i" and "open door" etc are used it will fit quite a lot.
+There is an optional command line history feature that can be activated by -ch. If activated, it uses the waste space between the interpreter and the virtual memory buffers to store command lines, that can later be selected and retrieved using the cursor up and down keys. The maximum space allowed for the history is 256 bytes, but the stored lines are saved compactly so if only show commands like directions, "i" and "open door" etc are used it will fit quite a lot.
 
-Since memory is limited on old computer this feature is disabled by default. To enable it use -cb. This will make sure that history buffer is allocated that is large enough to be useful. It is also possible to manually define the minimal size of the history buffer by -cb:<size>, where <size> is 0-255 bytes.
+Since memory is limited on old computers this feature is disabled by default. To
+enable it use -ch. This will allocate a history buffer large enough to be useful. It is also possible to manually define the minimal size of the history buffer by -ch:n, where n is 20-255 bytes.
+
