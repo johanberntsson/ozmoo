@@ -408,3 +408,6 @@ make.rb -if mountain.kla game.z5
 make.rb -i spaceship.mb -t:plus4 game.z5
 ```
 
+# Command line history
+
+There is an optional command line history feature that can be activated by -cb. If activated, it uses the waste space between the interpreter and the virtual memory buffers to store command lines, that can later be selected and retrieved using the cursor up and down keys. The maximum space allowed for the history is 256 bytes, but the stored lines are saved compactly so if only show commands like directions, "i" and "open door" etc are used it will fit quite a lot.

@@ -8,5 +8,5 @@ all:
 	rm manual2.md
 	rm techreport2.md
 	mv manual.pdf ../ozmoo_5.pdf
-	mv techreport.pdf ../techdocs/techreport_5.pdf
+	mv techreport.pdf ../techreport_5.pdf
 	mv player_manual.pdf ../player_manual_5.pdf
