@@ -176,6 +176,9 @@ New/changed features:
   is instead done with banking. This allows for bigger games to use this mode.
 - Added player input colour parameters -ic and -dmic
 - Optional input history implemented. Activate with -ch
+- New version of Clairsys font, new localized versions of Clairsys.
+- New font Clairsys Bold, including localized versions.
+- Font folder has been reorganized.
 
 Optimizations:
 - Reordered and optimized code in the main loop to shave off some cycles,
@@ -208,7 +211,8 @@ Fixed bugs:
 - Changed so the number of cache pages is always set to 4 when building for
   C128, since it has to be that size or Ozmoo crashes.
 - Changed so the number of cache pages is set to 0, 1 or 2 (depending on splash
-  screen) when using build mode -P (which doesn't use the cache).
+  screen) when using build mode -P (which doesn't use the cache, but the splash
+  screen code is also located in the cache area).
 - SLOW mode wasn't really working any more for platforms other than Plus/4.
   Fixed.
 - Toggling darkmode in 40 col mode in a z5 game on C128 would change all text
