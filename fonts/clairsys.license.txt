@@ -1,4 +1,4 @@
-Copyright (c) 2019-01-16, Paul van der Laan ( http://www.type-invaders.com/ ),
+Copyright (c) 2002-2021, Paul van der Laan ( http://www.type-invaders.com/ ),
 with Reserved Font Name Clairsys.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
