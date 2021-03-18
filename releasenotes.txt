@@ -166,8 +166,8 @@ Fixed bugs:
 - Fixed line breaks in the wrong place in games which started buffering in 
   window 0 while window 1 was selected, like AMFV.
 
-
-Release 6: Bugfix release
+================================================
+Release 6: Bugfix release (19 March 2021)
 
 New/changed features:
 - Updated to Exomizer 3.1.0.
@@ -220,3 +220,5 @@ Fixed bugs:
   different colour. Fixed. (It's still like this for 80 col, because it's hard
   to read the colour memory in 80 col)
   
+================================================
+Release 7: 
