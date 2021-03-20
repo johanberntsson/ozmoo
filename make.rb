@@ -35,6 +35,7 @@ $GENERALFLAGS = [
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
 #   'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
+#	'UNDO', # Support UNDO (using REU)
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -53,6 +54,7 @@ $DEBUGFLAGS = [
 #	'TRACE_READTEXT',
 #	'TRACE_SHOW_DICT_ENTRIES',
 #	'TRACE_TOKENISE',
+#	'TRACE_HISTORY',
 ]
 
 $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.
@@ -823,6 +825,27 @@ def build_interpreter()
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
+	if $use_history
+		# set default history size
+		if $use_history == 0 then
+			if $target == "c128" then
+				# c128 doesn't adjust the buffer to .align so we need
+				# to specify the size we actually want.
+				$use_history = 200
+			else
+			    # history will use all available space until the next 
+    			# .align command, but since we can't predict how much
+    			# space will be available allocate minimal buffer.
+				# The real size is in the range [40,255] bytes.
+				$use_history = 40
+			end
+		end
+		if $use_history < 20 || $use_history > 255 then
+			puts "ERROR: -cb only takes an argument in the 20-255 range."
+			exit 1
+		end
+		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
+	end
 	
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
@@ -836,6 +859,9 @@ def build_interpreter()
 	if $statusline_colour
 		colourflags += " -DSTATCOL=#{$statusline_colour}"
 	end
+	if $input_colour
+		colourflags += " -DINPUTCOL=#{$input_colour}"
+	end
 	if $no_darkmode
 		colourflags += " -DNODARKMODE=1"
 	else
@@ -847,6 +873,9 @@ def build_interpreter()
 		end
 		if $statusline_colour_dm
 			colourflags += " -DSTATCOLDM=#{$statusline_colour_dm}"
+		end
+		if $input_colour_dm
+			colourflags += " -DINPUTCOLDM=#{$input_colour_dm}"
 		end
 		if $cursor_colour_dm
 			colourflags += " -DCURSORCOLDM=#{$cursor_colour_dm}"
@@ -1669,9 +1698,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	#	puts config_data
 	disk.set_config_data(config_data)
 	
-	if disk.create_story_partition() == false
-		puts "ERROR: Could not create partition to protect data on disk."
-		exit 1
+	if $statmem_blocks > 0
+		if disk.create_story_partition() == false
+			puts "ERROR: Could not create partition to protect data on disk."
+			exit 1
+		end
 	end
 	
 	disk.save()
@@ -1699,9 +1730,9 @@ def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
-	puts "         [-i <imagefile>] [-if <imagefile>]"
-	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]]"
-	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-ss[1-4]:\"text\"]"
+	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
+	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
+	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128 and plus4."
@@ -1720,10 +1751,12 @@ def print_usage_and_exit
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
+	puts "  -ch: use command line history, with minimum size of <n> bytes."
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
@@ -1763,6 +1796,8 @@ $default_colours = []
 $default_colours_dm = []
 $statusline_colour = nil
 $statusline_colour_dm = nil
+$input_colour = nil
+$input_colour_dm = nil
 $target = 'c64'
 $border_colour = nil
 $border_colour_dm = nil
@@ -1774,6 +1809,7 @@ $cursor_colour = nil
 $cursor_shape = nil
 $cursor_blink = nil
 $verbose = nil
+$use_history = nil
 $no_sector_preload = nil
 
 begin
@@ -1822,7 +1858,7 @@ begin
 			end
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
-			$CACHE_PAGES = 1 # We're not actually using the cache, but there may be a splash screen in it
+			$CACHE_PAGES = 2 # We're not actually using the cache, but there may be a splash screen in it
 		elsif ARGV[i] =~ /^-S1$/ then
 			mode = MODE_S1
 		elsif ARGV[i] =~ /^-S2$/ then
@@ -1835,6 +1871,8 @@ begin
 			mode = MODE_71
 		elsif ARGV[i] =~ /^-81$/ then
 			mode = MODE_81
+		elsif ARGV[i] =~ /^-ch:?(\d\d*)?$/ then
+			$use_history = $1.to_i
 		elsif ARGV[i] =~ /^-v$/ then
 			$verbose = true
 		elsif ARGV[i] =~ /^-b$/ then
@@ -1853,6 +1891,10 @@ begin
 			$statusline_colour = $1.to_i
 		elsif ARGV[i] =~ /^-dmsc:([2-9])$/ then
 			$statusline_colour_dm = $1.to_i
+		elsif ARGV[i] =~ /^-ic:([2-9])$/ then
+			$input_colour = $1.to_i
+		elsif ARGV[i] =~ /^-dmic:([2-9])$/ then
+			$input_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
@@ -1868,7 +1910,7 @@ begin
 			await_imagefile = true
 			$loader_flicker = ARGV[i] =~ /f$/
 		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
-			splashes[$1.to_i - 1] = $2 
+			splashes[$1.to_i - 1] = $2
 		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
 			$splash_wait = $1
 		elsif ARGV[i] =~ /^-cc:([0-9])$/ then
@@ -1906,8 +1948,18 @@ unless mode
 	end
 end
 
-if mode == MODE_P && $splash_wait == "0"
-	$CACHE_PAGES = 0 # We're not actually using the cache, but there may be a splash screen in it
+if mode == MODE_P
+	# In this mode, we don't use the vmem buffer for holding vmem data. However, the
+	# splash screen resides in the buffer too. By default it's 2 pages in this mode.
+	if $splash_wait == "0"
+		$CACHE_PAGES = 0 # We don't have any use for the cache whatsoever
+	else
+		len = 0
+		splashes.each { |s| len += s.length }
+		if len <= 100
+			$CACHE_PAGES = 1 # With this little text, we can go down from 2 pages to 1
+		end
+	end
 end	
 
 if mode == MODE_71 and $target != 'c128'
@@ -2069,8 +2121,10 @@ if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
 	exit 1
 end	
 
-# check header.high_mem_start (size of dynmem + statmem)
-high_mem_start = $story_file_data[4 .. 5].unpack("n")[0]
+if ($input_colour or $input_colour_dm) and $zcode_version > 4
+	puts "ERROR: Options -ic and -dmic can only be used with z3 and z4 story files."
+	exit 1
+end	
 
 # check header.static_mem_start (size of dynmem)
 $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
@@ -2138,7 +2192,7 @@ $story_file_cursor = $dynmem_blocks * $VMEM_BLOCKSIZE
 
 $story_size = $story_file_data.length
 
-
+$statmem_blocks = $story_size / $VMEM_BLOCKSIZE - $dynmem_blocks
 
 if $verbose then 
 	puts "$zmachine_memory_size = #{$zmachine_memory_size}"

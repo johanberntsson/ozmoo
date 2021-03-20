@@ -321,12 +321,12 @@ To build a game with Ozmoo with accented characters, we typically need to:
 
 There are already fonts in place for some languages (see documentation/fonts.txt). You can also supply your own font.
 
-The character mappings are created at the beginning of the file streams.asm. There are already mappings for the languages which there are fonts for (see the Fonts chapter above).
+The character mappings are created at the beginning of the file streams.asm. There are already mappings for the languages which there are fonts for (see the chapter on fonts in the Ozmoo manual).
 
 To build a game using accented characters, the make command may look like this:
 
 ```
-ruby make.rb examples\Aventyr.z5 -f fonts\PXLfont-rf-sv.fnt -cm:sv
+ruby make.rb examples\Aventyr.z5 -f fonts\sv\PXLfont-rf-SV.fnt -cm:sv
 ```
 where
 
@@ -345,6 +345,8 @@ use, are in a table under 3.8.7.
 The definition of PETSCII can be found at:
 http://sta.c64.org/cbm64petkey.html
 Please read the notes below the table as well.
+
+Note that in the mapping from PETSCII to ZSCII, you must also convert any accented characters from uppercase to lowercase, i.e. for Swedish PETSCII Ä is mapped to a ZSCII ä.
 
 If you compile a game in Debug mode (Uncomment the 'DEBUG' line near the start of make.rb), Ozmoo will print the hexadecimal ZSCII codes for all characters which it can't print. Thus, to create mappings for a game in a new language, you can start by running it in Debug mode to see the ZSCII character codes in use.
 

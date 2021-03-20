@@ -154,6 +154,9 @@
 !ifndef FGCOL {
 	FGCOL = 2
 }
+!ifndef INPUTCOL {
+	INPUTCOL = FGCOL
+}
 
 !ifndef BGCOLDM {
 	BGCOLDM = 2
@@ -161,6 +164,16 @@
 !ifndef FGCOLDM {
 	FGCOLDM = 4
 }
+!ifndef INPUTCOLDM {
+	INPUTCOLDM = FGCOLDM
+}
+
+!ifndef Z5PLUS {
+	!if (INPUTCOL != FGCOL) OR (INPUTCOLDM != FGCOLDM) {
+		USE_INPUTCOL = 1
+	}
+}
+
 
 ; Border color: 0 = as background, 1 = as foreground, 2-9: specified Z-code colour. Default: as background
 
@@ -910,7 +923,7 @@ c128_move_dynmem_and_calc_vmem
 	sta zp_temp
 	lda #>story_start_bank_1
 	sta zp_temp + 1
-	lda nonstored_blocks
+	lda nonstored_pages
 	sta zp_temp + 2
 -	lda zp_temp
 	ldy #>(vmem_cache_start + $200)
@@ -928,7 +941,7 @@ c128_move_dynmem_and_calc_vmem
 	lda #>story_start
 	sta zp_temp + 1 ; First destination page
 	clc
-	adc nonstored_blocks
+	adc nonstored_pages
 	sta zp_temp ; First source page
 
 -	lda zp_temp
@@ -957,11 +970,11 @@ c128_move_dynmem_and_calc_vmem
 
 	; Remember the first page used for vmem in bank 1
 	lda #>story_start_bank_1
-	adc nonstored_blocks ; Carry is already clear
+	adc nonstored_pages ; Carry is already clear
 	sta vmap_first_ram_page_in_bank_1
 
 	; Calculate how many vmem pages we can fit in bank 1
-	lda nonstored_blocks
+	lda nonstored_pages
 	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
 	sta object_temp
 	lda #VMEM_END_PAGE
@@ -1033,9 +1046,23 @@ load_suggested_pages
 	
 program_end
 
+!ifdef USE_HISTORY {
+history_start
+	!fill USE_HISTORY, $00 ; make sure that there is some history available
+}
 
 !ifndef TARGET_C128 {
 	!align 255, 0, 0
+}
+
+!ifdef USE_HISTORY {
+history_end
+!if history_end - history_start < 255 {
+  history_size = history_end - history_start
+} else {
+  history_size = 255  ; max size of history buffer
+}
+history_lastpos = history_size -1 ; last pos (size of history buffer - 1)
 }
 
 z_trace_page
@@ -1158,7 +1185,7 @@ z_init
 	lda #TERPNO ; Interpreter number (8 = C64)
 	ldy #header_interpreter_number 
 	jsr write_header_byte
-	lda #69 ; "E" = release 5
+	lda #70 ; "F" = release 6
 	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
 	jsr write_header_byte
 	lda #25
@@ -1502,15 +1529,15 @@ deletable_init
 !ifdef VMEM {
 	tay
 	cpx #0
-	beq .maybe_inc_nonstored_blocks
+	beq .maybe_inc_nonstored_pages
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_blocks
+.maybe_inc_nonstored_pages
 	tya
 	and #vmem_indiv_block_mask ; keep index into kB chunk
-	beq .store_nonstored_blocks
+	beq .store_nonstored_pages
 	iny
-.store_nonstored_blocks
-	sty nonstored_blocks
+.store_nonstored_pages
+	sty nonstored_pages
 	tya
 	clc
 	adc #>story_start
@@ -1699,7 +1726,7 @@ insert_disks_at_boot
 
 	; Prepare for copying data to REU
 	lda #0
-	ldx nonstored_blocks
+	ldx nonstored_pages
 	stx z_temp ; Lowbyte of current page in Z-machine memory
 	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
 	ldx #1
@@ -1771,15 +1798,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 .reu_error
 	jmp reu_error
 
-.no_reu
-	lda #78 + 128
-.print_reply_and_return
-	jsr s_printchar
-	lda #13
-	jmp s_printchar
-.no_reu_present	
-	rts
-
 reu_start
 	lda #0
 	sta use_reu
@@ -1789,7 +1807,11 @@ reu_start
 	inx
 	cpx reu_c64base
 	bne .no_reu_present
-; REU detected
+; REU detected, check size
+;	jsr check_reu_size
+;	sta $0700
+	
+
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
 	jsr printstring_raw
@@ -1810,6 +1832,15 @@ reu_start
 }
 	ora #$80
 	bne .print_reply_and_return ; Always branch
+
+.no_reu
+	lda #78 + 128
+.print_reply_and_return
+	jsr s_printchar
+	lda #13
+	jmp s_printchar
+.no_reu_present	
+	rts
 	
 .use_reu_question
 	!pet 13,"Use REU? (Y/N) ",0

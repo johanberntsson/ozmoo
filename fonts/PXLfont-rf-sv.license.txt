@@ -1,7 +1,0 @@
-PXLfont-rf-sv.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysSV
-
-License: 
-
-This font was created by Retrofan (http://compidiaries.wordpress.com). It may be freely used with the Z-code interpreter Ozmoo, including embedding the font in games built with Ozmoo. For any other usage, you must first get permission by the author. A verbatim copy of this copyright notice must be distributed with any games which include this font.
-
-If you use this font in a game, you must also include credits for the font, stating the name of the font as well as the creator of the font. We strongly suggest you include these credits both in the docs / game distribution and somewhere within the game (Some games print "Type ABOUT for information about the game." or something to that effect as the game starts).

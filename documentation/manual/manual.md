@@ -273,6 +273,9 @@ Default colours: This picks the Z-code colours to use as default background and 
     -sc:(Statusline colour)
 Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 3 story files (z3).
 
+    -ic:(Statusline colour)
+Input colour: This picks the Z-code colour to use for player input text. This is only possible with version 3 and 4 story files (z3 and z4).
+
     -bc:(Border colour)
 Border colour. This picks the Z-code colour to use as border colour. 
 Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
@@ -284,6 +287,8 @@ Cursor colour: This picks the Z-code colour for the cursor shown when waiting fo
     -dmdc: (same as -dc but for darkmode)
 
     -dmsc: (same as -sc but for darkmode)
+
+    -dmic: (same as -ic but for darkmode)
 
     -dmbc: (same as -bc but for darkmode)
 
@@ -359,40 +364,29 @@ make.rb -rc:2=0,3=2,4=5,5=7,6=6,7=4,8=3,9=1 game.z5
 
 When building a game with make.rb, you can choose to embed a font (character set) with the game using the -f option. This will use up 2 KB of memory which would otherwise have been available for game data. The font file should be exactly 2048 bytes long and just hold the raw data for the font, without load address or other extra information.
 
+The font files are organized into subfolders under the "font" folder, with one subfolder per language:
+
+da: Danish
+en: English
+de: German 
+es: Spanish
+fr: French
+it: Italian
+sv: Swedish
+
 Included with the Ozmoo distribution are these custom fonts:
 
-* Clairsys.fnt: Clairsys, by Paul van der Laan.
+* Clairsys, by Paul van der Laan.
 
-* Clairsys-it.fnt: Italian version of Clairsys, by Paul van der Laan.
+* Clairsys Bold, by Paul van der Laan.
 
-* PXLfont-rf.fnt: PXLfont88665b-RF2.3-C64sys by Retrofan.
+* PXLfont-rf, by Retrofan.
 
-* PXLfont-rf-da.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysDA by Retrofan. Note: This font is for usage in Danish games.
-
-* PXLfont-rf-de.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysDE by Retrofan. Note: This font is for usage in German games.
-
-* PXLfont-rf-es.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysES by Retrofan. Note: This font is for usage in Spanish games.
-
-* PXLfont-rf-fr.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysFR by Retrofan. Note: This font is for usage in French games.
-
-* PXLfont-rf-it.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysIT by Retrofan. Note: This font is for usage in Italian games.
-
-* PXLfont-rf-sv.fnt: Ozmoo version of PXLfont88665b-RF2.3-C64sysSV by Retrofan. Note: This font is for usage in Swedish games.
-
-* system-da.fnt: Ozmoo/Danish version of the original Commodore 64 system font. Note: This font is for usage in Danish games.
-
-* system-es.fnt: Ozmoo/Spanish version of the original Commodore 64 system font. Note: This font is for usage in Spanish games.
-
-* system-fr.fnt: Ozmoo/French version of the original Commodore 64 system font. Note: This font is for usage in French games.
-
-* system-it.fnt: Ozmoo/Italian version of the original Commodore 64 system font. Note: This font is for usage in Italian games.
-
-* system-sv.fnt: Ozmoo/Swedish version of the original Commodore 64 system font. Note: This font is for usage in Swedish games.
+* System, the standard C64 system font, with accented characters added by the Ozmoo team.
 
 You are free to use one of these fonts in a game you make and distribute, regardless of whether you make any money off of the game. You must however include credits for the font, stating the name of the font and the creator of the font. We strongly suggest you include these credits both in the docs / game distribution and somewhere within the game (Some games print "Type ABOUT for information about the game." or something to that effect as the game starts).
 
 To see all the licensing details for each font, read the corresponding license file in the "fonts" folder. The full information in the license file must also be included with the game distribution if you embed a font with a game.
-
 
 # Loader image
 
@@ -402,4 +396,11 @@ When building for the Commodore 64 or Plus/4, it is possible to add a loader whi
 make.rb -if mountain.kla game.z5
 make.rb -i spaceship.mb -t:plus4 game.z5
 ```
+
+# Command line history
+
+There is an optional command line history feature that can be activated by -ch. If activated, it uses the wasted space between the interpreter and the virtual memory buffers to store command lines, that can later be retrieved using the cursor up and down keys. The maximum space allowed for the history is 256 bytes, but the stored lines are saved compactly so if only short commands like directions, "i" and "open door" etc are used it will fit quite a lot.
+
+Since memory is limited on old computers this feature is disabled by default. To
+enable it use -ch. This will allocate a history buffer large enough to be useful. It is also possible to manually define the minimal size of the history buffer with -ch:n, where n is 20-255 bytes.
 

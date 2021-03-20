@@ -166,18 +166,23 @@ Fixed bugs:
 - Fixed line breaks in the wrong place in games which started buffering in 
   window 0 while window 1 was selected, like AMFV.
 
-
-Release 6: Bugfix release
+================================================
+Release 6: Bugfix release (19 March 2021)
 
 New/changed features:
 - Updated to Exomizer 3.1.0.
 - Changed so when Ozmoo is built without vmem (mode -P), SLOW mode is 
   automatically enabled, and no buffers are used - memory access under IO /ROM
-  is instead done with banking.
+  is instead done with banking. This allows for bigger games to use this mode.
+- Added player input colour parameters -ic and -dmic
+- Optional input history implemented. Activate with -ch
+- New version of Clairsys font, new localized versions of Clairsys.
+- New font Clairsys Bold, including localized versions.
+- Font folder has been reorganized.
 
 Optimizations:
 - Reordered and optimized code in the main loop to shave off some cycles,
-  based on how often differect code paths are used.
+  based on how often different code paths are used.
 - Changed jump in main loop using self-modifying code to avoid checking the
   z_exe_mode for every instruction.
 - Optimized reading of object property data.
@@ -188,6 +193,8 @@ Optimizations:
 - Optimized lookup in vmem table to it's faster and so the lowbyte part 
   doesn't pass a page boundary.
 - Made scrolling faster. A lot.
+- Slight optimizations in test_attr, set_attr and clear_attr.
+- Optimized calculation of object address
 
 Fixed bugs:
 - Warning with latest Acme due to typo ("Hex literal without any digits")
@@ -203,8 +210,15 @@ Fixed bugs:
   around to make sure they're always executed.
 - Changed so the number of cache pages is always set to 4 when building for
   C128, since it has to be that size or Ozmoo crashes.
-- Changed so the number of cache pages is set to 0 or 1 (depending on splash
-  screen) when using build mode -P (which doesn't use the cache).
+- Changed so the number of cache pages is set to 0, 1 or 2 (depending on splash
+  screen) when using build mode -P (which doesn't use the cache, but the splash
+  screen code is also located in the cache area).
 - SLOW mode wasn't really working any more for platforms other than Plus/4.
   Fixed.
+- Toggling darkmode in 40 col mode in a z5 game on C128 would change all text
+  on screen to the new text colour, even text that had been printed with a
+  different colour. Fixed. (It's still like this for 80 col, because it's hard
+  to read the colour memory in 80 col)
   
+================================================
+Release 7: 

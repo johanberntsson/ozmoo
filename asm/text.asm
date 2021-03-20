@@ -4,9 +4,13 @@
 ;TRACE_TOKENISE = 1
 ;TRACE_SHOW_DICT_ENTRIES = 1
 ;TRACE_PRINT_ARRAYS = 1
+;TRACE_HISTORY = 1
 .text_tmp	!byte 0
 .current_character !byte 0
 .petscii_char_read = zp_temp
+!ifdef USE_INPUTCOL {
+input_colour_active !byte 0
+}
 
 ; only ENTER + cursor + F1-F8 possible on a C64
 num_terminating_characters !byte 1
@@ -261,6 +265,26 @@ z_ins_print_ret
 	jmp stack_return_from_routine
 
 
+!ifdef USE_INPUTCOL {
+activate_inputcol
+!ifdef Z4 {
+	lda #0
+	sta input_colour_active
+	cpx #3
+	bcs .dont_colour_input ; time and routine are set
+}
+; Set inputcolour
+	ldx darkmode
+	ldy inputcol,x
+	lda zcolours,y
+	jsr s_set_text_colour
+	lda #$ff
+	sta input_colour_active
+.dont_colour_input
+	rts
+}
+
+
 ; ============================= New unified read instruction
 z_ins_read
 	; z3: sread text parse
@@ -292,6 +316,13 @@ z_ins_read
 +	sta .read_text_time
 	sty .read_text_time + 1
 }
+
+
+
+!ifdef USE_INPUTCOL {
+	jsr activate_inputcol
+}
+
 	; Read input
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
@@ -423,6 +454,18 @@ z_ins_read
 	ldx .read_text_return_value
 	jmp z_store_result
 } else {
+
+
+!ifdef USE_INPUTCOL {
+; Restore normal text colour
+	lda #0
+	sta input_colour_active
+	ldx darkmode
+	ldy fgcol,x
+	lda zcolours,y
+	jsr s_set_text_colour
+}
+
 	rts
 }
 ; ============================= End of new unified read instruction
@@ -1207,6 +1250,9 @@ read_text
 	; check timer usage
 	jsr init_read_text_timer
 }
+!ifdef USE_HISTORY {
+	jsr enable_history_keys
+}
 	ldy #0
 	+macro_string_array_read_byte
 ;	lda (string_array),y
@@ -1346,7 +1392,15 @@ read_text
 	ldy .read_text_column
 	cpy #2
 	bcc .readkey
-	dec .read_text_column
+	dey
+	sty .read_text_column
+	dey ; the length of the text
+!ifdef USE_HISTORY {
+	bne ++
+	; all input deleted, so enable history again
+	jsr enable_history_keys
+++
+}
 	jsr turn_off_cursor
 	lda .petscii_char_read
 	jsr s_printchar ; print the delete char
@@ -1355,11 +1409,8 @@ read_text
 ;}
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
+	tya ; y is still the length of the text
 	ldy #1
-	+macro_string_array_read_byte
-;	lda (string_array),y ; number of characters in the array
-	sec
-	sbc #1
 	+macro_string_array_write_byte
 ;	sta (string_array),y
 }
@@ -1370,13 +1421,16 @@ read_text
 	jmp .readkey
 ++	cmp #128
 	bcc .char_is_ok
+!ifdef USE_HISTORY {
+	cmp #131
+	bcc handle_history ; 129 and 130 are cursor up and down
+}
 	cmp #155
 	bpl +
 	jmp .readkey
 +	cmp #252
 	bcc .char_is_ok
-	jmp .readkey
-	
+	jmp .readkey	
 	; print the allowed char and store in the array
 .char_is_ok
 	ldx .read_text_column ; compare with size of keybuffer
@@ -1396,6 +1450,9 @@ read_text
 	iny
 }
 	lda .petscii_char_read
+!ifdef USE_HISTORY {
+	jsr disable_history_keys
+}
 	jsr s_printchar
 ;!ifdef USE_BLINKING_CURSOR {
 ;	jsr reset_cursor_blink
@@ -1434,6 +1491,9 @@ read_text
 	+macro_string_array_write_byte
 ;	sta (string_array),y
 }	
+!ifdef USE_HISTORY {
+	jsr add_line_to_history
+}
 	pla ; the terminating character, usually newline
 	beq +
 	jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
@@ -1442,6 +1502,247 @@ read_text
 ;}
 ;	jsr start_buffering
 +   rts
+
+!ifdef USE_HISTORY {
+	; MAIN DATASTRUCTURE:
+	; history_start        history_end
+	; ond0........first0sec
+	;             ^.history_first
+	;     ^.history_last
+	;             ^.history_current (used when selecting)
+	;
+	; use the space between history_start and history_end, but
+	; not more than 255 bytes so that history_start,x addressing works
+
+.dec_history_current
+	; move backwards to the previous entry
+	; x = (x - 1) % history_size
+	dex
+	cpx #$ff
+	bne +
+	ldx #history_lastpos
++	rts
+
+handle_history
+	; reacts to history command keys
+	; input: 
+	;  - a is current key (either 129 for cursor up, or 130 for cursor down)
+	; output: 
+	; side effects: 
+	;  - string_array
+	;  - .read_text_column
+	; used registers: a,x
+	;
+	ldy .history_disabled
+	bne .handle_history_done
+	cmp #129
+	bne .history_cursor_down
+	; cursor up
+	; check if already at the oldest entry
+	ldx .history_current
+	cpx .history_first
+	beq .handle_history_done
+	; move backwards to the previous entry
+	jsr .dec_history_current ; move to 0 in the previous string
+-	txa ; save x value in y before calling .dec_history_current
+	tay
+	; check if at start of oldest entry
+	cpx .history_first
+	beq +
+	jsr .dec_history_current ; move to prev char
+	lda history_start,x ; check if at start of the new entry
+!ifdef TRACE_HISTORY {
+	jsr printx
+	jsr space
+	jsr printa
+	jsr colon
+}
+	bne -
+	tya
+	tax
++	stx .history_current
+!ifdef TRACE_HISTORY {
+	jsr printx
+	jsr newline
+}
+	jsr get_input_from_history
+	jmp .readkey
+.history_cursor_down
+	; cursor down
+	; check if already at the newest entry
+	ldx .history_current
+	cpx .history_last
+	beq .handle_history_done
+	; move forwards to a newer entry
+	; x = (x + 1) % history_size
+-	lda history_start,x
+	inx
+	cpx #history_size 
+	bcc +
+	ldx #0
++	cmp #0
+	bne -
+	stx .history_current
+	jsr get_input_from_history
+.handle_history_done
+	jmp .readkey
+
+get_input_from_history
+	; copies data from history to input
+	; input: 
+	;  - history_current
+	; output: 
+	; side effects: 
+	;  - string_array
+	;  - .read_text_column
+	; used registers: 
+
+	; remove any old input first
+	ldx .read_text_column
+-	cpx #1
+	beq +
+	lda #$14 ; delete character
+	jsr s_printchar
+	dex
+	bne -
++	; update string_array and write characters
+!ifdef Z5PLUS {
+	ldy #2 ; start from position 2
+} else {
+	ldy #1 ; start from position 1 (z3)
+}
+	ldx .history_current
+-	lda history_start,x
+	+macro_string_array_write_byte
+	beq ++
+	; convert back to petscii
+	jsr translate_zscii_to_petscii
+	jsr s_printchar
+	iny
+	; x = (x + 1) % history_size
+	inx
+	cpx #history_size 
+	bcc -
+	ldx #0
+	beq - ; unconditional jump
+++  ; store string length
+!ifdef Z5PLUS {
+	dey
+	sty .read_text_column
+	dey
+	tya
+	ldy #1
+	+macro_string_array_write_byte
+} else {
+	sty .read_text_column
+}
+	jmp turn_on_cursor
+
+disable_history_keys
+	; disable cursor up/down for history
+	; input: -
+	; output: -
+	; side effects: -
+	; used registers: -
+	pha
+	lda #1
+	bne + ; unconditional jump for code sharing with enable_history_keys
+enable_history_keys
+	; enable cursor up/down for history
+	; input: -
+	; output: -
+	; side effects: -
+	; used registers: -
+	; only enable if we have any history stored
+	pha
+	lda .history_first
+	cmp .history_last
+	beq ++
+	; something was stored, so proceed and enable it.
+	lda .history_last
+	sta .history_current
+	lda #0
++	sta .history_disabled
+++	pla
+	rts
+
+add_line_to_history
+	; copy the current input to history, if there is space
+	; input: 
+	; - string_array
+	; output:
+	; side effects:
+	; used registers: a,x,y
+	ldx .read_text_column
+	cpx #1 ; skip if the line is empty
+	beq ++ 
+	cpx #history_size ; skip if the line larger than the history buffer
+	bcs ++
+	; there is space
+	pha
+	ldy #0
+	ldx .history_last
+-	iny
+!ifdef Z5PLUS {
+	iny ; since text in string_array,y+2
+}
+	+macro_string_array_read_byte
+	sta history_start,x
+!ifdef Z5PLUS {
+	dey ; only one dey since we want to y++ before cpy
+}
+	; x = (x + 1) % history_size
+	inx
+	cpx #history_size 
+	bcc +
+	ldx #0
++   ; check if we are overwriting the oldest entry
+    cpx .history_first
+    bne +
+    ; drop the oldest entry
+    txa
+    pha
+--	lda history_start,x
+	pha
+	lda #0 ; null the oldest entry as we skip forwards
+	sta history_start,x
+	; x = (x + 1) % history_size
+	inx
+	cpx #history_size 
+	bcc +++
+	ldx #0
++++	pla ; check if we found the 0 at the end of the string
+	bne --
+	stx .history_first
+	pla
+	tax
++	cpy .read_text_column
+	bne -
+	stx .history_last
+	lda #0
+	dex
+	sta history_start,x
+	pla
+++  ; done
+!ifdef TRACE_HISTORY {
+	ldx #history_size
+	jsr printx
+	jsr space
+	ldx .history_first
+	jsr printx
+	jsr space
+	ldx .history_last
+	jsr printx
+	jsr newline
+}
+	rts
+
+.history_current !byte 0  ; the current entry (when selecting with up/down)
+.history_first !byte 0    ; offset to the first (oldest) entry
+.history_last !byte 0     ; offset to the end of the last (newest) entry
+.history_disabled !byte 1 ; 0 means disabled, otherwise enabled
+}
+
 .read_parse_buffer !byte 0,0
 .read_text_cursor !byte 0,0
 .read_text_column !byte 0
