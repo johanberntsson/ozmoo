@@ -328,7 +328,7 @@ interrupt_vector = $314
 }
 	
 .filename
-!pet "story"
+!source "file_name.asm"
 }
 .end_of_loader
 

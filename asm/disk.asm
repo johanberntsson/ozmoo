@@ -613,11 +613,15 @@ z_ins_restart
 
 .restart_code_string
 !ifdef TARGET_PLUS4_OR_C128 {
-	!pet 147,17,17,"lO",34,":story",34,","
+	!pet 147,17,17,"lO",34,":"
+!source "file_name.asm"
+    !pet 34,","
 .device_no
 	!pet "08",17,17,17,17,17,"rU",19,0
 } else { ; Not Plus4 or C128
-	!pet 147,17,17,"    ",34,":story",34,","
+	!pet 147,17,17,"    ",34,":"
+!source "file_name.asm"
+    !pet 34,","
 .device_no
 	!pet "08",19,0
 }
