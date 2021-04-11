@@ -733,8 +733,12 @@ find_word_in_dictionary
 	sta .final_word
 	sta .first_word
 	sta .first_word + 1
+!ifdef ILLEGAL {
+	lax dict_num_entries + 1 ; This is stored High-endian
+} else {
 	lda dict_num_entries + 1 ; This is stored High-endian
 	tax
+}
 	ora dict_num_entries ; This is stored High-endian
 	bne +
 	jmp .no_entry_found

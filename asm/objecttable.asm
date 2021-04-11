@@ -70,8 +70,12 @@ z_ins_get_child
 	pha
 	tya
 } else {
+!ifdef ILLEGAL {
+	lax (object_tree_ptr),y
+} else {
 	lda (object_tree_ptr),y
 	tax
+}
 	dey
 	ora (object_tree_ptr),y
 	pha ; Value is zero if object is zero, non-zero if object is non-zero
@@ -117,8 +121,12 @@ z_ins_get_parent
 	jsr read_word_from_bank_1_c128
 } else {
 	ldy #7
+!ifdef ILLEGAL {
+	lax (object_tree_ptr),y
+} else {
 	lda (object_tree_ptr),y
 	tax
+}
 	dey
 	lda (object_tree_ptr),y
 }
@@ -537,8 +545,12 @@ print_obj
 	lda #object_tree_ptr
 	jsr read_word_from_bank_1_c128
 } else {
+!ifdef ILLEGAL {
+	lax (object_tree_ptr),y ; low byte
+} else {
 	lda (object_tree_ptr),y ; low byte
 	tax
+}
 	dey
 	lda (object_tree_ptr),y ; high byte
 }
@@ -870,8 +882,12 @@ find_first_prop
 	lda #object_tree_ptr
 	jsr read_word_from_bank_1_c128
 } else {
+!ifdef ILLEGAL {
+	lax (object_tree_ptr),y ; low byte
+} else {
 	lda (object_tree_ptr),y ; low byte
 	tax
+}
 	dey
 	lda (object_tree_ptr),y ; high byte
 }

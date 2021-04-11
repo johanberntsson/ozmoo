@@ -220,8 +220,12 @@ read_word_from_bank_1_c128
 	sta c128_mmu_load_pcrc
 	iny
 .read_word
+!ifdef ILLEGAL {
+	lax ($fb),y
+} else {
 	lda ($fb),y
 	tax
+}
 	dey
 .read_word_2
 	lda ($fb),y

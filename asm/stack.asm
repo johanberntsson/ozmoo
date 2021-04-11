@@ -428,8 +428,12 @@ stack_return_from_routine
 	
 	; Copy PC from stack to z_pc
 	iny
+!ifdef ILLEGAL {
+	lax (z_local_vars_ptr),y
+} else {
 	lda (z_local_vars_ptr),y
 	tax
+}
 	and #$07
 	pha ; Top byte of z_pc
 !ifdef Z4PLUS {
@@ -438,8 +442,12 @@ stack_return_from_routine
 	jsr set_z_exe_mode
 }
 	iny
+!ifdef ILLEGAL {
+	lax (z_local_vars_ptr),y
+} else {
 	lda (z_local_vars_ptr),y
 	tax
+}
 	iny
 	lda (z_local_vars_ptr),y
 	tay
@@ -570,9 +578,13 @@ stack_get_ref_to_top_value
 	adc stack_ptr + 1
 	tay
 	txa
+!ifdef ILLEGAL {
+    sbx #2
+} else {
 	sec
 	sbc #2
 	tax
+}
 	tya
 	sbc #0
 	rts
@@ -613,8 +625,12 @@ stack_pull_no_top_value
 	sta zp_temp + 1
 	; Load value and return
 	ldy #1
+!ifdef ILLEGAL {
+	lax (zp_temp),y
+} else {
 	lda (zp_temp),y
 	tax
+}
 	dey
 	lda (zp_temp),y
 	rts

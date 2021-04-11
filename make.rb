@@ -31,6 +31,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 # Typically none should be enabled.
 $GENERALFLAGS = [
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
+#	'ILLEGAL', # Use illegal 6502 instructions
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -1927,6 +1928,8 @@ begin
 			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
+		elsif ARGV[i] =~ /^-il$/ then
+			$GENERALFLAGS.push('ILLEGAL') unless $GENERALFLAGS.include?('ILLEGAL') 
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"

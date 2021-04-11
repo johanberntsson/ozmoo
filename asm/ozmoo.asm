@@ -759,6 +759,7 @@ game_id		!byte 0,0,0,0
 
 !ifdef VMEM {
 !ifdef TARGET_C64 {
+!ifndef ILLEGAL {
 	; set up C64 SuperCPU if any
 	; see: http://www.elysium.filety.pl/tools/supercpu/superprog.html
 	lda $d0bc ; SuperCPU control register (read only)
@@ -772,6 +773,7 @@ game_id		!byte 0,0,0,0
 	;sta $d077 ; no memory optimization
 	;sta $d07f ; disable hardware registers
 	;sta $d07a ; normal speed (1 MHz)
+}
 }
 	; SuperCPU and REU doesn't work well together
 	; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
@@ -1009,10 +1011,15 @@ load_suggested_pages
 	bcc .start_loading
 	lda #47
 	jsr s_printchar
+!ifdef ILLEGAL {
+	txa
+	sbx #6
+} else {
 	txa
 	sec
 	sbc #6
 	tax
+}
 	bne -
 .start_loading
 	lda vmap_blocks_preloaded ; First index which has not been loaded
@@ -1925,8 +1932,12 @@ prepare_static_high_memory
 ;	adc #0 ; Not needed, as disk info is always <= 249 bytes
 	sta zp_temp + 1
 	ldy #0
+!ifdef ILLEGAL {
+	lax (zp_temp),y ; # of blocks in the list
+} else {
 	lda (zp_temp),y ; # of blocks in the list
 	tax
+}
 	cpx vmap_max_entries
 	bcc +
 	beq +

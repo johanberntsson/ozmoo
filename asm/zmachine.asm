@@ -454,8 +454,12 @@ read_operand
 	asl ; This clears carry
 	tay
 	iny
+!ifdef ILLEGAL {
+	lax (z_local_vars_ptr),y
+} else {
 	lda (z_local_vars_ptr),y
 	tax
+}
 	dey
 	lda (z_local_vars_ptr),y
 } ; Not COMPLEX_MEMORY
@@ -497,8 +501,12 @@ read_operand
 	asl
 	tay
 	iny
+!ifdef ILLEGAL {
+	lax (z_low_global_vars_ptr),y
+} else {
 	lda (z_low_global_vars_ptr),y
 	tax
+}
 	dey
 	lda (z_low_global_vars_ptr),y
 }
@@ -508,8 +516,12 @@ read_operand
 	asl ; This sets carry
 	tay
 	iny
+!ifdef ILLEGAL {
+	lax (z_high_global_vars_ptr),y
+} else {
 	lda (z_high_global_vars_ptr),y
 	tax
+}
 	dey
 	lda (z_high_global_vars_ptr),y
 	bcs .store_operand ; Always branch
@@ -613,8 +625,12 @@ z_get_referenced_value
 }
 	ldy #1
 	+before_dynmem_read
+!ifdef ILLEGAL {
+	lax (zp_temp),y
+} else {
 	lda (zp_temp),y
 	tax
+}
 	dey
 	lda (zp_temp),y
 	+after_dynmem_read
@@ -665,8 +681,12 @@ z_get_low_global_variable_value
 	; Not TARGET_C128
 	iny
 	+before_dynmem_read
+!ifdef ILLEGAL {
+	lax (z_low_global_vars_ptr),y
+} else {
 	lda (z_low_global_vars_ptr),y
 	tax
+}
 	dey
 	lda (z_low_global_vars_ptr),y
 	+after_dynmem_read
