@@ -1754,7 +1754,7 @@ def print_usage_and_exit
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
-	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -cm: Use the specified character map: en, sv, da, de, it, es, fr or zz (maximally stripped en)"
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
@@ -1906,7 +1906,7 @@ begin
 			$input_colour_dm = $1.to_i
 		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
 			$stack_pages = $1.to_i
-		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
+		elsif ARGV[i] =~ /^-cm:(en|sv|da|de|it|es|fr|zz)$/ then
 			$char_map = $1
 		elsif ARGV[i] =~ /^-cf$/ then
 			await_preloadfile = true
@@ -2035,6 +2035,7 @@ $GENERALFLAGS.push('GERMAN_CHARS') if $char_map == 'de'
 $GENERALFLAGS.push('ITALIAN_CHARS') if $char_map == 'it'
 $GENERALFLAGS.push('SPANISH_CHARS') if $char_map == 'es'
 $GENERALFLAGS.push('FRENCH_CHARS') if $char_map == 'fr'
+$GENERALFLAGS.push('MINIMUM_CHARS') if $char_map == 'zz'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 

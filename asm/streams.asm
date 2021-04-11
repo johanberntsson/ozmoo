@@ -10,6 +10,36 @@ streams_output_selected		!byte 0, 0, 0, 0
 .streams_tmp	!byte 0,0,0
 .current_character !byte 0
 
+!ifdef MINIMUM_CHARS {
+
+; BARE MINIMUM CHARACTER SET
+
+character_translation_table_in
+; (zscii code, petscii code).
+; NOTE: Must be sorted on PETSCII value, descending!
+	!byte $20, $a0 ; Convert shift-space to regular space
+	!byte $83, $9d ; Cursor left
+	!byte $81, $91 ; Cursor up
+	!byte $8c, $8c ; F8
+	!byte $8a, $8b ; F6
+	!byte $88, $8a ; F4
+	!byte $86, $89 ; F2
+	!byte $8b, $88 ; F7
+	!byte $89, $87 ; F5
+	!byte $87, $86 ; F3
+	!byte $85, $85 ; F1
+	!byte $84, $1d ; Cursor right
+	!byte $08, $14 ; Backspace
+	!byte $82, $11 ; Cursor down
+character_translation_table_in_end
+
+character_translation_table_out
+; (zscii code, petscii code).
+; NOTE: Must be sorted on ZSCII value, descending!
+character_translation_table_out_end
+
+} else { ; End of Barebones section
+
 !ifdef SWEDISH_CHARS {
 
 ; SWEDISH
@@ -478,6 +508,7 @@ character_translation_table_out_end
 } ; End of non-German section
 } ; End of non-Danish section
 } ; End of non-Swedish section
+} ; End of non-barebones section
 	
 streams_init
 	; Setup/Reset streams handling
@@ -692,8 +723,9 @@ z_ins_output_stream
 }
 
 translate_zscii_to_petscii
-	; Return PETSCII code *OR* set carry if this ZSCII character is unsupported
 	sty .streams_tmp + 1
+!ifndef MINIMUM_CHARS {
+	; Return PETSCII code *OR* set carry if this ZSCII character is unsupported
 	ldy #character_translation_table_out_end - character_translation_table_out - 2
 -	cmp character_translation_table_out,y
 	bcc .no_match
@@ -702,6 +734,7 @@ translate_zscii_to_petscii
 	dey
 	bpl -
 .no_match
+}
 	ldy .streams_tmp + 1
 	; Check if legal
 	cmp #13
