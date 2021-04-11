@@ -995,6 +995,9 @@ z_ins_get_prop_addr
 	jsr find_prop
 	jmp z_store_result
 
+!ifdef REMOVE_GET_NEXT_PROP {
+z_ins_get_next_prop = z_not_implemented
+} else {
 z_ins_get_next_prop
 	; get_next_prop object property -> (result)
 	jsr find_first_prop
@@ -1010,6 +1013,7 @@ z_ins_get_next_prop
 	ldx .property_number
 	lda #0
 	jmp z_store_result
+}
 
 z_ins_put_prop
 	; put_prop object property value

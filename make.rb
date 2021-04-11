@@ -1,6 +1,8 @@
 # specialised make for Ozmoo
 
 require 'fileutils'
+require 'set'
+require 'Open3'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
@@ -12,6 +14,7 @@ if $is_windows then
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
+    $TXD = "C:\\ProgramsWoInstall\\ztools\\txd.exe"
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
@@ -23,6 +26,7 @@ else
     $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
+    $TXD = "txd"
 	$commandline_quotemark = "'"
 end
 
@@ -1815,6 +1819,7 @@ $verbose = nil
 $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
+$remove_unused_opcodes = false
 
 begin
 	while i < ARGV.length
@@ -1929,6 +1934,8 @@ begin
 			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
+		elsif ARGV[i] =~ /^-ru$/ then
+			$remove_unused_opcodes = true
 		elsif ARGV[i] =~ /^-sl$/ then
 			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 		elsif ARGV[i] =~ /^-dd$/ then
@@ -2107,6 +2114,55 @@ begin
 rescue
 	puts "ERROR: Can't open #{$story_file} for reading"
 	exit 1
+end
+
+if $remove_unused_opcodes
+    rare_opcodes = [
+        'ART_SHIFT',
+        'BUFFER_MODE',
+        'CATCH',
+        'CHECK_ARG_COUNT',
+        'CHECK_UNICODE',
+        'COPY_TABLE',
+        'DEC_CHK',
+        'ENCODE_TEXT',
+        'ERASE_LINE',
+        'GET_CURSOR',
+        'GET_NEXT_PROP',
+        'INC_CHK',
+        'LOAD',
+        'LOG_SHIFT',
+        'MOD',
+        'NOT',
+        'OUTPUT_STREAM',
+        'PRINT_TABLE',
+        'PRINT_UNICODE',
+        'PULL',
+        'RANDOM',
+        'SCAN_TABLE',
+        'SET_COLOUR',
+        'SET_CURSOR',
+        'SET_FONT',
+        'SET_WINDOW',
+        'SOUND_EFFECT',
+        'TEST',
+        'THROW',
+        'TOKENISE',
+    ]
+    # These are rare, but their implementation is trivial, so they don't matter:
+    # PIRACY, VERIFY, NOP, INPUT_STREAM
+    used_opcodes = Set.new()
+    puts "#{$TXD} #{$story_file}" if $verbose
+    disassembly, st = Open3.capture2($TXD, $story_file)
+    for line in disassembly.lines
+        if line =~ /^(?:L[0-9]{4}+: | {7})(\w+)(?:\s.*)?$/
+            used_opcodes << $1.upcase
+        end
+    end
+    puts used_opcodes.to_a.sort.join(', ') if $verbose
+    for opcode in rare_opcodes
+        $GENERALFLAGS.push('REMOVE_' + opcode) unless used_opcodes.include?(opcode)
+    end
 end
 
 $zcode_version = $story_file_data[0].ord

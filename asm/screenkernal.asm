@@ -1193,6 +1193,10 @@ toggle_darkmode
 } ; ifndef NODARKMODE
 
 !ifdef Z5PLUS {
+
+!ifdef REMOVE_SET_COLOUR {
+z_ins_set_colour = z_not_implemented
+} else {
 z_ins_set_colour
 	; set_colour foreground background [window]
 	; (window is not used in Ozmoo)
@@ -1245,6 +1249,7 @@ z_ins_set_colour
 +	sta current_cursor_colour
 
 	rts
+}
 }
 
 !ifdef TESTSCREEN {

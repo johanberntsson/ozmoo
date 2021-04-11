@@ -148,6 +148,9 @@ z_ins_read_char
 }
 	
 !ifdef Z5PLUS {	
+!ifdef REMOVE_TOKENISE {
+z_ins_tokenise_text = z_not_implemented
+} else {
 z_ins_tokenise_text
 	; tokenise text parse dictionary flag
 	; setup string_array
@@ -193,6 +196,11 @@ z_ins_tokenise_text
 	lda z_operand_value_high_arr + 1
 	jmp tokenise_text
 
+}
+
+!ifdef REMOVE_ENCODE_TEXT {
+z_ins_encode_text = z_not_implemented
+} else {
 z_ins_encode_text
 	; encode_text zscii-text length from coded-text
 	; setup string_array
@@ -228,6 +236,7 @@ z_ins_encode_text
 	cpy #6
 	bne -
 	rts
+}
 }
 
 z_ins_print_addr 
@@ -471,11 +480,19 @@ z_ins_read
 ; ============================= End of new unified read instruction
 
 !ifdef Z5PLUS {
+
+!ifdef REMOVE_CHECK_UNICODE {
+z_ins_check_unicode = z_not_implemented
+} else {
 z_ins_check_unicode
 	lda #0
 	tax
 	jmp z_store_result
-	
+}
+
+!ifdef REMOVE_PRINT_UNICODE {
+z_ins_print_unicode = z_not_implemented
+} else {
 z_ins_print_unicode
 	lda #$28 ; (
 	jsr streams_print_output
@@ -484,6 +501,7 @@ z_ins_print_unicode
 	jsr print_num_unsigned
 	lda #$29 ; )
 	jmp streams_print_output
+}
 }
 	
 convert_zchar_to_char

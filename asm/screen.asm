@@ -140,6 +140,10 @@ erase_window
 	rts
 
 !ifdef Z4PLUS {
+
+!ifdef REMOVE_ERASE_LINE {
+z_ins_erase_line = z_not_implemented
+} else {
 z_ins_erase_line
 	; erase_line value
 	; clear current line (where the cursor is)
@@ -147,6 +151,7 @@ z_ins_erase_line
 	cmp #1
 	bne .return
 	jmp s_erase_line_from_cursor
+}
 
 !ifdef Z5PLUS {
 .pt_cursor = z_temp;  !byte 0,0
@@ -155,6 +160,9 @@ z_ins_erase_line
 .pt_skip = z_temp + 4; !byte 0,0
 .current_col = z_temp + 6; !byte 0
 
+!ifdef REMOVE_PRINT_TABLE {
+z_ins_print_table = z_not_implemented
+} else {
 z_ins_print_table
 	; print_table zscii-text width [height = 1] [skip]
 	; ; defaults
@@ -233,7 +241,11 @@ z_ins_print_table
 	bne -
 	rts
 }
+}
 
+!ifdef REMOVE_BUFFER_MODE {
+z_ins_buffer_mode = z_not_implemented
+} else {
 z_ins_buffer_mode 
 	; buffer_mode flag
 	; If buffer mode goes from 0 to 1, remember the start column
@@ -251,6 +263,7 @@ z_ins_buffer_mode
 	jsr printchar_flush
 .buffer_mode_done
 	rts
+}
 
 }
 
@@ -312,20 +325,13 @@ split_window
 	ldx window_start_row + 1
 	jmp set_cursor
 
+!ifdef REMOVE_SET_WINDOW {
+z_ins_set_window = z_not_implemented
+} else {
 z_ins_set_window
 	;  set_window window
 	lda z_operand_value_low_arr
-	bne select_upper_window
-	; Selecting lower window
-select_lower_window
-	ldx current_window
-	beq .do_nothing
-	jsr save_cursor
-	lda #0
-	sta current_window
-	; this is the main text screen, restore cursor position
-	jmp restore_cursor
-select_upper_window
+	beq select_lower_window
 	; this is the status line window
 	; store cursor position so it can be restored later
 	; when set_window 0 is called
@@ -334,6 +340,8 @@ select_upper_window
 	jsr save_cursor
 	ldx #1
 	stx current_window
+} ; REMOVE_SET_WINDOW end
+
 .reset_cursor
 !ifdef Z3 { ; Since Z3 has a separate statusline 
 	ldx #1
@@ -343,6 +351,17 @@ select_upper_window
 	ldy #0
 	jmp set_cursor
 
+
+	; Selecting lower window
+select_lower_window
+	ldx current_window
+	beq .do_nothing
+	jsr save_cursor
+	lda #0
+	sta current_window
+	; this is the main text screen, restore cursor position
+	jmp restore_cursor
+    
 !ifdef Z4PLUS {
 z_ins_set_text_style
 	lda z_operand_value_low_arr
@@ -355,6 +374,9 @@ z_ins_set_text_style
 	lda #18 ; reverse on
 	jmp s_printchar
 
+!ifdef REMOVE_GET_CURSOR {
+z_ins_get_cursor = z_not_implemented
+} else {
 z_ins_get_cursor
 	; get_cursor array
 	ldx z_operand_value_low_arr
@@ -395,8 +417,11 @@ z_ins_get_cursor
 +	ldx cursor_row + 1
 	ldy cursor_column + 1
 	jmp -	
+}
 
-
+!ifdef REMOVE_SET_CURSOR {
+z_ins_set_cursor = z_not_implemented
+} else {
 z_ins_set_cursor
 	; set_cursor line column
 	ldy current_window
@@ -407,6 +432,8 @@ z_ins_set_cursor
 	dey
 	jmp set_cursor
 }
+}
+
 
 clear_num_rows
 	lda #0

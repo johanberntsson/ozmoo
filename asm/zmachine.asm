@@ -1004,11 +1004,18 @@ z_ins_jump
 
 ; z_ins_print_paddr (moved to text.asm)
 
+!ifdef REMOVE_LOAD {
+z_ins_load = z_not_implemented
+} else {
 z_ins_load
 	ldy z_operand_value_low_arr
 	jsr z_get_variable_reference_and_value
 	jmp z_store_result
+}
 
+!ifdef REMOVE_NOT {
+z_ins_not = z_not_implemented
+} else {
 z_ins_not
 	lda z_operand_value_low_arr
 	eor #$ff
@@ -1016,6 +1023,7 @@ z_ins_not
 	lda z_operand_value_high_arr
 	eor #$ff
 	jmp z_store_result
+}
 
 ; z_ins_jz moved to after z_ins_jl to allow relative branching	
 
@@ -1037,12 +1045,16 @@ z_ins_jz
 	ora z_operand_value_high_arr
 	bne make_branch_false
 	jmp make_branch_true
-	
+
+!ifdef REMOVE_INC_CHK {
+z_ins_inc_chk = z_not_implemented
+} else {
 z_ins_inc_chk
 	jsr z_ins_inc
 	jsr z_get_referenced_value
 	sta z_operand_value_high_arr
 	stx z_operand_value_low_arr
+}
 	
 z_ins_jg
 	lda z_operand_value_low_arr + 1
@@ -1054,12 +1066,16 @@ z_ins_jg
 +	bmi make_branch_true
 	bpl make_branch_false ; Always branch
 
+!ifdef REMOVE_DEC_CHK {
+z_ins_dec_chk = z_not_implemented
+} else {
 z_ins_dec_chk
 	jsr z_ins_dec
 	jsr z_get_referenced_value
 	sta z_operand_value_high_arr
 	txa
 	jmp .jl_comp
+}
 
 z_ins_je
 	ldx z_operand_count
@@ -1169,6 +1185,9 @@ z_jump_to_offset_in_zp_temp
 
 ; z_ins_jin (moved to objecttable.asm)
 
+!ifdef REMOVE_TEST {
+z_ins_test = z_not_implemented
+} else {
 z_ins_test
 	lda z_operand_value_low_arr
 	and z_operand_value_low_arr + 1
@@ -1181,7 +1200,8 @@ z_ins_test
 	jmp make_branch_true
 .test_branch_false
 	jmp make_branch_false
-	
+}
+    
 z_ins_or
 	lda z_operand_value_low_arr
 	ora z_operand_value_low_arr + 1
@@ -1350,7 +1370,10 @@ z_ins_div
 	lda division_result + 1
 	ldx division_result
 	jmp z_store_result
-	
+
+!ifdef REMOVE_MOD {
+z_ins_mod = z_not_implemented
+} else {
 z_ins_mod
 	ldy #$ff
 	jsr z_divide
@@ -1368,6 +1391,7 @@ z_ins_mod
 	eor #$ff
 	adc #0
 	jmp z_store_result
+}
 	
 !ifdef Z5PLUS {
 z_ins_call_xn
@@ -1471,6 +1495,9 @@ z_ins_set_true_colour
 }
 	rts
 
+!ifdef REMOVE_RANDOM {
+z_ins_random = z_not_implemented
+} else {
 z_ins_random	
 	lda z_operand_value_high_arr
 	beq .random_highbyte_empty
@@ -1610,6 +1637,7 @@ z_ins_random
 }
 
 	jmp z_store_result
+} ; z_ins_random end
 
 ; z_ins_push moved to stack.asm
 	
@@ -1633,6 +1661,9 @@ z_ins_random
 	
 ; z_ins_output_stream jumps directly to streams_output_stream.
 
+!ifdef REMOVE_SOUND_EFFECT {
+z_ins_sound_effect = z_ins_nop ; not z_not_implemented, as this might be reused for debugging purposes
+} else {
 z_ins_sound_effect
 	lda #$08
 	ldx z_operand_value_low_arr
@@ -1681,8 +1712,12 @@ z_ins_sound_effect
 	rts
 	}
 }
+}
 
 !ifdef Z4PLUS {
+!ifdef REMOVE_SCAN_TABLE {
+z_ins_scan_table = z_not_implemented
+} else {
 z_ins_scan_table
 	lda #$82
 	ldx z_operand_count
@@ -1744,6 +1779,7 @@ z_ins_scan_table
 	jsr z_store_result
 	jmp make_branch_true
 }
+}
 
 ; z_ins_read_char moved to text.asm	
 
@@ -1752,6 +1788,10 @@ z_ins_scan_table
 ; z_ins_encode_text moved to text.asm
 
 !ifdef Z5PLUS {
+
+!ifdef REMOVE_COPY_TABLE {
+z_ins_copy_table = z_not_implemented
+} else {
 z_ins_copy_table
 	; copy_table first second size 
 
@@ -1913,6 +1953,8 @@ z_ins_copy_table
 	dec z_operand_value_high_arr + 2
 	bpl - ; Always branch
 }
+}
+
 ; z_ins_print_table moved to screen.asm
 
 ; z_ins_check_arg_count moved to stack.asm	
@@ -1920,6 +1962,11 @@ z_ins_copy_table
 ; EXT instructions
 
 !ifdef Z5PLUS {
+
+
+!ifdef REMOVE_LOG_SHIFT {
+z_ins_log_shift = z_not_implemented
+} else {
 z_ins_log_shift
 	lda z_operand_value_high_arr + 1
 	ora z_operand_value_low_arr + 1
@@ -1940,7 +1987,11 @@ z_ins_log_shift
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jmp z_store_result
+}
 
+!ifdef REMOVE_ART_SHIFT {
+z_ins_art_shift = z_not_implemented
+} else {
 z_ins_art_shift
 	lda z_operand_value_high_arr + 1
 	ora z_operand_value_low_arr + 1
@@ -1956,7 +2007,11 @@ z_ins_art_shift
 	inc z_operand_value_low_arr + 1
 	bne -
 	beq .shift_store ; Always branch
+}
 
+!ifdef REMOVE_SET_FONT {
+z_ins_set_font = z_not_implemented
+} else {
 z_ins_set_font
 	ldy current_window
 	lda z_operand_value_low_arr
@@ -1977,6 +2032,7 @@ z_ins_set_font
 .set_font_check_status	
 	ldx z_font,y ; a is already 0
 	jmp z_store_result
+}
 
 z_ins_save_restore_undo
 	; Return -1 to indicate that this is not supported

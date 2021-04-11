@@ -547,6 +547,9 @@ streams_print_output
 	pla
 	rts
 	
+!ifdef REMOVE_OUTPUT_STREAM {
+z_ins_output_stream = z_not_implemented
+} else {
 z_ins_output_stream
 	; Set output stream held in z_operand 0
 	; input:  z_operand 0: 1..4 to enable, -1..-4 to disable. If enabling stream 3, also provide z_operand 1: z_address of table
@@ -686,6 +689,7 @@ z_ins_output_stream
 	; Turn off stream 3 output (A is always 0 here)
 	sta streams_output_selected + 2
 	rts
+}
 
 translate_zscii_to_petscii
 	; Return PETSCII code *OR* set carry if this ZSCII character is unsupported

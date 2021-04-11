@@ -348,6 +348,10 @@ stack_call_routine
 }
 	
 !ifdef Z5PLUS {	
+
+!ifdef REMOVE_CHECK_ARG_COUNT {
+z_ins_check_arg_count = z_not_implemented
+} else {
 z_ins_check_arg_count
 	; Read number of arguments provided to this routine
 	lda z_operand_value_high_arr
@@ -368,13 +372,21 @@ z_ins_check_arg_count
 	jmp make_branch_true
 .branch_false
 	jmp make_branch_false
+}
 
+!ifdef REMOVE_CATCH {
+z_ins_catch = z_not_implemented
+} else {
 z_ins_catch
 	; Store pointer to first byte where pushed values are stored in current frame.
 	ldx stack_ptr
 	lda stack_ptr + 1
 	jmp z_store_result
+}
 
+!ifdef REMOVE_THROW {
+z_ins_throw = z_not_implemented
+} else {
 z_ins_throw
 	; Restore pointer given. Return from routine (frame).
 	
@@ -407,6 +419,8 @@ z_ins_throw
 	ldx z_operand_value_low_arr
 ;	jmp stack_return_from_routine ; Placed z_ins_throw just before stack_return_from_routine, so no jmp needed
 }	
+}
+
 
 ; NOTE: Must follow z_ins_throw
 stack_return_from_routine
@@ -650,6 +664,9 @@ z_ins_push
 	ldx z_operand_value_low_arr
 	jmp stack_push
 
+!ifdef REMOVE_PULL {
+z_ins_pull = z_not_implemented
+} else {
 z_ins_pull
 	jsr stack_pull
 	pha
@@ -662,5 +679,6 @@ z_ins_pull
 	pla
 	jsr z_set_variable_reference_to_value
 	rts
-	
+}
+
 }
