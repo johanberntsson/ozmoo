@@ -31,6 +31,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 # Typically none should be enabled.
 $GENERALFLAGS = [
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
+#	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -1923,6 +1924,10 @@ begin
 			$cursor_blink = $1
 		elsif ARGV[i] =~ /^-u$/ then
 			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
+		elsif ARGV[i] =~ /^-sl$/ then
+			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
+		elsif ARGV[i] =~ /^-dd$/ then
+			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
