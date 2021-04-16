@@ -31,6 +31,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 # Typically none should be enabled.
 $GENERALFLAGS = [
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
+#	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -1749,10 +1750,12 @@ def print_usage_and_exit
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: use command line history, with minimum size of <n> bytes."
+	puts "  -dd: Disable the ability to switch to the dark mode"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1925,6 +1928,10 @@ begin
 			$cursor_blink = $1
 		elsif ARGV[i] =~ /^-u$/ then
 			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
+		elsif ARGV[i] =~ /^-sl$/ then
+			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
+		elsif ARGV[i] =~ /^-dd$/ then
+			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
 		elsif ARGV[i] =~ /^-/i then
