@@ -1085,7 +1085,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	opt = ""
 	opt = "-silent " unless $verbose
 	
-	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 	end
@@ -1729,7 +1729,7 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-sp:[n]] [-u] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
@@ -1746,6 +1746,7 @@ def print_usage_and_exit
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
 	puts "  -s: start game in Vice if build succeeds"
+	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
@@ -1811,6 +1812,7 @@ $cursor_blink = nil
 $verbose = nil
 $use_history = nil
 $no_sector_preload = nil
+$file_name = 'story'
 
 begin
 	while i < ARGV.length
@@ -1923,6 +1925,8 @@ begin
 			$cursor_blink = $1
 		elsif ARGV[i] =~ /^-u$/ then
 			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
+		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
+			$file_name = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -2230,6 +2234,12 @@ splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 	splash.sub!("@#{i}c@", indent.to_s)
 end
 File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+
+# Boot file name handling
+
+file_name = File.read(File.join($SRCDIR, 'file_name.tpl'))
+file_name.sub!("@fn@", $file_name)
+File.write(File.join($SRCDIR, 'file_name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128'
