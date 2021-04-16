@@ -237,7 +237,7 @@ interrupt_vector = $314
 
 .loader
 !pseudopc loader_start {
-	lda #5
+	lda #filename_length
 	ldx #<.filename
 	ldy #>.filename
 	jsr kernal_setnam
@@ -328,7 +328,8 @@ interrupt_vector = $314
 }
 	
 .filename
-!pet "story"
+!source "file_name.asm"
+filename_length = * - .filename
 }
 .end_of_loader
 

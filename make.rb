@@ -1086,7 +1086,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	opt = ""
 	opt = "-silent " unless $verbose
 	
-	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 	end
@@ -1730,7 +1730,7 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-sp:[n]] [-u] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
@@ -1747,6 +1747,7 @@ def print_usage_and_exit
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
 	puts "  -s: start game in Vice if build succeeds"
+	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
@@ -1814,6 +1815,7 @@ $cursor_blink = nil
 $verbose = nil
 $use_history = nil
 $no_sector_preload = nil
+$file_name = 'story'
 
 begin
 	while i < ARGV.length
@@ -1930,6 +1932,8 @@ begin
 			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 		elsif ARGV[i] =~ /^-dd$/ then
 			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
+		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
+			$file_name = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -2238,6 +2242,12 @@ splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 end
 File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 
+# Boot file name handling
+
+file_name = File.read(File.join($SRCDIR, 'file_name.tpl'))
+file_name.sub!("@fn@", $file_name)
+File.write(File.join($SRCDIR, 'file_name.asm'), file_name)
+
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128'
 	loader_kb = $loader_pic_file ? 5 : 0
@@ -2263,6 +2273,7 @@ if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
 end
+puts "Dynamic memory: #{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes" if $verbose 
 
 $vmem_blocks_in_ram = ($memory_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
 $unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
@@ -2272,6 +2283,11 @@ if $target == 'c128' then
 end
 puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
+
+if $unbanked_vmem_blocks == 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
+	exit 1
+end
 
 ############################# End of moved block
 
