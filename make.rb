@@ -2222,7 +2222,7 @@ end
 splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
 version = File.read(File.join(__dir__, 'version.txt'))
 version.gsub!(/[^\d\.]/m,'')
-splash.sub!("@vs@", version)
+splash.gsub!("@vs@", version)
 splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 4.times do |i|
 	text = splashes[i]
