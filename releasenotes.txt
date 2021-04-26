@@ -222,3 +222,6 @@ Fixed bugs:
   
 ================================================
 Release 7: 
+
+- Optimized search for properties, utilizing that they are stored in
+  descending order.
