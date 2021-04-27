@@ -1100,7 +1100,12 @@ end
 
 def play(filename)
 	if $target == "mega65" then
-	    command = "#{$MEGA65} -8 #{filename}"
+		if defined? $MEGA65 then
+			command = "#{$MEGA65} -8 #{filename}"
+		else
+			puts "Location of MEGA65 emulator unknown. Please set $MEGA65 at start of make.rb"
+			exit 0
+		end
 	elsif $target == "plus4" then
 	    command = "#{$XPLUS4} #{filename}"
 	elsif $target == "c128" then
@@ -1735,8 +1740,8 @@ def print_usage_and_exit
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128 and plus4."
-	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: specify build mode. Defaults to S1 (71 for C128). See docs."
+	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
+	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
@@ -1840,21 +1845,14 @@ begin
 		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
-			    # d81 as default for Mega65 and different start address
 			    $start_address = 0x1001
-			    mode = MODE_81
-			    # this will not work since mode is default MODE_S1 above
-			    #mode = MODE_81 unless mode 
 			elsif $target == "plus4" then
-			    # Different start address
 			    $start_address = 0x1001
 				$memory_end_address = 0xfc00
 				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "c128" then
-			    # Different start address
 			    $start_address = 0x1200
-#			    $start_address = 0x1c00
 				$memory_end_address = 0xfc00
 				$unbanked_ram_end_address = 0xc000
 				$normal_ram_end_address = $memory_end_address
@@ -1953,6 +1951,8 @@ print_usage_and_exit() if await_preloadfile or await_fontfile or await_imagefile
 unless mode
 	if $target == 'c128'
 		mode = MODE_71
+	elsif $target == 'mega65'
+		mode = MODE_81
 	else 
 		mode = MODE_S1
 	end
@@ -1971,6 +1971,11 @@ if mode == MODE_P
 		end
 	end
 end	
+
+if mode != MODE_81 and $target == 'mega65'
+	puts "ERROR: Only build mode 81 is supported on this target platform."
+	exit 1
+end
 
 if mode == MODE_71 and $target != 'c128'
 	puts "ERROR: Build mode 71 is not supported on this target platform."
