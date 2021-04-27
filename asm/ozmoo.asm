@@ -19,6 +19,7 @@
 	TARGET_ASSIGNED = 1
 	HAS_SID = 1
 	SUPPORT_REU = 0
+	SUPPORT_80COL = 1;
 	!ifdef SLOW {
 		!ifndef VMEM {
 			SKIP_BUFFER = 1
@@ -44,6 +45,7 @@
 	HAS_SID = 1
 	VMEM_END_PAGE = $fc
 	COMPLEX_MEMORY = 1
+	SUPPORT_80COL = 1;
 	!ifndef SLOW {
 		SLOW = 1
 	}
@@ -1105,6 +1107,22 @@ stack_start
 
 deletable_screen_init_1
 	; start text output from bottom of the screen
+
+!ifdef Z3 {
+	!ifdef TARGET_C128 {
+		lda COLS_40_80
+		beq .width40
+		; 80 col
+		lda #54
+		sta sl_score_pos
+		lda #67
+		sta sl_turns_pos
+		lda #64
+		sta sl_time_pos
+.width40
+		; Default values are correct, nothing to do here.
+	}
+}
 	
 	lda #147 ; clear screen
 	jsr s_printchar

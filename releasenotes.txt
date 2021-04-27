@@ -225,3 +225,4 @@ Release 7:
 
 - Optimized search for properties, utilizing that they are stored in
   descending order.
+- Made z3 timeline print score and turns separatel on 80 col.
