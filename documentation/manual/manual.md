@@ -145,6 +145,14 @@ A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can
 
 A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drives attached to the C64. The device numbers which can be used are 8, 9, 10, 11. If the game has two story disks (meaning it was built using mode D2 or D3), the player will need a computer with at least two disk drives OR one disk drive and an REU to play it.
 
+## File name
+
+The story is started by loading and running a boot file which is called "STORY" by default. It is possible to change this file name by using -fn. For example, 
+```
+make.rb -fn temple temple.z5
+```
+Make sure that the -fn argument follows the naming for the drive you are creating disks for.
+
 ## List of build modes
 
 Notes: 
@@ -263,6 +271,9 @@ Ozmoo lets you pick two different colour schemes for your game. We refer to thes
 ## Colour switches
 
 make.rb has the following switches to control colours:
+
+    -dd
+Disables darkmode.
 
     -rc:(Z-code colour)=(C64 colour), ...
 Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
