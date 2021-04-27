@@ -11,7 +11,7 @@ if $is_windows then
     $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
-    $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
+    $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
@@ -1076,15 +1076,14 @@ end
 def add_boot_file(finaldiskname, diskimage_filename)
 	if $target == "mega65" then	
 	        # Put C65/C64 mode switch wrapper on the front
-        	cmd = "cat #{$wrapper_file} #{$good_zip_file} > #{$universal_file}";
-	        puts cmd if $verbose
-	        ret = system(cmd)
-	        exit 0 unless ret
+			base = IO.binread($wrapper_file)
+			to_append = IO.binread($good_zip_file)
+			IO.binwrite($universal_file, base + to_append);
 	end
-	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
+	ret = FileUtils.cp(diskimage_filename, finaldiskname)
 
 	opt = ""
-	opt = "-silent " unless $verbose
+#	opt = "-silent " unless $verbose # Doesn't work on older Vice versions
 	
 	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
