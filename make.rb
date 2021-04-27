@@ -2007,7 +2007,7 @@ if $font_filename
 		$start_address = 0x2000
 	elsif $target == 'mega65'
 		# It is not possible to disable shadow character roms on
-		# the C64 and the Mega65, so we cannot use $1000-$2000
+		# the C64 and the MEGA65, so we cannot use $1000-$2000
 		# for custom fonts. Instead we put the font in $0800, but
 		# we also need to move the scren to $1000, since it will no
 		# longer fit at $0400 because it is now 80 characters wide

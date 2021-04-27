@@ -7,8 +7,7 @@
 ;Z8 = 1
 
 ; Which machine to generate code for
-; C64 is default and currently the only supported target, but
-; future versions may include new targets such as Mega65, Plus/4 etc.
+; C64 is default target
 !ifndef VMEM {
 !ifndef SLOW {
 	SLOW = 1
