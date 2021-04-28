@@ -97,17 +97,24 @@ At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will
 
 ## Build a game with optimized preloaded virtual memory data
 
-Use these step to build a game with optimized preloaded virtual memory data which will make the game as fast as possible at startup:
+Ozmoo has the option of optimizing which virtual memory blocks are loaded when the game starts. This is done to make the game as fast as possible in the beginning.
 
-1. At a command prompt, type "ruby make.rb -o -s mygame.z5"
+Typically, this is a step you want to do when you have the release version of the game. If you do this optimization and then change the story file, adding or removing more than a few bytes, you should redo the optimization.
 
-2. Play the game, performing the actions you think the player is likely to do first. Keep playing until the game halts, printing a report with lots of numbers. (You can also end it and get the report earlier by typing xxx)
+Use these steps:
 
-3. In Vice, select Edit -> Copy from the menu
+1. At a command prompt, type `ruby make.rb -o -s mygame.z5`. If you plan to release the game for the Commodore 128, add -t:c128 to this command. The text file produced in step 4 can then be used for all other Ozmoo platforms as well in step 5.
 
-4. Create a text file (let's say you call it mygame_optimization.txt), paste the complete text you just copied from Vice into the file and save it.
+2. Play the game, performing the actions you think the player is likely to do first. Keep playing until the game halts, printing a report with lots of numbers. If you have done a reasonable amount of moves (let's say 10-20 moves) and you don't feel like spending more time on this, type `xxx` to end the optimization session and print the results.
 
-5. At a command prompt, type "ruby make.rb -c mygame_optimization.txt mygame.z5"
+3. Vice should now show a lot of hexadecimal numbers (and maybe some game text) on screen. In Vice, select `Edit -> Copy` from the menu to copy all of the screen contents.
+
+4. Create a new text file (let's say you call it `mygame_optimization.txt`), paste the complete text you just copied from Vice into the file and save it.
+
+5. At a command prompt, type `ruby make.rb -c mygame_optimization.txt mygame.z5`. You can use `-cf` instead of `-c` to have Ozmoo fill up any free slots of RAM with more virtual memory blocks. This will pick the lowest blocks which haven't already been loaded. 
+
+Repeat step 5 for all platforms you want to build the game for.
+
 
 # Targets
 
