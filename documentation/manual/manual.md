@@ -420,3 +420,9 @@ There is an optional command line history feature that can be activated by -ch. 
 Since memory is limited on old computers this feature is disabled by default. To
 enable it use -ch. This will allocate a history buffer large enough to be useful. It is also possible to manually define the minimal size of the history buffer with -ch:n, where n is 20-255 bytes.
 
+# Miscellaneous options
+
+## Option -sp:n
+
+-sp:n is used to set the size of the Z-machine stack, in pages (1 page = 256 bytes). The default value is 4. Many games, especially ones from Infocom, can be run with just two pages of stack. The main reason for reducing this to two pages would be to squeeze in a slightly bigger game in build mode P, or to build a game where dynamic memory is slightly too big with the standard settings.
+
