@@ -443,7 +443,9 @@ Ozmoo has some support for using accented characters in games. This is documente
 
 ## -in:[n]
 
--in sets the the interpreter number (0-19). The interpreters were originally defined by Infocom to be nfocom used the interpreter numbers: 
+-in sets the the interpreter number.
+
+The interpreter numbers, originally defined by Infocom, as as follows:
 
     1 = DECSystem-20
     2 = Apple IIe
@@ -457,4 +459,4 @@ Ozmoo has some support for using accented characters in games. This is documente
     10 = Apple IIgs
     11 = Tandy Color
 
-In Ozmoo we set 2 for Beyond Zork and 8 for other games by default, but -in allows you to try other interpreter numbers.
+The interpreter number is used by a few games to modify the screen output format. In Ozmoo we set 2 for Beyond Zork, 7 for C128 builds,  and 8 for other games by default, but -in allows you to try other interpreter numbers.
