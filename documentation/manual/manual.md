@@ -433,3 +433,28 @@ enable it use -ch. This will allocate a history buffer large enough to be useful
 
 -sp:n is used to set the size of the Z-machine stack, in pages (1 page = 256 bytes). The default value is 4. Many games, especially ones from Infocom, can be run with just two pages of stack. The main reason for reducing this to two pages would be to squeeze in a slightly bigger game in build mode P, or to build a game where dynamic memory is slightly too big with the standard settings.
 
+## Option -u
+
+-u is used to enable the "unsafe" mode, which remove some runtime checks, reducing code size and increasing speed. This is typically used when the game is in a good state, but you need to make it smaller to fit into the available memory.
+
+## Option -cm:[xx]
+
+Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo have support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
+
+## -in:[n]
+
+-in sets the the interpreter number (0-19). The interpreters were originally defined by Infocom to be nfocom used the interpreter numbers: 
+
+    1 = DECSystem-20
+    2 = Apple IIe
+    3 = Macintosh
+    4 = Amiga
+    5 = Atari ST
+    6 = IBM PC
+    7 = Commodore 128
+    8 = Commodore 64
+    9 = Apple IIc
+    10 = Apple IIgs
+    11 = Tandy Color
+
+In Ozmoo we set 2 for Beyond Zork and 8 for other games by default, but -in allows you to try other interpreter numbers.
