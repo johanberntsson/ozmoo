@@ -441,7 +441,7 @@ enable it use -ch. This will allocate a history buffer large enough to be useful
 
 Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo have support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
 
-## -in:[n]
+## Option -in:[n]
 
 -in sets the the interpreter number.
 
