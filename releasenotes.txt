@@ -229,3 +229,7 @@ Release 7:
 - Officially added support for target MEGA65.
 - Changed MEGA65 build code in make.rb to use Ruby functionality instead of
   Unix-specific command "cat".
+- Updated font Clairsys Regular for German and Swedish, since there was an
+  incorrect character in them.
+  
+  
