@@ -97,17 +97,24 @@ At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will
 
 ## Build a game with optimized preloaded virtual memory data
 
-Use these step to build a game with optimized preloaded virtual memory data which will make the game as fast as possible at startup:
+Ozmoo has the option of optimizing which virtual memory blocks are loaded when the game starts. This is done to make the game as fast as possible in the beginning.
 
-1. At a command prompt, type "ruby make.rb -o -s mygame.z5"
+Typically, this is a step you want to do when you have the release version of the game. If you do this optimization and then change the story file, adding or removing more than a few bytes, you should redo the optimization.
 
-2. Play the game, performing the actions you think the player is likely to do first. Keep playing until the game halts, printing a report with lots of numbers. (You can also end it and get the report earlier by typing xxx)
+Use these steps:
 
-3. In Vice, select Edit -> Copy from the menu
+1. At a command prompt, type `ruby make.rb -o -s mygame.z5`. If you plan to release the game for the Commodore 128, add -t:c128 to this command. The text file produced in step 4 can then be used for all other Ozmoo platforms as well in step 5.
 
-4. Create a text file (let's say you call it mygame_optimization.txt), paste the complete text you just copied from Vice into the file and save it.
+2. Play the game, performing the actions you think the player is likely to do first. Keep playing until the game halts, printing a report with lots of numbers. If you have done a reasonable amount of moves (let's say 10-20 moves) and you don't feel like spending more time on this, type `xxx` to end the optimization session and print the results.
 
-5. At a command prompt, type "ruby make.rb -c mygame_optimization.txt mygame.z5"
+3. Vice should now show a lot of hexadecimal numbers (and maybe some game text) on screen. In Vice, select `Edit -> Copy` from the menu to copy all of the screen contents.
+
+4. Create a new text file (let's say you call it `mygame_optimization.txt`), paste the complete text you just copied from Vice into the file and save it.
+
+5. At a command prompt, type `ruby make.rb -c mygame_optimization.txt mygame.z5`. You can use `-cf` instead of `-c` to have Ozmoo fill up any free slots of RAM with more virtual memory blocks. This will pick the lowest blocks which haven't already been loaded. 
+
+Repeat step 5 for all platforms you want to build the game for.
+
 
 # Targets
 
@@ -118,22 +125,27 @@ Ozmoo was originally written for the Commodore 64, but has been adapted for some
 | -t:c64 | Build Ozmoo for the Commodore 64 (default) |
 | -t:c128 | Build Ozmoo for the Commodore 128 |
 | -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
+| -t:mega65 | Build Ozmoo for the MEGA65 |
 
 Note that not all build options are supported for every platform. If an option isn't supported, the make.rb script will stop with an appropriate error message, and no Ozmoo files will be produced.
 
 ## Commodore 64
 
-The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than ~30 KB may not be advisable. An REU can be used for caching if present.
+The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than  about 30 KB may not be advisable. An REU can be used for caching if present.
 
 ## Commodore 128
 
 The Commodore 128 version automatically detects if it is started from 40 or 80 columns mode, and adjusts to the screen size. When run in 80 column mode, the CPU runs at 2 MHz, making for quite responsive games. It makes use of the additional ram available compared to the Commodore 64 version, and allows for games with up to 44 KB dynamic memory. An REU can be used for caching if present. 
 
-The Commodore 128 version does not allow a loader image, and build mode -P is not supported.
+The Commodore 128 version does not allow a loader image, and build mode -P is not supported. Commodore 128 is the only target which can use build mode -71.
 
 ## Commodore Plus/4
 
-The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than ~30 KB may still not be advisable.
+The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than about 30 KB may still not be advisable.
+
+## MEGA65
+
+The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode and the higher clockspeed of the MEGA65. The maximum amount of dynamic memory is about 35 KB. The only supported build mode is -81. A loader image is currently not supported.
 
 ## Other targets
 
@@ -144,6 +156,14 @@ A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can
 ## Drives and devices
 
 A game built using Ozmoo is placed on one or more disks. These disks can then be used in different disk drives attached to the C64. The device numbers which can be used are 8, 9, 10, 11. If the game has two story disks (meaning it was built using mode D2 or D3), the player will need a computer with at least two disk drives OR one disk drive and an REU to play it.
+
+## File name
+
+The story is started by loading and running a boot file which is called "STORY" by default. It is possible to change this file name by using -fn. For example, 
+```
+make.rb -fn temple temple.z5
+```
+Make sure that the -fn argument follows the naming for the drive you are creating disks for.
 
 ## List of build modes
 
@@ -263,6 +283,9 @@ Ozmoo lets you pick two different colour schemes for your game. We refer to thes
 ## Colour switches
 
 make.rb has the following switches to control colours:
+
+    -dd
+Disables darkmode.
 
     -rc:(Z-code colour)=(C64 colour), ...
 Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
@@ -404,3 +427,36 @@ There is an optional command line history feature that can be activated by -ch. 
 Since memory is limited on old computers this feature is disabled by default. To
 enable it use -ch. This will allocate a history buffer large enough to be useful. It is also possible to manually define the minimal size of the history buffer with -ch:n, where n is 20-255 bytes.
 
+# Miscellaneous options
+
+## Option -sp:n
+
+-sp:n is used to set the size of the Z-machine stack, in pages (1 page = 256 bytes). The default value is 4. Many games, especially ones from Infocom, can be run with just two pages of stack. The main reason for reducing this to two pages would be to squeeze in a slightly bigger game in build mode P, or to build a game where dynamic memory is slightly too big with the standard settings.
+
+## Option -u
+
+-u is used to enable the "unsafe" mode, which remove some runtime checks, reducing code size and increasing speed. This is typically used when the game is in a good state, but you need to make it smaller to fit into the available memory.
+
+## Option -cm:[xx]
+
+Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo have support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
+
+## Option -in:[n]
+
+-in sets the the interpreter number.
+
+The interpreter numbers, originally defined by Infocom, as as follows:
+
+    1 = DECSystem-20
+    2 = Apple IIe
+    3 = Macintosh
+    4 = Amiga
+    5 = Atari ST
+    6 = IBM PC
+    7 = Commodore 128
+    8 = Commodore 64
+    9 = Apple IIc
+    10 = Apple IIgs
+    11 = Tandy Color
+
+The interpreter number is used by a few games to modify the screen output format. In Ozmoo we set 2 for Beyond Zork, 7 for C128 builds,  and 8 for other games by default, but -in allows you to try other interpreter numbers.

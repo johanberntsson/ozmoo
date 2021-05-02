@@ -759,6 +759,18 @@ restore_cursor
 
 !ifdef Z3 {
 
+!ifdef TARGET_MEGA65 {
+sl_score_pos !byte 54
+sl_turns_pos !byte 67
+sl_time_pos !byte 64
+} else {
+sl_score_pos !byte 25
+!ifdef TARGET_C128 {
+sl_turns_pos !byte 0 ; A signal that "Turns:" should not be printed
+}
+sl_time_pos !byte 25
+}
+
 z_ins_show_status
 	; show_status (hardcoded size)
 ;    jmp draw_status_line
@@ -811,10 +823,7 @@ draw_status_line
 	lda z_operand_value_high_arr + 1
 	pha
 	ldx #0
-	sec
-	lda s_screen_width
-	sbc #15
-	tay
+	ldy sl_score_pos
 	jsr set_cursor
 	ldy #0
 -   lda .score_str,y
@@ -827,8 +836,25 @@ draw_status_line
 	stx z_operand_value_low_arr
 	sta z_operand_value_high_arr
 	jsr z_ins_print_num
+!ifdef SUPPORT_80COL {
+	ldy sl_turns_pos
+	bne +
 	lda #47
 	jsr s_printchar
+	jmp ++	
++	ldx #0
+	jsr set_cursor
+	ldy #0
+-   lda .turns_str,y
+	beq ++
+	jsr s_printchar
+	iny
+	bne - ; Always branch
+++
+} else {
+	lda #47
+	jsr s_printchar
+}
 	lda #18
 	jsr z_get_low_global_variable_value
 	stx z_operand_value_low_arr
@@ -846,10 +872,7 @@ draw_status_line
 .timegame
 	; time game
 	ldx #0
-	sec
-	lda s_screen_width
-	sbc #15
-	tay
+	ldy sl_time_pos
 	jsr set_cursor
 	lda #>.time_str
 	ldx #<.time_str
@@ -918,6 +941,9 @@ draw_status_line
 	jmp s_printchar
 
 .score_str !pet "Score: ",0
+!ifdef SUPPORT_80COL {
+.turns_str !pet "Turns: ",0
+}
 .time_str !pet "Time: ",0
 .ampm_str !pet " AM",0
 }

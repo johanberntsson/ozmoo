@@ -11,7 +11,7 @@ if $is_windows then
     $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
-    $ACME = "C:\\ProgramsWoInstall\\acme0.96.4win\\acme\\acme.exe"
+    $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
@@ -31,6 +31,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 # Typically none should be enabled.
 $GENERALFLAGS = [
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
+#	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -1075,17 +1076,16 @@ end
 def add_boot_file(finaldiskname, diskimage_filename)
 	if $target == "mega65" then	
 	        # Put C65/C64 mode switch wrapper on the front
-        	cmd = "cat #{$wrapper_file} #{$good_zip_file} > #{$universal_file}";
-	        puts cmd if $verbose
-	        ret = system(cmd)
-	        exit 0 unless ret
+			base = IO.binread($wrapper_file)
+			to_append = IO.binread($good_zip_file)
+			IO.binwrite($universal_file, base + to_append);
 	end
-	ret = FileUtils.cp("#{diskimage_filename}", "#{finaldiskname}")
+	ret = FileUtils.cp(diskimage_filename, finaldiskname)
 
 	opt = ""
-	opt = "-silent " unless $verbose
+#	opt = "-silent " unless $verbose # Doesn't work on older Vice versions
 	
-	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" story"
+	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 	end
@@ -1100,7 +1100,12 @@ end
 
 def play(filename)
 	if $target == "mega65" then
-	    command = "#{$MEGA65} -8 #{filename}"
+		if defined? $MEGA65 then
+			command = "#{$MEGA65} -8 #{filename}"
+		else
+			puts "Location of MEGA65 emulator unknown. Please set $MEGA65 at start of make.rb"
+			exit 0
+		end
 	elsif $target == "plus4" then
 	    command = "#{$XPLUS4} #{filename}"
 	elsif $target == "c128" then
@@ -1729,14 +1734,14 @@ end
 def print_usage_and_exit
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-u] [-s] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-sp:[n]] [-u] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128 and plus4."
-	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: specify build mode. Defaults to S1 (71 for C128). See docs."
+	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
+	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
@@ -1746,12 +1751,15 @@ def print_usage_and_exit
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
 	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
 	puts "  -s: start game in Vice if build succeeds"
+	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: use command line history, with minimum size of <n> bytes."
+	puts "  -dd: Disable the ability to switch to the dark mode"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -1811,6 +1819,7 @@ $cursor_blink = nil
 $verbose = nil
 $use_history = nil
 $no_sector_preload = nil
+$file_name = 'story'
 
 begin
 	while i < ARGV.length
@@ -1836,21 +1845,14 @@ begin
 		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
-			    # d81 as default for Mega65 and different start address
 			    $start_address = 0x1001
-			    mode = MODE_81
-			    # this will not work since mode is default MODE_S1 above
-			    #mode = MODE_81 unless mode 
 			elsif $target == "plus4" then
-			    # Different start address
 			    $start_address = 0x1001
 				$memory_end_address = 0xfc00
 				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "c128" then
-			    # Different start address
 			    $start_address = 0x1200
-#			    $start_address = 0x1c00
 				$memory_end_address = 0xfc00
 				$unbanked_ram_end_address = 0xc000
 				$normal_ram_end_address = $memory_end_address
@@ -1923,6 +1925,12 @@ begin
 			$cursor_blink = $1
 		elsif ARGV[i] =~ /^-u$/ then
 			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
+		elsif ARGV[i] =~ /^-sl$/ then
+			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
+		elsif ARGV[i] =~ /^-dd$/ then
+			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
+		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
+			$file_name = $1
 		elsif ARGV[i] =~ /^-/i then
 			puts "Unknown option: " + ARGV[i]
 			raise "error"
@@ -1943,6 +1951,8 @@ print_usage_and_exit() if await_preloadfile or await_fontfile or await_imagefile
 unless mode
 	if $target == 'c128'
 		mode = MODE_71
+	elsif $target == 'mega65'
+		mode = MODE_81
 	else 
 		mode = MODE_S1
 	end
@@ -1961,6 +1971,11 @@ if mode == MODE_P
 		end
 	end
 end	
+
+if mode != MODE_81 and $target == 'mega65'
+	puts "ERROR: Only build mode 81 is supported on this target platform."
+	exit 1
+end
 
 if mode == MODE_71 and $target != 'c128'
 	puts "ERROR: Build mode 71 is not supported on this target platform."
@@ -1992,7 +2007,7 @@ if $font_filename
 		$start_address = 0x2000
 	elsif $target == 'mega65'
 		# It is not possible to disable shadow character roms on
-		# the C64 and the Mega65, so we cannot use $1000-$2000
+		# the C64 and the MEGA65, so we cannot use $1000-$2000
 		# for custom fonts. Instead we put the font in $0800, but
 		# we also need to move the scren to $1000, since it will no
 		# longer fit at $0400 because it is now 80 characters wide
@@ -2211,7 +2226,7 @@ end
 splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
 version = File.read(File.join(__dir__, 'version.txt'))
 version.gsub!(/[^\d\.]/m,'')
-splash.sub!("@vs@", version)
+splash.gsub!("@vs@", version)
 splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 4.times do |i|
 	text = splashes[i]
@@ -2230,6 +2245,12 @@ splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 	splash.sub!("@#{i}c@", indent.to_s)
 end
 File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+
+# Boot file name handling
+
+file_name = File.read(File.join($SRCDIR, 'file_name.tpl'))
+file_name.sub!("@fn@", $file_name)
+File.write(File.join($SRCDIR, 'file_name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128'
@@ -2256,6 +2277,7 @@ if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
 end
+puts "Dynamic memory: #{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes" if $verbose 
 
 $vmem_blocks_in_ram = ($memory_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
 $unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
@@ -2265,6 +2287,11 @@ if $target == 'c128' then
 end
 puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
+
+if $unbanked_vmem_blocks == 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
+	exit 1
+end
 
 ############################# End of moved block
 

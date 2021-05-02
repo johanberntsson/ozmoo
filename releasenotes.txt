@@ -222,3 +222,10 @@ Fixed bugs:
   
 ================================================
 Release 7: 
+
+- Optimized search for properties, utilizing that they are stored in
+  descending order.
+- Made z3 timeline print score and turns separately on 80 col.
+- Officially added support for target MEGA65.
+- Changed MEGA65 build code in make.rb to use Ruby functionality instead of
+  Unix-specific command "cat".
