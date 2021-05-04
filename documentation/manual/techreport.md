@@ -419,6 +419,7 @@ Set the statusline colour. (only for z3).
     TARGET_C128
     TARGET_C64
     TARGET_PLUS4
+    TARGET_MEGA65
 
 Set the target platform.
 
