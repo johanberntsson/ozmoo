@@ -1115,7 +1115,7 @@ deletable_screen_init_1
 		lda #54
 		sta sl_score_pos
 		lda #67
-		sta sl_turns_pos
+		sta sl_moves_pos
 		lda #64
 		sta sl_time_pos
 .width40
