@@ -221,11 +221,18 @@ Fixed bugs:
   to read the colour memory in 80 col)
   
 ================================================
-Release 7: 
+Release 7: 4 May 2021
 
+- Officially added support for target MEGA65.
 - Optimized search for properties, utilizing that they are stored in
   descending order.
 - Made z3 timeline print score and turns separately on 80 col.
-- Officially added support for target MEGA65.
 - Changed MEGA65 build code in make.rb to use Ruby functionality instead of
   Unix-specific command "cat".
+- Updated font Clairsys Regular for German and Swedish, since there was an
+  incorrect character in them.
+  
+  
+================================================
+Release 8: 
+

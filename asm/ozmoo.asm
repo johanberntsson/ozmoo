@@ -1115,7 +1115,7 @@ deletable_screen_init_1
 		lda #54
 		sta sl_score_pos
 		lda #67
-		sta sl_turns_pos
+		sta sl_moves_pos
 		lda #64
 		sta sl_time_pos
 .width40
@@ -1202,7 +1202,7 @@ z_init
 	lda #TERPNO ; Interpreter number (8 = C64)
 	ldy #header_interpreter_number 
 	jsr write_header_byte
-	lda #70 ; "F" = release 6
+	lda #71 ; "G" = release 7
 	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
 	jsr write_header_byte
 	lda #25

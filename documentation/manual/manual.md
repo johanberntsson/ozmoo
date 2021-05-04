@@ -4,7 +4,7 @@
 
 Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
 
-Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Apart from Commodore 64, Ozmoo can currently target the Commodore 128 and the Commodore Plus/4 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
+Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Apart from Commodore 64, Ozmoo can currently target the Commodore 128, the Commodore Plus/4 and the MEGA65 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
 
 ## Features
 
@@ -46,7 +46,8 @@ You need to install:
 - Acme cross-assembler
 - Exomizer file compression program (tested with 3.0.0, 3.0.1 and 3.0.2)
 - Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
-- The Vice C64/C128/Plus4 emulator
+- The Vice emulator to test C64, C128 and Plus/4 builds on virtual hardware
+- The xemu-xmega65 emulator if you want to test MEGA65 builds on virtual hardware
 
 #### Windows
 
