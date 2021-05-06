@@ -236,3 +236,5 @@ Release 7: 4 May 2021
 ================================================
 Release 8: 
 
+- Fixed indexing bug in add_line_to_history (issue 36)
+
