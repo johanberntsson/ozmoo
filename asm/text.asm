@@ -1696,12 +1696,12 @@ add_line_to_history
 	cpx #history_size 
 	bcc +
 	ldx #0
-+   ; check if we are overwriting the oldest entry
-    cpx .history_first
-    bne +
-    ; drop the oldest entry
-    txa
-    pha
++	; check if we are overwriting the oldest entry
+	cpx .history_first
+	bne +
+	; drop the oldest entry
+	txa
+	pha
 --	lda history_start,x
 	pha
 	lda #0 ; null the oldest entry as we skip forwards
@@ -1721,7 +1721,10 @@ add_line_to_history
 	stx .history_last
 	lda #0
 	dex
-	sta history_start,x
+	cpx #$ff
+	bne +
+	ldx #history_lastpos
++	sta history_start,x
 	pla
 ++  ; done
 !ifdef TRACE_HISTORY {
