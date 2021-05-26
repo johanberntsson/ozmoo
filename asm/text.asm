@@ -1398,7 +1398,7 @@ read_text
 !ifdef USE_HISTORY {
 	bne ++
 	; all input deleted, so enable history again
-	jsr enable_history_keys
+;	jsr enable_history_keys
 ++
 }
 	jsr turn_off_cursor
@@ -1451,7 +1451,7 @@ read_text
 }
 	lda .petscii_char_read
 !ifdef USE_HISTORY {
-	jsr disable_history_keys
+;	jsr disable_history_keys
 }
 	jsr s_printchar
 ;!ifdef USE_BLINKING_CURSOR {
@@ -1648,12 +1648,11 @@ disable_history_keys
 	lda #1
 	bne + ; unconditional jump for code sharing with enable_history_keys
 enable_history_keys
-	; enable cursor up/down for history
+	; enable cursor up/down for history if there is any history stored
 	; input: -
 	; output: -
 	; side effects: -
 	; used registers: -
-	; only enable if we have any history stored
 	pha
 	lda .history_first
 	cmp .history_last
