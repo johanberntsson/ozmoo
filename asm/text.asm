@@ -509,7 +509,6 @@ translate_petscii_to_zscii
 	bcc .no_match
 	beq .translation_match
 	dex
-	dex
 	bpl -
 .no_match	
 	; cmp #$60
@@ -535,8 +534,7 @@ translate_petscii_to_zscii
 .case_conversion_done
 	rts
 .translation_match
-	dex
-	lda character_translation_table_in,x
+	lda character_translation_table_in_end,x
 	rts
 
 	

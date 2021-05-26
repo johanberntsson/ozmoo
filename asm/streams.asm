@@ -14,225 +14,283 @@ streams_output_selected		!byte 0, 0, 0, 0
 
 ; SWEDISH
 
+; All mapped PETSCII codes for input:
+;
+; $dd ; Å = ]
+; $dc ; Ö = £
+; $db ; Ä = [
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $b1 ; é = CBM-e
+; $af ; Underscore = underscore-like graphic character
+; $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5d ; å = ]
+; $5c ; ö = £
+; $5b ; ä = [
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
 character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $c9, $dd ; Å = ]
-	!byte $9c, $dc ; Ö = £
-	!byte $9b, $db ; Ä = [
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $aa, $b1 ; é = CBM-e
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $c9, $5d ; å = ]
-	!byte $9c, $5c ; ö = £
-	!byte $9b, $5b ; ä = [
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+; PETSCII codes, mapped *FROM*
+!byte $dd, $dc, $db, $bf, $b1, $af, $a5, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5d, $5c, $5b, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $c9, $9c, $9b, $5c, $aa, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $c9, $9c, $9b, $84, $08, $82
+character_translation_table_in_mappings_end
+
+
+; All mapped ZSCII codes for output:
+;
+; $ca ; Å = Shift-]
+; $c9 ; å = ]
+; $aa ; é = CBM-e
+; $9f ; Ö = Shift-£
+; $9e ; Ä = Shift-[
+; $9c ; ö = £
+; $9b ; ä = [
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5d ; ] = )
+; $5c ; Backslash => (somewhat) backslash-like graphic character
+; $5b ; [ = (
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $ca, $dd ; Å = Shift-]
-	!byte $c9, $5d ; å = ]
-	!byte $aa, $b1 ; é = CBM-e
-	!byte $9f, $dc ; Ö = Shift-£
-	!byte $9e, $db ; Ä = Shift-[
-	!byte $9c, $5c ; ö = £
-	!byte $9b, $5b ; ä = [
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5d, $29 ; ] = )
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $5b, $28 ; [ = (
+; ZSCII codes, mapped *FROM*
+!byte $ca, $c9, $aa, $9f, $9e, $9c, $9b, $7e, $7d, $7c, $7b, $60, $5f, $5d, $5c, $5b 
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $dd, $5d, $b1, $dc, $db, $5c, $5b, $2d, $29, $a5, $28, $27, $af, $29, $bf, $28
+character_translation_table_out_mappings_end
+
 } else { ; End of Swedish section
 !ifdef DANISH_CHARS {
 
 ; DANISH
 
+; All mapped PETSCII codes for input:
+;
+; $dd ; Å = ]
+; $dc ; Ø = £
+; $db ; Æ = [
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $b1 ; é = CBM-e
+; $af ; Underscore = underscore-like graphic character
+; $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5d ; å = ]
+; $5c ; ø = £
+; $5b ; æ = [
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
 character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $c9, $dd ; Å = ]
-	!byte $cb, $dc ; Ø = £
-	!byte $d3, $db ; Æ = [
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $aa, $b1 ; é = CBM-e
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $c9, $5d ; å = ]
-	!byte $cb, $5c ; ø = £
-	!byte $d3, $5b ; æ = [
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+; PETSCII codes, mapped *FROM*
+!byte $dd, $dc, $db, $bf, $b1, $af, $a5, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5d, $5c, $5b, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $c9, $cb, $d3, $5c, $aa, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $c9, $cb, $d3, $84, $08, $82 
+character_translation_table_in_mappings_end
+
+
+; All mapped ZSCII codes for output:
+;
+; $d4 ; Æ = Shift-[
+; $d3 ; æ = [
+; $cc ; Ø = Shift-£
+; $cb ; ø = £
+; $ca ; Å = Shift-]
+; $c9 ; å = ]
+; $aa ; é = CBM-e
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5d ; ] = )
+; $5c ; Backslash => (somewhat) backslash-like graphic character
+; $5b ; [ = (
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $d4, $db ; Æ = Shift-[
-	!byte $d3, $5b ; æ = [
-	!byte $cc, $dc ; Ø = Shift-£
-	!byte $cb, $5c ; ø = £
-	!byte $ca, $dd ; Å = Shift-]
-	!byte $c9, $5d ; å = ]
-	!byte $aa, $b1 ; é = CBM-e
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5d, $29 ; ] = )
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $5b, $28 ; [ = (
+; ZSCII codes, mapped *FROM*
+!byte $d4, $d3, $cc, $cb, $ca, $c9, $aa, $7e, $7d, $7c, $7b, $60, $5f, $5d, $5c, $5b 
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $db, $5b, $dc, $5c, $dd, $5d, $b1, $2d, $29, $a5, $28, $27, $af, $29, $bf, $28
+character_translation_table_out_mappings_end
+
 } else { ; End of Danish section
 !ifdef GERMAN_CHARS {
 
 ; GERMAN
 
+; All mapped PETSCII codes for input:
+;
+; $dd ; Ä => ]
+; $db ; Ö => [
+; $c0 ; Ü => @
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $af ; Underscore = underscore-like graphic character
+; $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5f ; ß = left-arrow
+; $5d ; ä = ]
+; $5c ; £
+; $5b ; ö = [
+; $40 ; ü = @
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
 character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $9b, $dd ; Ä => ]
-	!byte $9c, $db ; Ö => [
-	!byte $9d, $c0 ; Ü => @
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $a1, $5f ; ß = left-arrow
-	!byte $9b, $5d ; ä = ]
-	!byte $db, $5c ; £
-	!byte $9c, $5b ; ö = [
-	!byte $9d, $40 ; ü = @
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+; PETSCII codes, mapped *FROM*
+!byte $dd, $db, $c0, $bf, $af, $a5, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5f, $5d, $5c, $5b, $40, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $9b, $9c, $9d, $5c, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $a1, $9b, $db, $9c, $9d, $84, $08, $82 
+character_translation_table_in_mappings_end
+
+
+; All mapped ZSCII codes for output:
+;
+; $db ; £
+; $a1 ; ß = left-arrow
+; $a0 ; Ü = Shift-@
+; $9f ; Ö = Shift-[
+; $9e ; Ä = Shift-]
+; $9d ; ü = @
+; $9c ; ö = [
+; $9b ; ä = ]
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5d ; ] = )
+; $5c ; Backslash => (somewhat) backslash-like graphic character
+; $5b ; [ = (
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $db, $5c ; £
-	!byte $a1, $5f ; ß = left-arrow
-	!byte $a0, $c0 ; Ü = Shift-@
-	!byte $9f, $db ; Ö = Shift-[
-	!byte $9e, $dd ; Ä = Shift-]
-	!byte $9d, $40 ; ü = @
-	!byte $9c, $5b ; ö = [
-	!byte $9b, $5d ; ä = ]
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $a5 ; Pipe = pipe-like graphic character (using $a5 since $dd is used for an accented char)
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5d, $29 ; ] = )
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $5b, $28 ; [ = (
+; ZSCII codes, mapped *FROM*
+!byte $db, $a1, $a0, $9f, $9e, $9d, $9c, $9b, $7e, $7d, $7c, $7b, $60, $5f, $5d, $5c, $5b 
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $5c, $5f, $c0, $db, $dd, $40, $5b, $5d, $2d, $29, $a5, $28, $27, $af, $29, $bf, $28
+character_translation_table_out_mappings_end
+
 } else { ; End of German section
 !ifdef ITALIAN_CHARS {
 
 ; ITALIAN
 
+; All mapped PETSCII codes for input:
+;
+; $dd ; Pipe = pipe-like graphic character
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $bb ; é <= É (CBM-f)
+; $b9 ;      ò (CBM-o)
+; $b8 ;      ù (CBM-u)
+; $b6 ; ò <= Ò (CBM-l)
+; $b5 ; ù <= Ù (CBM-j)
+; $b2 ;      é (CBM-r)
+; $b1 ;      è (CBM-e)
+; $b0 ;      à (CBM-a)
+; $af ; Underscore = underscore-like graphic character
+; $ad ; à <= À (CBM-z)
+; $ac ; è <= È (CBM-d)
+; $a2 ;      ì (CBM-i)
+; $a1 ; ì <= Ì (CBM-k)
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5c ; £
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
 character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $aa, $bb ; é <= É (CBM-f)
-	!byte $b8, $b9 ;      ò (CBM-o)
-	!byte $b9, $b8 ;      ù (CBM-u)
-	!byte $b8, $b6 ; ò <= Ò (CBM-l)
-	!byte $b9, $b5 ; ù <= Ù (CBM-j)
-	!byte $aa, $b2 ;      é (CBM-r)
-	!byte $b6, $b1 ;      è (CBM-e)
-	!byte $b5, $b0 ;      à (CBM-a)
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $b5, $ad ; à <= À (CBM-z)
-	!byte $b6, $ac ; è <= È (CBM-d)
-	!byte $b7, $a2 ;      ì (CBM-i)
-	!byte $b7, $a1 ; ì <= Ì (CBM-k)
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $db, $5c ; £
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+; PETSCII codes, mapped *FROM*
+!byte $dd, $bf, $bb, $b9, $b8, $b6, $b5, $b2, $b1, $b0, $af, $ad, $ac, $a2, $a1, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5c, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $7c, $5c, $aa, $b8, $b9, $b8, $b9, $aa, $b6, $b5, $5f, $b5, $b6, $b7, $b7, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82
+character_translation_table_in_mappings_end
+
+; All mapped ZSCII codes for output:
+;
+; $db ; £
+; $be ; Ù
+; $bd ; Ò
+; $bc ; Ì
+; $bb ; È
+; $ba ; À
+; $b9 ; ù
+; $b8 ; ò
+; $b7 ; ì
+; $b6 ; è
+; $b5 ; à
+; $b0 ; É
+; $aa ; é
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5c ; Backslash => (somewhat) backslash-like graphic character
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $db, $5c ; £
-	!byte $be, $b5 ; Ù
-	!byte $bd, $b6 ; Ò
-	!byte $bc, $a1 ; Ì
-	!byte $bb, $ac ; È
-	!byte $ba, $ad ; À
-	!byte $b9, $b8 ; ù
-	!byte $b8, $b9 ; ò
-	!byte $b7, $a2 ; ì
-	!byte $b6, $b1 ; è
-	!byte $b5, $b0 ; à
-	!byte $b0, $bb ; É
-	!byte $aa, $b2 ; é
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+; ZSCII codes, mapped *FROM*
+!byte $db, $be, $bd, $bc, $bb, $ba, $b9, $b8, $b7, $b6, $b5, $b0, $aa, $7e, $7d, $7c, $7b, $60, $5f, $5c 
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $5c, $b5, $b6, $a1, $ac, $ad, $b8, $b9, $a2, $b1, $b0, $bb, $b2, $2d, $29, $dd, $28, $27, $af, $bf
+character_translation_table_out_mappings_end
 
 } else { ; End of Italian section
 
@@ -241,72 +299,86 @@ character_translation_table_out_end
 
 ; SPANISH
 
+; All mapped PETSCII codes for input:
+;
+; $dd ; Pipe = pipe-like graphic character
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $b9 ; á          (CBM-o)
+; $b8 ; á          (CBM-u)
+; $b7 ; ü          (CBM-y)
+; $b6 ; Ó => ó     (CBM-l)
+; $b5 ; Ú => ú     (CBM-j)
+; $b4 ; Ü => ü     (CBM-h)
+; $b3 ; inverted ? (CBM-w)
+; $b1 ; é          (CBM-e)
+; $b0 ; á          (CBM-a)
+; $af ; Underscore = underscore-like graphic character
+; $ad ; Á => á     (CBM-z)
+; $ac ; É => é     (CBM-d)
+; $ab ; inverted ! (CBM-q)
+; $aa ; ñ          (CBM-n)
+; $a7 ; Ñ => ñ     (CBM-m)
+; $a2 ; í          (CBM-i)
+; $a1 ; Í => í     (CBM-k)
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5c ; £
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
 character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $ac, $b9 ; á          (CBM-o)
-	!byte $ad, $b8 ; á          (CBM-u)
-	!byte $9d, $b7 ; ü          (CBM-y)
-	!byte $ac, $b6 ; Ó => ó     (CBM-l)
-	!byte $ad, $b5 ; Ú => ú     (CBM-j)
-	!byte $9d, $b4 ; Ü => ü     (CBM-h)
-	!byte $df, $b3 ; inverted ? (CBM-w)
-	!byte $aa, $b1 ; é          (CBM-e)
-	!byte $a9, $b0 ; á          (CBM-a)
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $a9, $ad ; Á => á     (CBM-z)
-	!byte $aa, $ac ; É => é     (CBM-d)
-	!byte $de, $ab ; inverted ! (CBM-q)
-	!byte $ce, $aa ; ñ          (CBM-n)
-	!byte $ce, $a7 ; Ñ => ñ     (CBM-m)
-	!byte $ab, $a2 ; í          (CBM-i)
-	!byte $ab, $a1 ; Í => í     (CBM-k)
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $db, $5c ; £
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+; PETSCII codes, mapped *FROM*
+!byte $dd, $bf, $b9, $b8, $b7, $b6, $b5, $b4, $b3, $b1, $b0, $af, $ad, $ac, $ab, $aa, $a7, $a2, $a1, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5c, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $7c, $5c, $ac, $ad, $9d, $ac, $ad, $9d, $df, $aa, $a9, $5f, $a9, $aa, $de, $ce, $ce, $ab, $ab, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82 
+character_translation_table_in_mappings_end
+
+
+; All mapped ZSCII codes for output:
+;
+; $df ; inverted ?
+; $de ; inverted !
+; $db ; £
+; $d1 ; Ñ
+; $ce ; ñ
+; $b3 ; Ú
+; $b2 ; Ó
+; $b1 ; Í
+; $b0 ; É
+; $af ; Á
+; $ad ; á
+; $ac ; á
+; $ab ; í
+; $aa ; é
+; $a9 ; á
+; $a0 ; Ü
+; $9d ; ü
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5c ; Backslash => (somewhat) backslash-like graphic character
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $df, $b3 ; inverted ?
-	!byte $de, $ab ; inverted !
-	!byte $db, $5c ; £
-	!byte $d1, $a7 ; Ñ
-	!byte $ce, $aa ; ñ
-	!byte $b3, $b5 ; Ú
-	!byte $b2, $b6 ; Ó
-	!byte $b1, $a1 ; Í
-	!byte $b0, $ac ; É
-	!byte $af, $ad ; Á
-	!byte $ad, $b8 ; á
-	!byte $ac, $b9 ; á
-	!byte $ab, $a2 ; í
-	!byte $aa, $b1 ; é
-	!byte $a9, $b0 ; á
-	!byte $a0, $b4 ; Ü
-	!byte $9d, $b7 ; ü
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+; ZSCII codes, mapped *FROM*
+!byte $df, $de, $db, $d1, $ce, $b3, $b2, $b1, $b0, $af, $ad, $ac, $ab, $aa, $a9, $a0, $9d, $7e, $7d, $7c, $7b, $60, $5f, $5c 
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $b3, $ab, $5c, $a7, $aa, $b5, $b6, $a1, $ac, $ad, $b8, $b9, $a2, $b1, $b0, $b4, $b7, $2d, $29, $dd, $28, $27, $af, $bf
+character_translation_table_out_mappings_end
 
 } else { ; End of Spanish section
 
@@ -314,149 +386,180 @@ character_translation_table_out_end
 
 ; FRENCH
 
+; All mapped PETSCII codes for input:
+;
+; $df ; Œ => œ
+; $de ; Û => û 
+; $dd ; Pipe = pipe-like graphic character
+; $dc ; »
+; $db ; «
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $be ; Ç => ç
+; $bd ; À => à
+; $bc ; ç
+; $bb ; Ë => ë 
+; $b9 ; ô
+; $b8 ; û 
+; $b6 ; Ô => ô 
+; $b5 ; ü
+; $b4 ; ù
+; $b3 ; é 
+; $b2 ; è 
+; $b1 ; ê 
+; $b0 ; â
+; $af ; Underscore = underscore-like graphic character
+; $ae ; à
+; $ad ; Â => â
+; $ac ; ë
+; $ab ; É => é
+; $aa ; Ù => ù
+; $a8 ; Î => î 
+; $a7 ; Ü => ü
+; $a6 ; Ï => ï
+; $a5 ; È => è
+; $a4 ; Æ => æ
+; $a3 ; Ê => ê
+; $a2 ; î
+; $a1 ; ï
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5d ; œ
+; $5c ; £
+; $5b ; æ
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
 character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	; Map uppercase letters to lowercase, or they won't be recognized in player input
-	!byte $dc, $df ; Œ => œ
-	!byte $c3, $de ; Û => û 
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $a2, $dc ; »
-	!byte $a3, $db ; «
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $d5, $be ; Ç => ç
-	!byte $b5, $bd ; À => à
-	!byte $d5, $bc ; ç
-	!byte $a4, $bb ; Ë => ë 
-	!byte $c2, $b9 ; ô
-	!byte $c3, $b8 ; û 
-	!byte $c2, $b6 ; Ô => ô 
-	!byte $9d, $b5 ; ü
-	!byte $b9, $b4 ; ù
-	!byte $aa, $b3 ; é 
-	!byte $b6, $b2 ; è 
-	!byte $c0, $b1 ; ê 
-	!byte $bf, $b0 ; â
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $b5, $ae ; à
-	!byte $bf, $ad ; Â => â
-	!byte $a4, $ac ; ë
-	!byte $aa, $ab ; É => é
-	!byte $b9, $aa ; Ù => ù
-	!byte $c1, $a8 ; Î => î 
-	!byte $9d, $a7 ; Ü => ü
-	!byte $a5, $a6 ; Ï => ï
-	!byte $b6, $a5 ; È => è
-	!byte $d3, $a4 ; Æ => æ
-	!byte $c0, $a3 ; Ê => ê
-	!byte $c1, $a2 ; î
-	!byte $a5, $a1 ; ï
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $dc, $5d ; œ
-	!byte $db, $5c ; £
-	!byte $d3, $5b ; æ
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+; PETSCII codes, mapped *FROM*
+!byte $df, $de, $dd, $dc, $db, $bf, $be, $bd, $bc, $bb, $b9, $b8, $b6, $b5, $b4, $b3, $b2, $b1, $b0, $af, $ae, $ad, $ac, $ab, $aa, $a8, $a7, $a6, $a5, $a4, $a3, $a2, $a1, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5d, $5c, $5b, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $dc, $c3, $7c, $a2, $a3, $5c, $d5, $b5, $d5, $a4, $c2, $c3, $c2, $9d, $b9, $aa, $b6, $c0, $bf, $5f, $b5, $bf, $a4, $aa, $b9, $c1, $9d, $a5, $b6, $d3, $c0, $c1, $a5, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $dc, $db, $d3, $84, $08, $82
+character_translation_table_in_mappings_end
+
+
+; All mapped ZSCII codes for output:
+;
+; $dd ; Œ 
+; $dc ; œ
+; $db ; £
+; $d6 ; Ç
+; $d5 ; ç
+; $d4 ; Æ
+; $d3 ; æ
+; $c8 ; Û 
+; $c7 ; Ô 
+; $c6 ; Î 
+; $c5 ; Ê 
+; $c4 ; Â
+; $c3 ; û 
+; $c2 ; ô
+; $c1 ; î
+; $c0 ; ê 
+; $bf ; â
+; $be ; Ù 
+; $bb ; È
+; $ba ; À
+; $b9 ; ù
+; $b6 ; è 
+; $b5 ; à
+; $b0 ; É 
+; $aa ; é 
+; $a8 ; Ï 
+; $a7 ; Ë 
+; $a6 ; ÿ => y
+; $a5 ; ï
+; $a4 ; ë
+; $a3 ; «
+; $a2 ; »
+; $a0 ; Ü 
+; $9f ; Ö => O
+; $9e ; Ä => A
+; $9d ; ü
+; $9c ; ö => o
+; $9b ; ä => a
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5d ; ] => )
+; $5c ; Backslash => (somewhat) backslash-like graphic character
+; $5b ; [ => (
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $dd, $df ; Œ 
-	!byte $dc, $5d ; œ
-	!byte $db, $5c ; £
-	!byte $d6, $be ; Ç
-	!byte $d5, $bc ; ç
-	!byte $d4, $a4 ; Æ
-	!byte $d3, $5b ; æ
-	!byte $c8, $de ; Û 
-	!byte $c7, $b6 ; Ô 
-	!byte $c6, $a8 ; Î 
-	!byte $c5, $a3 ; Ê 
-	!byte $c4, $ad ; Â
-	!byte $c3, $b8 ; û 
-	!byte $c2, $b9 ; ô
-	!byte $c1, $a2 ; î
-	!byte $c0, $b1 ; ê 
-	!byte $bf, $b0 ; â
-	!byte $be, $aa ; Ù 
-	!byte $bb, $a5 ; È
-	!byte $ba, $bd ; À
-	!byte $b9, $b4 ; ù
-	!byte $b6, $b2 ; è 
-	!byte $b5, $ae ; à
-	!byte $b0, $ab ; É 
-	!byte $aa, $b3 ; é 
-	!byte $a8, $a6 ; Ï 
-	!byte $a7, $bb ; Ë 
-	!byte $a6, $59 ; ÿ => y
-	!byte $a5, $a1 ; ï
-	!byte $a4, $ac ; ë
-	!byte $a3, $db ; «
-	!byte $a2, $dc ; »
-	!byte $a0, $a7 ; Ü 
-	!byte $9f, $cf ; Ö => O
-	!byte $9e, $c1 ; Ä => A
-	!byte $9d, $b5 ; ü
-	!byte $9c, $4f ; ö => o
-	!byte $9b, $41 ; ä => a
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5d, $29 ; ] => )
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $5b, $28 ; [ => (
+; ZSCII codes, mapped *FROM*
+!byte $dd, $dc, $db, $d6, $d5, $d4, $d3, $c8, $c7, $c6, $c5, $c4, $c3, $c2, $c1, $c0, $bf, $be, $bb, $ba, $b9, $b6, $b5, $b0, $aa, $a8, $a7, $a6, $a5, $a4, $a3, $a2, $a0, $9f, $9e, $9d, $9c, $9b, $7e, $7d, $7c, $7b, $60, $5f, $5d, $5c, $5b
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $df, $5d, $5c, $be, $bc, $a4, $5b, $de, $b6, $a8, $a3, $ad, $b8, $b9, $a2, $b1, $b0, $aa, $a5, $bd, $b4, $b2, $ae, $ab, $b3, $a6, $bb, $59, $a1, $ac, $db, $dc, $a7, $cf, $c1, $b5, $4f, $41, $2d, $29, $dd, $28, $27, $af, $29, $bf, $28
+character_translation_table_out_mappings_end
 
 } else { ; End of French section
 
 ; ENGLISH
 
-character_translation_table_in
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on PETSCII value, descending!
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $20, $a0 ; Convert shift-space to regular space
-	!byte $83, $9d ; Cursor left
-	!byte $81, $91 ; Cursor up
-	!byte $8a, $8b ; F6
-	!byte $88, $8a ; F4
-	!byte $86, $89 ; F2
-	!byte $8b, $88 ; F7
-	!byte $89, $87 ; F5
-	!byte $87, $86 ; F3
-	!byte $db, $5c ; £
-	!byte $84, $1d ; Cursor right
-	!byte $08, $14 ; Backspace
-	!byte $82, $11 ; Cursor down
+
+; All mapped PETSCII codes for input:
+:
+; $dd ; Pipe = pipe-like graphic character
+; $bf ; Backslash => (somewhat) backslash-like graphic character
+; $af ; Underscore = underscore-like graphic character
+; $a0 ; Convert shift-space to regular space
+; $9d ; Cursor left
+; $91 ; Cursor up
+; $8b ; F6
+; $8a ; F4
+; $89 ; F2
+; $88 ; F7
+; $87 ; F5
+; $86 ; F3
+; $5c ; £
+; $1d ; Cursor right
+; $14 ; Backspace
+; $11 ; Cursor down
+
+character_translation_table_in
+; PETSCII codes, mapped *FROM*
+!byte $dd, $bf, $af, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5c, $1d, $14, $11
 character_translation_table_in_end
+; ZSCII codes, mapped *TO*
+!byte $7c, $5c, $5f, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82
+character_translation_table_in_mappings_end
+
+
+; All mapped ZSCII codes for output:
+;
+; $db ; £
+; $7e ; ~ => -
+; $7d ; } => )
+; $7c ; Pipe = pipe-like graphic character
+; $7b ; { => (
+; $60 ; Grave accent => quote
+; $5f ; Underscore = underscore-like graphic character
+; $5c ; Backslash => (somewhat) backslash-like graphic character
 
 character_translation_table_out
-; (zscii code, petscii code).
 ; NOTE: Must be sorted on ZSCII value, descending!
-	!byte $db, $5c ; £
-	!byte $7e, $2d ; ~ => -
-	!byte $7d, $29 ; } => )
-	!byte $7c, $dd ; Pipe = pipe-like graphic character
-	!byte $7b, $28 ; { => (
-	!byte $60, $27 ; Grave accent => quote
-	!byte $5f, $af ; Underscore = underscore-like graphic character
-	!byte $5c, $bf ; Backslash => (somewhat) backslash-like graphic character
+; ZSCII codes, mapped *FROM*
+!byte $db, $7e, $7d, $7c, $7b, $60, $5f, $5c 
 character_translation_table_out_end
+; PETSCII codes, mapped *TO*
+!byte $5c, $2d, $29, $dd, $28, $27, $af, $bf
+character_translation_table_out_mappings_end
+
 
 } ; End of non-French section
 } ; End of non-Spanish section
@@ -464,6 +567,15 @@ character_translation_table_out_end
 } ; End of non-German section
 } ; End of non-Danish section
 } ; End of non-Swedish section
+
+!if character_translation_table_in_end - character_translation_table_in != character_translation_table_in_mappings_end - character_translation_table_in_end {
+	!error "character_translation_table_in tables of different lengths!";
+}
+!if character_translation_table_out_end - character_translation_table_out != character_translation_table_out_mappings_end - character_translation_table_out_end {
+	!error "character_translation_table_out tables of different lengths!";
+}
+
+
 	
 streams_init
 	; Setup/Reset streams handling
@@ -676,11 +788,10 @@ z_ins_output_stream
 translate_zscii_to_petscii
 	; Return PETSCII code *OR* set carry if this ZSCII character is unsupported
 	sty .streams_tmp + 1
-	ldy #character_translation_table_out_end - character_translation_table_out - 2
+	ldy #character_translation_table_out_end - character_translation_table_out - 1
 -	cmp character_translation_table_out,y
 	bcc .no_match
 	beq .match
-	dey
 	dey
 	bpl -
 .no_match
@@ -715,8 +826,7 @@ translate_zscii_to_petscii
 	clc
 	rts
 .match
-	iny
-	lda character_translation_table_out,y
+	lda character_translation_table_out_end,y
 	ldy .streams_tmp + 1
 	clc
 	rts
