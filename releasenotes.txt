@@ -238,4 +238,4 @@ Release 8:
 
 - Fixed indexing bug in add_line_to_history (issue 36)
 - Changed history to allow cursor up/down even if there is pending user input
-
+- Removed unnecessary mapping of F1 and F8 for all languages in streams.asm

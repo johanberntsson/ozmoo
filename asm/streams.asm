@@ -28,14 +28,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $c9, $5d ; å = ]
 	!byte $9c, $5c ; ö = £
 	!byte $9b, $5b ; ä = [
@@ -83,14 +81,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $c9, $5d ; å = ]
 	!byte $cb, $5c ; ø = £
 	!byte $d3, $5b ; æ = [
@@ -137,14 +133,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $a1, $5f ; ß = left-arrow
 	!byte $9b, $5d ; ä = ]
 	!byte $db, $5c ; £
@@ -203,14 +197,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $db, $5c ; £
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
@@ -275,14 +267,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $db, $5c ; £
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
@@ -364,14 +354,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $dc, $5d ; œ
 	!byte $db, $5c ; £
 	!byte $d3, $5b ; æ
@@ -445,14 +433,12 @@ character_translation_table_in
 	!byte $20, $a0 ; Convert shift-space to regular space
 	!byte $83, $9d ; Cursor left
 	!byte $81, $91 ; Cursor up
-	!byte $8c, $8c ; F8
 	!byte $8a, $8b ; F6
 	!byte $88, $8a ; F4
 	!byte $86, $89 ; F2
 	!byte $8b, $88 ; F7
 	!byte $89, $87 ; F5
 	!byte $87, $86 ; F3
-	!byte $85, $85 ; F1
 	!byte $db, $5c ; £
 	!byte $84, $1d ; Cursor right
 	!byte $08, $14 ; Backspace
