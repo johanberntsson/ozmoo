@@ -45,7 +45,7 @@ character_translation_table_in
 !byte $dd, $dc, $db, $bf, $b1, $af, $a5, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5d, $5c, $5b, $1d, $14, $11
 character_translation_table_in_end
 ; ZSCII codes, mapped *TO*
-!byte $c9, $9c, $9b, $5c, $aa, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $c9, $9c, $9b, $84, $08, $82
+!byte $ca, $9f, $9e, $5c, $aa, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $c9, $9c, $9b, $84, $08, $82
 character_translation_table_in_mappings_end
 
 
@@ -76,6 +76,14 @@ character_translation_table_out_end
 ; PETSCII codes, mapped *TO*
 !byte $dd, $5d, $b1, $dc, $db, $5c, $5b, $2d, $29, $a5, $28, $27, $af, $29, $bf, $28
 character_translation_table_out_mappings_end
+
+
+character_downcase_table
+; NOTE: This maps from uppercase (source) ZSCII to lowercase (target) ZSCII. Must be sorted on source ZSCII value, descending!
+!byte $ca, $9f, $9e
+character_downcase_table_end
+!byte $c9, $9c, $9b
+character_downcase_table_mappings_end
 
 } else { ; End of Swedish section
 !ifdef DANISH_CHARS {
@@ -113,7 +121,7 @@ character_translation_table_in
 !byte $dd, $dc, $db, $bf, $b1, $af, $a5, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5d, $5c, $5b, $1d, $14, $11
 character_translation_table_in_end
 ; ZSCII codes, mapped *TO*
-!byte $c9, $cb, $d3, $5c, $aa, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $c9, $cb, $d3, $84, $08, $82 
+!byte $ca, $cc, $d4, $5c, $aa, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $c9, $cb, $d3, $84, $08, $82 
 character_translation_table_in_mappings_end
 
 
@@ -144,6 +152,13 @@ character_translation_table_out_end
 ; PETSCII codes, mapped *TO*
 !byte $db, $5b, $dc, $5c, $dd, $5d, $b1, $2d, $29, $a5, $28, $27, $af, $29, $bf, $28
 character_translation_table_out_mappings_end
+
+character_downcase_table
+; NOTE: This maps from uppercase (source) ZSCII to lowercase (target) ZSCII. Must be sorted on source ZSCII value, descending!
+!byte $d4, $cc, $ca
+character_downcase_table_end
+!byte $d3, $cb, $c9
+character_downcase_table_mappings_end
 
 } else { ; End of Danish section
 !ifdef GERMAN_CHARS {
@@ -182,7 +197,7 @@ character_translation_table_in
 !byte $dd, $db, $c0, $bf, $af, $a5, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5f, $5d, $5c, $5b, $40, $1d, $14, $11
 character_translation_table_in_end
 ; ZSCII codes, mapped *TO*
-!byte $9b, $9c, $9d, $5c, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $a1, $9b, $db, $9c, $9d, $84, $08, $82 
+!byte $9e, $9f, $a0, $5c, $5f, $7c, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $a1, $9b, $db, $9c, $9d, $84, $08, $82 
 character_translation_table_in_mappings_end
 
 
@@ -215,6 +230,13 @@ character_translation_table_out_end
 !byte $5c, $5f, $c0, $db, $dd, $40, $5b, $5d, $2d, $29, $a5, $28, $27, $af, $29, $bf, $28
 character_translation_table_out_mappings_end
 
+character_downcase_table
+; NOTE: This maps from uppercase (source) ZSCII to lowercase (target) ZSCII. Must be sorted on source ZSCII value, descending!
+!byte $a0, $9f, $9e
+character_downcase_table_end
+!byte $9d, $9c, $9b
+character_downcase_table_mappings_end
+
 } else { ; End of German section
 !ifdef ITALIAN_CHARS {
 
@@ -224,19 +246,19 @@ character_translation_table_out_mappings_end
 ;
 ; $dd ; Pipe = pipe-like graphic character
 ; $bf ; Backslash => (somewhat) backslash-like graphic character
-; $bb ; é <= É (CBM-f)
-; $b9 ;      ò (CBM-o)
-; $b8 ;      ù (CBM-u)
-; $b6 ; ò <= Ò (CBM-l)
-; $b5 ; ù <= Ù (CBM-j)
-; $b2 ;      é (CBM-r)
-; $b1 ;      è (CBM-e)
-; $b0 ;      à (CBM-a)
+; $bb ; É (CBM-f)
+; $b9 ; ò (CBM-o)
+; $b8 ; ù (CBM-u)
+; $b6 ; Ò (CBM-l)
+; $b5 ; Ù (CBM-j)
+; $b2 ; é (CBM-r)
+; $b1 ; è (CBM-e)
+; $b0 ; à (CBM-a)
 ; $af ; Underscore = underscore-like graphic character
-; $ad ; à <= À (CBM-z)
-; $ac ; è <= È (CBM-d)
-; $a2 ;      ì (CBM-i)
-; $a1 ; ì <= Ì (CBM-k)
+; $ad ; À (CBM-z)
+; $ac ; È (CBM-d)
+; $a2 ; ì (CBM-i)
+; $a1 ; Ì (CBM-k)
 ; $a0 ; Convert shift-space to regular space
 ; $9d ; Cursor left
 ; $91 ; Cursor up
@@ -257,7 +279,7 @@ character_translation_table_in
 !byte $dd, $bf, $bb, $b9, $b8, $b6, $b5, $b2, $b1, $b0, $af, $ad, $ac, $a2, $a1, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5c, $1d, $14, $11
 character_translation_table_in_end
 ; ZSCII codes, mapped *TO*
-!byte $7c, $5c, $aa, $b8, $b9, $b8, $b9, $aa, $b6, $b5, $5f, $b5, $b6, $b7, $b7, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82
+!byte $7c, $5c, $b0, $b8, $b9, $bd, $be, $aa, $b6, $b5, $5f, $ba, $bb, $b7, $bc, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82
 character_translation_table_in_mappings_end
 
 ; All mapped ZSCII codes for output:
@@ -292,6 +314,13 @@ character_translation_table_out_end
 !byte $5c, $b5, $b6, $a1, $ac, $ad, $b8, $b9, $a2, $b1, $b0, $bb, $b2, $2d, $29, $dd, $28, $27, $af, $bf
 character_translation_table_out_mappings_end
 
+character_downcase_table
+; NOTE: This maps from uppercase (source) ZSCII to lowercase (target) ZSCII. Must be sorted on source ZSCII value, descending!
+!byte $be, $bd, $bc, $bb, $ba, $b0
+character_downcase_table_end
+!byte $b9, $b8, $b7, $b6, $b5, $aa
+character_downcase_table_mappings_end
+
 } else { ; End of Italian section
 
 
@@ -303,23 +332,23 @@ character_translation_table_out_mappings_end
 ;
 ; $dd ; Pipe = pipe-like graphic character
 ; $bf ; Backslash => (somewhat) backslash-like graphic character
-; $b9 ; á          (CBM-o)
-; $b8 ; á          (CBM-u)
+; $b9 ; ó          (CBM-o)
+; $b8 ; ú          (CBM-u)
 ; $b7 ; ü          (CBM-y)
-; $b6 ; Ó => ó     (CBM-l)
-; $b5 ; Ú => ú     (CBM-j)
-; $b4 ; Ü => ü     (CBM-h)
+; $b6 ; Ó          (CBM-l)
+; $b5 ; Ú          (CBM-j)
+; $b4 ; Ü          (CBM-h)
 ; $b3 ; inverted ? (CBM-w)
 ; $b1 ; é          (CBM-e)
 ; $b0 ; á          (CBM-a)
 ; $af ; Underscore = underscore-like graphic character
-; $ad ; Á => á     (CBM-z)
-; $ac ; É => é     (CBM-d)
+; $ad ; Á          (CBM-z)
+; $ac ; É          (CBM-d)
 ; $ab ; inverted ! (CBM-q)
 ; $aa ; ñ          (CBM-n)
-; $a7 ; Ñ => ñ     (CBM-m)
+; $a7 ; Ñ          (CBM-m)
 ; $a2 ; í          (CBM-i)
-; $a1 ; Í => í     (CBM-k)
+; $a1 ; Í          (CBM-k)
 ; $a0 ; Convert shift-space to regular space
 ; $9d ; Cursor left
 ; $91 ; Cursor up
@@ -340,7 +369,7 @@ character_translation_table_in
 !byte $dd, $bf, $b9, $b8, $b7, $b6, $b5, $b4, $b3, $b1, $b0, $af, $ad, $ac, $ab, $aa, $a7, $a2, $a1, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5c, $1d, $14, $11
 character_translation_table_in_end
 ; ZSCII codes, mapped *TO*
-!byte $7c, $5c, $ac, $ad, $9d, $ac, $ad, $9d, $df, $aa, $a9, $5f, $a9, $aa, $de, $ce, $ce, $ab, $ab, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82 
+!byte $7c, $5c, $ac, $ad, $9d, $b2, $b3, $a0, $df, $aa, $a9, $5f, $af, $b0, $de, $ce, $d1, $ab, $b1, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $db, $84, $08, $82 
 character_translation_table_in_mappings_end
 
 
@@ -356,8 +385,8 @@ character_translation_table_in_mappings_end
 ; $b1 ; Í
 ; $b0 ; É
 ; $af ; Á
-; $ad ; á
-; $ac ; á
+; $ad ; ú
+; $ac ; ó
 ; $ab ; í
 ; $aa ; é
 ; $a9 ; á
@@ -379,6 +408,13 @@ character_translation_table_out_end
 ; PETSCII codes, mapped *TO*
 !byte $b3, $ab, $5c, $a7, $aa, $b5, $b6, $a1, $ac, $ad, $b8, $b9, $a2, $b1, $b0, $b4, $b7, $2d, $29, $dd, $28, $27, $af, $bf
 character_translation_table_out_mappings_end
+
+character_downcase_table
+; NOTE: This maps from uppercase (source) ZSCII to lowercase (target) ZSCII. Must be sorted on source ZSCII value, descending!
+!byte $d1, $b3, $b2, $b1, $b0, $af, $a0
+character_downcase_table_end
+!byte $ce, $ad, $ac, $ab, $aa, $a9, $9d
+character_downcase_table_mappings_end
 
 } else { ; End of Spanish section
 
@@ -443,7 +479,7 @@ character_translation_table_in
 !byte $df, $de, $dd, $dc, $db, $bf, $be, $bd, $bc, $bb, $b9, $b8, $b6, $b5, $b4, $b3, $b2, $b1, $b0, $af, $ae, $ad, $ac, $ab, $aa, $a8, $a7, $a6, $a5, $a4, $a3, $a2, $a1, $a0, $9d, $91, $8b, $8a, $89, $88, $87, $86, $5d, $5c, $5b, $1d, $14, $11
 character_translation_table_in_end
 ; ZSCII codes, mapped *TO*
-!byte $dc, $c3, $7c, $a2, $a3, $5c, $d5, $b5, $d5, $a4, $c2, $c3, $c2, $9d, $b9, $aa, $b6, $c0, $bf, $5f, $b5, $bf, $a4, $aa, $b9, $c1, $9d, $a5, $b6, $d3, $c0, $c1, $a5, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $dc, $db, $d3, $84, $08, $82
+!byte $dd, $c8, $7c, $a2, $a3, $5c, $d6, $ba, $d5, $a7, $c2, $c3, $c7, $9d, $b9, $aa, $b6, $c0, $bf, $5f, $b5, $c4, $a4, $b0, $be, $c6, $a0, $a8, $bb, $d4, $c5, $c1, $a5, $20, $83, $81, $8a, $88, $86, $8b, $89, $87, $dc, $db, $d3, $84, $08, $82
 character_translation_table_in_mappings_end
 
 
@@ -505,6 +541,14 @@ character_translation_table_out_end
 ; PETSCII codes, mapped *TO*
 !byte $df, $5d, $5c, $be, $bc, $a4, $5b, $de, $b6, $a8, $a3, $ad, $b8, $b9, $a2, $b1, $b0, $aa, $a5, $bd, $b4, $b2, $ae, $ab, $b3, $a6, $bb, $59, $a1, $ac, $db, $dc, $a7, $cf, $c1, $b5, $4f, $41, $2d, $29, $dd, $28, $27, $af, $29, $bf, $28
 character_translation_table_out_mappings_end
+
+
+character_downcase_table
+; NOTE: This maps from uppercase (source) ZSCII to lowercase (target) ZSCII. Must be sorted on source ZSCII value, descending!
+!byte $dd, $d6, $d4, $c8, $c7, $c6, $c5, $c4, $be, $bb, $ba, $b0, $a8, $a7, $a0
+character_downcase_table_end
+!byte $dc, $d5, $d3, $c3, $c2, $c1, $c0, $bf, $b9, $b6, $b5, $aa, $a5, $a4, $9d
+character_downcase_table_mappings_end
 
 } else { ; End of French section
 
@@ -574,7 +618,11 @@ character_translation_table_out_mappings_end
 !if character_translation_table_out_end - character_translation_table_out != character_translation_table_out_mappings_end - character_translation_table_out_end {
 	!error "character_translation_table_out tables of different lengths!";
 }
-
+!ifdef character_downcase_table {
+!if character_downcase_table_end - character_downcase_table != character_downcase_table_mappings_end - character_downcase_table_end {
+	!error "character_downcase_table tables of different lengths!";
+}
+}
 
 	
 streams_init

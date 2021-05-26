@@ -859,7 +859,7 @@ game_id		!byte 0,0,0,0
 ; include other assembly files
 !source "utilities.asm"
 !source "screenkernal.asm"
-!source "streams.asm"
+!source "streams.asm" ; Must come before "text.asm"
 !source "disk.asm"
 !ifdef VMEM {
 	!if SUPPORT_REU = 1 {

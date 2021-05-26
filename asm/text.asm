@@ -1380,7 +1380,9 @@ read_text
 
 	ldy #0
 -   cmp terminating_characters,y
-	beq .read_text_done
+	bne .cont_check
+	jmp .read_text_done
+.cont_check
 	iny
 	cpy num_terminating_characters
 	bne -
@@ -1457,6 +1459,20 @@ read_text
 ;}
 	jsr update_cursor
 	pla
+!ifdef character_downcase_table {	
+	bpl +
+	ldx #character_downcase_table_end - character_downcase_table - 1
+-	cmp character_downcase_table,x
+	bcc +
+	beq .match_in_downcase_table
+	dex
+	bpl -
+	bmi + ; Alwats branch
+.match_in_downcase_table
+	lda character_downcase_table_end,x
+	bne .dont_invert_case ; Always branch
++
+}
 	; convert to lower case
 	cmp #$41
 	bcc .dont_invert_case
