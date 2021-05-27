@@ -424,19 +424,19 @@ character_downcase_table_mappings_end
 
 ; All mapped PETSCII codes for input:
 ;
-; $df ; Œ => œ
-; $de ; Û => û 
+; $df ; Œ
+; $de ; Û 
 ; $dd ; Pipe = pipe-like graphic character
 ; $dc ; »
 ; $db ; «
 ; $bf ; Backslash => (somewhat) backslash-like graphic character
-; $be ; Ç => ç
-; $bd ; À => à
+; $be ; Ç
+; $bd ; À
 ; $bc ; ç
-; $bb ; Ë => ë 
+; $bb ; Ë 
 ; $b9 ; ô
-; $b8 ; û 
-; $b6 ; Ô => ô 
+; $b8 ; û
+; $b6 ; Ô 
 ; $b5 ; ü
 ; $b4 ; ù
 ; $b3 ; é 
@@ -445,16 +445,16 @@ character_downcase_table_mappings_end
 ; $b0 ; â
 ; $af ; Underscore = underscore-like graphic character
 ; $ae ; à
-; $ad ; Â => â
+; $ad ; Â
 ; $ac ; ë
-; $ab ; É => é
-; $aa ; Ù => ù
-; $a8 ; Î => î 
-; $a7 ; Ü => ü
-; $a6 ; Ï => ï
-; $a5 ; È => è
-; $a4 ; Æ => æ
-; $a3 ; Ê => ê
+; $ab ; É
+; $aa ; Ù
+; $a8 ; Î 
+; $a7 ; Ü
+; $a6 ; Ï
+; $a5 ; È
+; $a4 ; Æ
+; $a3 ; Ê
 ; $a2 ; î
 ; $a1 ; ï
 ; $a0 ; Convert shift-space to regular space
