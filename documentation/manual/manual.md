@@ -444,9 +444,9 @@ Ozmoo has some support for using accented characters in games. This is documente
 
 ## Option -in:[n]
 
--in sets the the interpreter number.
+-in sets the interpreter number.
 
-The interpreter numbers, originally defined by Infocom, as as follows:
+The interpreter numbers, originally defined by Infocom, are as follows:
 
     1 = DECSystem-20
     2 = Apple IIe

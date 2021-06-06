@@ -216,17 +216,19 @@ We need to be able to make a sensible decision about which cache block we're goi
 
 To implement this, each vmap entry also contains a timestamp. There's a global "current time", called vmem_tick, and every time we access a cached block its timestamp is set to vmem_tick. vmem_tick is incremented whenever we need to read data from disc because it's not in the cache. Note that several entries in the vmap can therefore share the same timestamp - if we access cache blocks 4, 8 and 22 without needing to read anything from disc, all of those will have the same timestamp (the current value of vmem_tick).
 
-Also, there's a mechanism to keep vmem_ticks from getting too big for the space available. For a z3 game, we have 7 bits for storing tick values for each vmem block. We start with the value 0 and we can just increase it until we reach 127. When we hit 128, we change the tick counter to 64, and we reduce the tick value in all vmem blocks by 64. Since we're using unsigned numbers here, a block which had the tick value 27 now gets 0. A block which had tick value 100 now gets 36 etc. The next block we read from disk gets the tick value 64, the next after that gets 65 etc. Next time we reach 128, we just repeat the above procedure. 
+Also, there's a mechanism to keep vmem_ticks from getting too big for the space available. For a z3 game, we have 8 bits for storing tick values for each vmem block. We start with the value 0 and we can just increase it until we reach 255. When we hit 256, we change the tick counter to 128, and we reduce the tick value in all vmem blocks by 128. Since we're using unsigned numbers here, a block which had the tick value 27 now gets 0. A block which had tick value 150 now gets 22 etc. The next block we read from disk gets the tick value 128, the next after that gets 129 etc. Next time we reach 256, we just repeat the above procedure. 
 
 With that infrastructure in place, when we need to overwrite a block in the cache with a new block from disc, we can pick a block with the oldest timestamp. (Not *the* block with the oldest timestamp, because as noted above several blocks can share the same timestamp.) There's one caveat, which is that if the Z-machine program counter is currently pointing into a cache block, it is exempt from being overwritten - it would obviously be a bad thing to overwrite the instructions currently being executed with some arbitrary data! I won't go into too much detail on this here, because it's probably best discussed in the context of the routines layered on top of read_byte_at_z_address.
 
-The timestamps are packed into the high bits of the 16-bit entries in vmap, with the low bits representing the high and mid bytes of the Z-machine address. For Z3 games, where Z-machine addresses only have 17 bits (a maximum game size of 128K), only 9 bits of the vmap entry are needed for the high and mid bytes of the address and 7 bits are available for the timestamp. Larger versions of the Z-machine need more bits for the high and mid bytes so fewer bits are available for the timestamp; a Z8 game (with 19 bit addresses for a maximum game size of 512K) only has 5 bits available for the timestamp. This limited timestamp resolution is probably why vmem_tick is only incremented when a block needs to be read from disc, not every time read_byte_from_z_address is called.
+The timestamps are packed into the high bits of the 16-bit entries in vmap, with the low bits representing the high and mid bytes of the Z-machine address. For Z3 games, where Z-machine addresses only have 17 bits (a maximum game size of 128K), only 9 bits of the vmap entry are needed for the high and mid bytes of the address and 7 bits are available for the timestamp. But note that the lowest bit of the address is always zero since the memory is divided into 512-byte blocks. Assuming this zero we can instead store the address in 8 bits and increase the time stamp resolution to 8 bits.
+
+Larger versions of the Z-machine need more bits for the high and mid bytes so fewer bits are available for the timestamp; a Z8 game (with 19 bit addresses for a maximum game size of 512K) only has 6 bits available for the timestamp. This limited timestamp resolution is the reason why vmem_tick is only incremented when a block needs to be read from disc, not every time read_byte_from_z_address is called.
 
 vmem_tick is actually held in memory "pre-shifted" for convenience of using it to compare or update the high byte of the 16-bit entries in vmap, so rather than incrementing by 1 at a time, it increments by 2 at a time for Z3 games, 8 at a time for Z8 games and 4 for everything else. (In the code, the increment is a constant called vmem_tick_increment.)
 
 ## The quick index
 
-In general we have to do a linear search of vmap in order to see if a particular 512-byte block of the game is already in RAM (and where in RAM it is, if it's in RAM). The vmap might contain as many as 255 entries (if we have huge amounts of sideways RAM), and it's likely to contain at least 64 entries, representing 32K of cache, so this is potentially quite slow.
+In general we have to do a linear search of vmap in order to see if a particular 512-byte block of the game is already in RAM (and where in RAM it is, if it's in RAM). The vmap can contain up to 255 entries (depending on platform), and it's likely to contain at least 64 entries, representing 32K of cache, so this is potentially quite slow.
 
 It's quite likely that there's a relatively small "working set" of 512-byte blocks which we're going to be accessing over and over again. For example, maybe one 512-byte block contains a Z-machine function with a loop in, and inside that loop we call another Z-machine function which lives in a separate 512-byte block.
 
@@ -288,19 +290,15 @@ This also has the advantage that we can access up to 256 entries using our 8-bit
 ## Banking
 
 
-On the Commodore 64 there's an additional wrinkle because some blocks of RAM are hidden
-behind the kernal ROM and there's a mechanism to copy those blocks of RAM into cache 
-blocks in always-visible RAM when necessary. 
+On the Commodore 64, Commodore 128 and MEGA65 there's an additional wrinkle because some blocks of RAM are hidden
+behind the I/O area and the kernal ROM and there's a mechanism to copy those blocks of RAM into the so-called vmem cache in always-visible RAM when necessary. 
 
 The first_banked_memory_page variable stored the high byte of the first 512 block of RAM 
 that isn't always visible. On the C64 this is $d0, since the I/O registers are located 
 from $d000, and unrestricted reading/writing to these memory position cause all kinds of
 trouble.
 
-When read_byte_at_z_address detects that we want to read data from a block under
-the non-accessible memory ($d000-$ffff) then we will swap one of the blocks in the 
-always-visible RAM with the non-accessible block. This is done by copy_page (in memory.asm),
-which can copy the file securely from any memory position using memory banking as needed.
+When read_byte_at_z_address detects that we want to read data from a page in the non-accessible memory ($d000-$ffff) then we will copy that page (256 bytes) from the non-accessible memory to one of the pages in the vmem buffer. This is done by copy_page (in memory.asm), which can copy a page securely from and to any memory position using memory banking as needed.
 
 # Accented Characters
 
@@ -348,7 +346,7 @@ Please read the notes below the table as well.
 
 Note that in the mapping from PETSCII to ZSCII, you must also convert any accented characters from uppercase to lowercase, i.e. for Swedish PETSCII Ä is mapped to a ZSCII ä.
 
-If you compile a game in Debug mode (Uncomment the 'DEBUG' line near the start of make.rb), Ozmoo will print the hexadecimal ZSCII codes for all characters which it can't print. Thus, to create mappings for a game in a new language, you can start by running it in Debug mode to see the ZSCII character codes in use.
+If you build a game using Ozmoo's Debug mode (Uncomment the 'DEBUG' line near the start of make.rb), Ozmoo will print the hexadecimal ZSCII codes for all characters which it can't print. Thus, to create mappings for a game in a new language, you can start by running it in Debug mode to see the ZSCII character codes in use.
 
 # Assembly Flags
 

@@ -237,4 +237,8 @@ Release 7: 4 May 2021
 Release 8: 
 
 - Fixed indexing bug in add_line_to_history (issue 36)
-
+- Changed history to allow cursor up/down even if there is pending user input
+- Removed unnecessary mapping of F1 and F8 for all languages in streams.asm
+- Rearranged character translation tables, making the code faster and shorter
+- Changed the mechansim for downcasing user input
+- Stopped downcasing accented characters for read_char
