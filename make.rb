@@ -1935,12 +1935,9 @@ begin
 			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
+		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):.*$/ then
+			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
 		elsif ARGV[i] =~ /^-/i then
-			# check if out of index type of error
-			if ARGV[i] =~ /^-(ic|sc|dc|dmsc|dmic|dmdc):?([0-9]*):?(([0-9])*)?$/ then
-				raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
-				exit 0
-			end
 			raise "Unknown option: " + ARGV[i]
 		else 
 			$story_file = ARGV[i]
