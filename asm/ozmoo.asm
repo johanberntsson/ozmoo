@@ -17,7 +17,7 @@
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
 	HAS_SID = 1
-	SUPPORT_REU = 0
+	SUPPORT_REU = 1
 	SUPPORT_80COL = 1;
 	!ifdef SLOW {
 		!ifndef VMEM {
@@ -1819,11 +1819,13 @@ reu_start
 	lda #0
 	sta use_reu
 	sta keyboard_buff_len
+!ifndef TARGET_MEGA65 {
 	ldx reu_c64base
 	inc reu_c64base
 	inx
 	cpx reu_c64base
 	bne .no_reu_present
+}
 ; REU detected, check size
 ;	jsr check_reu_size
 ;	sta $0700

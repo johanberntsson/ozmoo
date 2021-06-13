@@ -28,6 +28,29 @@ copy_page_to_reu
 	; a,x = REU page
 	; y = C64 page
 
+!ifdef TARGET_MEGA65 {
+	stx .dma_dest_address + 1
+	sta .dma_dest_bank_and_flags
+	sty .dma_source_address + 1
+	ldx #0
+	stx .dma_dest_address
+	stx .dma_source_address
+	stx .dma_source_bank_and_flags
+	stx .dma_source_address_top
+	lda #$80 ; Base of HyperRAM
+	sta .dma_dest_address_top
+	
+	sei
+	jsr mega65io
+	stx $d702 ; DMA list is in bank 0
+	lda #>.dma_list
+	sta $d701
+	lda #<.dma_list
+	sta $d705 
+	cli
+	clc
+} else {
+; Not MEGA65
 	clc
 	jsr store_reu_transfer_params
 
@@ -40,13 +63,14 @@ copy_page_to_reu
 	sta reu_command
 	lda reu_status
 	and #%00100000
-	beq +
+	beq .update_progress_bar
 
 	; Signal REU error and return
 	sec
 	rts
+}
 
-+
+.update_progress_bar
 	; Update progress bar
 	dec progress_reu
 	bne +
@@ -62,6 +86,48 @@ copy_page_to_reu
 copy_page_from_reu
 	; a,x = REU page
 	; y = C64 page
+!ifdef TARGET_MEGA65 {
+	stx .dma_source_address + 1
+	sta .dma_source_bank_and_flags
+	sty .dma_dest_address + 1
+	ldx #0
+	stx .dma_source_address
+	stx .dma_dest_address
+	stx .dma_dest_address_top
+	stx .dma_dest_bank_and_flags
+	lda #$80 ; Base of HyperRAM
+	sta .dma_source_address_top
+	sei
+	jsr mega65io
+	stx $d702 ; DMA list is in bank 0
+	lda #>.dma_list
+	sta $d701
+	lda #<.dma_list
+	sta $d705 
+	cli
+	clc
+	rts
+	
+.dma_list
+	!byte $0b ; Use 12-byte F011B DMA list format
+	!byte $06 ; Disable use of transparent value
+	!byte $80 ; Set source address bit 20-27
+.dma_source_address_top		!byte 0
+	!byte $81 ; Set destination address bit 20-27
+.dma_dest_address_top		!byte 0
+	!byte $00 ; End of options
+.dma_command_lsb			!byte 0		; 0 = Copy
+.dma_count					!word $100	; Always copy one page
+.dma_source_address			!word 0
+.dma_source_bank_and_flags	!byte 0
+.dma_dest_address			!word 0
+.dma_dest_bank_and_flags	!byte 0
+.dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+.dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+
+} else { 
+; Not MEGA65
+
 !ifdef TARGET_C128 {
 	pha
 	lda #0
@@ -87,9 +153,12 @@ restore_2mhz
 +
 }
 	rts
+} ; else (not MEGA65)
 
 
+!ifndef TARGET_MEGA65 {
 store_reu_transfer_params
+
 	; a,x = REU page
 	; y = C64 page
 	; Transfer size: $01 if C is set, $100 if C is clear
@@ -110,10 +179,13 @@ store_reu_transfer_params
 +	stx reu_translen
 	sta reu_translen + 1
 	rts
+}
 
 .size = object_temp
 .old = object_temp + 1
 .temp = vmem_cache_start + 2
+
+
 check_reu_size
 ; Robin Harbron version
 	; lda #0

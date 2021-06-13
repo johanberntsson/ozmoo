@@ -243,4 +243,4 @@ Release 8:
 - Changed the mechansim for downcasing user input
 - Stopped downcasing accented characters for read_char
 - Improved error messages when giving bad z-code palette options
-
+- Added support for caching story data in HyperRAM on MEGA65

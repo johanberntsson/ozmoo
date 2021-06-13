@@ -9,6 +9,7 @@ if $is_windows then
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -80col -autostart-delay-random"
     $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
+	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\""
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
@@ -818,7 +819,12 @@ end
 
 def build_interpreter()
 	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1 -DCONF_TRK=#{$CONFIG_TRACK}"
-	necessarysettings +=  " --cpu 6510 --format cbm"
+	if $target == 'mega65' then
+		necessarysettings +=  " --cpu m65"
+	else
+		necessarysettings +=  " --cpu 6510"
+	end
+	necessarysettings +=  " --format cbm"
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
@@ -1935,7 +1941,7 @@ begin
 			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
-		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):.*$/ then
+		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
 			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
 		elsif ARGV[i] =~ /^-/i then
 			raise "Unknown option: " + ARGV[i]
