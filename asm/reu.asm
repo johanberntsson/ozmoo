@@ -234,7 +234,7 @@ check_reu_size
 	cpy #.reu_banks_to_check
 	bcc .check_next_bank
 .found_end_of_reu
-	; y is now 0-128, meaning the first unavailable bank number
+	; y is now 0 - .reu_banks_to_check, meaning the first unavailable bank number
 	sty stack_tmp + 4
 -	dey
 	bmi +
@@ -243,14 +243,7 @@ check_reu_size
 	sta [stack_tmp],z ; Write the original value back
 	jmp -
 
-+
-	lda stack_tmp + 4
-;	ldy stack_tmp + 4 ; The number of 64KB banks available
-;	iny
-;	sty SCREEN_ADDRESS
-;	lda #0
-;	sta $d800
-;	jsr fatalerror
++	lda stack_tmp + 4
 	rts
 } else {
 	; Target not MEGA65
