@@ -17,7 +17,7 @@
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
 	HAS_SID = 1
-	SUPPORT_REU = 0
+	SUPPORT_REU = 1
 	SUPPORT_80COL = 1;
 	!ifdef SLOW {
 		!ifndef VMEM {
@@ -1819,16 +1819,26 @@ reu_start
 	lda #0
 	sta use_reu
 	sta keyboard_buff_len
+!ifndef TARGET_MEGA65 {
 	ldx reu_c64base
 	inc reu_c64base
 	inx
 	cpx reu_c64base
 	bne .no_reu_present
+}
 ; REU detected, check size
-;	jsr check_reu_size
+	jsr check_reu_size
+	sta reu_banks
+	cmp #8
+	bcc .no_reu_present ; If REU size < 512 KB, don't use it.
 ;	sta $0700
-	
 
+!ifdef TARGET_MEGA65 {
+	ldx #$80 ; Use REU, set vmem to reu loading mode
+	stx use_reu
+.no_reu_present	
+	rts
+} else {
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
 	jsr printstring_raw
@@ -1858,12 +1868,12 @@ reu_start
 	jmp s_printchar
 .no_reu_present	
 	rts
-	
+
 .use_reu_question
 	!pet 13,"Use REU? (Y/N) ",0
-} ; SUPPORT_REU = 1
 
-!if SUPPORT_REU = 1 {
+} ; End of TARGET not MEGA65
+
 ; progress_reu = parse_array
 ; reu_progress_ticks = parse_array + 1
 ; reu_last_disk_end_block = string_array ; 2 bytes

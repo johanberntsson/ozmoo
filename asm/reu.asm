@@ -28,6 +28,29 @@ copy_page_to_reu
 	; a,x = REU page
 	; y = C64 page
 
+!ifdef TARGET_MEGA65 {
+	stx .dma_dest_address + 1
+	sta .dma_dest_bank_and_flags
+	sty .dma_source_address + 1
+	ldx #0
+	stx .dma_dest_address
+	stx .dma_source_address
+	stx .dma_source_bank_and_flags
+	stx .dma_source_address_top
+	lda #$80 ; Base of HyperRAM
+	sta .dma_dest_address_top
+	
+	sei
+	jsr mega65io
+	stx $d702 ; DMA list is in bank 0
+	lda #>.dma_list
+	sta $d701
+	lda #<.dma_list
+	sta $d705 
+	cli
+	clc
+} else {
+; Not MEGA65
 	clc
 	jsr store_reu_transfer_params
 
@@ -40,13 +63,14 @@ copy_page_to_reu
 	sta reu_command
 	lda reu_status
 	and #%00100000
-	beq +
+	beq .update_progress_bar
 
 	; Signal REU error and return
 	sec
 	rts
+}
 
-+
+.update_progress_bar
 	; Update progress bar
 	dec progress_reu
 	bne +
@@ -62,6 +86,48 @@ copy_page_to_reu
 copy_page_from_reu
 	; a,x = REU page
 	; y = C64 page
+!ifdef TARGET_MEGA65 {
+	stx .dma_source_address + 1
+	sta .dma_source_bank_and_flags
+	sty .dma_dest_address + 1
+	ldx #0
+	stx .dma_source_address
+	stx .dma_dest_address
+	stx .dma_dest_address_top
+	stx .dma_dest_bank_and_flags
+	lda #$80 ; Base of HyperRAM
+	sta .dma_source_address_top
+	sei
+	jsr mega65io
+	stx $d702 ; DMA list is in bank 0
+	lda #>.dma_list
+	sta $d701
+	lda #<.dma_list
+	sta $d705 
+	cli
+	clc
+	rts
+	
+.dma_list
+	!byte $0b ; Use 12-byte F011B DMA list format
+	!byte $06 ; Disable use of transparent value
+	!byte $80 ; Set source address bit 20-27
+.dma_source_address_top		!byte 0
+	!byte $81 ; Set destination address bit 20-27
+.dma_dest_address_top		!byte 0
+	!byte $00 ; End of options
+.dma_command_lsb			!byte 0		; 0 = Copy
+.dma_count					!word $100	; Always copy one page
+.dma_source_address			!word 0
+.dma_source_bank_and_flags	!byte 0
+.dma_dest_address			!word 0
+.dma_dest_bank_and_flags	!byte 0
+.dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+.dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+
+} else { 
+; Not MEGA65
+
 !ifdef TARGET_C128 {
 	pha
 	lda #0
@@ -87,9 +153,12 @@ restore_2mhz
 +
 }
 	rts
+} ; else (not MEGA65)
 
 
+!ifndef TARGET_MEGA65 {
 store_reu_transfer_params
+
 	; a,x = REU page
 	; y = C64 page
 	; Transfer size: $01 if C is set, $100 if C is clear
@@ -110,11 +179,78 @@ store_reu_transfer_params
 +	stx reu_translen
 	sta reu_translen + 1
 	rts
+}
 
 .size = object_temp
 .old = object_temp + 1
 .temp = vmem_cache_start + 2
+
+
+.reu_banks_to_check = 32 ; Can be up to 128, but make sure .reu_tmp has room 
+.reu_tmp = streams_stack; 60 bytes, we only use 32
+
+reu_banks !byte 0
+
 check_reu_size
+
+!ifdef TARGET_MEGA65 {
+	; Start checking at address $08 00 00 00
+	ldz #0
+	ldy #0
+	sty stack_tmp
+	sty stack_tmp + 1
+	sty stack_tmp + 2
+	lda #$08
+	sta stack_tmp + 3
+.check_next_bank
+	lda [stack_tmp],z
+	sta .reu_tmp,y		; Store the old value for the first byte of bank
+
+	iny
+	tya
+	sta [stack_tmp],z	; Save the bank number + 1 in the first byte of bank
+	lda [stack_tmp],z
+	sta stack_tmp + 4
+	cpy stack_tmp + 4	; Check if the new value stuck
+	beq +
+	dey
+	jmp .found_end_of_reu
+	
++	dey
+	tya
+	sta [stack_tmp],z	; Save the bank number in the first byte of bank
+	lda [stack_tmp],z
+	sta stack_tmp + 4
+	cpy stack_tmp + 4	; Check if the new value stuck
+	bne .found_end_of_reu
+	
+	lda #0
+	sta stack_tmp + 2
+	lda [stack_tmp],z
+	bne .found_end_of_reu ; Should be the bank number for bank #0 ( i.e. 0)
+	
+	iny
+	sty stack_tmp + 2	; Set the next bank to test 
+	cpy #.reu_banks_to_check
+	bcc .check_next_bank
+.found_end_of_reu
+	; y is now 0 - .reu_banks_to_check, meaning the first unavailable bank number
+	sty stack_tmp + 4
+-	dey
+	bmi +
+	lda .reu_tmp,y
+	sty stack_tmp + 2
+	sta [stack_tmp],z ; Write the original value back
+	jmp -
+
++	lda stack_tmp + 4
+	rts
+} else {
+	; Target not MEGA65
+	lda #8 ; Guess 512 KB
+	rts
+}
+
 ; Robin Harbron version
 	; lda #0
 	; sta $df04

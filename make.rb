@@ -9,6 +9,7 @@ if $is_windows then
     $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
     $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -80col -autostart-delay-random"
     $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
+	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\""
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
@@ -818,7 +819,12 @@ end
 
 def build_interpreter()
 	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1 -DCONF_TRK=#{$CONFIG_TRACK}"
-	necessarysettings +=  " --cpu 6510 --format cbm"
+	if $target == 'mega65' then
+		necessarysettings +=  " --cpu m65"
+	else
+		necessarysettings +=  " --cpu 6510"
+	end
+	necessarysettings +=  " --format cbm"
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
@@ -1732,6 +1738,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 end
 
 def print_usage_and_exit
+	print_usage
+	exit 1
+end
+
+def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-u] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
@@ -1771,7 +1782,6 @@ def print_usage_and_exit
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
-	exit 1
 end
 
 splashes = [
@@ -1931,9 +1941,10 @@ begin
 			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
+		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
+			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
 		elsif ARGV[i] =~ /^-/i then
-			puts "Unknown option: " + ARGV[i]
-			raise "error"
+			raise "Unknown option: " + ARGV[i]
 		else 
 			$story_file = ARGV[i]
 		end
@@ -1941,9 +1952,14 @@ begin
 	end
 	if !$story_file
 		print_usage_and_exit()
+		exit 1
 	end
-rescue
-	print_usage_and_exit()
+rescue => e
+	print_usage()
+	puts
+	print "ERROR: "
+	puts e.message
+	exit 1
 end
 
 print_usage_and_exit() if await_preloadfile or await_fontfile or await_imagefile

@@ -242,3 +242,6 @@ Release 8:
 - Rearranged character translation tables, making the code faster and shorter
 - Changed the mechansim for downcasing user input
 - Stopped downcasing accented characters for read_char
+- Improved error messages when giving bad z-code palette options
+- Added support for caching story data in HyperRAM on MEGA65
+- Made all page copying use DMA on MEGA65
