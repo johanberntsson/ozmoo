@@ -51,6 +51,9 @@ print_z_address
 	jmp newline
 }
 
+get_z_himem_address
+	ldy z_address
+	; fall through to get_z_address
 get_z_address
 	; input: 
 	; output: a,x
@@ -58,12 +61,6 @@ get_z_address
 	; used registers: a,x
 	ldx z_address + 2 ; low
 	lda z_address + 1 ; high
-	rts
-
-get_z_himem_address
-	ldx z_address + 2
-	lda z_address + 1
-	ldy z_address
 	rts
 
 read_next_byte
