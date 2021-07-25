@@ -245,3 +245,8 @@ Release 8:
 - Improved error messages when giving bad z-code palette options
 - Added support for caching story data in HyperRAM on MEGA65
 - Made all page copying use DMA on MEGA65
+- Changed so we access the Floppy Disk Controller directly on MEGA65 when 
+  reading raw disk blocks, instead of using DOS commands, for speed.
+- Added a 60 KB cache in chipmem for disk tracks, used when reading raw disk 
+  blocks on MEGA65.
+  
