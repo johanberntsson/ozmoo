@@ -256,37 +256,38 @@ copy_page_c128_src_end
 
 } else { ; not TARGET_C128
 
+!zone copy_page {
 copy_page
 ; a = source
 ; y = destination
 
 !ifdef TARGET_MEGA65 {
-	sta .dma_source_address + 1
-	sty .dma_dest_address + 1
+	sta .cp_dma_source_address + 1
+	sty .cp_dma_dest_address + 1
 	ldy #0
 	sei
 	jsr mega65io
 	sty $d702 ; DMA list is in bank 0
-	lda #>.dma_list
+	lda #>.cp_dma_list
 	sta $d701
-	lda #<.dma_list
+	lda #<.cp_dma_list
 	sta $d705 
 	cli
 	clc
 	rts
 	
-.dma_list
+.cp_dma_list
 	!byte $0b ; Use 12-byte F011B DMA list format
 	!byte $06 ; Disable use of transparent value
 	!byte $00 ; End of options
-.dma_command_lsb			!byte 0		; 0 = Copy
-.dma_count					!word $100	; Always copy one page
-.dma_source_address			!word 0
-.dma_source_bank_and_flags	!byte 0
-.dma_dest_address			!word 0
-.dma_dest_bank_and_flags	!byte 0
-.dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
-.dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+.cp_dma_command_lsb			!byte 0		; 0 = Copy
+.cp_dma_count					!word $100	; Always copy one page
+.cp_dma_source_address			!word 0
+.cp_dma_source_bank_and_flags	!byte 0
+.cp_dma_dest_address			!word 0
+.cp_dma_dest_bank_and_flags	!byte 0
+.cp_dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+.cp_dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
 
 } else { ; not TARGET_MEGA65
 
@@ -310,6 +311,8 @@ copy_page
 	cli
 	rts
 } ; Not TARGET_MEGA65
+
+} ; end zone
 
 } ; not TARGET_C128
 }

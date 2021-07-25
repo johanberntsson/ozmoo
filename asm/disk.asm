@@ -1,3 +1,5 @@
+!zone disk {
+
 first_unavailable_save_slot_charcode	!byte 0
 current_disks !byte $ff, $ff, $ff, $ff,$ff, $ff, $ff, $ff
 boot_device !byte 0
@@ -259,6 +261,287 @@ readblock
 .temp_y 		!byte 0
 
 
+!ifdef TARGET_MEGA65 {
+
+read_track_sector
+	; a: track (1-80)
+	; x: sector (0-39)
+	; y: device# (currently ignored for MEGA65)
+	; Word at readblocks_mempos holds storage address
+	sta .track
+	stx .sector
+	sty .device
+.have_set_device_track_sector
+	ldy #0 ; Side
+	lda .sector
+	cmp #20
+	bcc +
+	iny
+	sec
+	sbc #20
+	sta .sector
++	tya
+	ldx .track
+	dex
+	jsr m65_get_track_address
+
+	; Copy a logical sector (256 bytes) to main RAM
+	
+	clc
+	adc .sector
+	sta .dma_source_address + 1
+	lda readblocks_mempos
+	sta .dma_dest_address
+	lda readblocks_mempos + 1
+	sta .dma_dest_address + 1
+	ldy #1
+	sty .dma_count + 1 ; Transfer 1 page
+	sty .dma_source_bank_and_flags
+	dey ; Set y to 0
+	sty .dma_dest_bank_and_flags
+	sty .dma_source_address
+	sty .dma_dest_address_top
+	sty .dma_source_address_top
+	sty .dma_count
+	
+	jsr mega65io
+	sei
+	sty $d702 ; DMA list is in bank 0
+	lda #>.dma_list
+	sta $d701
+	lda #<.dma_list
+	sta $d705 
+	cli
+		
+	rts
+
+m65_start_disk_access
+	jsr mega65io
+	lda #$60
+	sta $d080 ; Enable drive motor
+	lda #$20
+	sta $d081 ; Send SPINUP command
+-	lda $d082
+	bmi - ; Wait for busy flag to clear
+	rts
+
+m65_end_disk_access
+	lda #$00
+	sta $d080 ; Disable drive motor
+-	lda $d082
+	bmi - ; Wait for busy flag to clear - CAN SKIP THIS?
+	rts
+
+m65_get_current_trackno
+	lda m65_current_trackno
+	bpl .return
+
+m65_reset_trackno
+	jsr m65_start_disk_access
+--	lda $d082
+	and #$01
+	bne + ; Track 0 reached
+	lda #$10
+	sta $d081
+-	lda $d082
+	bmi - ; Wait for busy flag to clear
+	bpl -- ; Always branch
++	jsr m65_end_disk_access
+	lda #0
+	sta m65_current_trackno
+.return
+	rts
+
+m65_get_track_address
+	; x = physical track# (0-79)
+	; a = side (0-1)
+	; Returns: a = page in bank 1 where the track starts
+	tay
+	txa
+	cpy #0
+	beq +
+	ora #$80
++	sta m65_disk_tmp ; Track + side
+	ldy #11
+-	cmp m65_track_buffer_trackno,y
+	beq .match
+	dey
+	bpl -
+	; Track was not found in list.
+	; Find the next slot from m65_track_buffer_next with flag = 0
+	ldy m65_track_buffer_next
+-	lda m65_track_buffer_flag,y
+	beq .read_into_pos_y
+	; Flag is 1: Set it to 0 and check next slot
+	lda #0
+	sta m65_track_buffer_flag,y
+	lda m65_track_buffer_next_pos,y
+	tay
+	jmp - ; Always branch ; BPL
+.read_into_pos_y
+	lda m65_disk_tmp
+	sta m65_track_buffer_trackno,y
+	and #%01111111
+	tax
+
+	; Point at the next buffer pos
+	sty m65_mempos_tmp
+	lda m65_track_buffer_next_pos,y
+	sta m65_track_buffer_next
+	; Retrieve the current buffer pos
+	ldy m65_mempos_tmp
+
+	lda #0
+	asl m65_disk_tmp
+	rol
+	jsr m65_read_track
+	ldy m65_mempos_tmp
+.match
+	lda #1
+	sta m65_track_buffer_flag,y
+	lda m65_track_buffer_startpage,y
+	rts
+
+m65_read_track
+	; x = physical track# (0-79)
+	; a = side (0-1)
+	; y = memory position (0-11)
+	asl
+	asl
+	asl
+	sta m65_disk_tmp
+	jsr m65_start_disk_access
+
+	lda m65_track_buffer_startpage,y
+	sta m65_track_mempos ; The page in bank 1 where we store this track
+	
+	lda #$60
+	ora m65_disk_tmp
+	sta $d080 ; Set disk side	
+	jsr m65_get_current_trackno
+
+.check_trackno_again
+	cpx m65_current_trackno
+	beq .found_track
+	bcs .step_in
+	dec m65_current_trackno
+	lda #$10
+	bne .send_track_change
+.step_in
+	inc m65_current_trackno
+	lda #$18
+.send_track_change
+	sta $d081
+.wait_track_change
+	lda $d082
+	bmi .wait_track_change ; Wait for busy flag to clear
+	bpl .check_trackno_again ; Always branch
+.found_track
+	stx $d084
+	lda m65_disk_tmp
+	lsr
+	lsr
+	lsr
+	sta $d086
+
+	; Iterate over sectors, in fastest order, reading sector and copying it to memory
+	ldx #9
+.read_next_sector
+	lda m65_sector_order,x
+	tay
+	iny
+	sty $d085
+	lda #$40
+	sta $d081
+-	lda $d083
+	bpl - ; Wait for RDREQ = 1
+-	lda $d082
+	and #$10
+	bne .dnf
+	lda $d082
+	bmi - ; Wait for busy flag to clear
+
+.expected_flags = $40 ; This should be $60 according to the MEGA65 manual, but $40 is what currently works
+-	lda $d082
+	and #.expected_flags
+	cmp #.expected_flags
+	bne - ; Wait for DRQ = 1 and EQ = 1
+	
+	; Copy physical sector (512 bytes) from FDC buffer to bank 1
+
+	lda $d689
+	and #%01111111
+	sta $d689 ; Clear BUFSEL
+	
+	lda m65_sector_order,x ; Physical sector# - 1 (0 .. 9)
+	asl ; 2 pages per sector
+	adc m65_track_mempos ; Carry is already clear
+	sta .dma_dest_address + 1
+
+	ldy #$0d
+	sty .dma_source_bank_and_flags
+	ldy #$6c
+	sty .dma_source_address + 1
+	ldy #2
+	sty .dma_count + 1 ; Transfer 2 pages
+	dey ; Set y to 1
+	sty .dma_dest_bank_and_flags
+	dey ; Set y to 0
+	sty .dma_source_address
+	sty .dma_dest_address
+	sty .dma_dest_address_top
+	sty $d702 ; DMA list is in bank 0
+	dey ; Set y to $ff
+	sty .dma_source_address_top
+	
+	sei
+	lda #>.dma_list
+	sta $d701
+	lda #<.dma_list
+	sta $d705 
+	cli
+	
+	dex
+	bpl .read_next_sector
+
+	jmp m65_end_disk_access
+
+.dnf
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
+
+m65_track_buffer_trackno 	!fill 12, $ff
+m65_track_buffer_flag	 	!fill 12, 0
+m65_track_buffer_startpage	!byte 0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220
+m65_track_buffer_next_pos	!byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0
+m65_track_buffer_next		!byte 0
+m65_track_mempos			!byte 0
+;m65_track_index_last_read	!byte $ff
+m65_current_trackno			!byte $ff
+m65_disk_tmp				!byte 0
+m65_mempos_tmp				!byte 0
+m65_sector_order			!byte 9,7,5,3,1,8,6,4,2,0 ; Read in reverse order. Uses our internal numbering 0-9, add 1 to get physical sector.
+	
+.dma_list
+	!byte $0b ; Use 12-byte F011B DMA list format
+	!byte $06 ; Disable use of transparent value
+	!byte $80 ; Set source address bit 20-27
+.dma_source_address_top		!byte 0
+	!byte $81 ; Set destination address bit 20-27
+.dma_dest_address_top		!byte 0
+	!byte $00 ; End of options
+.dma_command_lsb			!byte 0		; 0 = Copy
+.dma_count					!word $100	; Always copy one page
+.dma_source_address			!word 0
+.dma_source_bank_and_flags	!byte 0
+.dma_dest_address			!word 0
+.dma_dest_bank_and_flags	!byte 0
+.dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+.dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+
+} else {
+	; Not MEGA65
+
 	; convert track/sector to ascii and update drive command
 read_track_sector
 	; input: a: track, x: sector, y: device#, Word at readblocks_mempos holds storage address
@@ -374,6 +657,9 @@ cname_len = * - .cname
 	!byte 0 ; end of string, so we can print debug messages
 
 uname_len = * - .uname
+
+} ; End of non-MEGA65 read_track_sector routines
+
 .track  !byte 0
 .sector !byte 0
 .device !byte 0
@@ -381,6 +667,8 @@ uname_len = * - .uname
 .blocks_to_go_tmp !byte 0, 0
 .next_disk_index	!byte 0
 .disk_tracks	!byte 0
+
+
 } ; End of !ifdef VMEM
 
 close_io
@@ -1494,5 +1782,5 @@ wait_a_sec
 	
 }
 
-
+} ; end zone disk
 	

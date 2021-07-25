@@ -20,6 +20,7 @@
 	SUPPORT_REU = 1
 	SUPPORT_80COL = 1;
 	!ifdef SLOW {
+		; This is never used, since VMEM is always enabled for this target
 		!ifndef VMEM {
 			SKIP_BUFFER = 1
 		}
@@ -1468,7 +1469,7 @@ deletable_init
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
-;    jsr kernal_readchar   ; read keyboard
+	
 ; Copy game id
 	ldx #3
 -	lda config_load_address,x
