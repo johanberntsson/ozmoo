@@ -29,27 +29,20 @@ copy_page_to_reu
 	; y = C64 page
 
 !ifdef TARGET_MEGA65 {
-	stx .reu_dma_dest_address + 1
-	sta .reu_dma_dest_bank_and_flags
-	sty .reu_dma_source_address + 1
+	stx dma_dest_address + 1
+	sta dma_dest_bank_and_flags
+	sty dma_source_address + 1
 
 	ldx #0
-	stx .reu_dma_dest_address
-	stx .reu_dma_source_address
-	stx .reu_dma_source_bank_and_flags
-	stx .reu_dma_source_address_top
+	stx dma_dest_address
+	stx dma_source_address
+	stx dma_source_bank_and_flags
+	stx dma_source_address_top
 	lda #$80 ; Base of HyperRAM
-	sta .reu_dma_dest_address_top
-	
-	sei
-	jsr mega65io
-	stx $d702 ; DMA list is in bank 0
-	lda #>.reu_dma_list
-	sta $d701
-	lda #<.reu_dma_list
-	sta $d705 
-	cli
-	clc
+	sta dma_dest_address_top
+
+	jsr m65_run_dma
+
 } else {
 ; Not MEGA65
 	clc
@@ -88,44 +81,19 @@ copy_page_from_reu
 	; a,x = REU page
 	; y = C64 page
 !ifdef TARGET_MEGA65 {
-	stx .reu_dma_source_address + 1
-	sta .reu_dma_source_bank_and_flags
-	sty .reu_dma_dest_address + 1
+	stx dma_source_address + 1
+	sta dma_source_bank_and_flags
+	sty dma_dest_address + 1
 
 	ldx #0
-	stx .reu_dma_source_address
-	stx .reu_dma_dest_address
-	stx .reu_dma_dest_address_top
-	stx .reu_dma_dest_bank_and_flags
+	stx dma_source_address
+	stx dma_dest_address
+	stx dma_dest_address_top
+	stx dma_dest_bank_and_flags
 	lda #$80 ; Base of HyperRAM
-	sta .reu_dma_source_address_top
-	sei
-	jsr mega65io
-	stx $d702 ; DMA list is in bank 0
-	lda #>.reu_dma_list
-	sta $d701
-	lda #<.reu_dma_list
-	sta $d705 
-	cli
-	clc
-	rts
+	sta dma_source_address_top
 
-.reu_dma_list
-	!byte $0b ; Use 12-byte F011B DMA list format
-	!byte $06 ; Disable use of transparent value
-	!byte $80 ; Set source address bit 20-27
-.reu_dma_source_address_top		!byte 0
-	!byte $81 ; Set destination address bit 20-27
-.reu_dma_dest_address_top		!byte 0
-	!byte $00 ; End of options
-.reu_dma_command_lsb			!byte 0		; 0 = Copy
-.reu_dma_count					!word $100	; Always copy one page
-.reu_dma_source_address			!word 0
-.reu_dma_source_bank_and_flags	!byte 0
-.reu_dma_dest_address			!word 0
-.reu_dma_dest_bank_and_flags	!byte 0
-.reu_dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
-.reu_dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+	jmp m65_run_dma
 
 } else { 
 ; Not MEGA65

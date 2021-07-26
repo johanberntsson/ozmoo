@@ -1470,6 +1470,8 @@ deletable_init
 	ldy boot_device
 	jsr read_track_sector
 	
+	
+
 ; Copy game id
 	ldx #3
 -	lda config_load_address,x
@@ -1829,6 +1831,7 @@ reu_start
 }
 ; REU detected, check size
 	jsr check_reu_size
+;	lda #0 ; SKIP REU FOR DEBUGGING PURPOSES
 	sta reu_banks
 	cmp #8
 	bcc .no_reu_present ; If REU size < 512 KB, don't use it.
@@ -1925,7 +1928,6 @@ print_reu_progress_bar
 	dex
 	bne -
 +
-
 	rts
 } ; zone insert_disks_at_boot
 

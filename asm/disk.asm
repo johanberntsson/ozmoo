@@ -289,31 +289,34 @@ read_track_sector
 	
 	clc
 	adc .sector
-	sta .dma_source_address + 1
+	sta dma_source_address + 1
 	lda readblocks_mempos
-	sta .dma_dest_address
+	sta dma_dest_address
 	lda readblocks_mempos + 1
-	sta .dma_dest_address + 1
+	sta dma_dest_address + 1
 	ldy #1
-	sty .dma_count + 1 ; Transfer 1 page
-	sty .dma_source_bank_and_flags
+	sty dma_count + 1 ; Transfer 1 page
+	sty dma_source_bank_and_flags
 	dey ; Set y to 0
-	sty .dma_dest_bank_and_flags
-	sty .dma_source_address
-	sty .dma_dest_address_top
-	sty .dma_source_address_top
-	sty .dma_count
+	sty dma_dest_bank_and_flags
+	sty dma_source_address
+	sty dma_dest_address_top
+	sty dma_source_address_top
+	sty dma_count
+
+m65_run_dma
 	
 	jsr mega65io
-	sei
-	sty $d702 ; DMA list is in bank 0
-	lda #>.dma_list
+	lda #0
+	sta $d702 ; DMA list is in bank 0
+	lda #>dma_list
 	sta $d701
-	lda #<.dma_list
+	lda #<dma_list
 	sta $d705 
 	cli
-		
-	rts
+	clc
+	rts	
+	
 
 m65_start_disk_access
 	jsr mega65io
@@ -476,30 +479,25 @@ m65_read_track
 	lda m65_sector_order,x ; Physical sector# - 1 (0 .. 9)
 	asl ; 2 pages per sector
 	adc m65_track_mempos ; Carry is already clear
-	sta .dma_dest_address + 1
+	sta dma_dest_address + 1
 
 	ldy #$0d
-	sty .dma_source_bank_and_flags
+	sty dma_source_bank_and_flags
 	ldy #$6c
-	sty .dma_source_address + 1
+	sty dma_source_address + 1
 	ldy #2
-	sty .dma_count + 1 ; Transfer 2 pages
+	sty dma_count + 1 ; Transfer 2 pages
 	dey ; Set y to 1
-	sty .dma_dest_bank_and_flags
+	sty dma_dest_bank_and_flags
 	dey ; Set y to 0
-	sty .dma_source_address
-	sty .dma_dest_address
-	sty .dma_dest_address_top
+	sty dma_source_address
+	sty dma_dest_address
+	sty dma_dest_address_top
 	sty $d702 ; DMA list is in bank 0
 	dey ; Set y to $ff
-	sty .dma_source_address_top
-	
-	sei
-	lda #>.dma_list
-	sta $d701
-	lda #<.dma_list
-	sta $d705 
-	cli
+	sty dma_source_address_top
+
+	jsr m65_run_dma
 	
 	dex
 	bpl .read_next_sector
@@ -516,28 +514,26 @@ m65_track_buffer_startpage	!byte 0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200
 m65_track_buffer_next_pos	!byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0
 m65_track_buffer_next		!byte 0
 m65_track_mempos			!byte 0
-;m65_track_index_last_read	!byte $ff
 m65_current_trackno			!byte $ff
 m65_disk_tmp				!byte 0
 m65_mempos_tmp				!byte 0
 m65_sector_order			!byte 9,7,5,3,1,8,6,4,2,0 ; Read in reverse order. Uses our internal numbering 0-9, add 1 to get physical sector.
 	
-.dma_list
+dma_list
 	!byte $0b ; Use 12-byte F011B DMA list format
-	!byte $06 ; Disable use of transparent value
 	!byte $80 ; Set source address bit 20-27
-.dma_source_address_top		!byte 0
+dma_source_address_top		!byte 0
 	!byte $81 ; Set destination address bit 20-27
-.dma_dest_address_top		!byte 0
+dma_dest_address_top		!byte 0
 	!byte $00 ; End of options
-.dma_command_lsb			!byte 0		; 0 = Copy
-.dma_count					!word $100	; Always copy one page
-.dma_source_address			!word 0
-.dma_source_bank_and_flags	!byte 0
-.dma_dest_address			!word 0
-.dma_dest_bank_and_flags	!byte 0
-.dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
-.dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+dma_command_lsb			!byte 0		; 0 = Copy
+dma_count					!word $100	; Always copy one page
+dma_source_address			!word 0
+dma_source_bank_and_flags	!byte 0
+dma_dest_address			!word 0
+dma_dest_bank_and_flags	!byte 0
+dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
 
 } else {
 	; Not MEGA65

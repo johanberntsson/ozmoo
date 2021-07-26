@@ -278,15 +278,14 @@ copy_page
 	
 .cp_dma_list
 	!byte $0b ; Use 12-byte F011B DMA list format
-	!byte $06 ; Disable use of transparent value
 	!byte $00 ; End of options
-.cp_dma_command_lsb			!byte 0		; 0 = Copy
+.cp_dma_command_lsb				!byte 0		; 0 = Copy
 .cp_dma_count					!word $100	; Always copy one page
 .cp_dma_source_address			!word 0
 .cp_dma_source_bank_and_flags	!byte 0
 .cp_dma_dest_address			!word 0
-.cp_dma_dest_bank_and_flags	!byte 0
-.cp_dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+.cp_dma_dest_bank_and_flags		!byte 0
+.cp_dma_command_msb				!byte 0		; 0 for linear addressing for both src and dest
 .cp_dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
 
 } else { ; not TARGET_MEGA65
