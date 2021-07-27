@@ -249,4 +249,5 @@ Release 8:
   reading raw disk blocks, instead of using DOS commands, for speed.
 - Added a 60 KB cache in chipmem for disk tracks, used when reading raw disk 
   blocks on MEGA65.
-  
+- Minor optimization in reading and writing global variables in non-SLOW mode
+  on C64 and MEGA65.

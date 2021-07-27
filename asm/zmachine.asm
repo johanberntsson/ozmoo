@@ -489,12 +489,13 @@ read_operand
 
 !ifndef COMPLEX_MEMORY {
 .read_global_var
-	cmp #128
-	bcs .read_high_global_var
 !ifdef SLOW {
+	cmp #128
+	bcs .asl_then_read_high_global_var
 	jsr z_get_low_global_variable_value
 } else {
 	asl
+	bcs .read_high_global_var
 	tay
 	iny
 	lda (z_low_global_vars_ptr),y
@@ -503,9 +504,13 @@ read_operand
 	lda (z_low_global_vars_ptr),y
 }
 	bcc .store_operand ; Always branch
-.read_high_global_var
-	; and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 (Pointless, since ASL will remove top bit anyway)
+!ifdef SLOW {
+.asl_then_read_high_global_var
 	asl ; This sets carry
+}
+.read_high_global_var
+	; If slow mode, carry was just set with ASL, otherwise we branched here with BCS, so carry is set either way
+	; and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 (Pointless, since ASL will remove top bit anyway)
 	tay
 	iny
 	lda (z_high_global_vars_ptr),y
@@ -513,7 +518,7 @@ read_operand
 	dey
 	lda (z_high_global_vars_ptr),y
 	bcs .store_operand ; Always branch
-} ; end COMPLEX_MEMORY
+} ; end not COMPLEX_MEMORY
 
 !ifndef UNSAFE {
 .nonexistent_local
@@ -711,9 +716,8 @@ z_set_variable
 	sta (z_local_vars_ptr),y
 	rts
 .write_global_var
-	cmp #128
-	bcs .write_high_global_var
 	asl
+	bcs .write_high_global_var
 	tay
 	lda z_temp
 	sta (z_low_global_vars_ptr),y
@@ -722,8 +726,6 @@ z_set_variable
 	sta (z_low_global_vars_ptr),y
 	rts
 .write_high_global_var
-;	and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 ; Pointless, since ASL will remove top bit
-	asl
 	tay
 	lda z_temp
 	sta (z_high_global_vars_ptr),y
