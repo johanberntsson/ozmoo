@@ -316,40 +316,50 @@ m65_run_dma
 	cli
 	clc
 	rts	
-	
 
 m65_start_disk_access
+	; a = $68 for side 0, or $60 for side 1
+	pha
 	jsr mega65io
-	lda #$60
-	sta $d080 ; Enable drive motor
+	lda $d689
+	ora #$10
+	sta $d689 ; Turn off autoseek
+	lda $d6a1
+	and #%11111101
+	sta $d6a1 ; Turn off TARGANY
+;	lda #$60
+	pla
+	sta $d080 ; Enable drive motor AND select side
 	lda #$20
 	sta $d081 ; Send SPINUP command
--	lda $d082
-	bmi - ; Wait for busy flag to clear
-	rts
-
-m65_end_disk_access
-	lda #$00
-	sta $d080 ; Disable drive motor
--	lda $d082
-	bmi - ; Wait for busy flag to clear - CAN SKIP THIS?
+m65_busy_wait
+	jsr m65_pause_1ms
+-	bit $d082
+	bmi -
 	rts
 
 m65_get_current_trackno
 	lda m65_current_trackno
 	bpl .return
 
-m65_reset_trackno
-	jsr m65_start_disk_access
---	lda $d082
+; m65_reset_trackno
+	; lda #48
+	; sta SCREEN_ADDRESS + 3*80 ; Show status "0"
+-	jsr m65_busy_wait
+	lda $d082
 	and #$01
 	bne + ; Track 0 reached
+	; lda #49
+	; sta SCREEN_ADDRESS + 3*80 ; Show status "1"
 	lda #$10
 	sta $d081
--	lda $d082
-	bmi - ; Wait for busy flag to clear
-	bpl -- ; Always branch
-+	jsr m65_end_disk_access
+;	inc $d020
+;	inc SCREEN_ADDRESS
+	jsr m65_pause_6ms
+	jmp - ; Always branch
++
+	; lda #50
+	; sta SCREEN_ADDRESS + 3*80 ; Show status "2"
 	lda #0
 	sta m65_current_trackno
 .return
@@ -409,78 +419,52 @@ m65_read_track
 	; x = physical track# (0-79)
 	; a = side (0-1)
 	; y = memory position (0-11)
+	pha
+
 	asl
 	asl
 	asl
-	sta m65_disk_tmp
+	eor #$68 ; After this we have either $68 (side 0) or $60 (side 1)
+
 	jsr m65_start_disk_access
+;	lda #51
+;	sta SCREEN_ADDRESS + 3*80 ; Show status "3"
+
+	pla
+	sta $d086 ; Set disk side register
+;	sta SCREEN_ADDRESS + 5*80 + 2 ; About to read this side
 
 	lda m65_track_buffer_startpage,y
 	sta m65_track_mempos ; The page in bank 1 where we store this track
 	
-	lda #$60
-	ora m65_disk_tmp
-	sta $d080 ; Set disk side	
+	; lda #52
+	; sta SCREEN_ADDRESS + 3*80 ; Show status "4"
 	jsr m65_get_current_trackno
+	; lda #54
+	; sta SCREEN_ADDRESS + 3*80 ; Show status "6"
 
 .check_trackno_again
 	cpx m65_current_trackno
 	beq .found_track
-	bcs .step_in
+	bcs .step_out
 	dec m65_current_trackno
 	lda #$10
 	bne .send_track_change
-.step_in
+.step_out ; Higher track#
 	inc m65_current_trackno
 	lda #$18
 .send_track_change
+	jsr m65_busy_wait
 	sta $d081
-.wait_track_change
-	lda $d082
-	bmi .wait_track_change ; Wait for busy flag to clear
-	bpl .check_trackno_again ; Always branch
+	; lda #55
+	; sta SCREEN_ADDRESS + 3*80 ; Show status "7"
+	jsr m65_pause_6ms
+	jmp .check_trackno_again ; Always branch (m65_busy_wait always returns with N clear)
 .found_track
 	stx $d084
-	lda m65_disk_tmp
-	lsr
-	lsr
-	lsr
-	sta $d086
+;	stx SCREEN_ADDRESS + 5*80 + 0 ; About to read this track
 
-	; Iterate over sectors, in fastest order, reading sector and copying it to memory
-	ldx #9
-.read_next_sector
-	lda m65_sector_order,x
-	tay
-	iny
-	sty $d085
-	lda #$40
-	sta $d081
--	lda $d083
-	bpl - ; Wait for RDREQ = 1
--	lda $d082
-	and #$10
-	bne .dnf
-	lda $d082
-	bmi - ; Wait for busy flag to clear
-
-.expected_flags = $40 ; This should be $60 according to the MEGA65 manual, but $40 is what currently works
--	lda $d082
-	and #.expected_flags
-	cmp #.expected_flags
-	bne - ; Wait for DRQ = 1 and EQ = 1
-	
-	; Copy physical sector (512 bytes) from FDC buffer to bank 1
-
-	lda $d689
-	and #%01111111
-	sta $d689 ; Clear BUFSEL
-	
-	lda m65_sector_order,x ; Physical sector# - 1 (0 .. 9)
-	asl ; 2 pages per sector
-	adc m65_track_mempos ; Carry is already clear
-	sta dma_dest_address + 1
-
+	; Prepare DMA transfers
 	ldy #$0d
 	sty dma_source_bank_and_flags
 	ldy #$6c
@@ -497,17 +481,129 @@ m65_read_track
 	dey ; Set y to $ff
 	sty dma_source_address_top
 
+	jsr m65_pause_30ms ; Pause to let head stabilize before trying to read sectors
+
+	; Iterate over sectors, in fastest order, reading sector and copying it to memory
+	ldx #9
+.read_next_sector
+	; lda #0
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "@", meaning haven't read yet.
+	lda m65_sector_order,x
+	tay
+	iny
+	sty $d085
+;	sty SCREEN_ADDRESS + 5*80 + 1 ; About to read this sector
+	jsr m65_busy_wait
+	; lda #1
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "A"
+
+	lda #$40
+	sta $d081 ; Issue READ command
+	jsr m65_pause_6ms
+;-	bit $d082
+;	bpl - ; Wait until BUSY goes high (BREAKS IN XEMU, SO ADDED PAUSE INSTEAD)
+	; lda #2
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "B"
+-	lda $d082
+	and #$54
+	beq -
+	jsr m65_busy_wait
+	; lda #2
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "C"
+-	lda $d082
+	and #$10
+	bne .dnf
+;	lda $d083
+;	bpl - ; Wait for RDREQ = 1
+	; lda #3
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "D"
+
+.expected_flags = $40 ; This should be $60 according to the MEGA65 manual, but $40 is what currently works
+-	lda $d082
+	and #.expected_flags
+	cmp #.expected_flags
+	bne - ; Wait for DRQ = 1 and EQ = 1
+
+	; lda #5
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "E"
+
+	
+	; Copy physical sector (512 bytes) from FDC buffer to bank 1
+
+	lda $d689
+	and #%01111111
+	sta $d689 ; Clear BUFSEL
+	
+	lda m65_sector_order,x ; Physical sector# - 1 (0 .. 9)
+	asl ; 2 pages per sector
+	adc m65_track_mempos ; Carry is already clear
+	sta dma_dest_address + 1
+
+	; lda #6
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "F"
+
 	jsr m65_run_dma
+
+	; lda #7
+	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "G"
+
+	; lda #0
+	; sta 198
+;	jsr kernal_readchar
 	
 	dex
 	bpl .read_next_sector
 
-	jmp m65_end_disk_access
+;	jmp m65_end_disk_access
+
+;m65_end_disk_access
+	lda #$00
+	sta $d080 ; Disable drive motor
+	jsr m65_busy_wait
+	rts
+
+
 
 .dnf
 	lda #ERROR_FLOPPY_READ_ERROR
 	jsr fatalerror
 
+m65_pause_30ms
+	lda #3
+	sta m65_pause
+--	lda ti_variable + 2
+-	cmp ti_variable + 2
+	beq -
+	dec m65_pause
+	bne --
+	rts
+
+m65_pause_6ms
+	jsr m65_pause_1ms
+	jsr m65_pause_1ms
+	jsr m65_pause_1ms
+	jsr m65_pause_1ms
+	jsr m65_pause_1ms
+
+m65_pause_1ms
+	pha
+	tya
+	pha
+	ldy #0
+--	lda #23
+-	sec
+	sbc #1
+	bne -
+	dey
+	bne --
+	pla
+	tay
+	pla
+	rts
+
+
+
+m65_pause					!byte 0
 m65_track_buffer_trackno 	!fill 12, $ff
 m65_track_buffer_flag	 	!fill 12, 0
 m65_track_buffer_startpage	!byte 0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220

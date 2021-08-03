@@ -413,6 +413,7 @@ fatalerror
 	jsr printstring
 	pla
 	tax
+	stx SCREEN_ADDRESS + 79
 	lda #0
 	jsr printinteger
 	lda #$0d
