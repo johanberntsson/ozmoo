@@ -318,17 +318,19 @@ m65_run_dma
 	rts	
 
 m65_start_disk_access
-	; a = $68 for side 0, or $60 for side 1
-	pha
 	jsr mega65io
+	inc m65_disk_enabled
+	lda m65_disk_enabled
+	cmp #1
+	bne .return
+
 	lda $d689
 	ora #$10
 	sta $d689 ; Turn off autoseek
 	lda $d6a1
 	and #%11111101
 	sta $d6a1 ; Turn off TARGANY
-;	lda #$60
-	pla
+	lda #$60
 	sta $d080 ; Enable drive motor AND select side
 	lda #$20
 	sta $d081 ; Send SPINUP command
@@ -337,6 +339,14 @@ m65_busy_wait
 -	bit $d082
 	bmi -
 	rts
+
+m65_end_disk_access
+	dec m65_disk_enabled
+	bne .return
+
+	lda #$00
+	sta $d080 ; Disable drive motor
+	jmp m65_busy_wait
 
 m65_get_current_trackno
 	lda m65_current_trackno
@@ -425,10 +435,14 @@ m65_read_track
 	asl
 	asl
 	eor #$68 ; After this we have either $68 (side 0) or $60 (side 1)
+	pha
 
 	jsr m65_start_disk_access
 ;	lda #51
 ;	sta SCREEN_ADDRESS + 3*80 ; Show status "3"
+	pla
+	sta $d080 ; Enable drive motor AND select side
+	jsr m65_busy_wait
 
 	pla
 	sta $d086 ; Set disk side register
@@ -459,7 +473,7 @@ m65_read_track
 	; lda #55
 	; sta SCREEN_ADDRESS + 3*80 ; Show status "7"
 	jsr m65_pause_6ms
-	jmp .check_trackno_again ; Always branch (m65_busy_wait always returns with N clear)
+	jmp .check_trackno_again
 .found_track
 	stx $d084
 ;	stx SCREEN_ADDRESS + 5*80 + 0 ; About to read this track
@@ -518,11 +532,11 @@ m65_read_track
 	; lda #3
 	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "D"
 
-.expected_flags = $40 ; This should be $60 according to the MEGA65 manual, but $40 is what currently works
--	lda $d082
-	and #.expected_flags
-	cmp #.expected_flags
-	bne - ; Wait for DRQ = 1 and EQ = 1
+; .expected_flags = $40 ; This should be $60 according to the MEGA65 manual, but $40 is what currently works
+; -	lda $d082
+	; and #.expected_flags
+	; cmp #.expected_flags
+	; bne - ; Wait for DRQ = 1 and EQ = 1
 
 	; lda #5
 	; sta SCREEN_ADDRESS + 5*80 + 4 ; Show status "E"
@@ -554,15 +568,7 @@ m65_read_track
 	dex
 	bpl .read_next_sector
 
-;	jmp m65_end_disk_access
-
-;m65_end_disk_access
-	lda #$00
-	sta $d080 ; Disable drive motor
-	jsr m65_busy_wait
-	rts
-
-
+	jmp m65_end_disk_access
 
 .dnf
 	lda #ERROR_FLOPPY_READ_ERROR
@@ -602,7 +608,7 @@ m65_pause_1ms
 	rts
 
 
-
+m65_disk_enabled			!byte 0 ; Increases with every call to m65_start_disk_access, 
 m65_pause					!byte 0
 m65_track_buffer_trackno 	!fill 12, $ff
 m65_track_buffer_flag	 	!fill 12, 0
