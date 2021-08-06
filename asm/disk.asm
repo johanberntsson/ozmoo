@@ -365,7 +365,7 @@ m65_get_current_trackno
 	sta $d081
 ;	inc $d020
 ;	inc SCREEN_ADDRESS
-	jsr m65_pause_6ms
+;	jsr m65_pause_6ms
 	jmp - ; Always branch
 +
 	; lda #50
@@ -472,7 +472,7 @@ m65_read_track
 	sta $d081
 	; lda #55
 	; sta SCREEN_ADDRESS + 3*80 ; Show status "7"
-	jsr m65_pause_6ms
+	jsr m65_pause_1ms
 	jmp .check_trackno_again
 .found_track
 	stx $d084
@@ -513,7 +513,7 @@ m65_read_track
 
 	lda #$40
 	sta $d081 ; Issue READ command
-	jsr m65_pause_6ms
+	jsr m65_pause_1ms
 ;-	bit $d082
 ;	bpl - ; Wait until BUSY goes high (BREAKS IN XEMU, SO ADDED PAUSE INSTEAD)
 	; lda #2
@@ -584,12 +584,12 @@ m65_pause_30ms
 	bne --
 	rts
 
-m65_pause_6ms
-	jsr m65_pause_1ms
-	jsr m65_pause_1ms
-	jsr m65_pause_1ms
-	jsr m65_pause_1ms
-	jsr m65_pause_1ms
+; m65_pause_6ms
+	; jsr m65_pause_1ms
+	; jsr m65_pause_1ms
+	; jsr m65_pause_1ms
+	; jsr m65_pause_1ms
+	; jsr m65_pause_1ms
 
 m65_pause_1ms
 	pha
