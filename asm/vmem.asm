@@ -270,12 +270,12 @@ print_vm_map
 +   jsr printy
 	jsr space
 	lda vmap_z_h,y ; zmachine mem offset ($0 - 
-	and #%11100000
+	and #$ff xor vmem_highbyte_mask
 	jsr print_byte_as_hex
 	jsr space
 	jsr dollar
 	lda vmap_z_h,y ; zmachine mem offset ($0 - 
-	and #%00011111
+	and #vmem_highbyte_mask
 	jsr printa
 	lda vmap_z_l,y ; zmachine mem offset ($0 - 
 	jsr print_byte_as_hex

@@ -2269,7 +2269,7 @@ file_name.sub!("@fn@", $file_name)
 File.write(File.join($SRCDIR, 'file_name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
-if $target != 'c128'
+if $target != 'c128' and limit_preload_vmem_blocks == false
 	loader_kb = $loader_pic_file ? 5 : 0
 	story_kb = ($story_size - $dynmem_blocks * $VMEM_BLOCKSIZE) / 1024
 	bootfile_kb = 46

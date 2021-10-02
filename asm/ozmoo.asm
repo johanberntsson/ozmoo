@@ -1203,7 +1203,7 @@ z_init
 	lda #TERPNO ; Interpreter number (8 = C64)
 	ldy #header_interpreter_number 
 	jsr write_header_byte
-	lda #71 ; "G" = release 7
+	lda #72 ; "H" = release 8
 	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
 	jsr write_header_byte
 	lda #25
@@ -1954,7 +1954,8 @@ prepare_static_high_memory
 -	sta vmap_next_quick_index,x ; Sets next quick index AND all entries in quick index to 0
 	dex
 	bpl -
-	
+
+; Copy vmem info from config blocks to vmap	
 	lda #6
 	clc
 	adc config_load_address + 4
@@ -1962,15 +1963,20 @@ prepare_static_high_memory
 	lda #>config_load_address
 ;	adc #0 ; Not needed, as disk info is always <= 249 bytes
 	sta zp_temp + 1
+!ifdef NOSECTORPRELOAD {
+	; With no sector preload, we only fill vmem map with the blocks that are in boot file
+	ldy #1
+	lda (zp_temp),y
+} else {
 	ldy #0
 	lda (zp_temp),y ; # of blocks in the list
+	iny
+}
 	tax
 	cpx vmap_max_entries
 	bcc +
-	beq +
 	ldx vmap_max_entries
 +	stx vmap_used_entries  ; Number of bytes to copy
-	iny
 	lda (zp_temp),y
 	sta vmap_blocks_preloaded ; # of blocks already loaded
 
@@ -1980,8 +1986,11 @@ prepare_static_high_memory
 	bpl .ignore_blocks
 }
 	sta vmap_used_entries
+	tax
 .ignore_blocks
 
+	cpx #0
+	beq .no_entries
 ; Copy to vmap_z_h
 -	iny
 	lda (zp_temp),y
@@ -1999,7 +2008,6 @@ prepare_static_high_memory
 	inc zp_temp + 1
 +	sta zp_temp
 	ldy vmap_used_entries
-	beq .no_entries
 	dey
 -	lda (zp_temp),y
 	sta vmap_z_l,y
