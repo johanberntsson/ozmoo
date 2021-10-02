@@ -251,3 +251,7 @@ Release 8:
   blocks on MEGA65.
 - Minor optimization in reading and writing global variables in non-SLOW mode
   on C64 and MEGA65.
+- Fixed bug which copied 256 bytes instead of 0 bytes from config info to
+  vmap_z_h (highbytes of vmem map) when game had no preloaded vmem blocks.
+- Updated outdated debug code for TRACE_VM (Issue 39)
+
