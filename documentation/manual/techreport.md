@@ -136,14 +136,22 @@ A stack frame consists of the following parts:
 1. The current values of all local variables of the routine (0-15 words).
 
 2. Frame header (2 words)
-   Frame header A has the following parts:
-     Byte 0, bit 7: 1 = The return value of this procedure call should be written into a variable 
-	 Byte 0, bit 4-6: In version 5+, the number of parameters this procedure was called with (0-7)
-	 Byte 0: bit 0-3: The number of local variables this procedure has (0-15)
-	 Byte 1, bit 7: 1 = this routine call was done due to an input interrupt
-	 Byte 1, bit 0-2: Bit 16-18 of the return address
-   Frame header B:
-     Bit 0-15 of the return address (highbyte first).
+
+> Frame header A has the following parts:
+
+>> Byte 0, bit 7: 1 = The return value of this procedure call should be written into a variable 
+
+>> Byte 0, bit 4-6: In version 5+, the number of parameters this procedure was called with (0-7)
+
+>> Byte 0: bit 0-3: The number of local variables this procedure has (0-15)
+
+>> Byte 1, bit 7: 1 = this routine call was done due to an input interrupt
+
+>> Byte 1, bit 0-2: Bit 16-18 of the return address
+
+> Frame header B:
+
+>> Bit 0-15 of the return address (highbyte first).
 	 
 3. Pushed words (0 or more words)
 
