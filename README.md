@@ -11,7 +11,7 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018-2021
 
 ## Status
 
-Update 2021-Oct-03: Release 8 with MEGA65 speedups, optimizations and bugfixes.
+Update 2021-Oct-03: Release 8 with MEGA65 speedups, plus optimizations and bugfixes for all platforms.
 
 Update 2021-May-04: Release 7 with new MEGA65 target, improved z3 statusline on 80 column displays.
 
