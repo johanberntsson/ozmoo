@@ -291,7 +291,7 @@ z_ins_read
 	; z4: sread text parse time routine
 	; z5: aread text parse time routine -> (result)
 	jsr printchar_flush
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	; Z1 - Z3 should redraw the status line before input
 	jsr draw_status_line
 }
@@ -373,7 +373,7 @@ z_ins_read
 +
 }
 
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	lda z_operand_value_high_arr + 1
 	ldx z_operand_value_low_arr + 1
 } else {
@@ -1974,6 +1974,10 @@ get_abbreviation_offset
 	rts
 .current_zchar !byte 0
 
+!ifndef Z3PLUS {
+perm_alphabet_offset !byte 0
+}
+
 print_addr
 	; print zchar-encoded text
 	; input: (z_address set with set_z_addr or set_z_paddr)
@@ -1981,6 +1985,9 @@ print_addr
 	; side effects: z_address
 	; used registers: a,x,y
 	lda #0
+!ifndef Z3PLUS {
+	sta perm_alphabet_offset
+}
 	sta alphabet_offset
 	sta escape_char_counter
 	sta abbreviation_command
@@ -2012,6 +2019,10 @@ print_addr
 	pha
 	lda zchar_triplet_cnt
 	pha
+!ifndef Z3PLUS {
+	lda perm_alphabet_offset
+	pha
+}
 	tya
 	pha
 	ldy #header_abbreviations
@@ -2033,6 +2044,10 @@ print_addr
 	; print the abbreviation
 	jsr print_addr
 	; restore state
+!ifndef Z3PLUS {
+	pla
+	sta perm_alphabet_offset
+}
 	pla 
 	sta zchar_triplet_cnt
 	pla
@@ -2079,9 +2094,9 @@ print_addr
 	bne .not_A2
 ; newline?
 	cmp #7
-	bne .l0b
-	lda #13
-	bne .print_normal_char ; Always jump
+;	bne .l0b
+;	lda #13
+;	jmp .print_normal_char ; Always jump
 .l0b 
 	; Direct jump for all normal chars in A2
 	bcs .l6
@@ -2102,7 +2117,71 @@ print_addr
 	; space
 	lda #$20
 	bne .print_normal_char ; Always jump
-.l2 cmp #4
+.l2 
+!ifdef Z1 {
+	cmp #1
+	bne +
+	; newline
+	lda #$0d
+	bne .print_normal_char
++
+}
+!ifdef Z2 {
+	cmp #2
+	bcc .abbreviation
+}
+!ifndef Z3PLUS {
+	; Handle shift codes for z1 & z2
+	cmp #6
+	bcs .l6 ; Regular char
+	cmp #2
+	bne .z1shift3
+	; Code 2, shift up temporarily
+	lda perm_alphabet_offset
+	clc
+	adc #26
+	cmp #53
+	bcc +
+	lda #0
++	sta alphabet_offset
+	jmp .next_zchar
+.z1shift3
+	cmp #3
+	bne .z1shift4
+	; Code 3, shift down temporarily
+	lda perm_alphabet_offset
+	sec
+	sbc #26
+	bpl +
+	lda #52
++	sta alphabet_offset
+	jmp .next_zchar
+.z1shift4
+	cmp #4
+	bne .z1shift5
+	; Code 4, shift up permanently
+	lda perm_alphabet_offset
+	clc
+	adc #26
+	cmp #53
+	bcc +
+	lda #0
++	sta alphabet_offset
+	sta perm_alphabet_offset
+	jmp .next_zchar
+.z1shift5
+	; Code 5, shift down permanently
+	lda perm_alphabet_offset
+	sec
+	sbc #26
+	bpl +
+	lda #52
++	sta alphabet_offset
+	sta perm_alphabet_offset
+	jmp .next_zchar
+}
+!ifdef Z3PLUS {	
+	cmp #4
 	bcc .abbreviation
 	bne .l3
 	; change to A1
@@ -2116,6 +2195,7 @@ print_addr
 	lda #52
 	sta alphabet_offset
 	jmp .next_zchar
+}
 .l5 ; abbreviation command?
 .abbreviation
 	; cmp #4
@@ -2126,8 +2206,13 @@ print_addr
 	jsr convert_zchar_to_char
 .print_normal_char
 	jsr streams_print_output
+!ifndef Z3PLUS {
+	; Change back to permanent alphabet
+	lda perm_alphabet_offset
+} else {
 	; change back to A0
 	lda #0
+}
 .sta_offset
 	sta alphabet_offset
 .next_zchar
@@ -2147,5 +2232,9 @@ print_addr
 z_alphabet_table ; 26 * 3
 	!raw "abcdefghijklmnopqrstuvwxyz"
 	!raw "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+!ifdef Z1 {
+	!raw 32,"0123456789.,!?_#'",34,47,92,"<-:()"
+} else {
 	!raw 32,13,"0123456789.,!?_#'",34,47,92,"-:()"
+}
 

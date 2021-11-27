@@ -94,20 +94,30 @@
 	TERPNO = 8
 }
 
+!ifdef Z1 {
+	ZMACHINEVERSION = 1
+}
+!ifdef Z2 {
+	ZMACHINEVERSION = 2
+}
 !ifdef Z3 {
 	ZMACHINEVERSION = 3
+	Z3PLUS = 1
 }
 !ifdef Z4 {
 	ZMACHINEVERSION = 4
+	Z3PLUS = 1
 	Z4PLUS = 1
 }
 !ifdef Z5 {
 	ZMACHINEVERSION = 5
+	Z3PLUS = 1
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
 !ifdef Z8 {
 	ZMACHINEVERSION = 8
+	Z3PLUS = 1
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
@@ -302,7 +312,7 @@ z_jump_high_arr
 }
 	!byte >z_ins_quit
 	!byte >z_ins_new_line
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	!byte >z_ins_show_status
 } else {
 	!byte >z_ins_nop ; should be nop according to show_status/spec 1.0
@@ -493,7 +503,7 @@ z_jump_low_arr
 }
 	!byte <z_ins_quit
 	!byte <z_ins_new_line
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	!byte <z_ins_show_status
 } else {
 	!byte <z_ins_nop ; should be nop according to show_status/spec 1.0
@@ -1108,7 +1118,7 @@ stack_start
 deletable_screen_init_1
 	; start text output from bottom of the screen
 
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	!ifdef TARGET_C128 {
 		lda COLS_40_80
 		beq .width40
@@ -1129,7 +1139,7 @@ deletable_screen_init_1
 	ldy #0
 	sty current_window
 	sty window_start_row + 3
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	iny
 }
 	sty window_start_row + 2
@@ -1174,7 +1184,7 @@ z_init
 }
 	
 	; Modify header to tell game about terp capabilities
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	ldy #header_flags_1
 	jsr read_header_word
 	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
@@ -1891,7 +1901,7 @@ reu_start
 ; reu_last_disk_end_block = string_array ; 2 bytes
 
 reu_progress_base
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	!byte 16 ; blocks read to REU per tick of progress bar
 } else {
 !ifdef Z8 {

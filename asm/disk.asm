@@ -19,7 +19,7 @@ readblocks_currentblock	!byte 0,0 ; 257 = ff 1
 readblocks_currentblock_adjusted	!byte 0,0 ; 257 = ff 1
 readblocks_mempos		!byte 0,0 ; $2000 = 00 20
 disk_info
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	!fill 71
 }
 !ifdef Z4 {
@@ -1018,7 +1018,7 @@ z_ins_restart
 }
 
 z_ins_restore
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	jsr restore_game
 	beq +
 	ldx #0
@@ -1043,7 +1043,7 @@ z_ins_restore
 }
 
 z_ins_save
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	jsr save_game
 	beq +
 	jmp make_branch_true

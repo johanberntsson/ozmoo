@@ -255,3 +255,7 @@ Release 8:
   vmap_z_h (highbytes of vmem map) when game had no preloaded vmem blocks.
 - Updated outdated debug code for TRACE_VM (Issue 39)
 
+================================================
+Release 9:
+- Support for z1 and z2 story files.
+ 

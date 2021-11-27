@@ -1133,7 +1133,7 @@ def	sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
 	entries = vmem_data[2]
 	sort_array = []
 	mask = $zcode_version == 8 ? 0b0000001111111111 :
-		$zcode_version == 3 ? 0b0000000011111111 : 0b0000000111111111
+		$zcode_version < 4 ? 0b0000000011111111 : 0b0000000111111111
 	(last_block_to_sort - first_block_to_sort + 1).times do |i|
 		blockid_with_age = 256 * vmem_data[first_block_to_sort + 4 + i] + 
 			vmem_data[first_block_to_sort + entries + 4 + i]
@@ -2132,7 +2132,7 @@ $zcode_version = $story_file_data[0].ord
 $ztype = "Z#{$zcode_version}"
 
 $zmachine_memory_size = $story_file_data[0x1a .. 0x1b].unpack("n")[0]
-if $zcode_version == 3
+if $zcode_version < 4
 	$zmachine_memory_size *= 2
 elsif $zcode_version == 8
 	$zmachine_memory_size *= 8
@@ -2145,15 +2145,15 @@ if $story_file_data.length % $VMEM_BLOCKSIZE != 0 # && mode != MODE_P
 end
 
 
-$vmem_highbyte_mask = ($zcode_version == 3) ? 0x00 : (($zcode_version == 8) ? 0x03 : 0x01)
+$vmem_highbyte_mask = ($zcode_version < 4) ? 0x00 : (($zcode_version == 8) ? 0x03 : 0x01)
 
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
-	puts "ERROR: Options -sc and -dmsc can only be used with z3 story files."
+	puts "ERROR: Options -sc and -dmsc can only be used with z1-z3 story files."
 	exit 1
 end	
 
 if ($input_colour or $input_colour_dm) and $zcode_version > 4
-	puts "ERROR: Options -ic and -dmic can only be used with z3 and z4 story files."
+	puts "ERROR: Options -ic and -dmic can only be used with z1-z4 story files."
 	exit 1
 end	
 
@@ -2348,7 +2348,7 @@ if preload_data then
 	if fill_preload == true and mapped_vmem_blocks > preload_data.length then
 		used_block = Hash.new
 		mask = $zcode_version == 8 ? 0b0000001111111111 :
-			$zcode_version == 3 ? 0b0000000011111111 : 0b0000000111111111
+			$zcode_version < 4 ? 0b0000000011111111 : 0b0000000111111111
 		preload_data.each do |preload_value|
 			block_address = preload_value.to_i(16) & mask
 			used_block[block_address] = 1

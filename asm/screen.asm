@@ -90,7 +90,7 @@ erase_window
 	ldx #0 ; unsplit
 	jsr split_window
 .keep_split
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	lda #1
 	bne .clear_from_a ; Always branch
 } else {
@@ -111,7 +111,7 @@ erase_window
 	pla
 	ldx #0
 	stx cursor_column + 1
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	inx
 }
 !ifdef Z5PLUS {
@@ -266,7 +266,7 @@ start_buffering
 	sty last_break_char_buffer_pos
 	rts
 
-!ifdef Z3 {
+!ifndef Z4PLUS {
 .max_lines = 24
 } else {
 .max_lines = 25
@@ -293,7 +293,7 @@ split_window
 	clc
 	adc window_start_row + 2
 	sta window_start_row + 1
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	ldx #1
 	jsr erase_window
 }	
@@ -335,7 +335,7 @@ select_upper_window
 	ldx #1
 	stx current_window
 .reset_cursor
-!ifdef Z3 { ; Since Z3 has a separate statusline 
+!ifndef Z4PLUS { ; Since Z3 has a separate statusline 
 	ldx #1
 } else {
 	ldx #0
@@ -757,7 +757,7 @@ restore_cursor
 	tay
 	jmp set_cursor
 
-!ifdef Z3 {
+!ifndef Z4PLUS {
 
 !ifdef TARGET_MEGA65 {
 sl_score_pos !byte 54
@@ -809,10 +809,13 @@ draw_status_line
 	;
 	; score or time game?
 	;
-+   ldy #header_flags_1
++   
+!ifdef Z3 {
+	ldy #header_flags_1
 	jsr read_header_word
 	and #$02
 	bne .timegame
+}
 	; score game
 	lda z_operand_value_low_arr
 	pha

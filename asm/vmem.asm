@@ -183,7 +183,7 @@ vmem_oldest_index	!byte 0
 	vmem_tick_increment = 4
 	vmem_highbyte_mask = $03
 } else {
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	vmem_tick_increment = 1
 	vmem_highbyte_mask = $00
 } else {

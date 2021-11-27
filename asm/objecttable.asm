@@ -1058,7 +1058,7 @@ parse_object_table
 	tax
 	tya
 	sec
-!Ifdef Z3 {
+!Ifndef Z4PLUS {
 	sbc #9
 } else {
 	sbc #14
@@ -1075,7 +1075,7 @@ calculate_object_address
 	; output: object address in object_tree_ptr
 	; used registers: a,x,y
 	; side effects:
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	; To get address, multiply by 9 (Calculate 8 * obj# + obj#)
 ;	dex ;  (object_start_ptr points 9 bytes before first obj, so no need for dex)
 

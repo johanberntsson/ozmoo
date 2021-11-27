@@ -75,7 +75,7 @@ bordercol	!byte BORDERCOL_FINAL, BORDERCOLDM_FINAL
 !ifdef USE_INPUTCOL {
 inputcol	!byte INPUTCOL, INPUTCOLDM
 }
-!ifdef Z3 {
+!ifndef Z4PLUS {
 statuslinecol !byte STATCOL, STATCOLDM
 }
 cursorcol !byte CURSORCOL, CURSORCOLDM
@@ -1047,7 +1047,7 @@ toggle_darkmode
 	+SetBorderColour
 
 	; update colour memory with new colours
-!ifdef Z3 {
+!ifndef Z4PLUS {
 
 ; For Z3: Set statusline colour
 	ldy statuslinecol,x
@@ -1097,7 +1097,7 @@ toggle_darkmode
 	sty z_temp + 11
 	ldy #0
 	sty z_temp + 10
-!ifdef Z3 {
+!ifndef Z4PLUS {
 	ldy s_screen_width ; Since we have coloured the statusline separately, skip it now
 }
 !ifndef Z5PLUS {
