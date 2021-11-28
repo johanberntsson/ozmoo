@@ -420,7 +420,7 @@ Set the number of memory pages to use for stack.
 
     STATCOL=n
 
-Set the statusline colour. (only for z3).
+Set the statusline colour. (only for z1-z3).
 
     TARGET_C128
     TARGET_C64
@@ -445,12 +445,15 @@ Remove some checks for runtime errors, making the interpreter smaller and faster
 
 Utilize virtual memory. Without this, the complete game must fit in C64 RAM available above the interpreter, all in all about 50 KB. Also check section "Virtual memory flags" below. 
 
+    Z1
+    Z2
     Z3
     Z4
     Z5
+    Z7
     Z8
 
-Build the interpreter to run Z-machine version 3, 4, 5 or 8.
+Build the interpreter to run Z-machine version 1, 2, 3, 4, 5, 7 or 8.
 
     DANISH_CHARS
 	FRENCH_CHARS
@@ -571,13 +574,13 @@ Typical size for a 3-disk ( + save disk) game:
 
 An interpreter needs to reserve this space for disk information:
 
-z3: 1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + (1 + 1 + 2 + 1 + 40 + 6) = 4 + 2 * 8 + 51 = 71 bytes
+z1/z2/z3: 1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + (1 + 1 + 2 + 1 + 40 + 6) = 4 + 2 * 8 + 51 = 71 bytes
 
 z4/z5/z8:  1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 4 + 2 * 8 + 2 * 50 = 120 bytes
 
 1571 drive support:
 
-- z3 games: No change
+- z1/z2/z3 games: No change
 - z4/z5 games: A single disk using only track 1-53 can hold all story data. Disk information will then fit in less than the number of bytes stated above.
 - z8 games: Disk information for a single drive game will fit in the number of bytes stated above. 
 

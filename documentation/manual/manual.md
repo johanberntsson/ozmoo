@@ -10,10 +10,10 @@ Ozmoo was originally only developed for the Commodore 64, but it is structured s
 
 Ozmoo for the Commodore 64 supports:
 
-- Z-code version 3, 4, 5 and 8. Essentially this covers all games except for the very first (hard to find) versions of Zork I and II and the Infocom games with graphics.
+- Z-code version 1, 2, 3, 4, 5, 7 and 8. Essentially this covers all games except for the Infocom games with graphics.
 - Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
 - Embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, Danish, German, Italian, Spanish and French. And you can supply your own font.
-- Custom alphabets in Z-machine version 5 and 8.
+- Custom alphabets in Z-machine version 5, 7 and 8.
 - Custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian, Spanish and French.
 - Custom colour schemes.
 - A fully configurable secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
@@ -146,7 +146,7 @@ The Commodore Plus/4 version makes use of the simplified memory map compared to 
 
 ## MEGA65
 
-The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode and the higher clockspeed of the MEGA65. The maximum amount of dynamic memory is about 35 KB. The only supported build mode is -81. A loader image is currently not supported.
+The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, the higher clockspeed and extra RAM of the MEGA65. The maximum amount of dynamic memory is about 35 KB. The only supported build mode is -81. A loader image is currently not supported.
 
 ## Other targets
 
@@ -295,10 +295,10 @@ Replace colours: Replaces one or more colours in the Z-code palette with the spe
 Default colours: This picks the Z-code colours to use as default background and foreground colours.
 
     -sc:(Statusline colour)
-Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 3 story files (z3).
+Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 1, 2 and 3 story files (z1/z2/z3).
 
-    -ic:(Statusline colour)
-Input colour: This picks the Z-code colour to use for player input text. This is only possible with version 3 and 4 story files (z3 and z4).
+    -ic:(Input colour)
+Input colour: This picks the Z-code colour to use for player input text. This is only possible with version 1, 2, 3 and 4 story files (z1/z2/z3/z4).
 
     -bc:(Border colour)
 Border colour. This picks the Z-code colour to use as border colour. 
@@ -366,7 +366,7 @@ The 80-column mode of the C128 has a different and rather limited palette. Ozmoo
 
 ## Examples
 
-Use cyan text on black background with a yellow statusbar (Please note that specifying the colour of the statusbar only works for z3!):
+Use cyan text on black background with a yellow statusbar (Please note that specifying the colour of the statusbar only works for z2/z2/z3 games!):
 
 ```
 make.rb -dc:2:8 -sc:5 game.z3
