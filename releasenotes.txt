@@ -257,5 +257,5 @@ Release 8:
 
 ================================================
 Release 9:
-- Support for z1 and z2 story files.
+- Support for z1, z2 and z7 story files.
  

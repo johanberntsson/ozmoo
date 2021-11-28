@@ -1,5 +1,10 @@
 ; z_address !byte 0,0,0
 ; z_address_temp !byte 0
+!ifdef Z7 {
+string_offset !byte 0,0,0
+routine_offset !byte 0,0,0
+}
+
 
 !zone zaddress {
 
@@ -106,6 +111,18 @@ set_z_paddress
 	rol
 }
 	sta z_address
+!ifdef Z7 {
+	lda z_address + 2
+	clc
+	adc string_offset + 2
+	sta z_address + 2
+	lda z_address + 1
+	adc string_offset + 1
+	sta z_address + 1
+	lda z_address
+	adc string_offset
+	sta z_address
+}	
 	rts
 
 write_next_byte

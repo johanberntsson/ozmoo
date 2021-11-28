@@ -193,6 +193,20 @@ stack_call_routine
 	rol
 }
 }
+
+!ifdef Z7 {
+	pha
+	lda z_operand_value_low_arr
+	clc
+	adc routine_offset + 2
+	sta z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	adc routine_offset + 1
+	sta z_operand_value_high_arr
+	pla
+	adc routine_offset
+}	
+
 	ldx z_operand_value_high_arr
 	ldy z_operand_value_low_arr
 	

@@ -115,6 +115,12 @@
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
+!ifdef Z7 {
+	ZMACHINEVERSION = 7
+	Z3PLUS = 1
+	Z4PLUS = 1
+	Z5PLUS = 1
+}
 !ifdef Z8 {
 	ZMACHINEVERSION = 8
 	Z3PLUS = 1
@@ -896,6 +902,30 @@ game_id		!byte 0,0,0,0
 	}
 }
 
+!ifdef Z7 {
+calc_z7_offsets
+	ldy #header_string_offset
+	jsr read_header_word
+	sta string_offset + 1
+	stx string_offset + 2
+	ldy #header_routine_offset
+	jsr read_header_word
+	stx routine_offset + 2
+
+	ldx #3
+-	asl string_offset + 2
+	rol string_offset + 1
+	rol string_offset
+	asl routine_offset + 2
+	rol
+	rol routine_offset
+	dex
+	bne -
+	sta routine_offset + 1
+	rts
+}
+
+
 !ifdef TARGET_C128 {
 
 !ifdef Z4PLUS {
@@ -1181,6 +1211,11 @@ z_init
 -	sta z_trace_page,y
 	iny
 	bne -
+}
+
+	; Calculate Z7 string offset and routine offset
+!ifdef Z7 {
+	jsr calc_z7_offsets
 }
 	
 	; Modify header to tell game about terp capabilities
