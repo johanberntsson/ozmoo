@@ -573,39 +573,34 @@ convert_char_to_zchar
 	inx
 	bne .store_last_char ; Always branch
 	
-	; tax
-; !ifdef DEBUG {
-	; jsr printx
-; }
-	; lda #ERROR_INVALID_CHAR
-	; jsr fatalerror
 .found_char_in_alphabet
 	cpy #26
 	bcc .found_in_a0
+!ifndef Z3PLUS {
+	lda #2 ; Shift up to A1
+} else {
 	lda #4 ; Shift to A1
+}
 	cpy #26*2
 	bcc .found_in_a1
+!ifndef Z3PLUS {
+	lda #3 ; Shift down to A2
+} else {
 	lda #5 ; Shift to A2
+}
 .found_in_a1
-;	stx zp_temp + 3
-;	ldx zp_temp + 4
 	sta z_temp,x
 	inx
-	sty zp_temp + 2 ; Remember old Y value
-	tay ; Holds 4 for A1 or 5 for A2
-	lda zp_temp + 2
--	sec
-	sbc #26
-	dey
-	cpy #4
+	tya
+	sec
+-	sbc #26
+	cmp #26
 	bcs -
-;	ldy zp_temp + 2 ; Restore old Y value
 	tay
 .found_in_a0
 	tya
 	clc
 	adc #6
-;	ldx zp_temp + 4
 .store_last_char	
 	sta z_temp,x
 	inx

@@ -260,3 +260,7 @@ Release 9: 28 Nov 2021
 
 - Support for z1, z2 and z7 story files.
  
+================================================
+Release 10:
+
+- Fixed bug in parsing words with special characters in v1/v1.
