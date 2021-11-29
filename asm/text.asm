@@ -1989,6 +1989,7 @@ print_addr
 	jsr init_get_zchar
 .print_chars_loop
 	jsr get_next_zchar
+!ifndef Z1 {
 	ldy abbreviation_command
 	beq .l0
 	; handle abbreviation
@@ -2066,6 +2067,7 @@ print_addr
 	lda #0
 	sta alphabet_offset
 	jmp .next_zchar
+} ; End of abbreviation call, for Z2+
 .l0 ldy escape_char_counter
 	beq .l0a
 	; handle the two characters that make up an escaped character
@@ -2092,7 +2094,7 @@ print_addr
 ;	bne .l0b
 ;	lda #13
 ;	jmp .print_normal_char ; Always jump
-.l0b 
+;.l0b 
 	; Direct jump for all normal chars in A2
 	bcs .l6
 	; escape char?
@@ -2102,7 +2104,7 @@ print_addr
 	sta escape_char_counter
 	lda #0
 	sta escape_char
-	beq .sta_offset
+	beq .reset_alphabet ; Always branch
 .not_A2
 	cmp #6
 	bcs .l6
@@ -2122,13 +2124,13 @@ print_addr
 +
 }
 !ifdef Z2 {
-	cmp #2
-	bcc .abbreviation
+	cmp #1
+	beq .abbreviation
 }
 !ifndef Z3PLUS {
 	; Handle shift codes for z1 & z2
-	cmp #6
-	bcs .l6 ; Regular char
+;	cmp #6
+;	bcs .l6 ; Regular char
 	cmp #2
 	bne .z1shift3
 	; Code 2, shift up temporarily
@@ -2136,10 +2138,9 @@ print_addr
 	clc
 	adc #26
 	cmp #53
-	bcc +
+	bcc .sta_alpha_and_jump
 	lda #0
-+	sta alphabet_offset
-	jmp .next_zchar
+	beq .sta_alpha_and_jump ; Always branch
 .z1shift3
 	cmp #3
 	bne .z1shift4
@@ -2147,9 +2148,10 @@ print_addr
 	lda perm_alphabet_offset
 	sec
 	sbc #26
-	bpl +
+	bpl .sta_alpha_and_jump
 	lda #52
-+	sta alphabet_offset
+.sta_alpha_and_jump
+	sta alphabet_offset
 	jmp .next_zchar
 .z1shift4
 	cmp #4
@@ -2159,21 +2161,20 @@ print_addr
 	clc
 	adc #26
 	cmp #53
-	bcc +
+	bcc .sta_perm_alpha_and_jump ; Always branch
 	lda #0
-+	sta alphabet_offset
+.sta_perm_alpha_and_jump
 	sta perm_alphabet_offset
+	sta alphabet_offset
 	jmp .next_zchar
 .z1shift5
 	; Code 5, shift down permanently
 	lda perm_alphabet_offset
 	sec
 	sbc #26
-	bpl +
+	bpl .sta_perm_alpha_and_jump
 	lda #52
-+	sta alphabet_offset
-	sta perm_alphabet_offset
-	jmp .next_zchar
+	bne .sta_perm_alpha_and_jump ; Always branch
 }
 !ifdef Z3PLUS {	
 	cmp #4
@@ -2201,6 +2202,7 @@ print_addr
 	jsr convert_zchar_to_char
 .print_normal_char
 	jsr streams_print_output
+.reset_alphabet
 !ifndef Z3PLUS {
 	; Change back to permanent alphabet
 	lda perm_alphabet_offset
@@ -2208,7 +2210,6 @@ print_addr
 	; change back to A0
 	lda #0
 }
-.sta_offset
 	sta alphabet_offset
 .next_zchar
 	jsr was_last_zchar
