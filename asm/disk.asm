@@ -28,7 +28,7 @@ disk_info
 !ifdef Z5 {
 	!fill 94
 }
-!ifdef Z8 {
+!ifdef Z7PLUS {
 	!fill 120
 }
 

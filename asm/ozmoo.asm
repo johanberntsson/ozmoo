@@ -1,9 +1,12 @@
 ; Which Z-machine to generate binary for
 ; (usually defined on the acme command line instead)
-; Z1, Z2, Z6 and Z7 will (probably) never be supported
+; Z6 will never be supported
+;Z1 = 1
+;Z2 = 1
 ;Z3 = 1
 ;Z4 = 1
 ;Z5 = 1
+;Z7 = 1
 ;Z8 = 1
 
 ; Which machine to generate code for
@@ -120,12 +123,14 @@
 	Z3PLUS = 1
 	Z4PLUS = 1
 	Z5PLUS = 1
+	Z7PLUS = 1
 }
 !ifdef Z8 {
 	ZMACHINEVERSION = 8
 	Z3PLUS = 1
 	Z4PLUS = 1
 	Z5PLUS = 1
+	Z7PLUS = 1
 }
 
 !ifdef TRACE {
@@ -1939,7 +1944,7 @@ reu_progress_base
 !ifndef Z4PLUS {
 	!byte 16 ; blocks read to REU per tick of progress bar
 } else {
-!ifdef Z8 {
+!ifdef Z7PLUS {
 	!byte 64 ; blocks read to REU per tick of progress bar
 } else {
 	!byte 32 ; blocks read to REU per tick of progress bar
@@ -1955,7 +1960,7 @@ print_reu_progress_bar
 	lda z_temp + 5
 	sbc reu_last_disk_end_block + 1
 !ifdef Z4PLUS {
-!ifdef Z8 {
+!ifdef Z7PLUS {
 	ldx #6
 } else {
 	ldx #5
