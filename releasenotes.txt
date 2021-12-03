@@ -265,3 +265,4 @@ Release 10:
 
 - Fixed bug in parsing words with special characters in v1/v2.
 - Fixed bug in printing characters not in alphabet table in v1/v2.
+- Removed (a few lines of) superfluous code.

@@ -1581,7 +1581,6 @@ deletable_init
 
 ; parse_header section
 
-
 	; Store the size of dynmem AND (if VMEM is enabled)
 	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
 !ifdef TARGET_C128 {
@@ -1728,9 +1727,6 @@ insert_disks_at_boot
 	sta reu_last_disk_end_block + 1
 }
 
-;	jsr dollar
-;	jsr kernal_readchar
-	jsr prepare_for_disk_msgs
 	lda #0
 	tay ; Disk#
 .next_disk
@@ -1841,8 +1837,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 	jsr copy_page_to_reu
 	bcs .reu_error
 
-	ldx z_temp ; (Not) Already loaded
-
 	; Inc Z-machine page
 	inc z_temp
 	bne +
@@ -1857,7 +1851,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 +	inc z_temp + 6
 	bne .initial_copy_loop
 	inc z_temp + 7
-+	bne .initial_copy_loop ; Always branch
+	bne .initial_copy_loop ; Always branch
 
 .done_copying
 

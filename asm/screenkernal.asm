@@ -406,7 +406,6 @@ s_printchar
 	cmp #20
 	bne +
 	; delete
-	ldy zp_screencolumn
 	jsr s_delete_cursor
 	dec zp_screencolumn ; move back
 	bpl ++

@@ -779,9 +779,6 @@ close_io
 	jmp kernal_clrchn ; call CLRCHN
 
 !zone disk_messages {
-prepare_for_disk_msgs
-	rts
-
 print_insert_disk_msg
 ; Parameters: y: memory index to start of info for disk in disk_info
 	sty .save_y
@@ -1432,7 +1429,6 @@ vdc_insertion_sort
 	lda current_disks - 8,x
 	sta .last_disk
 	beq .dont_print_insert_save_disk ; Save disk is already in drive.
-	jsr prepare_for_disk_msgs
 	ldy #0
 	jsr print_insert_disk_msg
 	ldx disk_info + 4 ; Device# for save disk
