@@ -351,9 +351,8 @@ dumptovice
 	sta z_temp + 3 ; Temporary storage while we jsr
 	jsr read_operand
 	lda z_temp + 3
-	ldx z_operand_count
-	cpx z_temp
-	bcc .get_next_op_type
+	dec z_temp
+	bne .get_next_op_type
 
 .done
 
@@ -362,7 +361,7 @@ dumptovice
 	beq .perform_instruction
 	inc z_temp + 5
 	lda z_temp + 4
-	ldy #8
+	ldy #4
 	sty z_temp
 	bne .get_next_op_type ; Always branch
 }
