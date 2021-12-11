@@ -1217,9 +1217,7 @@ z_ins_loadw_and_storew
 	lda z_operand_value_high_arr + 2
 	jsr write_next_byte
 	lda z_operand_value_low_arr + 2
-	jsr write_next_byte
-z_ins_nop
-	rts
+	jmp write_next_byte
 	
 z_ins_loadb
 	jsr calc_address_in_byte_array
@@ -1450,6 +1448,7 @@ print_num_unsigned
 !ifdef Z5PLUS {
 z_ins_set_true_colour
 }
+z_ins_nop
 	rts
 
 z_ins_random	
