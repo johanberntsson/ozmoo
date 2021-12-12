@@ -395,14 +395,7 @@ s_printchar
 	cmp #$0d
 	bne +
 	; newline
-	; but first, check if the current character is the cursor so that we may delete it
-	; TODO: This does not work for C128 80 col screen! Maybe not MEGA65 either?
-	lda cursor_character
-	ldy zp_screencolumn
-	cmp (zp_screenline),y
-	bne +++
-	jsr s_delete_cursor
-+++	jmp .perform_newline
+	jmp .perform_newline
 +
 	cmp #20
 	bne +
