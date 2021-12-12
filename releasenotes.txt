@@ -268,3 +268,4 @@ Release 10:
 - Removed (a few lines of) superfluous code.
 - Fix bug: wrong character was deleted when pressing backspace on C128 in 
   80 col mode.
+- Changed so a blinking cursor starts in ON phase instead of OFF phase.

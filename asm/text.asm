@@ -968,9 +968,6 @@ find_word_in_dictionary
 } ; End of !ifdef Z5PLUS
 
 !ifdef USE_BLINKING_CURSOR {
-init_cursor_timer
-	lda #0
-	sta s_cursormode
 update_cursor_timer
 	; calculate when the next cursor update occurs
 	jsr kernal_readtime  ; read current time (in jiffys)
@@ -1204,6 +1201,7 @@ update_cursor
 	rts
 
 !ifdef USE_BLINKING_CURSOR {
+init_cursor_timer
 reset_cursor_blink
 	; resets the cursor timer and blink mode
 	; effectively puts the cursor back on the screen for another timer duration
