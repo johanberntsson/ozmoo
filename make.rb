@@ -31,6 +31,7 @@ $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically none should be enabled.
 $GENERALFLAGS = [
+#	'CHECK_ERRORS' # Check for all runtime errors, making code bigger and slower
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
@@ -1745,7 +1746,7 @@ end
 def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-u] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-sp:[n]] [-re] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
@@ -1760,7 +1761,7 @@ def print_usage
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
 	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
-	puts "  -u: Unsafe option. Remove some runtime checks, reducing code size and increasing speed."
+	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
@@ -1933,8 +1934,8 @@ begin
 			$cursor_shape = $1
 		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
-		elsif ARGV[i] =~ /^-u$/ then
-			$GENERALFLAGS.push('UNSAFE') unless $GENERALFLAGS.include?('UNSAFE') 
+		elsif ARGV[i] =~ /^-re$/ then
+			$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS') 
 		elsif ARGV[i] =~ /^-sl$/ then
 			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 		elsif ARGV[i] =~ /^-dd$/ then

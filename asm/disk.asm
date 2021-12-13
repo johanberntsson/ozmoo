@@ -158,7 +158,7 @@ readblock
 	inc .track
 	dec .disk_tracks
 	bne .check_track
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 ; Broken config
 	lda #ERROR_CONFIG ; Config info must be incorrect if we get here
 	jmp fatalerror
@@ -166,14 +166,14 @@ readblock
 .next_disk
 	ldx .next_disk_index
 	iny
-!ifdef UNSAFE {
-	jmp .check_next_disk
-} else {
+!ifdef CHECK_ERRORS {
 	cpy disk_info + 2 ; # of disks
 	bcs +
 	jmp .check_next_disk
 +	lda #ERROR_OUT_OF_MEMORY ; Meaning request for Z-machine memory > EOF. Bad message? 
 	jmp fatalerror
+} else {
+	jmp .check_next_disk
 }
 
 .right_track_found

@@ -106,7 +106,7 @@ stack_push_top_value
 	ldx zp_temp + 4
 }
 
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 ; push_check_room
 	lda stack_ptr
 	clc
@@ -326,7 +326,7 @@ stack_call_routine
 	lda stack_ptr + 1
 	adc #0
 	sta stack_ptr + 1
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	cmp #>(stack_start + stack_size)
 	bcs .stack_full
 }
@@ -355,7 +355,7 @@ stack_call_routine
 }
 	rts
 
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 .stack_full
 	lda #ERROR_STACK_FULL
 	jmp fatalerror

@@ -375,7 +375,7 @@ dumptovice
 	sta z_trace_page,y
 	inc z_trace_index
 }
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	cmp #z_number_of_opcodes_implemented
 	bcs z_not_implemented
 }
@@ -392,9 +392,7 @@ jmp_main_loop
 
 z_not_implemented
 
-!ifdef UNSAFE {
-	rts
-} else {
+!ifdef CHECK_ERRORS {
 !ifdef DEBUG {
 	jsr print_following_string
 	!pet "opcode: ",0
@@ -409,6 +407,8 @@ z_not_implemented
 }
 	lda #ERROR_OPCODE_NOT_IMPLEMENTED
 	jsr fatalerror
+} else {
+	rts
 }
 }
 
@@ -444,7 +444,7 @@ read_operand
 	cmp #16
 	bcs .read_global_var
 	; Local variable
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	tay
 	dey
 	cpy z_local_var_count
@@ -519,7 +519,7 @@ read_operand
 	bcs .store_operand ; Always branch
 } ; end not COMPLEX_MEMORY
 
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 .nonexistent_local
 	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
@@ -584,7 +584,7 @@ z_get_variable_reference_and_value
 	stx zp_temp + 2
 }
 	dey
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
@@ -640,7 +640,7 @@ z_get_referenced_value
 	sta zp_temp + 1
 	jmp z_get_referenced_value
 
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 .nonexistent_local
 	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
@@ -702,7 +702,7 @@ z_set_variable
 	; Local variable
 	tay
 	dey
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
@@ -750,7 +750,7 @@ z_ins_not_supported
 z_divide
 	; input: Dividend in arg 0, divisor in arg 1, y = signed? 0 = unsigned, $ff = signed
 	; output: result in division_result (low byte, high byte)
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	lda z_operand_value_high_arr + 1
 	ora z_operand_value_low_arr + 1
 	bne .not_div_by_0

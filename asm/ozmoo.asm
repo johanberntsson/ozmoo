@@ -1645,7 +1645,7 @@ deletable_init
 
 } ; End of !ifdef VMEM
 
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	; check z machine version
 	ldy #header_version
 	jsr read_header_word

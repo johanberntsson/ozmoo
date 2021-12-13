@@ -30,7 +30,7 @@ parse_dictionary
 	jsr set_z_address
 	; read terminators
 	jsr read_next_byte
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	cmp #10 ; max num terminators
 	bcc .ok_term
 	lda #ERROR_TOO_MANY_TERMINATORS

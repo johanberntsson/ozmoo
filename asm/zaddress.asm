@@ -129,7 +129,7 @@ write_next_byte
 ; input: value in a 
 ; a,x,y are preserved
 	sta z_address_temp
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	lda z_address
 	bne .write_outside_dynmem
 	lda z_address + 2
@@ -181,7 +181,7 @@ write_next_byte
 	inc z_address
 +	rts
 
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 .write_outside_dynmem
 	lda #ERROR_WRITE_ABOVE_DYNMEM
 	jsr fatalerror

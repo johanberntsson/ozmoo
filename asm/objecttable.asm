@@ -966,7 +966,7 @@ z_ins_get_prop
 	pla
 .return_property_result
 	jmp z_store_result
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 .bad_prop_len
 	; error. only 1 or 2 allowed
 	lda #ERROR_BAD_PROPERTY_LENGTH
@@ -1008,7 +1008,7 @@ z_ins_put_prop
 	lda .property_length
 	cmp #1
 	beq .write_byte
-!ifndef UNSAFE {
+!ifdef CHECK_ERRORS {
 	cmp #2
 	bne .bad_prop_len
 }
