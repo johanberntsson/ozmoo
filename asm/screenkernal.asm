@@ -85,21 +85,21 @@ cursor_character !byte CURSORCHAR
 !ifdef TARGET_PLUS4 {
 plus4_vic_colours
 	;     PLUS4  VIC-II
-	!byte $00    ; black
-	!byte $71  ; white
-	!byte $32    ; red
+	!byte $00   ; black
+	!byte $71   ; white
+	!byte $32   ; red
 	!byte $63   ; cyan
-	!byte $54    ; purple
-	!byte $55   ; green
-	!byte $36    ; blue
-	!byte $77  ; yellow
-	!byte $28   ; orange
-	!byte $18   ; brown 
-	!byte $72   ; light red
-	!byte $11   ; dark grey
-	!byte $41   ; grey
+	!byte $44   ; purple
+	!byte $65   ; green
+	!byte $3e   ; blue
+	!byte $77   ; yellow
+	!byte $48   ; orange
+	!byte $39   ; brown 
+	!byte $62   ; light red
+	!byte $31   ; dark grey
+	!byte $51   ; grey
 	!byte $75   ; light green
-	!byte $76   ; light blue
+	!byte $56   ; light blue
 	!byte $61   ; light grey
 }
 

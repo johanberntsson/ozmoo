@@ -272,4 +272,4 @@ Release 10:
 - make.rb option -u to enable "unsafe" mode to remove some runtime error
   checks has been removed and this "unsafe" mode is not the default. There
   is also a new option -re to enable all runtime error checks.
- 
+- Improved Plus/4 colour matching to C64 colours.
