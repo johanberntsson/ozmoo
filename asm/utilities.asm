@@ -848,6 +848,32 @@ printstring
 	; rts
 ; }
 
+mult8
+	; Multiply 8 bits by 16 bits, result must fit in 16 bits or result is unspecified
+	; a * multiplier, + 1, lowbyte first
+	; Result in product, +1 (lowbyte first)
+	ldx #0
+	stx product
+	stx product + 1
+-	lsr
+	bcc +
+	clc
+	pha
+	lda product
+	adc multiplier
+	sta product
+	lda product + 1
+	adc multiplier + 1
+	sta product + 1
+	pla
++	cmp #0
+	beq ++
+	asl multiplier
+	rol multiplier + 1
+	bcc - ; Always branch
+++	rts
+	
+
 mult16
 	;16-bit multiply with 32-bit product
 	;http://codebase64.org/doku.php?id=base:16bit_multiplication_32-bit_product

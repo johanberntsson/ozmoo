@@ -317,14 +317,12 @@ s_init
 	dec s_screen_height_minus_one
 
 	; calculate total screen size
-	lda s_screen_height
-	sta multiplier
-	lda s_screen_width
-	sta multiplicand
 	lda #0
 	sta multiplier + 1
-	sta multiplicand + 1
-	jsr mult16
+	lda s_screen_width
+	sta multiplier
+	lda s_screen_height
+	jsr mult8
 	lda product
 	sta s_screen_size;
 	lda product + 1
@@ -725,14 +723,12 @@ s_erase_window
 	;
 	; calculate start position (start_row * screen_width)
 	pha
-	lda window_start_row + 1 ; how many top lines to protect
-	sta multiplier
 	lda s_screen_width
-	sta multiplicand
+	sta multiplier
 	lda #0
 	sta multiplier + 1
-	sta multiplicand + 1
-	jsr mult16
+	lda window_start_row + 1 ; how many top lines to protect
+	jsr mult8
 	; set up source and destination
 	pla
 	clc

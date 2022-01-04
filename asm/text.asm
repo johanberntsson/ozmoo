@@ -766,18 +766,15 @@ find_word_in_dictionary
 	clc
 	adc .first_word
 	sta .median_word
-	sta multiplicand
+	sta multiplier
 	tya
 	adc .first_word + 1
 	sta .median_word + 1
-	sta multiplicand + 1
+	sta multiplier + 1
 	
 	; Step 3: Set the address of the median word
 	lda dict_len_entries
-	sta multiplier
-	lda #0
-	sta multiplier + 1
-	jsr mult16
+	jsr mult8
 	lda product
 	clc
 	adc dict_entries
