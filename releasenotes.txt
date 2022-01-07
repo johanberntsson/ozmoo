@@ -270,7 +270,7 @@ Release 10:
   80 col mode.
 - Changed so a blinking cursor starts in ON phase instead of OFF phase.
 - make.rb option -u to enable "unsafe" mode to remove some runtime error
-  checks has been removed and this "unsafe" mode is not the default. There
+  checks has been removed and this "unsafe" mode is now the default. There
   is also a new option -re to enable all runtime error checks.
 - Improved Plus/4 colour matching to C64 colours.
 - Fixed a crash that sometimes occured when not preloading any blocks.
