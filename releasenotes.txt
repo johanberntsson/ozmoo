@@ -275,3 +275,4 @@ Release 10:
 - Improved Plus/4 colour matching to C64 colours.
 - Fixed a crash that sometimes occured when not preloading any blocks.
 - Faster multiplication in dictionary lookup and scrolling on C128 80 col.
+- Don't include subroutine z_get_low_global_variable_value unless it's needed.

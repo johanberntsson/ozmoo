@@ -645,8 +645,19 @@ z_get_referenced_value
 	lda #ERROR_USED_NONEXISTENT_LOCAL_VAR
 	jsr fatalerror
 }
-	
-; z_get_variable_value
+
+!ifndef Z4PLUS {
+	GET_LOW_GLOBAL_NEEDED = 1
+} else {
+	!ifndef COMPLEX_MEMORY {
+		!ifdef SLOW {
+			GET_LOW_GLOBAL_NEEDED = 1
+		}
+	}
+}
+
+
+!ifdef GET_LOW_GLOBAL_NEEDED {
 z_get_low_global_variable_value
 	; Read global var 0-111
 	; input: a = variable# + 16 (16-127)
@@ -655,16 +666,6 @@ z_get_low_global_variable_value
 !ifdef TARGET_C128 {
 	lda #z_low_global_vars_ptr
 	jmp read_word_from_bank_1_c128
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
-	; pha
-	; iny
-	; ldx #$7f
-	; jsr $02a2
-	; tax
-	; pla
-	; rts
 } else {
 	; Not TARGET_C128
 	iny
@@ -676,7 +677,7 @@ z_get_low_global_variable_value
 	+after_dynmem_read
 	rts ; Note that caller may assume that carry is clear on return!
 } ; End else - Not TARGET_C128
-
+} ; End ifdef GET_LOW_GLOBAL_NEEDED
 
 ; Used by z_set_variable
 .write_to_stack
