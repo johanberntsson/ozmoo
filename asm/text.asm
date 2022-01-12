@@ -2086,10 +2086,12 @@ print_addr
 	bne .not_A2
 ; newline?
 	cmp #7
+!ifndef Z1 {
 	bne .l0b
 	lda #13
 	jmp .print_normal_char ; Always jump
 .l0b 
+}
 	; Direct jump for all normal chars in A2
 	bcs .l6
 	; escape char?
