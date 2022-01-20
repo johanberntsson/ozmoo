@@ -488,6 +488,7 @@ m65_read_track
 	dey ; Set y to 1
 	sty dma_dest_bank_and_flags
 	dey ; Set y to 0
+	sty dma_count ; Transfer 2 pages (lowbyte = 0)
 	sty dma_source_address
 	sty dma_dest_address
 	sty dma_dest_address_top
