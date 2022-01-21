@@ -33,7 +33,10 @@ copy_page_to_reu
 	sta dma_dest_bank_and_flags
 	sty dma_source_address + 1
 
-	ldx #0
+	ldx #1
+	stx dma_count + 1
+	dex ; Set x = 0
+	stx dma_count
 	stx dma_dest_address
 	stx dma_source_address
 	stx dma_source_bank_and_flags
@@ -85,7 +88,10 @@ copy_page_from_reu
 	sta dma_source_bank_and_flags
 	sty dma_dest_address + 1
 
-	ldx #0
+	ldx #1
+	stx dma_count + 1
+	dex ; Set x = 0
+	stx dma_count
 	stx dma_source_address
 	stx dma_dest_address
 	stx dma_dest_address_top
