@@ -1865,7 +1865,11 @@ wait_a_sec
 	bne -
 } else {
 	ldx #0
+!ifdef TARGET_MEGA65 {
+	ldy #40*5
+} else {
 	ldy #5
+}
 -	jsr kernal_delay_1ms
 	dex
 	bne -
