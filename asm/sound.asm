@@ -45,7 +45,7 @@ sound_file_sector = sound_data_base + 6 ; 1 byte
 sound_index_ptr = z_operand_value_low_arr ; 4 bytes
 ; sound_index = z_operand_value_low_arr + 4 ; 1 byte
 
-top_sound_effect !byte 0
+top_soundfx_plus_1 !byte 0
 
 
 read_sound_file
@@ -188,17 +188,17 @@ read_sound_file
 	lda (.dir_pointer),y
 	bne .read_next_file_sector	
 
-!ifdef TRACE_SOUND {
-	lda top_sound_effect
+; !ifdef TRACE_SOUND {
+	lda top_soundfx_plus_1
 	adc #62
 	jsr s_printchar
-}
+; }
 	clc
 	rts
 
 store_sound_effect_start
 	; Insert code here to copy the 4-byte value in sound_file_target to the table for sound effect
-	; start addresses. The index to use is in top_sound_effect
+	; start addresses. The index to use is in top_soundfx_plus_1
 	ldq sound_file_target
 	stq [sound_index_ptr]
 	lda #0
@@ -212,11 +212,11 @@ store_sound_effect_start
 	rts
 
 read_all_sound_files
-!ifdef TRACE_SOUND {
+; !ifdef TRACE_SOUND {
 	lda #>sound_load_msg
 	ldx #<sound_load_msg
 	jsr printstring_raw
-}
+; }
 
 ; Init target address ($08080000) and index address ($0807FC00)
 	lda #8
@@ -230,26 +230,24 @@ read_all_sound_files
 	stq sound_index_ptr
 
 	lda #3
-	sta top_sound_effect
+	sta top_soundfx_plus_1
 -	jsr store_sound_effect_start
-	lda top_sound_effect
+	lda top_soundfx_plus_1
 	jsr read_sound_file
 	bcs +
-	inc top_sound_effect
+	inc top_soundfx_plus_1
 	bne -
 +
 	; A file couldn't be read. We're done.
 	
-	; Store the number of the last sound effect loaded
-	dec top_sound_effect
-
-!ifdef TRACE_SOUND {
+; !ifdef TRACE_SOUND {
 	lda #>sound_load_msg_2
 	ldx #<sound_load_msg_2
 	jsr printstring_raw
 	jsr wait_a_sec
-}
+; }
 	clc
+.return
 	rts
 
 ; JB work in progress
@@ -260,6 +258,8 @@ init_sound
 
 start_sound_effect
     ; input: x = sound effect (3, 4 ...)
+	cpx top_soundfx_plus_1
+	bcs .return
     dex
     dex
     dex
@@ -437,4 +437,60 @@ start_sound_effect
 } ; ifdef TARGET_MEGA65
 } ; zone sound_support
 } ; ifdef SOUND
+
+z_ins_sound_effect
+	lda #$08
+	ldx z_operand_value_low_arr
+!ifdef SOUND {
+    cpx #$03
+    bcc +
+    jmp start_sound_effect
++
+}
+	dex
+	beq .sound_high_pitched_beep
+	dex
+	beq .sound_low_pitched_beep
+	rts
+!ifdef HAS_SID {	
+.sound_high_pitched_beep
+	lda #$40
+.sound_low_pitched_beep
+	sta $d401
+	lda #$21
+	sta $d404
+	ldy #40
+--	ldx #0
+-	dex
+	bne -
+	dey
+	bne --
+	lda #$20
+	sta $d404
+	rts
+} else {
+	!ifdef TARGET_PLUS4 {
+.sound_high_pitched_beep
+	lda #$f2
+.sound_low_pitched_beep
+	sta ted_voice_2_low
+	sta ted_voice_2_high
+	lda #32 + 15
+	sta ted_volume
+	ldy #40
+--	ldx #0
+-	dex
+	bne -
+	dey
+	bne --
+	lda #0 + 15
+	sta ted_volume
+	rts
+	} else {
+.sound_high_pitched_beep
+.sound_low_pitched_beep
+	rts
+	}
+}
+
 

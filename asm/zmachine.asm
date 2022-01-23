@@ -1615,60 +1615,7 @@ z_ins_random
 	
 ; z_ins_output_stream jumps directly to streams_output_stream.
 
-z_ins_sound_effect
-	lda #$08
-	ldx z_operand_value_low_arr
-!ifdef SOUND {
-    cpx #$03
-    bcc +
-    jmp start_sound_effect
-+
-}
-	dex
-	beq .sound_high_pitched_beep
-	dex
-	beq .sound_low_pitched_beep
-	rts
-!ifdef HAS_SID {	
-.sound_high_pitched_beep
-	lda #$40
-.sound_low_pitched_beep
-	sta $d401
-	lda #$21
-	sta $d404
-	ldy #40
---	ldx #0
--	dex
-	bne -
-	dey
-	bne --
-	lda #$20
-	sta $d404
-	rts
-} else {
-	!ifdef TARGET_PLUS4 {
-.sound_high_pitched_beep
-	lda #$f2
-.sound_low_pitched_beep
-	sta ted_voice_2_low
-	sta ted_voice_2_high
-	lda #32 + 15
-	sta ted_volume
-	ldy #40
---	ldx #0
--	dex
-	bne -
-	dey
-	bne --
-	lda #0 + 15
-	sta ted_volume
-	rts
-	} else {
-.sound_high_pitched_beep
-.sound_low_pitched_beep
-	rts
-	}
-}
+; z_ins_sound_effect moved to sound.asm
 
 !ifdef Z4PLUS {
 z_ins_scan_table
