@@ -4,6 +4,10 @@
 ; aiff files. The aiff files can be extracted from
 ; blorb files using the rezrov utility:
 ; http://www.ifarchive.org/if-archive/programming/blorb/rezrov.c
+; or converted from other sample formats using a tool like
+; sndfile-convert
+;
+; Currently we only support AIFF with 8 bits, one channel.
 ;
 ; Blorp files are the standard asset format for Inform games,
 ; and Infocom assets from Sherlock, The Luring Horror and Shogun
@@ -13,9 +17,14 @@
 ; AIFF is a standard format for various media, including samples:
 ; https://www.instructables.com/How-to-Read-aiff-Files-using-C/
 ; use mediainfo or exiftool to check the AIFF metadata
+;
+; TODO:
+; - add second channel for stereo
+; - parse and use sampling frequency in AIFF COMM chunk
+; - support all options for @sound_effect
 
 !ifdef SOUND {
-; !zone sound_support {
+!zone sound_support {
 !ifdef TARGET_MEGA65 {
 
 ;TRACE_SOUND = 1
@@ -426,6 +435,6 @@ start_sound_effect
 
 
 } ; ifdef TARGET_MEGA65
-; } ; zone sound_support
+} ; zone sound_support
 } ; ifdef SOUND
 
