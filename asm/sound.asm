@@ -245,16 +245,19 @@ read_all_sound_files
 	ldx #<sound_load_msg_2
 	jsr printstring_raw
 	jsr wait_a_sec
+	ldx #$ff
+	jsr erase_window
 ; }
-	clc
+	lda #3
+	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
 .return
 	rts
 
 ; JB work in progress
 .current_effect !byte 0
 
-init_sound
-    jmp read_all_sound_files
+init_sound = read_all_sound_files
+;    jmp read_all_sound_files
 
 start_sound_effect
     ; input: x = sound effect (3, 4 ...)

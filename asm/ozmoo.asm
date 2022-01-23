@@ -883,9 +883,9 @@ game_id		!byte 0,0,0,0
 !source "screenkernal.asm"
 !source "streams.asm" ; Must come before "text.asm"
 !source "disk.asm"
-!ifdef SOUND {
+;!ifdef SOUND {
 !source "sound.asm"
-}
+;}
 !ifdef VMEM {
 	!if SUPPORT_REU = 1 {
 	!source "reu.asm"
@@ -1249,12 +1249,20 @@ z_init
 	ldy #header_flags_2 + 1
 	jsr read_header_word
 !ifdef SOUND {
-	and #(255 - 8 - 16 - 32) ; pictures, undo and mouse not available
-	jsr write_header_byte
+	pha
 	and #$80
-	beq +
+	beq + ; Game doesn't want to play sounds
 	jsr init_sound
-+
+	bcc +
+	; No sound files found, so tell game sound isn't supported
+	pla
+	and #(255 - 128) 
+	ldy #header_flags_2 + 1
+	pha
++	pla
+	and #(255 - 8 - 16 - 32) ; pictures, undo and mouse not available
+	ldy #header_flags_2 + 1
+	jsr write_header_byte
 } else {
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
 	jsr write_header_byte
