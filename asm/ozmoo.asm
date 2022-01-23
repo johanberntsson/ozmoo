@@ -819,11 +819,6 @@ game_id		!byte 0,0,0,0
 	jsr streams_init
 	jsr stack_init
 
-!ifdef TARGET_MEGA65 {
-!ifdef SOUND {
-	jsr read_all_sound_files
-}
-}
 	jsr deletable_screen_init_2
 
 	jsr z_init
@@ -888,6 +883,9 @@ game_id		!byte 0,0,0,0
 !source "screenkernal.asm"
 !source "streams.asm" ; Must come before "text.asm"
 !source "disk.asm"
+!ifdef SOUND {
+!source "sound.asm"
+}
 !ifdef VMEM {
 	!if SUPPORT_REU = 1 {
 	!source "reu.asm"
@@ -1042,229 +1040,6 @@ c128_move_dynmem_and_calc_vmem
 +	sta vmap_max_entries
 	rts
 }
-
-!ifdef TARGET_MEGA65 {
-!ifdef SOUND {
-sound_load_msg !pet "Loading sound: ",0
-sound_load_msg_2 !pet 13,"Done.",0
-sound_file_name 
-	!pet "000.aiff"
-	!byte $a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-sound_nums !byte 100,10,1
-sound_data_base = z_temp + 3
-sound_file_target = sound_data_base ; 4 bytes
-dir_entry_start = sound_data_base +  4 ; 1 byte
-sound_file_track = sound_data_base + 5 ; 1 byte
-sound_file_sector = sound_data_base + 6 ; 1 byte
-.dir_pointer = sound_data_base + 7 ; 2 bytes
-
-sound_index_ptr = z_operand_value_low_arr ; 4 bytes
-; sound_index = z_operand_value_low_arr + 4 ; 1 byte
-
-top_sound_effect !byte 0
-
-
-read_sound_file
-	; a: Sound file number (3-255)
-	
-	; Set filename
-	ldx #0
--	ldy #48 ; "0"
---	cmp sound_nums,x
-	bcc +
-	sbc sound_nums,x
-	iny
-	bne -- ; Always branch
-+	sty sound_file_name,x
-	inx
-	cpx #3
-	bcc -
-
-	jsr get_free_vmem_buffer
-
-	; Set pointers
-	sta readblocks_mempos + 1 ; Low byte is always 0
-	sta .dir_pointer + 1
-	ldy #0
-	sty .dir_pointer
-	
-; Read a directory sector
-	lda #40
-	ldx #3
-.read_next_dir_sector
-
-	jsr read_track_sector
-	lda #2
-	sta dir_entry_start
-.compare_next_dir_entry
-	ldy dir_entry_start
-	lda (.dir_pointer),y
-	cmp #$82
-	bne .dir_not_match
-	iny
-	lda (.dir_pointer),y
-	sta sound_file_track
-	iny
-	lda (.dir_pointer),y
-	sta sound_file_sector
-	iny
-	ldx #0
---	lda sound_file_name,x
-	cmp (.dir_pointer),y
-	bne .dir_not_match
-	inx
-	iny
-	cpx #7 ; Should be 16, but during testing it's easier if the stop after 7 characters, so 003.aif is recognized (final f is missing) 
-	bcc --
-
-; We have a match - Read the file!
-	jmp .read_file
-	
-.dir_not_match
-	lda dir_entry_start
-	clc
-	adc #$20
-	sta dir_entry_start
-	bcc .compare_next_dir_entry
-	
-; Check next directory block here
-	ldy #0
-	lda (.dir_pointer),y
-	beq .fail
-	pha
-	iny
-	lda (.dir_pointer),y
-	tax
-	pla
-	bne .read_next_dir_sector ; Always branch
-.fail
-	sec
-	rts
-
-
-.read_file
-
-	lda sound_file_track
-	ldx sound_file_sector
-.read_next_file_sector
-	jsr read_track_sector
-
-	; Copy to target address
-	lda .dir_pointer + 1
-	sta dma_source_address + 1
-	lda sound_file_target
-	sta dma_dest_address
-	lda sound_file_target + 1
-	sta dma_dest_address + 1
-	lda sound_file_target + 2
-	and #$0f
-	sta dma_dest_bank_and_flags
-	
-	lda sound_file_target + 2
-	sta vmem_temp
-	lda sound_file_target + 3
-	
-	ldy #4
--	asl vmem_temp
-	rol
-	dey
-	bne -
-	sta dma_dest_address_top
-
-	ldy #2
-	sty dma_source_address
-	ldy #0
-	sty dma_count + 1 ; Transfer 254 bytes
-	sty dma_source_bank_and_flags
-	sty dma_source_address_top
-	ldx #254
-	lda (.dir_pointer),y
-	bne +
-	iny
-	lda (.dir_pointer),y
-	tax
-	dex
-+	stx dma_count
-
-	jsr m65_run_dma
-
-; Increase the address
-	lda #0
-	tax
-	tay
-	taz
-	lda dma_count
-	clc
-	adcq sound_file_target
-	stq sound_file_target
-
-	ldy #1
-	lda (.dir_pointer),y
-	tax
-	dey
-	lda (.dir_pointer),y
-	bne .read_next_file_sector	
-
-	lda top_sound_effect
-	adc #62
-	jsr s_printchar
-	clc
-	rts
-
-store_sound_effect_start
-	; Insert code here to copy the 4-byte value in sound_file_target to the table for sound effect
-	; start addresses. The index to use is in top_sound_effect
-	ldq sound_file_target
-	stq [sound_index_ptr]
-	lda #0
-	tax
-	tay
-	taz
-	lda #4
-	clc
-	adcq sound_index_ptr
-	stq sound_index_ptr
-	rts
-
-read_all_sound_files
-	lda #>sound_load_msg
-	ldx #<sound_load_msg
-	jsr printstring_raw
-
-; Init target address ($08080000) and index address ($0807FC00)
-	lda #8
-	tay
-	taz
-	lda #0
-	tax
-	stq sound_file_target
-	dey
-	ldx #$fc
-	stq sound_index_ptr
-
-	lda #3
-	sta top_sound_effect
--	jsr store_sound_effect_start
-	lda top_sound_effect
-	jsr read_sound_file
-	bcs +
-	inc top_sound_effect
-	bne -
-+
-	; A file couldn't be read. We're done.
-	
-	; Store the number of the last sound effect loaded
-	dec top_sound_effect
-
-	lda #>sound_load_msg_2
-	ldx #<sound_load_msg_2
-	jsr printstring_raw
-	jsr wait_a_sec
-	clc
-	rts
-}
-}
-
 
 !ifdef VMEM {
 !ifndef NOSECTORPRELOAD {
@@ -1473,8 +1248,17 @@ z_init
 	jsr write_header_byte
 	ldy #header_flags_2 + 1
 	jsr read_header_word
+!ifdef SOUND {
+	and #(255 - 8 - 16 - 32) ; pictures, undo and mouse not available
+	jsr write_header_byte
+	and #$80
+	beq +
+	jsr init_sound
++
+} else {
 	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
 	jsr write_header_byte
+}
 }
 }
 !ifdef Z4PLUS {

@@ -427,7 +427,8 @@ read_operand
 	+read_next_byte_at_z_pc
 	tax
 	lda z_temp + 2
-	jmp .store_operand ; Always branch
+	jmp .store_operand ; Always branch
+
 .operand_is_not_large_constant
 	+read_next_byte_at_z_pc
 	cpx #%00000001
@@ -1617,6 +1618,12 @@ z_ins_random
 z_ins_sound_effect
 	lda #$08
 	ldx z_operand_value_low_arr
+!ifdef SOUND {
+    cpx #$03
+    bcc +
+    jmp start_sound_effect
++
+}
 	dex
 	beq .sound_high_pitched_beep
 	dex

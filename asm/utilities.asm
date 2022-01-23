@@ -594,6 +594,28 @@ printy
 	plp
 	rts
 
+!ifdef TARGET_MEGA65 {
+printz
+	; subroutine: print value stored in z register
+	; input: z
+	; output:
+	; used registers:
+	; side effects:
+	php
+	sta .saved_a
+	stx .saved_x
+	sty .saved_y
+	tza
+	tax
+	lda #$00
+	jsr printinteger
+	lda .saved_a
+	ldx .saved_x
+	ldy .saved_y
+	plp
+	rts
+}
+
 printa
 	; subroutine: print value stored in a register
 	; input: a
