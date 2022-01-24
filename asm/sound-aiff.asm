@@ -144,19 +144,28 @@
 	
 	jsr mega65io
 	lda #0
-	sta $d771
-	sta $d772
-	sta $d773
-	sta $d776
-	sta $d777
+	tax
+	tay
+	taz
 	lda #106
 	stq $d770
-	lda .sample_rate_big_endian
-	sta $d775
+	ldx .sample_rate_big_endian
 	lda .sample_rate_big_endian + 1 ; Note big-endian
-	sta $d774 ; This triggers the multiplication
-	ldq $d779 ; Skip the lowbyte at $d778, to perform >> 8
-	stq sample_frequency
+	stq $d774
+	
+;	sta $d771
+;	sta $d772
+;	sta $d773
+;	sta $d776
+;	sta $d777
+;	lda #106
+;	stq $d770
+;	lda .sample_rate_big_endian
+;	sta $d775
+;	lda .sample_rate_big_endian + 1 ; Note big-endian
+;	sta $d774 ; This triggers the multiplication
+	ldq $d778 
+	stq sample_frequency_dummy ; Skip the lowbyte at $d778, to perform >> 8
 	
 ;    lda .sample_rate_big_endian + 1 ; note big endian
 ;    sta dividend
