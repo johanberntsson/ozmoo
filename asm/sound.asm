@@ -217,13 +217,13 @@ read_all_sound_files
 	jsr printstring_raw
 
 ; Init target address ($08080000) and index address ($0807FC00)
-	lda #8
-	tay
-	taz
-	lda #0
+; Init target address ($08100000) and index address ($0807FC00)
+	ldz #$08
+	ldy #$10
+	lda #$00
 	tax
 	stq sound_file_target
-	dey
+	ldy #$07
 	ldx #$fc
 	stq sound_index_ptr
 
@@ -453,7 +453,6 @@ sound_effect
 } ; ifdef SOUND
 
 z_ins_sound_effect
-	lda #$08
 	ldy z_operand_count
 	beq .play_beep ; beep if no args (Z-machine standards, p101)
 	ldx z_operand_value_low_arr
@@ -463,21 +462,52 @@ z_ins_sound_effect
     ; parse rest of the args
 	lda z_operand_value_low_arr + 1 ; effect
 	sta sound_arg_effect
+
+;	ldy z_operand_count
+	cpy #3
+	bcs +
+	; No volume given, set to max...
+	lda #255
+	sta z_operand_value_low_arr + 2
+!ifdef Z5PLUS {
+	; ... and set repeats to 1 for z5
+	lda #1
+	sta z_operand_value_high_arr + 2
+}
++		
+!ifdef Z5PLUS {
+	cpy #4
+	bcs +
+	; No routine given, set to 0
+	lda #0
+	sta z_operand_value_low_arr + 3
+	sta z_operand_value_high_arr + 3
++
+}
+	
 	lda z_operand_value_low_arr + 2 ; volume
+;!ifdef Z3 {
+;	; If highbyte is nonzero, set volume to max
+;	ldy z_operand_value_high_arr + 2 ; volume highbyte
+;	beq +
+;	lda #255
+;+
+;}
 	sta sound_arg_volume
 !ifdef Z5PLUS {
 	lda z_operand_value_high_arr + 2 ; repeats
 	bne +
 	lda #1
 +	sta sound_arg_repeats
-}
 	lda z_operand_value_low_arr + 3 ; routine
 	sta sound_arg_routine
 	lda z_operand_value_high_arr + 3 ; routine
 	sta sound_arg_routine + 1
-    jmp sound_effect
 }
+    jmp sound_effect
+} ; ifdef SOUND
 .play_beep
+	lda #$08 ; Frequency for low-pitched beep
     dex
 	beq .sound_high_pitched_beep
 	dex
@@ -490,12 +520,20 @@ z_ins_sound_effect
 	sta $d401
 	lda #$21
 	sta $d404
+!ifdef TARGET_MEGA65 {
+	ldz #40
+.outer_loop
+}
 	ldy #40
 --	ldx #0
 -	dex
 	bne -
 	dey
 	bne --
+!ifdef TARGET_MEGA65 {
+	dez
+	bne .outer_loop
+}
 	lda #$20
 	sta $d404
 	rts
