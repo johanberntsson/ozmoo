@@ -265,7 +265,8 @@ sound_effect
     rts
     
 .stop_sound_effect
-    ; TODO
+    lda #$00
+    sta $d720
     rts
 
 .play_sound_effect
@@ -422,6 +423,7 @@ sound_effect
     sta $d723
     sta $d72c
     ; calculate end point by adding saved chunk size to sample start
+    ; todo: adjust for comment and chunk header (-8)
     clc
     pla
     adc $d721
@@ -459,11 +461,11 @@ sound_effect
     sta $d726
 
     ; Enable playback of channel 0
-    lda #$82
+    lda #$82 ; CHOEN + CHOSBITS (10 = 8 bits sample)
     sta $d720
 
     ; enable audio dma
-    lda #$80
+    lda #$80 ; AUDEN
     sta $d711
 
     rts
