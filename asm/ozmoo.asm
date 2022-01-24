@@ -1233,6 +1233,9 @@ z_init
 	and #(255 - 16 - 64) ; Statusline IS available, variable-pitch font is not default
 	ora #32 ; Split screen available
 	jsr write_header_byte
+!ifdef SOUND {
+	jsr init_sound
+}
 } else {
 !ifdef Z4 {
 	ldy #header_flags_1

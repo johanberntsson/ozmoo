@@ -275,6 +275,7 @@ init_sound
     ; the sound has stopped
     lda #0
     sta .sound_is_playing
+!ifdef Z5PLUS {
     ; are we looping?
     lda sound_arg_repeats
     cmp #$ff
@@ -284,6 +285,7 @@ init_sound
 .sound_callback_restart_sample
     ; loop!
     jsr .play_sample
+}
 .sound_callback_done
     ; finish interrupt handling
     asl $d019 ; acknowlege irq
@@ -463,8 +465,12 @@ z_ins_sound_effect
 	sta sound_arg_effect
 	lda z_operand_value_low_arr + 2 ; volume
 	sta sound_arg_volume
+!ifdef Z5PLUS {
 	lda z_operand_value_high_arr + 2 ; repeats
-	sta sound_arg_repeats
+	bne +
+	lda #1
++	sta sound_arg_repeats
+}
 	lda z_operand_value_low_arr + 3 ; routine
 	sta sound_arg_routine
 	lda z_operand_value_high_arr + 3 ; routine
