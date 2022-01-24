@@ -20,9 +20,9 @@
 ;
 ; TODO:
 ; - add second channel for stereo
-; - parse and use sampling frequency in AIFF COMM chunk
 ; - support all options for @sound_effect
-; - change preload of all sounds to load on demand
+; - sample rate correct, but conversion to d724-726 a bit off (see 007.aiff)
+; - perhaps change preload of all sounds to load on demand
 
 !ifdef SOUND {
 !zone sound_support {
@@ -250,7 +250,25 @@ read_all_sound_files
 
 init_sound = read_all_sound_files
 
-start_sound_effect
+sound_arg_effect !byte 0
+sound_arg_volume !byte 0
+sound_arg_repeats !byte 0
+sound_arg_routine !byte 0, 0
+
+sound_effect
+    ; currently we ignore 1 prepare and 4 finish with
+    lda sound_arg_effect
+    cmp #2 ; start
+    beq .play_sound_effect
+    cmp #3 ; stop
+    beq .stop_sound_effect
+    rts
+    
+.stop_sound_effect
+    ; TODO
+    rts
+
+.play_sound_effect
     ; input: x = sound effect (3, 4 ...)
     ; convert to zero indexed
     cpx top_soundfx_plus_1
@@ -260,7 +278,7 @@ start_sound_effect
     dex
 !ifdef TRACE_SOUND {
     jsr print_following_string
-    !pet "start_sound_effect ",0
+    !pet "play_sound_effect ",0
     lda .current_effect
     jsr printa
     jsr space
@@ -276,7 +294,7 @@ start_sound_effect
     jmp .play_aiff
 
 .exponent !byte 0,0
-.sampling_rate_hz !byte 0, 0
+.sample_rate_big_endian !byte 0, 0, 0 ; two first bytes are value in Hz
 .bad_audio_format_msg !pet "[bad audio format]", 13, 0
 .current_effect !byte $ff
 
@@ -303,7 +321,9 @@ start_sound_effect
     jsr .add_fastRAM_base ; skip chunk identifier (4 bytes)
     pla
     cmp #$4e ; is it ssNd?
-    beq .ssnd_chunk
+    bne +
+    jmp .ssnd_chunk
++
     ; COMM, FORM, INST, MARK or SKIP chunk, skip this
     cmp #$4d ; is it coMm?
     bne .skip_chunk
@@ -320,35 +340,40 @@ start_sound_effect
     bne .bad_format
     ; extract the sampling rate
     ; exponent (= (byte 12 and 13) - $3fff, only positive allowed)
-    ; but since we are going to shift 8 bit from the fraction
-    ; we instead substract with ($3fff + 8 - 1 = $4006)
     ldz #12
     lda [sound_file_target],z
     sec
-    sbc #$40 ; #$3f
+    sbc #$3f
     sta .exponent + 1
     inz 
     lda [sound_file_target],z
-    sbc #$0a ; #$ff
+    sbc #$ff
     sta .exponent
-    ; only use first byte of fraction (enough precision as int)
+    ; only use one byte of fraction (enough precision as int)
     inz
     lda [sound_file_target],z
-    sta .sampling_rate_hz + 1
+    sta .sample_rate_big_endian + 1
+    inz
+    lda [sound_file_target],z
+    sta .sample_rate_big_endian + 2
     lda #0
-    sta .sampling_rate_hz
+    sta .sample_rate_big_endian
     ; modfiy with exponent
-    ldx .exponent
+    lda .exponent
+    sec
+    sbc #7 ; we're shifting one byte
+    tax
 -   clc
-    ror .sampling_rate_hz + 1
-    ror .sampling_rate_hz
+    rol .sample_rate_big_endian + 2
+    rol .sample_rate_big_endian + 1
+    rol .sample_rate_big_endian
     dex
     bne -
 !ifdef TRACE_SOUND {
-    lda .sampling_rate_hz
+    lda .sample_rate_big_endian
     jsr print_byte_as_hex
     jsr colon
-    lda .sampling_rate_hz + 1
+    lda .sample_rate_big_endian + 1
     jsr print_byte_as_hex 
     jsr newline
 }
@@ -399,34 +424,33 @@ start_sound_effect
     ; calculate end point by adding saved chunk size to sample start
     clc
     pla
-    adc $d72a
+    adc $d721
     sta $d727
     pla
-    adc $d72b
+    adc $d722
     sta $d728
 
     ; volume
-    lda #$ff
+	lda sound_arg_volume
     sta $d729
-    lda #$80
-    sta $d711
+    sta $d71c ; mirror channel for stereo
 
     ; frequency (assuming CPU running at 40 MHz)
-    ; x = (f * 40)/100 = (f << 2) / 10
-    lda .sampling_rate_hz
+    ; x = (f * 40)/100 = (f/10) << 2
+    lda .sample_rate_big_endian + 1 ; note big endian
     sta dividend
-    lda .sampling_rate_hz + 1
+    lda .sample_rate_big_endian
     sta dividend + 1
-    clc
-    rol dividend
-    rol dividend + 1
-    rol dividend
-    rol dividend + 1
     lda #10
     sta divisor
     lda #$00
     sta divisor + 1
     jsr divide16
+    clc
+    rol dividend
+    rol dividend + 1
+    rol dividend
+    rol dividend + 1
     lda dividend
     sta $d724
     lda dividend + 1
@@ -437,6 +461,11 @@ start_sound_effect
     ; Enable playback of channel 0
     lda #$82
     sta $d720
+
+    ; enable audio dma
+    lda #$80
+    sta $d711
+
     rts
 
 .init_fastRAM_base
@@ -509,14 +538,27 @@ start_sound_effect
 
 z_ins_sound_effect
 	lda #$08
+	ldy z_operand_count
+	beq .play_beep ; beep if no args (Z-machine standards, p101)
 	ldx z_operand_value_low_arr
 !ifdef SOUND {
     cpx #$03
-    bcc +
-    jmp start_sound_effect
-+
+    bcc .play_beep
+    ; parse rest of the args
+	lda z_operand_value_low_arr + 1 ; effect
+	sta sound_arg_effect
+	lda z_operand_value_low_arr + 2 ; volume
+	sta sound_arg_volume
+	lda z_operand_value_high_arr + 2 ; repeats
+	sta sound_arg_repeats
+	lda z_operand_value_low_arr + 3 ; routine
+	sta sound_arg_routine
+	lda z_operand_value_high_arr + 3 ; routine
+	sta sound_arg_routine + 1
+    jmp sound_effect
 }
-	dex
+.play_beep
+    dex
 	beq .sound_high_pitched_beep
 	dex
 	beq .sound_low_pitched_beep
