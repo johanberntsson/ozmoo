@@ -28,7 +28,7 @@
 !zone sound_support {
 !ifdef TARGET_MEGA65 {
 
-TRACE_SOUND = 1
+;TRACE_SOUND = 1
 
 sound_load_msg !pet "Loading sound: ",0
 sound_load_msg_2 !pet 13,"Done.",0
@@ -339,12 +339,19 @@ start_sound_effect
     sta .sampling_rate_hz
     ; modfiy with exponent
     ldx .exponent
--   
-    clc
+-   clc
     ror .sampling_rate_hz + 1
     ror .sampling_rate_hz
     dex
     bne -
+!ifdef TRACE_SOUND {
+    lda .sampling_rate_hz
+    jsr print_byte_as_hex
+    jsr colon
+    lda .sampling_rate_hz + 1
+    jsr print_byte_as_hex 
+    jsr newline
+}
     jmp .skip_chunk
 
 .bad_format
@@ -361,10 +368,15 @@ start_sound_effect
     jmp .check_chunk
 
 .ssnd_chunk
+    ; is the sample too big?
+    ldz #1
+    lda [sound_file_target],z
+    bne .bad_format
+
     ; save chunk size for later
-    ldz #2
+    inz
 -   lda [sound_file_target],z
-    ;pha
+    pha
     inz
     cpz #4
     bne -
@@ -375,19 +387,22 @@ start_sound_effect
     lda #$00
     sta $d720
     ; load sample address into base and current address
-    lda #$00
+    lda sound_file_target 
     sta $d721 ; base 
     sta $d72a ; current
-    lda #$00
+    lda sound_file_target + 1
     sta $d722
     sta $d72b
-    lda #$04
+    lda sound_file_target + 2
     sta $d723
     sta $d72c
-    ; calculate end point (length = $8230)
-    lda #$30
+    ; calculate end point by adding saved chunk size to sample start
+    clc
+    pla
+    adc $d72a
     sta $d727
-    lda #$82
+    pla
+    adc $d72b
     sta $d728
 
     ; volume
@@ -419,7 +434,7 @@ start_sound_effect
     lda #$00
     sta $d726
 
-    ; Enable playback of channel 0, 8-bit samples, signed
+    ; Enable playback of channel 0
     lda #$82
     sta $d720
     rts
