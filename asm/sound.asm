@@ -23,6 +23,7 @@
 ; - support all options for @sound_effect
 ; - sample rate correct, but conversion to d724-726 a bit off (see 007.aiff)
 ; - perhaps change preload of all sounds to load on demand
+; - aiff misses the end point somewhat - fix this
 
 !ifdef SOUND {
 !zone sound_support {

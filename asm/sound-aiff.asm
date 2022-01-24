@@ -126,8 +126,22 @@
     adc sample_start_address + 1
     sta sample_stop_address + 1
 
-    ; frequency (assuming CPU running at 40 MHz)
-    ; x = (f * 40)/100 = (f/10) << 2
+    ; frequency (assuming CPU running at 40.5 MHz)
+    ;
+    ; max sample clock $ffffff is about 40 MHz sample rate
+    ; (stored in $d724-$d726)
+    ;
+    ; $ffffff / sample_clock = CPU / f  => sample_clock = ($ffffff * f)/ CPU
+    ; but $ffffff/CPU is constant about 1/2.414
+    ; sample_clock =  f / 2.414
+    ;
+    ; to avoid floating point, multiply by 1000
+    ; x = (f * 2414)/1000 
+    ;
+    ; this is still hard to do with integers, so simplify by
+    ; assuming 1/2.5 (= 0.4) instead. This will be a little bit slow,
+    ; but fairly close to read speed.
+    ; x = f * (4/10) = (f << 2) / 10
     lda .sample_rate_big_endian + 1 ; note big endian
     sta dividend
     lda .sample_rate_big_endian
