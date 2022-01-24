@@ -139,29 +139,45 @@
     ; x = (f * 2414)/1000 
     ;
     ; this is still hard to do with integers, so simplify by
-    ; assuming 1/2.5 (= 0.4) instead. This will be a little bit slow,
-    ; but fairly close to read speed.
-    ; x = f * (4/10) = (f << 2) / 10
-    lda .sample_rate_big_endian + 1 ; note big endian
-    sta dividend
-    lda .sample_rate_big_endian
-    sta dividend + 1
-    lda #10
-    sta divisor
-    lda #$00
-    sta divisor + 1
-    jsr divide16
-    clc
-    rol dividend
-    rol dividend + 1
-    rol dividend
-    rol dividend + 1
-    lda dividend
-    sta sample_frequency
-    lda dividend + 1
-    sta sample_frequency + 1
-    lda #$00
-    sta sample_frequency + 2
+    ; using 106/256 (~= 1/2.415) instead. This will be 1% faster.
+    ; x = f * (106/256) = (f * 106) >> 8
+	
+	jsr mega65io
+	lda #0
+	sta $d771
+	sta $d772
+	sta $d773
+	sta $d776
+	sta $d777
+	lda #106
+	stq $d770
+	lda .sample_rate_big_endian
+	sta $d775
+	lda .sample_rate_big_endian + 1 ; Note big-endian
+	sta $d774 ; This triggers the multiplication
+	ldq $d779 ; Skip the lowbyte at $d778, to perform >> 8
+	stq sample_frequency
+	
+;    lda .sample_rate_big_endian + 1 ; note big endian
+;    sta dividend
+;    lda .sample_rate_big_endian
+;    sta dividend + 1
+;    lda #10
+;    sta divisor
+;    lda #$00
+;    sta divisor + 1
+;    jsr divide16
+;    clc
+;    rol dividend
+;    rol dividend + 1
+;    rol dividend
+;    rol dividend + 1
+;    lda dividend
+;    sta sample_frequency
+;    lda dividend + 1
+;    sta sample_frequency + 1
+;    lda #$00
+;    sta sample_frequency + 2
     rts
 
 .init_fastRAM_base

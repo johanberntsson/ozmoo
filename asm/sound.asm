@@ -296,7 +296,7 @@ sound_arg_routine !byte 0, 0
 
 sample_start_address !byte 0,0,0
 sample_stop_address !byte 0,0,0
-sample_frequency !byte 0,0,0
+sample_frequency !byte 0,0,0,0 ; The last byte is a dummy, needed for the calculations for AIFF
 
 .current_effect !byte $ff
 .bad_audio_format_msg !pet "[unsupported audio format]", 13, 0
