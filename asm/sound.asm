@@ -49,7 +49,6 @@ sound_index_ptr = z_operand_value_low_arr ; 4 bytes
 
 top_soundfx_plus_1 !byte 0
 
-
 read_sound_file
 	; a: Sound file number (3-255)
 	
@@ -246,10 +245,48 @@ read_all_sound_files
 	jsr erase_window
 	lda #3
 	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
-.return
 	rts
 
-init_sound = read_all_sound_files
+init_sound
+    ; set up an interrupt to monitor playback
+    sei
+    lda #<.sound_callback
+    ldx #>.sound_callback
+    sta $0314
+    stx $0315
+    lda $d011
+    and #$7f ; high raster bit = 0
+    sta $d011
+    lda #251 ; low raster bit (1 raster beyond visible screen)
+    sta $d012
+    cli
+    jmp read_all_sound_files
+
+.sound_is_playing !byte 0
+
+.sound_callback
+    lda .sound_is_playing
+    beq .sound_callback_done
+    ; We issued a sound request. Is it still running?
+    lda $d720
+    and #$08
+    beq .sound_callback_done
+    ; the sound has stopped
+    lda #0
+    sta .sound_is_playing
+    ; are we looping?
+    lda sound_arg_repeats
+    cmp #$ff
+    beq .sound_callback_restart_sample
+    dec sound_arg_repeats
+    beq .sound_callback_done
+.sound_callback_restart_sample
+    ; loop!
+    jsr .play_sample
+.sound_callback_done
+    ; finish interrupt handling
+    asl $d019 ; acknowlege irq
+    jmp $ea31  ; finish irq
 
 sound_arg_effect !byte 0
 sound_arg_volume !byte 0
@@ -270,13 +307,9 @@ sound_effect
     beq .play_sound_effect
     cmp #3 ; stop
     beq .stop_sound_effect
+.return
     rts
     
-.stop_sound_effect
-    lda #$00
-    sta $d720
-    rts
-
 .play_sound_effect
     ; input: x = sound effect (3, 4 ...)
     ; convert to zero indexed
@@ -313,6 +346,12 @@ sound_effect
     jmp printstring_raw
 +   ; play the sample
     jmp .play_sample;
+
+.stop_sound_effect
+    lda #$00
+    sta $d720
+    sta .sound_is_playing
+    rts
 
 .play_sample
     ; stop playback while loading new sample data
@@ -354,7 +393,7 @@ sound_effect
     ; enable audio dma
     lda #$80 ; AUDEN
     sta $d711
-
+    sta .sound_is_playing ; tell the interrupt that we are running
     rts
 
 !ifdef SOUND_AIFF_ENABLED {
