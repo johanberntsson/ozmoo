@@ -22,12 +22,13 @@
 ; - add second channel for stereo
 ; - parse and use sampling frequency in AIFF COMM chunk
 ; - support all options for @sound_effect
+; - change preload of all sounds to load on demand
 
 !ifdef SOUND {
 !zone sound_support {
 !ifdef TARGET_MEGA65 {
 
-;TRACE_SOUND = 1
+TRACE_SOUND = 1
 
 sound_load_msg !pet "Loading sound: ",0
 sound_load_msg_2 !pet 13,"Done.",0
@@ -188,11 +189,9 @@ read_sound_file
 	lda (.dir_pointer),y
 	bne .read_next_file_sector	
 
-; !ifdef TRACE_SOUND {
 	lda top_soundfx_plus_1
 	adc #62
 	jsr s_printchar
-; }
 	clc
 	rts
 
@@ -212,11 +211,9 @@ store_sound_effect_start
 	rts
 
 read_all_sound_files
-; !ifdef TRACE_SOUND {
 	lda #>sound_load_msg
 	ldx #<sound_load_msg
 	jsr printstring_raw
-; }
 
 ; Init target address ($08080000) and index address ($0807FC00)
 	lda #8
@@ -240,33 +237,27 @@ read_all_sound_files
 +
 	; A file couldn't be read. We're done.
 	
-; !ifdef TRACE_SOUND {
 	lda #>sound_load_msg_2
 	ldx #<sound_load_msg_2
 	jsr printstring_raw
 	jsr wait_a_sec
 	ldx #$ff
 	jsr erase_window
-; }
 	lda #3
 	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
 .return
 	rts
 
-; JB work in progress
-.current_effect !byte 0
-
 init_sound = read_all_sound_files
-;    jmp read_all_sound_files
 
 start_sound_effect
     ; input: x = sound effect (3, 4 ...)
-	cpx top_soundfx_plus_1
-	bcs .return
+    ; convert to zero indexed
+    cpx top_soundfx_plus_1
+    bcs .return
     dex
     dex
     dex
-    stx .current_effect ; store as zero indexed index instead
 !ifdef TRACE_SOUND {
     jsr print_following_string
     !pet "start_sound_effect ",0
@@ -276,37 +267,100 @@ start_sound_effect
     jsr printx
     jsr newline
 }
+    cpx .current_effect
+    beq +
     ; load sound effect into fastRAM at $40000
+    stx .current_effect ; store as zero indexed index instead
     jsr .copy_effect_to_fastram
++   ; play sound effect
+    jmp .play_aiff
+
+.exponent !byte 0,0
+.sampling_rate_hz !byte 0, 0
+.bad_audio_format_msg !pet "[bad audio format]", 13, 0
+.current_effect !byte $ff
+
+.play_aiff
+    ; plays AIFF at $4000
+    ;
     ; simplifying assumptions:
     ; - only one SSND chunk
     ; - no comments in the SSND chunk
     ; - max size of each chunk other chunk is 256 bytes
-    jsr .init_fastRAM_base
-+   ; parse the AIFF header
+
+    ; parse the AIFF header
     jsr .init_fastRAM_base
     ; skip main header
     lda #12
     jsr .add_fastRAM_base
--   ; check what kind of chunk this is
-    ldz #1
+
+.check_chunk
+    ; check what kind of chunk this is
+    ldz #2
     lda [sound_file_target],z
     pha
     lda #4
     jsr .add_fastRAM_base ; skip chunk identifier (4 bytes)
     pla
-    cmp #$53
-    beq +
-
+    cmp #$4e ; is it ssNd?
+    beq .ssnd_chunk
     ; COMM, FORM, INST, MARK or SKIP chunk, skip this
+    cmp #$4d ; is it coMm?
+    bne .skip_chunk
+    ; COMM chunk
+    ; check channels (expect 1)
+    ldz #5
+    lda [sound_file_target],z
+    cmp #1
+    bne .bad_format
+    ; check bits/sample (expect 8 bit)
+    ldz #11
+    lda [sound_file_target],z
+    cmp #8
+    bne .bad_format
+    ; extract the sampling rate
+    ; exponent (= (byte 12 and 13) - $3fff, only positive allowed)
+    ; but since we are going to shift 8 bit from the fraction
+    ; we instead substract with ($3fff + 8 - 1 = $4006)
+    ldz #12
+    lda [sound_file_target],z
+    sec
+    sbc #$40 ; #$3f
+    sta .exponent + 1
+    inz 
+    lda [sound_file_target],z
+    sbc #$0a ; #$ff
+    sta .exponent
+    ; only use first byte of fraction (enough precision as int)
+    inz
+    lda [sound_file_target],z
+    sta .sampling_rate_hz + 1
+    lda #0
+    sta .sampling_rate_hz
+    ; modfiy with exponent
+    ldx .exponent
+-   
+    clc
+    ror .sampling_rate_hz + 1
+    ror .sampling_rate_hz
+    dex
+    bne -
+    jmp .skip_chunk
+
+.bad_format
+	lda #>.bad_audio_format_msg
+	ldx #<.bad_audio_format_msg
+	jmp printstring_raw
+
+.skip_chunk
     ldz #3
     lda [sound_file_target],z
     jsr .add_fastRAM_base ; skip chunk data (TODO check full size?)
     lda #4
     jsr .add_fastRAM_base ; skip chunk length (4 bytes)
-    jmp -
+    jmp .check_chunk
 
-+   ; SSND chunk
+.ssnd_chunk
     ; save chunk size for later
     ldz #2
 -   lda [sound_file_target],z
@@ -342,10 +396,25 @@ start_sound_effect
     lda #$80
     sta $d711
 
-    ; frequency
+    ; frequency (assuming CPU running at 40 MHz)
+    ; x = (f * 40)/100 = (f << 2) / 10
+    lda .sampling_rate_hz
+    sta dividend
+    lda .sampling_rate_hz + 1
+    sta dividend + 1
+    clc
+    rol dividend
+    rol dividend + 1
+    rol dividend
+    rol dividend + 1
+    lda #10
+    sta divisor
     lda #$00
+    sta divisor + 1
+    jsr divide16
+    lda dividend
     sta $d724
-    lda #$18
+    lda dividend + 1
     sta $d725
     lda #$00
     sta $d726
@@ -353,24 +422,6 @@ start_sound_effect
     ; Enable playback of channel 0, 8-bit samples, signed
     lda #$82
     sta $d720
-
-!ifdef TRACE_SOUND {
-    lda $d72a
-    jsr print_byte_as_hex
-    jsr space
-    lda $d72b
-    jsr print_byte_as_hex
-    jsr space
-    lda $d72c
-    jsr print_byte_as_hex
-    jsr colon
-    lda $d727
-    jsr print_byte_as_hex
-    jsr space
-    lda $d728
-    jsr print_byte_as_hex
-    jsr newline
-}
     rts
 
 .init_fastRAM_base
