@@ -14,13 +14,8 @@
 ;
 ; Currently we only support sample files with 8 bits, one channel.
 ;
-;
 ; TODO:
-; - add second channel for stereo
-; - support all options for @sound_effect
-; - sample rate correct, but conversion to d724-726 a bit off (see 007.aiff)
-; - perhaps change preload of all sounds to load on demand
-; - aiff misses the end point somewhat - fix this
+; - perhaps change preload of all sounds to load on demand for faster init
 
 !ifdef SOUND {
 !zone sound_support {
@@ -416,6 +411,18 @@ sound_effect
     rts
 
 .play_sample
+    ; TODO: it should be possible to use channel 0 only and mirror
+    ; it using $d71c, but I can't get it to work
+    ; .play_sample_ch3 can be removed if this is solved
+    jsr .play_sample_ch0 ; left
+    jsr .play_sample_ch3 ; right
+    ; enable audio dma
+    lda #$80 ; AUDEN
+    sta $d711
+    sta .sound_is_playing ; tell the interrupt that we are running
+    rts
+
+.play_sample_ch0
     ; stop playback while loading new sample data
     lda #$00
     sta $d720
@@ -434,12 +441,10 @@ sound_effect
     sta $d727
     lda sample_stop_address + 1
     sta $d728
-
     ; volume
     lda sound_arg_volume
     sta $d729
-    sta $d71c ; mirror channel for stereo
-
+    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
     ; sample clock/rate
     jsr .calculate_sample_clock
     lda .sample_clock
@@ -448,18 +453,50 @@ sound_effect
     sta $d725
     lda .sample_clock + 2
     sta $d726
-
     ; Enable playback of channel 0
     lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
     ldx sample_is_signed
     beq +
     ora #$20 ; CH0SGN
 +   sta $d720
+    rts
 
-    ; enable audio dma
-    lda #$80 ; AUDEN
-    sta $d711
-    sta .sound_is_playing ; tell the interrupt that we are running
+.play_sample_ch3
+    ; stop playback while loading new sample data
+    lda #$00
+    sta $d740
+    ; store sample start address in base and current address
+    lda sample_start_address
+    sta $d741 ; base 
+    sta $d74a ; current
+    lda sample_start_address + 1
+    sta $d742
+    sta $d74b
+    lda sample_start_address + 2
+    sta $d743
+    sta $d74c
+    ; store sample stop address
+    lda sample_stop_address
+    sta $d747
+    lda sample_stop_address + 1
+    sta $d748
+    ; volume
+    lda sound_arg_volume
+    sta $d749
+    ; sample clock/rate
+    ;jsr .calculate_sample_clock 
+    lda .sample_clock
+    sta $d744
+    lda .sample_clock + 1
+    sta $d745
+    lda .sample_clock + 2
+    sta $d746
+    ; Enable playback of channel 0
+    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
+    ldx sample_is_signed
+    beq +
+    ora #$20 ; CH0SGN
++   sta $d740
     rts
 
 !ifdef SOUND_WAV_ENABLED {
