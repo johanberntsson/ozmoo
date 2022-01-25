@@ -285,21 +285,38 @@ init_sound
     cmp #$ff
     beq .sound_callback_restart_sample
     dec sound_arg_repeats
-    beq .sound_callback_done
+    beq .sound_finished
 .sound_callback_restart_sample
     ; loop!
     jsr .play_sample
+    jmp .sound_callback_done
+}
+.sound_finished
+!ifdef Z5PLUS {
+    ; trigger the routine callback, if any
+    lda sound_arg_routine
+    bne +
+    lda sound_arg_routine + 1
+    beq ++  ; routine = 0
++   inc $d020
+    lda #1
+    sta trigger_sound_routine
+++
 }
 .sound_callback_done
     ; finish interrupt handling
     asl $d019 ; acknowlege irq
     jmp $ea31  ; finish irq
 
+
 ; This is set by z_ins_sound_effect
 sound_arg_effect !byte 0
 sound_arg_volume !byte 0
 sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
+
+; signal for the z-machine to run the routine argument
+trigger_sound_routine !byte 0
 
 ; This is set by sound-aiff or sound-wav
 sample_rate_hz !byte 0,0 

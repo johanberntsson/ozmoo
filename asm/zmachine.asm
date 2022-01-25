@@ -105,6 +105,28 @@ z_execute
 
 main_loop_normal_exe_mode
 
+!ifdef SOUND {
+    ; check if needed to run the @sound_effect routine argument
+    lda trigger_sound_routine
+    beq +
+    lda #0
+    sta trigger_sound_routine
+    ; run the routine without arguments
+    ; the routine address is in sound_arg_routine
+    ; we are not interested in the return value
+    lda sound_arg_routine
+    sta z_operand_value_high_arr
+    ldx sound_arg_routine + 1
+    stx z_operand_value_low_arr
+    lda #z_exe_mode_return_from_read_interrupt
+    ldx #0
+    ldy #0
+    jsr stack_call_routine
+    ; let the interrupt routine start
+    ;jsr z_execute
++
+}
+
 ; Timing
 !ifdef TIMING {
 	lda ti_variable + 1
