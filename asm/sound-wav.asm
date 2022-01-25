@@ -3,9 +3,11 @@
 ; http://www.ringthis.com/dev/wave_format.htm
 ;
 ; The samples need to be 8 bit, mono. Audacity can be used
-; to export wav files in the correct format, using the
-; U-Law encoding. See
-; https://www.tpx.com/support/using-audacity-2-0-x-save-wav-files/
+; to export wav files in the correct format:
+; - Select "File/Export/Export as WAV" from the main menu
+; - Select "Other compressed files" as the file type
+; - Select "Unsigned 8-bit PCM" as the encoding
+; - Save the file
 ;
 ; use mediainfo or exiftool to check the WAV metadata
 

@@ -26,7 +26,7 @@
 !zone sound_support {
 !ifdef TARGET_MEGA65 {
 
-TRACE_SOUND = 1
+;TRACE_SOUND = 1
 ;SOUND_AIFF_ENABLED = 1
 SOUND_WAV_ENABLED = 1
 
