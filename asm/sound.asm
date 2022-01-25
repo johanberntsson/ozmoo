@@ -293,7 +293,7 @@ init_sound
     bne +
     lda sound_arg_routine + 1
     beq ++  ; routine = 0
-+   inc $d020
++   ; routine isn't 0, trigger the callback
     lda #1
     sta trigger_sound_routine
 ++

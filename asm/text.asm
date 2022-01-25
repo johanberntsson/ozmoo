@@ -1073,6 +1073,28 @@ read_char
 }
 	
 !ifdef Z4PLUS {
+    ; check if we have a sound callback to run
+!ifdef SOUND {
+    ; check if needed to run the @sound_effect routine argument
+    lda trigger_sound_routine
+    beq .no_sound_trigger
+    lda #0
+    sta trigger_sound_routine
+    ; run the routine without arguments
+    ; the routine address is in sound_arg_routine
+    ; we are not interested in the return value
+    lda sound_arg_routine  + 1
+    sta z_operand_value_high_arr
+    ldx sound_arg_routine  
+    stx z_operand_value_low_arr
+    lda #z_exe_mode_return_from_read_interrupt
+    ldx #0
+    ldy #0
+    jsr stack_call_routine
+    ; let the interrupt routine start
+    jsr z_execute
+.no_sound_trigger
+}
 	; check if time for routine call
 	; http://www.6502.org/tutorials/compare_beyond.html#2.2
 	lda .read_text_time
