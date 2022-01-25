@@ -1,3 +1,12 @@
+; AIFF is a standard format for various media, including samples:
+; https://www.instructables.com/How-to-Read-aiff-Files-using-C/
+; use mediainfo or exiftool to check the AIFF metadata
+
+!ifdef SOUND_AIFF_ENABLED {
+
+.exponent !byte 0,0
+.sample_rate_big_endian !byte 0, 0, 0 ; two first bytes are value in Hz
+
 .parse_aiff
     ; parses AIFF at $4000
     ;
@@ -125,68 +134,12 @@
     pla
     adc sample_start_address + 1
     sta sample_stop_address + 1
-
-    ; frequency (assuming CPU running at 40.5 MHz)
-    ;
-    ; max sample clock $ffffff is about 40 MHz sample rate
-    ; (stored in $d724-$d726)
-    ;
-    ; $ffffff / sample_clock = CPU / f  => sample_clock = ($ffffff * f)/ CPU
-    ; but $ffffff/CPU is constant about 1/2.414
-    ; sample_clock =  f / 2.414
-    ;
-    ; to avoid floating point, multiply by 1000
-    ; x = (f * 2414)/1000 
-    ;
-    ; this is still hard to do with integers, so simplify by
-    ; using 106/256 (~= 1/2.415) instead. This will be 1% faster.
-    ; x = f * (106/256) = (f * 106) >> 8
-	
-	jsr mega65io
-	lda #0
-	tax
-	tay
-	taz
-	lda #106
-	stq $d770
 	ldx .sample_rate_big_endian
 	lda .sample_rate_big_endian + 1 ; Note big-endian
-	stq $d774
-	
-;	sta $d771
-;	sta $d772
-;	sta $d773
-;	sta $d776
-;	sta $d777
-;	lda #106
-;	stq $d770
-;	lda .sample_rate_big_endian
-;	sta $d775
-;	lda .sample_rate_big_endian + 1 ; Note big-endian
-;	sta $d774 ; This triggers the multiplication
-	ldq $d778 
-	stq sample_frequency_dummy ; Skip the lowbyte at $d778, to perform >> 8
-	
-;    lda .sample_rate_big_endian + 1 ; note big endian
-;    sta dividend
-;    lda .sample_rate_big_endian
-;    sta dividend + 1
-;    lda #10
-;    sta divisor
-;    lda #$00
-;    sta divisor + 1
-;    jsr divide16
-;    clc
-;    rol dividend
-;    rol dividend + 1
-;    rol dividend
-;    rol dividend + 1
-;    lda dividend
-;    sta sample_frequency
-;    lda dividend + 1
-;    sta sample_frequency + 1
-;    lda #$00
-;    sta sample_frequency + 2
+	stx sample_rate_hz  + 1
+	sta sample_rate_hz 
+	lda #0
+	sta sample_is_signed
     rts
 
 .init_fastRAM_base
@@ -209,7 +162,5 @@
     sta sound_file_target + 1
     rts
 
-.exponent !byte 0,0
-.sample_rate_big_endian !byte 0, 0, 0 ; two first bytes are value in Hz
-
+}
 

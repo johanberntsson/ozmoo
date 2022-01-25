@@ -1,22 +1,19 @@
 ; Sound support (currently only for MEGA65)
 ;
 ; Ozmoo can read and play sound effects (samples) from
-; aiff files. The aiff files can be extracted from
+; wav or aiff files. Aiff files can be extracted from
 ; blorb files using the rezrov utility:
 ; http://www.ifarchive.org/if-archive/programming/blorb/rezrov.c
 ; or converted from other sample formats using a tool like
 ; sndfile-convert
 ;
-; Currently we only support AIFF with 8 bits, one channel.
-;
-; Blorp files are the standard asset format for Inform games,
+; Blorb files are the standard asset format for Inform games,
 ; and Infocom assets from Sherlock, The Luring Horror and Shogun
-; have been converted to blorp.
+; have been converted to blorb.
 ; Specification: https://www.eblong.com/zarf/blorb/
 ;
-; AIFF is a standard format for various media, including samples:
-; https://www.instructables.com/How-to-Read-aiff-Files-using-C/
-; use mediainfo or exiftool to check the AIFF metadata
+; Currently we only support sample files with 8 bits, one channel.
+;
 ;
 ; TODO:
 ; - add second channel for stereo
@@ -29,13 +26,20 @@
 !zone sound_support {
 !ifdef TARGET_MEGA65 {
 
-;TRACE_SOUND = 1
-SOUND_AIFF_ENABLED = 1
+TRACE_SOUND = 1
+;SOUND_AIFF_ENABLED = 1
+SOUND_WAV_ENABLED = 1
 
 sound_load_msg !pet "Loading sound: ",0
 sound_load_msg_2 !pet 13,"Done.",0
 sound_file_name 
-	!pet "000.aiff"
+	!pet "000."
+!ifdef SOUND_AIFF_ENABLED {
+	!pet "aiff"
+}
+!ifdef SOUND_WAV_ENABLED {
+	!pet "wav"
+}
 	!byte $a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
 sound_nums !byte 100,10,1
 sound_data_base = z_temp + 3
@@ -291,18 +295,22 @@ init_sound
     asl $d019 ; acknowlege irq
     jmp $ea31  ; finish irq
 
+; This is set by z_ins_sound_effect
 sound_arg_effect !byte 0
 sound_arg_volume !byte 0
 sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
 
-sample_start_address !byte 0,0,0
-sample_stop_address !byte 0,0,0
-sample_frequency_dummy !byte 0 ; A dummy byte just before sample_frequency, needed for the calculations for AIFF
-sample_frequency !byte 0,0,0
+; This is set by sound-aiff or sound-wav
+sample_rate_hz !byte 0,0 
+sample_is_signed !byte 0 ; if sample data signed or not
+sample_start_address !byte 0,0,0,0 ; 32 bit pointer
+sample_stop_address !byte 0,0,0,0 ; 32 bit pointer
 
 .current_effect !byte $ff
 .bad_audio_format_msg !pet "[unsupported audio format]", 13, 0
+.sample_clock_dummy !byte 0 ; A dummy byte just before sample_clock, needed for the calculations for conversion from sample rate
+.sample_clock !byte 0,0,0
 
 sound_effect
     ; currently we ignore 1 prepare and 4 finish with
@@ -339,6 +347,9 @@ sound_effect
 +   ; parse sound effect data
     lda #$00
     sta sample_start_address + 2;
+!ifdef SOUND_WAV_ENABLED {
+    jsr .parse_wav
+}
 !ifdef SOUND_AIFF_ENABLED {
     jsr .parse_aiff
 }
@@ -355,6 +366,36 @@ sound_effect
     lda #$00
     sta $d720
     sta .sound_is_playing
+    rts
+
+.calculate_sample_clock
+   ; frequency (assuming CPU running at 40.5 MHz)
+    ;
+    ; max sample clock $ffffff is about 40 MHz sample rate
+    ; (stored in $d724-$d726)
+    ;
+    ; $ffffff / sample_clock = CPU / f  => sample_clock = ($ffffff * f)/ CPU
+    ; but $ffffff/CPU is constant about 1/2.414
+    ; sample_clock =  f / 2.414
+    ;
+    ; to avoid floating point, multiply by 1000
+    ; x = (f * 2414)/1000 
+    ;
+    ; this is still hard to do with integers, so simplify by
+    ; using 106/256 (~= 1/2.415) instead. This will be 1% faster.
+    ; x = f * (106/256) = (f * 106) >> 8
+    jsr mega65io
+    lda #0
+    tax
+    tay
+    taz
+    lda #106
+    stq $d770
+    ldx sample_rate_hz + 1
+    lda sample_rate_hz
+    stq $d774
+    ldq $d778
+    stq .sample_clock_dummy ; Skip the lowbyte at $d778, to perform >> 8
     rts
 
 .play_sample
@@ -382,17 +423,21 @@ sound_effect
     sta $d729
     sta $d71c ; mirror channel for stereo
 
-    ; frequency (assuming CPU running at 40 MHz)
-    lda sample_frequency
+    ; sample clock/rate
+    jsr .calculate_sample_clock
+    lda .sample_clock
     sta $d724
-    lda sample_frequency + 1
+    lda .sample_clock + 1
     sta $d725
-    lda #$00
+    lda .sample_clock + 2
     sta $d726
 
     ; Enable playback of channel 0
-    lda #$82 ; CHOEN + CHOSBITS (10 = 8 bits sample)
-    sta $d720
+    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
+    ldx sample_is_signed
+    beq +
+    ora #$20 ; CH0SGN
++   sta $d720
 
     ; enable audio dma
     lda #$80 ; AUDEN
@@ -400,6 +445,9 @@ sound_effect
     sta .sound_is_playing ; tell the interrupt that we are running
     rts
 
+!ifdef SOUND_WAV_ENABLED {
+!source "sound-wav.asm"
+}
 !ifdef SOUND_AIFF_ENABLED {
 !source "sound-aiff.asm"
 }

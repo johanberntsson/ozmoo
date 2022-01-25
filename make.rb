@@ -2,6 +2,9 @@
 
 require 'fileutils'
 
+$sound_format = "wav"
+#$sound_format = "aiff"
+
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
@@ -1789,7 +1792,7 @@ def print_usage
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
-#	puts "  -as: Add the sound files found at the specified path (003.aiff - 255.aiff)"
+#	puts "  -as: Add the sound files found at the specified path (003.#{$sound_format} - 255.#{$sound_format})"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2063,12 +2066,12 @@ if $soundpath
 	end
 	$soundpath += '/' if $soundpath !~ /\/$/ 
 	$soundfiles = Dir.glob($soundpath + '*').select { |e|
-#		/^([0-9]{3})\.aiff$/
+#		/^([0-9]{3})\.#{$sound_format}$/
 #		puts e
-		File.file?(e) && m = e[$soundpath.length .. -1].match(/^([0-9]{3})\.aiff$/) # && m[1].to_i.between?(3,255)
+		File.file?(e) && m = e[$soundpath.length .. -1].match(/^([0-9]{3})\.#{$sound_format}$/) # && m[1].to_i.between?(3,255)
 	}
 	if $soundfiles.empty?
-		puts "ERROR: No sound files found. Note that sound files must be named 003.aiff, 004.aiff etc."
+		puts "ERROR: No sound files found. Note that sound files must be named 003.#{$sound_format}, 004.#{$sound_format} etc."
 		exit 1
 	end
 	$soundfiles.sort!
