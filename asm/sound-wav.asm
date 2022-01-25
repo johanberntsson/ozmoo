@@ -13,16 +13,11 @@
 
 !ifdef SOUND_WAV_ENABLED {
 
-VERIFY_WAV_CHUNK_ID = 1
+;VERIFY_WAV_CHUNK_ID = 1
 
-.chunk_size !byte 0,0,0,0
+.sample_rate !byte 0,0
+.chunk_size        !byte 0,0,0,0 ; 32 bit address
 .chunk_header_size !byte 8,0,0,0 ; the ID and size are 4 bytes each
-.sample_rate !byte 0,0,0,0
-
-.bad_parse_wav
-    ; just returning without setting sample_address_start
-    ; will trigger an error messsage
-    rts
 
 .parse_wav
     ; parses WAV at $4000
@@ -40,7 +35,6 @@ VERIFY_WAV_CHUNK_ID = 1
     ; skip the RIFF header
     lda #$0c
     sta sound_file_target
-
     ; iterate over chunks
 .parse_chunk
     ldz #4
@@ -59,8 +53,6 @@ VERIFY_WAV_CHUNK_ID = 1
     ; sample rate
     ldz #$0c
     ldq [sound_file_target]
-    stz .sample_rate + 3
-    sty .sample_rate + 2
     stx .sample_rate + 1
     sta .sample_rate + 0
     ; bits/sample
@@ -74,8 +66,12 @@ VERIFY_WAV_CHUNK_ID = 1
     ; info chunk, just skip
     jmp .next_chunk
 +   cpz #$61
-    bne .bad_parse_wav
     beq .data_chunk
+    ; unknown chunk
+.bad_parse_wav
+    ; just returning without setting sample_address_start
+    ; will trigger an error messsage
+    rts
 .next_chunk
     ldq sound_file_target
     clc
@@ -83,7 +79,6 @@ VERIFY_WAV_CHUNK_ID = 1
     adcq .chunk_header_size
     stq sound_file_target
     jmp .parse_chunk
-
 .data_chunk
     ; data chunk
     ldq sound_file_target
