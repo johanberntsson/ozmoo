@@ -92,7 +92,7 @@
     lda .sample_rate + 1
     sta sample_rate_hz + 1
     ; TODO: how to see if the sample data is signed or not?
-    lda #1
+    lda #$ff
     sta sample_is_signed
     rts
 }

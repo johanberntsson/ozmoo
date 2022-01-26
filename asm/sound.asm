@@ -277,6 +277,7 @@ init_sound
 !ifdef Z5PLUS {
     ; are we looping?
     lda sound_arg_repeats
+	
     cmp #$ff
     beq .sound_callback_restart_sample
     dec sound_arg_repeats
@@ -310,12 +311,14 @@ sound_arg_volume !byte 0
 sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
 
+sound_tmp !byte 0,0
+
 ; signal for the z-machine to run the routine argument
 trigger_sound_routine !byte 0
 
 ; This is set by sound-aiff or sound-wav
 sample_rate_hz !byte 0,0 
-sample_is_signed !byte 0 ; if sample data signed or not
+sample_is_signed !byte 0 ; 0 if sample data is unsigned, $ff if signed
 sample_start_address !byte 0,0,0,0 ; 32 bit pointer
 sample_stop_address !byte 0,0,0,0 ; 32 bit pointer
 
@@ -377,6 +380,7 @@ sound_effect
 .stop_sound_effect
     lda #$00
     sta $d720
+    sta $d740
     sta .sound_is_playing
     rts
 
@@ -396,6 +400,8 @@ sound_effect
     ; this is still hard to do with integers, so simplify by
     ; using 106/256 (~= 1/2.415) instead. This will be 1% faster.
     ; x = f * (106/256) = (f * 106) >> 8
+	stx sound_tmp
+	sty sound_tmp + 1
     jsr mega65io
     lda #0
     tax
@@ -408,96 +414,115 @@ sound_effect
     stq $d774
     ldq $d778
     stq .sample_clock_dummy ; Skip the lowbyte at $d778, to perform >> 8
+	ldx sound_tmp
+	ldy sound_tmp + 1
     rts
 
 .play_sample
     ; TODO: it should be possible to use channel 0 only and mirror
     ; it using $d71c, but I can't get it to work
     ; .play_sample_ch3 can be removed if this is solved
-    jsr .play_sample_ch0 ; left
-    jsr .play_sample_ch3 ; right
+	ldx #$0
+	ldy #$20
+    jsr .play_sample_ch_xy ; left
     ; enable audio dma
     lda #$80 ; AUDEN
     sta $d711
     sta .sound_is_playing ; tell the interrupt that we are running
     rts
 
-.play_sample_ch0
-    ; stop playback while loading new sample data
-    lda #$00
-    sta $d720
-    ; store sample start address in base and current address
-    lda sample_start_address
-    sta $d721 ; base 
-    sta $d72a ; current
-    lda sample_start_address + 1
-    sta $d722
-    sta $d72b
-    lda sample_start_address + 2
-    sta $d723
-    sta $d72c
-    ; store sample stop address
-    lda sample_stop_address
-    sta $d727
-    lda sample_stop_address + 1
-    sta $d728
-    ; volume
-    lda sound_arg_volume
-    sta $d729
-    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
-    ; sample clock/rate
-    jsr .calculate_sample_clock
-    lda .sample_clock
-    sta $d724
-    lda .sample_clock + 1
-    sta $d725
-    lda .sample_clock + 2
-    sta $d726
-    ; Enable playback of channel 0
-    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
-    ldx sample_is_signed
-    beq +
-    ora #$20 ; CH0SGN
-+   sta $d720
-    rts
+.play_sample_ch_xy
+	; stop playback while loading new sample data
+	lda #$00
+	sta $d720,x
+	sta $d720,y
+	; store sample start address in base and current address
+	lda sample_start_address
+	sta $d721,x ; base 
+	sta $d721,y ; base 
+	sta $d72a,x ; current
+	sta $d72a,y ; current
+	lda sample_start_address + 1
+	sta $d722,x
+	sta $d722,y
+	sta $d72b,x
+	sta $d72b,y
+	lda sample_start_address + 2
+	sta $d723,x
+	sta $d723,y
+	sta $d72c,x
+	sta $d72c,y
+	; store sample stop address
+	lda sample_stop_address
+	sta $d727,x
+	sta $d727,y
+	lda sample_stop_address + 1
+	sta $d728,x
+	sta $d728,y
+	; volume
+	lda sound_arg_volume
+	sta $d729,x
+	sta $d729,y
+;    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
+;    sta $d71e ; mirror the sound for stereo (TODO: doesn't work!)
+	; sample clock/rate
+	jsr .calculate_sample_clock
+	lda .sample_clock
+	sta $d724,x
+	sta $d724,y
+	lda .sample_clock + 1
+	sta $d725,x
+	sta $d725,y
+	lda .sample_clock + 2
+	sta $d726,x
+	sta $d726,y
+	; Enable playback of channel 0
+	lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
+	bit sample_is_signed
+	bpl +
+	ora #$20 ; CH0SGN
++   sta $d720,x
+	sta $d720,y
+	rts
 
-.play_sample_ch3
-    ; stop playback while loading new sample data
-    lda #$00
-    sta $d740
-    ; store sample start address in base and current address
-    lda sample_start_address
-    sta $d741 ; base 
-    sta $d74a ; current
-    lda sample_start_address + 1
-    sta $d742
-    sta $d74b
-    lda sample_start_address + 2
-    sta $d743
-    sta $d74c
-    ; store sample stop address
-    lda sample_stop_address
-    sta $d747
-    lda sample_stop_address + 1
-    sta $d748
-    ; volume
-    lda sound_arg_volume
-    sta $d749
-    ; sample clock/rate
-    ;jsr .calculate_sample_clock 
-    lda .sample_clock
-    sta $d744
-    lda .sample_clock + 1
-    sta $d745
-    lda .sample_clock + 2
-    sta $d746
-    ; Enable playback of channel 0
-    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
-    ldx sample_is_signed
-    beq +
-    ora #$20 ; CH0SGN
-+   sta $d740
-    rts
+;.play_sample_ch0
+;    ; stop playback while loading new sample data
+;    lda #$00
+;    sta $d720
+;    ; store sample start address in base and current address
+;    lda sample_start_address
+;    sta $d721 ; base 
+;    sta $d72a ; current
+;    lda sample_start_address + 1
+;    sta $d722
+;    sta $d72b
+;    lda sample_start_address + 2
+;    sta $d723
+;    sta $d72c
+;    ; store sample stop address
+;    lda sample_stop_address
+;    sta $d727
+;    lda sample_stop_address + 1
+;    sta $d728
+;    ; volume
+;    lda sound_arg_volume
+;    sta $d729
+;    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
+;    ; sample clock/rate
+;    jsr .calculate_sample_clock
+;    lda .sample_clock
+;    sta $d724
+;    lda .sample_clock + 1
+;    sta $d725
+;    lda .sample_clock + 2
+;    sta $d726
+;    ; Enable playback of channel 0
+;    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
+;    ldx sample_is_signed
+;    beq +
+;    ora #$20 ; CH0SGN
+;+   sta $d720
+;    rts
 
 !ifdef SOUND_WAV_ENABLED {
 !source "sound-wav.asm"
@@ -586,16 +611,22 @@ z_ins_sound_effect
 	sta z_operand_value_high_arr + 3
 +
 }
-	
+
 	lda z_operand_value_low_arr + 2 ; volume
-;!ifdef Z3 {
-;	; If highbyte is nonzero, set volume to max
-;	ldy z_operand_value_high_arr + 2 ; volume highbyte
-;	beq +
-;	lda #255
-;+
-;}
-	sta sound_arg_volume
+	cmp #$ff
+	beq +
+	cmp #9 ; Values 9-254 are rounded down to 8
+	bcc ++
+	lda #8
+	sta z_operand_value_low_arr + 2 
+++	asl
+	asl
+	asl
+	asl
+	asl
+	sec
+	sbc z_operand_value_low_arr + 2
++	sta sound_arg_volume
 !ifdef Z5PLUS {
 	lda z_operand_value_high_arr + 2 ; repeats
 	bne +
