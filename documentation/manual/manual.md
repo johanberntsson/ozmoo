@@ -412,6 +412,24 @@ You are free to use one of these fonts in a game you make and distribute, regard
 
 To see all the licensing details for each font, read the corresponding license file in the "fonts" folder. The full information in the license file must also be included with the game distribution if you embed a font with a game.
 
+# Sound
+
+While the first Infocom games had a high and low-pitched beeps, later games had extended sound support using sample playback. Ozmoo supports the basic sound effects on machines with the SID chip (C64 and C128), and extended sounds on the MEGA65.
+
+Sound support uses sample files stored in the WAV format. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
+
+- Select "File/Export/Export as WAV" from the main menu
+- Select "Other compressed files" as the file type
+- Select "Unsigned 8-bit PCM" as the encoding
+- Save the file
+
+## Sound switches
+
+    -as path
+Enable extended sound support and add all .wav files in path
+
+If extended sound is to be used, then make.rb should be called with the `-as path` switch. If set, then all .wav files in the `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+
 # Loader image
 
 When building for the Commodore 64 or Plus/4, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be a Koala paint multicolour image (10003 bytes in size) when building a game for the C64, or a Multi Botticelli multicolour image (10050 bytes in size) when building a game for the Plus/4. Border flicker is not supported for the Plus/4. Example commands:

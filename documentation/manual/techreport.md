@@ -308,6 +308,21 @@ trouble.
 
 When read_byte_at_z_address detects that we want to read data from a page in the non-accessible memory ($d000-$ffff) then we will copy that page (256 bytes) from the non-accessible memory to one of the pages in the vmem buffer. This is done by copy_page (in memory.asm), which can copy a page securely from and to any memory position using memory banking as needed.
 
+# Sound
+
+While the first Infocom games had a high and low-pitched beeps, later games had extended sound support using sample playback. Ozmoo supports the basic sound effects on machines with the SID chip (C64 and C128), and extended sounds on the MEGA65.
+
+Sound support is implemented sound.asm. Extended sounds also use sound-wav.asm to parse sample files stored in the WAV format. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
+
+- Select "File/Export/Export as WAV" from the main menu
+- Select "Other compressed files" as the file type
+- Select "Unsigned 8-bit PCM" as the encoding
+- Save the file
+
+If extended sound is to be used, then make.rb must be called with the `-as path` switch. If set, then all .wav files in the `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+
+Ozmoo will preload all sound files during startup when compiled with extended sound support into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
+
 # Accented Characters
 
 Ozmoo has some support for using accented characters in games. Since the Commodore 64 doesn't really support accented characters, some tricks are needed to make this work.
@@ -413,6 +428,10 @@ Don't load any parts of static memory into RAM from disk sectors on boot. If mak
     SLOW
 
 Prioritise small size over speed, making the interpreter smaller and slower. For C128 and Plus/4, this is enabled by default and can't be disabled, due to their memory models.
+
+    SOUND (MEGA65 only)
+
+Include support for sound (.wav sample files playback).
 
     STACK_PAGES=n
 
