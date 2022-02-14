@@ -310,9 +310,9 @@ When read_byte_at_z_address detects that we want to read data from a page in the
 
 # Sound
 
-While the first Infocom games had a high and low-pitched beeps, later games had extended sound support using sample playback. Ozmoo supports the basic sound effects on machines with the SID chip (C64 and C128), and extended sounds on the MEGA65.
+While several Infocom games would play high and low-pitched beeps, a few games had extended sound support using sample playback. Ozmoo supports the basic sound effects (beeps) on all platforms, and extended sounds on the MEGA65.
 
-Sound support is implemented sound.asm. Extended sounds also use sound-wav.asm to parse sample files stored in the WAV format. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
+Sound support is implemented in sound.asm. Extended sounds also use sound-wav.asm to parse sample files stored in the WAV format. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
 
 - Select "File/Export/Export as WAV" from the main menu
 - Select "Other compressed files" as the file type
@@ -321,7 +321,7 @@ Sound support is implemented sound.asm. Extended sounds also use sound-wav.asm t
 
 If extended sound is to be used, then make.rb must be called with the `-as path` switch. If set, then all .wav files in the `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
 
-Ozmoo will preload all sound files during startup when compiled with extended sound support into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
+When compiled with extended sound support, Ozmoo will preload all sound files during startup into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
 
 # Accented Characters
 
