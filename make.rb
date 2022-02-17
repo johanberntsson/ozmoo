@@ -105,7 +105,9 @@ $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
 
 $trinity_releases = {
-	"r15-s870628" => "fd93 ba bb e2"
+	"r11-s860509" => "fddd 2058 01",
+	"r12-s860926" => "fddd 2048 01",
+	"r15-s870628" => "fd8d 2048 01"
 }
 
 $beyondzork_releases = {
