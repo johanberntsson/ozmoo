@@ -276,3 +276,7 @@ Release 10:
 - Fixed a crash that sometimes occured when not preloading any blocks.
 - Faster multiplication in dictionary lookup and scrolling on C128 80 col.
 - Don't include subroutine z_get_low_global_variable_value unless it's needed.
+- Ozmoo now correctly patches Trinity R11, R12 and R15 to allow for play on
+  narrow screens. (We had a patch for R15, but it made the copyright message
+  on start screen come out garbled)
+  
