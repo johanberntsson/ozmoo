@@ -279,4 +279,5 @@ Release 10:
 - Ozmoo now correctly patches Trinity R11, R12 and R15 to allow for play on
   narrow screens. (We had a patch for R15, but it made the copyright message
   on start screen come out garbled)
+- Exclude unused code for showing time on statusline in z1-z2 build.
   
