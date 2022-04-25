@@ -280,4 +280,5 @@ Release 10:
   narrow screens. (We had a patch for R15, but it made the copyright message
   on start screen come out garbled)
 - Exclude unused code for showing time on statusline in z1-z2 build.
+- Minor optimization in object tree code.
   

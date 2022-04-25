@@ -157,10 +157,9 @@ z_ins_get_prop_len
 +   ; this is byte 2 of a 2-byte property block
 	pla
 	and #$3f
-	sta .property_length
-	bne ++
-	lda #64
-	sta .property_length
+	bne +
+	lda #$40
++	sta .property_length
 } else {
 	lsr
 	lsr
@@ -830,11 +829,10 @@ calculate_property_length_number
 .two_bytes
 	pla ; we don't care about byte 1, bit 6 anymore
 	jsr read_next_byte ; property_length
-	and #$3f ; property number
-	sta .property_length
-	bne .end_pf_property_list
-	lda #64
-	sta .property_length
+	and #$3f ; property length
+	bne +
+	lda #$40
++	sta .property_length
 } else {
 	pha
 	and #$1f ; property number
