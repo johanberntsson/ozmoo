@@ -281,4 +281,7 @@ Release 10:
   on start screen come out garbled)
 - Exclude unused code for showing time on statusline in z1-z2 build.
 - Minor optimization in object tree code.
+- Fixed bug in statusline code that stopped building z3 games for MEGA65
+- Fixed bug with wrong string length for U1 command sent to disk, which
+  made C64 games running in C64 mode on MEGA65 unable to boot.
   

@@ -749,13 +749,12 @@ read_track_sector
 	jsr fatalerror
 .cname !text "#"
 cname_len = * - .cname
-
 .uname !text "U1 2 0 "
 .uname_track !text "18 "
 .uname_sector !text "00"
+uname_len = * - .uname
 	!byte 0 ; end of string, so we can print debug messages
 
-uname_len = * - .uname
 
 } ; End of non-MEGA65 read_track_sector routines
 
