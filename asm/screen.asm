@@ -814,7 +814,9 @@ draw_status_line
 	ldy #header_flags_1
 	jsr read_header_word
 	and #$02
-	bne .timegame
+	beq +
+	jmp .timegame
++
 }
 	; score game
 	lda z_operand_value_low_arr
