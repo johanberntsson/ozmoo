@@ -206,6 +206,7 @@ c128_mmu_load_pcrd    = $ff04
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_reset          = $ff3d ; cold reset of the C128
 kernal_setbnk         = $ff68 ; set bank for I/O
+kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
 kernal_open           = $ffc0 ; open a file

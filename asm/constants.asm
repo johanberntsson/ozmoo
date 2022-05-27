@@ -257,6 +257,7 @@ kernal_delay_1ms      = $e2dc ; delay 1 ms
 kernal_reset          = $e4b8 ; Reset back to C65 mode
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
+kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
 kernal_open           = $ffc0 ; open a file

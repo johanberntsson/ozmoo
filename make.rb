@@ -1101,6 +1101,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
+		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 		$soundfiles.each do |file|
 			f = file
 			f = f.gsub(/\//,"\\") if $is_windows 
@@ -1683,7 +1684,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	
 	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
 
-	disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	if $target == "mega65" then
+		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
+	else
+		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	end
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 
@@ -1721,10 +1726,12 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	#	puts config_data
 	disk.set_config_data(config_data)
 	
-	if $statmem_blocks > 0
-		if disk.create_story_partition() == false
-			puts "ERROR: Could not create partition to protect data on disk."
-			exit 1
+	unless $target == "mega65" then
+		if $statmem_blocks > 0
+			if disk.create_story_partition() == false
+				puts "ERROR: Could not create partition to protect data on disk."
+				exit 1
+			end
 		end
 	end
 	
@@ -1982,6 +1989,13 @@ rescue => e
 	print "ERROR: "
 	puts e.message
 	exit 1
+end
+
+if $target == "mega65"
+	# Force -p:0 -b (Don't include any vmem blocks in boot file, and don't preload any at start
+	preload_max_vmem_blocks = 0
+	limit_preload_vmem_blocks = true
+	$no_sector_preload = true
 end
 
 print_usage_and_exit() if await_soundpath or await_preloadfile or await_fontfile or await_imagefile

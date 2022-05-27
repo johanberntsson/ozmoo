@@ -760,7 +760,9 @@ reu_last_disk_end_block = string_array ; 2 bytes
 
 ; global variables
 ; filelength !byte 0, 0, 0
-; fileblocks !byte 0, 0
+!ifdef TARGET_MEGA65 {
+fileblocks !byte 0, 0, 0
+}
 ; c64_model !byte 0 ; 1=NTSC/6567R56A, 2=NTSC/6567R8, 3=PAL/6569
 !ifdef VMEM {
 game_id		!byte 0,0,0,0
@@ -1655,6 +1657,27 @@ deletable_init
 	jsr c128_move_dynmem_and_calc_vmem
 }
 
+!ifdef TARGET_MEGA65 {
+	ldy #header_filelength
+	jsr read_header_word
+	stx fileblocks
+!ifndef Z4PLUS {
+	ldx #1 ; # of shifts for filesize
+} else {
+!ifdef Z7PLUS {
+	ldx #3 ; # of shifts for filesize
+} else {
+	ldx #2 ; # of shifts for filesize
+}
+}
+-	asl fileblocks
+	rol
+	rol fileblocks + 2
+	dex
+	bne -
+	sta fileblocks + 1
+}
+
 	jsr prepare_static_high_memory
 
 	jsr insert_disks_at_boot
@@ -1785,7 +1808,9 @@ insert_disks_at_boot
 	beq .restore_xy_disk_done
 	lda #13
 	jsr s_printchar
+!ifndef TARGET_MEGA65 {
 	jsr copy_data_from_disk_at_zp_temp_to_reu
+}
 }
 .restore_xy_disk_done
 	ldx zp_temp
@@ -1810,6 +1835,93 @@ insert_disks_at_boot
 	
 !if SUPPORT_REU = 1 {
 .copy_data_from_disk_1_to_reu
+
+!ifdef TARGET_MEGA65 {
+	lda #0
+	sta reu_last_disk_end_block
+	sta reu_last_disk_end_block + 1
+
+	lda fileblocks + 1
+	sta z_temp + 4 ; Last sector# on this disk. Store low-endian
+	lda fileblocks + 2
+	sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+
+	jsr print_reu_progress_bar
+
+;	lda #0
+;	sta zp_temp + 2
+;	sta zp_temp + 3
+
+	; Prepare for copying data to REU
+	lda #0
+	sta z_temp ; Lowbyte of current page in Z-machine memory
+	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
+	ldx #1
+	stx z_temp + 2 ; Lowbyte of current page in REU memory
+	sta z_temp + 3 ; Highbyte of current page in REU memory
+
+	; Prepare a page where we can store data
+	jsr get_free_vmem_buffer
+	sta z_temp + 7
+	lda #0
+	sta z_temp + 6
+	
+	lda #2      ; file number 2
+	tay
+	ldx boot_device
+	jsr kernal_setlfs ; call SETLFS
+
+	lda #.zcodefilenamelen
+	ldx #<.zcodefilename
+	ldy #>.zcodefilename
+	jsr kernal_setnam ; call SETNAM
+
+	jsr kernal_open     ; call OPEN
+	bcc +
+	jmp disk_error    ; if carry set, the file could not be opened
++
+	ldx #2      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+	
+.initial_copy_loop
+
+	jsr kernal_readst
+	bne .initial_reu_copying_done
+	
+	ldy #0
+-	jsr kernal_readchar
+	sta(z_temp + 6),y
+	iny
+	bne -
+
+	lda z_temp + 3
+	ldx z_temp + 2
+	ldy z_temp + 7 ; Current C64 memory page
+	jsr copy_page_to_reu
+	bcs .reu_error
+
+	; Inc Z-machine page
+	inc z_temp
+	bne +
+	inc z_temp + 1
+
+	; Inc REU page
++	inc z_temp + 2
+	bne .initial_copy_loop
+	inc z_temp + 3
+	jmp .initial_copy_loop ; Always branch
+	
+	
+.initial_reu_copying_done
+	jsr close_io
+	jmp .restore_xy_disk_done
+	
+.zcodefilename
+	!pet "zcode,s,r"
+.zcodefilenamelen = * - .zcodefilename
+
+} else {
+	; Not TARGET_MEGA65
 	lda use_reu
 	bpl .dont_need_to_insert_this
 	lda reu_needs_loading
@@ -1892,7 +2004,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 	sta reu_last_disk_end_block + 1
 
 	rts
-
+} ; End not TARGET_MEGA65
 
 .reu_error
 	jmp reu_error

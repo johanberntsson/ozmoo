@@ -70,7 +70,17 @@ readblocks
 	inx
 	bne +
 	iny
-+	tya
++
+!ifdef TARGET_MEGA65 {
+	txa
+	clc
+	adc nonstored_pages
+	tax
+	bcc +
+	iny
++	
+}
+	tya
 	ldy readblocks_mempos + 1 ; Assuming lowbyte is always 0 (which it should be)
 	jmp copy_page_from_reu
 }

@@ -285,3 +285,5 @@ Release 10:
 - Fixed bug with wrong string length for U1 command sent to disk, which
   made C64 games running in C64 mode on MEGA65 unable to boot.
 - MEGA65 fast loading code has been disabled since it broke save/restore.  
+- Switched to storing story file as a SEQ file for MEGA65, instead of raw 
+  blocks.
