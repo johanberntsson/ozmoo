@@ -1519,6 +1519,10 @@ deletable_init
 	ldy #8
 .store_boot_device
 	sty boot_device ; Boot device# stored
+
+;	tya
+;	jsr init_drive
+
 !ifdef VMEM {
 !ifdef TARGET_PLUS4 {
 	; Make config info on screen invisible
@@ -1838,7 +1842,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 	
 	jsr print_reu_progress_bar
 
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_MEGA65_X {
 	jsr m65_start_disk_access
 }
 
@@ -1878,7 +1882,7 @@ copy_data_from_disk_at_zp_temp_to_reu
 
 .done_copying
 
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_MEGA65_X {
 	jsr m65_end_disk_access
 }
 

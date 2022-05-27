@@ -262,6 +262,38 @@ readblock
 
 
 !ifdef TARGET_MEGA65 {
+m65_run_dma
+	
+	jsr mega65io
+	lda #0
+	sta $d702 ; DMA list is in bank 0
+	lda #>dma_list
+	sta $d701
+	lda #<dma_list
+	sta $d705 
+	cli
+	clc
+	rts	
+
+dma_list
+	!byte $0b ; Use 12-byte F011B DMA list format
+	!byte $80 ; Set source address bit 20-27
+dma_source_address_top		!byte 0
+	!byte $81 ; Set destination address bit 20-27
+dma_dest_address_top		!byte 0
+	!byte $00 ; End of options
+dma_command_lsb			!byte 0		; 0 = Copy
+dma_count					!word $100	; Always copy one page
+dma_source_address			!word 0
+dma_source_bank_and_flags	!byte 0
+dma_dest_address			!word 0
+dma_dest_bank_and_flags	!byte 0
+dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
+dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
+
+}
+
+!ifdef TARGET_MEGA65_X {
 
 read_track_sector
 	; a: track (1-80)
@@ -304,19 +336,6 @@ read_track_sector
 	sty dma_source_address_top
 	sty dma_count
 
-m65_run_dma
-	
-	jsr mega65io
-	lda #0
-	sta $d702 ; DMA list is in bank 0
-	lda #>dma_list
-	sta $d701
-	lda #<dma_list
-	sta $d705 
-	cli
-	clc
-	rts	
-
 m65_start_disk_access
 	jsr mega65io
 	inc m65_disk_enabled
@@ -352,7 +371,7 @@ m65_get_current_trackno
 	lda m65_current_trackno
 	bpl .return
 
-; m65_reset_trackno
+m65_reset_trackno
 	; lda #48
 	; sta SCREEN_ADDRESS + 3*80 ; Show status "0"
 -	jsr m65_busy_wait
@@ -424,6 +443,40 @@ m65_get_track_address
 	sta m65_track_buffer_flag,y
 	lda m65_track_buffer_startpage,y
 	rts
+
+m65_reset_drive
+	jsr close_io    ; just in case
+	lda #0
+	tax
+	; x = physical track# (0-79)
+	; a = side (0-1)
+	pha
+
+	asl
+	asl
+	asl
+	eor #$68 ; After this we have either $68 (side 0) or $60 (side 1)
+	pha
+
+	jsr m65_start_disk_access
+	pla
+	sta $d080 ; Enable drive motor AND select side
+	jsr m65_busy_wait
+
+	pla
+	sta $d086 ; Set disk side register
+
+	jsr m65_reset_trackno
+
+	jsr m65_end_disk_access
+
+	; Forget which track we are on
+	lda #$ff
+	sta m65_current_trackno
+	
+	lda #8
+	jmp init_drive
+
 
 m65_read_track
 	; x = physical track# (0-79)
@@ -622,22 +675,6 @@ m65_disk_tmp				!byte 0
 m65_mempos_tmp				!byte 0
 m65_sector_order			!byte 9,7,5,3,1,8,6,4,2,0 ; Read in reverse order. Uses our internal numbering 0-9, add 1 to get physical sector.
 	
-dma_list
-	!byte $0b ; Use 12-byte F011B DMA list format
-	!byte $80 ; Set source address bit 20-27
-dma_source_address_top		!byte 0
-	!byte $81 ; Set destination address bit 20-27
-dma_dest_address_top		!byte 0
-	!byte $00 ; End of options
-dma_command_lsb			!byte 0		; 0 = Copy
-dma_count					!word $100	; Always copy one page
-dma_source_address			!word 0
-dma_source_bank_and_flags	!byte 0
-dma_dest_address			!word 0
-dma_dest_bank_and_flags	!byte 0
-dma_command_msb			!byte 0		; 0 for linear addressing for both src and dest
-dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
-
 } else {
 	; Not MEGA65
 
@@ -697,7 +734,7 @@ read_track_sector
 	jsr kernal_setbnk
 }
 	jsr kernal_open     ; call OPEN
-	bcs .error    ; if carry set, the file could not be opened
+	bcs is_error    ; if carry set, the file could not be opened
 
 	; open the command channel
 
@@ -715,8 +752,15 @@ read_track_sector
 	jsr kernal_setbnk
 }
 	jsr kernal_open ; call OPEN (open command channel and send U1 command)
-	bcs .error    ; if carry set, the file could not be opened
+	bcs is_error    ; if carry set, the file could not be opened
 
+	; DEBUG print
+;	lda #>.uname
+;	ldx #<.uname
+;	jsr printstring_raw
+;	lda #$0d
+;	jsr s_printchar
+	
 	; check drive error channel here to test for
 	; FILE NOT FOUND error etc.
 
@@ -740,13 +784,6 @@ read_track_sector
 	jmp close_io
 }
 
-.error
-	; accumulator contains BASIC error code
-	; most likely errors:
-	; A = $05 (DEVICE NOT PRESENT)
-	jsr close_io    ; even if OPEN failed, the file has to be closed
-	lda #ERROR_FLOPPY_READ_ERROR
-	jsr fatalerror
 .cname !text "#"
 cname_len = * - .cname
 .uname !text "U1 2 0 "
@@ -757,6 +794,55 @@ uname_len = * - .uname
 
 
 } ; End of non-MEGA65 read_track_sector routines
+
+!zone initdrive {
+is_error
+	; accumulator contains BASIC error code
+	; most likely errors:
+	; A = $05 (DEVICE NOT PRESENT)
+	jmp disk_error
+;	jsr close_io    ; even if OPEN failed, the file has to be closed
+;	lda #ERROR_FLOPPY_READ_ERROR
+;	jsr fatalerror
+
+init_drive
+	pha ; Save device#
+	; open the command channel
+
+	lda #initname_len
+	ldx #<.initname
+	ldy #>.initname
+	jsr kernal_setnam ; call SETNAM
+	pla
+	tax
+	lda #$0F      ; file number 15
+	tay      ; secondary address 15
+	jsr kernal_setlfs ; call SETLFS
+!ifdef TARGET_C128 {
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
+	lda #$25
+	jsr s_printchar
+	jsr kernal_open ; call OPEN (open command channel and send I0 command)
+	bcs is_error    ; if carry set, the file could not be opened
+	lda #$25
+	jsr s_printchar
+	
+!ifdef TARGET_C128 {
+	jsr close_io
+	jmp restore_2mhz
+} else {
+	jmp close_io
+}
+
+.initname !text "I0"
+initname_len = * - .initname
+	!byte 0 ; end of string, so we can print debug messages
+}
+
+
 
 .track  !byte 0
 .sector !byte 0
@@ -777,6 +863,7 @@ close_io
 	jsr kernal_close ; call CLOSE
 
 	jmp kernal_clrchn ; call CLRCHN
+
 
 !zone disk_messages {
 print_insert_disk_msg
@@ -841,6 +928,12 @@ print_insert_disk_msg
 	;jsr kernal_readchar ; this shows the standard kernal prompt (not good)
 -	jsr kernal_getchar
 	beq -
+
+;	ldy .save_y
+;	lda disk_info + 4,y
+;	jsr init_drive
+
+
 	; lda .print_row
 	; clc
 	; adc #3
@@ -877,7 +970,7 @@ z_ins_restart
 	; Find right device# for boot disk
 	ldx disk_info + 3
 
-!ifndef TARGET_MEGA65 {
+!ifndef TARGET_MEGA65_X {
 	lda disk_info + 4,x
 	jsr convert_byte_to_two_digits
 	stx .device_no
@@ -1109,16 +1202,38 @@ z_ins_save
 	sta .inputstring,x
 	rts
 
-.error
+disk_error
 	; accumulator contains BASIC error code
 	; most likely errors:
 	; A = $05 (DEVICE NOT PRESENT)
-	sta zp_temp + 1 ; Store error code for printing
+	pha ; Store error code for printing
 	jsr close_io    ; even if OPEN failed, the file has to be closed
+	jsr printchar_flush
 	lda #>.disk_error_msg
 	ldx #<.disk_error_msg
 	jsr printstring_raw
 	; Add code to print error code!
+	pla
+	tax
+	lda #0
+	jsr printinteger
+	jsr printchar_flush
+
+	lda #$25
+	jsr s_printchar
+	lda #0
+	ldx $d68b
+	jsr printinteger
+	jsr printchar_flush
+	lda #$25
+	jsr s_printchar
+	lda #0
+	ldx $d6a1
+	jsr printinteger
+	jsr printchar_flush
+
+	lda #$0d
+	jsr s_printchar
 	lda #0
 	rts
 	
@@ -1155,7 +1270,7 @@ list_save_files
 +   ldy #0      ; secondary address 2
 	jsr kernal_setlfs ; call SETLFS
 	jsr kernal_open     ; call OPEN
-	bcs .error    ; if carry set, the file could not be opened
+	bcs disk_error    ; if carry set, the file could not be opened
 
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
@@ -1512,6 +1627,10 @@ restore_game
 	sta reg_2mhz	;CPU = 1MHz
 }
 
+!ifdef TARGET_MEGA65_X {
+	jsr m65_reset_drive
+}
+
 	jsr maybe_ask_for_save_device
 	bcs .restore_failed
 
@@ -1604,6 +1723,10 @@ save_game
 	lda #0
 	sta allow_2mhz_in_40_col
 	sta reg_2mhz	;CPU = 1MHz
+}
+
+!ifdef TARGET_MEGA65_X {
+	jsr m65_reset_drive
 }
 
 	jsr maybe_ask_for_save_device
