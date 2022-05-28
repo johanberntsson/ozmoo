@@ -103,6 +103,7 @@ $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
+$config_filename = File.join($TEMPDIR, 'config.tmp')
 
 $trinity_releases = {
 	"r11-s860509" => "fddd 2058 01",
@@ -295,7 +296,7 @@ class D64_image < Disk_image
 
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
 		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
-		@reserved_sectors[@config_track] = 2 if @is_boot_disk
+		@reserved_sectors[@config_track] = 2 if @is_boot_disk and @config_track
 
 		calculate_initial_free_blocks()
 			
@@ -368,7 +369,7 @@ class D64_image < Disk_image
 			@track1800[0x90 + charno] = c64_title[charno].ord
 		end
 		
-		if @is_boot_disk then
+		if @is_boot_disk  and @config_track then
 			allocate_sector(@config_track, 0)
 			allocate_sector(@config_track, 1)
 		end
@@ -434,7 +435,7 @@ class D71_image < Disk_image
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
 		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@reserved_sectors[53] = 2 # 2: Skip BAM and 1 extra block (we can't skip just 1 block)
-		@reserved_sectors[@config_track] = 2 if @is_boot_disk
+		@reserved_sectors[@config_track] = 2 if @is_boot_disk and @config_track
 
 		calculate_initial_free_blocks()
 			
@@ -566,7 +567,7 @@ class D71_image < Disk_image
 			@track1800[0x90 + charno] = c64_title[charno].ord
 		end
 		
-		if @is_boot_disk then
+		if @is_boot_disk and @config_track then
 			allocate_sector(@config_track, 0)
 			allocate_sector(@config_track, 1)
 		end
@@ -634,7 +635,9 @@ class D81_image < Disk_image
 
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
 		@reserved_sectors[40] = 40 # 4: Skip BAM and 1 directory block, 6: Skip BAM and 3 directory blocks, 40: Skip entire track
-		@reserved_sectors[@config_track] = 2
+		if @config_track
+			@reserved_sectors[@config_track] = 2
+		end
 
 		calculate_initial_free_blocks()
 			
@@ -702,8 +705,10 @@ class D81_image < Disk_image
 			@track4000[0x04 + charno] = c64_title[charno].ord
 		end
 		
-		allocate_sector(@config_track, 0)
-		allocate_sector(@config_track, 1)
+		if @config_track
+			allocate_sector(@config_track, 0)
+			allocate_sector(@config_track, 1)
+		end
 
 		@free_blocks
 	end # initialize
@@ -824,7 +829,8 @@ def name_to_c64(name)
 end
 
 def build_interpreter()
-	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1 -DCONF_TRK=#{$CONFIG_TRACK}"
+	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1"
+	necessarysettings +=  " -DCONF_TRK=#{$CONFIG_TRACK}" if $CONFIG_TRACK
 	if $target == 'mega65' then
 		necessarysettings +=  " --cpu m65"
 	else
@@ -941,6 +947,7 @@ def read_labels(label_file_name)
 		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
 		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
 		$loader_pic_start = $1.to_i(16) if line =~ /\tloader_pic_start\t=\s*\$(\w{3,4})\b/;
+		$config_load_address = $1.to_i(16) if line =~ /\tconfig_load_address\t=\s*\$(\w{3,4})\b/;
 	end
 end
 
@@ -1102,6 +1109,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
+		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\""
 		$soundfiles.each do |file|
 			f = file
 			f = f.gsub(/\//,"\\") if $is_windows 
@@ -1724,7 +1732,15 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += vmem_data
 
 	#	puts config_data
-	disk.set_config_data(config_data)
+	if $target == "mega65" then
+		config_filehandle = File.open($config_filename, "wb")
+		config_filehandle.write [$config_load_address % 256, $config_load_address / 256].pack("C*")
+		config_filehandle.write config_data.pack("C*")
+		config_filehandle.close
+	else
+		disk.set_config_data(config_data)
+	end
+	
 	
 	unless $target == "mega65" then
 		if $statmem_blocks > 0
@@ -1992,6 +2008,8 @@ rescue => e
 end
 
 if $target == "mega65"
+	# No config track
+	$CONFIG_TRACK = nil
 	# Force -p:0 -b (Don't include any vmem blocks in boot file, and don't preload any at start
 	preload_max_vmem_blocks = 0
 	limit_preload_vmem_blocks = true

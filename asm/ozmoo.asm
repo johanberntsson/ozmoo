@@ -1526,6 +1526,29 @@ deletable_init
 ;	jsr init_drive
 
 !ifdef VMEM {
+
+!ifdef TARGET_MEGA65 {
+	lda #.configname_len
+	ldx #<.configname
+	ldy #>.configname
+	jsr kernal_setnam ; call SETNAM
+
+	lda #1      ; file number 1
+	ldx $ba ; Last used device#
+	bne +
+	ldx #8 ; Default to device 8
++   ldy #1      ; secondary address 1 to say load at address in file
+	jsr kernal_setlfs ; call SETLFS
+	lda #0
+	jsr kernal_load     ; call LOAD
+	bcc +
+	; if carry set, the file could not be opened
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++
+} else {
+; Not MEGA65
+
 !ifdef TARGET_PLUS4 {
 	; Make config info on screen invisible
 	lda reg_backgroundcolour
@@ -1548,7 +1571,7 @@ deletable_init
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
-	
+}	
 	
 
 ; Copy game id
@@ -1707,6 +1730,11 @@ deletable_init
 }
 
 	rts
+
+.configname
+	!pet "ozmoo.cfg"
+.configname_len = * - .configname
+
 }
 
 !ifdef VMEM {
@@ -1878,7 +1906,9 @@ insert_disks_at_boot
 
 	jsr kernal_open     ; call OPEN
 	bcc +
-	jmp disk_error    ; if carry set, the file could not be opened
+;	jmp disk_error    ; if carry set, the file could not be opened
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
 +
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
