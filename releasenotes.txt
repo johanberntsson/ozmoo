@@ -287,3 +287,4 @@ Release 10:
 - MEGA65 fast loading code has been disabled since it broke save/restore.  
 - Switched to storing story file as a SEQ file for MEGA65, instead of raw 
   blocks.
+- Switched to storing config as a file for MEGA65, instead of raw blocks.
