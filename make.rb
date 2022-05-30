@@ -2008,6 +2008,10 @@ rescue => e
 end
 
 if $target == "mega65"
+	if preloadfile or (limit_preload_vmem_blocks and preload_max_vmem_blocks > 0) then
+		puts "ERROR: Preloading blocks (option -c/-cf/-p) is not supported on this target platform."
+		exit 1
+	end
 	# No config track
 	$CONFIG_TRACK = nil
 	# Force -p:0 -b (Don't include any vmem blocks in boot file, and don't preload any at start
