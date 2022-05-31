@@ -263,6 +263,12 @@ read_sound_files
 	lda #$53 ; 's'
 	sta sound_file_name,x
 	inx
+	lda #$2c ; ','
+	sta sound_file_name,x
+	inx
+	lda #$52 ; 'r'
+	sta sound_file_name,x
+	inx
 	stx zp_temp
 
 ; Print filename for debug purposes
