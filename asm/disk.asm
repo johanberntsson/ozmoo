@@ -67,10 +67,6 @@ readblocks
 .readblock_from_reu
 	ldx readblocks_currentblock_adjusted
 	ldy readblocks_currentblock_adjusted + 1
-	inx
-	bne +
-	iny
-+
 !ifdef TARGET_MEGA65 {
 	txa
 	clc
@@ -79,6 +75,12 @@ readblocks
 	bcc +
 	iny
 +	
+} else {
+	; Statmem begins on page 1 (page 0 is reserved for copy operations)
+	inx
+	bne +
+	iny
++
 }
 	tya
 	ldy readblocks_mempos + 1 ; Assuming lowbyte is always 0 (which it should be)
@@ -1270,9 +1272,9 @@ list_save_files
 	tax
 	jsr kernal_setbnk
 }
-	lda #1
-	ldx #<.dirname
-	ldy #>.dirname
+	lda #directory_name_len
+	ldx #<directory_name
+	ldy #>directory_name
 	jsr kernal_setnam ; call SETNAM
 
 	lda #2      ; file number 2
@@ -1535,8 +1537,9 @@ vdc_insertion_sort
 +	tax
 	tya
 	rts
-.dirname
+directory_name
 	!pet "$"
+directory_name_len = * - directory_name
 .occupied_slots
 	!fill 10,0
 .disk_error_msg

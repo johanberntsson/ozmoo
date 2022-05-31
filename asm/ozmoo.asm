@@ -1884,7 +1884,11 @@ insert_disks_at_boot
 	lda #0
 	sta z_temp ; Lowbyte of current page in Z-machine memory
 	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
-	ldx #1
+!ifdef TARGET_MEGA65 {
+	ldx #0 ; Start on page 0 for MEGA65
+} else {
+	ldx #1 ; Start on page 1, reserve page 0 for fast copy operations
+}
 	stx z_temp + 2 ; Lowbyte of current page in REU memory
 	sta z_temp + 3 ; Highbyte of current page in REU memory
 
