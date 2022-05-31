@@ -1880,79 +1880,22 @@ insert_disks_at_boot
 ;	sta zp_temp + 2
 ;	sta zp_temp + 3
 
-	; Prepare for copying data to REU
-	lda #0
-	sta z_temp ; Lowbyte of current page in Z-machine memory
-	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
-!ifdef TARGET_MEGA65 {
-	ldx #0 ; Start on page 0 for MEGA65
-} else {
-	ldx #1 ; Start on page 1, reserve page 0 for fast copy operations
-}
-	stx z_temp + 2 ; Lowbyte of current page in REU memory
-	sta z_temp + 3 ; Highbyte of current page in REU memory
-
-	; Prepare a page where we can store data
-	jsr get_free_vmem_buffer
-	sta z_temp + 7
-	lda #0
-	sta z_temp + 6
-	
-	lda #2      ; file number 2
-	tay
-	ldx boot_device
-	jsr kernal_setlfs ; call SETLFS
-
 	lda #.zcodefilenamelen
 	ldx #<.zcodefilename
 	ldy #>.zcodefilename
 	jsr kernal_setnam ; call SETNAM
 
-	jsr kernal_open     ; call OPEN
-	bcc +
-;	jmp disk_error    ; if carry set, the file could not be opened
-	lda #ERROR_FLOPPY_READ_ERROR
-	jsr fatalerror
-+
-	ldx #2      ; filenumber 2
-	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	txa
 	
-.initial_copy_loop
+	jsr m65_load_file_to_reu ; in reu.asm
 
-	jsr kernal_readst
-	bne .initial_reu_copying_done
-	
-	ldy #0
--	jsr kernal_readchar
-	sta(z_temp + 6),y
-	iny
-	bne -
-
-	lda z_temp + 3
-	ldx z_temp + 2
-	ldy z_temp + 7 ; Current C64 memory page
-	jsr copy_page_to_reu
-	bcs .reu_error
-
-	; Inc Z-machine page
-	inc z_temp
-	bne +
-	inc z_temp + 1
-
-	; Inc REU page
-+	inc z_temp + 2
-	bne .initial_copy_loop
-	inc z_temp + 3
-	jmp .initial_copy_loop ; Always branch
-	
-	
-.initial_reu_copying_done
-	jsr close_io
 	jmp .restore_xy_disk_done
-	
+
 .zcodefilename
 	!pet "zcode,s,r"
 .zcodefilenamelen = * - .zcodefilename
+	
 
 } else {
 	; Not TARGET_MEGA65
@@ -1968,7 +1911,7 @@ insert_disks_at_boot
 	ldx nonstored_pages
 	stx z_temp ; Lowbyte of current page in Z-machine memory
 	sta z_temp + 1 ; Highbyte of current page in Z-machine memory
-	ldx #1
+	ldx #1 ; Start on page 1, reserve page 0 for fast copy operations
 	stx z_temp + 2 ; Lowbyte of current page in REU memory
 	sta z_temp + 3 ; Highbyte of current page in REU memory
 	sta z_temp + 6 ; Sector# to read next, lowbyte
@@ -2038,10 +1981,11 @@ copy_data_from_disk_at_zp_temp_to_reu
 	sta reu_last_disk_end_block + 1
 
 	rts
-} ; End not TARGET_MEGA65
 
 .reu_error
 	jmp reu_error
+
+} ; End not TARGET_MEGA65
 
 reu_start
 	lda #0

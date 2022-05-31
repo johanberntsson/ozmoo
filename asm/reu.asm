@@ -24,6 +24,75 @@ reu_error
 	!pet 13,"REU error, disabled. [SPACE]",0
 
 
+!ifdef TARGET_MEGA65 {
+
+.m65_reu_load_address = zp_temp
+.m65_reu_memory_buffer = zp_temp + 2
+
+m65_load_file_to_reu
+	; In: a,x: REU load page (0 means first address of Attic RAM)
+	; Returns: a,x: Next page in REU after loaded data.
+	; Call SETNAM before calling this
+	; Opens file as #2. Closes file at end.
+
+	; Prepare for copying data to REU
+	stx .m65_reu_load_address ; Lowbyte of current page in REU memory
+	sta .m65_reu_load_address + 1 ; Highbyte of current page in REU memory
+
+	; Prepare a page where we can store data
+	jsr get_free_vmem_buffer
+	sta .m65_reu_memory_buffer + 1
+	lda #0
+	sta .m65_reu_memory_buffer
+	
+	lda #2      ; file number 2
+	tay
+	ldx boot_device
+	jsr kernal_setlfs ; call SETLFS
+
+	jsr kernal_open     ; call OPEN
+	bcc +
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++
+	ldx #2      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+	
+.initial_copy_loop
+
+	jsr kernal_readst
+	bne .file_copying_done
+	
+	ldy #0
+-	jsr kernal_readchar
+	sta(.m65_reu_memory_buffer),y
+	iny
+	bne -
+
+	lda .m65_reu_load_address + 1
+	ldx .m65_reu_load_address
+	ldy .m65_reu_memory_buffer + 1 ; Current C64 memory page
+	jsr copy_page_to_reu
+	bcs reu_error
+
+	; Inc REU page
+	inc .m65_reu_load_address
+	bne .initial_copy_loop
+	inc .m65_reu_load_address + 1
+	jmp .initial_copy_loop ; Always branch
+	
+	
+.file_copying_done
+	lda #$00      ; filenumber 2
+	jsr kernal_chkin ; call CLOSE
+	lda #$02      ; filenumber 2
+	jsr kernal_close ; call CLOSE
+	lda .m65_reu_load_address + 1
+	ldx .m65_reu_load_address
+	rts
+} ; End TARGET_MEGA65
+
+
 copy_page_to_reu
 	; a,x = REU page
 	; y = C64 page
