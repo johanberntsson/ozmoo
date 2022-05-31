@@ -138,6 +138,8 @@ copy_page_to_reu
 
 .update_progress_bar
 	; Update progress bar
+	lda reu_progress_bar_updates
+	beq +
 	dec progress_reu
 	bne +
 	lda reu_progress_base
@@ -147,7 +149,7 @@ copy_page_to_reu
 +	clc
 	rts
 
-
+reu_progress_bar_updates	!byte 0
 
 copy_page_from_reu
 	; a,x = REU page

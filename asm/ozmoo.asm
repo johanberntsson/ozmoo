@@ -2097,6 +2097,10 @@ print_reu_progress_bar
 	dex
 	bne -
 +
+	; Signal that REU copy routine should update progress bar
+	lda #$ff
+	sta reu_progress_bar_updates
+
 	rts
 } ; zone insert_disks_at_boot
 

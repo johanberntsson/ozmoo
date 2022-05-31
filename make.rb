@@ -1112,8 +1112,9 @@ def add_boot_file(finaldiskname, diskimage_filename)
 		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\""
 		$soundfiles.each do |file|
 			f = file
-			f = f.gsub(/\//,"\\") if $is_windows 
-		    c1541_cmd += " -write \"#{f}\""
+			tf = f.gsub(/^.*\//,'')
+			f = f.gsub(/\//,"\\") if $is_windows
+		    c1541_cmd += " -write \"#{f}\" \"\%#{tf},s\""
 		end
 	end
 	if $verbose

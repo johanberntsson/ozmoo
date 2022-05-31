@@ -27,43 +27,127 @@ SOUND_WAV_ENABLED = 1
 
 sound_load_msg !pet "Loading sound: ",0
 sound_load_msg_2 !pet 13,"Done.",0
-sound_file_name 
-	!pet "000."
+.sound_file_extension
+;	!pet ".wav",34,32
 !ifdef SOUND_AIFF_ENABLED {
-	!pet "aiff"
+	!pet ".aiff"
+	.filename_extension_len = 5
 }
 !ifdef SOUND_WAV_ENABLED {
-	!pet "wav"
+	!pet ".wav"
+	.filename_extension_len = 4
 }
-	!byte $a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+sound_file_name 
+	!pet "#000xx.aiff........." ; Must have room for a full name + ",s"
+; !ifdef SOUND_AIFF_ENABLED {
+	; !pet "aiff"
+; }
+; !ifdef SOUND_WAV_ENABLED {
+	; !pet "wav"
+; }
+	; !byte $a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
 sound_nums !byte 100,10,1
 sound_data_base = z_temp + 3
 sound_file_target = sound_data_base ; 4 bytes
 dir_entry_start = sound_data_base +  4 ; 1 byte
-sound_file_track = sound_data_base + 5 ; 1 byte
-sound_file_sector = sound_data_base + 6 ; 1 byte
+;sound_file_track = sound_data_base + 5 ; 1 byte
+;sound_file_sector = sound_data_base + 6 ; 1 byte
+.sound_file_device = sound_data_base + 5
 .dir_pointer = sound_data_base + 7 ; 2 bytes
-
+.fx_number = zp_temp + 2
+.sound_temp = zp_temp + 3
 sound_index_ptr = z_operand_value_low_arr ; 4 bytes
+sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
+.data_pointer = object_temp ; 2 bytes
 ; sound_index = z_operand_value_low_arr + 4 ; 1 byte
 
-top_soundfx_plus_1 !byte 0
+; top_soundfx_plus_1 !byte 0
+sound_files_read !byte 0
 
-read_sound_file
-	; a: Sound file number (3-255)
+; read_sound_file
+	; ; a: Sound file number (3-255)
 	
-	; Set filename
-	ldx #0
--	ldy #48 ; "0"
---	cmp sound_nums,x
-	bcc +
-	sbc sound_nums,x
-	iny
-	bne -- ; Always branch
-+	sty sound_file_name,x
+	; ; Set filename
+	; ldx #0
+; -	ldy #48 ; "0"
+; --	cmp sound_nums,x
+	; bcc +
+	; sbc sound_nums,x
+	; iny
+	; bne -- ; Always branch
+; +	sty sound_file_name,x
+	; inx
+	; cpx #3
+	; bcc -
+
+	; jsr get_free_vmem_buffer
+
+	; ; Set pointers
+	; sta readblocks_mempos + 1 ; Low byte is always 0
+	; sta .dir_pointer + 1
+	; ldy #0
+	; sty .dir_pointer
+	
+; ; Read a directory sector
+	; lda #40
+	; ldx #3
+; .read_next_dir_sector
+
+	; jsr read_track_sector
+	; lda #2
+	; sta dir_entry_start
+; .compare_next_dir_entry
+	; ldy dir_entry_start
+	; lda (.dir_pointer),y
+	; cmp #$82
+	; bne .dir_not_match
+	; iny
+	; lda (.dir_pointer),y
+	; sta sound_file_track
+	; iny
+	; lda (.dir_pointer),y
+	; sta sound_file_sector
+	; iny
+	; ldx #0
+; --	lda sound_file_name,x
+	; cmp (.dir_pointer),y
+	; bne .dir_not_match
+	; inx
+	; iny
+	; cpx #7 ; Should be 16, but during testing it's easier if the stop after 7 characters, so 003.aif is recognized (final f is missing) 
+	; bcc --
+
+; ; We have a match - Read the file!
+	; jmp .read_file
+	
+; .dir_not_match
+	; lda dir_entry_start
+	; clc
+	; adc #$20
+	; sta dir_entry_start
+	; bcc .compare_next_dir_entry
+	
+; ; Check next directory block here
+	; ldy #0
+	; lda (.dir_pointer),y
+	; beq .fail
+	; pha
+	; iny
+	; lda (.dir_pointer),y
+	; tax
+	; pla
+	; bne .read_next_dir_sector ; Always branch
+; .fail
+	; sec
+	; rts
+
+.read_filename_char
+	jsr kernal_readchar
+	sta sound_file_name,x
 	inx
-	cpx #3
-	bcc -
+	rts
+
+read_sound_files
 
 	jsr get_free_vmem_buffer
 
@@ -72,128 +156,232 @@ read_sound_file
 	sta .dir_pointer + 1
 	ldy #0
 	sty .dir_pointer
-	
-; Read a directory sector
-	lda #40
-	ldx #3
-.read_next_dir_sector
+	sty .data_pointer
 
-	jsr read_track_sector
-	lda #2
-	sta dir_entry_start
-.compare_next_dir_entry
-	ldy dir_entry_start
-	lda (.dir_pointer),y
-	cmp #$82
-	bne .dir_not_match
-	iny
-	lda (.dir_pointer),y
-	sta sound_file_track
-	iny
-	lda (.dir_pointer),y
-	sta sound_file_sector
-	iny
-	ldx #0
---	lda sound_file_name,x
-	cmp (.dir_pointer),y
-	bne .dir_not_match
-	inx
-	iny
-	cpx #7 ; Should be 16, but during testing it's easier if the stop after 7 characters, so 003.aif is recognized (final f is missing) 
-	bcc --
+	jsr get_free_vmem_buffer
+	sta .data_pointer + 1
 
-; We have a match - Read the file!
-	jmp .read_file
-	
-.dir_not_match
-	lda dir_entry_start
-	clc
-	adc #$20
-	sta dir_entry_start
-	bcc .compare_next_dir_entry
-	
-; Check next directory block here
-	ldy #0
-	lda (.dir_pointer),y
-	beq .fail
-	pha
-	iny
-	lda (.dir_pointer),y
-	tax
-	pla
-	bne .read_next_dir_sector ; Always branch
-.fail
-	sec
-	rts
+; ==================== NEW CODE TO READ DIR
 
-.read_file
+	lda #directory_name_len
+	ldx #<directory_name
+	ldy #>directory_name
+	jsr kernal_setnam ; call SETNAM
 
-	lda sound_file_track
-	ldx sound_file_sector
-.read_next_file_sector
-	jsr read_track_sector
+	lda #3      ; file number
+	ldx $ba ; Last used device#
+	bne +
+	ldx #8 ; Default to device 8
+	stx .sound_file_device
++   ldy #0      ; secondary address
+	jsr kernal_setlfs ; call SETLFS
+	jsr kernal_open     ; call OPEN
+;	bcs disk_error    ; if carry set, the file could not be opened
 
-	; Copy to target address
-	lda .dir_pointer + 1
-	sta dma_source_address + 1
-	lda sound_file_target
-	sta dma_dest_address
-	lda sound_file_target + 1
-	sta dma_dest_address + 1
-	lda sound_file_target + 2
-	and #$0f
-	sta dma_dest_bank_and_flags
-	
-	lda sound_file_target + 2
-	sta vmem_temp
-	lda sound_file_target + 3
-	
-	ldy #4
--	asl vmem_temp
-	rol
+	ldx #3      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+
+	; Skip load address and disk title
+	ldy #31
+-	jsr kernal_readchar
 	dey
 	bne -
-	sta dma_dest_address_top
 
-	ldy #2
-	sty dma_source_address
-	ldy #0
-	sty dma_count + 1 ; Transfer 254 bytes
-	sty dma_source_bank_and_flags
-	sty dma_source_address_top
-	ldx #254
-	lda (.dir_pointer),y
-	bne +
-	iny
-	lda (.dir_pointer),y
-	tax
-	dex
-+	stx dma_count
+.skip_to_end_of_line
+-	jsr kernal_readchar
+	cmp #0
+	bne -
 
-	jsr m65_run_dma
-
-; Increase the address
+.read_next_line	
 	lda #0
-	tax
-	tay
-	taz
-	lda dma_count
-	clc
-	adcq sound_file_target
-	stq sound_file_target
+	sta zp_temp + 1
+	; Read row pointer
+	jsr kernal_readchar
+	sta zp_temp
+	jsr kernal_readchar
+	ora zp_temp
+	bne +
+	jmp .end_of_dir
++
 
-	ldy #1
-	lda (.dir_pointer),y
-	tax
-	dey
-	lda (.dir_pointer),y
-	bne .read_next_file_sector	
+; Skip line number
+	jsr kernal_readchar
+	jsr kernal_readchar
 
-	lda top_soundfx_plus_1
-	adc #62
+; Find first "
+-	jsr kernal_readchar
+	cmp #0
+	beq .read_next_line
+	cmp #$22 ; Charcode for "
+	bne -
+
+; Reset number
+	ldx #0 ; Counter for filename characters read
+	stx .fx_number
+
+; Check that first char is %
+	jsr .read_filename_char
+	cmp #$25 ; '%'
+	bne .skip_to_end_of_line
+
+; Read digits
+.read_next_digit
+	jsr .read_filename_char
+	and #$0f
+	sta .sound_temp
+	lda .fx_number
+	asl
+	asl
+	adc .fx_number
+	asl
+	adc .sound_temp
+	sta .fx_number
+	cpx #4
+	bcc .read_next_digit
+
+; Read loop/music markers NOT CURRENTLY IMPLEMENTED
+;.filename_end_of_digits
+
+
+; Read file extension
+.filename_end_of_markers
+	ldy #0
+-	jsr .read_filename_char
+	cmp .sound_file_extension,y
+	bne .skip_to_end_of_line
+	iny
+	cpy #.filename_extension_len ; Length; should be 4 for ".wav" or 5 for ".aiff" 
+	bcc -
+
+	stx zp_temp
+
+; Add ,s to filename (to read it as a SEQ file)
+	ldx zp_temp
+	lda #$2c ; ','
+	sta sound_file_name,x
+	inx
+	lda #$53 ; 's'
+	sta sound_file_name,x
+	inx
+	stx zp_temp
+
+; Print filename for debug purposes
+	lda #34
 	jsr s_printchar
-	clc
-	rts
+	ldx #0
+-	lda sound_file_name,x
+	jsr s_printchar
+	inx
+	cpx zp_temp
+	bcc -
+	lda #34
+	jsr s_printchar
+	lda #13
+	jsr s_printchar
+
+; Load file to Attic RAM
+	lda #zp_temp
+	ldx #<sound_file_name
+	ldy #>sound_file_name
+	jsr kernal_setnam ; call SETNAM
+
+	; Signal that REU copy routine should not update progress bar
+	lda #0
+	sta reu_progress_bar_updates
+
+; Load to adress 512K an onward in Attic RAM
+	ldx #0
+	lda #512*1024/256/256
+	
+	jsr m65_load_file_to_reu ; in reu.asm
+
+	jmp .skip_to_end_of_line
+
+.end_of_dir
+	jsr close_io
+-	
+	inc $d020
+	jmp -
+
+
+;	cmp #$52 ; 'r'
+;	bne .filename_after_digits
+;	dec .sound_repeats ; Set it to $ff
+
+; We have a match - Read the file!
+;	jsr .read_file
+;	inc sound_files_read
+	
+
+
+; .read_file
+
+	; lda sound_file_track
+	; ldx sound_file_sector
+; .read_next_file_sector
+	; jsr read_track_sector
+
+	; ; Copy to target address
+	; lda .dir_pointer + 1
+	; sta dma_source_address + 1
+	; lda sound_file_target
+	; sta dma_dest_address
+	; lda sound_file_target + 1
+	; sta dma_dest_address + 1
+	; lda sound_file_target + 2
+	; and #$0f
+	; sta dma_dest_bank_and_flags
+	
+	; lda sound_file_target + 2
+	; sta vmem_temp
+	; lda sound_file_target + 3
+	
+	; ldy #4
+; -	asl vmem_temp
+	; rol
+	; dey
+	; bne -
+	; sta dma_dest_address_top
+
+	; ldy #2
+	; sty dma_source_address
+	; ldy #0
+	; sty dma_count + 1 ; Transfer 254 bytes
+	; sty dma_source_bank_and_flags
+	; sty dma_source_address_top
+	; ldx #254
+	; lda (.dir_pointer),y
+	; bne +
+	; iny
+	; lda (.dir_pointer),y
+	; tax
+	; dex
+; +	stx dma_count
+
+	; jsr m65_run_dma
+
+; ; Increase the address
+	; lda #0
+	; tax
+	; tay
+	; taz
+	; lda dma_count
+	; clc
+	; adcq sound_file_target
+	; stq sound_file_target
+
+	; ldy #1
+	; lda (.dir_pointer),y
+	; tax
+	; dey
+	; lda (.dir_pointer),y
+	; bne .read_next_file_sector	
+
+	; lda .fx_number
+	; adc #64
+	; jsr s_printchar
+	; clc
+	; rts
 
 store_sound_effect_start
 	; Insert code here to copy the 4-byte value in sound_file_target to the table for sound effect
@@ -215,27 +403,29 @@ read_all_sound_files
 	ldx #<sound_load_msg
 	jsr printstring_raw
 
-; Init target address ($08080000) and index address ($0807FC00)
-; Init target address ($08100000) and index address ($0807FC00)
+; Init target address ($08100000) and index address ($0807F800)
 	ldz #$08
 	ldy #$10
 	lda #$00
 	tax
 	stq sound_file_target
 	ldy #$07
-	ldx #$fc
-	stq sound_index_ptr
+	ldx #$f8
+	stq sound_index_base_ptr
 
-	lda #3
-	sta top_soundfx_plus_1
--	jsr store_sound_effect_start
-	lda top_soundfx_plus_1
-	jsr read_sound_file
-	bcs +
-	inc top_soundfx_plus_1
-	bne -
-+
-	; A file couldn't be read. We're done.
+	; lda #3
+	; sta top_soundfx_plus_1
+	
+	jsr read_sound_files
+	
+; -	jsr store_sound_effect_start
+	; lda top_soundfx_plus_1
+	; jsr read_sound_file
+	; bcs +
+	; inc top_soundfx_plus_1
+	; bne -
+; +
+	; ; A file couldn't be read. We're done.
 	
 	lda #>sound_load_msg_2
 	ldx #<sound_load_msg_2
@@ -243,9 +433,13 @@ read_all_sound_files
 	jsr wait_a_sec
 	ldx #$ff
 	jsr erase_window
-	lda #3
-	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
-	rts
+	clc
+	lda sound_files_read
+	bne +
+	sec
+;	lda #3
+;	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
++	rts
 
 init_sound
     ; set up an interrupt to monitor playback
@@ -340,8 +534,8 @@ sound_effect
 .play_sound_effect
     ; input: x = sound effect (3, 4 ...)
     ; convert to zero indexed
-    cpx top_soundfx_plus_1
-    bcs .return
+ ;   cpx top_soundfx_plus_1
+ ;   bcs .return
     dex
     dex
     dex
