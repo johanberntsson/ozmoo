@@ -26,12 +26,15 @@ reu_error
 
 !ifdef TARGET_MEGA65 {
 
-.m65_reu_load_address = zp_temp
+.m65_reu_load_address = object_temp
 .m65_reu_memory_buffer = zp_temp + 2
+.m65_reu_page_count = z_temp + 11
+
+;.m65_reu_page_count !byte 0
 
 m65_load_file_to_reu
 	; In: a,x: REU load page (0 means first address of Attic RAM)
-	; Returns: a,x: Next page in REU after loaded data.
+	; Returns: a: Number of pages loaded.
 	; Call SETNAM before calling this
 	; Opens file as #2. Closes file at end.
 
@@ -39,6 +42,8 @@ m65_load_file_to_reu
 	stx .m65_reu_load_address ; Lowbyte of current page in REU memory
 	sta .m65_reu_load_address + 1 ; Highbyte of current page in REU memory
 
+	lda #0
+	sta .m65_reu_page_count
 	; Prepare a page where we can store data
 	jsr get_free_vmem_buffer
 	sta .m65_reu_memory_buffer + 1
@@ -75,6 +80,8 @@ m65_load_file_to_reu
 	jsr copy_page_to_reu
 	bcs reu_error
 
+	inc .m65_reu_page_count
+
 	; Inc REU page
 	inc .m65_reu_load_address
 	bne .initial_copy_loop
@@ -87,8 +94,7 @@ m65_load_file_to_reu
 	jsr kernal_chkin ; call CLOSE
 	lda #$02      ; filenumber 2
 	jsr kernal_close ; call CLOSE
-	lda .m65_reu_load_address + 1
-	ldx .m65_reu_load_address
+	lda .m65_reu_page_count
 	rts
 } ; End TARGET_MEGA65
 
@@ -99,6 +105,8 @@ copy_page_to_reu
 
 !ifdef TARGET_MEGA65 {
 	stx dma_dest_address + 1
+	pha
+	and #$0f
 	sta dma_dest_bank_and_flags
 	sty dma_source_address + 1
 
@@ -110,7 +118,12 @@ copy_page_to_reu
 	stx dma_source_address
 	stx dma_source_bank_and_flags
 	stx dma_source_address_top
-	lda #$80 ; Base of HyperRAM
+	pla
+	lsr
+	lsr
+	lsr
+	lsr
+	ora #$80 ; Base of HyperRAM
 	sta dma_dest_address_top
 
 	jsr m65_run_dma
@@ -156,6 +169,8 @@ copy_page_from_reu
 	; y = C64 page
 !ifdef TARGET_MEGA65 {
 	stx dma_source_address + 1
+	pha
+	and #$0f
 	sta dma_source_bank_and_flags
 	sty dma_dest_address + 1
 
@@ -167,7 +182,12 @@ copy_page_from_reu
 	stx dma_dest_address
 	stx dma_dest_address_top
 	stx dma_dest_bank_and_flags
-	lda #$80 ; Base of HyperRAM
+	pla
+	lsr
+	lsr
+	lsr
+	lsr
+	ora #$80 ; Base of HyperRAM
 	sta dma_source_address_top
 
 	jmp m65_run_dma

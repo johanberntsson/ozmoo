@@ -25,7 +25,7 @@
 ;SOUND_AIFF_ENABLED = 1
 SOUND_WAV_ENABLED = 1
 
-sound_load_msg !pet "Loading sound: ",0
+sound_load_msg !pet "Loading sound: ",13,0
 sound_load_msg_2 !pet 13,"Done.",0
 .sound_file_extension
 ;	!pet ".wav",34,32
@@ -46,21 +46,27 @@ sound_file_name
 	; !pet "wav"
 ; }
 	; !byte $a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+sound_start_page_low !fill 253,0
+sound_start_page_high !fill 253,0
+sound_length_pages !fill 253,0
+sound_base_value = 1024*1024/256 ; 1 MB into Attic RAM
+sound_next_page !byte <sound_base_value, >sound_base_value
+
 sound_nums !byte 100,10,1
 sound_data_base = z_temp + 3
 sound_file_target = sound_data_base ; 4 bytes
 dir_entry_start = sound_data_base +  4 ; 1 byte
 ;sound_file_track = sound_data_base + 5 ; 1 byte
 ;sound_file_sector = sound_data_base + 6 ; 1 byte
-.sound_file_device = sound_data_base + 5
-.dir_pointer = sound_data_base + 7 ; 2 bytes
-.fx_number = zp_temp + 2
-.sound_temp = zp_temp + 3
+;.sound_file_device = sound_data_base + 5
+;.dir_pointer = sound_data_base + 7 ; 2 bytes
+.fx_number = z_temp
+.sound_temp = z_temp + 1
 sound_index_ptr = z_operand_value_low_arr ; 4 bytes
 sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
-.data_pointer = object_temp ; 2 bytes
+;.data_pointer = object_temp ; 2 bytes
 ; sound_index = z_operand_value_low_arr + 4 ; 1 byte
-
+.sound_repeating !byte 0
 ; top_soundfx_plus_1 !byte 0
 sound_files_read !byte 0
 
@@ -149,17 +155,17 @@ sound_files_read !byte 0
 
 read_sound_files
 
-	jsr get_free_vmem_buffer
+;	jsr get_free_vmem_buffer
 
 	; Set pointers
-	sta readblocks_mempos + 1 ; Low byte is always 0
-	sta .dir_pointer + 1
-	ldy #0
-	sty .dir_pointer
-	sty .data_pointer
+;	sta readblocks_mempos + 1 ; Low byte is always 0
+;	sta .dir_pointer + 1
+;	ldy #0
+;	sty .dir_pointer
+;	sty .data_pointer
 
-	jsr get_free_vmem_buffer
-	sta .data_pointer + 1
+;	jsr get_free_vmem_buffer
+;	sta .data_pointer + 1
 
 ; ==================== NEW CODE TO READ DIR
 
@@ -169,11 +175,13 @@ read_sound_files
 	jsr kernal_setnam ; call SETNAM
 
 	lda #3      ; file number
-	ldx $ba ; Last used device#
-	bne +
-	ldx #8 ; Default to device 8
-	stx .sound_file_device
-+   ldy #0      ; secondary address
+	ldx boot_device
+;	ldx $ba ; Last used device#
+;	bne +
+;	ldx #8 ; Default to device 8
+;	stx .sound_file_device
+;+   
+	ldy #0      ; secondary address
 	jsr kernal_setlfs ; call SETLFS
 	jsr kernal_open     ; call OPEN
 ;	bcs disk_error    ; if carry set, the file could not be opened
@@ -217,11 +225,11 @@ read_sound_files
 
 ; Reset number
 	ldx #0 ; Counter for filename characters read
-	stx .fx_number
+	stx .fx_number ; The number of the sound (3-255)
 
-; Check that first char is %
+; Check that first char is )
 	jsr .read_filename_char
-	cmp #$25 ; '%'
+	cmp #$29 ; ')'
 	bne .skip_to_end_of_line
 
 ; Read digits
@@ -239,15 +247,20 @@ read_sound_files
 	cpx #4
 	bcc .read_next_digit
 
-; Read loop/music markers NOT CURRENTLY IMPLEMENTED
-;.filename_end_of_digits
-
+; Read loop/music markers (Music marker NOT CURRENTLY IMPLEMENTED)
+	lda #0
+	sta .sound_repeating
+	jsr .read_filename_char
+	ldy #0
+	cmp #$52 ; 'r' for Repeating
+	bne +
+	dec .sound_repeating
 
 ; Read file extension
 .filename_end_of_markers
-	ldy #0
+;	ldy #0
 -	jsr .read_filename_char
-	cmp .sound_file_extension,y
++	cmp .sound_file_extension,y
 	bne .skip_to_end_of_line
 	iny
 	cpy #.filename_extension_len ; Length; should be 4 for ".wav" or 5 for ".aiff" 
@@ -286,7 +299,7 @@ read_sound_files
 	jsr s_printchar
 
 ; Load file to Attic RAM
-	lda #zp_temp
+	lda zp_temp
 	ldx #<sound_file_name
 	ldy #>sound_file_name
 	jsr kernal_setnam ; call SETNAM
@@ -295,14 +308,42 @@ read_sound_files
 	lda #0
 	sta reu_progress_bar_updates
 
-; Load to adress 512K an onward in Attic RAM
-	ldx #0
-	lda #512*1024/256/256
+; Load to adress 1024K and onward in Attic RAM
+	ldx sound_next_page
+	lda sound_next_page + 1
+	ldy .fx_number
+	stx sound_start_page_low - 3,y
+	sta sound_start_page_high - 3,y
 	
 	jsr m65_load_file_to_reu ; in reu.asm
+
+; Print pages loaded for debug purposes (a = 1, b=2, ...)
+	pha
+	clc
+	adc #$40
+	jsr s_printchar
+	pla
+	
+	ldy .fx_number
+	sta sound_length_pages - 3,y
+	clc
+	adc sound_next_page
+	sta sound_next_page
+	bcc +
+	inc sound_next_page + 1
++ 
+	; stx sound_next_page
+	; sta sound_next_page + 1
+	; txa
+	; sec
+	; sbc sound_start_page_low - 3,y
+	; sta sound_length_pages - 3,y
+	; jsr wait_a_sec
+	
 ; Start reading from dir again
 	ldx #3      ; filenumber 3
 	jsr kernal_chkin ; call CHKIN (file 3 now used as input)
+
 
 	jmp .skip_to_end_of_line
 
@@ -311,10 +352,13 @@ read_sound_files
 	jsr kernal_close ; call CLOSE
 	jsr close_io
 
+	jsr wait_a_sec
+	jsr wait_a_sec
+	jsr wait_a_sec
 	rts
--	
-	inc $d020
-	jmp -
+; -	
+	; inc $d020
+	; jmp -
 
 
 ;	cmp #$52 ; 'r'

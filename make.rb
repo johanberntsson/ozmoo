@@ -1114,7 +1114,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 			f = file
 			tf = f.gsub(/^.*\//,'')
 			f = f.gsub(/\//,"\\") if $is_windows
-		    c1541_cmd += " -write \"#{f}\" \"\%#{tf},s\""
+		    c1541_cmd += " -write \"#{f}\" \")#{tf},s\""
 		end
 	end
 	if $verbose
@@ -2107,7 +2107,7 @@ if $soundpath
 	$soundfiles = Dir.glob($soundpath + '*').select { |e|
 #		/^([0-9]{3})\.#{$sound_format}$/
 #		puts e
-		File.file?(e) && m = e[$soundpath.length .. -1].match(/^([0-9]{3})\.#{$sound_format}$/) # && m[1].to_i.between?(3,255)
+		File.file?(e) && m = e[$soundpath.length .. -1].match(/^([0-9]{3})r?\.#{$sound_format}$/) # && m[1].to_i.between?(3,255)
 	}
 	if $soundfiles.empty?
 		puts "ERROR: No sound files found. Note that sound files must be named 003.#{$sound_format}, 004.#{$sound_format} etc."
