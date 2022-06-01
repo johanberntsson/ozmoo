@@ -178,8 +178,8 @@ read_sound_files
 	jsr kernal_open     ; call OPEN
 ;	bcs disk_error    ; if carry set, the file could not be opened
 
-	ldx #3      ; filenumber 2
-	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+	ldx #3      ; filenumber
+	jsr kernal_chkin ; call CHKIN (file# in x now used as input)
 
 	; Skip load address and disk title
 	ldy #31
@@ -300,11 +300,18 @@ read_sound_files
 	lda #512*1024/256/256
 	
 	jsr m65_load_file_to_reu ; in reu.asm
+; Start reading from dir again
+	ldx #3      ; filenumber 3
+	jsr kernal_chkin ; call CHKIN (file 3 now used as input)
 
 	jmp .skip_to_end_of_line
 
 .end_of_dir
+	lda #$03      ; filenumber 2
+	jsr kernal_close ; call CLOSE
 	jsr close_io
+
+	rts
 -	
 	inc $d020
 	jmp -
