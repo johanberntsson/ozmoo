@@ -351,6 +351,7 @@ read_sound_files
 	sta sound_start_page_high - 3,y
 	
 	jsr m65_load_file_to_reu ; in reu.asm
+	inc sound_files_read
 
 ; Print pages loaded for debug purposes (a = 1, b=2, ...)
 	pha
@@ -392,6 +393,16 @@ read_sound_files
 
 	jsr wait_a_sec
 	jsr wait_a_sec
+
+	ldx #$ff
+	jsr erase_window
+	
+	; Set carry if no files could be read
+	clc
+	lda sound_files_read
+	bne +
+	sec
++
 	rts
 ; -	
 	; inc $d020
@@ -841,9 +852,9 @@ sound_effect
     ; Set the size of the sound data
     lda #$00
     sta dma_count
-	lda sound_length_pages
+	lda sound_length_pages,x
 	sta dma_count + 1
-    ; copy to $4000
+    ; copy to $40000
     lda #$00
     sta dma_dest_address
     sta dma_dest_address + 1
