@@ -822,36 +822,27 @@ sound_effect
 .copy_effect_to_fastram
     ; copy effect .current_effect to fastRAM so it can be played
 	; index = effect * 4
-    lda #0
-    tax
-    tay
-    taz
-    lda .current_effect
-	stq sound_index_ptr
-	clc
-	rolq sound_index_ptr
-	rolq sound_index_ptr
-    ; add index (base = $0807FC00)
-    clc
-    ldz #8
-    ldy #7
-    ldx #$fc
-    lda #0
-    adcq sound_index_ptr
-	stq sound_index_ptr
-	; read index
-	ldz #0 ; note that ldq uses z
-	ldq [sound_index_ptr]
-    ; store source address
-    sta dma_source_address
-    stx dma_source_address + 1
-    sty dma_source_bank_and_flags
-    lda #$80 ; base of attic ram (HyperRAM)
-    sta dma_source_address_top
-    ; copy the whole bank
-    lda #$ff
+    ldx .current_effect
+	lda #0
+	sta dma_source_address
+	lda sound_start_page_low,x
+	sta dma_source_address + 1
+	lda sound_start_page_high,x
+	and #$0f
+	sta dma_source_bank_and_flags
+	lda sound_start_page_high,x
+	lsr
+	lsr
+	lsr
+	lsr
+	ora #$80 ; Base of Attic RAM
+	sta dma_source_address_top
+
+    ; Set the size of the sound data
+    lda #$00
     sta dma_count
-    sta dma_count + 1
+	lda sound_length_pages
+	sta dma_count + 1
     ; copy to $4000
     lda #$00
     sta dma_dest_address
@@ -861,6 +852,49 @@ sound_effect
     sta dma_dest_bank_and_flags
     ; copy
     jmp m65_run_dma
+	
+	
+	
+	; ; index = effect * 4
+    ; lda #0
+    ; tax
+    ; tay
+    ; taz
+    ; lda .current_effect
+	; stq sound_index_ptr
+	; clc
+	; rolq sound_index_ptr
+	; rolq sound_index_ptr
+    ; ; add index (base = $0807FC00)
+    ; clc
+    ; ldz #8
+    ; ldy #7
+    ; ldx #$fc
+    ; lda #0
+    ; adcq sound_index_ptr
+	; stq sound_index_ptr
+	; ; read index
+	; ldz #0 ; note that ldq uses z
+	; ldq [sound_index_ptr]
+    ; ; store source address
+    ; sta dma_source_address
+    ; stx dma_source_address + 1
+    ; sty dma_source_bank_and_flags
+    ; lda #$80 ; base of attic ram (HyperRAM)
+    ; sta dma_source_address_top
+    ; ; copy the whole bank
+    ; lda #$ff
+    ; sta dma_count
+    ; sta dma_count + 1
+    ; ; copy to $4000
+    ; lda #$00
+    ; sta dma_dest_address
+    ; sta dma_dest_address + 1
+    ; sta dma_dest_address_top
+    ; lda #$04
+    ; sta dma_dest_bank_and_flags
+    ; ; copy
+    ; jmp m65_run_dma
 
 
 } ; ifdef TARGET_MEGA65
