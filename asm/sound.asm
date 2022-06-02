@@ -60,8 +60,8 @@ dir_entry_start = sound_data_base +  4 ; 1 byte
 ;sound_file_sector = sound_data_base + 6 ; 1 byte
 ;.sound_file_device = sound_data_base + 5
 ;.dir_pointer = sound_data_base + 7 ; 2 bytes
-.fx_number = z_temp
-.sound_temp = z_temp + 1
+.fx_number = sound_data_base + 5
+.sound_temp = sound_data_base + 6
 sound_index_ptr = z_operand_value_low_arr ; 4 bytes
 sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
 ;.data_pointer = object_temp ; 2 bytes
@@ -199,6 +199,9 @@ read_sound_files
 -	jsr kernal_readchar
 	cmp #0
 	bne -
+
+	ldy .fx_number
+	sty SCREEN_ADDRESS
 
 .read_next_line	
 	lda #0
@@ -343,7 +346,6 @@ read_sound_files
 ; Start reading from dir again
 	ldx #3      ; filenumber 3
 	jsr kernal_chkin ; call CHKIN (file 3 now used as input)
-
 
 	jmp .skip_to_end_of_line
 
