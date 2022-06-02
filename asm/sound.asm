@@ -644,6 +644,8 @@ sound_effect
     dex
     dex
     dex
+	lda sound_start_page_high,x
+	beq .return
 !ifdef TRACE_SOUND {
     jsr print_following_string
     !pet "play_sound_effect ",0
