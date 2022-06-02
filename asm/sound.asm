@@ -64,6 +64,7 @@ dir_entry_start = sound_data_base +  4 ; 1 byte
 .sound_temp = sound_data_base + 6
 sound_index_ptr = z_operand_value_low_arr ; 4 bytes
 sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
+sound_dir_ptr = z_operand_value_high_arr
 ;.data_pointer = object_temp ; 2 bytes
 ; sound_index = z_operand_value_low_arr + 4 ; 1 byte
 .sound_repeating !byte 0
@@ -148,9 +149,24 @@ sound_files_read !byte 0
 	; rts
 
 .read_filename_char
-	jsr kernal_readchar
+	jsr read_sound_dir_char
 	sta sound_file_name,x
 	inx
+	rts
+
+reset_sound_dir_ptr
+; Read directory into Attic RAM at $08080000
+	lda #$00
+	sta sound_dir_ptr
+	sta sound_dir_ptr + 1
+	lda #$08
+	sta sound_dir_ptr + 2
+	sta sound_dir_ptr + 3
+	rts
+
+read_sound_dir_char
+	lda [sound_dir_ptr],z
+	inq sound_dir_ptr
 	rts
 
 read_sound_files
@@ -167,7 +183,15 @@ read_sound_files
 ;	jsr get_free_vmem_buffer
 ;	sta .data_pointer + 1
 
+
+	lda #>sound_load_msg
+	ldx #<sound_load_msg
+	jsr printstring_raw
+
 ; ==================== NEW CODE TO READ DIR
+
+	ldz #0
+	jsr reset_sound_dir_ptr
 
 	lda #directory_name_len
 	ldx #<directory_name
@@ -176,11 +200,6 @@ read_sound_files
 
 	lda #3      ; file number
 	ldx boot_device
-;	ldx $ba ; Last used device#
-;	bne +
-;	ldx #8 ; Default to device 8
-;	stx .sound_file_device
-;+   
 	ldy #0      ; secondary address
 	jsr kernal_setlfs ; call SETLFS
 	jsr kernal_open     ; call OPEN
@@ -189,38 +208,53 @@ read_sound_files
 	ldx #3      ; filenumber
 	jsr kernal_chkin ; call CHKIN (file# in x now used as input)
 
+-	jsr kernal_readchar
+	sta [sound_dir_ptr],z
+	inq sound_dir_ptr
+
+	jsr kernal_readst
+	bne .dir_copying_done
+
+	jmp -
+
+.dir_copying_done
+	lda #$03      ; filenumber 2
+	jsr kernal_close ; call CLOSE
+
+	jsr reset_sound_dir_ptr
+	
 	; Skip load address and disk title
 	ldy #31
--	jsr kernal_readchar
+-	jsr read_sound_dir_char
 	dey
 	bne -
 
 .skip_to_end_of_line
--	jsr kernal_readchar
+-	jsr read_sound_dir_char
 	cmp #0
 	bne -
 
-	ldy .fx_number
-	sty SCREEN_ADDRESS
+;	ldy .fx_number
+;	sty SCREEN_ADDRESS
 
 .read_next_line	
 	lda #0
 	sta zp_temp + 1
 	; Read row pointer
-	jsr kernal_readchar
+	jsr read_sound_dir_char
 	sta zp_temp
-	jsr kernal_readchar
+	jsr read_sound_dir_char
 	ora zp_temp
 	bne +
 	jmp .end_of_dir
 +
 
 ; Skip line number
-	jsr kernal_readchar
-	jsr kernal_readchar
+	jsr read_sound_dir_char
+	jsr read_sound_dir_char
 
 ; Find first "
--	jsr kernal_readchar
+-	jsr read_sound_dir_char
 	cmp #0
 	beq .read_next_line
 	cmp #$22 ; Charcode for "
@@ -298,8 +332,6 @@ read_sound_files
 	bcc -
 	lda #34
 	jsr s_printchar
-	lda #13
-	jsr s_printchar
 
 ; Load file to Attic RAM
 	lda zp_temp
@@ -322,8 +354,12 @@ read_sound_files
 
 ; Print pages loaded for debug purposes (a = 1, b=2, ...)
 	pha
+	lsr
+	lsr
 	clc
 	adc #$40
+	jsr s_printchar
+	lda #13
 	jsr s_printchar
 	pla
 	
@@ -344,17 +380,16 @@ read_sound_files
 	; jsr wait_a_sec
 	
 ; Start reading from dir again
-	ldx #3      ; filenumber 3
-	jsr kernal_chkin ; call CHKIN (file 3 now used as input)
+;	ldx #3      ; filenumber 3
+;	jsr kernal_chkin ; call CHKIN (file 3 now used as input)
 
 	jmp .skip_to_end_of_line
 
 .end_of_dir
-	lda #$03      ; filenumber 2
-	jsr kernal_close ; call CLOSE
+;	lda #$03      ; filenumber 2
+;	jsr kernal_close ; call CLOSE
 	jsr close_io
 
-	jsr wait_a_sec
 	jsr wait_a_sec
 	jsr wait_a_sec
 	rts
@@ -442,63 +477,63 @@ read_sound_files
 	; clc
 	; rts
 
-store_sound_effect_start
-	; Insert code here to copy the 4-byte value in sound_file_target to the table for sound effect
-	; start addresses. The index to use is in top_soundfx_plus_1
-	ldq sound_file_target
-	stq [sound_index_ptr]
-	lda #0
-	tax
-	tay
-	taz
-	lda #4
-	clc
-	adcq sound_index_ptr
-	stq sound_index_ptr
-	rts
+; store_sound_effect_start
+	; ; Insert code here to copy the 4-byte value in sound_file_target to the table for sound effect
+	; ; start addresses. The index to use is in top_soundfx_plus_1
+	; ldq sound_file_target
+	; stq [sound_index_ptr]
+	; lda #0
+	; tax
+	; tay
+	; taz
+	; lda #4
+	; clc
+	; adcq sound_index_ptr
+	; stq sound_index_ptr
+	; rts
 
-read_all_sound_files
-	lda #>sound_load_msg
-	ldx #<sound_load_msg
-	jsr printstring_raw
+; read_all_sound_files
+	; lda #>sound_load_msg
+	; ldx #<sound_load_msg
+	; jsr printstring_raw
 
-; Init target address ($08100000) and index address ($0807F800)
-	ldz #$08
-	ldy #$10
-	lda #$00
-	tax
-	stq sound_file_target
-	ldy #$07
-	ldx #$f8
-	stq sound_index_base_ptr
+; ; Init target address ($08100000) and index address ($0807F800)
+	; ldz #$08
+	; ldy #$10
+	; lda #$00
+	; tax
+	; stq sound_file_target
+	; ldy #$07
+	; ldx #$f8
+	; stq sound_index_base_ptr
 
-	; lda #3
-	; sta top_soundfx_plus_1
+	; ; lda #3
+	; ; sta top_soundfx_plus_1
 	
-	jsr read_sound_files
+	; jsr read_sound_files
 	
-; -	jsr store_sound_effect_start
-	; lda top_soundfx_plus_1
-	; jsr read_sound_file
-	; bcs +
-	; inc top_soundfx_plus_1
-	; bne -
-; +
-	; ; A file couldn't be read. We're done.
+; ; -	jsr store_sound_effect_start
+	; ; lda top_soundfx_plus_1
+	; ; jsr read_sound_file
+	; ; bcs +
+	; ; inc top_soundfx_plus_1
+	; ; bne -
+; ; +
+	; ; ; A file couldn't be read. We're done.
 	
-	lda #>sound_load_msg_2
-	ldx #<sound_load_msg_2
-	jsr printstring_raw
-	jsr wait_a_sec
-	ldx #$ff
-	jsr erase_window
-	clc
-	lda sound_files_read
-	bne +
-	sec
-;	lda #3
-;	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
-+	rts
+	; lda #>sound_load_msg_2
+	; ldx #<sound_load_msg_2
+	; jsr printstring_raw
+	; jsr wait_a_sec
+	; ldx #$ff
+	; jsr erase_window
+	; clc
+	; lda sound_files_read
+	; bne +
+	; sec
+; ;	lda #3
+; ;	cmp top_soundfx_plus_1 ; Set carry if no sound files could be loaded
+; +	rts
 
 init_sound
     ; set up an interrupt to monitor playback
@@ -513,7 +548,7 @@ init_sound
     lda #251 ; low raster bit (1 raster beyond visible screen)
     sta $d012
     cli
-    jmp read_all_sound_files
+    jmp read_sound_files
 
 .sound_is_playing !byte 0
 
