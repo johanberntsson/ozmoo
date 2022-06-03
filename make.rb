@@ -111,6 +111,12 @@ $trinity_releases = {
 	"r15-s870628" => "fd8d 2048 01"
 }
 
+$lurkinghorror_releases = {
+	"r203-s870506" => "",
+	"r219-s870912" => "",
+	"r221-s870918" => ""
+}
+
 $beyondzork_releases = {
     "r47-s870915" => "f347 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
     "r49-s870917" => "f2c0 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
@@ -843,6 +849,11 @@ def build_interpreter()
 	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
+	end
+	if $is_lurkinghorror
+		# need to know if compiling a Lurking Horror game
+		# since the sound in this game doesn't follow the spec
+		optionalsettings += " -DLURKING_HORROR=1"
 	end
 	if $use_history
 		# set default history size
@@ -2245,6 +2256,7 @@ serial = $story_file_data[18 .. 23]
 storyfile_key = "r%d-s%s" % [ release, serial ]
 is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
+$is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
 
 $no_darkmode = nil
 if is_beyondzork

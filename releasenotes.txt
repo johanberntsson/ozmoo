@@ -290,4 +290,4 @@ Release 10:
 - Switched to storing config as a file for MEGA65, instead of raw blocks.
 - Stopped make.rb from accepting nonsupported options regarding preloading 
   vmem blocks on MEGA65.
-  
+- Added sound effects for MEGA65, supporting wav or aiff files.

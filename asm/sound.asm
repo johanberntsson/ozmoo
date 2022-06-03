@@ -19,6 +19,20 @@
 
 !ifdef SOUND {
 !zone sound_support {
+
+!ifdef Z5PLUS {
+LOOPING_SUPPORTED=1
+}
+
+!ifdef LURKING_HORROR {
+; Lurking horror isn't following the standard, and we add hardcoded
+; looping support instead
+LOOPING_SUPPORTED=1
+.lh_repeats
+!byte $00, $00, $00, $01, $ff, $00, $01, $01, $01, $01
+!byte $ff, $01, $01, $ff, $00, $ff, $ff, $ff, $ff, $ff
+}
+
 !ifdef TARGET_MEGA65 {
 
 ;TRACE_SOUND = 1
@@ -28,7 +42,6 @@ SOUND_WAV_ENABLED = 1
 sound_load_msg !pet "Loading sound: ",13,0
 sound_load_msg_2 !pet 13,"Done.",0
 .sound_file_extension
-;	!pet ".wav",34,32
 !ifdef SOUND_AIFF_ENABLED {
 	!pet ".aiff"
 	.filename_extension_len = 5
@@ -573,7 +586,7 @@ init_sound
     ; the sound has stopped
     lda #0
     sta .sound_is_playing
-!ifdef Z5PLUS {
+!ifdef LOOPING_SUPPORTED {
     ; are we looping?
     lda sound_arg_repeats
 	
@@ -627,6 +640,11 @@ sample_stop_address !byte 0,0,0,0 ; 32 bit pointer
 .sample_clock !byte 0,0,0
 
 sound_effect
+    ; input: x = sound effect (3, 4 ...)
+!ifdef LURKING_HORROR {
+	lda .lh_repeats,x
+	sta sound_arg_repeats
+}
     ; currently we ignore 1 prepare and 4 finish with
     lda sound_arg_effect
     cmp #2 ; start
