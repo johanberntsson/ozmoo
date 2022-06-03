@@ -19,6 +19,20 @@
 
 !ifdef SOUND {
 !zone sound_support {
+
+!ifdef Z5PLUS {
+LOOPING_SUPPORTED=1
+}
+
+!ifdef LURKING_HORROR {
+; Lurking horror isn't following the standard, and we add hardcoded
+; looping support instead
+LOOPING_SUPPORTED=1
+.lh_repeats
+!byte $00, $00, $00, $01, $ff, $00, $01, $01, $01, $01
+!byte $ff, $01, $01, $ff, $00, $ff, $ff, $ff, $ff, $ff
+}
+
 !ifdef TARGET_MEGA65 {
 
 ;TRACE_SOUND = 1
@@ -28,7 +42,6 @@ SOUND_WAV_ENABLED = 1
 sound_load_msg !pet "Loading sound: ",13,0
 sound_load_msg_2 !pet 13,"Done.",0
 .sound_file_extension
-;	!pet ".wav",34,32
 !ifdef SOUND_AIFF_ENABLED {
 	!pet ".aiff"
 	.filename_extension_len = 5
@@ -573,7 +586,7 @@ init_sound
     ; the sound has stopped
     lda #0
     sta .sound_is_playing
-!ifdef Z5PLUS {
+!ifdef LOOPING_SUPPORTED {
     ; are we looping?
     lda sound_arg_repeats
 	
@@ -598,6 +611,7 @@ init_sound
     sta trigger_sound_routine
 ++
 }
+	jsr .play_next_sound
 .sound_callback_done
     ; finish interrupt handling
     asl $d019 ; acknowlege irq
@@ -605,10 +619,21 @@ init_sound
 
 
 ; This is set by z_ins_sound_effect
+sound_arg_number !byte 0
 sound_arg_effect !byte 0
 sound_arg_volume !byte 0
 sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
+
+; This is for queueing sounds
+; (Lurking horror is issuing another @sound_effect command
+; before the first is finished)
+next_sound_available !byte 0
+next_sound_arg_number !byte 0
+next_sound_arg_effect !byte 0
+next_sound_arg_volume !byte 0
+next_sound_arg_repeats !byte 0
+next_sound_arg_routine !byte 0, 0
 
 sound_tmp !byte 0,0
 
@@ -627,11 +652,41 @@ sample_stop_address !byte 0,0,0,0 ; 32 bit pointer
 .sample_clock !byte 0,0,0
 
 sound_effect
+    ; input: x = sound effect (3, 4 ...)
+!ifdef LURKING_HORROR {
+	lda .lh_repeats,x
+	sta sound_arg_repeats
+}
+
     ; currently we ignore 1 prepare and 4 finish with
     lda sound_arg_effect
     cmp #2 ; start
-    beq .play_sound_effect
-    cmp #3 ; stop
+    bne ++
+	; Queue the effect if already playing
+	lda .sound_is_playing
+	beq .play_sound_effect
+	; is the next sound effect the same that is already playing?
+	cpx sound_arg_number
+	beq .play_sound_effect
+	; new sound, let's remember it and play it later
+	lda #1
+	sta next_sound_available
+	lda sound_arg_number
+	sta next_sound_arg_number
+	lda sound_arg_effect
+	sta next_sound_arg_effect
+	lda sound_arg_volume
+	sta next_sound_arg_volume
+	lda sound_arg_repeats
+	sta next_sound_arg_repeats
+	lda sound_arg_repeats
+	sta next_sound_arg_repeats
+	lda sound_arg_routine
+	sta next_sound_arg_routine
+	lda sound_arg_routine + 1
+	sta next_sound_arg_routine + 1
+	rts
+++  cmp #3 ; stop
     beq .stop_sound_effect
 .return
     rts
@@ -639,6 +694,7 @@ sound_effect
 .play_sound_effect
     ; input: x = sound effect (3, 4 ...)
     ; convert to zero indexed
+	stx sound_arg_number
  ;   cpx top_soundfx_plus_1
  ;   bcs .return
     dex
@@ -683,10 +739,31 @@ sound_effect
     sta $d720
     sta $d740
     sta .sound_is_playing
-    rts
+    ; continue to .play_next_sound
+    ; rts
+
+.play_next_sound
+	lda next_sound_available
+	beq +
+	lda #0
+	sta next_sound_available
+	lda next_sound_arg_number
+	sta sound_arg_number
+	lda next_sound_arg_effect
+	sta sound_arg_effect
+	lda next_sound_arg_volume
+	sta sound_arg_volume
+	lda next_sound_arg_repeats
+	sta sound_arg_repeats
+	lda next_sound_arg_routine
+	sta sound_arg_routine
+	lda next_sound_arg_routine + 1
+	sta sound_arg_routine + 1
+	jmp sound_effect
++   rts
 
 .calculate_sample_clock
-   ; frequency (assuming CPU running at 40.5 MHz)
+    ; frequency (assuming CPU running at 40.5 MHz)
     ;
     ; max sample clock $ffffff is about 40 MHz sample rate
     ; (stored in $d724-$d726)
@@ -720,110 +797,49 @@ sound_effect
     rts
 
 .play_sample
-    ; TODO: it should be possible to use channel 0 only and mirror
-    ; it using $d71c, but I can't get it to work
-    ; .play_sample_ch3 can be removed if this is solved
-	ldx #$0
-	ldy #$20
-    jsr .play_sample_ch_xy ; left
+    ; NOTE: it should be possible to use channel 0 only and mirror it
+    ; using $d71c, but this only work on real HW, not in the emulator
+    ; stop playback while loading new sample data
+    lda #$00
+    sta $d720
+    ; store sample start address in base and current address
+    lda sample_start_address
+    sta $d721 ; base 
+    sta $d72a ; current
+    lda sample_start_address + 1
+    sta $d722
+    sta $d72b
+    lda sample_start_address + 2
+    sta $d723
+    sta $d72c
+    ; store sample stop address
+    lda sample_stop_address
+    sta $d727
+    lda sample_stop_address + 1
+    sta $d728
+    ; volume
+    lda sound_arg_volume
+    sta $d729
+    sta $d71c ; mirror the sound for stereo
+    ; sample clock/rate
+    jsr .calculate_sample_clock
+    lda .sample_clock
+    sta $d724
+    lda .sample_clock + 1
+    sta $d725
+    lda .sample_clock + 2
+    sta $d726
+    ; Enable playback of channel 0
+    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
+    ldx sample_is_signed
+    beq +
+    ora #$20 ; CH0SGN
++   sta $d720
     ; enable audio dma
     lda #$80 ; AUDEN
     sta $d711
     sta .sound_is_playing ; tell the interrupt that we are running
     rts
-
-.play_sample_ch_xy
-	; stop playback while loading new sample data
-	lda #$00
-	sta $d720,x
-	sta $d720,y
-	; store sample start address in base and current address
-	lda sample_start_address
-	sta $d721,x ; base 
-	sta $d721,y ; base 
-	sta $d72a,x ; current
-	sta $d72a,y ; current
-	lda sample_start_address + 1
-	sta $d722,x
-	sta $d722,y
-	sta $d72b,x
-	sta $d72b,y
-	lda sample_start_address + 2
-	sta $d723,x
-	sta $d723,y
-	sta $d72c,x
-	sta $d72c,y
-	; store sample stop address
-	lda sample_stop_address
-	sta $d727,x
-	sta $d727,y
-	lda sample_stop_address + 1
-	sta $d728,x
-	sta $d728,y
-	; volume
-	lda sound_arg_volume
-	sta $d729,x
-	sta $d729,y
-;    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
-;    sta $d71e ; mirror the sound for stereo (TODO: doesn't work!)
-	; sample clock/rate
-	jsr .calculate_sample_clock
-	lda .sample_clock
-	sta $d724,x
-	sta $d724,y
-	lda .sample_clock + 1
-	sta $d725,x
-	sta $d725,y
-	lda .sample_clock + 2
-	sta $d726,x
-	sta $d726,y
-	; Enable playback of channel 0
-	lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
-	bit sample_is_signed
-	bpl +
-	ora #$20 ; CH0SGN
-+   sta $d720,x
-	sta $d720,y
-	rts
-
-;.play_sample_ch0
-;    ; stop playback while loading new sample data
-;    lda #$00
-;    sta $d720
-;    ; store sample start address in base and current address
-;    lda sample_start_address
-;    sta $d721 ; base 
-;    sta $d72a ; current
-;    lda sample_start_address + 1
-;    sta $d722
-;    sta $d72b
-;    lda sample_start_address + 2
-;    sta $d723
-;    sta $d72c
-;    ; store sample stop address
-;    lda sample_stop_address
-;    sta $d727
-;    lda sample_stop_address + 1
-;    sta $d728
-;    ; volume
-;    lda sound_arg_volume
-;    sta $d729
-;    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
-;    ; sample clock/rate
-;    jsr .calculate_sample_clock
-;    lda .sample_clock
-;    sta $d724
-;    lda .sample_clock + 1
-;    sta $d725
-;    lda .sample_clock + 2
-;    sta $d726
-;    ; Enable playback of channel 0
-;    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
-;    ldx sample_is_signed
-;    beq +
-;    ora #$20 ; CH0SGN
-;+   sta $d720
-;    rts
 
 !ifdef SOUND_WAV_ENABLED {
 !source "sound-wav.asm"
@@ -961,7 +977,12 @@ z_ins_sound_effect
 	asl
 	sec
 	sbc z_operand_value_low_arr + 2
-+	sta sound_arg_volume
++	; MEGA65's volume is [0,64]. Convert from z-machine [0,255]
+	clc
+	ror
+	clc
+	ror
+	sta sound_arg_volume
 !ifdef Z5PLUS {
 	lda z_operand_value_high_arr + 2 ; repeats
 	bne +
