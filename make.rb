@@ -119,6 +119,23 @@ $beyondzork_releases = {
     "r60-s880610" => "f2dc 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1"
 }
 
+$d81interleave = [
+	# 0:No interleave
+	{},
+	# 1: 0,1,  4,5,  8,9,  12,13, ...
+	{	1 => 4, 5 => 8, 9 => 12, 13 => 16, 17 => 20, 21 => 24, 25 => 28, 29 => 32, 33 => 36, 37 => 2, 
+		3 => 6, 7 => 10, 11 => 14, 15 => 18, 19 => 22, 23 => 26, 27 => 30, 31 => 34, 35 => 38
+	},
+	# 2: 0, 4, 8, 12, ...
+	{	0 => 4, 4 => 8, 8 => 12, 12 => 16, 16 => 20, 20 => 24, 24 => 28, 28 => 32, 32 => 36, 36 => 1,
+		1 => 5, 5 => 9, 9 => 13, 13 => 17, 17 => 21, 21 => 25, 25 => 29, 29 => 33, 33 => 37, 37 => 2,
+		2 => 6, 6 => 10, 10 => 14, 14 => 18, 18 => 22, 22 => 26, 26 => 30, 30 => 34, 34 => 38, 38 => 3,
+		3 => 7, 7 => 11, 11 => 15, 15 => 19, 19 => 23, 23 => 27, 27 => 31, 31 => 35, 35 => 39
+	},
+]
+
+$i81 = $d81interleave[1] # Optimal scheme for MEGA65, as far as we can tell. File copying is not done in make.rb for other platforms.
+
 class Disk_image
 	def base_initialize
 		@interleave = 1
@@ -147,6 +164,16 @@ class Disk_image
 	def interleave
 		@interleave
 	end
+
+	attr_accessor :interleave_scheme
+	
+	# def interleave_scheme
+		# @interleave_scheme
+	# end
+	
+	# def interleave_scheme = (interleave_scheme)
+		# @interleave_scheme = interleave_scheme
+	# end
 	
 	def add_story_data(max_story_blocks:, add_at_end:)
 	
@@ -630,6 +657,7 @@ class D81_image < Disk_image
 		@tracks = 80
 		@track_length = Array.new(@tracks + 1, 40)
 		@track_length[0] = 0
+		@add_to_dir = []
 
 		base_initialize()
 
@@ -741,6 +769,56 @@ class D81_image < Disk_image
 		end
 	end
 
+	def add_file(filename, filecontents)
+		sector_count = 0
+		if filecontents == nil or filecontents.length == 0
+			start_sector = [0,0]
+		else
+			start_sector = find_free_file_start_sector
+			if start_sector == nil
+				puts "ERROR: No free blocks left on disk."
+				exit 1
+			end
+			sector_count += 1
+			this_sector = start_sector
+			while filecontents.length > 254
+				next_sector = find_next_free_sector(this_sector[0], this_sector[1])
+				if next_sector == nil
+					puts "ERROR: No free blocks left on disk."
+					exit 1
+				end
+				sector_count += 1
+				block_contents = next_sector.pack("CC") + filecontents[0 .. 253]
+				filecontents = filecontents[254 .. filecontents.size - 1]
+	#			@contents[256 * (@track_offset[track] + sector) .. 256 * (@track_offset[track] + sector) + 255] =
+	#				$story_file_data[$story_file_cursor .. $story_file_cursor + 255].unpack("C*")
+				@contents[256 * (@track_offset[this_sector[0]] + this_sector[1]) .. 
+							256 * (@track_offset[this_sector[0]] + this_sector[1]) + 255] =
+					block_contents.unpack("C*")
+				this_sector = next_sector
+			end
+			# next_sector = find_next_free_sector(this_sector[0], this_sector[1])
+			# if next_sector == nil
+				# puts "ERROR: No free blocks left on disk."
+				# exit 1
+			# end
+			block_contents = [0, filecontents.length + 2].pack("CC") + filecontents + Array.new(254 - filecontents.length).fill(0).pack("c*")
+			@contents[256 * (@track_offset[this_sector[0]] + this_sector[1]) .. 
+						256 * (@track_offset[this_sector[0]] + this_sector[1]) + 255] =
+				block_contents.unpack("C*")
+		end
+		
+		# Add file to directory
+		dir_entry = ([0x81] + start_sector).pack("CCC") + 
+			name_to_c64(filename).ljust(16, 0xa0.chr) +
+			"".ljust(9, 0.chr) + 
+			[sector_count % 256, sector_count / 256].pack("CC")
+		
+		@add_to_dir.push dir_entry
+			
+	end
+
+	
 
 	private
 	
@@ -756,6 +834,78 @@ class D81_image < Disk_image
 		@track4001[index2] &= index3
 	end
 
+	def sector_allocated?(track, sector)
+		index1 = (track > 40 ? 0x100: 0) + 0x10 +  6 * ((track - 1) % 40)
+		index2 = index1 + 1 + (sector / 8)
+		index3 = 2**(sector % 8)
+
+		# is sector allocated?
+		return (@track4001[index2] & index3 != 0) ? nil : true;
+	end
+	
+	def find_free_file_start_sector
+		40.times do |s|
+#			1.upto 40 do |t|
+			20.upto 40 do |t|
+				unless t > 39 or sector_allocated?(40 - t, s)
+					puts "START: " + [40 - t, s].to_s
+					allocate_sector(40 - t, s)
+					return [40 - t, s]
+				end
+				unless sector_allocated?(40 + t, s)
+					puts "START: " + [40 + t, s].to_s
+					allocate_sector(40 + t, s)
+					return [40 + t, s]
+				end
+			end
+		end
+		return nil
+	end
+
+	def find_next_free_sector(track, sector)
+		start_track = track
+		tried_track_1 = nil
+		tried_track_80 = nil
+		tried_sectors = []
+		if interleave_scheme && interleave_scheme.has_key?(sector)
+			next_sector = interleave_scheme[sector]
+		else
+			next_sector = sector + 1
+		end
+		loop do
+#			puts "WILL TRY: #{track}, #{next_sector}"
+			unless sector_allocated?(track, next_sector)
+#				puts "NEXT: #{track}, #{next_sector}"
+				allocate_sector(track, next_sector)
+				return [track, next_sector]
+			end
+			tried_sectors.push next_sector unless tried_sectors.include? next_sector 
+			if tried_sectors.length > 39
+				# This track is full, go to next
+				tried_track_1 = true if track == 1
+				tried_track_80 = true if track == 80
+				return nil if tried_track_1 and tried_track_80 # No free sectors, fail!
+				# Choose a track to try next
+				if track < 40
+					if track > 1
+						track -= 1
+					else
+						track = 41
+					end
+				else
+					if track < 80
+						track += 1
+					else
+						track = 39
+					end
+				end
+				next_sector = 0
+			else
+				next_sector = (next_sector > 38) ? 0 : next_sector + 1
+			end
+		end
+	end
+
 	def add_directory()
 		# Add disk info at 40:00
 		@contents[@track_offset[40] * 256 .. @track_offset[40] * 256 + @track4000.length - 1] = @track4000
@@ -765,7 +915,20 @@ class D81_image < Disk_image
 
 		# Add directory at 40:03
 		@contents[(@track_offset[40] + 3) * 256] = 0 
-		@contents[(@track_offset[40] + 3) * 256 + 1] = 0xff 
+		@contents[(@track_offset[40] + 3) * 256 + 1] = 0xff
+
+		if @add_to_dir.length > 0
+			sector = @contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255]
+			@add_to_dir.each do |dir_entry|
+				entry = 2
+				while entry < 8 and sector[0x20 * entry + 2] > 0
+					entry += 1
+				end
+				sector[0x20 * entry + 2 .. 0x20 * entry + 0x1f] = dir_entry.unpack("C*")
+			end
+			@contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255] = sector
+			@add_to_dir = []
+		end
 	end
 
 	def create_a_partition(sector, start_track, end_track, name)
@@ -1108,7 +1271,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
-		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
+#		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\""
 		$soundfiles.each do |file|
 			f = file
@@ -1692,8 +1855,12 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	diskfilename = "#{$target}_#{storyname}.d81"
 	
 	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
+	if $i81
+		disk.interleave_scheme = $i81
+	end
 
 	if $target == "mega65" then
+		disk.add_file('zcode', $story_file_data);
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
 		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
