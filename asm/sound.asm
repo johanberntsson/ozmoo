@@ -611,6 +611,7 @@ init_sound
     sta trigger_sound_routine
 ++
 }
+	jsr .play_next_sound
 .sound_callback_done
     ; finish interrupt handling
     asl $d019 ; acknowlege irq
@@ -618,10 +619,21 @@ init_sound
 
 
 ; This is set by z_ins_sound_effect
+sound_arg_number !byte 0
 sound_arg_effect !byte 0
 sound_arg_volume !byte 0
 sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
+
+; This is for queueing sounds
+; (Lurking horror is issuing another @sound_effect command
+; before the first is finished)
+next_sound_available !byte 0
+next_sound_arg_number !byte 0
+next_sound_arg_effect !byte 0
+next_sound_arg_volume !byte 0
+next_sound_arg_repeats !byte 0
+next_sound_arg_routine !byte 0, 0
 
 sound_tmp !byte 0,0
 
@@ -645,11 +657,36 @@ sound_effect
 	lda .lh_repeats,x
 	sta sound_arg_repeats
 }
+
     ; currently we ignore 1 prepare and 4 finish with
     lda sound_arg_effect
     cmp #2 ; start
-    beq .play_sound_effect
-    cmp #3 ; stop
+    bne ++
+	; Queue the effect if already playing
+	lda .sound_is_playing
+	beq .play_sound_effect
+	; is the next sound effect the same that is already playing?
+	cpx sound_arg_number
+	beq .play_sound_effect
+	; new sound, let's remember it and play it later
+	lda #1
+	sta next_sound_available
+	lda sound_arg_number
+	sta next_sound_arg_number
+	lda sound_arg_effect
+	sta next_sound_arg_effect
+	lda sound_arg_volume
+	sta next_sound_arg_volume
+	lda sound_arg_repeats
+	sta next_sound_arg_repeats
+	lda sound_arg_repeats
+	sta next_sound_arg_repeats
+	lda sound_arg_routine
+	sta next_sound_arg_routine
+	lda sound_arg_routine + 1
+	sta next_sound_arg_routine + 1
+	rts
+++  cmp #3 ; stop
     beq .stop_sound_effect
 .return
     rts
@@ -657,6 +694,7 @@ sound_effect
 .play_sound_effect
     ; input: x = sound effect (3, 4 ...)
     ; convert to zero indexed
+	stx sound_arg_number
  ;   cpx top_soundfx_plus_1
  ;   bcs .return
     dex
@@ -701,7 +739,28 @@ sound_effect
     sta $d720
     sta $d740
     sta .sound_is_playing
-    rts
+    ; continue to .play_next_sound
+    ; rts
+
+.play_next_sound
+	lda next_sound_available
+	beq +
+	lda #0
+	sta next_sound_available
+	lda next_sound_arg_number
+	sta sound_arg_number
+	lda next_sound_arg_effect
+	sta sound_arg_effect
+	lda next_sound_arg_volume
+	sta sound_arg_volume
+	lda next_sound_arg_repeats
+	sta sound_arg_repeats
+	lda next_sound_arg_routine
+	sta sound_arg_routine
+	lda next_sound_arg_routine + 1
+	sta sound_arg_routine + 1
+	jmp sound_effect
++   rts
 
 .calculate_sample_clock
     ; frequency (assuming CPU running at 40.5 MHz)
