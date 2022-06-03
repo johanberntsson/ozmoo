@@ -808,7 +808,7 @@ class D81_image < Disk_image
 				# puts "ERROR: No free blocks left on disk."
 				# exit 1
 			# end
-			block_contents = [0, filecontents.length + 2].pack("CC") + filecontents + Array.new(254 - filecontents.length).fill(0).pack("c*")
+			block_contents = [0, filecontents.length + 2 - 1].pack("CC") + filecontents + Array.new(254 - filecontents.length).fill(0).pack("c*")
 			@contents[256 * (@track_offset[this_sector[0]] + this_sector[1]) .. 
 						256 * (@track_offset[this_sector[0]] + this_sector[1]) + 255] =
 				block_contents.unpack("C*")
