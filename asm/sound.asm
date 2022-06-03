@@ -686,7 +686,7 @@ sound_effect
     rts
 
 .calculate_sample_clock
-   ; frequency (assuming CPU running at 40.5 MHz)
+    ; frequency (assuming CPU running at 40.5 MHz)
     ;
     ; max sample clock $ffffff is about 40 MHz sample rate
     ; (stored in $d724-$d726)
@@ -720,110 +720,49 @@ sound_effect
     rts
 
 .play_sample
-    ; TODO: it should be possible to use channel 0 only and mirror
-    ; it using $d71c, but I can't get it to work
-    ; .play_sample_ch3 can be removed if this is solved
-	ldx #$0
-	ldy #$20
-    jsr .play_sample_ch_xy ; left
+    ; NOTE: it should be possible to use channel 0 only and mirror it
+    ; using $d71c, but this only work on real HW, not in the emulator
+    ; stop playback while loading new sample data
+    lda #$00
+    sta $d720
+    ; store sample start address in base and current address
+    lda sample_start_address
+    sta $d721 ; base 
+    sta $d72a ; current
+    lda sample_start_address + 1
+    sta $d722
+    sta $d72b
+    lda sample_start_address + 2
+    sta $d723
+    sta $d72c
+    ; store sample stop address
+    lda sample_stop_address
+    sta $d727
+    lda sample_stop_address + 1
+    sta $d728
+    ; volume
+    lda sound_arg_volume
+    sta $d729
+    sta $d71c ; mirror the sound for stereo
+    ; sample clock/rate
+    jsr .calculate_sample_clock
+    lda .sample_clock
+    sta $d724
+    lda .sample_clock + 1
+    sta $d725
+    lda .sample_clock + 2
+    sta $d726
+    ; Enable playback of channel 0
+    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
+    ldx sample_is_signed
+    beq +
+    ora #$20 ; CH0SGN
++   sta $d720
     ; enable audio dma
     lda #$80 ; AUDEN
     sta $d711
     sta .sound_is_playing ; tell the interrupt that we are running
     rts
-
-.play_sample_ch_xy
-	; stop playback while loading new sample data
-	lda #$00
-	sta $d720,x
-	sta $d720,y
-	; store sample start address in base and current address
-	lda sample_start_address
-	sta $d721,x ; base 
-	sta $d721,y ; base 
-	sta $d72a,x ; current
-	sta $d72a,y ; current
-	lda sample_start_address + 1
-	sta $d722,x
-	sta $d722,y
-	sta $d72b,x
-	sta $d72b,y
-	lda sample_start_address + 2
-	sta $d723,x
-	sta $d723,y
-	sta $d72c,x
-	sta $d72c,y
-	; store sample stop address
-	lda sample_stop_address
-	sta $d727,x
-	sta $d727,y
-	lda sample_stop_address + 1
-	sta $d728,x
-	sta $d728,y
-	; volume
-	lda sound_arg_volume
-	sta $d729,x
-	sta $d729,y
-;    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
-;    sta $d71e ; mirror the sound for stereo (TODO: doesn't work!)
-	; sample clock/rate
-	jsr .calculate_sample_clock
-	lda .sample_clock
-	sta $d724,x
-	sta $d724,y
-	lda .sample_clock + 1
-	sta $d725,x
-	sta $d725,y
-	lda .sample_clock + 2
-	sta $d726,x
-	sta $d726,y
-	; Enable playback of channel 0
-	lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
-	bit sample_is_signed
-	bpl +
-	ora #$20 ; CH0SGN
-+   sta $d720,x
-	sta $d720,y
-	rts
-
-;.play_sample_ch0
-;    ; stop playback while loading new sample data
-;    lda #$00
-;    sta $d720
-;    ; store sample start address in base and current address
-;    lda sample_start_address
-;    sta $d721 ; base 
-;    sta $d72a ; current
-;    lda sample_start_address + 1
-;    sta $d722
-;    sta $d72b
-;    lda sample_start_address + 2
-;    sta $d723
-;    sta $d72c
-;    ; store sample stop address
-;    lda sample_stop_address
-;    sta $d727
-;    lda sample_stop_address + 1
-;    sta $d728
-;    ; volume
-;    lda sound_arg_volume
-;    sta $d729
-;    sta $d71c ; mirror the sound for stereo (TODO: doesn't work!)
-;    ; sample clock/rate
-;    jsr .calculate_sample_clock
-;    lda .sample_clock
-;    sta $d724
-;    lda .sample_clock + 1
-;    sta $d725
-;    lda .sample_clock + 2
-;    sta $d726
-;    ; Enable playback of channel 0
-;    lda #$82 ; CH0EN + CH0SBITS (10 = 8 bits sample)
-;    ldx sample_is_signed
-;    beq +
-;    ora #$20 ; CH0SGN
-;+   sta $d720
-;    rts
 
 !ifdef SOUND_WAV_ENABLED {
 !source "sound-wav.asm"
@@ -961,7 +900,12 @@ z_ins_sound_effect
 	asl
 	sec
 	sbc z_operand_value_low_arr + 2
-+	sta sound_arg_volume
++	; MEGA65's volume is [0,64]. Convert from z-machine [0,255]
+	clc
+	ror
+	clc
+	ror
+	sta sound_arg_volume
 !ifdef Z5PLUS {
 	lda z_operand_value_high_arr + 2 ; repeats
 	bne +
