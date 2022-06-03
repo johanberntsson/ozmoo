@@ -851,15 +851,12 @@ class D81_image < Disk_image
 	
 	def find_free_file_start_sector
 		40.times do |s|
-#			1.upto 40 do |t|
-			20.upto 40 do |t|
+			1.upto 40 do |t|
 				unless t > 39 or sector_allocated?(40 - t, s)
-					puts "START: " + [40 - t, s].to_s
 					allocate_sector(40 - t, s)
 					return [40 - t, s]
 				end
 				unless sector_allocated?(40 + t, s)
-					puts "START: " + [40 + t, s].to_s
 					allocate_sector(40 + t, s)
 					return [40 + t, s]
 				end
