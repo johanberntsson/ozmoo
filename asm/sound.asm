@@ -671,8 +671,7 @@ sound_effect
 	; new sound, let's remember it and play it later
 	lda #1
 	sta next_sound_available
-	lda sound_arg_number
-	sta next_sound_arg_number
+	stx next_sound_arg_number
 	lda sound_arg_effect
 	sta next_sound_arg_effect
 	lda sound_arg_volume
@@ -747,8 +746,6 @@ sound_effect
 	beq +
 	lda #0
 	sta next_sound_available
-	lda next_sound_arg_number
-	sta sound_arg_number
 	lda next_sound_arg_effect
 	sta sound_arg_effect
 	lda next_sound_arg_volume
@@ -759,6 +756,7 @@ sound_effect
 	sta sound_arg_routine
 	lda next_sound_arg_routine + 1
 	sta sound_arg_routine + 1
+	ldx next_sound_arg_number
 	jmp sound_effect
 +   rts
 
