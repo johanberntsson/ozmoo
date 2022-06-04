@@ -21,7 +21,7 @@
 !zone sound_support {
 
 !ifdef Z5PLUS {
-LOOPING_SUPPORTED=1
+LOOPING_SUPPORTED = 1
 }
 
 !ifdef LURKING_HORROR {
@@ -37,7 +37,7 @@ LOOPING_SUPPORTED=1
 
 ;TRACE_SOUND = 1
 ;SOUND_AIFF_ENABLED = 1
-SOUND_WAV_ENABLED = 1
+;SOUND_WAV_ENABLED = 1
 
 sound_load_msg !pet "Loading sound: ",13,0
 sound_load_msg_2 !pet 13,"Done.",0
@@ -58,16 +58,16 @@ sound_length_pages !fill 253,0
 sound_base_value = 1024*1024/256 ; 1 MB into Attic RAM
 sound_next_page !byte <sound_base_value, >sound_base_value
 
-sound_nums !byte 100,10,1
-sound_data_base = z_temp + 3
-sound_file_target = sound_data_base ; 4 bytes
-dir_entry_start = sound_data_base +  4 ; 1 byte
-.fx_number = sound_data_base + 5
-.sound_temp = sound_data_base + 6
-sound_index_ptr = z_operand_value_low_arr ; 4 bytes
-sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
+;sound_nums !byte 100,10,1
+;sound_data_base = z_temp + 3
+sound_file_target = z_temp + 3 ; 4 bytes
+;dir_entry_start = sound_data_base +  4 ; 1 byte
+.fx_number = z_temp + 8
+.sound_temp = z_temp + 9
+;sound_index_ptr = z_operand_value_low_arr ; 4 bytes
+;sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
 sound_dir_ptr = z_operand_value_high_arr
-.sound_repeating !byte 0
+;.sound_repeating !byte 0
 sound_files_read !byte 0
 
 .read_filename_char
@@ -189,17 +189,17 @@ read_sound_files
 	cpx #4
 	bcc .read_next_digit
 
-; Read loop/music markers (Music marker NOT CURRENTLY IMPLEMENTED)
-	lda #0
-	sta .sound_repeating
-	jsr .read_filename_char
+; ; Read loop/music markers (Music marker NOT CURRENTLY IMPLEMENTED)
+	; lda #0
+	; sta .sound_repeating
+	; jsr .read_filename_char
 	ldy #0
-	cmp #$52 ; 'r' for Repeating
-	bne +
-	dec .sound_repeating
+	; cmp #$52 ; 'r' for Repeating
+	; bne +
+	; dec .sound_repeating
 
 ; Read file extension
-.filename_end_of_markers
+; .filename_end_of_markers
 ;	ldy #0
 -	jsr .read_filename_char
 +	cmp .sound_file_extension,y

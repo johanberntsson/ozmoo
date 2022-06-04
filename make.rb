@@ -2,9 +2,6 @@
 
 require 'fileutils'
 
-$sound_format = "wav"
-#$sound_format = "aiff"
-
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
@@ -1281,7 +1278,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 #		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\""
-		$soundfiles.each do |file|
+		$sound_files.each do |file|
 			f = file
 			tf = f.gsub(/^.*\//,'')
 			f = f.gsub(/\//,"\\") if $is_windows
@@ -1962,7 +1959,7 @@ def print_usage
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-	puts "         [-as <soundpath>] <storyfile>"
+	puts "         [-as(a|w) <soundpath>] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -1993,7 +1990,8 @@ def print_usage
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
-	puts "  -as: Add the sound files found at the specified path (003.#{$sound_format} - 255.#{$sound_format})"
+	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)"
+	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2009,8 +2007,8 @@ await_preloadfile = false
 await_fontfile = false
 await_imagefile = false
 preloadfile = nil
-$soundpath = nil
-$soundfiles = []
+$sound_path = nil
+$sound_files = []
 $font_filename = nil
 $font_address = nil
 $loader_pic_file = nil
@@ -2046,6 +2044,7 @@ $verbose = nil
 $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
+$sound_format = nil
 
 begin
 	while i < ARGV.length
@@ -2054,7 +2053,7 @@ begin
 			preloadfile = ARGV[i]
 		elsif await_soundpath then
 			await_soundpath = false
-			$soundpath = ARGV[i]
+			$sound_path = ARGV[i]
 		elsif await_fontfile then
 			await_fontfile = false
 			$font_filename = ARGV[i]
@@ -2130,7 +2129,19 @@ begin
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
-		elsif ARGV[i] =~ /^-as$/ then
+		elsif ARGV[i] =~ /^-asa$/ then
+			if $sound_format
+				puts "ERROR: Only one sound path can be specified."
+				exit 1
+			end
+			$sound_format = 'aiff'
+			await_soundpath = true
+		elsif ARGV[i] =~ /^-asw$/ then
+			if $sound_format
+				puts "ERROR: Only one sound path can be specified."
+				exit 1
+			end
+			$sound_format = 'wav'
 			await_soundpath = true
 		elsif ARGV[i] =~ /^-cf$/ then
 			await_preloadfile = true
@@ -2273,24 +2284,30 @@ if $font_filename
 	end
 end
 
-if $soundpath
+if $sound_path
 	if $target != 'mega65'
 		puts "ERROR: Sound is only supported for the MEGA65 target platform."
 		exit 1
 	end
-	$soundpath += '/' if $soundpath !~ /\/$/ 
-	$soundfiles = Dir.glob($soundpath + '*').select { |e|
+	$sound_path += '/' if $sound_path !~ /\/$/ 
+	$sound_files = Dir.glob($sound_path + '*').select { |e|
 #		/^([0-9]{3})\.#{$sound_format}$/
 #		puts e
-		File.file?(e) && m = e[$soundpath.length .. -1].match(/^([0-9]{3})r?\.#{$sound_format}$/) # && m[1].to_i.between?(3,255)
+		File.file?(e) && m = e[$sound_path.length .. -1].match(/^([0-9]{3})r?\.#{$sound_format}$/) and m[1].to_i.between?(3,255)
 	}
-	if $soundfiles.empty?
-		puts "ERROR: No sound files found. Note that sound files must be named 003.#{$sound_format}, 004.#{$sound_format} etc."
+	if $sound_files.empty?
+		puts "ERROR: No sound files found. Note that sound files must be named " + 
+			"003.#{$sound_format}, 004.#{$sound_format} etc, and the highest number allowed is 255."
 		exit 1
 	end
-	$soundfiles.sort!
-	$GENERALFLAGS.push('SOUND');
-#	puts $soundfiles
+	$sound_files.sort!
+	$GENERALFLAGS.push('SOUND')
+	if $sound_format == 'wav'
+		$GENERALFLAGS.push('SOUND_WAV_ENABLED')
+	else
+		$GENERALFLAGS.push('SOUND_AIFF_ENABLED')
+	end
+#	puts $sound_files
 end
 
 $VMEM = (mode != MODE_P)

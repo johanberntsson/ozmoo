@@ -418,12 +418,15 @@ While several Infocom games had high and low-pitched beeps, a few games had exte
 
 ## Sound switches
 
-    -as path
+    -asa path
+Add Sounds: Enable extended sound support and add all .aiff files in path
+
+    -asw path
 Add Sounds: Enable extended sound support and add all .wav files in path
 
-If extended sound is to be used, then make.rb should be called with the `-as path` switch. If set, then all .wav files in the `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+If extended sound is to be used, then make.rb should be called with the `-as path` switch. If set, then all .wav or .aiff files in `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
 
-Since sound effect 1 and 2 are reserved for beeps, the sample based sound effects start from position 3, and the files should be named 003.wav, 004.wav and so on. All files found using this pattern are added, and skips are allowed. For example, if there is no sound effect 5, then no 005.wav needs to be added, and instead 006.wav is added next, if available.
+Since sound effect 1 and 2 are reserved for beeps, the sample based sound effects start from position 3, and the files should be named 003.wav, 004.wav and so on. All files found using this pattern are added, and skips are allowed. For example, if there is no sound effect 5, then no 005.wav needs to be added, and instead 006.wav is added next, if available. The highest sound effect number that can be used is 255.
 
 ## Sound sample format
 
