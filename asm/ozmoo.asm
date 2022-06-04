@@ -1931,10 +1931,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 	
 	jsr print_reu_progress_bar
 
-!ifdef TARGET_MEGA65_X {
-	jsr m65_start_disk_access
-}
-
 .initial_copy_loop
 	lda z_temp + 6
 	cmp z_temp + 4
@@ -1970,10 +1966,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 	bne .initial_copy_loop ; Always branch
 
 .done_copying
-
-!ifdef TARGET_MEGA65_X {
-	jsr m65_end_disk_access
-}
 
 	lda z_temp + 4
 	sta reu_last_disk_end_block

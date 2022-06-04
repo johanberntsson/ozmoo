@@ -607,18 +607,11 @@ z_ins_restart
 	; Find right device# for boot disk
 	ldx disk_info + 3
 
-!ifndef TARGET_MEGA65_X {
+!ifndef TARGET_MEGA65 {
 	lda disk_info + 4,x
 	jsr convert_byte_to_two_digits
 	stx .device_no
 	sta .device_no + 1
-	; cmp #10
-	; bcc +
-	; inc .device_no
-	; sec
-	; sbc #10
-; +	ora #$30
-	; sta .device_no + 1
 	ldx disk_info + 3
 }
 
@@ -1265,10 +1258,6 @@ restore_game
 	sta reg_2mhz	;CPU = 1MHz
 }
 
-!ifdef TARGET_MEGA65_X {
-	jsr m65_reset_drive
-}
-
 	jsr maybe_ask_for_save_device
 	bcs .restore_failed
 
@@ -1361,10 +1350,6 @@ save_game
 	lda #0
 	sta allow_2mhz_in_40_col
 	sta reg_2mhz	;CPU = 1MHz
-}
-
-!ifdef TARGET_MEGA65_X {
-	jsr m65_reset_drive
 }
 
 	jsr maybe_ask_for_save_device
