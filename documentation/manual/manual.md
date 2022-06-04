@@ -146,7 +146,7 @@ The Commodore Plus/4 version makes use of the simplified memory map compared to 
 
 ## MEGA65
 
-The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, the higher clockspeed and extra RAM of the MEGA65. The maximum amount of dynamic memory is about 35 KB. The only supported build mode is -81. A loader image is currently not supported.
+The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. The maximum amount of dynamic memory is about 35 KB. The only supported build mode is -81. A loader image is currently not supported.
 
 ## Other targets
 
@@ -416,28 +416,28 @@ To see all the licensing details for each font, read the corresponding license f
 
 While several Infocom games had high and low-pitched beeps, a few games had extended sound support using sample playback. Ozmoo supports the basic sound effects (beeps) on all platforms, and extended sounds on the MEGA65, using the sound_effect opcode.
 
-## Sound switches
+## Sample format
 
-    -asa path
-Add Sounds: Enable extended sound support and add all .aiff files in path
-
-    -asw path
-Add Sounds: Enable extended sound support and add all .wav files in path
-
-If extended sound is to be used, then make.rb should be called with the `-as path` switch. If set, then all .wav or .aiff files in `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
-
-Since sound effect 1 and 2 are reserved for beeps, the sample based sound effects start from position 3, and the files should be named 003.wav, 004.wav and so on. All files found using this pattern are added, and skips are allowed. For example, if there is no sound effect 5, then no 005.wav needs to be added, and instead 006.wav is added next, if available. The highest sound effect number that can be used is 255.
-
-## Sound sample format
-
-The extended sound support uses sample files stored in the WAV format. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
+The extended sound support uses sample files stored in the AIFF or WAV formats, with WAV being the recommended format for new games. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
 
 - Select "File/Export/Export as WAV" from the main menu
 - Select "Other compressed files" as the file type
 - Select "Unsigned 8-bit PCM" as the encoding
 - Save the file
 
-## Support for Sherlock and The Lurking Horror (Infocom)
+## Switches
+
+    -asw path
+Add Sounds: Enable extended sound support and add all .wav files in path
+
+    -asa path
+Add Sounds: Enable extended sound support and add all .aiff files in path
+
+If extended sound is to be used, then make.rb should be called with the `-asw path` (or `-asa path`) switch. If set, then all .wav (or .aiff files) in `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+
+Since sound effect 1 and 2 are reserved for beeps, the sample based sound effects start from position 3, and the files should be named 003.wav, 004.wav and so on. All files found using this pattern are added, and skips are allowed. For example, if there is no sound effect 5, then no 005.wav needs to be added, and instead 006.wav is added next, if available. The highest sound effect number that can be used is 255.
+
+## Legacy support for Sherlock and The Lurking Horror
 
 Ozmoo has includes support for Infocom games with sound effects: Sherlock and
 The Lurking Horror. The easiest way of getting these games complete with sound effects for the MEGA65 is to generate them from Ozmoo Online: https://microheaven.com/ozmooonline/, but it is also possible to convert and use sound files from the Amiga version of the games with Ozmoo.
@@ -446,7 +446,7 @@ The original sound files can be found in various places on the Internet, includi
 
 The individial sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html
 
-The individual files then need to be converted to wav files, for example using Audacity as described above, and moved to a folder that is later included with the -as switch when using the make.rb script to build the game.
+The individual files then need to be converted to wav or aiff files, for example using Audacity as described above, and moved to a folder that is later included with the -asw (or -asa) switch when using the make.rb script to build the game.
 
 # Loader image
 

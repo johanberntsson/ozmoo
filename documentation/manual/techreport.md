@@ -319,7 +319,9 @@ Sound support is implemented in sound.asm. Extended sounds also use sound-wav.as
 - Select "Unsigned 8-bit PCM" as the encoding
 - Save the file
 
-If extended sound is to be used, then make.rb must be called with the `-as path` switch. If set, then all .wav files in the `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+If extended sound is to be used, then make.rb must be called with the `-asw path` switch. If set, then all .wav files in the `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+
+For legacy reason AIFF is also supported, using sound-aiff.asm, and the `-asa path` switch. Code has also been added to detect and handle sound effects in `The Lurking Horror` game from Infocom, which isn't standard compliant.
 
 When compiled with extended sound support, Ozmoo will preload all sound files during startup into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
 
