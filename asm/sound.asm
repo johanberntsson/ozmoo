@@ -285,8 +285,10 @@ read_sound_files
 	jsr s_printchar
 	pla
 } else {
+	pha
 	lda #20 ; delete
 	jsr s_printchar
+	pla
 }
 
 	
