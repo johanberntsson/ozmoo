@@ -1962,7 +1962,7 @@ def print_usage
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         <storyfile>"
-#	puts "         [-as <soundpath>] <storyfile>"
+	puts "         [-as <soundpath>] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -1993,7 +1993,7 @@ def print_usage
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
-#	puts "  -as: Add the sound files found at the specified path (003.#{$sound_format} - 255.#{$sound_format})"
+	puts "  -as: Add the sound files found at the specified path (003.#{$sound_format} - 255.#{$sound_format})"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
