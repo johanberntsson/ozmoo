@@ -250,9 +250,6 @@ read_sound_files
 	bcc -
 	lda #34
 	jsr s_printchar
-} else {
-	lda #20 ; delete
-	jsr s_printchar
 }
 	
 
@@ -287,7 +284,11 @@ read_sound_files
 	lda #13
 	jsr s_printchar
 	pla
+} else {
+	lda #20 ; delete
+	jsr s_printchar
 }
+
 	
 	ldy .fx_number
 	sta sound_length_pages - 3,y
