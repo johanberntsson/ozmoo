@@ -727,6 +727,9 @@ class D81_image < Disk_image
 			0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF,0x28,0xFF,0xFF,0xFF,0xFF,0xFF  # Track 77-80
 		]
 
+		# Add BAM at 40:01 and 40:02
+		@contents[(@track_offset[40] + 1) * 256 .. (@track_offset[40] + 1) * 256 + @track4001.length - 1] = @track4001
+
 		# Create a disk image. Return number of free blocks, or -1 for failure.
 
 		# Set disk title
@@ -831,11 +834,14 @@ class D81_image < Disk_image
 		index2 = index1 + 1 + (sector / 8)
 
 		# adjust number of free sectors
-		@track4001[index1] -= 1
+#		@track4001[index1] -= 1
+		@contents[(@track_offset[40] + 1) * 256 + index1] -= 1
 		# allocate sector
 		index3 = 255 - 2**(sector % 8)
-		@track4001[index2] &= index3
+#		@track4001[index2] &= index3
+		@contents[(@track_offset[40] + 1) * 256 + index2] &= index3
 	end
+#		@contents[(@track_offset[40] + 1) * 256 .. (@track_offset[40] + 1) * 256 + @track4001.length - 1] = @track4001
 
 	def sector_allocated?(track, sector)
 		index1 = (track > 40 ? 0x100: 0) + 0x10 +  6 * ((track - 1) % 40)
@@ -843,7 +849,8 @@ class D81_image < Disk_image
 		index3 = 2**(sector % 8)
 
 		# is sector allocated?
-		return (@track4001[index2] & index3 != 0) ? nil : true;
+#		return (@track4001[index2] & index3 != 0) ? nil : true;
+		return (@contents[(@track_offset[40] + 1) * 256 + index2] & index3 != 0) ? nil : true
 	end
 	
 	def find_free_file_start_sector
@@ -910,23 +917,33 @@ class D81_image < Disk_image
 		# Add disk info at 40:00
 		@contents[@track_offset[40] * 256 .. @track_offset[40] * 256 + @track4000.length - 1] = @track4000
 
-		# Add BAM at 40:01 and 40:02
-		@contents[(@track_offset[40] + 1) * 256 .. (@track_offset[40] + 1) * 256 + @track4001.length - 1] = @track4001
-
 		# Add directory at 40:03
 		@contents[(@track_offset[40] + 3) * 256] = 0 
 		@contents[(@track_offset[40] + 3) * 256 + 1] = 0xff
 
-		if @add_to_dir.length > 0
-			sector = @contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255]
-			@add_to_dir.each do |dir_entry|
-				entry = 2
-				while entry < 8 and sector[0x20 * entry + 2] > 0
+		add_files_to_dir(3,2)
+	end
+
+	def add_files_to_dir(sector, entry)
+		unless @add_to_dir.empty?
+			block_data = @contents[(@track_offset[40] + sector) * 256 .. (@track_offset[40] + sector) * 256 + 255]
+			block_data[1] = 0xff
+			while !@add_to_dir.empty? do
+				while entry < 8 and block_data[0x20 * entry + 2] > 0
 					entry += 1
 				end
-				sector[0x20 * entry + 2 .. 0x20 * entry + 0x1f] = dir_entry.unpack("C*")
+				if entry > 7
+					block_data[0] = 40
+					block_data[1] = sector + 1
+					allocate_sector(40, sector + 1)
+					add_files_to_dir(sector + 1, 0)
+				else
+					dir_entry = @add_to_dir[0]
+					@add_to_dir = @add_to_dir.drop(1)
+					block_data[0x20 * entry + 2 .. 0x20 * entry + 0x1f] = dir_entry.unpack("C*")
+				end
 			end
-			@contents[(@track_offset[40] + 3) * 256 .. (@track_offset[40] + 3) * 256 + 255] = sector
+			@contents[(@track_offset[40] + sector) * 256 .. (@track_offset[40] + sector) * 256 + 255] = block_data
 			@add_to_dir = []
 		end
 	end
@@ -1278,12 +1295,12 @@ def add_boot_file(finaldiskname, diskimage_filename)
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 #		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\""
-		$sound_files.each do |file|
-			f = file
-			tf = f.gsub(/^.*\//,'')
-			f = f.gsub(/\//,"\\") if $is_windows
-		    c1541_cmd += " -write \"#{f}\" \")#{tf},s\""
-		end
+		# $sound_files.each do |file|
+			# f = file
+			# tf = f.gsub(/^.*\//,'')
+			# f = f.gsub(/\//,"\\") if $is_windows
+		    # c1541_cmd += " -write \"#{f}\" \")#{tf},s\""
+		# end
 	end
 	if $verbose
 		puts c1541_cmd 
@@ -1866,6 +1883,13 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	if $target == "mega65" then
 		disk.add_file('zcode', $story_file_data);
+		$sound_files.each do |file|
+			f = file
+			tf = ')' + f.gsub(/^.*\//,'')
+			f = f.gsub(/\//,"\\") if $is_windows
+			file_contents = IO.binread(f)
+			disk.add_file(tf, file_contents);
+		end
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
 		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
