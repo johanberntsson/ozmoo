@@ -291,5 +291,5 @@ Release 10:
 - Stopped make.rb from accepting nonsupported options regarding preloading 
   vmem blocks on MEGA65.
 - Added sound effects for MEGA65, supporting wav or aiff files.
-- Store story file with custom interleave scheme to get higher loading speed
-  on real floppies on MEGA65.
+- Store story file and sound files with custom interleave scheme to get 
+  higher loading speed on real floppies on MEGA65.
