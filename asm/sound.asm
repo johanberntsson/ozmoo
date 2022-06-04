@@ -40,7 +40,7 @@ LOOPING_SUPPORTED=1
 ;SOUND_WAV_ENABLED = 1
 
 sound_load_msg !pet "Loading sound: ",13,0
-sound_load_msg_2 !pet 13,"Done.",0
+;sound_load_msg_2 !pet 13,"Done.",0
 .sound_file_extension
 !ifdef SOUND_AIFF_ENABLED {
 	!pet ".aiff"
@@ -116,11 +116,23 @@ read_sound_files
 	ldx #3      ; filenumber
 	jsr kernal_chkin ; call CHKIN (file# in x now used as input)
 
+	ldx #0 ; Status for sound counter
 -	jsr kernal_readchar
 	sta [sound_dir_ptr],z
 	inq sound_dir_ptr
 
-	jsr kernal_readst
+	cpx #0
+	bne +
+	cmp #$22 ; "
+	bne ++
+	inx
+	bne ++ ; Always branch
++	cmp #$29
+	bne +
+	lda #$24
+	jsr s_printchar
++	ldx #0
+++	jsr kernal_readst
 	bne .dir_copying_done
 
 	jmp -
@@ -226,6 +238,7 @@ read_sound_files
 	inx
 	stx zp_temp
 
+!ifdef DEBUG {
 ; Print filename for debug purposes
 	lda #34
 	jsr s_printchar
@@ -237,6 +250,11 @@ read_sound_files
 	bcc -
 	lda #34
 	jsr s_printchar
+} else {
+	lda #20 ; delete
+	jsr s_printchar
+}
+	
 
 ; Load file to Attic RAM
 	lda zp_temp
@@ -258,6 +276,7 @@ read_sound_files
 	jsr m65_load_file_to_reu ; in reu.asm
 	inc sound_files_read
 
+!ifdef DEBUG {
 ; Print pages loaded for debug purposes (a = 1, b=2, ...)
 	pha
 	lsr
@@ -268,6 +287,7 @@ read_sound_files
 	lda #13
 	jsr s_printchar
 	pla
+}
 	
 	ldy .fx_number
 	sta sound_length_pages - 3,y
