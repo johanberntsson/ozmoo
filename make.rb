@@ -860,6 +860,7 @@ class D81_image < Disk_image
 					allocate_sector(t, s)
 					return [t, s]
 				end
+			end
 			41.upto 80 do |t|
 				unless sector_allocated?(t, s)
 					allocate_sector(t, s)
