@@ -793,21 +793,15 @@ class D81_image < Disk_image
 					puts "ERROR: No free blocks left on disk."
 					exit 1
 				end
+				
 				sector_count += 1
 				block_contents = next_sector.pack("CC") + filecontents[0 .. 253]
 				filecontents = filecontents[254 .. filecontents.size - 1]
-	#			@contents[256 * (@track_offset[track] + sector) .. 256 * (@track_offset[track] + sector) + 255] =
-	#				$story_file_data[$story_file_cursor .. $story_file_cursor + 255].unpack("C*")
 				@contents[256 * (@track_offset[this_sector[0]] + this_sector[1]) .. 
 							256 * (@track_offset[this_sector[0]] + this_sector[1]) + 255] =
 					block_contents.unpack("C*")
 				this_sector = next_sector
 			end
-			# next_sector = find_next_free_sector(this_sector[0], this_sector[1])
-			# if next_sector == nil
-				# puts "ERROR: No free blocks left on disk."
-				# exit 1
-			# end
 			block_contents = [0, filecontents.length + 2 - 1].pack("CC") + filecontents + Array.new(254 - filecontents.length).fill(0).pack("c*")
 			@contents[256 * (@track_offset[this_sector[0]] + this_sector[1]) .. 
 						256 * (@track_offset[this_sector[0]] + this_sector[1]) + 255] =
@@ -834,14 +828,17 @@ class D81_image < Disk_image
 		index2 = index1 + 1 + (sector / 8)
 
 		# adjust number of free sectors
-#		@track4001[index1] -= 1
-		@contents[(@track_offset[40] + 1) * 256 + index1] -= 1
+
+		free = @contents[(@track_offset[40] + 1) * 256 + index1]
+		if free < 1 or free > 40
+			puts "BAD FREE TRACK SPACE: #{track}, #{sector}"
+		end
+		
+		@contents[(@track_offset[40] + 1) * 256 + index1] = free - 1
 		# allocate sector
 		index3 = 255 - 2**(sector % 8)
-#		@track4001[index2] &= index3
 		@contents[(@track_offset[40] + 1) * 256 + index2] &= index3
 	end
-#		@contents[(@track_offset[40] + 1) * 256 .. (@track_offset[40] + 1) * 256 + @track4001.length - 1] = @track4001
 
 	def sector_allocated?(track, sector)
 		index1 = (track > 40 ? 0x100: 0) + 0x10 +  6 * ((track - 1) % 40)
@@ -849,22 +846,19 @@ class D81_image < Disk_image
 		index3 = 2**(sector % 8)
 
 		# is sector allocated?
-#		return (@track4001[index2] & index3 != 0) ? nil : true;
-		return (@contents[(@track_offset[40] + 1) * 256 + index2] & index3 != 0) ? nil : true
+		return @contents[(@track_offset[40] + 1) * 256 + index2] & index3 == 0
 	end
 	
 	def find_free_file_start_sector
 		40.times do |s|
-			39.downto 1 do |t|
-				unless sector_allocated?(t, s)
-					allocate_sector(t, s)
-					return [t, s]
+			1.upto 40 do |t|
+				unless t > 39 or sector_allocated?(40 - t, s)
+					allocate_sector(40 - t, s)
+					return [40 - t, s]
 				end
-			end
-			41.upto 80 do |t|
-				unless sector_allocated?(t, s)
-					allocate_sector(t, s)
-					return [t, s]
+				unless sector_allocated?(40 + t, s)
+					allocate_sector(40 + t, s)
+					return [40 + t, s]
 				end
 			end
 		end
@@ -879,12 +873,10 @@ class D81_image < Disk_image
 		if interleave_scheme && interleave_scheme.has_key?(sector)
 			next_sector = interleave_scheme[sector]
 		else
-			next_sector = sector + 1
+			next_sector = (sector + 1) % 40
 		end
 		loop do
-#			puts "WILL TRY: #{track}, #{next_sector}"
 			unless sector_allocated?(track, next_sector)
-#				puts "NEXT: #{track}, #{next_sector}"
 				allocate_sector(track, next_sector)
 				return [track, next_sector]
 			end
@@ -1884,7 +1876,6 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	end
 
 	if $target == "mega65" then
-		disk.add_file('zcode', $story_file_data);
 		$sound_files.each do |file|
 			f = file
 			tf = ')' + f.gsub(/^.*\//,'')
@@ -1892,6 +1883,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			file_contents = IO.binread(f)
 			disk.add_file(tf, file_contents);
 		end
+		disk.add_file('zcode', $story_file_data);
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
 		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
