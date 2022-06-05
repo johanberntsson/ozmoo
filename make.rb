@@ -855,14 +855,15 @@ class D81_image < Disk_image
 	
 	def find_free_file_start_sector
 		40.times do |s|
-			1.upto 40 do |t|
-				unless t > 39 or sector_allocated?(40 - t, s)
-					allocate_sector(40 - t, s)
-					return [40 - t, s]
+			39.downto 1 do |t|
+				unless sector_allocated?(t, s)
+					allocate_sector(t, s)
+					return [t, s]
 				end
-				unless sector_allocated?(40 + t, s)
-					allocate_sector(40 + t, s)
-					return [40 + t, s]
+			41.upto 80 do |t|
+				unless sector_allocated?(t, s)
+					allocate_sector(t, s)
+					return [t, s]
 				end
 			end
 		end
