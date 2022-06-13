@@ -1288,7 +1288,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	if $target == "mega65" then	
 		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
 #		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
-		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\""
+#		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\"" # No longer needed
 		# $sound_files.each do |file|
 			# f = file
 			# tf = f.gsub(/^.*\//,'')
@@ -1883,7 +1883,10 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			file_contents = IO.binread(f)
 			disk.add_file(tf, file_contents);
 		end
-		disk.add_file('zcode', $story_file_data);
+		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
+		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
+		disk.add_file('zcode-stat', $story_file_data[dynbytes .. $story_file_data.length - 1])
+#		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
 		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
@@ -1923,12 +1926,13 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += vmem_data
 
 	#	puts config_data
-	if $target == "mega65" then
-		config_filehandle = File.open($config_filename, "wb")
-		config_filehandle.write [$config_load_address % 256, $config_load_address / 256].pack("C*")
-		config_filehandle.write config_data.pack("C*")
-		config_filehandle.close
-	else
+	# if $target == "mega65" then
+		# config_filehandle = File.open($config_filename, "wb")
+		# config_filehandle.write [$config_load_address % 256, $config_load_address / 256].pack("C*")
+		# config_filehandle.write config_data.pack("C*")
+		# config_filehandle.close
+	# else
+	unless $target == "mega65" then
 		disk.set_config_data(config_data)
 	end
 	
@@ -2328,7 +2332,7 @@ if $sound_path
 #	puts $sound_files
 end
 
-$VMEM = (mode != MODE_P)
+$VMEM = (mode != MODE_P && $target != 'mega65')
 
 $GENERALFLAGS.push('DANISH_CHARS') if $char_map == 'da'
 $GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'
@@ -2367,7 +2371,7 @@ if optimize and mode == MODE_P
 	exit 1
 end
 
-if limit_preload_vmem_blocks and !$VMEM
+if limit_preload_vmem_blocks and !$VMEM and $target != 'mega65'
 	puts "ERROR: Option -p can't be used with this build mode."
 	exit 1
 end
@@ -2579,7 +2583,8 @@ build_interpreter()
 
 $dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart
 
-if $storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
+if $target != 'mega65' and 
+		$storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
 end
@@ -2688,13 +2693,18 @@ else # No preload data available
 	vmem_data += lowbytes;
 end
 
-vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
-vmem_data[2].times do |i|
-	start_address = (vmem_data[4 + i] & $vmem_highbyte_mask) * 512 * 256 + vmem_data[4 + vmem_data[2] + i] * 512
-	# puts start_address
-	# puts $story_file_data.length
-	vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
+if $target == 'mega65'
+	vmem_contents = '';
+else
+	vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
+	vmem_data[2].times do |i|
+		start_address = (vmem_data[4 + i] & $vmem_highbyte_mask) * 512 * 256 + vmem_data[4 + vmem_data[2] + i] * 512
+		# puts start_address
+		# puts $story_file_data.length
+		vmem_contents += $story_file_data[start_address .. start_address + $VMEM_BLOCKSIZE - 1]
+	end
 end
+
 ############################# End of moved block
 
 limit_vmem_data_preload(vmem_data)

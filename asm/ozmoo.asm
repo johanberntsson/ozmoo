@@ -19,9 +19,14 @@
 
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
+	FAR_DYNMEM = 1
+	COMPLEX_MEMORY = 1
 	HAS_SID = 1
 	SUPPORT_REU = 1
 	SUPPORT_80COL = 1;
+	!ifndef SLOW {
+		SLOW = 1
+	}
 	!ifdef SLOW {
 		; This is never used, since VMEM is always enabled for this target
 		!ifndef VMEM {
@@ -45,9 +50,10 @@
 !ifdef TARGET_C128 {
 	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
-	HAS_SID = 1
-	VMEM_END_PAGE = $fc
+	FAR_DYNMEM = 1
 	COMPLEX_MEMORY = 1
+	VMEM_END_PAGE = $fc
+	HAS_SID = 1
 	SUPPORT_80COL = 1;
 	!ifndef SLOW {
 		SLOW = 1
@@ -294,6 +300,14 @@ program_start
 }
 	jmp .initialize
 
+!ifdef VMEM {
+	RESTART_SUPPORTED = 1
+} else {
+	!ifdef TARGET_MEGA65 {
+		RESTART_SUPPORTED = 1
+	} 
+}
+
 ; =========================================== Highbytes of jump table
 
 z_jump_high_arr
@@ -310,7 +324,7 @@ z_jump_high_arr
 	!byte >z_not_implemented
 	!byte >z_not_implemented
 }
-!ifdef VMEM {
+!ifdef RESTART_SUPPORTED {
 	!byte >z_ins_restart
 } else {
 	!byte >z_ins_not_supported
@@ -501,7 +515,7 @@ z_jump_low_arr
 	!byte <z_not_implemented
 	!byte <z_not_implemented
 }
-!ifdef VMEM {
+!ifdef RESTART_SUPPORTED {
 	!byte <z_ins_restart
 } else {
 	!byte <z_ins_not_supported
@@ -888,11 +902,11 @@ game_id		!byte 0,0,0,0
 ;!ifdef SOUND {
 !source "sound.asm"
 ;}
-!ifdef VMEM {
+;!ifdef VMEM {
 	!if SUPPORT_REU = 1 {
 	!source "reu.asm"
 	}
-}
+;}
 !source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
@@ -973,7 +987,7 @@ c128_move_dynmem_and_calc_vmem
 	; Copy dynmem to bank 1
 	lda #>story_start
 	sta zp_temp
-	lda #>story_start_bank_1
+	lda #>story_start_far_ram
 	sta zp_temp + 1
 	lda nonstored_pages
 	sta zp_temp + 2
@@ -1021,7 +1035,7 @@ c128_move_dynmem_and_calc_vmem
 	sta first_vmap_entry_in_bank_1
 
 	; Remember the first page used for vmem in bank 1
-	lda #>story_start_bank_1
+	lda #>story_start_far_ram
 	adc nonstored_pages ; Carry is already clear
 	sta vmap_first_ram_page_in_bank_1
 
@@ -1361,12 +1375,12 @@ z_init
 	tay
 	txa
 	clc
-!ifdef TARGET_C128 {
-	adc #<(story_start_bank_1 - 32)
+!ifdef FAR_DYNMEM  {
+	adc #<(story_start_far_ram - 32)
 	sta z_low_global_vars_ptr
 	sta z_high_global_vars_ptr
 	tya
-	adc #>(story_start_bank_1 - 32)
+	adc #>(story_start_far_ram - 32)
 } else {
 	adc #<(story_start - 32)
 	sta z_low_global_vars_ptr
@@ -1468,7 +1482,11 @@ deletable_init_start
 ; pcrc: RAM in bank 1, RAM everywhere
 c128_mmu_values !byte $0e,$3f,$7f
 }
-
+!ifdef TARGET_MEGA65 {
+.first_value !byte 0
+.different_values !byte 0
+m65_statmem_already_loaded !byte 0
+}
 
 deletable_init
 	cld
@@ -1489,6 +1507,20 @@ deletable_init
 
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu
+}
+!ifdef TARGET_MEGA65 {
+	lda #$0
+	sta dynmem_pointer
+	sta dynmem_pointer + 1
+	sta dynmem_pointer + 2
+	sta mempointer
+	sta mempointer + 1
+;	sta mempointer + 2 ; Will be set after reading the header
+	lda #$08
+	sta dynmem_pointer + 3
+	sta mempointer + 3
+;	sta mempointer_4bytes + 3
+	sta z_pc_mempointer + 3
 }
 
 
@@ -1525,28 +1557,97 @@ deletable_init
 ;	tya
 ;	jsr init_drive
 
+!ifdef TARGET_MEGA65 {
+	jsr m65_load_header
+
+!ifdef Z3PLUS {
+	; Start 512KB into Attic RAM
+	lda #>(512 * 1024 / 256)
+	sta mempointer + 2
+	ldz #header_filelength
+	lda [dynmem_pointer],z
+	sta .first_value
+-	lda [dynmem_pointer],z
+	cmp .first_value
+	beq +
+	inc .different_values
++	cmp [mempointer],z
+	bne .must_load_statmem
+	inz
+	cpz #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
+	bcc -
+	; Header values for file length and checksum are indentical
+	lda .different_values
+	beq .must_load_statmem ; All four bytes have the same value. Header can't be trusted.
+	lda #$ff
+	sta m65_statmem_already_loaded
+
+.must_load_statmem
+
+	
+}
+
+	lda #0
+	sta reu_last_disk_end_block
+	sta reu_last_disk_end_block + 1
+	
+	lda #0
+	sta z_temp + 5
+	ldz #header_filelength
+	lda [mempointer],z
+!ifdef Z4PLUS {
+	!ifdef Z7PLUS {
+		ldx #3 ; File size multiplier is 2^3 = 8
+	} else {
+		ldx #2 ; File size multiplier is 2^2 = 4
+	}
+} else {
+	ldx #1 ; File size multiplier is 2^1 = 2
+}
+-	asl
+	rol z_temp + 5
+	dex
+	bne -
+	sta z_temp + 4
+	
+	bit m65_statmem_already_loaded
+	beq +
+
+	; We are only to load dynmem
+	ldz #header_static_mem
+	lda [mempointer],z
+	sta z_temp + 4
+	lda #0
+	sta z_temp + 5
+	
++	jsr print_reu_progress_bar
+
+	jsr m65_load_dynmem
+}
+
+
+
+
 !ifdef VMEM {
 
-!ifdef TARGET_MEGA65 {
-	lda #.configname_len
-	ldx #<.configname
-	ldy #>.configname
-	jsr kernal_setnam ; call SETNAM
+; !ifdef TARGET_MEGA65 {
+	; lda #.configname_len
+	; ldx #<.configname
+	; ldy #>.configname
+	; jsr kernal_setnam ; call SETNAM
 
-	lda #1      ; file number 1
-	ldx $ba ; Last used device#
-	bne +
-	ldx #8 ; Default to device 8
-+   ldy #1      ; secondary address 1 to say load at address in file
-	jsr kernal_setlfs ; call SETLFS
-	lda #0
-	jsr kernal_load     ; call LOAD
-	bcc +
-	; if carry set, the file could not be opened
-	lda #ERROR_FLOPPY_READ_ERROR
-	jsr fatalerror
-+
-} else {
+	; lda #1      ; file number 1
+	; ldx boot_device
+	; ldy #1      ; secondary address 1 to say load at address in file
+	; jsr kernal_setlfs ; call SETLFS
+	; lda #0
+	; jsr kernal_load     ; call LOAD
+	; bcc +
+	; ; if carry set, the file could not be opened
+	; lda #ERROR_FLOPPY_READ_ERROR
+	; jsr fatalerror
+; +
+; } else {
 ; Not MEGA65
 
 !ifdef TARGET_PLUS4 {
@@ -1571,7 +1672,48 @@ deletable_init
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
-}	
+; }	; End of Not TARGET_MEGA65
+
+!ifdef TARGET_MEGA65 {
+	; lda #2 ; Don't clash with config load address (page 0 in vmem buffer)
+	; sta vmem_cache_cnt
+	; ; Signal that REU copy routine should not update progress bar
+	; lda #$00
+	; sta reu_progress_bar_updates
+	; ; lda #0
+	; ; sta reu_last_disk_end_block
+	; ; sta reu_last_disk_end_block + 1
+
+	; ; lda fileblocks + 1
+	; ; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
+	; ; lda fileblocks + 2
+	; ; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+
+	; ; jsr print_reu_progress_bar
+
+; ;	lda #0
+; ;	sta zp_temp + 2
+; ;	sta zp_temp + 3
+
+	; lda #.dynmemfilenamelen
+	; ldx #<.dynmemfilename
+	; ldy #>.dynmemfilename
+	; jsr kernal_setnam ; call SETNAM
+
+	; ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	; txa
+	
+	; jsr m65_load_file_to_reu ; in reu.asm
+
+	; jmp +
+
+; .dynmemfilename
+	; !pet "zcode-dyn,s,r"
+; .dynmemfilenamelen = * - .dynmemfilename
+; +	
+
+}
+
 	
 
 ; Copy game id
@@ -1598,7 +1740,11 @@ deletable_init
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM
-	sty disk_info + 4
+	ldy boot_device ; Boot device# stored
+	sty disk_info + 4 ; Device# for save disk
+!ifdef TARGET_MEGA65 {
+	sty disk_info + 4 + 8 ; Device# for boot/story disk
+}
 	ldy #header_static_mem
 	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
 	ldx #$30 ; First unavailable slot
@@ -1647,6 +1793,27 @@ deletable_init
 }
 	stx dynmem_size
 	sta dynmem_size + 1
+	
+!ifdef TARGET_MEGA65 {
+	tay
+	cpx #0
+	beq .maybe_inc_nonstored_pages
+	iny ; Add one page if statmem doesn't start on a new page ($xx00)
+.maybe_inc_nonstored_pages
+	tya
+;	and #vmem_indiv_block_mask ; keep index into kB chunk
+	and #%00000001 ; keep index into kB chunk
+	beq .store_nonstored_pages
+	iny
+.store_nonstored_pages
+	sty nonstored_pages
+
+	bit m65_statmem_already_loaded
+	bmi + 
+	jsr m65_load_statmem
++
+}
+	
 !ifdef VMEM {
 	tay
 	cpx #0
@@ -1682,7 +1849,20 @@ deletable_init
 
 !ifdef TARGET_MEGA65 {
 	ldy #header_filelength
+;	sty SCREEN_ADDRESS + 4
 	jsr read_header_word
+	; sta SCREEN_ADDRESS
+	; stx SCREEN_ADDRESS + 1
+	; lda dynmem_pointer
+	; sta SCREEN_ADDRESS + 80
+	; lda dynmem_pointer + 1
+	; sta SCREEN_ADDRESS + 81
+	; lda dynmem_pointer + 2
+	; sta SCREEN_ADDRESS + 82
+	; lda dynmem_pointer + 3
+	; sta SCREEN_ADDRESS + 83
+; -	inc $d020
+	; jmp -	
 	stx fileblocks
 !ifndef Z4PLUS {
 	ldx #1 ; # of shifts for filesize
@@ -1731,9 +1911,9 @@ deletable_init
 
 	rts
 
-.configname
-	!pet "ozmoo.cfg"
-.configname_len = * - .configname
+; .configname
+	; !pet "ozmoo.cfg"
+; .configname_len = * - .configname
 
 }
 
@@ -1808,6 +1988,7 @@ insert_disks_at_boot
 	lda #0
 	tay ; Disk#
 .next_disk
+;	inc $d020
 	tax ; Memory index
 	cpy #1
 	bcc .dont_need_to_insert_this
@@ -1841,6 +2022,7 @@ insert_disks_at_boot
 }
 }
 .restore_xy_disk_done
+;	inc $d020
 	ldx zp_temp
 	ldy zp_temp + 1
 
@@ -1852,6 +2034,7 @@ insert_disks_at_boot
 	adc disk_info + 3,x
 	bne .next_disk ; Always branch
 .done
+
 !if SUPPORT_REU = 1 {
 	lda use_reu
 	beq .dont_use_reu
@@ -1865,36 +2048,45 @@ insert_disks_at_boot
 .copy_data_from_disk_1_to_reu
 
 !ifdef TARGET_MEGA65 {
-	lda #0
-	sta reu_last_disk_end_block
-	sta reu_last_disk_end_block + 1
+	; lda #0
+; ;	sta SCREEN_ADDRESS + 5
+	; sta reu_last_disk_end_block
+	; sta reu_last_disk_end_block + 1
 
-	lda fileblocks + 1
-	sta z_temp + 4 ; Last sector# on this disk. Store low-endian
-	lda fileblocks + 2
-	sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+	; ; lda fileblocks + 1
+	; ; sta SCREEN_ADDRESS + 10
+	; ; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
+	; ; lda fileblocks + 2
+	; ; sta SCREEN_ADDRESS + 11
+	; ; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
 
-	jsr print_reu_progress_bar
+	; ; jsr print_reu_progress_bar
+; ;	sta SCREEN_ADDRESS + 6
 
-;	lda #0
-;	sta zp_temp + 2
-;	sta zp_temp + 3
+; ;	lda #0
+; ;	sta zp_temp + 2
+; ;	sta zp_temp + 3
 
-	lda #.zcodefilenamelen
-	ldx #<.zcodefilename
-	ldy #>.zcodefilename
-	jsr kernal_setnam ; call SETNAM
+	; lda #.statmemfilenamelen
+	; ldx #<.statmemfilename
+	; ldy #>.statmemfilename
+	; jsr kernal_setnam ; call SETNAM
 
-	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
-	txa
+	; ; ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	; ; txa
+	; ldx nonstored_pages
+	; lda #0
+; ;	lda dynmem_size + 1
+; ;	sta SCREEN_ADDRESS + 7
 	
-	jsr m65_load_file_to_reu ; in reu.asm
+	; jsr m65_load_file_to_reu ; in reu.asm
+; ;	sta SCREEN_ADDRESS + 8
 
-	jmp .restore_xy_disk_done
+	; jmp .restore_xy_disk_done
 
-.zcodefilename
-	!pet "zcode,s,r"
-.zcodefilenamelen = * - .zcodefilename
+; .statmemfilename
+	; !pet "zcode-stat,s,r"
+; .statmemfilenamelen = * - .statmemfilename
 	
 
 } else {
@@ -2039,61 +2231,61 @@ reu_start
 
 } ; End of TARGET not MEGA65
 
-; progress_reu = parse_array
-; reu_progress_ticks = parse_array + 1
-; reu_last_disk_end_block = string_array ; 2 bytes
+; ; progress_reu = parse_array
+; ; reu_progress_ticks = parse_array + 1
+; ; reu_last_disk_end_block = string_array ; 2 bytes
 
-reu_progress_base
-!ifndef Z4PLUS {
-	!byte 16 ; blocks read to REU per tick of progress bar
-} else {
-!ifdef Z7PLUS {
-	!byte 64 ; blocks read to REU per tick of progress bar
-} else {
-	!byte 32 ; blocks read to REU per tick of progress bar
-}
-}
+; reu_progress_base
+; !ifndef Z4PLUS {
+	; !byte 16 ; blocks read to REU per tick of progress bar
+; } else {
+; !ifdef Z7PLUS {
+	; !byte 64 ; blocks read to REU per tick of progress bar
+; } else {
+	; !byte 32 ; blocks read to REU per tick of progress bar
+; }
+; }
 
 
-print_reu_progress_bar
-	lda z_temp + 4
-	sec
-	sbc reu_last_disk_end_block
-	sta reu_progress_ticks
-	lda z_temp + 5
-	sbc reu_last_disk_end_block + 1
-!ifdef Z4PLUS {
-!ifdef Z7PLUS {
-	ldx #6
-} else {
-	ldx #5
-}
-} else {
-	ldx #4
-}
--	lsr 
-	ror reu_progress_ticks
-	dex
-	bne -
+; print_reu_progress_bar
+	; lda z_temp + 4
+	; sec
+	; sbc reu_last_disk_end_block
+	; sta reu_progress_ticks
+	; lda z_temp + 5
+	; sbc reu_last_disk_end_block + 1
+; !ifdef Z4PLUS {
+; !ifdef Z7PLUS {
+	; ldx #6
+; } else {
+	; ldx #5
+; }
+; } else {
+	; ldx #4
+; }
+; -	lsr 
+	; ror reu_progress_ticks
+	; dex
+	; bne -
 
-	lda reu_progress_base
-	sta progress_reu
+	; lda reu_progress_base
+	; sta progress_reu
 
-; Print progress bar
-	lda #13
-	jsr s_printchar
-	ldx reu_progress_ticks
-	beq +
--	lda #47
-	jsr s_printchar
-	dex
-	bne -
-+
-	; Signal that REU copy routine should update progress bar
-	lda #$ff
-	sta reu_progress_bar_updates
+; ; Print progress bar
+	; lda #13
+	; jsr s_printchar
+	; ldx reu_progress_ticks
+	; beq +
+; -	lda #47
+	; jsr s_printchar
+	; dex
+	; bne -
+; +
+	; ; Signal that REU copy routine should update progress bar
+	; lda #$ff
+	; sta reu_progress_bar_updates
 
-	rts
+	; rts
 } ; zone insert_disks_at_boot
 
 
@@ -2178,6 +2370,112 @@ prepare_static_high_memory
 	rts
 
 }
+
+
+!ifdef TARGET_MEGA65 {
+m65_load_header
+	ldx #$00
+	stx reu_progress_bar_updates
+	dex
+	stx m65_reu_break_after_first_page
+
+	lda #.dynmemfilenamelen
+	ldx #<.dynmemfilename
+	ldy #>.dynmemfilename
+	jsr kernal_setnam ; call SETNAM
+
+	; Start 512KB into Attic RAM
+	lda #>(512 * 1024 / 256)
+	ldx #<(512 * 1024 / 256)
+	
+	jsr m65_load_file_to_reu ; in reu.asm
+
+	rts
+
+
+
+m65_load_dynmem
+	; lda #2 ; Don't clash with config load address (page 0 in vmem buffer)
+	; sta vmem_cache_cnt
+	; Signal that REU copy routine should not update progress bar
+	; lda #$00
+	; sta reu_progress_bar_updates
+	; lda #0
+	; sta reu_last_disk_end_block
+	; sta reu_last_disk_end_block + 1
+
+	; lda fileblocks + 1
+	; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
+	; lda fileblocks + 2
+	; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+
+	; jsr print_reu_progress_bar
+
+;	lda #0
+;	sta zp_temp + 2
+;	sta zp_temp + 3
+
+	lda #.dynmemfilenamelen
+	ldx #<.dynmemfilename
+	ldy #>.dynmemfilename
+	jsr kernal_setnam ; call SETNAM
+
+	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	txa
+	
+	jsr m65_load_file_to_reu ; in reu.asm
+
+	rts
+;	jmp +
+
+.dynmemfilename
+	!pet "zcode-dyn,s,r"
+.dynmemfilenamelen = * - .dynmemfilename
++	
+
+m65_load_statmem
+	; lda #0
+; ;	sta SCREEN_ADDRESS + 5
+	; sta reu_last_disk_end_block
+	; sta reu_last_disk_end_block + 1
+
+	; lda fileblocks + 1
+	; sta SCREEN_ADDRESS + 10
+	; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
+	; lda fileblocks + 2
+	; sta SCREEN_ADDRESS + 11
+	; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
+
+	; jsr print_reu_progress_bar
+;	sta SCREEN_ADDRESS + 6
+
+;	lda #0
+;	sta zp_temp + 2
+;	sta zp_temp + 3
+
+	lda #.statmemfilenamelen
+	ldx #<.statmemfilename
+	ldy #>.statmemfilename
+	jsr kernal_setnam ; call SETNAM
+
+	; ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	; txa
+	ldx nonstored_pages
+	lda #0
+;	lda dynmem_size + 1
+;	sta SCREEN_ADDRESS + 7
+	
+	jsr m65_load_file_to_reu ; in reu.asm
+;	sta SCREEN_ADDRESS + 8
+
+	rts
+;	jmp .restore_xy_disk_done
+
+.statmemfilename
+	!pet "zcode-stat,s,r"
+.statmemfilenamelen = * - .statmemfilename
+}
+
 
 !ifdef HAS_SID {
 init_sid

@@ -16,10 +16,17 @@ inc_z_pc_page
 	bcc get_page_at_z_pc_did_pha
 } else {
 ; No vmem
-	!ifndef TARGET_PLUS4 {
-		lda z_pc + 1
-		cmp #(first_banked_memory_page - (>story_start))
-		bcs get_page_at_z_pc_did_pha
+	!ifdef TARGET_MEGA65 {
+		bne +
+		inc z_pc
+		inc z_pc_mempointer + 2
++		
+	} else {
+		!ifndef TARGET_PLUS4 {
+			lda z_pc + 1
+			cmp #(first_banked_memory_page - (>story_start))
+			bcs get_page_at_z_pc_did_pha
+		}
 	}
 }
 ; safe
@@ -34,43 +41,54 @@ set_z_pc
 ; Parameters: New value of z_pc in a,x,y
 !zone {
 	sty z_pc + 2
-!ifdef VMEM {
-	cmp z_pc
-	bne .unsafe_1
-}
-	cpx z_pc + 1
-	beq .same_page 
-	; Different page.
-!ifdef VMEM {
-	; Let's find out if it's the same vmem block.
-	txa
-	eor z_pc + 1
-	and #(255 - vmem_indiv_block_mask)
-	bne .unsafe_2
-	; z_pc is in same vmem_block unless it's in vmem_cache
-	lda z_pc_mempointer + 1
-	cmp #>story_start
-	bcc .unsafe_2
-	; z_pc is in same vmem_block, but different page.
-	stx z_pc + 1
-	lda z_pc_mempointer + 1
-	eor #1
-	sta z_pc_mempointer + 1
-} else {
-; No vmem 
-!ifndef TARGET_PLUS4 {
-	cpx #(first_banked_memory_page - (>story_start))
-	bcs .unsafe_2
-}
-	stx z_pc + 1
-	txa
-	clc
-	adc #>story_start
-	sta z_pc_mempointer + 1
-}
+
+!ifndef TARGET_MEGA65 {	
+	!ifdef VMEM {
+		cmp z_pc
+		bne .unsafe_1
+	}
+		cpx z_pc + 1
+		beq .same_page 
+		; Different page.
+	!ifdef VMEM {
+		; Let's find out if it's the same vmem block.
+		txa
+		eor z_pc + 1
+		and #(255 - vmem_indiv_block_mask)
+		bne .unsafe_2
+		; z_pc is in same vmem_block unless it's in vmem_cache
+		lda z_pc_mempointer + 1
+		cmp #>story_start
+		bcc .unsafe_2
+		; z_pc is in same vmem_block, but different page.
+		stx z_pc + 1
+		lda z_pc_mempointer + 1
+		eor #1
+		sta z_pc_mempointer + 1
+	} else {
+	; No vmem 
+	!ifndef TARGET_PLUS4 {
+		cpx #(first_banked_memory_page - (>story_start))
+		bcs .unsafe_2
+	}
+		stx z_pc + 1
+	; !ifdef TARGET_MEGA65 {
+		; ; This is probably broken/incomplete, but is currently not used anyway
+		; stx z_pc_mempointer + 1
+		; sta z_pc
+		; sta z_pc_mempointer + 2
+	; } else {
+	; Non-VMEM build for C64 or Plus/4
+		txa
+		clc
+		adc #>story_start
+		sta z_pc_mempointer + 1
+	; }	
+	}
 .same_page
-	rts
+		rts
 .unsafe_1
+}
 	sta z_pc
 .unsafe_2
 	stx z_pc + 1
@@ -90,7 +108,7 @@ get_page_at_z_pc_did_pha
 	cmp nonstored_pages
 	bcs .not_in_dynmem_block
 	; This is in a dynmem block
-	adc #>story_start_bank_1 ; Carry already clear
+	adc #>story_start_far_ram ; Carry already clear
 	sta mem_temp + 1
 	ldx #0
 -	cmp vmem_cache_page_index,x
@@ -131,6 +149,10 @@ get_page_at_z_pc_did_pha
 	jsr read_byte_at_z_address
 	ldy mempointer + 1
 	sty z_pc_mempointer + 1
+!ifdef TARGET_MEGA65 {
+	ldy mempointer + 2
+	sty z_pc_mempointer + 2
+}
 	ldy #0 ; Important: y should always be 0 when exiting this routine!
 	ldx mem_temp
 	pla
@@ -209,7 +231,7 @@ copy_page_c128_src
 	cli
 	rts
 
-read_word_from_bank_1_c128
+read_word_from_far_dynmem
 ; a = zp vector pointing to base address
 ; y = offset from address in zp vector
 ; Returns word in a,x (byte 1, byte 2)
@@ -229,9 +251,9 @@ read_word_from_bank_1_c128
 	cli
 	rts
 
-write_word_to_bank_1_c128
+write_word_to_far_dynmem
 ; zp vector pointing to base address must be stored in
-;   write_word_c128_zp_1 and write_word_c128_zp_2 before call 
+;   write_word_far_dynmem_zp_1 and write_word_far_dynmem_zp_2 before call 
 ; a,x = value (byte 1, byte 2)
 ; y = offset from address in zp vector
 ; y is increased by 1
@@ -247,9 +269,8 @@ write_word_to_bank_1_c128
 	cli
 	rts
 
-write_word_c128_zp_1 = .write_word + 1
-write_word_c128_zp_2 = .write_word_2 + 1
-
+write_word_far_dynmem_zp_1 = .write_word + 1
+write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 } ; pseudopc
 copy_page_c128_src_end
@@ -288,6 +309,53 @@ copy_page
 .cp_dma_command_msb				!byte 0		; 0 for linear addressing for both src and dest
 .cp_dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
 
+read_word_from_far_dynmem
+; a = zp vector pointing to base address
+; y = offset from address in zp vector
+; Returns word in a,x (byte 1, byte 2)
+; y retains its value
+	tax
+	lda 0,x
+	sta dynmem_pointer
+	lda 1,x
+	sta dynmem_pointer + 1
+	tya
+	taz
+	inz
+	lda [dynmem_pointer],z
+	tax
+	dez
+	lda [dynmem_pointer],z
+	rts
+
+write_word_to_far_dynmem
+; zp vector pointing to base address must be stored in
+;   write_word_far_dynmem_zp_1 and write_word_far_dynmem_zp_2 before call 
+; a,x = value (byte 1, byte 2)
+; y = offset from address in zp vector
+; y is increased by 1
+	pha
+.write_word
+	lda $fb
+	sta dynmem_pointer
+	inc .write_word_2 + 1
+.write_word_2
+	lda $fc
+	sta dynmem_pointer + 1
+	tya
+	taz
+	pla
+	sta [dynmem_pointer],z
+	txa
+	inz
+	iny
+	sta [dynmem_pointer],z
+	dec .write_word_2 + 1
+	rts
+
+write_word_far_dynmem_zp_1 = .write_word + 1
+write_word_far_dynmem_zp_2 = .write_word_2 + 1
+
 } else { ; not TARGET_MEGA65
 
 ; !ifdef VMEM {
@@ -322,40 +390,63 @@ read_header_word
 ; y contains the address in the header
 ; Returns: Value in a,x
 ; y retains its original value
-!ifdef TARGET_C128 {
-	lda #<story_start_bank_1
+!ifdef FAR_DYNMEM {
+	lda #<story_start_far_ram
 	sta mem_temp
-	lda #>story_start_bank_1
+	lda #>story_start_far_ram
 	sta mem_temp + 1
 	lda #mem_temp
-	jmp read_word_from_bank_1_c128
+	jmp read_word_from_far_dynmem
 } else {
+; !ifdef TARGET_MEGA65 {
+	; sty dynmem_pointer
+	; ldz #0
+	; stz dynmem_pointer + 1
+	; lda [dynmem_pointer],z
+	; pha
+	; inz
+	; lda [dynmem_pointer],z
+	; tax
+	; pla
+	; rts
+; } else {
 	iny
 	lda story_start,y
 	tax
 	dey
 	lda story_start,y
 	rts
+; }
 }
 
 write_header_word
 ; y contains the address in the header
 ; a,x contains word value
 ; a,x,y are destroyed
-!ifdef TARGET_C128 {
+!ifdef FAR_DYNMEM {
 	stx .tmp
-	jsr setup_to_write_to_header_c128
-	ldx #mem_temp
-	stx write_word_c128_zp_1
-	stx write_word_c128_zp_2
+	jsr setup_to_write_to_header_far_ram
+	stx write_word_far_dynmem_zp_1
+	stx write_word_far_dynmem_zp_2
 	ldx .tmp
-	jmp write_word_to_bank_1_c128
+	jmp write_word_to_far_dynmem
 } else {
+; !ifdef TARGET_MEGA65 {
+	; sty dynmem_pointer
+	; ldz #0
+	; stz dynmem_pointer + 1
+	; sta [dynmem_pointer],z
+	; txa
+	; inz
+	; sta [dynmem_pointer],z
+	; rts
+; } else {
 	sta story_start,y
 	iny
 	txa
 	sta story_start,y
 	rts
+; }
 }
 
 write_header_byte
@@ -365,8 +456,7 @@ write_header_byte
 !ifdef TARGET_C128 {
 	sta .tmp
 	stx .tmp + 1
-	jsr setup_to_write_to_header_c128
-	ldx #mem_temp
+	jsr setup_to_write_to_header_far_ram
 	stx $02b9
 	ldx #$7f
 	jsr $02af
@@ -374,17 +464,27 @@ write_header_byte
 	ldx .tmp + 1
 	rts
 } else {
+!ifdef TARGET_MEGA65 {
+	sty dynmem_pointer
+	ldz #0
+	stz dynmem_pointer + 1
+	sta [dynmem_pointer],z
+	rts
+} else {
 	sta story_start,y
 	rts
 }
+}
 
-!ifdef TARGET_C128 {
-setup_to_write_to_header_c128
-	ldx #<story_start_bank_1
+!ifdef FAR_DYNMEM {
+setup_to_write_to_header_far_ram
+	ldx #<story_start_far_ram
 	stx mem_temp
-	ldx #>story_start_bank_1
+	ldx #>story_start_far_ram
 	stx mem_temp + 1
+	ldx #mem_temp
 	rts
 
 .tmp !byte 0, 0
 }
+

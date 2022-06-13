@@ -137,7 +137,19 @@ plus4_enable_rom = $ff3e
 
 
 !ifdef SLOW {
+; .dummy !byte 0
 read_next_byte_at_z_pc_sub
+!ifdef TARGET_MEGA65 {
+
+ 	; lda z_pc_mempointer
+	; ldy .dummy
+	; sta SCREEN_ADDRESS,y
+	; ldy #0
+	; inc .dummy
+
+	ldz #0
+	lda [z_pc_mempointer],z
+} else {
 	ldy #0
 !ifdef TARGET_PLUS4 {
 	sei
@@ -154,6 +166,7 @@ read_next_byte_at_z_pc_sub
 	+enable_interrupts
 } else {
 	lda (z_pc_mempointer),y
+}
 }
 }
 	inc z_pc_mempointer ; Also increases z_pc
@@ -322,6 +335,69 @@ convert_byte_to_two_digits
 	adc #10 + $30 ; Carry already clear. Add 10 to fix going < 0. Add $30 to make it a digit
 	rts
 }
+
+!ifdef TARGET_C128 {
+; Macros for far memory read and write 
+!macro read_far_byte .vector {
+	lda #.vector
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+}
+
+!macro write_far_byte .vector {
+	ldx #.vector
+	stx $02b9
+	ldx #$7f
+	jsr $02af
+}
+}
+
+!ifdef TARGET_MEGA65 {
+; Macros for far memory read and write 
+
+!macro read_far_byte .vector {
+	lda #.vector
+	jsr m65_read_far_byte
+}
+
+!macro write_far_byte .vector {
+	ldx #.vector
+	jsr m65_write_far_byte
+}
+
+m65_read_far_byte
+; a = zp vector holding address in far memory
+; y = offset from address in zp vector
+; Returns value in a
+; y retains its value
+	tax
+	lda 0,x
+	sta dynmem_pointer
+	lda 1,x
+	sta dynmem_pointer + 1
+	tya
+	taz
+	lda [dynmem_pointer],z
+	rts
+
+m65_write_far_byte
+; a = value to write
+; x = zp vector holding address in far memory
+; y = offset from address in zp vector
+; y retains its value
+	pha
+	lda 0,x
+	sta dynmem_pointer
+	lda 1,x
+	sta dynmem_pointer + 1
+	tya
+	taz
+	pla
+	sta [dynmem_pointer],z
+	rts
+}
+
 
 
 ERROR_UNSUPPORTED_STREAM = 1
@@ -703,8 +779,8 @@ print_trace
 	jsr newline
 	lda z_trace_index
 	tay
-	and #%11
-	cmp #%11
+	and #%00000011
+	cmp #%00000011
 	bne +
 	jsr print_following_string
 	!pet "last opcode not stored (shown as $ee)",13,0

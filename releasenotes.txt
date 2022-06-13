@@ -293,3 +293,6 @@ Release 10:
 - Added sound effects for MEGA65, supporting wav or aiff files.
 - Store story file and sound files with custom interleave scheme to get 
   higher loading speed on real floppies on MEGA65.
+- Keep story file entirely in Attic RAM on MEGA65, to allow for any size
+  of dynamic memory.
+- Only load dynamic memory when restaring, on MEGA65, for speed

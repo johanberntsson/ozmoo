@@ -29,6 +29,7 @@ reu_error
 .m65_reu_load_address = object_temp
 .m65_reu_memory_buffer = zp_temp + 2
 .m65_reu_page_count = z_temp + 11
+m65_reu_break_after_first_page !byte 0
 
 ;.m65_reu_page_count !byte 0
 
@@ -45,9 +46,10 @@ m65_load_file_to_reu
 	lda #0
 	sta .m65_reu_page_count
 	; Prepare a page where we can store data
-	jsr get_free_vmem_buffer
+;	jsr get_free_vmem_buffer
+	lda #>reu_copy_buffer
 	sta .m65_reu_memory_buffer + 1
-	lda #0
+	lda #<reu_copy_buffer
 	sta .m65_reu_memory_buffer
 	
 	lda #2      ; file number 2
@@ -82,6 +84,9 @@ m65_load_file_to_reu
 
 	inc .m65_reu_page_count
 
+	bit m65_reu_break_after_first_page
+	bmi .file_copying_done
+
 	; Inc REU page
 	inc .m65_reu_load_address
 	bne .initial_copy_loop
@@ -90,12 +95,17 @@ m65_load_file_to_reu
 	
 	
 .file_copying_done
-	lda #$00      ; filenumber 2
-	jsr kernal_chkin ; call CLOSE
+	lda #$00     
+	sta m65_reu_break_after_first_page
+	jsr kernal_chkin  ; restore input to keyboard
 	lda #$02      ; filenumber 2
 	jsr kernal_close ; call CLOSE
 	lda .m65_reu_page_count
 	rts
+
+;reu_copy_buffer !fill 256
+reu_copy_buffer = $cf00
+
 } ; End TARGET_MEGA65
 
 
@@ -435,4 +445,59 @@ check_reu_size
 
 }
 
+; progress_reu = parse_array
+; reu_progress_ticks = parse_array + 1
+; reu_last_disk_end_block = string_array ; 2 bytes
+
+reu_progress_base
+!ifndef Z4PLUS {
+	!byte 16 ; blocks read to REU per tick of progress bar for games < 128 KB
+} else {
+	!ifdef Z7PLUS {
+		!byte 64 ; blocks read to REU per tick of progress bar for games < 512 KB
+	} else {
+		!byte 32 ; blocks read to REU per tick of progress bar for games < 256 KB
+	}
+}
+
+
+print_reu_progress_bar
+	lda z_temp + 4
+	sec
+	sbc reu_last_disk_end_block
+	sta reu_progress_ticks
+	lda z_temp + 5
+	sbc reu_last_disk_end_block + 1
+!ifdef Z4PLUS {
+	!ifdef Z7PLUS {
+		ldx #6 ; One tick is 2^6 = 64 blocks
+	} else {
+		ldx #5 ; One tick is 2^5 = 32 blocks
+	}
+} else {
+	ldx #4 ; One tick is 2^4 = 16 blocks
+}
+-	lsr 
+	ror reu_progress_ticks
+	dex
+	bne -
+
+	lda reu_progress_base
+	sta progress_reu
+
+; Print progress bar
+	lda #13
+	jsr s_printchar
+	ldx reu_progress_ticks
+	beq +
+-	lda #47
+	jsr s_printchar
+	dex
+	bne -
++
+	; Signal that REU copy routine should update progress bar
+	lda #$ff
+	sta reu_progress_bar_updates
+
+	rts
 	

@@ -45,7 +45,8 @@ keyboard_buff         = $527
 
 zp_temp               = $3b ; 5 bytes
 ;use_reu				  = $87
-window_start_row	  = $88; 4 bytes
+;window_start_row	  = $88; 4 bytes
+window_start_row	  = $9c; 4 bytes
 
 
 num_rows 			  = $b7 ; !byte 0
@@ -72,6 +73,7 @@ ted_volume            = $ff11
 }
 
 !ifdef TARGET_MEGA65 {
+story_start_far_ram = 0 ; NOTE: This is in Attic RAM
 basic_reset           = $a000 ; the mega65 version is always run in C64 mode
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
@@ -111,7 +113,6 @@ zero_datadirection    = $00
 zero_processorports   = $01
 ; available zero page variables (pseudo registers)
 z_opcode              = $02
-mempointer            = $03 ; 2 bytes
 mem_temp              = $05 ; 2 bytes
 z_extended_opcode	  = $07
 
@@ -133,20 +134,36 @@ z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
 ; and z_pc_mempointer_is_unsafe is included in the save/restore files
 ; and _have_ to be stored in a contiguous block of zero page addresses
 ;
-	z_local_vars_ptr      = $26 ; 2 bytes
-	z_local_var_count	  = $28
-	stack_pushed_bytes	  = $29 ; !byte 0, 0
-	stack_ptr             = $2b ; 2 bytes
-	stack_top_value 	  = $2d ; 2 bytes !byte 0, 0
-	stack_has_top_value   = $2f ; !byte 0
-	z_pc				  = $30 ; 3 bytes (last byte shared with z_pc_mempointer)
-	z_pc_mempointer		  = $32 ; 2 bytes (first byte shared with z_pc)
-	zp_save_start = z_local_vars_ptr
-	zp_bytes_to_save = z_pc + 3 - z_local_vars_ptr
+	; z_local_vars_ptr		= $26 ; 2 bytes
+	; z_local_var_count		= $28
+	; stack_pushed_bytes		= $29 ; !byte 0, 0
+	; stack_ptr				= $2b ; 2 bytes
+	; stack_top_value			= $2d ; 2 bytes !byte 0, 0
+	; stack_has_top_value		= $2f ; !byte 0
+	; z_pc					= $30 ; 3 bytes (last byte shared with z_pc_mempointer)
+	; z_pc_mempointer			= $32 ; 2 bytes (first byte shared with z_pc)
+	; zp_save_start			= z_local_vars_ptr
+	; zp_bytes_to_save		= z_pc + 3 - z_local_vars_ptr
+
+	z_local_vars_ptr		= $75 ; 2 bytes
+	z_local_var_count		= $77
+	stack_pushed_bytes		= $78 ; !byte 0, 0
+	stack_ptr				= $7a ; 2 bytes
+	stack_top_value			= $7c ; 2 bytes !byte 0, 0
+	stack_has_top_value		= $7e ; !byte 0
+	z_pc					= $7f ; 3 bytes (last byte shared with z_pc_mempointer)
+	z_pc_mempointer			= $81 ; 2 bytes (first byte shared with z_pc), +2 bytes for MEGA65
+	
+	zp_save_start			= z_local_vars_ptr
+	zp_bytes_to_save		= z_pc + 3 - z_local_vars_ptr
+
 ;
 ; End of contiguous zero page block
 ;
 ;
+
+
+
 
 vmap_max_entries	  = $34
 
@@ -188,8 +205,20 @@ z_temp				  = $68 ; 12 bytes
 
 s_colour 			  = $74 ; !byte 1 ; white as default
 
+!ifdef TARGET_MEGA65 {
+dynmem_pointer			= $85; 4 bytes
+;dynmem_pointer			= $26; 4 bytes
+}
+
+;mempointer            = $03 ; 2 bytes 
+mempointer            = $89 ; 2 bytes + 2 bytes for MEGA65
+
+!ifdef TARGET_MEGA65 {
+}
+
 vmem_temp			  = $92 ; 2 bytes
 ; alphabet_table		  = $96 ; 2 bytes
+
 
 current_window		  = $a7 ; !byte 0
 
@@ -263,6 +292,7 @@ kernal_setnam         = $ffbd ; set file name
 kernal_open           = $ffc0 ; open a file
 kernal_close          = $ffc3 ; close a file
 kernal_chkin          = $ffc6 ; define file as default input
+kernal_chkout         = $ffc9 ; define file as default output
 kernal_clrchn         = $ffcc ; close default input/output files
 kernal_readchar       = $ffcf ; read byte from default input into a
 ;use streams_print_output instead of kernal_printchar
