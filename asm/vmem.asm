@@ -458,10 +458,6 @@ read_byte_at_z_address
 	sta vmem_temp
 	+read_far_byte vmem_temp
 	rts
-	; lda #vmem_temp
-	; sta $02aa
-	; ldx #$7f
-	; jmp $02a2
 	
 .not_dynmem	
 }

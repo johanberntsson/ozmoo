@@ -132,12 +132,7 @@ z_ins_read_char
 	beq .read_char_loop ; timer routine returned false
 	pha
 	jsr turn_off_cursor
-	; lda current_window
-	; bne .no_need_to_start_buffering
-	; lda is_buffered_window
-	; beq .no_need_to_start_buffering
 	jsr start_buffering
-; .no_need_to_start_buffering	
 	pla
 	cmp #1
 	bne +
@@ -385,7 +380,6 @@ z_ins_read
 !ifdef TRACE_TOKENISE {
 	ldy #0
 -	+macro_parse_array_read_byte
-;	lda (parse_array),y
 	jsr printa
 	jsr space
 	iny
@@ -399,7 +393,6 @@ z_ins_read
 !ifdef TRACE_PRINT_ARRAYS {
 	ldy #0
 -	+macro_string_array_read_byte
-;	lda (string_array),y
 	tax
 	jsr printx
 	lda #$20
@@ -411,7 +404,6 @@ z_ins_read
 	jsr streams_print_output
 	ldy #0
 -	+macro_parse_array_read_byte
-;	lda (parse_array),y
 	tax
 	jsr printx
 	lda #$20
@@ -433,7 +425,6 @@ z_ins_read
 }
 .check_next_preopt_exit_char
 	+macro_string_array_read_byte
-;	lda (string_array),y
 	cmp #$78
 	bne .not_preopt_exit
 	iny
@@ -511,12 +502,6 @@ translate_petscii_to_zscii
 	dex
 	bpl -
 .no_match	
-	; cmp #$60
-	; bcc .no_shadow
-	; cmp #$80
-	; bcs .no_shadow
-	; eor #$a0
-; .no_shadow
 	cmp #$41
 	bcc .case_conversion_done
 	cmp #$5b
@@ -544,7 +529,6 @@ convert_char_to_zchar
 	; side effects:
 	; used registers: a,x
 	; NOTE: This routine can't convert space (code 0) or newline (code 7 in A2) properly, but there's no need to either.
-;	jsr translate_petscii_to_zscii
 	sty zp_temp + 4
 	ldy #0
 -   cmp z_alphabet_table,y
@@ -690,11 +674,6 @@ find_word_in_dictionary
 	; side effects:
 	; used registers: a,x
 	sty .parse_array_index ; store away the index for later
-	; lda #0
-	; ldx #5
-; -	sta .zword,x      ; clear zword buffer
-	; dex
-	; bpl -
 	lda #1
 	sta .is_word_found ; assume success until proven otherwise
 	jsr encode_text
@@ -792,20 +771,12 @@ find_word_in_dictionary
 	jsr print_byte_as_hex
 	lda .dictionary_address + 1
 	jsr print_byte_as_hex
-;	lda z_address + 2
-;	jsr print_byte_as_hex
 	jsr space
 
-;	jsr pause
 	lda z_address + 1
 	pha
 	lda z_address + 2
 	pha
-	; lda z_address+1
-	; jsr printa
-	; jsr comma
-	; lda z_address+2
-	; jsr printa
 	jsr print_addr
 	pla 
 	sta z_address + 2
@@ -817,10 +788,6 @@ find_word_in_dictionary
 	ldy #0
 .loop_check_entry
 	jsr read_next_byte
-; !ifdef TRACE_SHOW_DICT_ENTRIES {
-	; jsr printa
-	; jsr space
-; }
 !ifdef Z4PLUS {
 	cmp zword,y
 } else {
@@ -1122,9 +1089,6 @@ read_char
 	; let the interrupt routine start, so we need to rts.
 	jsr z_execute
 
-	; Restore buffering setting
-	; lda .text_tmp
-	; sta is_buffered_window
 	jsr printchar_flush
 
 	jsr turn_on_cursor
@@ -1166,23 +1130,6 @@ update_cursor
 	bne +++
 	; no cursor
 	jsr s_delete_cursor
-; !ifdef TARGET_C128 {
-	; ldx COLS_40_80
-	; beq +
-	; ; 80 columns
-	; jsr VDCGetChar
-	; and #$7f
-	; jsr VDCPrintChar
-	; jmp .vdc_printed_char
-; +	; 40 columns
-; }
-; ;	lda (zp_screenline),y
-; ;	and #$7f
-	; lda #32 ; Space
-	; sta (zp_screenline),y
-
-; .vdc_printed_char
-
 	ldy object_temp
 	rts
 +++	; cursor
@@ -1272,9 +1219,6 @@ read_text
 	; store start column
 	iny
 !ifdef Z5PLUS {
-;	tya
-;	clc
-;	adc (string_array),y
 	+macro_string_array_read_byte
 	clc
 	adc #1
@@ -1282,7 +1226,6 @@ read_text
 } else {
 	lda #0
 	+macro_string_array_write_byte
-;	sta (string_array),y ; default is empty string (0 in pos 1)
 	tya
 }
 	sta .read_text_column
@@ -1308,19 +1251,13 @@ read_text
 	jsr turn_off_cursor
 	jsr clear_num_rows
 !ifdef Z5PLUS {
-	; lda #$0d ; Enter
-	; jsr s_printchar
-	; lda #$3e ; ">"
-	; jsr s_printchar
 	ldy #1
 	+macro_string_array_read_byte
-;	lda (string_array),y
 	tax
 .p0 cpx #0
 	beq .p1
 	iny
 	+macro_string_array_read_byte
-;	lda (string_array),y
 	jsr translate_zscii_to_petscii
 !ifdef DEBUG {
 	bcc .could_convert
@@ -1333,9 +1270,6 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
-;!ifdef USE_BLINKING_CURSOR {
-;	jsr reset_cursor_blink
-;}
 .done_printing_this_char
 	dex
 	jmp .p0
@@ -1343,7 +1277,6 @@ read_text
 } else { ; not Z5PLUS
 	ldy #1
 .p0	+macro_string_array_read_byte
-; lda (string_array),y ; default is empty string (0 in pos 1)
 	cmp #0
 	beq .p1
 	jsr translate_zscii_to_petscii
@@ -1358,9 +1291,6 @@ read_text
 	bcs .done_printing_this_char
 }
 	jsr s_printchar
-;!ifdef USE_BLINKING_CURSOR {
-;	jsr reset_cursor_blink
-;}
 .done_printing_this_char
 	iny
 	jmp .p0
@@ -1379,7 +1309,6 @@ read_text
 	ldy #1
 	lda #0
 	+macro_string_array_write_byte
-;	sta (string_array),y
 	jmp .read_text_done ; a should hold 0 to return 0 here
 	; check terminating characters
 +   
@@ -1403,24 +1332,14 @@ read_text
 	dey
 	sty .read_text_column
 	dey ; the length of the text
-!ifdef USE_HISTORY {
-	bne ++
-	; all input deleted, so enable history again
-;	jsr enable_history_keys
-++
-}
 	jsr turn_off_cursor
 	lda .petscii_char_read
 	jsr s_printchar ; print the delete char
-;!ifdef USE_BLINKING_CURSOR {
-;	jsr reset_cursor_blink
-;}
 	jsr turn_on_cursor
 !ifdef Z5PLUS {
 	tya ; y is still the length of the text
 	ldy #1
 	+macro_string_array_write_byte
-;	sta (string_array),y
 }
 	jmp .readkey ; don't store in the array
 +   ; disallow cursor keys etc
@@ -1451,20 +1370,13 @@ read_text
 !ifdef Z5PLUS {
 	ldy #1
 	+macro_string_array_write_byte
-;	sta (string_array),y ; number of characters in the array
 }
 	tay
 !ifdef Z5PLUS {
 	iny
 }
 	lda .petscii_char_read
-!ifdef USE_HISTORY {
-;	jsr disable_history_keys
-}
 	jsr s_printchar
-;!ifdef USE_BLINKING_CURSOR {
-;	jsr reset_cursor_blink
-;}
 	jsr update_cursor
 	pla
 !ifdef character_downcase_table {	
@@ -1475,7 +1387,7 @@ read_text
 	beq .match_in_downcase_table
 	dex
 	bpl -
-	bmi + ; Alwats branch
+	bmi + ; Always branch
 .match_in_downcase_table
 	lda character_downcase_table_end,x
 	bne .dont_invert_case ; Always branch
@@ -1490,13 +1402,11 @@ read_text
 
 .dont_invert_case
 	+macro_string_array_write_byte
-;	sta (string_array),y ; store new character in the array
 	inc .read_text_column	
 !ifndef Z5PLUS {
 	iny
 	lda #0
 	+macro_string_array_write_byte
-;	sta (string_array),y ; store 0 after last char
 }
 	jmp .readkey
 .read_text_done
@@ -1511,7 +1421,6 @@ read_text
 	ldy .read_text_column ; compare with size of keybuffer
 	lda #0
 	+macro_string_array_write_byte
-;	sta (string_array),y
 }	
 !ifdef USE_HISTORY {
 	jsr add_line_to_history
@@ -1519,10 +1428,6 @@ read_text
 	pla ; the terminating character, usually newline
 	beq +
 	jsr s_printchar; print terminating char unless 0 (0 indicates timer abort)
-;!ifdef USE_BLINKING_CURSOR {
-;	jsr reset_cursor_blink
-;}
-;	jsr start_buffering
 +   rts
 
 !ifdef USE_HISTORY {
@@ -1808,12 +1713,10 @@ tokenise_text
 	ldy #0
 	sty .numwords ; no words found yet
 	+macro_parse_array_read_byte
-;	lda (parse_array),y 
 	sta .maxwords
 !ifdef Z5PLUS {
 	iny
 	+macro_string_array_read_byte
-;	lda (string_array),y ; number of chars in text string
 	tax
 	inx
 	stx .textend
@@ -1821,7 +1724,6 @@ tokenise_text
 } else {
 -   iny
 	+macro_string_array_read_byte
-;	lda (string_array),y
 	cmp #0
 	bne -
 	dey
@@ -1835,7 +1737,6 @@ tokenise_text
 	beq +
 	bcs .parsing_done
 +	+macro_string_array_read_byte
-;	lda (string_array),y
 	cmp #$20
 	bne .start_of_word
 	iny
@@ -1845,7 +1746,6 @@ tokenise_text
 	sty .wordstart
 -   ; look for the end of the word
 	+macro_string_array_read_byte
-;	lda (string_array),y
 	cmp #$20
 	beq .space_found
 	; check for terminators
@@ -1885,11 +1785,9 @@ tokenise_text
 	sec
 	sbc .wordstart
 	+macro_parse_array_write_byte
-;	sta (parse_array),y ; length
 	iny
 	lda .wordstart
 	+macro_parse_array_write_byte
-;	sta (parse_array),y ; start index
 	; find the next word
 .find_next_word
 	ldy .wordend
@@ -1900,7 +1798,6 @@ tokenise_text
 	ldy #1
 	lda .numwords
 	+macro_parse_array_write_byte
-;	sta (parse_array),y ; num of words
 	rts
 .maxwords   !byte 0 
 .numwords   !byte 0 
@@ -2148,8 +2045,6 @@ print_addr
 }
 !ifndef Z3PLUS {
 	; Handle shift codes for z1 & z2
-;	cmp #6
-;	bcs .l6 ; Regular char
 	cmp #2
 	bne .z1shift3
 	; Code 2, shift up temporarily
@@ -2204,8 +2099,6 @@ print_addr
 	sta alphabet_offset
 	jmp .next_zchar
 .l3 ; This can only be #5: Change to A2
-	; cmp #5
-	; bne .l6
 	; change to A2
 	lda #52
 	sta alphabet_offset
@@ -2213,8 +2106,6 @@ print_addr
 }
 .l5 ; abbreviation command?
 .abbreviation
-	; cmp #4
-	; bcs .l6
 	sta abbreviation_command ; 1, 2 or 3
 	jmp .next_zchar
 .l6 ; normal char

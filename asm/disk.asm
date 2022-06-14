@@ -110,21 +110,11 @@ readblocks
 .readblock_from_reu
 	ldx readblocks_currentblock_adjusted
 	ldy readblocks_currentblock_adjusted + 1
-; !ifdef TARGET_MEGA65 {
-	; txa
-	; clc
-	; adc nonstored_pages
-	; tax
-	; bcc +
-	; iny
-; +	
-; } else {
 	; Statmem begins on page 1 (page 0 is reserved for copy operations)
 	inx
 	bne +
 	iny
 +
-; }
 	tya
 	ldy readblocks_mempos + 1 ; Assuming lowbyte is always 0 (which it should be)
 	jmp copy_page_from_reu
@@ -154,10 +144,6 @@ readblock
 	sta readblocks_currentblock_adjusted + 1
 	sta .blocks_to_go + 1
 
-; !ifdef TARGET_MEGA65 {
-	; jmp .readblock_from_reu
-; } else {
-; Not MEGA65
 !if SUPPORT_REU = 1 {
 	; Check if game has been cached to REU
 	bit use_reu
@@ -318,14 +304,6 @@ readblock
 .sector_count 	!byte 0
 .skip_sectors 	!byte 0
 .temp_y 		!byte 0
-;} ; End of Not TARGET_MEGA65
-
-
-; !ifdef TARGET_MEGA65 {
-
-	
-; } else {
-	; Not MEGA65
 
 	; convert track/sector to ascii and update drive command
 read_track_sector
@@ -365,7 +343,6 @@ read_track_sector
 	sta allow_2mhz_in_40_col
 	sta reg_2mhz	;CPU = 1MHz
 }
-
 
 	; open the channel file
 	lda #cname_len
@@ -441,56 +418,11 @@ cname_len = * - .cname
 uname_len = * - .uname
 	!byte 0 ; end of string, so we can print debug messages
 
-
-;} ; End of non-MEGA65 read_track_sector routines
-
-!zone initdrive {
 is_error
 	; accumulator contains BASIC error code
 	; most likely errors:
 	; A = $05 (DEVICE NOT PRESENT)
 	jmp disk_error
-;	jsr close_io    ; even if OPEN failed, the file has to be closed
-;	lda #ERROR_FLOPPY_READ_ERROR
-;	jsr fatalerror
-
-init_drive
-	pha ; Save device#
-	; open the command channel
-
-	lda #initname_len
-	ldx #<.initname
-	ldy #>.initname
-	jsr kernal_setnam ; call SETNAM
-	pla
-	tax
-	lda #$0F      ; file number 15
-	tay      ; secondary address 15
-	jsr kernal_setlfs ; call SETLFS
-!ifdef TARGET_C128 {
-	lda #$00
-	tax
-	jsr kernal_setbnk
-}
-	lda #$25
-	jsr s_printchar
-	jsr kernal_open ; call OPEN (open command channel and send I0 command)
-	bcs is_error    ; if carry set, the file could not be opened
-	lda #$25
-	jsr s_printchar
-	
-!ifdef TARGET_C128 {
-	jsr close_io
-	jmp restore_2mhz
-} else {
-	jmp close_io
-}
-
-.initname !text "I0"
-initname_len = * - .initname
-	!byte 0 ; end of string, so we can print debug messages
-}
-
 
 
 .track  !byte 0
@@ -560,17 +492,6 @@ print_insert_disk_msg
 	jsr s_printchar
 	pla
 +	jsr s_printchar
-	; tax
-	; cmp #10
-	; bcc +
-	; lda #$31
-	; jsr s_printchar
-	; txa
-	; sec
-	; sbc #10
-; +	clc
-	; adc #$30
-	; jsr s_printchar
 	lda #>insert_msg_3
 	ldx #<insert_msg_3
 	jsr printstring_raw
@@ -578,21 +499,11 @@ print_insert_disk_msg
 -	jsr kernal_getchar
 	beq -
 
-;	ldy .save_y
-;	lda disk_info + 4,y
-;	jsr init_drive
-
-
-	; lda .print_row
-	; clc
-	; adc #3
-	; sta .print_row
 	ldy .save_y
 	rts
 .save_x	!byte 0
 .save_y	!byte 0
 .print_row	!byte 14
-;.device_no	!byte 0
 .special_string_128
 	!pet "Boot ",0
 .special_string_129
@@ -617,17 +528,13 @@ insert_msg_3
 !ifdef RESTART_SUPPORTED {
 z_ins_restart
 	; Find right device# for boot disk
-;	ldx disk_info + 3
 	ldx boot_device
 
-;!ifndef TARGET_MEGA65 {
 	lda disk_info + 4,x
 	jsr convert_byte_to_two_digits
 	stx .device_no
 	sta .device_no + 1
-;	ldx disk_info + 3
 	ldx boot_device
-;}
 
 	; Check if disk is in drive
 	lda disk_info + 4,x
@@ -1461,27 +1368,10 @@ do_restore
 !ifdef TARGET_MEGA65 {
 	jsr close_io
 
-	; ldx .inputlen
-	; lda #$2c
-	; sta .filename + 2,x
-	; sta .filename + 4,x
-	; lda #$53
-	; sta .filename + 3,x
-	; lda #$52
-	; sta .filename + 5,x
-
-
 	lda #3
 	ldx #<.restore_filename
 	ldy #>.restore_filename
 	jsr kernal_setnam
-
-	; lda .inputlen
-	; clc
-	; adc #6 ; add 2 bytes for prefix
-	; ldx #<.filename
-	; ldy #>.filename
-	; jsr kernal_setnam
 
 	lda #2      ; file# 2
 	ldx disk_info + 4 ; Device# for save disk
@@ -1522,8 +1412,6 @@ do_restore
 .end_do_restore
 	php ; store c flag so error can be checked by calling routine
 	jsr close_io
-	; lda #2
-	; jsr kernal_close
 	plp ; restore c flag
 	rts
 
@@ -1558,12 +1446,6 @@ do_restore
 	clc
 	rts
 .file_reading_broken
-	; lda .m65_save_count
-	; sta SCREEN_ADDRESS
-	; lda .m65_save_count + 1
-	; sta SCREEN_ADDRESS + 1
-; -	inc $d020
-	; jmp -
 	clc ; Should do SEC, but this leads to horrible terp behaviour, for unknown reasons
 	rts
 
@@ -1649,8 +1531,6 @@ do_save
 	
 	php ; store c flag so error can be checked by calling routine
 	jsr close_io
-	; lda #2
-	; jsr kernal_close
 	plp ; restore c flag
 	rts
 

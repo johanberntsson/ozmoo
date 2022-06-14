@@ -212,22 +212,6 @@ dumptovice
 	sty z_trace_index
 }
 
-	; jsr kernal_readchar
-
-	; lda z_pc + 2
-	; cmp #$91
-	; bne +++
-	; lda z_pc + 1
-	; cmp #$69
-	; bne +++
-	; lda z_pc
-	; cmp #$01
-	; bne +++
-; -	inc $d020	
-	; jmp -
-; +++	
-	
-
 	lda #0
 	sta z_operand_count
 !ifdef Z4PLUS {	
@@ -558,15 +542,6 @@ z_set_variable_reference_to_value
 	sty write_word_far_dynmem_zp_2
 	ldy #0
 	jmp write_word_to_far_dynmem
-	; sty $02b9
-	; stx zp_temp + 3
-	; ldx #$7f
-	; ldy #0
-	; jsr $02af
-	; lda zp_temp + 3
-	; iny
-	; ldx #$7f
-	; jmp $02af
 .set_in_bank_0
 }
 	ldy #0
@@ -616,17 +591,6 @@ z_get_referenced_value
 	lda #zp_temp
 	ldy #0
 	jmp read_word_from_far_dynmem
-	; sta $02aa
-	; ldx #$7f
-	; ldy #0
-	; jsr $02a2
-	; pha
-	; iny
-	; ldx #$7f
-	; jsr $02a2
-	; tax
-	; pla
-	; rts
 .in_bank_0
 }
 	ldy #1
@@ -1943,7 +1907,3 @@ z_ins_save_restore_undo
 	
 	
 }
-
-
-	
-	

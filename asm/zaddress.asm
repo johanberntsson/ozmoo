@@ -78,31 +78,6 @@ read_next_byte
 	ldx z_address + 1
 	ldy z_address + 2
 
-
-	; lda z_trace_page + 6
-	; bne +
-	; lda z_address
-	; jmp ++
-	
-; +	
-dummy
-
-	; lda z_address	
-	; sta SCREEN_ADDRESS + 1
-	; stx SCREEN_ADDRESS + 2
-	; sty SCREEN_ADDRESS + 3
-	; lda #$fe
-	; sta SCREEN_ADDRESS
-	; sta SCREEN_ADDRESS + 4
-
-	; pha
-; -	jmp -
-	; jsr kernal_readchar
-	; pla
-
-; ++
-
-
 	jsr read_byte_at_z_address
 	inc z_address + 2
 	bne +
@@ -179,10 +154,6 @@ write_next_byte
 	lda z_address_temp
 	ldy #0
 	+write_far_byte mem_temp
-	; ldx #mem_temp
-	; stx $02b9
-	; ldx #$7f
-	; jsr $02af ; y has correct value already
 	pla
 	tay
 	pla

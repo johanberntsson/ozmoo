@@ -361,14 +361,6 @@ z_ins_get_cursor
 	; stx string_array
 	lda z_operand_value_high_arr
 	jsr set_z_address
-	; clc
-	; adc #>story_start
-	; sta string_array + 1
-	; lda #0
-	; ldy #0
-	; sta (string_array),y
-	; ldy #2
-	; sta (string_array),y
 	ldx current_window
 	beq + ; We are in lower window, jump to read last cursor pos in upper window
 	jsr get_cursor ; x=row, y=column	
@@ -382,16 +374,6 @@ z_ins_get_cursor
 	jsr write_next_byte
 	tya
 	jmp write_next_byte
-	; tya
-	; pha
-	; ldy #1
-	; txa ; row
-	; sta (string_array),y
-	; pla ; column
-	; ldy #3
-	; sta (string_array),y
-; .do_nothing_2
-	; rts
 +	ldx cursor_row + 1
 	ldy cursor_column + 1
 	jmp -	

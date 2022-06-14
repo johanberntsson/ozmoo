@@ -483,13 +483,6 @@ stack_return_from_routine
 	sbc (z_local_vars_ptr),y
 	sta stack_ptr + 1
 
-	; txa
-	; sbc #0 ; Carry should always be set after last operation
-	; sta stack_ptr
-	; tya
-	; sbc #0
-	; sta stack_ptr + 1
-	
 	; Find # of locals
 	lda stack_ptr
 	sbc #4 ; Carry should always be set after last operation
@@ -531,8 +524,6 @@ stack_return_from_routine
 	bmi +
 	rts
 +	
-;	+read_next_byte_at_z_pc
-;	tay
 	lda zp_temp
 	ldx zp_temp + 1
 ;	jmp z_set_variable	; Code is followed by z_store_result which will set the variable

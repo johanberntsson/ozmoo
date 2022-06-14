@@ -391,25 +391,10 @@ read_header_word
 ; Returns: Value in a,x
 ; y retains its original value
 !ifdef FAR_DYNMEM {
-	lda #<story_start_far_ram
-	sta mem_temp
-	lda #>story_start_far_ram
-	sta mem_temp + 1
-	lda #mem_temp
+	jsr setup_to_write_to_header_far_ram
+	txa
 	jmp read_word_from_far_dynmem
 } else {
-; !ifdef TARGET_MEGA65 {
-	; sty dynmem_pointer
-	; ldz #0
-	; stz dynmem_pointer + 1
-	; lda [dynmem_pointer],z
-	; pha
-	; inz
-	; lda [dynmem_pointer],z
-	; tax
-	; pla
-	; rts
-; } else {
 	iny
 	lda story_start,y
 	tax
@@ -431,16 +416,6 @@ write_header_word
 	ldx .tmp
 	jmp write_word_to_far_dynmem
 } else {
-; !ifdef TARGET_MEGA65 {
-	; sty dynmem_pointer
-	; ldz #0
-	; stz dynmem_pointer + 1
-	; sta [dynmem_pointer],z
-	; txa
-	; inz
-	; sta [dynmem_pointer],z
-	; rts
-; } else {
 	sta story_start,y
 	iny
 	txa

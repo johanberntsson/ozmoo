@@ -48,10 +48,6 @@ z_ins_get_child
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte object_tree_ptr
-	; lda #object_tree_ptr
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (object_tree_ptr),y
 }
@@ -101,10 +97,6 @@ z_ins_get_parent
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte object_tree_ptr
-	; lda #object_tree_ptr
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (object_tree_ptr),y
 }
@@ -227,10 +219,6 @@ z_ins_remove_obj_body
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte .zp_object
-	; lda #.zp_object
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (.zp_object),y
 }
@@ -277,10 +265,6 @@ z_ins_remove_obj_body
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte .zp_parent
-	; lda #.zp_parent
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (.zp_parent),y
 }
@@ -329,10 +313,6 @@ z_ins_remove_obj_body
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte .zp_object
-	; lda #.zp_object
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (.zp_object),y
 }
@@ -341,10 +321,6 @@ z_ins_remove_obj_body
 
 !ifdef FAR_DYNMEM {
 	+write_far_byte .zp_parent
-	; ldx #.zp_parent
-	; stx $02b9
-	; ldx #$7f
-	; jsr $02af
 } else {
 	sta (.zp_parent),y
 }
@@ -390,10 +366,6 @@ z_ins_remove_obj_body
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte .zp_sibling
-	; lda #.zp_sibling
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (.zp_sibling),y
 }
@@ -433,15 +405,7 @@ z_ins_remove_obj_body
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte .zp_object
-	; lda #.zp_object
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 	+write_far_byte .zp_sibling
-	; ldx #.zp_sibling
-	; stx $02b9
-	; ldx #$7f
-	; jsr $02af
 } else {
 	lda (.zp_object),y
 	sta (.zp_sibling),y
@@ -568,10 +532,6 @@ z_ins_jin
 
 !ifdef FAR_DYNMEM {
 	+read_far_byte object_tree_ptr
-	; lda #object_tree_ptr
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 } else {
 	lda (object_tree_ptr),y
 }
@@ -608,10 +568,6 @@ z_ins_test_attr
 	+before_dynmem_read
 !ifdef FAR_DYNMEM {
 	+read_far_byte object_tree_ptr
-	; lda #object_tree_ptr
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 	ldx .bitmask_index
 } else {
 	lda (object_tree_ptr),y
@@ -637,10 +593,6 @@ z_ins_set_attr
 	+before_dynmem_read
 !ifdef FAR_DYNMEM {
 	+read_far_byte object_tree_ptr
-	; lda #object_tree_ptr
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 	sta object_temp
 	ldx .bitmask_index
 	and .bitmask,x
@@ -649,10 +601,6 @@ z_ins_set_attr
 	ora .bitmask,x
 	+write_far_byte object_tree_ptr
 	rts
-	; ldx #object_tree_ptr
-	; stx $02b9
-	; ldx #$7f
-	; jmp $02af
 } else {
 	lda (object_tree_ptr),y
 	ora .bitmask,x
@@ -675,10 +623,6 @@ z_ins_clear_attr
 	+before_dynmem_read
 !ifdef FAR_DYNMEM {
 	+read_far_byte object_tree_ptr
-	; lda #object_tree_ptr
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 	sta object_temp
 	ldx .bitmask_index
 	and .bitmask,x
@@ -687,10 +631,6 @@ z_ins_clear_attr
 	eor .bitmask,x
 	+write_far_byte object_tree_ptr
 	rts
-	; ldx #object_tree_ptr
-	; stx $02b9
-	; ldx #$7f
-	; jmp $02af
 } else {
 	lda (object_tree_ptr),y
 	and .bitmask,x
@@ -779,29 +719,15 @@ z_ins_insert_obj
 	lda .dest_num + 1
 	ldy #4 ; parent
 	+write_far_byte .zp_object
-	; ldx #.zp_object
-	; stx $02b9
-	; ldx #$7f
-	; jsr $02af
 	; object.sibling = destination.child
 	ldy #6; child
 	+read_far_byte .zp_dest
-	; lda #.zp_dest
-	; sta $02aa
-	; ldx #$7f
-	; jsr $02a2
 	dey
 	+write_far_byte .zp_object
-	; ldx #$7f
-	; jsr $02af
 	; destination.child = object
 	lda object_num + 1
 	ldy #6 ; child
 	+write_far_byte .zp_dest
-	; ldx #.zp_dest
-	; stx $02b9
-	; ldx #$7f
-	; jsr $02af
 	+after_dynmem_read
 	rts
 	

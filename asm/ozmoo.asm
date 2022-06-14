@@ -1483,7 +1483,7 @@ deletable_init_start
 c128_mmu_values !byte $0e,$3f,$7f
 }
 !ifdef TARGET_MEGA65 {
-.first_value !byte 0
+.first_value = z_temp
 .different_values !byte 0
 m65_statmem_already_loaded !byte 0
 }
@@ -1553,9 +1553,6 @@ deletable_init
 	ldy #8
 .store_boot_device
 	sty boot_device ; Boot device# stored
-
-;	tya
-;	jsr init_drive
 
 !ifdef TARGET_MEGA65 {
 	jsr m65_load_header
@@ -1630,26 +1627,6 @@ deletable_init
 
 !ifdef VMEM {
 
-; !ifdef TARGET_MEGA65 {
-	; lda #.configname_len
-	; ldx #<.configname
-	; ldy #>.configname
-	; jsr kernal_setnam ; call SETNAM
-
-	; lda #1      ; file number 1
-	; ldx boot_device
-	; ldy #1      ; secondary address 1 to say load at address in file
-	; jsr kernal_setlfs ; call SETLFS
-	; lda #0
-	; jsr kernal_load     ; call LOAD
-	; bcc +
-	; ; if carry set, the file could not be opened
-	; lda #ERROR_FLOPPY_READ_ERROR
-	; jsr fatalerror
-; +
-; } else {
-; Not MEGA65
-
 !ifdef TARGET_PLUS4 {
 	; Make config info on screen invisible
 	lda reg_backgroundcolour
@@ -1672,49 +1649,6 @@ deletable_init
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
-; }	; End of Not TARGET_MEGA65
-
-!ifdef TARGET_MEGA65 {
-	; lda #2 ; Don't clash with config load address (page 0 in vmem buffer)
-	; sta vmem_cache_cnt
-	; ; Signal that REU copy routine should not update progress bar
-	; lda #$00
-	; sta reu_progress_bar_updates
-	; ; lda #0
-	; ; sta reu_last_disk_end_block
-	; ; sta reu_last_disk_end_block + 1
-
-	; ; lda fileblocks + 1
-	; ; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
-	; ; lda fileblocks + 2
-	; ; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
-
-	; ; jsr print_reu_progress_bar
-
-; ;	lda #0
-; ;	sta zp_temp + 2
-; ;	sta zp_temp + 3
-
-	; lda #.dynmemfilenamelen
-	; ldx #<.dynmemfilename
-	; ldy #>.dynmemfilename
-	; jsr kernal_setnam ; call SETNAM
-
-	; ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
-	; txa
-	
-	; jsr m65_load_file_to_reu ; in reu.asm
-
-	; jmp +
-
-; .dynmemfilename
-	; !pet "zcode-dyn,s,r"
-; .dynmemfilenamelen = * - .dynmemfilename
-; +	
-
-}
-
-	
 
 ; Copy game id
 	ldx #3
@@ -1847,40 +1781,6 @@ deletable_init
 	jsr c128_move_dynmem_and_calc_vmem
 }
 
-!ifdef TARGET_MEGA65 {
-	ldy #header_filelength
-;	sty SCREEN_ADDRESS + 4
-	jsr read_header_word
-	; sta SCREEN_ADDRESS
-	; stx SCREEN_ADDRESS + 1
-	; lda dynmem_pointer
-	; sta SCREEN_ADDRESS + 80
-	; lda dynmem_pointer + 1
-	; sta SCREEN_ADDRESS + 81
-	; lda dynmem_pointer + 2
-	; sta SCREEN_ADDRESS + 82
-	; lda dynmem_pointer + 3
-	; sta SCREEN_ADDRESS + 83
-; -	inc $d020
-	; jmp -	
-	stx fileblocks
-!ifndef Z4PLUS {
-	ldx #1 ; # of shifts for filesize
-} else {
-!ifdef Z7PLUS {
-	ldx #3 ; # of shifts for filesize
-} else {
-	ldx #2 ; # of shifts for filesize
-}
-}
--	asl fileblocks
-	rol
-	rol fileblocks + 2
-	dex
-	bne -
-	sta fileblocks + 1
-}
-
 	jsr prepare_static_high_memory
 
 	jsr insert_disks_at_boot
@@ -1988,7 +1888,6 @@ insert_disks_at_boot
 	lda #0
 	tay ; Disk#
 .next_disk
-;	inc $d020
 	tax ; Memory index
 	cpy #1
 	bcc .dont_need_to_insert_this
@@ -2017,9 +1916,8 @@ insert_disks_at_boot
 	beq .restore_xy_disk_done
 	lda #13
 	jsr s_printchar
-!ifndef TARGET_MEGA65 {
 	jsr copy_data_from_disk_at_zp_temp_to_reu
-}
+
 }
 .restore_xy_disk_done
 ;	inc $d020
@@ -2047,50 +1945,6 @@ insert_disks_at_boot
 !if SUPPORT_REU = 1 {
 .copy_data_from_disk_1_to_reu
 
-!ifdef TARGET_MEGA65 {
-	; lda #0
-; ;	sta SCREEN_ADDRESS + 5
-	; sta reu_last_disk_end_block
-	; sta reu_last_disk_end_block + 1
-
-	; ; lda fileblocks + 1
-	; ; sta SCREEN_ADDRESS + 10
-	; ; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
-	; ; lda fileblocks + 2
-	; ; sta SCREEN_ADDRESS + 11
-	; ; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
-
-	; ; jsr print_reu_progress_bar
-; ;	sta SCREEN_ADDRESS + 6
-
-; ;	lda #0
-; ;	sta zp_temp + 2
-; ;	sta zp_temp + 3
-
-	; lda #.statmemfilenamelen
-	; ldx #<.statmemfilename
-	; ldy #>.statmemfilename
-	; jsr kernal_setnam ; call SETNAM
-
-	; ; ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
-	; ; txa
-	; ldx nonstored_pages
-	; lda #0
-; ;	lda dynmem_size + 1
-; ;	sta SCREEN_ADDRESS + 7
-	
-	; jsr m65_load_file_to_reu ; in reu.asm
-; ;	sta SCREEN_ADDRESS + 8
-
-	; jmp .restore_xy_disk_done
-
-; .statmemfilename
-	; !pet "zcode-stat,s,r"
-; .statmemfilenamelen = * - .statmemfilename
-	
-
-} else {
-	; Not TARGET_MEGA65
 	lda use_reu
 	bpl .dont_need_to_insert_this
 	lda reu_needs_loading
@@ -2169,19 +2023,15 @@ copy_data_from_disk_at_zp_temp_to_reu
 .reu_error
 	jmp reu_error
 
-} ; End not TARGET_MEGA65
-
 reu_start
 	lda #0
 	sta use_reu
 	sta keyboard_buff_len
-!ifndef TARGET_MEGA65 {
 	ldx reu_c64base
 	inc reu_c64base
 	inx
 	cpx reu_c64base
 	bne .no_reu_present
-}
 ; REU detected, check size
 	jsr check_reu_size
 ;	lda #0 ; SKIP REU FOR DEBUGGING PURPOSES
@@ -2190,12 +2040,6 @@ reu_start
 	bcc .no_reu_present ; If REU size < 512 KB, don't use it.
 ;	sta $0700
 
-!ifdef TARGET_MEGA65 {
-	ldx #$80 ; Use REU, set vmem to reu loading mode
-	stx use_reu
-.no_reu_present	
-	rts
-} else {
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
 	jsr printstring_raw
@@ -2229,69 +2073,11 @@ reu_start
 .use_reu_question
 	!pet 13,"Use REU? (Y/N) ",0
 
-} ; End of TARGET not MEGA65
 
-; ; progress_reu = parse_array
-; ; reu_progress_ticks = parse_array + 1
-; ; reu_last_disk_end_block = string_array ; 2 bytes
+} ; if SUPPORT_REU = 1
 
-; reu_progress_base
-; !ifndef Z4PLUS {
-	; !byte 16 ; blocks read to REU per tick of progress bar
-; } else {
-; !ifdef Z7PLUS {
-	; !byte 64 ; blocks read to REU per tick of progress bar
-; } else {
-	; !byte 32 ; blocks read to REU per tick of progress bar
-; }
-; }
-
-
-; print_reu_progress_bar
-	; lda z_temp + 4
-	; sec
-	; sbc reu_last_disk_end_block
-	; sta reu_progress_ticks
-	; lda z_temp + 5
-	; sbc reu_last_disk_end_block + 1
-; !ifdef Z4PLUS {
-; !ifdef Z7PLUS {
-	; ldx #6
-; } else {
-	; ldx #5
-; }
-; } else {
-	; ldx #4
-; }
-; -	lsr 
-	; ror reu_progress_ticks
-	; dex
-	; bne -
-
-	; lda reu_progress_base
-	; sta progress_reu
-
-; ; Print progress bar
-	; lda #13
-	; jsr s_printchar
-	; ldx reu_progress_ticks
-	; beq +
-; -	lda #47
-	; jsr s_printchar
-	; dex
-	; bne -
-; +
-	; ; Signal that REU copy routine should update progress bar
-	; lda #$ff
-	; sta reu_progress_bar_updates
-
-	; rts
 } ; zone insert_disks_at_boot
 
-
-
-
-}
 prepare_static_high_memory
 	lda #$ff
 	sta zp_pc_h
@@ -2369,7 +2155,7 @@ prepare_static_high_memory
 }
 	rts
 
-}
+} ; End of VMEM
 
 
 !ifdef TARGET_MEGA65 {
@@ -2395,26 +2181,6 @@ m65_load_header
 
 
 m65_load_dynmem
-	; lda #2 ; Don't clash with config load address (page 0 in vmem buffer)
-	; sta vmem_cache_cnt
-	; Signal that REU copy routine should not update progress bar
-	; lda #$00
-	; sta reu_progress_bar_updates
-	; lda #0
-	; sta reu_last_disk_end_block
-	; sta reu_last_disk_end_block + 1
-
-	; lda fileblocks + 1
-	; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
-	; lda fileblocks + 2
-	; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
-
-	; jsr print_reu_progress_bar
-
-;	lda #0
-;	sta zp_temp + 2
-;	sta zp_temp + 3
-
 	lda #.dynmemfilenamelen
 	ldx #<.dynmemfilename
 	ldy #>.dynmemfilename
@@ -2426,7 +2192,6 @@ m65_load_dynmem
 	jsr m65_load_file_to_reu ; in reu.asm
 
 	rts
-;	jmp +
 
 .dynmemfilename
 	!pet "zcode-dyn,s,r"
@@ -2434,42 +2199,17 @@ m65_load_dynmem
 +	
 
 m65_load_statmem
-	; lda #0
-; ;	sta SCREEN_ADDRESS + 5
-	; sta reu_last_disk_end_block
-	; sta reu_last_disk_end_block + 1
-
-	; lda fileblocks + 1
-	; sta SCREEN_ADDRESS + 10
-	; sta z_temp + 4 ; Last sector# on this disk. Store low-endian
-	; lda fileblocks + 2
-	; sta SCREEN_ADDRESS + 11
-	; sta z_temp + 5 ; Last sector# on this disk. Store low-endian
-
-	; jsr print_reu_progress_bar
-;	sta SCREEN_ADDRESS + 6
-
-;	lda #0
-;	sta zp_temp + 2
-;	sta zp_temp + 3
-
 	lda #.statmemfilenamelen
 	ldx #<.statmemfilename
 	ldy #>.statmemfilename
 	jsr kernal_setnam ; call SETNAM
 
-	; ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
-	; txa
 	ldx nonstored_pages
 	lda #0
-;	lda dynmem_size + 1
-;	sta SCREEN_ADDRESS + 7
 	
 	jsr m65_load_file_to_reu ; in reu.asm
-;	sta SCREEN_ADDRESS + 8
 
 	rts
-;	jmp .restore_xy_disk_done
 
 .statmemfilename
 	!pet "zcode-stat,s,r"
