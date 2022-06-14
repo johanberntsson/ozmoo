@@ -36,6 +36,7 @@ Release 10:
   of dynamic memory.
 - Only load dynamic memory when restaring, on MEGA65, for speed
 - Improved z_ins_quit for MEGA65. Will not run autoboot.c65. Works on real HW
+- Allow up to 64 stack pages, to allow for Inform 7 games on MEGA65.
 
 ================================================
 Release 9: 28 Nov 2021

@@ -1992,7 +1992,7 @@ def print_usage
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
-	puts "  -sp: Use the specified number of pages for stack (2-9, default is 4)."
+	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -fn: boot file name (default: story)"
@@ -2149,7 +2149,7 @@ begin
 			$input_colour = $1.to_i
 		elsif ARGV[i] =~ /^-dmic:([2-9])$/ then
 			$input_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-sp:([2-9])$/ then
+		elsif ARGV[i] =~ /^-sp:(0?[2-9]|[1-5][0-9]|6[0-4])$/ then
 			$stack_pages = $1.to_i
 		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
