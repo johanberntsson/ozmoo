@@ -137,19 +137,17 @@ plus4_enable_rom = $ff3e
 
 
 !ifdef SLOW {
-; .dummy !byte 0
-read_next_byte_at_z_pc_sub
 !ifdef TARGET_MEGA65 {
-
- 	; lda z_pc_mempointer
-	; ldy .dummy
-	; sta SCREEN_ADDRESS,y
-	; ldy #0
-	; inc .dummy
-
+!macro read_next_byte_at_z_pc {
 	ldz #0
 	lda [z_pc_mempointer],z
+	inc z_pc_mempointer ; Also increases z_pc
+	bne ++
+	jsr inc_z_pc_page
+++
+}
 } else {
+read_next_byte_at_z_pc_sub
 	ldy #0
 !ifdef TARGET_PLUS4 {
 	sei
@@ -168,7 +166,6 @@ read_next_byte_at_z_pc_sub
 	lda (z_pc_mempointer),y
 }
 }
-}
 	inc z_pc_mempointer ; Also increases z_pc
 	beq ++
 	rts
@@ -176,6 +173,8 @@ read_next_byte_at_z_pc_sub
 
 !macro read_next_byte_at_z_pc {
 	jsr read_next_byte_at_z_pc_sub
+}
+
 }
 	
 } else {
