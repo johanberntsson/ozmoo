@@ -447,7 +447,7 @@ The individial sound files must be extracted from the archive. For blorb files t
 
 The blorb files contain sound files in aiff format, that should be moved to a folder that is later included with the -asa switch when using the make.rb script to build the game. Make sure that the filenames follow the pattern described above (staring with 003.aiff). 
 
-Example: assuming that the sound files are stored in the "luring" folder, this command will build and start Lurking Horror in the xemu-xmega65 emulator
+Example: assuming that the sound files are stored in a folder called "lurking", this command will build and start the Lurking Horror in the xemu-xmega65 emulator
 
     ruby make.rb -s -ch -t:mega65 -asw lurking lurkinghorror-r221-s870918.z3
 
