@@ -15,7 +15,7 @@ keyboard_buff_len     = $c6
 keyboard_buff         = $277
 
 use_reu				  = $9b
-window_start_row	  = $9c; 4 bytes
+window_start_row	  = $2a; 4 bytes
 
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
@@ -46,7 +46,7 @@ keyboard_buff         = $527
 zp_temp               = $3b ; 5 bytes
 ;use_reu				  = $87
 ;window_start_row	  = $88; 4 bytes
-window_start_row	  = $9c; 4 bytes
+window_start_row	  = $2a; 4 bytes
 
 
 num_rows 			  = $b7 ; !byte 0
@@ -91,7 +91,7 @@ keyboard_buff_len     = $c6
 keyboard_buff         = $277
 
 use_reu				  = $9b
-window_start_row	  = $9c; 4 bytes
+window_start_row	  = $2a; 4 bytes
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b0 ; 3 bytes
@@ -142,9 +142,6 @@ z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
 	; stack_has_top_value		= $2f ; !byte 0
 	; z_pc					= $30 ; 3 bytes (last byte shared with z_pc_mempointer)
 	; z_pc_mempointer			= $32 ; 2 bytes (first byte shared with z_pc)
-	; zp_save_start			= z_local_vars_ptr
-	; zp_bytes_to_save		= z_pc + 3 - z_local_vars_ptr
-
 	z_local_vars_ptr		= $75 ; 2 bytes
 	z_local_var_count		= $77
 	stack_pushed_bytes		= $78 ; !byte 0, 0
@@ -153,17 +150,12 @@ z_operand_value_low_arr = $1e ;  !byte 0, 0, 0, 0, 0, 0, 0, 0
 	stack_has_top_value		= $7e ; !byte 0
 	z_pc					= $7f ; 3 bytes (last byte shared with z_pc_mempointer)
 	z_pc_mempointer			= $81 ; 2 bytes (first byte shared with z_pc), +2 bytes for MEGA65
-	
 	zp_save_start			= z_local_vars_ptr
 	zp_bytes_to_save		= z_pc + 3 - z_local_vars_ptr
 
 ;
 ; End of contiguous zero page block
 ;
-;
-
-
-
 
 vmap_max_entries	  = $34
 
@@ -211,7 +203,8 @@ dynmem_pointer			= $85; 4 bytes
 }
 
 ;mempointer            = $03 ; 2 bytes 
-mempointer            = $89 ; 2 bytes + 2 bytes for MEGA65
+;mempointer            = $89 ; 2 bytes + 2 bytes for MEGA65
+mempointer            = $26 ; 2 bytes + 2 bytes for MEGA65
 
 !ifdef TARGET_MEGA65 {
 }
