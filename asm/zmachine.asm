@@ -918,10 +918,14 @@ z_ins_rfalse
 
 z_ins_quit
 !ifdef TARGET_MEGA65 {
-	; TODO: how to reset without activating autoboot?
+	; call hyppo_d81detach to unmount d81 and prevent
+	; autoboot.c65 from running
+	lda #$42
+	sta $d640
+	clv
 }
 	jsr printchar_flush
-	jsr show_more_prompt
+	;jsr show_more_prompt
 	jmp kernal_reset
 
 ; z_ins_restart (moved to disk.asm)
