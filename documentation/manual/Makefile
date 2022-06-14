@@ -7,6 +7,6 @@ all:
 	pandoc --metadata-file=custom-player.yaml --from=markdown+multiline_tables -H custom.tex player_manual.md -o player_manual.pdf
 	rm manual2.md
 	rm techreport2.md
-	mv manual.pdf ../ozmoo_9.pdf
-	mv techreport.pdf ../techreport_9.pdf
-	mv player_manual.pdf ../player_manual_9.pdf
+	mv manual.pdf ../ozmoo_10.pdf
+	mv techreport.pdf ../techreport_10.pdf
+	mv player_manual.pdf ../player_manual_10.pdf

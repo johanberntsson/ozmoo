@@ -1,6 +1,6 @@
 RELEASE NOTES
 
-Release 10:
+Release 10: 16 June 2022
 
 - Fixed bug in parsing words with special characters in v1/v2.
 - Fixed bug in printing characters not in alphabet table in v1/v2.

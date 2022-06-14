@@ -439,14 +439,17 @@ Since sound effect 1 and 2 are reserved for beeps, the sample based sound effect
 
 ## Legacy support for Sherlock and The Lurking Horror
 
-Ozmoo has includes support for Infocom games with sound effects: Sherlock and
-The Lurking Horror. The easiest way of getting these games complete with sound effects for the MEGA65 is to generate them from Ozmoo Online: https://microheaven.com/ozmooonline/, but it is also possible to convert and use sound files from the Amiga version of the games with Ozmoo.
+Ozmoo has includes support for Sherlock and The Lurking Horror from Infocom. The easiest way of getting these games complete with sound effects for the MEGA65 is to generate them from Ozmoo Online: https://microheaven.com/ozmooonline/, but it is also possible to convert and use sound files from the Amiga version of the games with Ozmoo.
 
 The original sound files can be found in various places on the Internet, including at the Interactive Fiction Archive: https://ifarchive.org/indexes/if-archive/infocom/media/sound/
 
 The individial sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html
 
-The individual files then need to be converted to wav or aiff files, for example using Audacity as described above, and moved to a folder that is later included with the -asw (or -asa) switch when using the make.rb script to build the game.
+The blorb files contain sound files in aiff format, that should be moved to a folder that is later included with the -asa switch when using the make.rb script to build the game. Make sure that the filenames follow the pattern described above (staring with 003.aiff). 
+
+Example: assuming that the sound files are stored in the "luring" folder, this command will build and start Lurking Horror in the xemu-xmega65 emulator
+
+    ruby make.rb -s -ch -t:mega65 -asw lurking lurkinghorror-r221-s870918.z3
 
 # Loader image
 
