@@ -924,8 +924,11 @@ z_ins_quit
 	sta $d640
 	clv
 }
+	; some games (e.g. Hollywood Hijinx) show a final text,
+	; so use the more prompt to pause before the reset
+	; (otherwise we wouldn't be able to read it).
 	jsr printchar_flush
-	;jsr show_more_prompt
+	jsr show_more_prompt
 	jmp kernal_reset
 
 ; z_ins_restart (moved to disk.asm)
