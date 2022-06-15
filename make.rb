@@ -1412,7 +1412,7 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 		exit 1
 	end
 	
-	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+	disk = D64_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks) # Has to be run to finalize the disk
 
@@ -1455,7 +1455,7 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	diskfilename = "#{$target}_#{storyname}.d64"
 
-	disk = D64_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+	disk = D64_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
 	if $story_file_cursor < $story_file_data.length
@@ -1526,9 +1526,11 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot.d64"
 	outfile2name = "#{$target}_#{storyname}_story.d64"
+	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/2' : '')
+	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/2' : '')
 	max_story_blocks = 9999
-	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
-	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
+	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 	free_blocks = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
 	free_blocks = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
@@ -1601,8 +1603,10 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot_story_1.d64"
 	outfile2name = "#{$target}_#{storyname}_story_2.d64"
-	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
-	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/2' : '')
+	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/2' : '')
+	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
+	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
 
 	# Figure out how to put story blocks on the disks in optimal way.
 	# Rule 1: Save 160 blocks for bootfile on boot disk, if possible. 
@@ -1703,9 +1707,12 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	outfile1name = "#{$target}_#{storyname}_boot.d64"
 	outfile2name = "#{$target}_#{storyname}_story_1.d64"
 	outfile3name = "#{$target}_#{storyname}_story_2.d64"
-	disk1 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
-	disk2 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
-	disk3 = D64_image.new(disk_title: storyname, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/3' : '')
+	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/3' : '')
+	disk3title = $disk_title + ($disk_title.length < 13 ? ' 3/3' : '')
+	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
+	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk3 = D64_image.new(disk_title: disk3title, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
 
 	# Figure out how to put story blocks on the disks in optimal way.
 	# Rule: Spread story data as evenly as possible, so heads will move less.
@@ -1802,7 +1809,7 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	diskfilename = "#{$target}_#{storyname}.d71"
 
-	disk = D71_image.new(disk_title: storyname, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk)
+	disk = D71_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: nil)
 	if $story_file_cursor < $story_file_data.length
@@ -1872,7 +1879,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	diskfilename = "#{$target}_#{storyname}.d81"
 	
-	disk = D81_image.new(disk_title: storyname, diskimage_filename: diskimage_filename)
+	disk = D81_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename)
 	if $i81
 		disk.interleave_scheme = $i81
 	end
@@ -1982,8 +1989,7 @@ def print_usage
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
-	puts "         <storyfile>"
-	puts "         [-as(a|w) <soundpath>] <storyfile>"
+	puts "         [-dt:\"text\"] [-as(a|w) <soundpath>] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2014,8 +2020,9 @@ def print_usage
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
-	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)"
-	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)"
+	puts "  -dt: Set the disk title to the specified text."
+	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
+	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2069,6 +2076,7 @@ $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
 $sound_format = nil
+$disk_title = nil
 
 begin
 	while i < ARGV.length
@@ -2179,6 +2187,8 @@ begin
 			$loader_flicker = ARGV[i] =~ /f$/
 		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
 			splashes[$1.to_i - 1] = $2
+		elsif ARGV[i] =~ /^-dt:(.*)$/ then
+			$disk_title = $1
 		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
 			$splash_wait = $1
 		elsif ARGV[i] =~ /^-cc:([0-9])$/ then
@@ -2413,6 +2423,8 @@ path = File.dirname($story_file)
 extension = File.extname($story_file)
 filename = File.basename($story_file)
 storyname = File.basename($story_file, extension)
+$disk_title = filename unless $disk_title
+
 #puts "storyname: #{storyname}" 
 
 begin

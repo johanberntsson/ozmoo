@@ -2,41 +2,41 @@ RELEASE NOTES
 
 Release 10: 16 June 2022
 
-- Fixed bug in parsing words with special characters in v1/v2.
-- Fixed bug in printing characters not in alphabet table in v1/v2.
-- Removed (a few lines of) superfluous code.
-- Fix bug: wrong character was deleted when pressing backspace on C128 in 
-  80 col mode.
-- Changed so a blinking cursor starts in ON phase instead of OFF phase.
-- make.rb option -u to enable "unsafe" mode to remove some runtime error
-  checks has been removed and this "unsafe" mode is now the default. There
-  is also a new option -re to enable all runtime error checks.
-- Improved Plus/4 colour matching to C64 colours.
-- Fixed a crash that sometimes occured when not preloading any blocks.
+New/changed features:
+
+- Added support for sound effects for MEGA65, using wav or aiff files.
+- Keep story file entirely in Attic RAM on MEGA65, to allow for any size of dynamic memory.
+- Allow up to 64 stack pages, to allow for Inform 7 games on MEGA65.
+- New option -dt:"title" to set the disk title.
+- In multi-disk build modes, add " 1/2" etc to the disk title if there is room.
+- make.rb option -u to enable "unsafe" mode to remove some runtime error checks has been removed and this "unsafe" mode is now the default. There is also a new option -re to enable all runtime error checks. The default mode is now the one generating the fastest interpreter.
+- Improved the QUIT instruction (z_ins_quit) for MEGA65. Will not run autoboot.c65. Works on real HW
+- Switched to storing story file as two SEQ files for MEGA65, instead of raw blocks. It is now possible to replace the game with another game as long as they use the same Z-code version. Place the first n bytes of the story file, where n is a word stored highbyte first at address 14 and 15 (decimal) of the story file, rounded up to the nearest multiple of 512 bytes, in the SEQ file "zcode-dyn". Place the rest of the story file in the SEQ file "zcode-stat". Note that the first byte of a Z-code file says which Z-code version it is.
+
+Optimizations:
+
+- Store story file and sound files with custom interleave scheme to get higher loading speed on real floppies on MEGA65.
+- Only load dynamic memory when restarting, on MEGA65, for speed
 - Faster multiplication in dictionary lookup and scrolling on C128 80 col.
 - Don't include subroutine z_get_low_global_variable_value unless it's needed.
-- Ozmoo now correctly patches Trinity R11, R12 and R15 to allow for play on
-  narrow screens. (We had a patch for R15, but it made the copyright message
-  on start screen come out garbled)
+- Removed (a few lines of) superfluous code.
 - Exclude unused code for showing time on statusline in z1-z2 build.
 - Minor optimization in object tree code.
+- Removed the need for game config information on disk for MEGA65.
+
+Bugfixes:
+
 - Fixed bug in statusline code that stopped building z3 games for MEGA65
-- Fixed bug with wrong string length for U1 command sent to disk, which
-  made C64 games running in C64 mode on MEGA65 unable to boot.
-- MEGA65 fast loading code has been disabled since it broke save/restore.  
-- Switched to storing story file as a SEQ file for MEGA65, instead of raw 
-  blocks.
-- Switched to storing config as a file for MEGA65, instead of raw blocks.
-- Stopped make.rb from accepting nonsupported options regarding preloading 
-  vmem blocks on MEGA65.
-- Added sound effects for MEGA65, supporting wav or aiff files.
-- Store story file and sound files with custom interleave scheme to get 
-  higher loading speed on real floppies on MEGA65.
-- Keep story file entirely in Attic RAM on MEGA65, to allow for any size
-  of dynamic memory.
-- Only load dynamic memory when restaring, on MEGA65, for speed
-- Improved z_ins_quit for MEGA65. Will not run autoboot.c65. Works on real HW
-- Allow up to 64 stack pages, to allow for Inform 7 games on MEGA65.
+- Fixed bug in parsing words with special characters in v1/v2.
+- Fixed bug in printing characters not in alphabet table in v1/v2.
+- Fix bug: wrong character was deleted when pressing backspace on C128 in 80 col mode.
+- Changed so a blinking cursor starts in ON phase instead of OFF phase.
+- Improved Plus/4 colour matching to C64 colours.
+- Fixed a crash that sometimes occured when not preloading any blocks.
+- Ozmoo now correctly patches Trinity R11, R12 and R15 to allow for play on narrow screens. (We had a patch for R15, but it made the copyright message on start screen come out garbled)
+- Fixed bug with wrong string length for U1 command sent to disk, which made C64 games running in C64 mode on MEGA65 unable to boot.
+- MEGA65 fast loading code has been disabled since it broke save/restore. After switching to optimized interleave scheme, loading is actually faster than with the old fastloader).
+- Stopped make.rb from accepting nonsupported options regarding preloading vmem blocks on MEGA65.
 
 ================================================
 Release 9: 28 Nov 2021
