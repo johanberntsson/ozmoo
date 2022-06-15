@@ -1106,8 +1106,9 @@ read_char
 .no_timer
 	jsr getchar_and_maybe_toggle_darkmode
 	cmp #$00
-	beq read_char
-	sta .petscii_char_read
+	bne +
+	jmp read_char
++	sta .petscii_char_read
 	jmp translate_petscii_to_zscii
 
 s_cursorswitch !byte 0
