@@ -11,6 +11,8 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018-2022
 
 ## Status
 
+Update 2022-Jun-16: Release 10 with MEGA65 support for sound, unlimited dynamic memory and large stack (the stack mod makes it possible to play some lightweight Inform 7 games).
+
 Update 2021-Nov-28: Release 9 with support for z1, z2 and z7 games.
 
 Update 2021-Oct-03: Release 8 with MEGA65 speedups, plus optimizations and bugfixes for all platforms.
