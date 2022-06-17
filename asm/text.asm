@@ -1116,6 +1116,11 @@ s_cursorswitch !byte 0
 s_cursormode !byte 0
 }
 turn_on_cursor
+!ifdef USE_BLINKING_CURSOR {
+	jsr reset_cursor_blink
+	lda #CURSORCHAR
+	sta cursor_character
+}
 	lda #1
 	sta s_cursorswitch
 	bne update_cursor ; always branch

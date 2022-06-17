@@ -775,12 +775,16 @@ class D81_image < Disk_image
 		end
 	end
 
-	def add_file(filename, filecontents)
+	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
 		sector_count = 0
+		last_sector_used = nil
 		if filecontents == nil or filecontents.length == 0
 			start_sector = [0,0]
+			last_sector_used = start_sector
 		else
-			start_sector = find_free_file_start_sector
+			# Find first free sector as close as possible to the last sector used by the last file
+			start_sector = find_free_file_start_sector(last_sector)
+			last_sector_used = start_sector
 			if start_sector == nil
 				puts "ERROR: No free blocks left on disk."
 				exit 1
@@ -793,6 +797,7 @@ class D81_image < Disk_image
 					puts "ERROR: No free blocks left on disk."
 					exit 1
 				end
+				last_sector_used = next_sector
 				
 				sector_count += 1
 				block_contents = next_sector.pack("CC") + filecontents[0 .. 253]
@@ -815,7 +820,8 @@ class D81_image < Disk_image
 			[sector_count % 256, sector_count / 256].pack("CC")
 		
 		@add_to_dir.push dir_entry
-			
+		
+		return last_sector_used
 	end
 
 	
@@ -849,16 +855,20 @@ class D81_image < Disk_image
 		return @contents[(@track_offset[40] + 1) * 256 + index2] & index3 == 0
 	end
 	
-	def find_free_file_start_sector
-		1.upto 40 do |t|
-			40.times do |s|
-				unless t > 39 or sector_allocated?(40 - t, s)
-					allocate_sector(40 - t, s)
-					return [40 - t, s]
-				end
-				unless sector_allocated?(40 + t, s)
-					allocate_sector(40 + t, s)
-					return [40 + t, s]
+	def find_free_file_start_sector(last_sector = nil)
+		if last_sector
+			return find_next_free_sector(last_sector[0], last_sector[1])
+		else
+			1.upto 40 do |t|
+				40.times do |s|
+					unless t > 39 or sector_allocated?(40 - t, s)
+						allocate_sector(40 - t, s)
+						return [40 - t, s]
+					end
+					unless sector_allocated?(40 + t, s)
+						allocate_sector(40 + t, s)
+						return [40 + t, s]
+					end
 				end
 			end
 		end
@@ -1885,12 +1895,15 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	end
 
 	if $target == "mega65" then
+		last_sector = nil
 		$sound_files.each do |file|
 			f = file
 			tf = ')' + f.gsub(/^.*\//,'')
 			f = f.gsub(/\//,"\\") if $is_windows
 			file_contents = IO.binread(f)
-			disk.add_file(tf, file_contents);
+#			last_sector = disk.add_file(tf, file_contents, last_sector);
+			 # Don't use the option to add new file just after last file!
+			last_sector = disk.add_file(tf, file_contents);
 		end
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
 		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
