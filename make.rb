@@ -2438,8 +2438,6 @@ filename = File.basename($story_file)
 storyname = File.basename($story_file, extension)
 $disk_title = storyname unless $disk_title
 
-#puts "storyname: #{storyname}" 
-
 begin
 	puts "Reading file #{$story_file}..." if $verbose
 	$story_file_data = IO.binread($story_file)

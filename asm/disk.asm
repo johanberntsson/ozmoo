@@ -1,6 +1,9 @@
 !zone disk {
 
 first_unavailable_save_slot_charcode	!byte 0
+; current_disks holds $ff for a drive which doesn't contain an Ozmoo disk OR
+; the index into disk_info where information about this disk starts *MINUS 3*
+; So 0 means save disk, 8 means boot disk or boot/story disk etc.
 current_disks !byte $ff, $ff, $ff, $ff,$ff, $ff, $ff, $ff
 boot_device !byte 0
 ask_for_save_device !byte $ff
@@ -41,16 +44,16 @@ dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
 }
 
 !ifndef VMEM {
-	!ifdef TARGET_MEGA65 {
+;	!ifdef TARGET_MEGA65 {
 disk_info
 		!byte 0, 0, 2  ; Interleave, save slots, # of disks
 		!byte 8, 8, 0, 0, 0, 130, 131, 0 
 		!pet 11, 8, 0, 0, 0, 128, "/ ", 129, 131, 0 
-	} else { 
-disk_info
-		!byte 0, 0, 1  ; Interleave, save slots, # of disks
-		!byte 8, 8, 0, 0, 0, 130, 131, 0 
-	}
+	; } else { 
+; disk_info
+		; !byte 0, 0, 1  ; Interleave, save slots, # of disks
+		; !byte 8, 8, 0, 0, 0, 130, 131, 0 
+	; }
 } else {
 ; VMEM
 
@@ -527,21 +530,21 @@ insert_msg_3
 
 !ifdef RESTART_SUPPORTED {
 z_ins_restart
-	; Find right device# for boot disk
-	ldx boot_device
-
-	lda disk_info + 4,x
+	; insert device# for boot disk in LOAD command
+	lda disk_info + 4 + 8 ; Device# for story disk (typically 8)
 	jsr convert_byte_to_two_digits
 	stx .device_no
 	sta .device_no + 1
-	ldx boot_device
 
 	; Check if disk is in drive
-	lda disk_info + 4,x
-	tay
-	txa
+	ldy disk_info + 4 + 8 ; Device# for story disk (typically 8)
+;	lda disk_info + 4,x
+;	tay
+;	txa
+	lda #8; Index of story disk in disk_info - 3
 	cmp current_disks - 8,y
 	beq +
+	tay
 	jsr print_insert_disk_msg
 +
 

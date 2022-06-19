@@ -1674,10 +1674,15 @@ deletable_init
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM
-	ldy boot_device ; Boot device# stored
-	sty disk_info + 4 ; Device# for save disk
 !ifdef TARGET_MEGA65 {
+	ldy boot_device ; Boot device# stored
 	sty disk_info + 4 + 8 ; Device# for boot/story disk
+	; Store boot device in current_disks
+	lda #8 ; Index of story disk in disk_info - 3
+	sta current_disks - 8,y
+
+	lda #$ff ; Use REU
+	sta use_reu
 }
 	ldy #header_static_mem
 	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
