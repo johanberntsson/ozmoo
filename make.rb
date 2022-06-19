@@ -2436,7 +2436,7 @@ path = File.dirname($story_file)
 extension = File.extname($story_file)
 filename = File.basename($story_file)
 storyname = File.basename($story_file, extension)
-$disk_title = filename unless $disk_title
+$disk_title = storyname unless $disk_title
 
 #puts "storyname: #{storyname}" 
 

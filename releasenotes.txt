@@ -5,7 +5,9 @@ Release 11:
 Bugfixes:
 
 - Fixed bug: Cursor wasn't showing during save/restore if a blinking cursor was used and it was off when save/restore started.
+- Fixed bug: Extension is included in disk title.
 
+================================================
 Release 10: 16 June 2022
 
 New/changed features:
