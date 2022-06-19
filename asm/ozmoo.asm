@@ -1486,6 +1486,7 @@ c128_mmu_values !byte $0e,$3f,$7f
 .first_value = z_temp
 .different_values !byte 0
 m65_statmem_already_loaded !byte 0
+m65_attic_checksum_page = ($08000000 + 512 * 1024) / 256
 }
 
 deletable_init
@@ -1555,11 +1556,13 @@ deletable_init
 	sty boot_device ; Boot device# stored
 
 !ifdef TARGET_MEGA65 {
-	jsr m65_load_header
 
 !ifdef Z3PLUS {
-	; Start 512KB into Attic RAM
-	lda #>(512 * 1024 / 256)
+	jsr m65_load_header
+	; Header of game on disk in now loaded, starting 512KB into Attic RAM
+	lda #<m65_attic_checksum_page
+	sta mempointer + 1
+	lda #>m65_attic_checksum_page
 	sta mempointer + 2
 	ldz #header_filelength
 	lda [dynmem_pointer],z
@@ -1591,7 +1594,7 @@ deletable_init
 	lda #0
 	sta z_temp + 5
 	ldz #header_filelength
-	lda [mempointer],z
+	lda [dynmem_pointer],z
 !ifdef Z4PLUS {
 	!ifdef Z7PLUS {
 		ldx #3 ; File size multiplier is 2^3 = 8
@@ -1612,7 +1615,7 @@ deletable_init
 
 	; We are only to load dynmem
 	ldz #header_static_mem
-	lda [mempointer],z
+	lda [dynmem_pointer],z
 	sta z_temp + 4
 	lda #0
 	sta z_temp + 5
@@ -1750,6 +1753,13 @@ deletable_init
 	bit m65_statmem_already_loaded
 	bmi + 
 	jsr m65_load_statmem
+!ifdef SOUND {
+	; When we had to load statmem, we will also need to load sound effects, if any
+	jsr setup_sound_mempointer_32
+	lda #0
+	taz
+	sta [sound_mempointer_32],z
+}	
 +
 }
 	
@@ -1814,11 +1824,25 @@ deletable_init
 .supported_version
 }
 
-	rts
 
-; .configname
-	; !pet "ozmoo.cfg"
-; .configname_len = * - .configname
+!ifdef TARGET_MEGA65 {
+
+!ifdef Z3PLUS {
+	; Store header values for file length and checksum in Attic RAM to say the game has been loaded
+	lda #<m65_attic_checksum_page
+	sta mempointer + 1
+	lda #>m65_attic_checksum_page
+	sta mempointer + 2
+	ldz #header_filelength
+-	lda [dynmem_pointer],z
+	sta [mempointer],z
+	inz
+	cpz #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
+	bcc -
+}
+}
+
+	rts
 
 }
 
@@ -2169,21 +2193,6 @@ m65_load_header
 	stx reu_progress_bar_updates
 	dex
 	stx m65_reu_break_after_first_page
-
-	lda #.dynmemfilenamelen
-	ldx #<.dynmemfilename
-	ldy #>.dynmemfilename
-	jsr kernal_setnam ; call SETNAM
-
-	; Start 512KB into Attic RAM
-	lda #>(512 * 1024 / 256)
-	ldx #<(512 * 1024 / 256)
-	
-	jsr m65_load_file_to_reu ; in reu.asm
-
-	rts
-
-
 
 m65_load_dynmem
 	lda #.dynmemfilenamelen

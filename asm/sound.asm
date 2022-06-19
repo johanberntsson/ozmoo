@@ -52,9 +52,13 @@ sound_load_msg !pet "Loading sound: ",13,0
 }
 sound_file_name 
 	!pet "#000xx.aiff........." ; Must have room for a full name + ",s"
-sound_start_page_low !fill 253,0
-sound_start_page_high !fill 253,0
-sound_length_pages !fill 253,0
+
+sound_table_size = 253
+sound_table
+sound_start_page_low !fill sound_table_size,0
+sound_start_page_high !fill sound_table_size,0
+sound_length_pages !fill sound_table_size,0
+
 sound_base_value = 1024*1024/256 ; 1 MB into Attic RAM
 sound_next_page !byte <sound_base_value, >sound_base_value
 
@@ -62,8 +66,9 @@ sound_next_page !byte <sound_base_value, >sound_base_value
 ;sound_data_base = z_temp + 3
 sound_file_target = z_temp + 3 ; 4 bytes
 ;dir_entry_start = sound_data_base +  4 ; 1 byte
+.sound_temp = z_temp + 6 ; 2 bytes
 .fx_number = z_temp + 8
-.sound_temp = z_temp + 9
+sound_mempointer_32 = z_operand_value_low_arr
 ;sound_index_ptr = z_operand_value_low_arr ; 4 bytes
 ;sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
 sound_dir_ptr = z_operand_value_high_arr
@@ -77,9 +82,10 @@ sound_files_read !byte 0
 	rts
 
 reset_sound_dir_ptr
-; Read directory into Attic RAM at $08080000
+; Read directory into Attic RAM at $08080400 (513 KB in)
 	lda #$00
 	sta sound_dir_ptr
+	lda #$04
 	sta sound_dir_ptr + 1
 	lda #$08
 	sta sound_dir_ptr + 2
@@ -91,8 +97,54 @@ read_sound_dir_char
 	inq sound_dir_ptr
 	rts
 
+setup_sound_mempointer_32
+	; Sets sound_mempointer to $08080000
+	lda #0
+	sta sound_mempointer_32
+	sta sound_mempointer_32 + 1
+	lda #8
+	sta sound_mempointer_32 + 2
+	sta sound_mempointer_32 + 3
+	rts
+
+.copy_sound_table_and_return
+	; Copy sound table from Attic RAM, address $08080100
+	jsr setup_sound_mempointer_32
+	lda #1
+	sta sound_mempointer_32 + 1
+	lda #<sound_table_size * 3
+	sta .sound_temp
+	lda #>sound_table_size * 3
+	sta .sound_temp + 1
+	ldz #0
+	ldy #0
+.load_from_attic
+	lda [sound_mempointer_32],z
+.store_in_sound_table
+	sta sound_table,y
+	iny
+	inz
+	bne +
+	inc sound_mempointer_32 + 1
+	inc .store_in_sound_table + 2
++	dec .sound_temp + 10
+	bne .load_from_attic
+	dec .sound_temp + 1
+	bne .load_from_attic
+	jmp .loaded_sounds_success
+
 read_sound_files
-	lda #>sound_load_msg
+	bit m65_statmem_already_loaded
+	bpl +
+
+	jsr setup_sound_mempointer_32
+	ldz #0
+	lda [sound_mempointer_32],z
+	cmp #83 ; 's'
+	beq .copy_sound_table_and_return
+;	jmp .loaded_sounds_success
+
++	lda #>sound_load_msg
 	ldx #<sound_load_msg
 	jsr printstring_raw
 
@@ -312,11 +364,45 @@ read_sound_files
 	jsr erase_window
 	
 	; Set carry if no files could be read
-	clc
 	lda sound_files_read
 	bne +
 	sec
-+
+	rts
+	
++	; Copy sound table to Attic RAM, address $08080100
+;	lda #> sound_table
+;	sta .load_from_sound_table + 2
+	jsr setup_sound_mempointer_32
+	lda #1
+	sta sound_mempointer_32 + 1
+	lda #<sound_table_size * 3
+	sta .sound_temp
+	lda #>sound_table_size * 3
+	sta .sound_temp + 1
+	ldz #0
+	ldy #0
+.load_from_sound_table
+	lda sound_table,y
+	sta [sound_mempointer_32],z
+	iny
+	inz
+	bne +
+	inc sound_mempointer_32 + 1
+	inc .load_from_sound_table + 2
++	dec .sound_temp + 10
+	bne .load_from_sound_table
+	dec .sound_temp + 1
+	bne .load_from_sound_table
+
+	; Set a flag in Attic RAM to say "Sound effects have been loaded"
+	lda #0
+	sta sound_mempointer_32 + 1
+	lda #83 ; 's'
+	ldz #0
+	sta [sound_mempointer_32],z
+;	lda sound_files_read	
+.loaded_sounds_success
+	clc
 	rts
 
 init_sound

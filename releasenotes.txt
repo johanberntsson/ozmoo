@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Release 11:
 
+New/changed features:
+- When restarting a game with sound (MEGA65 only) Ozmoo detects that the sounds have already been loaded, making restart a lot faster.
+
 Bugfixes:
 
 - Fixed bug: Cursor wasn't showing during save/restore if a blinking cursor was used and it was off when save/restore started.
