@@ -563,11 +563,52 @@ z_ins_restart
 }
 
 !ifdef TARGET_MEGA65 {
-	; reset will autoboot the game again from disk
-	jmp kernal_reset
+	; ; reset will autoboot the game again from disk
+	; jmp kernal_reset
+	lda #$00
+	ldx #$04
+	sta $d060
+	stx $d061
+	sta $d062
+	sta $d063
+
+	lda #$40
+	sta $d031
+	lda #$09
+	sta $D016
+
+
+	; Enable VIC-II hot registers
+	lda $d05d
+	ora #$80
+	sta $d05d
+	
+	lda #$0
+	sta $d02f
+	sta $d02f
+	lda #$17
+	sta reg_screen_char_mode
+
+	sei
+	lda #$37
+	sta $01
+	lda #0
+	tax
+	tay
+	taz
+	map
+	eom
+	cli
+
+	lda #>$0400 		; Make sure screen memory set to sensible location
+	sta $0288		; before we call screen init $FF5B
+	jsr $ff5b ; more init
+
+	
+
 }
 
-!ifndef TARGET_MEGA65 {
+;!ifndef TARGET_MEGA65 {
 	sei
 	cld
 !ifdef TARGET_C128 {
@@ -581,7 +622,7 @@ z_ins_restart
 !ifdef TARGET_C128 {
 	sta c128_mmu_load_pcra
 }
-}
+;}
 
 	; Copy restart code
 	ldx #.restart_code_end - .restart_code_begin
@@ -651,11 +692,23 @@ z_ins_restart
 .device_no
 	!pet "08",17,17,17,17,17,"rU",19,0
 } else { ; Not Plus4 or C128
-	!pet 147,17,17,"    ",34,":"
-!source "file_name.asm"
-    !pet 34,","
+	!ifdef TARGET_MEGA65 {
+		; We should really include file_name.asm, but this goes wrong and we 
+		; end up with "*story" as the filename, despite file_name.asm holding
+		; just "story". This solution using "*" will work for now, since MEGA65
+		; doesn't support a loading screen yet.
+		!pet 147,17,17,"    ",34,":*"
+;!source "file_name.asm"
+		!pet 34,","
 .device_no
-	!pet "08",19,0
+		!pet "08",19,0
+	} else {
+		!pet 147,17,17,"    ",34,":"
+!source "file_name.asm"
+		!pet 34,","
+.device_no
+		!pet "08",19,0
+	}
 }
 ; .restart_code_keys
 	; !pet 131,0

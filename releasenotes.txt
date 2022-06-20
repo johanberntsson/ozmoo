@@ -11,6 +11,8 @@ Bugfixes:
 - Fixed bug: Extension is included in disk title.
 - Fixed bug: Ozmoo would ask player to insert Boot/Story disk when restarting, even if they it was already in the boot device.
 - Fixed bug: Ozmoo would ask player to reinsert Boot/Story disk after save/restore, even though the Boot/Story disk isn't needed.
+- Fixed bug: Ozmoo put the computer in a weird state after Quit, if a custom font was used.
+- Fixed bug: Restart on MEGA65 only worked if game was loaded from device 8.
 
 ================================================
 Release 10: 16 June 2022

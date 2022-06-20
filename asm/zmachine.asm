@@ -884,15 +884,28 @@ z_ins_quit
 !ifdef TARGET_MEGA65 {
 	; call hyppo_d81detach to unmount d81 and prevent
 	; autoboot.c65 from running
-	lda #$42
-	sta $d640
-	clv
+	; !ifdef CUSTOM_FONT {
+		; lda #$0
+		; sta $d02f
+		; lda #$26 ; screen/font: $0800 $1800 (character ROM)
+		; sta reg_screen_char_mode
+		; lda #$0
+		; sta $d02f
+	; }
+	; lda #$42
+	; sta $d640
+	; clv
 }
 	; some games (e.g. Hollywood Hijinx) show a final text,
 	; so use the more prompt to pause before the reset
 	; (otherwise we wouldn't be able to read it).
 	jsr printchar_flush
 	jsr show_more_prompt
+
+!ifdef TARGET_MEGA65 {
+	lda #$42
+	sta $d6cf
+}
 	jmp kernal_reset
 
 ; z_ins_restart (moved to disk.asm)
