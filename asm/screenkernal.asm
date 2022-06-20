@@ -253,7 +253,7 @@ init_mega65
 	; set 80-column mode
 	lda #$c0
 	sta $d031
-	lda #$c9
+	lda #$c8 + 2
 	sta $D016
 	; set screen at $0800
 	;lda #$26
