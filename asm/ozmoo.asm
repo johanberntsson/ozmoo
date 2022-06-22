@@ -1679,6 +1679,7 @@ deletable_init
 } else { ; End of !ifdef VMEM
 !ifdef TARGET_MEGA65 {
 	ldy boot_device ; Boot device# stored
+	sty disk_info + 4 ; Device# for save disk
 	sty disk_info + 4 + 8 ; Device# for boot/story disk
 	; Store boot device in current_disks
 	lda #8 ; Index of story disk in disk_info - 3

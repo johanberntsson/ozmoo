@@ -1051,7 +1051,7 @@ def build_interpreter()
 			end
 		end
 		if $use_history < 20 || $use_history > 255 then
-			puts "ERROR: -cb only takes an argument in the 20-255 range."
+			puts "ERROR: -ch only takes an argument in the 20-255 range."
 			exit 1
 		end
 		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
