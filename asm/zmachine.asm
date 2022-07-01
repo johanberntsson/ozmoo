@@ -1,3 +1,6 @@
+!ifdef PRINTSPEED {
+printspeed_counter !byte 0,0
+}
 ; z_extended_opcode 	!byte 0
 ; z_operand_count		!byte 0
 ; z_operand_type_arr  !byte 0, 0, 0, 0, 0, 0, 0, 0
@@ -98,13 +101,12 @@ z_execute
 	sta ti_variable
 	sta ti_variable + 1
 	sta ti_variable + 2
-	sta object_num
-	sta object_num + 1
+	sta printspeed_counter
+	sta printspeed_counter + 1
 }
 }
 
 main_loop_normal_exe_mode
-
 	jsr read_and_execute_an_instruction
 jmp_main_loop
 	jmp main_loop_normal_exe_mode ; target patched by set_z_exe_mode_subroutine
@@ -122,13 +124,15 @@ read_and_execute_an_instruction
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda ti_variable + 2
-	cmp #60
+	cmp #30
 	bcc ++
 	bne +
 	lda ti_variable + 1
 	bne +
-	lda object_num + 1
-	ldx object_num
+	lda printspeed_counter + 1
+	asl printspeed_counter
+	rol
+	ldx printspeed_counter
 	jsr printinteger
 	jsr comma
 	
@@ -136,12 +140,12 @@ read_and_execute_an_instruction
 	sta ti_variable
 	sta ti_variable + 1
 	sta ti_variable + 2
-	sta object_num
-	sta object_num + 1
+	sta printspeed_counter
+	sta printspeed_counter + 1
 
-++	inc object_num
+++	inc printspeed_counter
 	bne +
-	inc object_num + 1
+	inc printspeed_counter + 1
 +
 }
 }
@@ -220,9 +224,7 @@ dumptovice
 
 	lda #0
 	sta z_operand_count
-!ifdef Z4PLUS {	
-	sta z_temp + 5 ; Signal to NOT read up to four more operands
-}
+
 	+read_next_byte_at_z_pc
 	sta z_opcode
 !ifdef TRACE {
@@ -249,15 +251,18 @@ dumptovice
 	bvc .top_bits_are_10
 
 	; Top bits are 11. Form = Variable
+!ifdef Z4PLUS {	
+	ldy #0
+	sty z_temp + 5 ; Signal to NOT read up to four more operands
+}
 	and #%00011111
 	sta z_opcode_number
-;	ldy #z_opcode_opcount_2op
 	lda z_opcode
 	and #%00100000
 	beq .var_form_2op ; This is a 2OP instruction, with up to 4 operands
 
 ; This is a VAR instruction
-!ifdef Z4PLUS {	
+!ifdef Z4PLUS {
 	lda z_opcode
 	cmp #z_opcode_call_vs2
 !ifdef Z5PLUS {
@@ -271,8 +276,6 @@ dumptovice
 	dec z_temp + 5 ; Signal to read up to four more operands, and first four operand types are in x
 .dont_get_4_extra_op_types
 }
-;	ldy #z_opcode_opcount_var
-;+	sty z_opcode_opcount
 	ldy z_opcode_number
 	lda z_opcount_var_jump_high_arr,y
 	pha
@@ -289,8 +292,6 @@ dumptovice
 	pha
 	jmp .get_4_op_types ; Always branch
 
-
-
 .top_bits_are_10
 !ifdef Z5PLUS {
 	cmp #z_opcode_extended
@@ -303,8 +304,7 @@ dumptovice
 	and #%00110000
 	cmp #%00110000
 	beq .short_0op
-	; ldx #z_opcode_opcount_1op
-	; stx z_opcode_opcount
+	; This is a short form 1OP
 	lsr
 	lsr
 	lsr
@@ -330,8 +330,6 @@ dumptovice
 	; Form = Long
 	and #%00011111
 	sta z_opcode_number
-;	lda #z_opcode_opcount_2op 
-;	sta z_opcode_opcount
 	lda z_opcode
 	asl
 	asl
@@ -356,8 +354,8 @@ dumptovice
 !ifdef Z5PLUS {
 .extended_form
 	; Form = Extended
-;	lda #z_opcode_opcount_ext
-;	sta z_opcode_opcount ; Set to EXT
+	lda #0
+	sta z_temp + 5 ; Signal to NOT read up to four more operands
 	+read_next_byte_at_z_pc
 !ifdef CHECK_ERRORS {
 	cmp #z_number_of_ext_opcodes_implemented
@@ -543,7 +541,6 @@ read_operand
 }
 .read_high_global_var
 	; If slow mode, carry was just set with ASL, otherwise we branched here with BCS, so carry is set either way
-	; and #$7f ; Change variable# 128->0, 129->1 ... 255 -> 127 (Pointless, since ASL will remove top bit anyway)
 	tay
 	iny
 	lda (z_high_global_vars_ptr),y
@@ -711,9 +708,9 @@ z_set_variable
 	cmp #16
 	bcs .write_global_var
 	; Local variable
+!ifdef CHECK_ERRORS {
 	tay
 	dey
-!ifdef CHECK_ERRORS {
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }

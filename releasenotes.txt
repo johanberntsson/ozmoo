@@ -4,6 +4,10 @@ Release 11:
 
 New/changed features:
 - When restarting a game with sound (MEGA65 only) Ozmoo detects that the sounds have already been loaded, making restart a lot faster.
+- Fixed PRINTSPEED mode which was broken. It now prints the # of instructions executed per second, twice per second.
+
+Optimizations:
+- Faster way to jump to instructions
 
 Bugfixes:
 
