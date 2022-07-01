@@ -98,7 +98,7 @@ abbreviation_command  = $75 ; ### OK C128
 z_opcode              = $77 ; ### OK C128
 z_extended_opcode     = $78 ; ### OK C128
 z_opcode_number       = $79 ; ### OK C128
-z_opcode_opcount      = $7b ; ### OK C128
+;z_opcode_opcount      = $7b ; ### OK C128
 z_operand_count       = $7c ; ### OK C128
 
 vmap_max_entries      = $80 ; ### OK C128 Was $92

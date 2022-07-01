@@ -120,7 +120,7 @@ mempointer_y          = $08 ; 1 byte
 z_opcode_number       = $09
 zp_pc_h               = $0a
 zp_pc_l               = $0b
-z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
+;z_opcode_opcount      = $0c ; 0 = 0OP, 1=1OP, 2=2OP, 3=VAR
 z_operand_count		  = $0d
 zword				  = $0e ; 6 bytes
 

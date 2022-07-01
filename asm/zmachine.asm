@@ -57,11 +57,11 @@ z_opcode_call_vn2 = 250
 z_opcode_call_vs2 = 236
 }
 
-z_opcode_opcount_0op = 0
-z_opcode_opcount_1op = 16
-z_opcode_opcount_2op = 32
-z_opcode_opcount_var = 64
-z_opcode_opcount_ext = 96
+; z_opcode_opcount_0op = 0
+; z_opcode_opcount_1op = 16
+; z_opcode_opcount_2op = 32
+; z_opcode_opcount_var = 64
+; z_opcode_opcount_ext = 96
 
 z_exe_mode_normal = $0
 z_exe_mode_return_from_read_interrupt = $80
@@ -105,6 +105,12 @@ z_execute
 
 main_loop_normal_exe_mode
 
+	jsr read_and_execute_an_instruction
+jmp_main_loop
+	jmp main_loop_normal_exe_mode ; target patched by set_z_exe_mode_subroutine
+
+
+read_and_execute_an_instruction
 ; Timing
 !ifdef TIMING {
 	lda ti_variable + 1
@@ -219,6 +225,11 @@ dumptovice
 }
 	+read_next_byte_at_z_pc
 	sta z_opcode
+!ifdef TRACE {
+	ldy z_trace_index
+	sta z_trace_page,y
+	inc z_trace_index
+}
 	
 !ifdef DEBUG {	
 	;jsr print_following_string
@@ -240,10 +251,11 @@ dumptovice
 	; Top bits are 11. Form = Variable
 	and #%00011111
 	sta z_opcode_number
-	ldy #z_opcode_opcount_2op
+;	ldy #z_opcode_opcount_2op
 	lda z_opcode
 	and #%00100000
-	beq + ; This is a 2OP instruction, with up to 4 operands
+	beq .var_form_2op ; This is a 2OP instruction, with up to 4 operands
+
 ; This is a VAR instruction
 !ifdef Z4PLUS {	
 	lda z_opcode
@@ -259,9 +271,25 @@ dumptovice
 	dec z_temp + 5 ; Signal to read up to four more operands, and first four operand types are in x
 .dont_get_4_extra_op_types
 }
-	ldy #z_opcode_opcount_var
-+	sty z_opcode_opcount
+;	ldy #z_opcode_opcount_var
+;+	sty z_opcode_opcount
+	ldy z_opcode_number
+	lda z_opcount_var_jump_high_arr,y
+	pha
+	lda z_opcount_var_jump_low_arr,y
+	pha
 	jmp .get_4_op_types ; Always branch
+
+.var_form_2op
+	; Put jump address on stack, so jump can be done with RTS when args have been read
+	ldy z_opcode_number
+	lda z_opcount_2op_jump_high_arr,y
+	pha
+	lda z_opcount_2op_jump_low_arr,y
+	pha
+	jmp .get_4_op_types ; Always branch
+
+
 
 .top_bits_are_10
 !ifdef Z5PLUS {
@@ -275,37 +303,35 @@ dumptovice
 	and #%00110000
 	cmp #%00110000
 	beq .short_0op
-	ldx #z_opcode_opcount_1op
-	stx z_opcode_opcount
+	; ldx #z_opcode_opcount_1op
+	; stx z_opcode_opcount
 	lsr
 	lsr
 	lsr
 	lsr
 	tax
 	jsr read_operand
-	jmp .perform_instruction
+	ldx z_opcode_number
+	lda z_opcount_1op_jump_high_arr,x
+	pha
+	lda z_opcount_1op_jump_low_arr,x
+	pha
+	rts ; RTS pulls the address off the stack, adds one to it and jumps there
 .short_0op
-	lda #z_opcode_opcount_0op 
-	sta z_opcode_opcount
-	beq .perform_instruction ; Always branch
+	ldx z_opcode_number
+	lda z_opcount_0op_jump_high_arr,x
+	pha
+	lda z_opcount_0op_jump_low_arr,x
+	pha
+	rts ; RTS pulls the address off the stack, adds one to it and jumps there
 
-!ifdef Z5PLUS {
-.extended_form
-	; Form = Extended
-	lda #z_opcode_opcount_ext
-	sta z_opcode_opcount ; Set to EXT
-	+read_next_byte_at_z_pc
-	sta z_extended_opcode
-	sta z_opcode_number
-	jmp .get_4_op_types
-}
 
 .top_bits_are_0x
 	; Form = Long
 	and #%00011111
 	sta z_opcode_number
-	lda #z_opcode_opcount_2op 
-	sta z_opcode_opcount
+;	lda #z_opcode_opcount_2op 
+;	sta z_opcode_opcount
 	lda z_opcode
 	asl
 	asl
@@ -320,7 +346,34 @@ dumptovice
 	bcs +
 	dex
 +	jsr read_operand
-	jmp .perform_instruction
+	ldx z_opcode_number
+	lda z_opcount_2op_jump_high_arr,x
+	pha
+	lda z_opcount_2op_jump_low_arr,x
+	pha
+	rts ; RTS pulls the address off the stack, adds one to it and jumps there
+
+!ifdef Z5PLUS {
+.extended_form
+	; Form = Extended
+;	lda #z_opcode_opcount_ext
+;	sta z_opcode_opcount ; Set to EXT
+	+read_next_byte_at_z_pc
+!ifdef CHECK_ERRORS {
+	cmp #z_number_of_ext_opcodes_implemented
+	bcs z_not_implemented
+}
+	sta z_extended_opcode
+	sta z_opcode_number
+	; Put jump address on stack, so jump can be done with RTS when args have been read
+	tax
+	lda z_opcount_ext_jump_high_arr,x
+	pha
+	lda z_opcount_ext_jump_low_arr,x
+	pha
+;	jmp .get_4_op_types
+}
+
 
 .get_4_op_types
 ; If z_temp + 5 = $ff, x holds first byte of arg types and we need to read one more byte and store in z_temp + 4 
@@ -367,27 +420,7 @@ dumptovice
 }
 	
 .perform_instruction
-	lda z_opcode_opcount
-	clc
-	adc z_opcode_number
-!ifdef TRACE {
-	ldy z_trace_index
-	sta z_trace_page,y
-	inc z_trace_index
-}
-!ifdef CHECK_ERRORS {
-	cmp #z_number_of_opcodes_implemented
-	bcs z_not_implemented
-}
-	tax 
-	lda z_jump_low_arr,x
-	sta .jsr_perform + 1
-	lda z_jump_high_arr,x
-	sta .jsr_perform + 2
-.jsr_perform
-	jsr $8000
-jmp_main_loop
-	jmp main_loop_normal_exe_mode ; target patched by set_z_exe_mode_subroutine
+	rts ; RTS pulls the address off the stack, adds one to it and jumps there
 
 
 z_not_implemented

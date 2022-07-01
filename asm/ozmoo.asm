@@ -311,384 +311,398 @@ program_start
 ; =========================================== Highbytes of jump table
 
 z_jump_high_arr
+
 ; 0OP
-	!byte >z_ins_rtrue
-	!byte >z_ins_rfalse
-	!byte >z_ins_print
-	!byte >z_ins_print_ret
-	!byte >z_ins_nop
+
+z_opcount_0op_jump_high_arr
+	!byte >z_ins_rtrue - 1
+	!byte >(z_ins_rfalse - 1)
+	!byte >(z_ins_print - 1)
+	!byte >(z_ins_print_ret - 1)
+	!byte >(z_ins_nop - 1)
 !ifndef Z5PLUS {
-	!byte >z_ins_save
-	!byte >z_ins_restore
+	!byte >(z_ins_save - 1)
+	!byte >(z_ins_restore - 1)
 } else {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 }
 !ifdef RESTART_SUPPORTED {
-	!byte >z_ins_restart
+	!byte >(z_ins_restart - 1)
 } else {
-	!byte >z_ins_not_supported
+	!byte >(z_ins_not_supported - 1)
 }
-	!byte >z_ins_ret_popped
+	!byte >(z_ins_ret_popped - 1)
 !ifndef Z5PLUS {
-	!byte >stack_pull ; z_ins_pop
+	!byte >(stack_pull - 1) ; z_ins_pop
 } else {
-	!byte >z_ins_catch
+	!byte >(z_ins_catch - 1)
 }
-	!byte >z_ins_quit
-	!byte >z_ins_new_line
+	!byte >(z_ins_quit - 1)
+	!byte >(z_ins_new_line - 1)
 !ifndef Z4PLUS {
-	!byte >z_ins_show_status
+	!byte >(z_ins_show_status - 1)
 } else {
-	!byte >z_ins_nop ; should be nop according to show_status/spec 1.0
+	!byte >(z_ins_nop - 1) ; should be nop according to show_status/spec 1.0
 }
-	!byte >make_branch_true ; z_ins_verify
+	!byte >(make_branch_true - 1) ; z_ins_verify
 !ifdef Z5PLUS {
-	!byte >z_not_implemented
-	!byte >make_branch_true ; z_ins_piracy
+	!byte >(z_not_implemented - 1)
+	!byte >(make_branch_true - 1) ; z_ins_piracy
 } else {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 }
 
 ; 1OP
 
-	!byte >z_ins_jz
-	!byte >z_ins_get_sibling
-	!byte >z_ins_get_child
-	!byte >z_ins_get_parent
-	!byte >z_ins_get_prop_len
-	!byte >z_ins_inc
-	!byte >z_ins_dec
-	!byte >z_ins_print_addr
-	!byte >z_ins_call_xs
-	!byte >z_ins_remove_obj
-	!byte >z_ins_print_obj
-	!byte >z_ins_ret
-	!byte >z_ins_jump
-	!byte >z_ins_print_paddr
-	!byte >z_ins_load
+z_opcount_1op_jump_high_arr
+	!byte >(z_ins_jz - 1)
+	!byte >(z_ins_get_sibling - 1)
+	!byte >(z_ins_get_child - 1)
+	!byte >(z_ins_get_parent - 1)
+	!byte >(z_ins_get_prop_len - 1)
+	!byte >(z_ins_inc - 1)
+	!byte >(z_ins_dec - 1)
+	!byte >(z_ins_print_addr - 1)
+	!byte >(z_ins_call_xs - 1)
+	!byte >(z_ins_remove_obj - 1)
+	!byte >(z_ins_print_obj - 1)
+	!byte >(z_ins_ret - 1)
+	!byte >(z_ins_jump - 1)
+	!byte >(z_ins_print_paddr - 1)
+	!byte >(z_ins_load - 1)
 !ifndef Z5PLUS {
-	!byte >z_ins_not
+	!byte >(z_ins_not - 1)
 } else {
-	!byte >z_ins_call_xn
+	!byte >(z_ins_call_xn - 1)
 }
 
 ; 2OP
 
-	!byte >z_not_implemented
-	!byte >z_ins_je
-	!byte >z_ins_jl
-	!byte >z_ins_jg
-	!byte >z_ins_dec_chk
-	!byte >z_ins_inc_chk
-	!byte >z_ins_jin
-	!byte >z_ins_test
-	!byte >z_ins_or
-	!byte >z_ins_and
-	!byte >z_ins_test_attr
-	!byte >z_ins_set_attr
-	!byte >z_ins_clear_attr
-	!byte >z_ins_store
-	!byte >z_ins_insert_obj
-	!byte >z_ins_loadw_and_storew
-	!byte >z_ins_loadb
-	!byte >z_ins_get_prop
-	!byte >z_ins_get_prop_addr
-	!byte >z_ins_get_next_prop
-	!byte >z_ins_add
-	!byte >z_ins_sub
-	!byte >z_ins_mul
-	!byte >z_ins_div
-	!byte >z_ins_mod
+z_opcount_2op_jump_high_arr
+	!byte >(z_not_implemented - 1)
+	!byte >(z_ins_je - 1)
+	!byte >(z_ins_jl - 1)
+	!byte >(z_ins_jg - 1)
+	!byte >(z_ins_dec_chk - 1)
+	!byte >(z_ins_inc_chk - 1)
+	!byte >(z_ins_jin - 1)
+	!byte >(z_ins_test - 1)
+	!byte >(z_ins_or - 1)
+	!byte >(z_ins_and - 1)
+	!byte >(z_ins_test_attr - 1)
+	!byte >(z_ins_set_attr - 1)
+	!byte >(z_ins_clear_attr - 1)
+	!byte >(z_ins_store - 1)
+	!byte >(z_ins_insert_obj - 1)
+	!byte >(z_ins_loadw_and_storew - 1)
+	!byte >(z_ins_loadb - 1)
+	!byte >(z_ins_get_prop - 1)
+	!byte >(z_ins_get_prop_addr - 1)
+	!byte >(z_ins_get_next_prop - 1)
+	!byte >(z_ins_add - 1)
+	!byte >(z_ins_sub - 1)
+	!byte >(z_ins_mul - 1)
+	!byte >(z_ins_div - 1)
+	!byte >(z_ins_mod - 1)
 !ifndef Z4PLUS {
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
 } else {
-	!byte >z_ins_call_xs
+	!byte >(z_ins_call_xs - 1)
 }
 !ifndef Z5PLUS {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 } else {
-	!byte >z_ins_call_xn
-	!byte >z_ins_set_colour
-	!byte >z_ins_throw
+	!byte >(z_ins_call_xn - 1)
+	!byte >(z_ins_set_colour - 1)
+	!byte >(z_ins_throw - 1)
 }
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 
 ; VAR	
 
-	!byte >z_ins_call_xs
-	!byte >z_ins_loadw_and_storew
-	!byte >z_ins_storeb
-	!byte >z_ins_put_prop
-	!byte >z_ins_read
-	!byte >z_ins_print_char
-	!byte >z_ins_print_num
-	!byte >z_ins_random
-	!byte >z_ins_push
-	!byte >z_ins_pull
-	!byte >z_ins_split_window
-	!byte >z_ins_set_window
+z_opcount_var_jump_high_arr
+	!byte >(z_ins_call_xs - 1)
+	!byte >(z_ins_loadw_and_storew - 1)
+	!byte >(z_ins_storeb - 1)
+	!byte >(z_ins_put_prop - 1)
+	!byte >(z_ins_read - 1)
+	!byte >(z_ins_print_char - 1)
+	!byte >(z_ins_print_num - 1)
+	!byte >(z_ins_random - 1)
+	!byte >(z_ins_push - 1)
+	!byte >(z_ins_pull - 1)
+	!byte >(z_ins_split_window - 1)
+	!byte >(z_ins_set_window - 1)
 !ifdef Z4PLUS {
-	!byte >z_ins_call_xs
-	!byte >z_ins_erase_window
-	!byte >z_ins_erase_line
-	!byte >z_ins_set_cursor
-	!byte >z_ins_get_cursor
-	!byte >z_ins_set_text_style
-	!byte >z_ins_buffer_mode
+	!byte >(z_ins_call_xs - 1)
+	!byte >(z_ins_erase_window - 1)
+	!byte >(z_ins_erase_line - 1)
+	!byte >(z_ins_set_cursor - 1)
+	!byte >(z_ins_get_cursor - 1)
+	!byte >(z_ins_set_text_style - 1)
+	!byte >(z_ins_buffer_mode - 1)
 } else {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 }
-	!byte >z_ins_output_stream
-	!byte >z_ins_not_supported
-	!byte >z_ins_sound_effect
+	!byte >(z_ins_output_stream - 1)
+	!byte >(z_ins_not_supported - 1)
+	!byte >(z_ins_sound_effect - 1)
 !ifdef Z4PLUS {
-	!byte >z_ins_read_char
-	!byte >z_ins_scan_table
+	!byte >(z_ins_read_char - 1)
+	!byte >(z_ins_scan_table - 1)
 } else {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 }
 !ifdef Z5PLUS {
-	!byte >z_ins_not
-	!byte >z_ins_call_xn
-	!byte >z_ins_call_xn
-	!byte >z_ins_tokenise_text
-	!byte >z_ins_encode_text
-	!byte >z_ins_copy_table
-	!byte >z_ins_print_table
-	!byte >z_ins_check_arg_count
+	!byte >(z_ins_not - 1)
+	!byte >(z_ins_call_xn - 1)
+	!byte >(z_ins_call_xn - 1)
+	!byte >(z_ins_tokenise_text - 1)
+	!byte >(z_ins_encode_text - 1)
+	!byte >(z_ins_copy_table - 1)
+	!byte >(z_ins_print_table - 1)
+	!byte >(z_ins_check_arg_count - 1)
 } else {
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
 }
 
 ; EXT
 
+z_opcount_ext_jump_high_arr
 !ifdef Z5PLUS {
-	!byte >z_ins_save
-	!byte >z_ins_restore
-	!byte >z_ins_log_shift
-	!byte >z_ins_art_shift
-	!byte >z_ins_set_font
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_not_implemented
-	!byte >z_ins_save_restore_undo
-	!byte >z_ins_save_restore_undo
-	!byte >z_ins_print_unicode
-	!byte >z_ins_check_unicode
-	!byte >z_ins_set_true_colour
+	!byte >(z_ins_save - 1)
+	!byte >(z_ins_restore - 1)
+	!byte >(z_ins_log_shift - 1)
+	!byte >(z_ins_art_shift - 1)
+	!byte >(z_ins_set_font - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_not_implemented - 1)
+	!byte >(z_ins_save_restore_undo - 1)
+	!byte >(z_ins_save_restore_undo - 1)
+	!byte >(z_ins_print_unicode - 1)
+	!byte >(z_ins_check_unicode - 1)
+	!byte >(z_ins_set_true_colour - 1)
 }
 
 
 ; =========================================== Lowbytes of jump table
 	
 z_jump_low_arr
-	!byte <z_ins_rtrue
-	!byte <z_ins_rfalse
-	!byte <z_ins_print
-	!byte <z_ins_print_ret
-	!byte <z_ins_nop
+
+; 0OP
+
+z_opcount_0op_jump_low_arr
+	!byte <(z_ins_rtrue - 1)
+	!byte <(z_ins_rfalse - 1)
+	!byte <(z_ins_print - 1)
+	!byte <(z_ins_print_ret - 1)
+	!byte <(z_ins_nop - 1)
 !ifndef Z5PLUS {
-	!byte <z_ins_save
-	!byte <z_ins_restore
+	!byte <(z_ins_save - 1)
+	!byte <(z_ins_restore - 1)
 } else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 }
 !ifdef RESTART_SUPPORTED {
-	!byte <z_ins_restart
+	!byte <(z_ins_restart - 1)
 } else {
-	!byte <z_ins_not_supported
+	!byte <(z_ins_not_supported - 1)
 }
-	!byte <z_ins_ret_popped
+	!byte <(z_ins_ret_popped - 1)
 !ifndef Z5PLUS {
-	!byte <stack_pull ; z_ins_pop
+	!byte <(stack_pull - 1) ; z_ins_pop
 } else {
-	!byte <z_ins_catch
+	!byte <(z_ins_catch - 1)
 }
-	!byte <z_ins_quit
-	!byte <z_ins_new_line
+	!byte <(z_ins_quit - 1)
+	!byte <(z_ins_new_line - 1)
 !ifndef Z4PLUS {
-	!byte <z_ins_show_status
+	!byte <(z_ins_show_status - 1)
 } else {
-	!byte <z_ins_nop ; should be nop according to show_status/spec 1.0
+	!byte <(z_ins_nop - 1) ; should be nop according to show_status/spec 1.0
 }
-	!byte <make_branch_true ; z_ins_verify
+	!byte <(make_branch_true - 1) ; z_ins_verify
 !ifdef Z5PLUS {
-	!byte <z_not_implemented
-	!byte <make_branch_true ; z_ins_piracy
+	!byte <(z_not_implemented - 1)
+	!byte <(make_branch_true - 1) ; z_ins_piracy
 } else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 }
 
 ; 1OP
 
-	!byte <z_ins_jz
-	!byte <z_ins_get_sibling
-	!byte <z_ins_get_child
-	!byte <z_ins_get_parent
-	!byte <z_ins_get_prop_len
-	!byte <z_ins_inc
-	!byte <z_ins_dec
-	!byte <z_ins_print_addr
-	!byte <z_ins_call_xs
-	!byte <z_ins_remove_obj
-	!byte <z_ins_print_obj
-	!byte <z_ins_ret
-	!byte <z_ins_jump
-	!byte <z_ins_print_paddr
-	!byte <z_ins_load
+z_opcount_1op_jump_low_arr
+	!byte <(z_ins_jz - 1)
+	!byte <(z_ins_get_sibling - 1)
+	!byte <(z_ins_get_child - 1)
+	!byte <(z_ins_get_parent - 1)
+	!byte <(z_ins_get_prop_len - 1)
+	!byte <(z_ins_inc - 1)
+	!byte <(z_ins_dec - 1)
+	!byte <(z_ins_print_addr - 1)
+	!byte <(z_ins_call_xs - 1)
+	!byte <(z_ins_remove_obj - 1)
+	!byte <(z_ins_print_obj - 1)
+	!byte <(z_ins_ret - 1)
+	!byte <(z_ins_jump - 1)
+	!byte <(z_ins_print_paddr - 1)
+	!byte <(z_ins_load - 1)
 !ifndef Z5PLUS {
-	!byte <z_ins_not
+	!byte <(z_ins_not - 1)
 } else {
-	!byte <z_ins_call_xn
+	!byte <(z_ins_call_xn - 1)
 }
 	
 ; 2OP
 
-	!byte <z_not_implemented
-	!byte <z_ins_je
-	!byte <z_ins_jl
-	!byte <z_ins_jg
-	!byte <z_ins_dec_chk
-	!byte <z_ins_inc_chk
-	!byte <z_ins_jin
-	!byte <z_ins_test
-	!byte <z_ins_or
-	!byte <z_ins_and
-	!byte <z_ins_test_attr
-	!byte <z_ins_set_attr
-	!byte <z_ins_clear_attr
-	!byte <z_ins_store
-	!byte <z_ins_insert_obj
-	!byte <z_ins_loadw_and_storew
-	!byte <z_ins_loadb
-	!byte <z_ins_get_prop
-	!byte <z_ins_get_prop_addr
-	!byte <z_ins_get_next_prop
-	!byte <z_ins_add
-	!byte <z_ins_sub
-	!byte <z_ins_mul
-	!byte <z_ins_div
-	!byte <z_ins_mod
+z_opcount_2op_jump_low_arr
+	!byte <(z_not_implemented - 1)
+	!byte <(z_ins_je - 1)
+	!byte <(z_ins_jl - 1)
+	!byte <(z_ins_jg - 1)
+	!byte <(z_ins_dec_chk - 1)
+	!byte <(z_ins_inc_chk - 1)
+	!byte <(z_ins_jin - 1)
+	!byte <(z_ins_test - 1)
+	!byte <(z_ins_or - 1)
+	!byte <(z_ins_and - 1)
+	!byte <(z_ins_test_attr - 1)
+	!byte <(z_ins_set_attr - 1)
+	!byte <(z_ins_clear_attr - 1)
+	!byte <(z_ins_store - 1)
+	!byte <(z_ins_insert_obj - 1)
+	!byte <(z_ins_loadw_and_storew - 1)
+	!byte <(z_ins_loadb - 1)
+	!byte <(z_ins_get_prop - 1)
+	!byte <(z_ins_get_prop_addr - 1)
+	!byte <(z_ins_get_next_prop - 1)
+	!byte <(z_ins_add - 1)
+	!byte <(z_ins_sub - 1)
+	!byte <(z_ins_mul - 1)
+	!byte <(z_ins_div - 1)
+	!byte <(z_ins_mod - 1)
 !ifndef Z4PLUS {
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
 } else {
-	!byte <z_ins_call_xs
+	!byte <(z_ins_call_xs - 1)
 }
 !ifndef Z5PLUS {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 } else {
-	!byte <z_ins_call_xn
-	!byte <z_ins_set_colour
-	!byte <z_ins_throw
+	!byte <(z_ins_call_xn - 1)
+	!byte <(z_ins_set_colour - 1)
+	!byte <(z_ins_throw - 1)
 }
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 
 ; VAR	
 
-	!byte <z_ins_call_xs
-	!byte <z_ins_loadw_and_storew
-	!byte <z_ins_storeb
-	!byte <z_ins_put_prop
-	!byte <z_ins_read
-	!byte <z_ins_print_char
-	!byte <z_ins_print_num
-	!byte <z_ins_random
-	!byte <z_ins_push
-	!byte <z_ins_pull
-	!byte <z_ins_split_window
-	!byte <z_ins_set_window
+z_opcount_var_jump_low_arr
+	!byte <(z_ins_call_xs - 1)
+	!byte <(z_ins_loadw_and_storew - 1)
+	!byte <(z_ins_storeb - 1)
+	!byte <(z_ins_put_prop - 1)
+	!byte <(z_ins_read - 1)
+	!byte <(z_ins_print_char - 1)
+	!byte <(z_ins_print_num - 1)
+	!byte <(z_ins_random - 1)
+	!byte <(z_ins_push - 1)
+	!byte <(z_ins_pull - 1)
+	!byte <(z_ins_split_window - 1)
+	!byte <(z_ins_set_window - 1)
 !ifdef Z4PLUS {
-	!byte <z_ins_call_xs
-	!byte <z_ins_erase_window
-	!byte <z_ins_erase_line
-	!byte <z_ins_set_cursor
-	!byte <z_ins_get_cursor
-	!byte <z_ins_set_text_style
-	!byte <z_ins_buffer_mode
+	!byte <(z_ins_call_xs - 1)
+	!byte <(z_ins_erase_window - 1)
+	!byte <(z_ins_erase_line - 1)
+	!byte <(z_ins_set_cursor - 1)
+	!byte <(z_ins_get_cursor - 1)
+	!byte <(z_ins_set_text_style - 1)
+	!byte <(z_ins_buffer_mode - 1)
 } else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 }
-	!byte <z_ins_output_stream
-	!byte <z_ins_not_supported
-	!byte <z_ins_sound_effect
+	!byte <(z_ins_output_stream - 1)
+	!byte <(z_ins_not_supported - 1)
+	!byte <(z_ins_sound_effect - 1)
 !ifdef Z4PLUS {
-	!byte <z_ins_read_char
-	!byte <z_ins_scan_table
+	!byte <(z_ins_read_char - 1)
+	!byte <(z_ins_scan_table - 1)
 } else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 }
 !ifdef Z5PLUS {
-	!byte <z_ins_not
-	!byte <z_ins_call_xn
-	!byte <z_ins_call_xn
-	!byte <z_ins_tokenise_text
-	!byte <z_ins_encode_text
-	!byte <z_ins_copy_table
-	!byte <z_ins_print_table
-	!byte <z_ins_check_arg_count
+	!byte <(z_ins_not - 1)
+	!byte <(z_ins_call_xn - 1)
+	!byte <(z_ins_call_xn - 1)
+	!byte <(z_ins_tokenise_text - 1)
+	!byte <(z_ins_encode_text - 1)
+	!byte <(z_ins_copy_table - 1)
+	!byte <(z_ins_print_table - 1)
+	!byte <(z_ins_check_arg_count - 1)
 } else {
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
 }
 
 ; EXT
 
 z_opcount_ext_jump_low_arr
 !ifdef Z5PLUS {
-	!byte <z_ins_save
-	!byte <z_ins_restore
-	!byte <z_ins_log_shift
-	!byte <z_ins_art_shift
-	!byte <z_ins_set_font
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_not_implemented
-	!byte <z_ins_save_restore_undo
-	!byte <z_ins_save_restore_undo
-	!byte <z_ins_print_unicode
-	!byte <z_ins_check_unicode
-	!byte <z_ins_set_true_colour
+	!byte <(z_ins_save - 1)
+	!byte <(z_ins_restore - 1)
+	!byte <(z_ins_log_shift - 1)
+	!byte <(z_ins_art_shift - 1)
+	!byte <(z_ins_set_font - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_ins_save_restore_undo - 1)
+	!byte <(z_ins_save_restore_undo - 1)
+	!byte <(z_ins_print_unicode - 1)
+	!byte <(z_ins_check_unicode - 1)
+	!byte <(z_ins_set_true_colour - 1)
 }
 
 z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
