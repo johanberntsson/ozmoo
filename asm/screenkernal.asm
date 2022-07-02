@@ -255,6 +255,10 @@ init_mega65
 	sta $d031
 	lda #$c8 + 1 ; +1 loses one pixel on the left, +2 loses one pixel on the right. Leftmost pixel usually empty.
 	sta $D016
+	; Set colour RAM offset to 0
+	lda #0
+	sta $d064 
+	sta $d065
 	; set screen at $0800
 	;lda #$26
 	;sta $d018
