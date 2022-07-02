@@ -1768,6 +1768,7 @@ deletable_init
 	bit m65_statmem_already_loaded
 	bmi + 
 	jsr m65_load_statmem
+	jsr init_screen_colours
 !ifdef SOUND {
 	; When we had to load statmem, we will also need to load sound effects, if any
 	jsr setup_sound_mempointer_32

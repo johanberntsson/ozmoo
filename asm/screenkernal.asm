@@ -1201,8 +1201,10 @@ z_ins_set_colour
 	beq .current_background
 	lda zcolours,x
 	bpl +
-	ldy #header_default_bg_colour
+	sty zp_temp
+	ldy #header_default_bg_colour - 1
 	jsr read_header_word
+	ldy zp_temp
 	lda zcolours,x
 +   
 	+SetBackgroundColour
@@ -1217,8 +1219,10 @@ z_ins_set_colour
 	beq .current_foreground
 	lda zcolours,x
 	bpl + ; Branch unless it's the special value $ff, which means "default colour"
-	ldy #header_default_fg_colour
+	sty zp_temp
+	ldy #header_default_fg_colour - 1
 	jsr read_header_word
+	ldy zp_temp
 	lda zcolours,x
 +
 ; Also set bordercolour to same as foreground colour, if bordercolour is set to the magic value 1

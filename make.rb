@@ -2621,13 +2621,13 @@ if $target == 'c128' then
 	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
 	$unbanked_vmem_blocks += $dynmem_blocks
 end
-puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
-puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
-
-if $target != 'mega65' and
-		$unbanked_vmem_blocks == 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
-	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
-	exit 1
+if $target != 'mega65'
+	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
+	puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
+	if	$unbanked_vmem_blocks == 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
+		exit 1
+	end
 end
 
 ############################# End of moved block

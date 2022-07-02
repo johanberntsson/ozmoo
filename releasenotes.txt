@@ -18,6 +18,9 @@ Bugfixes:
 - Fixed bug: Ozmoo put the computer in a weird state after Quit, if a custom font was used.
 - Fixed bug: Restart on MEGA65 only worked if game was loaded from device 8.
 - Fixed bug: Save always chose 8 as default save device on MEGA65 - now it chooses the boot device.
+- Don't print irrelevant info on dynmem blocks and vmem blocks for MEGA65 in make.rb.
+- Default colours were not written to header on MEGA65.
+- Incorrect colours were retrieved from the header when the game asked to set background or foreground colours to default.
 
 ================================================
 Release 10: 16 June 2022
