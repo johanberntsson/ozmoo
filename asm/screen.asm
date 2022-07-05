@@ -61,7 +61,15 @@ init_screen_colours
 	jsr write_header_byte
 }
 	lda #147 ; clear screen
-	jmp s_printchar
+	jsr s_printchar
+!ifndef NODARKMODE {
+	lda darkmode
+	beq +
+	dec darkmode
+	jmp toggle_darkmode
++	
+}
+	rts	
 
 !ifdef Z4PLUS {
 z_ins_erase_window

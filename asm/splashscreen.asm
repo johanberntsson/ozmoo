@@ -33,9 +33,12 @@ splash_line_y
 	sta z_temp + 2
 	lda ti_variable + 1
 	adc #>(SPLASHWAIT*60)
-	sta z_temp + 1
+	sta z_temp + 1	
 	
 -	jsr kernal_getchar
+!ifndef NODARKMODE {
+	tay
+}
 	cmp #0
 	bne +
 	ldx z_temp + 2
@@ -47,7 +50,16 @@ splash_line_y
 ++	lda z_temp + 1
 	cmp ti_variable + 1
 	bne -
-+	
++
+!ifndef NODARKMODE {
+	; sty SCREEN_ADDRESS
+; -
+	; jmp -
+	cpy #$85
+	bne +
+	jsr toggle_darkmode
++
+}
 	lda #147
 	jmp s_printchar
 

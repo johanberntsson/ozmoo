@@ -5,6 +5,7 @@ Release 11:
 New/changed features:
 - When restarting a game with sound (MEGA65 only) Ozmoo detects that the sounds have already been loaded, making restart a lot faster.
 - Fixed PRINTSPEED mode which was broken. It now prints the # of instructions executed per second, twice per second.
+- Player can now switch to darkmode by pressing F1 on the splash screen.
 
 Optimizations:
 - Faster way to jump to instructions
@@ -21,6 +22,7 @@ Bugfixes:
 - Don't print irrelevant info on dynmem blocks and vmem blocks for MEGA65 in make.rb.
 - Default colours were not written to header on MEGA65.
 - Incorrect colours were retrieved from the header when the game asked to set background or foreground colours to default.
+- make.rb failed to autostart game (-s option) if the story file had a space character in it.
 
 ================================================
 Release 10: 16 June 2022

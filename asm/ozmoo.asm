@@ -1429,6 +1429,24 @@ z_init
 
 deletable_init_start
 
+; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
+!ifdef TARGET_PLUS4_OR_C128 {
+	ldx #$85
+-	lda #1
+	sta fkey_string_lengths - $85,x
+	txa
+	sta fkey_string_area - $85,x
+	inx
+	cpx #$85 + 8
+	bcc -
+!ifdef TARGET_C128 {
+	lda #0
+	sta fkey_string_lengths + 8
+	sta fkey_string_lengths + 9
+}
+}
+
+
 !ifdef TARGET_PLUS4 {
 	!ifdef CUSTOM_FONT {
 		lda reg_screen_char_mode
@@ -1538,24 +1556,6 @@ deletable_init
 	sta z_pc_mempointer + 3
 }
 
-
-
-; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
-!ifdef TARGET_PLUS4_OR_C128 {
-	ldx #$85
--	lda #1
-	sta fkey_string_lengths - $85,x
-	txa
-	sta fkey_string_area - $85,x
-	inx
-	cpx #$85 + 8
-	bcc -
-!ifdef TARGET_C128 {
-	lda #0
-	sta fkey_string_lengths + 8
-	sta fkey_string_lengths + 9
-}
-}
 
 
 ; Read and parse config from boot disk

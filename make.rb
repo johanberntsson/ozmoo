@@ -1320,17 +1320,17 @@ end
 def play(filename)
 	if $target == "mega65" then
 		if defined? $MEGA65 then
-			command = "#{$MEGA65} -8 #{filename}"
+			command = "#{$MEGA65} -8 \"#{filename}\""
 		else
 			puts "Location of MEGA65 emulator unknown. Please set $MEGA65 at start of make.rb"
 			exit 0
 		end
 	elsif $target == "plus4" then
-	    command = "#{$XPLUS4} #{filename}"
+	    command = "#{$XPLUS4} \"#{filename}\""
 	elsif $target == "c128" then
-	    command = "#{$X128} #{filename}"
+	    command = "#{$X128} \"#{filename}\""
 	else
-	    command = "#{$X64} #{filename}"
+	    command = "#{$X64} \"#{filename}\""
 	end
 	puts command if $verbose
     system(command)
