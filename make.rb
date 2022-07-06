@@ -2573,7 +2573,7 @@ splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
 			puts "Splashline #{i + 1} is longer than 40 characters."
 			exit 1
 		end
-		indent = (40 - text.length) / 2
+		indent = ((40.0 - text.length) / 2.0).ceil
 		text.gsub!(/"/, '",34,"')
 	end
 	splash.sub!("@#{i}s@", text)

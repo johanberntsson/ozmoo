@@ -27,6 +27,7 @@ splash_line_y
 	cpy #5
 	bne splash_line_y
 
+.restart_timer
 	lda ti_variable + 2
 	clc
 	adc #<(SPLASHWAIT*60)
@@ -58,6 +59,7 @@ splash_line_y
 	cpy #$85
 	bne +
 	jsr toggle_darkmode
+	jmp .restart_timer
 +
 }
 	lda #147
