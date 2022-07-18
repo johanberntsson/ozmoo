@@ -6,7 +6,8 @@ New/changed features:
 - When restarting a game with sound (MEGA65 only) Ozmoo detects that the sounds have already been loaded, making restart a lot faster.
 - Fixed PRINTSPEED mode which was broken. It now prints the # of instructions executed per second, twice per second.
 - Player can now switch to darkmode by pressing F1 on the splash screen.
-- Intentation on splash screen is not rounded up instead of down (looks better)
+- Indentation on splash screen is now rounded up instead of down (looks better)
+- New option -rd to reserve the entire directory track, i.e. don't store any story data there, typically to allow for directory art.
 
 Optimizations:
 - Faster way to jump to instructions

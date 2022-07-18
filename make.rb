@@ -141,6 +141,7 @@ $i81 = $d81interleave[1] # Optimal scheme for MEGA65, as far as we can tell. Fil
 
 class Disk_image
 	def base_initialize
+		@reserve_dir_track = nil
 		@interleave = 1
 		@config_track = $CONFIG_TRACK
 		@skip_tracks = Array.new(@tracks)
@@ -241,7 +242,14 @@ class Disk_image
 					sector = (sector + @interleave) % sector_count
 				end
 
-				@config_track_map.push(64 * reserved_sectors / 2 + last_story_sector)
+				if reserved_sectors == sector_count
+					@config_track_map.push 0
+				elsif reserved_sectors % 2 == 0 and reserved_sectors <= 6
+					@config_track_map.push(64 * reserved_sectors / 2 + last_story_sector)
+				else
+					puts "Incorrect number of reserved sectors on track #{track}: #{reserved_sectors}"
+					exit 1
+				end
 			else
 				@config_track_map.push 0
 			end # if num_sectors > 0
@@ -303,7 +311,7 @@ class Disk_image
 end  # class Disk_image
 
 class D64_image < Disk_image
-	def initialize(disk_title:, diskimage_filename:, is_boot_disk:, forty_tracks:)
+	def initialize(disk_title:, diskimage_filename:, is_boot_disk:, forty_tracks: nil, reserve_dir_track: nil)
 		puts "Creating disk image..." if $verbose
 
 		@disk_title = disk_title
@@ -325,7 +333,7 @@ class D64_image < Disk_image
 		@interleave = 9
 
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
-		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@reserved_sectors[18] = reserve_dir_track ? @track_length[18] : 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
 		@reserved_sectors[@config_track] = 2 if @is_boot_disk and @config_track
 
 		calculate_initial_free_blocks()
@@ -411,7 +419,7 @@ class D64_image < Disk_image
 	private
 	
 	def allocate_sector(track, sector)
-		print "*" if $PRINT_DISK_MAP
+		print " #{sector}" if $PRINT_DISK_MAP
 		index1 = 4 * track
 		index2 = 4 * track + 1 + (sector / 8)
 		if track > 35 then # Use SpeedDOS 40-track BAM layout
@@ -437,7 +445,7 @@ class D64_image < Disk_image
 end # class D64_image
 
 class D71_image < Disk_image
-	def initialize(disk_title:, diskimage_filename:, is_boot_disk:)
+	def initialize(disk_title:, diskimage_filename:, is_boot_disk:, reserve_dir_track: nil)
 		puts "Creating disk image..." if $verbose
 
 		@disk_title = disk_title
@@ -463,8 +471,8 @@ class D71_image < Disk_image
 		@interleave = 5
 
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
-		@reserved_sectors[18] = 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
-		@reserved_sectors[53] = 2 # 2: Skip BAM and 1 extra block (we can't skip just 1 block)
+		@reserved_sectors[18] = reserve_dir_track ? @track_length[18] : 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
+		@reserved_sectors[53] = reserve_dir_track ? @track_length[53] : 2 # 2: Skip BAM and 1 extra block (we can't skip just 1 block)
 		@reserved_sectors[@config_track] = 2 if @is_boot_disk and @config_track
 
 		calculate_initial_free_blocks()
@@ -1422,7 +1430,8 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 		exit 1
 	end
 	
-	disk = D64_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+	disk = D64_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, 
+		is_boot_disk: boot_disk, forty_tracks: extended_tracks, reserve_dir_track: nil)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks) # Has to be run to finalize the disk
 
@@ -1458,14 +1467,14 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 end
 
 def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_contents,
-				preload_max_vmem_blocks, extended_tracks)
+				preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 	max_story_blocks = 9999
 	
 	boot_disk = true
 
 	diskfilename = "#{$target}_#{storyname}.d64"
 
-	disk = D64_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks)
+	disk = D64_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk, forty_tracks: extended_tracks, reserve_dir_track: reserve_dir_track)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: extended_tracks)
 	if $story_file_cursor < $story_file_data.length
@@ -1531,7 +1540,7 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 end
 
 def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents,
-				preload_max_vmem_blocks, extended_tracks)
+				preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot.d64"
@@ -1539,8 +1548,10 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/2' : '')
 	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/2' : '')
 	max_story_blocks = 9999
-	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
-	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, 
+		is_boot_disk: true, forty_tracks: false, reserve_dir_track: reserve_dir_track)
+	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, 
+		is_boot_disk: false, forty_tracks: extended_tracks, reserve_dir_track: nil)
 	free_blocks = disk1.add_story_data(max_story_blocks: 0, add_at_end: false)
 	free_blocks = disk2.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
@@ -1608,15 +1619,17 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, vmem_contents,
-				preload_max_vmem_blocks, extended_tracks)
+				preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 
 	config_data[7] = 3 # 3 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot_story_1.d64"
 	outfile2name = "#{$target}_#{storyname}_story_2.d64"
 	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/2' : '')
 	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/2' : '')
-	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: extended_tracks)
-	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, 
+		is_boot_disk: true, forty_tracks: extended_tracks, reserve_dir_track: reserve_dir_track)
+	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, 
+		is_boot_disk: false, forty_tracks: extended_tracks, reserve_dir_track: nil)
 
 	# Figure out how to put story blocks on the disks in optimal way.
 	# Rule 1: Save 160 blocks for bootfile on boot disk, if possible. 
@@ -1711,7 +1724,7 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 end
 
 def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_data, vmem_data,
-				vmem_contents, preload_max_vmem_blocks, extended_tracks)
+				vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 
 	config_data[7] = 4 # 4 disks used in total
 	outfile1name = "#{$target}_#{storyname}_boot.d64"
@@ -1720,9 +1733,12 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/3' : '')
 	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/3' : '')
 	disk3title = $disk_title + ($disk_title.length < 13 ? ' 3/3' : '')
-	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, is_boot_disk: true, forty_tracks: false)
-	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, is_boot_disk: false, forty_tracks: extended_tracks)
-	disk3 = D64_image.new(disk_title: disk3title, diskimage_filename: d64_filename_3, is_boot_disk: false, forty_tracks: extended_tracks)
+	disk1 = D64_image.new(disk_title: disk1title, diskimage_filename: d64_filename_1, 
+		is_boot_disk: true, forty_tracks: false, reserve_dir_track: reserve_dir_track)
+	disk2 = D64_image.new(disk_title: disk2title, diskimage_filename: d64_filename_2, 
+		is_boot_disk: false, forty_tracks: extended_tracks, reserve_dir_track: nil)
+	disk3 = D64_image.new(disk_title: disk3title, diskimage_filename: d64_filename_3, 
+		is_boot_disk: false, forty_tracks: extended_tracks, reserve_dir_track: nil)
 
 	# Figure out how to put story blocks on the disks in optimal way.
 	# Rule: Spread story data as evenly as possible, so heads will move less.
@@ -1812,14 +1828,15 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 end
 
 def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
-				preload_max_vmem_blocks)
+				preload_max_vmem_blocks, reserve_dir_track)
 	max_story_blocks = 9999
 	
 	boot_disk = true
 
 	diskfilename = "#{$target}_#{storyname}.d71"
 
-	disk = D71_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, is_boot_disk: boot_disk)
+	disk = D71_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename, 
+		is_boot_disk: boot_disk, reserve_dir_track: reserve_dir_track)
 
 	disk.add_story_data(max_story_blocks: max_story_blocks, add_at_end: nil)
 	if $story_file_cursor < $story_file_data.length
@@ -2002,7 +2019,7 @@ def print_usage
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
-	puts "         [-dt:\"text\"] [-as(a|w) <soundpath>] <storyfile>"
+	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2034,6 +2051,7 @@ def print_usage
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  -dt: Set the disk title to the specified text."
+	puts "  -rd: Reserve the entire directory track, typically for directory art."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
@@ -2090,6 +2108,7 @@ $no_sector_preload = nil
 $file_name = 'story'
 $sound_format = nil
 $disk_title = nil
+reserve_dir_track = nil
 
 begin
 	while i < ARGV.length
@@ -2112,6 +2131,8 @@ begin
 			$interpreter_number = $1
 		elsif ARGV[i] =~ /^-s$/ then
 			auto_play = true
+		elsif ARGV[i] =~ /^-rd$/ then
+			reserve_dir_track = true
 		elsif ARGV[i] =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
@@ -2756,24 +2777,24 @@ when MODE_P
 	error = build_P(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S1
 	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
-	error = build_S1(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	error = build_S1(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_S2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
-	error = build_S2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	error = build_S2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_D2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
-	error = build_D2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	error = build_D2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_D3
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
 	d64_filename_3 = File.join($TEMPDIR, "temp3.d64")
 	error = build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, 
-		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_71
 	diskimage_filename = File.join($TEMPDIR, "temp1.d71")
-	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
+	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, reserve_dir_track)
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
 	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
