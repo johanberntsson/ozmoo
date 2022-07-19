@@ -1923,9 +1923,9 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			last_sector = disk.add_file(tf, file_contents);
 		end
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
-		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
-		disk.add_file('zcode-stat', $story_file_data[dynbytes .. $story_file_data.length - 1])
-#		disk.add_file('zcode', $story_file_data)
+#		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
+#		disk.add_file('zcode-stat', $story_file_data[dynbytes .. $story_file_data.length - 1])
+		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
 		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)

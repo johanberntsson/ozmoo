@@ -1521,6 +1521,38 @@ m65_statmem_already_loaded !byte 0
 m65_attic_checksum_page = ($08000000 + 512 * 1024) / 256
 }
 
+calc_dynmem_size
+	; Store the size of dynmem AND (if VMEM is enabled)
+	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+!ifdef TARGET_C128 {
+	; Special case because we need to read a header word from dynmem before dynmem
+	; has been moved to its final location.
+	lda story_start + header_static_mem
+	ldx story_start + header_static_mem + 1
+} else {
+	; Target is not C128
+	ldy #header_static_mem
+	jsr read_header_word
+}
+	stx dynmem_size
+	sta dynmem_size + 1
+	
+!ifdef TARGET_MEGA65 {
+	tay
+	cpx #0
+	beq .maybe_inc_nonstored_pages
+	iny ; Add one page if statmem doesn't start on a new page ($xx00)
+.maybe_inc_nonstored_pages
+	tya
+;	and #vmem_indiv_block_mask ; keep index into kB chunk
+	and #%00000001 ; keep index into kB chunk
+	beq .store_nonstored_pages
+	iny
+.store_nonstored_pages
+	sty nonstored_pages
+}
+	rts
+
 deletable_init
 	cld
 
@@ -1573,7 +1605,9 @@ deletable_init
 
 !ifdef Z3PLUS {
 	jsr m65_load_header
-	; Header of game on disk in now loaded, starting 512KB into Attic RAM
+	jsr calc_dynmem_size
+	; Header of game on disk is now loaded, starting at beginning of Attic RAM
+
 	lda #<m65_attic_checksum_page
 	sta mempointer + 1
 	lda #>m65_attic_checksum_page
@@ -1581,6 +1615,7 @@ deletable_init
 	ldz #header_filelength
 	lda [dynmem_pointer],z
 	sta .first_value
+
 -	lda [dynmem_pointer],z
 	cmp .first_value
 	beq +
@@ -1593,12 +1628,9 @@ deletable_init
 	; Header values for file length and checksum are indentical
 	lda .different_values
 	beq .must_load_statmem ; All four bytes have the same value. Header can't be trusted.
-	lda #$ff
-	sta m65_statmem_already_loaded
+	dec m65_statmem_already_loaded ; Set it to $ff
 
 .must_load_statmem
-
-	
 }
 
 	lda #0
@@ -1636,7 +1668,7 @@ deletable_init
 	
 +	jsr print_reu_progress_bar
 
-	jsr m65_load_dynmem
+	jsr m65_load_dynmem_maybe_statmem
 }
 
 
@@ -1736,38 +1768,12 @@ deletable_init
 
 ; parse_header section
 
-	; Store the size of dynmem AND (if VMEM is enabled)
-	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
-!ifdef TARGET_C128 {
-	; Special case because we need to read a header word from dynmem before dynmem
-	; has been moved to its final location.
-	lda story_start + header_static_mem
-	ldx story_start + header_static_mem + 1
-} else {
-	; Target is not C128
-	ldy #header_static_mem
-	jsr read_header_word
-}
-	stx dynmem_size
-	sta dynmem_size + 1
-	
-!ifdef TARGET_MEGA65 {
-	tay
-	cpx #0
-	beq .maybe_inc_nonstored_pages
-	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_pages
-	tya
-;	and #vmem_indiv_block_mask ; keep index into kB chunk
-	and #%00000001 ; keep index into kB chunk
-	beq .store_nonstored_pages
-	iny
-.store_nonstored_pages
-	sty nonstored_pages
+	jsr calc_dynmem_size
 
+!ifdef TARGET_MEGA65 {
 	bit m65_statmem_already_loaded
 	bmi + 
-	jsr m65_load_statmem
+;	jsr m65_load_statmem
 	jsr init_screen_colours
 !ifdef SOUND {
 	; When we had to load statmem, we will also need to load sound effects, if any
@@ -1845,6 +1851,12 @@ deletable_init
 
 !ifdef Z3PLUS {
 	; Store header values for file length and checksum in Attic RAM to say the game has been loaded
+
+	; dynmem_pointer may have been altered by read_word_from_far_dynmem
+	lda #$0
+	sta dynmem_pointer
+	sta dynmem_pointer + 1
+
 	lda #<m65_attic_checksum_page
 	sta mempointer + 1
 	lda #>m65_attic_checksum_page
@@ -1854,7 +1866,7 @@ deletable_init
 	sta [mempointer],z
 	inz
 	cpz #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
-	bcc -
+	bcc -	
 }
 }
 
@@ -2207,43 +2219,54 @@ prepare_static_high_memory
 m65_load_header
 	ldx #$00
 	stx reu_progress_bar_updates
-	dex
-	stx m65_reu_break_after_first_page
+	inx
+	stx m65_reu_load_page_limit
+	stx m65_reu_enable_load_page_limit
+	bne ++ ; Always branch
 
-m65_load_dynmem
-	lda #.dynmemfilenamelen
-	ldx #<.dynmemfilename
-	ldy #>.dynmemfilename
+m65_load_dynmem_maybe_statmem
+	ldx m65_statmem_already_loaded
+	beq ++ ; Statmem is not loaded => load entire zcode file
+	ldx nonstored_pages
+	stx m65_reu_load_page_limit
+	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
+	stx m65_reu_enable_load_page_limit
+
+++	lda #.zcodefilenamelen
+	ldx #<.zcodefilename
+	ldy #>.zcodefilename
 	jsr kernal_setnam ; call SETNAM
 
 	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
 	txa
 	
-	jsr m65_load_file_to_reu ; in reu.asm
+	jmp m65_load_file_to_reu ; in reu.asm
 
-	rts
+.zcodefilename
+	!pet "zcode,s,r"
+.zcodefilenamelen = * - .zcodefilename
 
-.dynmemfilename
-	!pet "zcode-dyn,s,r"
-.dynmemfilenamelen = * - .dynmemfilename
-+	
+; .dynmemfilename
+	; !pet "zcode-dyn,s,r"
+; .dynmemfilenamelen = * - .dynmemfilename
+; +	
 
-m65_load_statmem
-	lda #.statmemfilenamelen
-	ldx #<.statmemfilename
-	ldy #>.statmemfilename
-	jsr kernal_setnam ; call SETNAM
+; m65_load_statmem
+	; lda #.statmemfilenamelen
+	; ldx #<.statmemfilename
+	; ldy #>.statmemfilename
+	; jsr kernal_setnam ; call SETNAM
 
-	ldx nonstored_pages
-	lda #0
+	; ldx nonstored_pages
+	; lda #0
 	
-	jsr m65_load_file_to_reu ; in reu.asm
+	; jsr m65_load_file_to_reu ; in reu.asm
 
-	rts
+	; rts
 
-.statmemfilename
-	!pet "zcode-stat,s,r"
-.statmemfilenamelen = * - .statmemfilename
+; .statmemfilename
+	; !pet "zcode-stat,s,r"
+; .statmemfilenamelen = * - .statmemfilename
 }
 
 

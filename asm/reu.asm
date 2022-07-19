@@ -26,12 +26,11 @@ reu_error
 
 !ifdef TARGET_MEGA65 {
 
+m65_reu_load_page_limit = z_temp + 10
+m65_reu_enable_load_page_limit !byte 0
 .m65_reu_load_address = object_temp
 .m65_reu_memory_buffer = zp_temp + 2
 .m65_reu_page_count = z_temp + 11
-m65_reu_break_after_first_page !byte 0
-
-;.m65_reu_page_count !byte 0
 
 m65_load_file_to_reu
 	; In: a,x: REU load page (0 means first address of Attic RAM)
@@ -84,9 +83,12 @@ m65_load_file_to_reu
 
 	inc .m65_reu_page_count
 
-	bit m65_reu_break_after_first_page
-	bmi .file_copying_done
+	lda m65_reu_enable_load_page_limit
+	beq +
+	dec m65_reu_load_page_limit
+	beq .file_copying_done
 
++
 	; Inc REU page
 	inc .m65_reu_load_address
 	bne .initial_copy_loop
@@ -96,7 +98,7 @@ m65_load_file_to_reu
 	
 .file_copying_done
 	lda #$00     
-	sta m65_reu_break_after_first_page
+	sta m65_reu_enable_load_page_limit
 	jsr kernal_chkin  ; restore input to keyboard
 	lda #$02      ; filenumber 2
 	jsr kernal_close ; call CLOSE
