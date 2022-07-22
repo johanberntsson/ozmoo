@@ -2604,9 +2604,9 @@ File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 
 # Boot file name handling
 
-file_name = File.read(File.join($SRCDIR, 'file_name.tpl'))
-file_name.sub!("@fn@", $file_name)
-File.write(File.join($SRCDIR, 'file_name.asm'), file_name)
+file_name = File.read(File.join($SRCDIR, 'file-name.tpl'))
+file_name.sub!("@fn@", $target == 'mega65' ? 'autoboot.c65' : $file_name)
+File.write(File.join($SRCDIR, 'file-name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128' and limit_preload_vmem_blocks == false

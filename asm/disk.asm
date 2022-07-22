@@ -662,56 +662,25 @@ z_ins_restart
 	beq +
 	jsr $ffd2
 	inx
-	bne -
+	bne - ; Always branch
 +	; Setup	key sequence
-!ifdef TARGET_PLUS4_OR_C128 {
-	lda #19 ; home
-	sta keyboard_buff
-	lda #17 ; down
-	sta keyboard_buff + 1
-	lda #17 ; down
-	sta keyboard_buff + 2
-	lda #13 ; run
-	sta keyboard_buff + 3
-	lda #13 ; run
-	sta keyboard_buff + 4
-	lda #5
-} else {
-	lda #131 ; run
-	sta keyboard_buff
-	lda #1
-}
-	sta keyboard_buff_len
+	ldx #0
+-	lda .restart_code_keys,x
+	beq +
+	sta keyboard_buff,x
+	inx
+	bne - ; Always branch
++	stx keyboard_buff_len
 	rts
 
 .restart_code_string
-!ifdef TARGET_PLUS4_OR_C128 {
-	!pet 147,17,17,"lO",34,":"
-!source "file_name.asm"
+	!pet 147,"lO",34,":"
+!source "file-name.asm"
     !pet 34,","
 .device_no
-	!pet "08",17,17,17,17,17,"rU",19,0
-} else { ; Not Plus4 or C128
-	!ifdef TARGET_MEGA65 {
-		; We should really include file_name.asm, but this goes wrong and we 
-		; end up with "*story" as the filename, despite file_name.asm holding
-		; just "story". This solution using "*" will work for now, since MEGA65
-		; doesn't support a loading screen yet.
-		!pet 147,17,17,"    ",34,":*"
-;!source "file_name.asm"
-		!pet 34,","
-.device_no
-		!pet "08",19,0
-	} else {
-		!pet 147,17,17,"    ",34,":"
-!source "file_name.asm"
-		!pet 34,","
-.device_no
-		!pet "08",19,0
-	}
-}
-; .restart_code_keys
-	; !pet 131,0
+	!pet "08",17,17,17,17,13,"rU",13,13,0
+.restart_code_keys
+	!byte 19,13,13,0
 .restart_code_end
 
 }
