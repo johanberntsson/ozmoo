@@ -544,6 +544,9 @@ s_printchar
 	cpy s_screen_width ; #SCREEN_WIDTH
 	bcc .printchar_end
 	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
+!ifdef TARGET_MEGA65 {
+	jsr copy_line_to_scrollback
+}
 	lda #0
 	sta zp_screencolumn
 	inc zp_screenrow
@@ -591,6 +594,14 @@ s_printchar
 
 .perform_newline
 	; newline/enter/return
+!ifdef TARGET_MEGA65 {
+	; Copy to scrollback buffer, if we're in lower window
+	ldx current_window
+	bne +
+	jsr copy_line_to_scrollback
+	lda #$0d ; Restore old value of A
++
+}
 	; Check ignore next linebreak setting
 	ldx current_window
 	ldy s_ignore_next_linebreak,x

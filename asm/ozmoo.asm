@@ -910,6 +910,9 @@ game_id		!byte 0,0,0,0
 
 ; include other assembly files
 !source "utilities.asm"
+!ifdef TARGET_MEGA65 {
+!source "scrollback.asm"
+}
 !source "screenkernal.asm"
 !source "streams.asm" ; Must come before "text.asm"
 !source "disk.asm"
