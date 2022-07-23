@@ -1200,6 +1200,15 @@ read_text
 }
 	sta string_array + 1
 	jsr printchar_flush
+!ifdef TARGET_MEGA65 {
+	lda read_text_level
+	bne +
+	; Entering top level read_text call - pause copying to scrollback buffer
+	jsr s_reset_scrolled_lines
+	lda zp_screenrow
+	sta read_text_screenrow_start
++	inc read_text_level
+}	
 	; clear [More] counter
 	jsr clear_num_rows
 !ifdef USE_BLINKING_CURSOR {
@@ -1356,7 +1365,8 @@ read_text
 	bcc .char_is_ok
 !ifdef USE_HISTORY {
 	cmp #131
-	bcc handle_history ; 129 and 130 are cursor up and down
+	bcs +
+	jmp handle_history ; 129 and 130 are cursor up and down
 }
 	cmp #155
 	bpl +
@@ -1420,6 +1430,55 @@ read_text
 !ifdef Z5PLUS {
 	sta .read_text_return_value
 }
+!ifdef TARGET_MEGA65 {
+	dec read_text_level
+	bne .dont_copy_to_scrollback
+; -	inc $d020
+	; jmp -
+	; Copy any lines on screen that haven't been copied to scrollback buffer yet (but not current line)
+	lda zp_screenrow
+	sec
+	sbc	read_text_screenrow_start
+	clc
+	adc s_scrolled_lines
+	beq .dont_copy_to_scrollback ; 0 lines to copy
+	bmi .dont_copy_to_scrollback ; Unreasonable result
+	cmp s_screen_height_minus_one
+	bcs .dont_copy_to_scrollback ; Unreasonable result
+
+	; Copy A lines above current to scrollback buffer
+	
+	; Make zp_screenline point to first line
+	tax
+	pha
+-	lda zp_screenline
+	sec
+	sbc s_screen_width
+	sta zp_screenline
+	bcs +
+	dec zp_screenline + 1
++	dex
+	bne -
+
+	; Copy a line to scrollback buffer
+-	jsr copy_line_to_scrollback
+	; Move zp_screenline pointer one line ahead
+	lda zp_screenline
+	clc
+	adc s_screen_width
+	sta zp_screenline
+	bcc +
+	inc zp_screenline + 1
+	; Decrease the counter for number lines to print
++	pla
+	sec
+	sbc #1
+	beq .dont_copy_to_scrollback ; We're done
+	pha
+	bne - ; Always branch
+.dont_copy_to_scrollback
+}
+
 	; turn off blinking cursor
 	jsr turn_off_cursor
 !ifndef Z5PLUS {
@@ -1694,6 +1753,10 @@ add_line_to_history
 }
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
+}
+!ifdef TARGET_MEGA65 {
+read_text_level !byte 0 ; Depth of read_text calls ( > 1 only if an interrupt routine calls read_text.)
+read_text_screenrow_start !byte 0
 }
 
 tokenise_text

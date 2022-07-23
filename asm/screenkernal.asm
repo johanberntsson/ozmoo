@@ -767,12 +767,26 @@ s_erase_window
 	rts
 }
 
+!ifdef TARGET_MEGA65 {
+s_reset_scrolled_lines
+	pha
+	lda #0
+	sta s_scrolled_lines
+	pla
+	rts
+
+s_scrolled_lines !byte 0
+}
+
 .s_scroll
 	lda zp_screenrow
 	cmp s_screen_height
 	bpl +
 	rts
 +	
+!ifdef TARGET_MEGA65 {
+	inc s_scrolled_lines
+}
 !ifdef TARGET_MEGA65 {
 	jsr colour2k	
 }

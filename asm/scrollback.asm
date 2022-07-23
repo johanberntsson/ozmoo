@@ -5,6 +5,10 @@ scrollback_max_line_count !word 100
 scrollback_has_wrapped !byte 0
 
 copy_line_to_scrollback
+	lda read_text_level
+	beq +
+	rts
++
 	lda dynmem_pointer + 2
 	pha
 	ldx #3
