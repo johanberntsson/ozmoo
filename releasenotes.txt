@@ -18,6 +18,8 @@ New/changed features:
 Optimizations:
 - Faster way to jump to instructions
 - Made restart code less different for different targets, and shorter for Plus/4 and C128. 
+- Optimized multiplication for input interrupt intervals, thus removing the last use of the generic 16-bit unsigned multiplication routine.
+- Removed the generic 16-bit unsigned multiplication routine mult16
 
 Bugfixes:
 

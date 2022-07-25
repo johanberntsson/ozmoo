@@ -953,22 +953,47 @@ init_read_text_timer
 	ora .read_text_time + 1
 	bne +
 	rts ; no timer
-+   ; calculate timer interval in jiffys (1/60 second NTSC, 1/50 second PAL)
-	lda .read_text_time
-	sta multiplier + 1
-	lda .read_text_time + 1
-	sta multiplier
++   ; calculate timer interval in jiffys (1/60 second, regardless of TV standard)
 	lda #0
-	sta multiplicand + 1
-	lda #6
-	sta multiplicand ; t*6 to get jiffies
-	jsr mult16
-	lda product
-	sta .read_text_time_jiffy + 2
-	lda product + 1
+	sta z_temp ; Top byte of result
+	lda .read_text_time ; High byte
+	sta z_temp + 1 ; Middle byte of result
+	lda .read_text_time + 1 ; Low byte
+	; Multiply by 2
+	asl
+	rol z_temp + 1
+	rol z_temp
+	; Add starting value
+	clc
+	adc .read_text_time + 1
+	pha
+	lda z_temp + 1
+	adc .read_text_time
 	sta .read_text_time_jiffy + 1
-	lda product + 2
+	lda z_temp
+	adc #0
 	sta .read_text_time_jiffy
+	; Multiply by 2
+	pla
+	asl
+	sta .read_text_time_jiffy + 2
+	rol .read_text_time_jiffy + 1
+	rol .read_text_time_jiffy
+	; lda .read_text_time
+	; sta multiplier + 1
+	; lda .read_text_time + 1
+	; sta multiplier
+	; lda #0
+	; sta multiplicand + 1
+	; lda #6
+	; sta multiplicand ; t*6 to get jiffies
+	; jsr mult16
+	; lda product
+	; sta .read_text_time_jiffy + 2
+	; lda product + 1
+	; sta .read_text_time_jiffy + 1
+	; lda product + 2
+	; sta .read_text_time_jiffy
 update_read_text_timer
 	; prepare time for next routine call (current time + time_jiffy)
 	jsr kernal_readtime  ; read current time (in jiffys)
