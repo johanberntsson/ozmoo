@@ -1019,7 +1019,16 @@ getchar_and_maybe_toggle_darkmode
 	jsr toggle_darkmode
 	ldx #40 ; Side effect to help when called from MORE prompt
 	lda #0
-+	rts
++	
+!ifdef TARGET_MEGA65 {
+	cmp #136
+	bne +
+	jsr launch_scrollback
+	ldx #40 ; Side effect to help when called from MORE prompt
+	lda #0
++	
+}
+	rts
 }
 
 read_char
