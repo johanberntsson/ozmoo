@@ -78,7 +78,7 @@ copy_line_to_scrollback
 	rts
 
 launch_scrollback
-	; Backup screen and color RAM pointers to safe place
+	; Backup screen and colour RAM pointers to safe place
 	jsr mega65io
 	ldq $d060
 	stq z_temp + 4
@@ -180,8 +180,6 @@ launch_scrollback
 	lsr
 	ora #$80 ; Base of HyperRAM
 	sta dma_source_address_top
-;	lda #$00
-;	sta dma_command_lsb
 
 .fill_or_copy_prebuffer
 	jsr m65_run_dma
@@ -325,8 +323,6 @@ launch_scrollback
 	jmp .get_char
 	
 .done
-; -	inc $d020
-	; jmp -
 	; Restore screen and color RAM pointers from safe place
 	jsr mega65io
 	ldq z_temp + 4
@@ -378,9 +374,8 @@ scrollback_adjust_top_line
 	
 .scroll_up_one_line
 	ldq .selected_top_line
-; CMPQ doesn't work in Acme 0.97, so we code it by hand instead
-;	cmpq .lowest_top_line
-	!byte $42, $42, $cd, <.lowest_top_line, >.lowest_top_line
+; CMPQ is called CPQ in Acme
+	cpq .lowest_top_line
 	beq + ; We are at lowest top line, ignore scroll request
 	; Not at lowest top line
 	deq .selected_top_line
@@ -392,16 +387,14 @@ scrollback_adjust_top_line
 
 .scroll_down_one_line
 		ldq .selected_top_line
-; CMPQ doesn't work in Acme 0.97, so we code it by hand instead
-;	cmpq .highest_top_line
-	!byte $42, $42, $cd, <.highest_top_line, >.highest_top_line
+; CMPQ is called CPQ in Acme
+	cpq .highest_top_line
 	beq + ; We are at highest top line, ignore scroll request
 	; Not at highest top line
 	inq .selected_top_line
 	ldq .selected_top_line
-; CMPQ doesn't work in Acme 0.97, so we code it by hand instead
-;	cmpq scrollback_max_line_count
-	!byte $42, $42, $cd, <scrollback_max_line_count, >scrollback_max_line_count
+; CMPQ is called CPQ in Acme
+	cpq scrollback_max_line_count
 	bne +
 	lda #0
 	tax
