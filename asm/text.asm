@@ -1010,18 +1010,17 @@ update_read_text_timer
 }
 
 getchar_and_maybe_toggle_darkmode
-!ifdef NODARKMODE {
-	jmp kernal_getchar
-} else {
 	jsr kernal_getchar
+!ifndef NODARKMODE {
  	cmp #133 ; Charcode for F1
 	bne +
 	jsr toggle_darkmode
 	ldx #40 ; Side effect to help when called from MORE prompt
 	lda #0
 +	
-!ifdef TARGET_MEGA65 {
-	cmp #136
+}
+!ifdef SCROLLBACK {
+	cmp #135 ; F5
 	bne +
 	jsr launch_scrollback
 	ldx #40 ; Side effect to help when called from MORE prompt
@@ -1029,7 +1028,6 @@ getchar_and_maybe_toggle_darkmode
 +	
 }
 	rts
-}
 
 read_char
 	; return: 0,1: return value of routine (false, true)
@@ -1234,7 +1232,7 @@ read_text
 }
 	sta string_array + 1
 	jsr printchar_flush
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 	lda read_text_level
 	bne +
 	; Entering top level read_text call - pause copying to scrollback buffer
@@ -1464,11 +1462,10 @@ read_text
 !ifdef Z5PLUS {
 	sta .read_text_return_value
 }
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 	dec read_text_level
 	bne .dont_copy_to_scrollback
-; -	inc $d020
-	; jmp -
+
 	; Copy any lines on screen that haven't been copied to scrollback buffer yet (but not current line)
 	lda zp_screenrow
 	sec

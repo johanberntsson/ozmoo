@@ -34,6 +34,7 @@ $GENERALFLAGS = [
 #	'CHECK_ERRORS' # Check for all runtime errors, making code bigger and slower
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
+#	'NOSCROLLBACK', # Disables darkmode support (MEGA65). This makes the terp ~1 KB smaller.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -1080,9 +1081,7 @@ def build_interpreter()
 	if $input_colour
 		colourflags += " -DINPUTCOL=#{$input_colour}"
 	end
-	if $no_darkmode
-		colourflags += " -DNODARKMODE=1"
-	else
+	unless $GENERALFLAGS.include?('NODARKMODE')
 		unless $default_colours_dm.empty? # or $zcode_version >= 5
 			colourflags += " -DBGCOLDM=#{$default_colours_dm[0]} -DFGCOLDM=#{$default_colours_dm[1]}"
 		end
@@ -2015,7 +2014,7 @@ def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-re] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
-	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]]"
+	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-dd] [-ds]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
 	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
@@ -2040,6 +2039,7 @@ def print_usage
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: use command line history, with minimum size of <n> bytes."
 	puts "  -dd: Disable the ability to switch to the dark mode"
+	puts "  -ds: Disable the scrollback buffer"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -2239,6 +2239,8 @@ begin
 			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 		elsif ARGV[i] =~ /^-dd$/ then
 			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
+		elsif ARGV[i] =~ /^-ds$/ then
+			$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
 		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
@@ -2507,10 +2509,10 @@ is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
 
-$no_darkmode = nil
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number
-	$no_darkmode = true
+	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
+	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 	patch_data_string = $beyondzork_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
 	patch_address = patch_data_arr.shift.to_i(16)
@@ -2583,7 +2585,8 @@ splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
 version = File.read(File.join(__dir__, 'version.txt'))
 version.gsub!(/[^\d\.]/m,'')
 splash.gsub!("@vs@", version)
-splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $no_darkmode
+#splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $GENERALFLAGS.include?('NODARKMODE')
+
 4.times do |i|
 	text = splashes[i]
 	indent = 0

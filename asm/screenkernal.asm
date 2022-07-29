@@ -544,7 +544,7 @@ s_printchar
 	cpy s_screen_width ; #SCREEN_WIDTH
 	bcc .printchar_end
 	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 	jsr copy_line_to_scrollback
 }
 	lda #0
@@ -594,7 +594,7 @@ s_printchar
 
 .perform_newline
 	; newline/enter/return
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 	; Copy to scrollback buffer, if we're in lower window
 	ldx current_window
 	bne +

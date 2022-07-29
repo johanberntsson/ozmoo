@@ -6,7 +6,7 @@ scrollback_start_minus_50_lines !le32 $08200000 + (scrollback_prebuffer_size << 
 scrollback_start !byte 0, scrollback_prebuffer_size, $20, $08
 scrollback_current !byte 0, scrollback_prebuffer_size, $20, $08
 scrollback_line_count !word 0
-scrollback_max_line_count !word 100, 0 ; First word must be in range 51-13000 (line length * count >= 4 KB). Second word must be 0.
+scrollback_max_line_count !word 13000, 0 ; First word must be in range 51-13000 (line length * count >= 4 KB). Second word must be 0.
 scrollback_has_wrapped !byte 0
 .scrollback_screen_ram !le32 $00010000
 .selected_top_line !word 0, 0
@@ -15,7 +15,7 @@ scrollback_has_wrapped !byte 0
 .highest_top_line !word 0, 0
 .scrollback_instructions 
 	!scrxor $80, " SCROLLBACK MODE    Use Cursor Up/Down, F5, F7                     Enter = Exit "
-.exit_keys !byte 136, 81, 88, 95, 32, 13 ; F7, Q, X, Left arrow, Space, Enter
+.exit_keys !byte 81, 88, 95, 32, 13 ; Q, X, Left arrow, Space, Enter
 .exit_keys_count = * - .exit_keys
 
 copy_line_to_scrollback
@@ -32,11 +32,9 @@ copy_line_to_scrollback
 	bne -
 
 	ldz s_screen_width_minus_one
-	ldy s_screen_width_minus_one
--	lda (zp_screenline),y
+-	lda (zp_screenline),z
 	sta [dynmem_pointer],z
 	dez
-	dey
 	bpl -
 
 	; Increase scrollback_current by screen width
@@ -285,7 +283,9 @@ launch_scrollback
 .get_char
 	jsr kernal_getchar
 	ldx s_screen_height_minus_one
-	stx z_temp + 10 ; Counter for PgUp/PgDown
+	stx z_temp + 10 ; Counter for how many lines to scoll for PgUp/PgDown
+	ldx #0
+	stx z_temp + 11 ; Counter for how many lines were actually scrolled
 
 	cmp #135
 	bne ++
@@ -301,6 +301,8 @@ launch_scrollback
 -	jsr .scroll_down_one_line
 	dec z_temp + 10
 	bne -
+	lda z_temp + 11
+	beq .done
 	jmp .adjust_and_show_screen
 
 ++	cmp #145
@@ -386,11 +388,12 @@ scrollback_adjust_top_line
 +	rts
 
 .scroll_down_one_line
-		ldq .selected_top_line
+	ldq .selected_top_line
 ; CMPQ is called CPQ in Acme
 	cpq .highest_top_line
 	beq + ; We are at highest top line, ignore scroll request
 	; Not at highest top line
+	inc z_temp + 11
 	inq .selected_top_line
 	ldq .selected_top_line
 ; CMPQ is called CPQ in Acme

@@ -28,10 +28,12 @@
 		SLOW = 1
 	}
 	!ifdef SLOW {
-		; This is never used, since VMEM is always enabled for this target
 		!ifndef VMEM {
 			SKIP_BUFFER = 1
 		}
+	}
+	!ifndef NOSCROLLBACK {
+		SCROLLBACK = 1
 	}
 }
 !ifdef TARGET_PLUS4 {
@@ -910,7 +912,7 @@ game_id		!byte 0,0,0,0
 
 ; include other assembly files
 !source "utilities.asm"
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 !source "scrollback.asm"
 }
 !source "screenkernal.asm"

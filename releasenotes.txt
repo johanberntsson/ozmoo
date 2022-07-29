@@ -14,6 +14,7 @@ New/changed features:
 - Fixed minor problems in tech report.
 - Renamed file names file_name.* to file-name.* to be more similar to other source files. 
 - Made MEGA65 builds use the actual boot file file name when restarting instead of "*" (all other targets already did).
+- New scrollback buffer available on MEGA65.
 
 Optimizations:
 - Faster way to jump to instructions
