@@ -1044,25 +1044,7 @@ def build_interpreter()
 		# since the sound in this game doesn't follow the spec
 		optionalsettings += " -DLURKING_HORROR=1"
 	end
-	if $use_history
-		# set default history size
-		if $use_history == 0 then
-			if $target == "c128" then
-				# c128 doesn't adjust the buffer to .align so we need
-				# to specify the size we actually want.
-				$use_history = 200
-			else
-			    # history will use all available space until the next 
-    			# .align command, but since we can't predict how much
-    			# space will be available allocate minimal buffer.
-				# The real size is in the range [40,255] bytes.
-				$use_history = 40
-			end
-		end
-		if $use_history < 20 || $use_history > 255 then
-			puts "ERROR: -ch only takes an argument in the 20-255 range."
-			exit 1
-		end
+	if $use_history and $use_history > 0
 		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
 	end
 	
@@ -2039,7 +2021,7 @@ def print_usage
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
-	puts "  -ch: Use command line history, with minimum size of <n> bytes."
+	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
@@ -2048,7 +2030,7 @@ def print_usage
 	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
 	puts "  -dm: Enable the ability to switch to dark mode"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
-	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
+	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
@@ -2172,8 +2154,12 @@ begin
 			mode = MODE_71
 		elsif ARGV[i] =~ /^-81$/ then
 			mode = MODE_81
-		elsif ARGV[i] =~ /^-ch:?(\d\d*)?$/ then
-			$use_history = $1.to_i
+		elsif ARGV[i] =~ /^-ch(?::(\d{1,3}))?$/ then
+			if $1 == nil
+				$use_history = 1
+			else
+				$use_history = $1.to_i
+			end
 		elsif ARGV[i] =~ /^-v$/ then
 			$verbose = true
 		elsif ARGV[i] =~ /^-b$/ then
@@ -2283,6 +2269,33 @@ rescue => e
 	print "ERROR: "
 	puts e.message
 	exit 1
+end
+
+if $target == "mega65" and $use_history == nil
+	$use_history = 1 # Default size, set in next step
+end
+if $use_history and $use_history > 0
+	# set default history size
+	if $use_history == 1 then
+		if $target == "mega65" then
+			# MEGA65 has lots of space, default to the max (255)
+			$use_history = 255
+		elsif $target == "c128" then
+			# c128 doesn't adjust the buffer to .align so we need
+			# to specify the size we actually want.
+			$use_history = 200
+		else
+			# history will use all available space until the next 
+			# .align command, but since we can't predict how much
+			# space will be available allocate minimal buffer.
+			# The real size is in the range [40,255] bytes.
+			$use_history = 40
+		end
+	end
+	if $use_history < 20 || $use_history > 255 then
+		puts "ERROR: -ch only takes an argument in the 20-255 range."
+		exit 1
+	end
 end
 
 if scrollback == 1 and $target != "mega65"
