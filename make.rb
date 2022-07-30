@@ -2013,7 +2013,7 @@ end
 def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-re] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-sp:[n]] [-re[:0|1]] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-dd] [-ds]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
@@ -2109,6 +2109,7 @@ $file_name = 'story'
 $sound_format = nil
 $disk_title = nil
 reserve_dir_track = nil
+check_errors = nil
 
 begin
 	while i < ARGV.length
@@ -2233,8 +2234,12 @@ begin
 			$cursor_shape = $1
 		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
-		elsif ARGV[i] =~ /^-re$/ then
-			$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS') 
+		elsif ARGV[i] =~ /^-re(?::([0-1]))?$/ then
+			if $1 == nil
+				check_errors = 1
+			else
+				check_errors = $1.to_i
+			end
 		elsif ARGV[i] =~ /^-sl$/ then
 			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 		elsif ARGV[i] =~ /^-dd$/ then
@@ -2263,6 +2268,16 @@ rescue => e
 	puts e.message
 	exit 1
 end
+
+if $target == "mega65"
+	$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS')
+end
+if check_errors == 0
+	$GENERALFLAGS.delete('CHECK_ERRORS') if $GENERALFLAGS.include?('CHECK_ERRORS')
+elsif check_errors == 1
+	$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS')
+end
+
 
 if $target == "mega65"
 	if preloadfile or (limit_preload_vmem_blocks and preload_max_vmem_blocks > 0) then
