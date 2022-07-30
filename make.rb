@@ -2015,7 +2015,7 @@ def print_usage
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
-	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-dd] [-ds]"
+	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]]"
@@ -2039,8 +2039,8 @@ def print_usage
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
-	puts "  -ch: use command line history, with minimum size of <n> bytes."
-	puts "  -ds: Disable the scrollback buffer"
+	puts "  -ch: Use command line history, with minimum size of <n> bytes."
+	puts "  -sb: Use the scrollback buffer"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -2113,6 +2113,7 @@ $disk_title = nil
 reserve_dir_track = nil
 check_errors = nil
 dark_mode = nil
+scrollback = nil
 
 begin
 	while i < ARGV.length
@@ -2255,8 +2256,12 @@ begin
 			else
 				dark_mode = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-ds$/ then
-			$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
+		elsif ARGV[i] =~ /^-sb(?::([0-1]))?$/ then
+			if $1 == nil
+				scrollback = 1
+			else
+				scrollback = $1.to_i
+			end
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
 		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
@@ -2278,6 +2283,13 @@ rescue => e
 	print "ERROR: "
 	puts e.message
 	exit 1
+end
+
+if scrollback == 1 and $target != "mega65"
+	puts "ERROR: Scrollback buffer is not supported on this target platform."
+	exit 1
+elsif scrollback == 0
+	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 end
 
 if $target == "mega65"
@@ -2542,7 +2554,7 @@ end
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') or dark_mode == 1 
-	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
+	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') or scrollback == 1
 	patch_data_string = $beyondzork_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
 	patch_address = patch_data_arr.shift.to_i(16)
