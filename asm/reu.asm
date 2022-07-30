@@ -265,8 +265,8 @@ store_reu_transfer_params
 .temp = vmem_cache_start + 2
 
 
-.reu_banks_to_check = 32 ; Can be up to 128, but make sure .reu_tmp has room 
-.reu_tmp = streams_stack; 60 bytes, we only use 32
+.reu_banks_to_check = 48 ; Can be up to 128, but make sure .reu_tmp has room 
+.reu_tmp = streams_stack; 60 bytes, we use less (see line just before this)
 
 reu_banks !byte 0
 
@@ -326,9 +326,9 @@ check_reu_size
 	rts
 } else {
 	; Target not MEGA65
-	lda #8 ; Guess 512 KB
-	rts
-}
+;	lda #8 ; Guess 512 KB
+;	rts
+;}
 
 ; Robin Harbron version
 	; lda #0
@@ -380,71 +380,76 @@ check_reu_size
 	; cpx #255
 	; bne .loop3
 	; lda .size
-	rts
+;	rts
 
 
 
 ; My verison
-	; ldx #0
-	; stx object_temp
-	; ; %%%
-	; ; Backup the first value in each 64 KB block in REU, to C64 memory
-; -	lda object_temp
-	; ldx #0
-	; ldy #1
-	; sec
-	; jsr store_reu_transfer_params
-	; lda #%10110001;  REU -> c64 with immediate execution
-	; sta reu_command
-	; lda $100
-	; ldx object_temp
-	; sta $101,x
+	ldx #0
+	stx object_temp
+	; %%%
+	; Backup the first value in each 64 KB block in REU, to C64 memory
+-	lda object_temp
+	jsr .reu_check_read
+	ldx object_temp
+	sta .reu_tmp,x
 
-	; ; Write the number of the 64KB block to the first byte in the block
-	; lda object_temp
-	; sta $100
-	; ldx #0
-	; ldy #1 ; Should be able to skip this
-	; sec
-	; jsr store_reu_transfer_params
-	; lda #%10110000;  c64 -> REU with immediate execution
-	; sta reu_command
-	
-	; ; Read the number in the first byte of the first 64 KB block to see if it's untouched
-	; lda #0
-	; tax
-	; ldy #1 ; Should be able to skip this
-	; sec
-	; jsr store_reu_transfer_params
-	; lda #%10110001;  REU -> c64 with immediate execution
-	; sta reu_command
-	; lda $100
-	; cmp #0
-	; bne +
-	; inc object_temp
-	; lda object_temp
-	; cmp #32
-	; bcc -
-; +		
-	; ; Restore the original contents in all blocks
-	; ldx object_temp ; This now holds the # of 64 KB blocks available in REU
-	; dex
-	; stx object_temp + 1
-	
-	; ; Write the original content of the first byte of each 64KB block to the REU
-; -	ldx object_temp + 1
-	; lda $101,x
-	; sta $100
-	; ldx #0
-	; ldy #1 ; Should be able to skip this
-	; sec
-	; jsr store_reu_transfer_params
-	; lda #%10110000;  c64 -> REU with immediate execution
-	; sta reu_command
-	; dec object_temp + 1
-	; bpl -
-	; rts
+	; Write the number of the 64KB block to the first byte in the block
+	lda object_temp
+	jsr .reu_check_write
 
+; NEW PART	
+	; Check if the number in the first byte in the block is correct
+	lda object_temp
+	jsr .reu_check_read
+	cmp object_temp
+	bne +
+	
+	; Read the number in the first byte of the first 64 KB block to see if it's untouched
+	lda #0
+	jsr .reu_check_read
+	cmp #0
+	bne +
+	inc object_temp
+	lda object_temp
+	cmp #.reu_banks_to_check
+	bcc -
++		
+	; Restore the original contents in all blocks
+	ldx object_temp ; This now holds the # of 64 KB blocks available in REU
+	dex
+	stx object_temp + 1
+	
+	; Write the original content of the first byte of each 64KB block to the REU
+-	ldx object_temp + 1
+	lda .reu_tmp,x
+	jsr .reu_check_write
+	dec object_temp + 1
+	bpl -
+	lda object_temp
+	rts
+
+.reu_check_store	
+	ldx #0
+	ldy #1
+	sec
+	jmp store_reu_transfer_params
+
+.reu_check_read
+	jsr .reu_check_store
+	lda #%10110001;  REU -> c64 with immediate execution
+	sta reu_command
+	lda $100
+	rts
+
+.reu_check_write
+	sta $100
+	jsr .reu_check_store
+	lda #%10110000;  c64 -> REU with immediate execution
+	sta reu_command
+	rts
+	
+}
 }
 
 ; progress_reu = parse_array

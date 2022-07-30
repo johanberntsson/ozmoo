@@ -1607,6 +1607,7 @@ deletable_init
 	sty boot_device ; Boot device# stored
 
 !ifdef TARGET_MEGA65 {
+	jsr m65_init_reu
 
 !ifdef Z3PLUS {
 	jsr m65_load_header
@@ -1982,7 +1983,6 @@ insert_disks_at_boot
 
 }
 .restore_xy_disk_done
-;	inc $d020
 	ldx zp_temp
 	ldy zp_temp + 1
 
@@ -2218,6 +2218,13 @@ prepare_static_high_memory
 	rts
 
 } ; End of VMEM
+
+!ifdef TARGET_MEGA65 {
+m65_init_reu
+	jsr check_reu_size
+	sta reu_banks
+	rts
+}
 
 
 !ifdef TARGET_MEGA65 {
