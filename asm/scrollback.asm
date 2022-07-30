@@ -78,6 +78,8 @@ copy_line_to_scrollback
 launch_scrollback
 	; Backup screen and colour RAM pointers to safe place
 	jsr mega65io
+	lda $d021
+	sta z_operand_value_low_arr + 4
 	ldq $d060
 	stq z_temp + 4
 	ldq $d064
@@ -91,6 +93,9 @@ launch_scrollback
 
 	; Fill relevant portion of colour RAM (start at offset 2 KB) with the game's foreground colour
 	ldx darkmode
+	ldy bgcol,x
+	lda zcolours,y
+	sta $d021
 	ldy fgcol,x
 	lda zcolours,y
 	sta dma_source_address
@@ -332,6 +337,8 @@ launch_scrollback
 	ldq z_temp + 8 ; Note: We only care about the first two bytes
 	sta $d064
 	stx $d065
+	lda z_operand_value_low_arr + 4
+	sta $d021
 	
 	rts
 
