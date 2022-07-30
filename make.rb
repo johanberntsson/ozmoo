@@ -2013,7 +2013,8 @@ end
 def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-re[:0|1]] [-s] [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
+	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-dd] [-ds]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
@@ -2029,11 +2030,11 @@ def print_usage
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
 	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
+	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
 	puts "  -s: start game in Vice if build succeeds"
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
-	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
@@ -2240,8 +2241,12 @@ begin
 			else
 				check_errors = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-sl$/ then
-			$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
+		elsif ARGV[i] =~ /^-sl(?::([0-1]))?$/ then
+			if $1 == '0'
+				$GENERALFLAGS.delete('SLOW') if $GENERALFLAGS.include?('SLOW')
+			else
+				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
+			end
 		elsif ARGV[i] =~ /^-dd$/ then
 			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
 		elsif ARGV[i] =~ /^-ds$/ then
