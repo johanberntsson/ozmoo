@@ -2017,8 +2017,9 @@ def print_usage
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-dd] [-ds]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
-	puts "         [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]] [-ss[1-4]:\"text\"]"
-	puts "         [-sw:[nnn]] [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
+	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
+	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]]"
+	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
@@ -2039,13 +2040,13 @@ def print_usage
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: use command line history, with minimum size of <n> bytes."
-	puts "  -dd: Disable the ability to switch to the dark mode"
 	puts "  -ds: Disable the scrollback buffer"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
+	puts "  -dm: Enable the ability to switch to dark mode"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (0-999 s). Default is 10 if text has been added, 3 if not."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
@@ -2111,6 +2112,7 @@ $sound_format = nil
 $disk_title = nil
 reserve_dir_track = nil
 check_errors = nil
+dark_mode = nil
 
 begin
 	while i < ARGV.length
@@ -2247,8 +2249,12 @@ begin
 			else
 				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 			end
-		elsif ARGV[i] =~ /^-dd$/ then
-			$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
+		elsif ARGV[i] =~ /^-dm(?::([0-1]))?$/ then
+			if $1 == nil
+				dark_mode = 1
+			else
+				dark_mode = $1.to_i
+			end
 		elsif ARGV[i] =~ /^-ds$/ then
 			$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
@@ -2529,9 +2535,13 @@ is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
 
+if dark_mode == 0
+	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
+end	
+
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number
-	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') 
+	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') or dark_mode == 1 
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 	patch_data_string = $beyondzork_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
@@ -2549,6 +2559,7 @@ if is_beyondzork
 		puts "### WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
 	end
 end
+
 if is_trinity
 	patch_data_string = $trinity_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
