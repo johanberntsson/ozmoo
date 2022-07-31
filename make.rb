@@ -2298,7 +2298,10 @@ if $use_history and $use_history > 0
 	end
 end
 
-if scrollback == 1 and $target != "mega65"
+if scrollback == nil and $target == "c64" || $target == "c128"
+	scrollback = 0
+end
+if scrollback == 1 and $target == "plus4"
 	puts "ERROR: Scrollback buffer is not supported on this target platform."
 	exit 1
 elsif scrollback == 0

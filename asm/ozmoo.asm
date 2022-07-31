@@ -60,6 +60,9 @@
 	!ifndef SLOW {
 		SLOW = 1
 	}
+	!ifndef NOSCROLLBACK {
+		SCROLLBACK = 1
+	}
 }
 
 !ifndef TARGET_ASSIGNED {
@@ -73,6 +76,9 @@
 		!ifndef VMEM {
 			SKIP_BUFFER = 1
 		}
+	}
+	!ifndef NOSCROLLBACK {
+		SCROLLBACK = 1
 	}
 }
 
