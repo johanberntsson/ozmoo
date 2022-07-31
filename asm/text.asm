@@ -1785,7 +1785,7 @@ add_line_to_history
 !ifdef USE_BLINKING_CURSOR {
 .cursor_jiffy !byte 0,0,0  ; next cursor update time
 }
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 read_text_level !byte 0 ; Depth of read_text calls ( > 1 only if an interrupt routine calls read_text.)
 read_text_screenrow_start !byte 0
 }

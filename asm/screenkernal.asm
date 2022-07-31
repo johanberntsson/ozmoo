@@ -767,7 +767,7 @@ s_erase_window
 	rts
 }
 
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 s_reset_scrolled_lines
 	pha
 	lda #0
