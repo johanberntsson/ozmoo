@@ -35,6 +35,7 @@ Bugfixes:
 - Default colours were not written to header on MEGA65.
 - Incorrect colours were retrieved from the header when the game asked to set background or foreground colours to default.
 - make.rb failed to autostart game (-s option) if the story file had a space character in it.
+- Fixed bad handling of left and right cursor keys in history mode.
 
 ================================================
 Release 10: 16 June 2022

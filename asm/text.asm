@@ -1397,7 +1397,7 @@ read_text
 	bcc .char_is_ok
 !ifdef USE_HISTORY {
 	cmp #131
-	bcs +
+	bcs .readkey
 	jmp handle_history ; 129 and 130 are cursor up and down
 }
 	cmp #155
