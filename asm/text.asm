@@ -1370,7 +1370,7 @@ read_text
 	iny
 	cpy num_terminating_characters
 	bne -
-+   cmp #8
++   cmp #8 ; delete key
 	bne +
 	; allow delete if anything in the buffer
 	ldy .read_text_column
@@ -1393,17 +1393,20 @@ read_text
 	cmp #32
 	bcs ++
 	jmp .readkey
-++	cmp #128
+++	cmp #128 ; < 128 is delete, newline, and standard ascii keys
 	bcc .char_is_ok
 !ifdef USE_HISTORY {
+	; cursor: 129,130,131,132 = up,down,left,right
 	cmp #131
-	bcc handle_history  ; 129 and 130 are cursor up and down
+	bcc handle_history 
+	cmp #133
+	bcs +
 	jmp .readkey
 }
-	cmp #155
+	cmp #155 ; start of extra characters
 	bpl +
 	jmp .readkey
-+	cmp #252
++	cmp #252 ; end of extra characters
 	bcc .char_is_ok
 	jmp .readkey	
 	; print the allowed char and store in the array
