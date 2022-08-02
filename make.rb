@@ -2569,6 +2569,8 @@ end
 
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number
+	# Turn off features that don't work properly in BZ anyway
+	$use_history = nil 
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') or dark_mode == 1 
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') or scrollback == 1
 	patch_data_string = $beyondzork_releases[storyfile_key]
