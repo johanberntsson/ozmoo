@@ -784,7 +784,7 @@ s_scrolled_lines !byte 0
 	bpl +
 	rts
 +	
-!ifdef TARGET_MEGA65 {
+!ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
 !ifdef TARGET_MEGA65 {
