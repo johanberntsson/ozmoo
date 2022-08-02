@@ -1398,13 +1398,12 @@ read_text
 !ifdef USE_HISTORY {
 	; cursor: 129,130,131,132 = up,down,left,right
 	cmp #131
-	bcc handle_history 
-	cmp #133
 	bcs +
-	jmp .readkey
+	jmp handle_history 
++
 }
 	cmp #155 ; start of extra characters
-	bpl +
+	bcs +
 	jmp .readkey
 +	cmp #252 ; end of extra characters
 	bcc .char_is_ok
