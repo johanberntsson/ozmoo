@@ -1437,23 +1437,24 @@ z_init
 }
 
 !zone deletable_init {
+!ifdef TARGET_PLUS4_OR_C128 {
+fkey_codes !byte $85,$89,$86,$8a,$87,$8b,$88,$8c
+}
 
 deletable_init_start
 
 ; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
 !ifdef TARGET_PLUS4_OR_C128 {
-	ldx #$85
+	ldx #8
 -	lda #1
-	sta fkey_string_lengths - $85,x
-	txa
-	sta fkey_string_area - $85,x
-	inx
-	cpx #$85 + 8
-	bcc -
+	sta fkey_string_lengths - 1,x
+	lda fkey_codes - 1,x
+	sta fkey_string_area - 1,x
+	dex
+	bne -
 !ifdef TARGET_C128 {
-	lda #0
-	sta fkey_string_lengths + 8
-	sta fkey_string_lengths + 9
+	stx fkey_string_lengths + 8
+	stx fkey_string_lengths + 9
 }
 }
 
