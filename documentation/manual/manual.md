@@ -479,13 +479,9 @@ Allows the player to press F5 to enter scrollback mode, where they can scroll up
 
 To run an Inform 7 game (which may be feasible on the MEGA65), you want to set the number of stack pages to its highest setting: 64.
 
-## Option -u
-
--u is used to enable the "unsafe" mode, which remove some runtime checks, reducing code size and increasing speed. This is typically used when the game is in a good state, but you need to make it smaller to fit into the available memory.
-
 ## Option -cm:[xx]
 
-Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo have support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
+Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo has support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
 
 ## Option -in:[n]
 
@@ -509,8 +505,8 @@ The interpreter number is used by a few games to modify the screen output format
 
 ## Option -re[:0|1]
 
--re or -re:1 enables extended runtime error checks, while -re:0 disable them. They are enabled by default on MEGA65 only.
+-re or -re:1 enables extended runtime error checks, while -re:0 disables them. They are enabled by default on MEGA65 only.
 
 ## Option -sl[:0|1]
 
--sl or -sl:1 enables slow mode, while -sl:0 disable it. This has an effect on builds for C64 only, and not in -P build mode. Slow mode removes some optimizations for speed, making the interpreter slightly smaller.
+-sl or -sl:1 enables slow mode, while -sl:0 disables it. This has an effect on builds for C64 only, and not in -P build mode. Slow mode removes some optimizations for speed, making the interpreter slightly smaller.
