@@ -285,8 +285,8 @@ Ozmoo lets you pick two different colour schemes for your game. We refer to thes
 
 make.rb has the following switches to control colours:
 
-    -dd
-Disables darkmode.
+    -dm:0
+Disables darkmode. (-dm or -dm:1 can be used to enable it, but it's already enabled by default unless the game is Beyond Zork)
 
     -rc:(Z-code colour)=(C64 colour), ...
 Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
@@ -464,8 +464,12 @@ make.rb -i spaceship.mb -t:plus4 game.z5
 
 There is an optional command line history feature that can be activated by -ch. If activated, it uses the wasted space between the interpreter and the virtual memory buffers to store command lines, that can later be retrieved using the cursor up and down keys. The maximum space allowed for the history is 255 bytes, but the stored lines are saved compactly so if only short commands like directions, "i" and "open door" etc are used it will fit quite a lot.
 
-Since memory is limited on old computers this feature is disabled by default. To
-enable it use -ch. This will allocate a history buffer large enough to be useful. It is also possible to manually define the minimal size of the history buffer with -ch:n, where n is 20-255 (bytes).
+Since memory is limited on old computers this feature is disabled by default, except for MEGA65. To
+enable it use -ch or -ch:1. This will allocate a history buffer large enough to be useful. It is also possible to manually define the minimal size of the history buffer with -ch:n, where n is 20-255 (bytes). Use -ch:0 to disable it.
+
+# Scrollback buffer
+
+Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. Requires a MEGA65, or a C64 or C128 with REU. Also, the REU has to be big enough to hold the buffer. The buffer is 1 MB in size for the MEGA65, 64 KB for a C64 or C128 with REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0.
 
 # Miscellaneous options
 
@@ -502,3 +506,11 @@ The interpreter numbers, originally defined by Infocom, are as follows:
     11 = Tandy Color
 
 The interpreter number is used by a few games to modify the screen output format. In Ozmoo we set 2 for Beyond Zork, 7 for C128 builds,  and 8 for other games by default, but -in allows you to try other interpreter numbers.
+
+## Option -re[:0|1]
+
+-re or -re:1 enables extended runtime error checks, while -re:0 disable them. They are enabled by default on MEGA65 only.
+
+## Option -sl[:0|1]
+
+-sl or -sl:1 enables slow mode, while -sl:0 disable it. This has an effect on builds for C64 only, and not in -P build mode. Slow mode removes some optimizations for speed, making the interpreter slightly smaller.
