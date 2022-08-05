@@ -839,6 +839,11 @@ game_id		!byte 0,0,0,0
 	;
 !if SUPPORT_REU = 1 {
 	jsr reu_start
+	!ifdef SCROLLBACK {
+		jsr init_reu_scrollback
+	}
+	lda #147
+	jsr s_printchar
 }
 .supercpu
 }
@@ -894,6 +899,10 @@ game_id		!byte 0,0,0,0
 }
 	cli
 
+!ifdef SCROLLBACK {
+	lda scrollback_supported
+	sta scrollback_enabled
+}
 
 	jsr z_execute
 

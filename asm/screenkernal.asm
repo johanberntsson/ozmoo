@@ -128,24 +128,24 @@ plus4_vic_colours
 ; 13 = light yellow
 ; 14 = dark white (light gray)
 ; 15 = light white
-vdc_vic_colours
-	;     VDC    VIC-II
-	!byte 0    ; black
-	!byte 15   ; white
-	!byte 8    ; red
-	!byte 7    ; cyan
-	!byte 10   ; purple
-	!byte 4    ; green
-	!byte 3    ; blue
-	!byte 13   ; yellow
-	!byte 12   ; orange
-	!byte 12   ; brown 
-	!byte 9    ; light red
-	!byte 1    ; dark grey
-	!byte 14   ; grey
-	!byte 5    ; light green
-	!byte 3    ; light blue
-	!byte 14   ; light grey
+vdc_vic_colours = $ce5c ; The official conversion table in ROM
+	; ;     VDC    VIC-II
+	; !byte 0    ; black
+	; !byte 15   ; white
+	; !byte 8    ; red
+	; !byte 7    ; cyan
+	; !byte 10   ; purple
+	; !byte 4    ; green
+	; !byte 3    ; blue
+	; !byte 13   ; yellow
+	; !byte 12   ; orange
+	; !byte 12   ; brown 
+	; !byte 9    ; light red
+	; !byte 1    ; dark grey
+	; !byte 14   ; grey
+	; !byte 5    ; light green
+	; !byte 3    ; light blue
+	; !byte 14   ; light grey
 
 C128SetBackgroundColour
 	stx .stored_x_or_y

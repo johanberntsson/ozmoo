@@ -396,6 +396,7 @@ check_reu_size
 
 	; Write the number of the 64KB block to the first byte in the block
 	lda object_temp
+	sta $100
 	jsr .reu_check_write
 
 ; NEW PART	
@@ -423,6 +424,8 @@ check_reu_size
 	; Write the original content of the first byte of each 64KB block to the REU
 -	ldx object_temp + 1
 	lda .reu_tmp,x
+	sta $100
+	txa
 	jsr .reu_check_write
 	dec object_temp + 1
 	bpl -
@@ -443,7 +446,6 @@ check_reu_size
 	rts
 
 .reu_check_write
-	sta $100
 	jsr .reu_check_store
 	lda #%10110000;  c64 -> REU with immediate execution
 	sta reu_command

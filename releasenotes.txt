@@ -14,7 +14,13 @@ New/changed features:
 - Fixed minor problems in tech report.
 - Renamed file names file_name.* to file-name.* to be more similar to other source files. 
 - Made MEGA65 builds use the actual boot file file name when restarting instead of "*" (all other targets already did).
-- New scrollback buffer available on MEGA65.
+- New scrollback buffer available on MEGA65, C64 with REU and C128 with REU. Enabled by default on MEGA65. Enable with -sb or -sb:1. Disable with -sb:0. 
+- Command history is now enabled by default on MEGA65.
+- New make.rb syntax for command history: -ch or -ch:1 to enable it, using the default buffer size. -ch:0 to disable it.
+- Option -re (check for runtime errors) is now enabled by default for MEGA65.
+- New make.rb syntax for runtime errors: -re or -re:1 to turn it on. -re:0 to turn it off.
+- New make.rb syntax for slow mode: -sl or -sl:1 to turn it on. -sl:0 to turn it off.
+- Option -dd (disable darkmode) has been replaced by -dm or -dm:1 to enable darkmode or -dm:0 to disable it. Darkmode is still enabled by default, except for the game Beyond Zork, where it doesn't work well.
 
 Optimizations:
 - Faster way to jump to instructions
