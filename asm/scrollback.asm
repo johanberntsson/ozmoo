@@ -475,6 +475,13 @@ scrollback_colour_backup_page !byte $08,0
 
 init_reu_scrollback
 	lda scrollback_bank + 1
+	!ifdef TARGET_C128 {
+		ldx COLS_40_80
+		beq +
+		; In 80 column mode we don't need the second bank (used for VIC screen data backup)
+		lda scrollback_bank
++
+	}
 	cmp reu_banks
 	bcs .disable_scrollback
 	dec scrollback_supported ; Set to $ff = supported
@@ -500,9 +507,9 @@ init_reu_scrollback
 	sta scrollback_max_line_count
 	lda #>(($10000 - scrollback_prebuffer_size * 256) / 40)
 	sta scrollback_max_line_count + 1
-	lda #<40*(($10000 - scrollback_prebuffer_size * 256) / 40)
+	lda #<(40*(($10000 - scrollback_prebuffer_size * 256) / 40))
 	sta scrollback_prebuffer_copy_from
-	lda #>40*(($10000 - scrollback_prebuffer_size * 256) / 40)
+	lda #>(40*(($10000 - scrollback_prebuffer_size * 256) / 40))
 	sta scrollback_prebuffer_copy_from + 1
 .is_80_col
 }
@@ -760,7 +767,6 @@ launch_scrollback
 	sta reu_command
 	bne .done_filling_prebuffer ; Always branch
 
-	
 .copy_end_to_beginning
 	jsr get_free_vmem_buffer
 	sta z_operand_value_low_arr + 6

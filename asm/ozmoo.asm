@@ -804,7 +804,6 @@ fileblocks !byte 0, 0, 0
 game_id		!byte 0,0,0,0
 }
 
-
 .initialize
 	cld
 	cli
@@ -840,7 +839,45 @@ game_id		!byte 0,0,0,0
 !if SUPPORT_REU = 1 {
 	jsr reu_start
 	!ifdef SCROLLBACK {
-		jsr init_reu_scrollback
+		lda #0
+		sta z_temp + 1
+		lda story_start + header_filelength
+		!ifndef Z4PLUS {
+			asl
+			rol z_temp + 1
+		} else {
+			!ifdef Z7PLUS {
+				ldx #3
+			-	asl
+				rol z_temp + 1
+				dex
+				bne -
+			} else {
+				rol z_temp + 1
+				dex
+				rol z_temp + 1
+				dex
+			}
+		}
+		sec
+		sbc story_start + header_static_mem
+		tay
+		lda z_temp + 1
+		sbc #0
+		tax
+		tya
+		clc
+		adc #4 ; Add 1 KB for rounding errors + empty block in REU
+		txa
+		adc #1
+		tax
+		; X now holds an upper limit on statmem size in 64 KB blocks
+		cpx scrollback_bank
+		bcs +
+		stx scrollback_bank
+		inx
+		stx scrollback_bank + 1
++		jsr init_reu_scrollback
 	}
 	lda #147
 	jsr s_printchar
