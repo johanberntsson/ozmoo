@@ -21,9 +21,10 @@ New/changed features:
 - New make.rb syntax for runtime errors: -re or -re:1 to turn it on. -re:0 to turn it off.
 - New make.rb syntax for slow mode: -sl or -sl:1 to turn it on. -sl:0 to turn it off.
 - Option -dd (disable darkmode) has been replaced by -dm or -dm:1 to enable darkmode or -dm:0 to disable it. Darkmode is still enabled by default, except for the game Beyond Zork, where it doesn't work well.
+- Ozmoo used to ignore REU:s smaller than 512 KB. It can now use any REU size. The REU can be used to cache game data and/or scrollback buffer.
 
 Optimizations:
-- Faster way to jump to instructions
+- Faster way to jump to instruction code
 - Made restart code less different for different targets, and shorter for Plus/4 and C128. 
 - Optimized multiplication for input interrupt intervals, thus removing the last use of the generic 16-bit unsigned multiplication routine.
 - Removed the generic 16-bit unsigned multiplication routine mult16
