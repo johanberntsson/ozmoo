@@ -61,10 +61,19 @@ However, really large games may use two Story disks. Such games can only be play
 # Copying
 An Ozmoo game stores data directly onto the floppy disk in addition to files. Because of this, it is not possible to copy a game to a new floppy by just copying files. If you want to make a copy you need to use a copy program that copies the whole disk, sectors by sector.
 
-# RAM expansion
-Ozmoo can use a RAM expansion unit (REU) to cache story data. If Ozmoo detects an REU at startup, it will ask if you want to use the REU or not. If the REU is 512 KB or more, any game will fit. If it is smaller then it depends on the game size. If the REU is too small to fit the whole game Ozmoo will typically crash - just restart and don't use the REU in that case.
+# Using an REU for faster gameplay
+Ozmoo for C64 and C128 can use a RAM expansion unit (REU) to cache story data. This makes gameplay faster, but the game will take longer to start. 
 
-A REU can be used instead of a second floppy drive when playing very large games, as described in the "Large games" section above.
+If Ozmoo detects an REU at startup, and it's big enough to hold all game data, Ozmoo will ask if you want to use the REU for faster play. If the REU is 512 KB or more, any game will fit.
+
+An REU can be used instead of a second floppy drive when playing very large games that would otherwise need dual floppy drives, as described in the "Large games" section above.
+
+# Scrollback buffer
+Ozmoo has an optional feature called Scrollback buffer, which can be used on the MEGA65, on a C64 with an REU, or on a C128 with an REU. This allows you to press F5 at any input prompt or More prompt, to access the text the game has printed this far. You should be able to scroll through the last 30 screenfuls of text or more, using F5/F7 as PageUp/PageDown.
+
+If Ozmoo was built with this feature, the splash screen will say "F5=Scrollback". If you have an REU, it will then ask if you want to use the REU for faster gameplay. If you answer Yes, part of the REU memory or all of it will be reserved for storing game data. If there is enough room left for a scrollback buffer, the scrollback feature will work. If not, you will get a message saying "Scrollback not available.". This will also happen if you don't have an REU.
+
+If you have a smaller REU, you may have to choose whether you want to use it for caching game data or to keep a scrollback buffer. If you answer No to the question at the beginning, or you don't get the question because the REU is too small to hold the game data, the scrollback buffer will be available.
 
 # Patched games
 
