@@ -837,43 +837,49 @@ game_id		!byte 0,0,0,0
 	; https://www.lemon64.com/forum/viewtopic.php?t=68824&sid=330a8c62e22ebd2cf654c14ae8073fb9
 	;
 !if SUPPORT_REU = 1 {
-	jsr reu_start
-	!ifdef SCROLLBACK {
-		lda #0
-		sta z_temp + 1
-		lda story_start + header_filelength
-		!ifndef Z4PLUS {
-			asl
+	lda #0
+	sta z_temp + 1
+	lda story_start + header_filelength
+	!ifndef Z4PLUS {
+		asl
+		rol z_temp + 1
+	} else {
+		!ifdef Z7PLUS {
+			ldx #3
+		-	asl
 			rol z_temp + 1
+			dex
+			bne -
 		} else {
-			!ifdef Z7PLUS {
-				ldx #3
-			-	asl
-				rol z_temp + 1
-				dex
-				bne -
-			} else {
-				rol z_temp + 1
-				dex
-				rol z_temp + 1
-				dex
-			}
+			rol z_temp + 1
+			dex
+			rol z_temp + 1
+			dex
 		}
-		sec
-		sbc story_start + header_static_mem
-		tay
-		lda z_temp + 1
-		sbc #0
-		tax
-		tya
-		clc
-		adc #4 ; Add 1 KB for rounding errors + empty block in REU
-		txa
-		adc #1
-		tax
-		; X now holds an upper limit on statmem size in 64 KB blocks
+	}
+	sec
+	sbc story_start + header_static_mem
+	tay
+	lda z_temp + 1
+	sbc #0
+	tax
+	tya
+	clc
+	adc #4 ; Add 1 KB for rounding errors + empty block in REU
+	txa
+	adc #1
+	; A now holds an upper limit on statmem size in 64 KB blocks
+	sta statmem_reu_banks
+
+	jsr reu_start
+
+	!ifdef SCROLLBACK {
+		ldx use_reu
+		beq .store_bank_number
+		ldx statmem_reu_banks
 		cpx scrollback_bank
 		bcs +
+.store_bank_number
 		stx scrollback_bank
 		inx
 		stx scrollback_bank + 1
@@ -2138,6 +2144,8 @@ copy_data_from_disk_at_zp_temp_to_reu
 .reu_error
 	jmp reu_error
 
+statmem_reu_banks !byte 0
+
 reu_start
 	lda #0
 	sta use_reu
@@ -2151,9 +2159,8 @@ reu_start
 	jsr check_reu_size
 ;	lda #0 ; SKIP REU FOR DEBUGGING PURPOSES
 	sta reu_banks
-	cmp #8
-	bcc .no_reu_present ; If REU size < 512 KB, don't use it.
-;	sta $0700
+	cmp statmem_reu_banks
+	bcc .no_reu_present ; REU is too small to cache this game
 
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
@@ -2186,7 +2193,7 @@ reu_start
 	rts
 
 .use_reu_question
-	!pet 13,"Use REU? (Y/N) ",0
+	!pet 13,"Use REU for faster play? (Y/N)",0
 
 
 } ; if SUPPORT_REU = 1

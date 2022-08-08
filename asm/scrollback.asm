@@ -2,47 +2,48 @@
 
 scrollback_enabled !byte 0 ; This is set to $ff at init if an REU is present and there is space
 !ifdef TARGET_MEGA65 {
-	scrollback_supported !byte $ff
-	scrollback_prebuffer_size = $10; (in pages) $1000 = 4KB
+scrollback_supported !byte $ff
+normal_line_length = 80
+scrollback_prebuffer_pages = $10; (in pages) $1000 = 4KB
+scrollback_prebuffer_pages_32 !byte 0, scrollback_prebuffer_pages, 0, 0
+.scrollback_screen_ram !le32 $00010000
+scrollback_total_buffer_size = $100000;
+scrollback_start_minus_50_lines !le32 $08200000 + (scrollback_prebuffer_pages << 8) - 50 * 80
 } else {
-	scrollback_supported !byte 0
-	!ifdef TARGET_C128 {
-		scrollback_prebuffer_size = $08; (in pages) $0800 = 2KB
-	} else {
-		scrollback_prebuffer_size = $04; (in pages) $0400 = 1KB
-	}
+scrollback_supported !byte 0
+scrollback_total_buffer_size = $10000;
+!ifdef TARGET_C128 {
+normal_line_length = 80
+scrollback_prebuffer_pages = $08; (in pages) $0800 = 2KB
+scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_pages << 8) - 25 * 80
+} else {
+normal_line_length = 40
+scrollback_prebuffer_pages = $04; (in pages) $0400 = 1KB
+scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_pages << 8) - 25 * 40
 }
-scrollback_prebuffer_size_32 !byte 0, scrollback_prebuffer_size, 0, 0
+}
 scrollback_prebuffer_start !byte 0, 0, $20, $08 ; First two bytes must be 0. Third value is altered on init for C64/C128. Last value is ignored for C64/128
-!ifdef TARGET_MEGA65 {
-scrollback_start_minus_50_lines !le32 $08200000 + (scrollback_prebuffer_size << 8) - 50 * 80
-} else {
-!ifdef TARGET_C128 {
-scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_size << 8) - 25 * 80
-} else {
-scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_size << 8) - 25 * 40
-}
-}
-scrollback_start !byte 0, scrollback_prebuffer_size, $20, $08
-scrollback_current !byte 0, scrollback_prebuffer_size, $20, $08
+scrollback_start !byte 0, scrollback_prebuffer_pages, $20, $08
+scrollback_current !byte 0, scrollback_prebuffer_pages, $20, $08
 scrollback_line_count !word 0
-!ifdef TARGET_C64 {
-scrollback_max_line_count !word (($10000 - scrollback_prebuffer_size * 256) / 40), 0
-scrollback_prebuffer_copy_from !word 40*(($10000 - scrollback_prebuffer_size * 256) / 40), 0
-} else {
-!ifdef TARGET_C128 {
+; !ifdef TARGET_C64 {
+; scrollback_max_line_count !word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40), 0
+; scrollback_prebuffer_copy_from !word 40*((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40), 0
+; } else {
+; !ifdef TARGET_C128 {
+; ; First word must be > 50. Second word must be 0.
+; scrollback_max_line_count !word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 80), 0
+; scrollback_prebuffer_copy_from !word 80*((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 80), 0
+; } else {
 ; First word must be > 50. Second word must be 0.
-scrollback_max_line_count !word (($10000 - scrollback_prebuffer_size * 256) / 80), 0
-scrollback_prebuffer_copy_from !word 80*(($10000 - scrollback_prebuffer_size * 256) / 80), 0
-} else {
-; First word must be > 50. Second word must be 0.
-scrollback_max_line_count !word (($100000 - scrollback_prebuffer_size * 256) / 80), 0
-scrollback_prebuffer_copy_from !word 80*(($100000 - scrollback_prebuffer_size * 256) / 80), 0
-}
-} 
+scrollback_max_line_count 
+	!word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / normal_line_length), 0
+scrollback_prebuffer_copy_from 
+	!le32  $08200000 + normal_line_length * ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / normal_line_length)
+; }
+; } 
 scrollback_has_wrapped !byte 0
 !ifdef TARGET_MEGA65 {
-.scrollback_screen_ram !le32 $00010000
 }
 .selected_top_line !word 0, 0
 .adjusted_top_line !word 0, 0
@@ -118,11 +119,15 @@ copy_line_to_scrollback
 	; Restore bank value of dynmem pointer
 +	pla
 	sta dynmem_pointer + 2
+.return	
 	rts
 
 launch_scrollback
+	lda scrollback_enabled
+	beq .return
+
 	; Backup screen and colour RAM pointers to safe place
-§	jsr mega65io
+	jsr mega65io
 	lda $d021
 	sta z_operand_value_low_arr + 4
 	ldq $d060
@@ -192,7 +197,7 @@ launch_scrollback
 	sta dma_dest_address_top
 	lda #0
 	sta dma_count
-	lda #scrollback_prebuffer_size
+	lda #scrollback_prebuffer_pages
 	sta dma_count + 1
 	
 	lda scrollback_has_wrapped
@@ -213,7 +218,7 @@ launch_scrollback
 	stq $d774
 	ldq $d778	
 	sec
-	sbcq scrollback_prebuffer_size_32
+	sbcq scrollback_prebuffer_pages_32
 	clc
 	adcq scrollback_start
 	sta dma_source_address
@@ -273,9 +278,11 @@ launch_scrollback
 	clc
 	adc scrollback_max_line_count
 	sta .selected_top_line
+	sta .highest_top_line
 	lda .selected_top_line + 1
 	adc scrollback_max_line_count + 1
-	sta .selected_top_line
+	sta .selected_top_line + 1
+	sta .highest_top_line + 1
 ++
 .adjust_and_show_screen
 	jsr scrollback_adjust_top_line
@@ -471,7 +478,7 @@ scrollback_screen_backup_page !byte 0,0
 scrollback_colour_backup_page !byte $08,0
 .space !byte 32
 
-.msg_not_available !pet "Scrollback not available.", 13, 13, 0
+.msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
 
 init_reu_scrollback
 	lda scrollback_bank + 1
@@ -499,17 +506,17 @@ init_reu_scrollback
 	ldx COLS_40_80
 	bne .is_80_col
 	; 40 column -> Set new values for some constants
-	lda #<((scrollback_prebuffer_size << 8) - 25 * 40)
+	lda #<((scrollback_prebuffer_pages << 8) - 25 * 40)
 	sta scrollback_start_minus_25_lines
-	lda #>((scrollback_prebuffer_size << 8) - 25 * 40)
+	lda #>((scrollback_prebuffer_pages << 8) - 25 * 40)
 	sta scrollback_start_minus_25_lines + 1
-	lda #<(($10000 - scrollback_prebuffer_size * 256) / 40)
+	lda #<((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40)
 	sta scrollback_max_line_count
-	lda #>(($10000 - scrollback_prebuffer_size * 256) / 40)
+	lda #>((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40)
 	sta scrollback_max_line_count + 1
-	lda #<(40*(($10000 - scrollback_prebuffer_size * 256) / 40))
+	lda #<(40*((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40))
 	sta scrollback_prebuffer_copy_from
-	lda #>(40*(($10000 - scrollback_prebuffer_size * 256) / 40))
+	lda #>(40*((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40))
 	sta scrollback_prebuffer_copy_from + 1
 .is_80_col
 }
@@ -593,9 +600,13 @@ copy_line_to_scrollback
 	stx scrollback_line_count
 	stx scrollback_line_count + 1
 
+.return
 +	rts
 
 launch_scrollback
+	lda scrollback_enabled
+	beq .return
+
 	; Backup screen and colour RAM to safe place
 	lda scrollback_screen_backup_page + 1
 	ldx scrollback_screen_backup_page
@@ -759,7 +770,7 @@ launch_scrollback
 	jsr store_reu_transfer_params
 	lda #<.space
 	sta reu_c64base
-	lda #scrollback_prebuffer_size
+	lda #scrollback_prebuffer_pages
 	sta reu_translen + 1
 	lda #$80
 	sta reu_control ; Fix C64 address
@@ -772,7 +783,7 @@ launch_scrollback
 	sta z_operand_value_low_arr + 6
 
 	; Copy prebuffer size pages from scrollback_prebuffer_copy_from to prebuffer
-	ldx #scrollback_prebuffer_size
+	ldx #scrollback_prebuffer_pages
 	dex
 	stx z_operand_value_low_arr + 7
 -	lda z_operand_value_low_arr + 7
@@ -801,6 +812,7 @@ launch_scrollback
 	dec z_operand_value_low_arr + 7
 	bpl -
 
+boll
 .done_filling_prebuffer	
 
 	; Init to show last screenful
@@ -836,15 +848,17 @@ launch_scrollback
 	stx .lowest_top_line + 1
 	stx .highest_top_line
 	stx .highest_top_line + 1
-		beq ++ ; Always branch
+	beq ++ ; Always branch
 .wrap_selected_top_line
 	lda .selected_top_line
 	clc
 	adc scrollback_max_line_count
 	sta .selected_top_line
+	sta .highest_top_line
 	lda .selected_top_line + 1
 	adc scrollback_max_line_count + 1
-	sta .selected_top_line
+	sta .selected_top_line + 1
+	sta .highest_top_line + 1
 ++
 .adjust_and_show_screen
 	jsr scrollback_adjust_top_line
