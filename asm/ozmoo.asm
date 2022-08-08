@@ -851,10 +851,10 @@ game_id		!byte 0,0,0,0
 			dex
 			bne -
 		} else {
+			asl
 			rol z_temp + 1
-			dex
+			asl
 			rol z_temp + 1
-			dex
 		}
 	}
 	sec

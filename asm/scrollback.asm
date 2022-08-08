@@ -812,7 +812,6 @@ launch_scrollback
 	dec z_operand_value_low_arr + 7
 	bpl -
 
-boll
 .done_filling_prebuffer	
 
 	; Init to show last screenful
