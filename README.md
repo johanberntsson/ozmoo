@@ -11,6 +11,8 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018-2022
 
 ## Status
 
+Update 2022-08-09: Release 11 with support for a scrollback buffer on MEGA65, C64 with REU and C128 with REU. Ozmoo also supports smaller REUs now.
+
 Update 2022-Jun-16: Release 10 with MEGA65 support for sound, unlimited dynamic memory and large stack (the stack mod makes it possible to play some lightweight Inform 7 games).
 
 Update 2021-Nov-28: Release 9 with support for z1, z2 and z7 games.
@@ -75,6 +77,7 @@ Ozmoo supports:
 * Custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian, Spanish and French.
 * Custom colour schemes.
 * A fully configurable secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
+* A scrollback buffer, letting the player reread the text that has scrolled off the screen. Requires a MEGA65, a C64 with an REU or a C128 with an REU.
 * A configurable splash screen which is shown just before the game starts.
 * Up to ten save slots on a save disk (and most games will get the full ten slots).
 * Writing a name for each saves position.
