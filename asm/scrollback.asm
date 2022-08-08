@@ -1212,6 +1212,7 @@ scrollback_adjust_top_line
 	lda .selected_top_line + 1
 	sta .adjusted_top_line + 1
 	ora .selected_top_line
+	ora scrollback_has_wrapped
 	bne .adjust_maybe_wrap
 	; .selected_top_line is 0.
 	lda scrollback_line_count
