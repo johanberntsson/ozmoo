@@ -6,7 +6,7 @@ scrollback_supported !byte $ff
 normal_line_length = 80
 scrollback_prebuffer_pages = $10; (in pages) $1000 = 4KB
 scrollback_prebuffer_pages_32 !byte 0, scrollback_prebuffer_pages, 0, 0
-.scrollback_screen_ram !le32 $00010000
+.scrollback_screen_ram !le32 $00040000
 scrollback_total_buffer_size = $100000;
 scrollback_start_minus_50_lines !le32 $08200000 + (scrollback_prebuffer_pages << 8) - 50 * 80
 } else {
@@ -166,10 +166,11 @@ launch_scrollback
 	lda #$00
 	sta dma_command_lsb ; Has been changed to $03 (FILL), must be restored to $00 (COPY)
 
-	lda #0
-	tax
-	taz
-	ldy #$01
+	ldq .scrollback_screen_ram
+	; lda #0
+	; tax
+	; taz
+	; ldy #$01
 	stq z_operand_value_high_arr + 4
 	ldz #79
 	ldy #79
@@ -323,10 +324,10 @@ launch_scrollback
 	lsr
 	ora #$80 ; Base of HyperRAM
 	sta dma_source_address_top
-	ldx #1
-	stx dma_dest_bank_and_flags
-	dex
+	ldq .scrollback_screen_ram
+	sty dma_dest_bank_and_flags
 	stx dma_dest_address + 1
+	ldx #0
 	stx dma_dest_address_top
 	ldx #$50
 	stx dma_dest_address

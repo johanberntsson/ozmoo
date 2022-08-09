@@ -122,13 +122,13 @@ On the MEGA65, the boot file doesn't hold any story data, the entire Z-code file
 | **Address range** | **KB** |  **Usage** |
 | -- |  ---- |
 | \$0000-\$ffff | 64 | System RAM, screen RAM, interpreter |
-| \$10000-\$107ff | 2 | Screen RAM for scrollback mode |
+| \$40000-\$40fff | 4 | Screen RAM for scrollback mode |
 | \$08000000-\$0807ffff | 512| Story file |
 | \$08080000-\$080800ff: | 0.25 | Signature of last game that was loaded (to make restart faster) |
 | \$08100000-\$081fffff: | 1024 | Sound data |
 | \$08200000-\$082fffff: | 1024 | Scrollback buffer |
 | \$0ff80000-\$0ff807ff: | 2 | Colour RAM |
-| \$0ff80800-\$0ff81fff: | 2 | Colour RAM for scrollback mode|
+| \$0ff80800-\$0ff817ff: | 4 | Colour RAM for scrollback mode|
 
 ## Save and Restore
 
