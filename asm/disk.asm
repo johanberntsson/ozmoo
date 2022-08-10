@@ -1456,16 +1456,20 @@ do_restore
 	jsr kernal_readchar
 	sta [.m65_save_start],z
 
+	jsr kernal_readst
+	bne .file_reading_done
+
 	inc .m65_save_start
 	bne +
 	inc .m65_save_start + 1
 
 +	dec .m65_save_count
-	bne -
-	lda .m65_save_count + 1
-	beq .file_reading_done
+	lda .m65_save_count
+	cmp #255
+	bne +
 	dec .m65_save_count + 1
-	jmp -
++	ora .m65_save_count + 1
+	bne -
 
 .file_reading_done
 	clc
@@ -1552,7 +1556,12 @@ do_save
 	sta .m65_save_start + 3
 	ldy #header_static_mem
 	jsr read_header_word
-	jsr .m65_save_write_to_file
+	; Increase by one, since the last byte is skipped (ROM bug?)
+	inx
+	bne +
+	clc
+	adc #1
++	jsr .m65_save_write_to_file
 	
 	php ; store c flag so error can be checked by calling routine
 	jsr close_io
@@ -1563,28 +1572,30 @@ do_save
 	; In: a,x: number of bytes to write to file
 	; Returns: Carry set if failed
 	; File should already be open and be default channel for output
-	sta .m65_save_count + 1
-	stx .m65_save_count
-	
-	; jsr kernal_readst
-	; bne .file_copying_done
-	
+	tay
 	ldz #0
--	lda [.m65_save_start],z
+
+-	cpx #0
+	bne +
+	cpy #0
+	beq .file_copying_done
+
++	lda [.m65_save_start],z
 	jsr kernal_printchar
 
 	inc .m65_save_start
 	bne +
 	inc .m65_save_start + 1
 
-+	dec .m65_save_count
++	dex
+	cpx #255
 	bne -
-	lda .m65_save_count + 1
-	beq .file_copying_done
-	dec .m65_save_count + 1
+	dey
+	
 	jmp -
 
 .file_copying_done
+	clc
 	rts
 
 

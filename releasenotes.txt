@@ -1,6 +1,13 @@
 RELEASE NOTES
 
 ================================================
+Release 11.2: 10 August 2022
+
+Bugfixes:
+
+- Workaround for ROM bug on MEGA65 which caused last byte of dynamic memory not to be saved, and then this byte was corrupted on restore.
+
+================================================
 Release 11.1: 9 August 2022
 
 Bugfixes:
