@@ -383,7 +383,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 !if SUPPORT_REU = 1 {
 .reu_copy
-	sty .copy + 5
+	sty .load_dest_page + 1
 	tay
 	lda #0
 	tax
@@ -399,7 +399,8 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 	+after_dynmem_read
 	+set_memory_no_basic_unsafe
 
-	ldy .copy + 5
+.load_dest_page
+	ldy #00 ; This value is altered at the start of this routine
 	sty reu_c64base + 1
 	lda #%10100001;  REU -> c64 with delayed execution
 	sta reu_command
