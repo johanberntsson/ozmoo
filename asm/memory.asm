@@ -358,10 +358,13 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 } else { ; not TARGET_MEGA65
 
-; !ifdef VMEM {
-	; bit use_reu
-	; bmi .reu_copy
-; }
+; This is not for C128 or MEGA65
+
+
+!if SUPPORT_REU = 1 {
+	bit use_reu
+	bmi .reu_copy
+}
 	sta .copy + 2
 	sty .copy + 5
 	sei
@@ -377,6 +380,41 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 	+set_memory_no_basic_unsafe
 	cli
 	rts
+
+!if SUPPORT_REU = 1 {
+.reu_copy
+	sty .copy + 5
+	tay
+	lda #0
+	tax
+	clc
+	jsr store_reu_transfer_params
+	lda #%10100000;  c64 -> REU with delayed execution
+	sta reu_command
+	sei
+	+set_memory_all_ram_unsafe
+	+before_dynmem_read
+	lda $ff00
+	sta $ff00
+	+after_dynmem_read
+	+set_memory_no_basic_unsafe
+
+	ldy .copy + 5
+	sty reu_c64base + 1
+	lda #%10100001;  REU -> c64 with delayed execution
+	sta reu_command
+	+set_memory_all_ram_unsafe
+	+before_dynmem_read
+	lda $ff00
+	sta $ff00
+	+after_dynmem_read
+	+set_memory_no_basic_unsafe
+	cli
+
+	rts
+}
+
+
 } ; Not TARGET_MEGA65
 
 } ; end zone
