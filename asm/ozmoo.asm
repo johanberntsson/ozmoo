@@ -846,7 +846,7 @@ game_id		!byte 0,0,0,0
 	} else {
 		!ifdef Z7PLUS {
 			ldx #3
-		-	asl
+-			asl
 			rol z_temp + 1
 			dex
 			bne -
