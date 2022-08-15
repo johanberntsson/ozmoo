@@ -5,7 +5,7 @@ Release 12: ---
 
 Optimizations:
 
-- Faster page copying on C64 with REU, by copying to the REU and then from it.
+- Faster page copying on C64 and C128 with REU, by copying to the REU and then from it.
 
 ================================================
 Release 11.2: 10 August 2022
