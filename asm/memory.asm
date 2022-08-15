@@ -175,7 +175,7 @@ copy_page_c128_via_reu
 	ror
 	lsr ; Bank bit is now in bit 6
 	ora $d506
-;	sta $d506
+	sta $d506
 +	
 
 	lda #0
@@ -213,7 +213,7 @@ copy_page_c128_via_reu
 	and #%00111111
 .ora_bank_bit
 	ora #0
-;	sta $d506
+	sta $d506
 
 	lda #%10100001;  REU -> c128 with delayed execution
 	sta reu_command
@@ -232,7 +232,7 @@ copy_page_c128_via_reu
 
 	lda $d506
 	and #%00111111
-;	sta $d506
+	sta $d506
 
 	cli
 	rts
