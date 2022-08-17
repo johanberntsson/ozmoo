@@ -178,6 +178,7 @@ copy_page_c128_via_reu
 	sei
 	stx .load_bank_again + 1
 	sty .load_dest_page + 1
+
 	tay
 	cmp #$10
 	bcc + ; If source address < $1000, it's always in bank 0
@@ -194,6 +195,11 @@ copy_page_c128_via_reu
 	tax
 	clc
 	jsr store_reu_transfer_params
+
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+
 	lda #%10100000;  c128 -> REU with delayed execution
 	sta reu_command
 .load_bank_again
@@ -247,6 +253,7 @@ copy_page_c128_via_reu
 	sta $d506
 
 	cli
+	jsr restore_2mhz
 	rts
 
 copy_page_c128_src

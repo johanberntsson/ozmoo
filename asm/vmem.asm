@@ -553,8 +553,17 @@ hej
 +	ldy mempointer + 1
 	clc
 	jsr store_reu_transfer_params
+
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+}
 	lda #%10010001;  REU -> c128 with immediate execution
 	sta reu_command
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
 	ldx reu_boost_vmap_clock
 	inx
 	cpx vmap_used_entries

@@ -395,45 +395,6 @@ launch_scrollback
 	
 	rts
 
-; scrollback_adjust_top_line
-	; ldx .selected_top_line
-	; stx .adjusted_top_line
-	; lda .selected_top_line + 1
-	; sta .adjusted_top_line + 1
-	; ora .selected_top_line
-	; bne .adjust_maybe_wrap
-	; ; .selected_top_line is 0.
-	; lda scrollback_line_count
-	; sec
-	; sbc s_screen_height_minus_one
-	; tax
-	; lda scrollback_line_count + 1
-	; sbc #0
-	; bpl + ; No need to adjust
-	; stx .adjusted_top_line
-	; sta .adjusted_top_line + 1
-; +	rts
-
-; .adjust_maybe_wrap
-	; lda scrollback_max_line_count
-	; sec
-	; sbc s_screen_height_minus_one
-	; tax
-	; lda scrollback_max_line_count + 1
-	; sbc #0
-	; cpx .selected_top_line
-	; sbc .selected_top_line + 1
-	; bcs .adjust_done
-	; lda .selected_top_line
-	; sec
-	; sbc scrollback_max_line_count
-	; sta .adjusted_top_line
-	; lda .selected_top_line + 1
-	; sbc scrollback_max_line_count + 1
-	; sta .adjusted_top_line + 1
-; .adjust_done
-	; rts
-	
 .scroll_up_one_line
 	ldq .selected_top_line
 ; CMPQ is called CPQ in Acme
@@ -548,6 +509,10 @@ copy_line_to_scrollback
 	lda scrollback_current
 	sta reu_reubase
 !ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+
 	ldx COLS_40_80
 	beq .copy_40_col
 	; 80 column -> Get characters from VDC
@@ -567,7 +532,11 @@ copy_line_to_scrollback
 	sta reu_c64base
 	lda #%10110000;  c64 -> REU with immediate execution
 	sta reu_command
-	
+
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
+
 	; Increase scrollback_current by screen width
 	clc
 	lda scrollback_current
@@ -619,6 +588,10 @@ launch_scrollback
 	lda #>1000
 	sta reu_translen + 1
 !ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+
 	ldx COLS_40_80
 	beq .bak_copy_40_col
 	; 80 column -> Get characters from VDC
@@ -671,50 +644,7 @@ launch_scrollback
 	cpy #80
 	bne -
 
-	; lda zp_screenline
-	; pha
-	; lda zp_screenline + 1
-	; pha
-	; lda #<SCREEN_ADDRESS
-	; sta zp_screenline
-	; lda #>SCREEN_ADDRESS
-	; sta zp_screenline + 1
-	; lda #25 ; 25 lines on the 80 col screen
-	; sta z_temp
-	; lda scrollback_screen_backup_page
-	; sta z_temp + 2
-	; lda #0
-	; sta z_temp + 1
-; --	ldy #79
-; -	jsr VDCGetChar
-	; sta SCREEN_ADDRESS,y
-	; dey
-	; bpl -
-
-	; lda scrollback_screen_backup_page + 1
-	; ldx z_temp + 2
-	; ldy #>SCREEN_ADDRESS
-	; sec
-	; jsr store_reu_transfer_params
-	; lda z_temp + 1
-	; sta reu_reubase
-	; lda #80
-	; sta reu_translen
-	; sta reu_c64base
-	; lda #%10110000;  c64 -> REU with immediate execution
-	
-	; lda z_temp + 1
-	; clc
-	; adc #80
-	; sta z_temp + 1
-	; bne +
-	; inc z_temp + 2
-; +
-	; dec z_temp
-	; bne --
-
-	; beq .bak_have_copied_screen ; Always branch
-	jmp .bak_have_copied_screen
+	beq .bak_have_copied_screen ; Always branch
 .bak_copy_40_col
 }	
 	; lda zp_screenline
@@ -1024,56 +954,15 @@ launch_scrollback
 !ifdef TARGET_C128 {
 	ldx COLS_40_80
 	beq .restore_copy_40_col
-	; 80 column -> Get characters from VDC
+	; 80 column -> Change pointers in VDC
 	jsr VDCInit
 	; colours
 	lda z_operand_value_low_arr + 5
 	ldx #VDC_COLORS
 	jsr VDCWriteReg
-	; lda zp_screenline
-	; pha
-	; lda zp_screenline + 1
-	; pha
-	; lda #<SCREEN_ADDRESS
-	; sta zp_screenline
-	; lda #>SCREEN_ADDRESS
-	; sta zp_screenline + 1
-	; lda #25 ; 25 lines on the 80 col screen
-	; sta z_temp
-	; lda scrollback_screen_backup_page
-	; sta z_temp + 2
-	; lda #0
-	; sta z_temp + 1
-; --	ldy #79
-; -	jsr VDCGetChar
-	; sta SCREEN_ADDRESS,y
-	; dey
-	; bpl -
 
-	; lda scrollback_screen_backup_page + 1
-	; ldx z_temp + 2
-	; ldy #>SCREEN_ADDRESS
-	; sec
-	; jsr store_reu_transfer_params
-	; lda z_temp + 1
-	; sta reu_reubase
-	; lda #80
-	; sta reu_translen
-	; sta reu_c64base
-	; lda #%10110000;  c64 -> REU with immediate execution
-	
-	; lda z_temp + 1
-	; clc
-	; adc #80
-	; sta z_temp + 1
-	; bne +
-	; inc z_temp + 2
-; +
-	; dec z_temp
-	; bne --
-
-	; beq .bak_have_copied_screen ; Always branch
 	jmp .restore_have_restored_screen
+
 .restore_copy_40_col
 }	
 	lda scrollback_screen_backup_page + 1
@@ -1104,8 +993,13 @@ launch_scrollback
 
 	lda z_operand_value_low_arr + 4
 	sta $d021
-	
+
+!ifdef TARGET_C128 {
+	jmp restore_2mhz
+} else {
 	rts
+}
+	
 
 .scroll_up_one_line
 	lda .selected_top_line
@@ -1181,27 +1075,6 @@ VDCSetToScrollback
 	lda #$00
 	ldx #VDC_ATTR_LO
 	jsr VDCWriteReg
-	; ; char mem
-	; lda #$2f
-	; ldx #VDC_CSET
-	; jsr VDCWriteReg
-
-	; !ifdef CUSTOM_FONT {
-		; lda #$17 ; 0001 011X = $0400 $1800
-	; } else {
-		; lda #$16
-	; }
-	; sta reg_screen_char_mode
-
-
-	; colours
-	; lda #$f0
-	; ldx #VDC_COLORS
-	; jsr VDCWriteReg
-	; ; number of lines
-	; lda #$19
-	; ldx #VDC_VDISP
-	; jsr VDCWriteReg
 	rts
 }
 

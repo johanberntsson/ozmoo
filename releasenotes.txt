@@ -8,6 +8,10 @@ Optimizations:
 - Faster page copying on C64 and C128 with REU, by copying to the REU and then from it.
 - REU Boost Mode for C128 - When REU is used for caching, use a vmem model better suited to REU. 
 
+Bugfixes:
+
+- Made scrollback buffer turn down CPU speed on C128 while performing REU operations.
+
 ================================================
 Release 11.2: 10 August 2022
 
