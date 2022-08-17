@@ -8,7 +8,13 @@ inc_z_pc_page
 !ifdef VMEM {
 	bne +
 	inc z_pc
-+	lda z_pc + 1
++
+!ifdef REUBOOST {
+	; If REU Boost Mode is enabled, we must always search for the next page
+	bit reu_boost_mode
+	bmi get_page_at_z_pc_did_pha
+}
+	lda z_pc + 1
 	and #vmem_indiv_block_mask
 	beq get_page_at_z_pc_did_pha
 	lda z_pc_mempointer + 1
@@ -52,6 +58,12 @@ set_z_pc
 		; Different page.
 	!ifdef VMEM {
 		; Let's find out if it's the same vmem block.
+		!ifdef REUBOOST {
+			; In REU Boost Mode, a vmem block is just 1 page
+			; so now we have to retrieve a new page
+			bit reu_boost_mode
+			bmi .unsafe_2
+		}
 		txa
 		eor z_pc + 1
 		and #(255 - vmem_indiv_block_mask)

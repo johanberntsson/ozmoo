@@ -6,9 +6,9 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
 	# Paths on Windows
-    $X64 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x64.exe -autostart-warp" # -autostart-delay-random"
-    $X128 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\x128 -80col -autostart-delay-random"
-    $XPLUS4 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\xplus4 -autostart-delay-random"
+    $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
+    $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
+    $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\xplus4.exe -autostart-delay-random"
 	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"

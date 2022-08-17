@@ -139,6 +139,9 @@ max_chars_on_line      = $c5 ; ### OK C128
 z_address			   = $c8 ; 3 bytes ### OK C128
 z_address_temp		   = $cb ; ### OK C128
 
+;reu_boost_pointer      = $e6 ; 2 bytes
+reu_boost_vmap_clock   = $e6
+
 zp_screenline          = $f1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn        = $f3 ; 1 byte current cursor column
 zp_screenrow           = $f4 ; 1 byte current cursor row

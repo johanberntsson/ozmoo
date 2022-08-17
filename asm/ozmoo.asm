@@ -57,6 +57,8 @@
 	VMEM_END_PAGE = $fc
 	HAS_SID = 1
 	SUPPORT_80COL = 1;
+	SUPPORT_REU = 1
+	REUBOOST = 1
 	!ifndef SLOW {
 		SLOW = 1
 	}
@@ -790,6 +792,13 @@ c128_border_phase1
 progress_reu = parse_array
 reu_progress_ticks = parse_array + 1
 reu_last_disk_end_block = string_array ; 2 bytes
+!ifdef REUBOOST {
+reu_boost_mode !byte 0 ; Set to $ff to activate
+reu_boost_hash_table = story_start
+reu_boost_hash_pages = 8
+reu_boost_area_start = story_start + (reu_boost_hash_pages * 256)
+reu_boost_area_pages = first_banked_memory_page - (>reu_boost_area_start)
+}
 }
 
 
@@ -2059,6 +2068,32 @@ insert_disks_at_boot
 	beq .dont_use_reu
 	lda #$ff ; Use REU
 	sta use_reu
+!ifdef REUBOOST {
+	; Init and enable REU Boost Mode
+	sta reu_boost_mode
+	lda #<reu_boost_hash_table
+	sta z_temp
+	lda #>reu_boost_hash_table
+	sta z_temp + 1
+	ldx #reu_boost_hash_pages ; Need 2-8 pages depending on game size
+	ldy #0
+	sty reu_boost_vmap_clock
+	tya
+-	sta (z_temp),y
+	iny
+	bne -
+	inc z_temp + 1
+	dex
+	bne -
+	ldy #reu_boost_area_pages
+	sty vmap_max_entries
+	sty vmap_used_entries
+	tay
+-	sta vmap_z_h - 1,y
+	sta vmap_z_l - 1,y
+	dey
+	bne -
+}
 }
 .dont_use_reu
 	rts
