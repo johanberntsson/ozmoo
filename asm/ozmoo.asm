@@ -795,7 +795,15 @@ reu_last_disk_end_block = string_array ; 2 bytes
 !ifdef REUBOOST {
 reu_boost_mode !byte 0 ; Set to $ff to activate
 reu_boost_hash_table = story_start
-reu_boost_hash_pages = 8
+!ifdef Z4PLUS {
+	!ifdef Z7PLUS {
+		reu_boost_hash_pages = 8
+	} else {
+		reu_boost_hash_pages = 4
+	}
+} else {
+	reu_boost_hash_pages = 2
+}
 reu_boost_area_start = story_start + (reu_boost_hash_pages * 256)
 reu_boost_area_pages = first_banked_memory_page - (>reu_boost_area_start)
 }
