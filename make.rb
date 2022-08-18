@@ -34,7 +34,8 @@ $GENERALFLAGS = [
 #	'CHECK_ERRORS' # Check for all runtime errors, making code bigger and slower
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
-#	'NOSCROLLBACK', # Disables darkmode support (MEGA65). This makes the terp ~1 KB smaller.
+#	'NOSCROLLBACK', # Disables scrollback support (MEGA65, C64, C128). This makes the terp ~1 KB smaller.
+#	'REUBOOST', # Enables REU Boost (MEGA65, C64, C128). This makes the terp ~160 bytes larger.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -1997,7 +1998,7 @@ def print_usage
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
-	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1]]"
+	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1]] [-rb[:0|1]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]]"
@@ -2023,6 +2024,7 @@ def print_usage
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer"
+	puts "  -rb: Enable the REU Boost feature"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
 	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -2096,6 +2098,7 @@ reserve_dir_track = nil
 check_errors = nil
 dark_mode = nil
 scrollback = nil
+reu_boost = nil
 
 begin
 	while i < ARGV.length
@@ -2236,17 +2239,23 @@ begin
 			else
 				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 			end
-		elsif ARGV[i] =~ /^-dm(?::([0-1]))?$/ then
+		elsif ARGV[i] =~ /^-dm(?::([01]))?$/ then
 			if $1 == nil
 				dark_mode = 1
 			else
 				dark_mode = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-sb(?::([0-1]))?$/ then
+		elsif ARGV[i] =~ /^-sb(?::([01]))?$/ then
 			if $1 == nil
 				scrollback = 1
 			else
 				scrollback = $1.to_i
+			end
+		elsif ARGV[i] =~ /^-rb(?::([01]))?$/ then
+			if $1 == nil
+				reu_boost = 1
+			else
+				reu_boost = $1.to_i
 			end
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
 			$file_name = $1
@@ -2269,6 +2278,17 @@ rescue => e
 	print "ERROR: "
 	puts e.message
 	exit 1
+end
+
+if $target == 'c128' and reu_boost == nil
+	reu_boost = 1
+end
+if reu_boost == 1
+	$GENERALFLAGS.push('REUBOOST') unless $GENERALFLAGS.include?('REUBOOST')
+	if $target !~ /^c(64|128)$/
+		puts "ERROR: REU Boost is not available for this platform." 
+		exit 1
+	end
 end
 
 if $target == "mega65" and $use_history == nil
@@ -2713,6 +2733,11 @@ if $target != 'mega65'
 		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
 		exit 1
 	end
+end
+
+if reu_boost == 1 and $target == 'c64' and $unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 256 < 12
+	puts "ERROR: REU Boost requires at least 3 KB of unbanked RAM. Dynamic memory is #{$dynmem_blocks * $VMEM_BLOCKSIZE / 1024} KB, leaving only #{$unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 1024} KB of unbanked RAM for REU Boost." 
+	exit 1		
 end
 
 ############################# End of moved block

@@ -15,6 +15,7 @@ keyboard_buff_len     = $c6
 keyboard_buff         = $277
 
 use_reu				  = $9b
+reu_boost_vmap_clock  = $b1
 window_start_row	  = $2a; 4 bytes
 
 

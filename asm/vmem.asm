@@ -492,8 +492,10 @@ read_byte_at_z_address
 	sty mempointer_y
 !ifdef REUBOOST {
 	bit reu_boost_mode
-	bpl .no_boost
+	bmi .boost
+	jmp .no_boost
 hej
+.boost
 	lda zp_pc_h
 	clc
 	adc #>reu_boost_hash_table
@@ -508,35 +510,50 @@ hej
 	bne .no_hit
 	lda vmap_z_h,y
 	; Clear clock flag here if needed
-	; and #$7f
+	and #$7f
 	cmp zp_pc_h
 	bne .no_hit
 	; We have a hit! block index in y
 	; Set clock flag here if needed
-	; ora #$80
-	; sta vmap_z_h,y
+	ora #$80
+	sta vmap_z_h,y
 	tya
 	clc
-	adc #>reu_boost_area_start
+	adc reu_boost_area_start_page
 	sta mempointer + 1
 	jmp .return_result
 .no_hit
--	lda reu_boost_vmap_clock
+	ldy reu_boost_vmap_clock
+-	lda vmap_z_h,y
+	bpl .not_clock_blocked
+	; This slot had the second-chance-bit set. We clear it and go to next slot
+	and #$7f
+	sta vmap_z_h,y
+	bpl .next_slot ; Always branch
+.not_clock_blocked	
+	tya
+	clc
+	adc reu_boost_area_start_page
+	cmp z_pc_mempointer + 1
+	bne .found_good_slot
+.next_slot
+	iny
+	cpy vmap_max_entries
+	bcc -
+	ldy #0
+	beq - ; Always branch
+.found_good_slot
+	; A now holds the page where we are to copy the next block to
+	; Y holds the index of the block in vmap
+	; mempointer points to the relevant page of the hash index
+	tax
+	sty reu_boost_vmap_clock
+	tya
 	ldy zp_pc_l
 	sta (mempointer),y
+	stx mempointer + 1
 	tay
-	clc
-	adc #>reu_boost_area_start
-	cmp z_pc_mempointer + 1
-	bne +
-	ldx reu_boost_vmap_clock
-	inx
-	cpx vmap_used_entries
-	bcc ++
-	ldx #0
-++	stx reu_boost_vmap_clock
-	jmp -
-+	sta mempointer + 1
+	
 	lda zp_pc_l
 	sta vmap_z_l,y
 	sec

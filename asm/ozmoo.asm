@@ -58,7 +58,7 @@
 	HAS_SID = 1
 	SUPPORT_80COL = 1;
 	SUPPORT_REU = 1
-	REUBOOST = 1
+;	REUBOOST = 1
 	!ifndef SLOW {
 		SLOW = 1
 	}
@@ -793,8 +793,6 @@ progress_reu = parse_array
 reu_progress_ticks = parse_array + 1
 reu_last_disk_end_block = string_array ; 2 bytes
 !ifdef REUBOOST {
-reu_boost_mode !byte 0 ; Set to $ff to activate
-reu_boost_hash_table = story_start
 !ifdef Z4PLUS {
 	!ifdef Z7PLUS {
 		reu_boost_hash_pages = 8
@@ -804,10 +802,18 @@ reu_boost_hash_table = story_start
 } else {
 	reu_boost_hash_pages = 2
 }
-reu_boost_area_start = story_start + (reu_boost_hash_pages * 256)
-reu_boost_area_pages = first_banked_memory_page - (>reu_boost_area_start)
-}
-}
+
+reu_boost_mode !byte 0 ; Set to $ff to activate
+reu_boost_hash_table = (first_banked_memory_page - reu_boost_hash_pages) * 256
+
+; The values calculated here for reu_boost_area_start_page and reu_boost_area_pagecount
+; are correct for C128. For C64, they are changed at runtime, as they can't be calculated
+; until dynmem size is known. 
+
+reu_boost_area_start_page !byte >story_start
+reu_boost_area_pagecount !byte (>reu_boost_hash_table) - (>story_start)
+} ; ifdef REUBOOST
+} ; if SUPPORT_REU = 1
 
 
 
@@ -2079,6 +2085,18 @@ insert_disks_at_boot
 !ifdef REUBOOST {
 	; Init and enable REU Boost Mode
 	sta reu_boost_mode
+
+!ifdef TARGET_C64 {
+	lda #>story_start
+	clc
+	adc nonstored_pages
+	sta reu_boost_area_start_page
+	lda #>reu_boost_hash_table
+	sec
+	sbc reu_boost_area_start_page
+	sta reu_boost_area_pagecount
+}
+
 	lda #<reu_boost_hash_table
 	sta z_temp
 	lda #>reu_boost_hash_table
@@ -2093,10 +2111,12 @@ insert_disks_at_boot
 	inc z_temp + 1
 	dex
 	bne -
-	ldy #reu_boost_area_pages
-	sty vmap_max_entries
+	ldy reu_boost_area_pagecount
+	cpy #vmap_max_size
+	bcc +
+	ldy #vmap_max_size
++	sty vmap_max_entries
 	sty vmap_used_entries
-	tay
 -	sta vmap_z_h - 1,y
 	sta vmap_z_l - 1,y
 	dey

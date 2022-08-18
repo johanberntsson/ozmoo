@@ -503,6 +503,10 @@ The interpreter numbers, originally defined by Infocom, are as follows:
 
 The interpreter number is used by a few games to modify the screen output format. In Ozmoo we set 2 for Beyond Zork, 7 for C128 builds,  and 8 for other games by default, but -in allows you to try other interpreter numbers.
 
+## Option -rb[:0|1]
+
+-rb or -rb:1 enables REU Boost, while -rb:0 disables it. REU Boost adds ~160 bytes to the interpreter size.
+
 ## Option -re[:0|1]
 
 -re or -re:1 enables extended runtime error checks, while -re:0 disables them. They are enabled by default on MEGA65 only.
