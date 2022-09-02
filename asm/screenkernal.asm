@@ -594,21 +594,21 @@ s_printchar
 
 .perform_newline
 	; newline/enter/return
-!ifdef SCROLLBACK {
-	; Copy to scrollback buffer, if we're in lower window
-	ldx current_window
-	bne +
-	jsr copy_line_to_scrollback
-	lda #$0d ; Restore old value of A
-+
-}
 	; Check ignore next linebreak setting
 	ldx current_window
 	ldy s_ignore_next_linebreak,x
 	bpl +
 	inc s_ignore_next_linebreak,x
 	jmp .printchar_end
-+	lda #0
++	
+!ifdef SCROLLBACK {
+	; Copy to scrollback buffer, if we're in lower window
+	ldx current_window
+	bne +
+	jsr copy_line_to_scrollback
++
+}
+	lda #0
 	sta zp_screencolumn
 	inc zp_screenrow
 !ifdef TARGET_C128 {

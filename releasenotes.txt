@@ -11,6 +11,7 @@ Optimizations:
 Bugfixes:
 
 - Made scrollback buffer turn down CPU speed on C128 while performing REU operations.
+- Fixed that an extra empty line was put in scrollback buffer when a newline character came just after a line ending in the last column.
 
 ================================================
 Release 11.2: 10 August 2022
