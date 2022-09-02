@@ -2280,7 +2280,7 @@ rescue => e
 	exit 1
 end
 
-if $target == 'c128' and reu_boost == nil
+if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1
 end
 if reu_boost == 1
