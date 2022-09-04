@@ -12,6 +12,7 @@ Bugfixes:
 
 - Made scrollback buffer turn down CPU speed on C128 while performing REU operations.
 - Fixed that an extra empty line was put in scrollback buffer when a newline character came just after a line ending in the last column.
+- Ozmoo didn't change the default colours when switching between lightmode and darkmode, so attempts to use colour number 1 (default colour) would always use the default colour for lightmode.
 
 ================================================
 Release 11.2: 10 August 2022

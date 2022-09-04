@@ -1015,7 +1015,10 @@ toggle_darkmode
 } ; USE_INPUTCOL	
 	
 ; Set fgcolour
-	ldy fgcol,x
+	lda fgcol,x
+	ldy #header_default_fg_colour
+	jsr write_header_byte
+	tay
 	lda zcolours,y
 	sta z_temp + 6 ; New foreground colour, as C64 colour 
 	jsr s_set_text_colour
@@ -1043,7 +1046,10 @@ toggle_darkmode
 	lda zcolours,y
 +	sta current_cursor_colour
 ; Set bgcolour
-	ldy bgcol,x
+	lda bgcol,x
+	ldy #header_default_bg_colour
+	jsr write_header_byte
+	tay
 	lda zcolours,y
 	+SetBackgroundColour
 !ifdef Z5PLUS {
