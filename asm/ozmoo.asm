@@ -1104,6 +1104,7 @@ c128_move_dynmem_and_calc_vmem
 	dec zp_temp + 2
 	bne -
 
+	; Copy any preloaded statmem pages down in memory, now that dynmem has moved
 	lda #>story_start
 	sta zp_temp + 1 ; First destination page
 	clc
@@ -2046,8 +2047,9 @@ insert_disks_at_boot
 
 	cpy #2
 !if SUPPORT_REU = 1 {
-	bcc .copy_data_from_disk_1_to_reu
-	lda reu_needs_loading
+	bcs +
+	jmp .copy_data_from_disk_1_to_reu
++	lda reu_needs_loading
 	beq .dont_need_to_insert_this
 } else {
 	bcc .dont_need_to_insert_this
@@ -2094,7 +2096,15 @@ insert_disks_at_boot
 	lda #>reu_boost_hash_table
 	sec
 	sbc reu_boost_area_start_page
+	bcc .no_boost
+	cmp #4
+	bcc .no_boost
 	sta reu_boost_area_pagecount
+	bcs + ; Always branch
+.no_boost
+	inc reu_boost_mode
+	rts
++	
 }
 
 	lda #<reu_boost_hash_table

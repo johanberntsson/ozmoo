@@ -2433,6 +2433,7 @@ if $sound_path
 		puts "ERROR: Sound is only supported for the MEGA65 target platform."
 		exit 1
 	end
+	$sound_path = $sound_path.gsub(/\\/, '/');
 	$sound_path += '/' if $sound_path !~ /\/$/ 
 	$sound_files = Dir.glob($sound_path + '*').select { |e|
 #		/^([0-9]{3})\.#{$sound_format}$/
