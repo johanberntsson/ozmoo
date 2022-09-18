@@ -64,6 +64,8 @@
 	}
 	!ifndef NOSCROLLBACK {
 		SCROLLBACK = 1
+		; SCROLLBACK_RAM_PAGES may be set by make.rb;
+		; Must be an even number, where 6 * 4 <= SCROLLBACK_RAM_PAGES <= 11 * 4
 	}
 }
 
@@ -107,6 +109,10 @@
 	} else {
 		cache_pages = 4 ; Note, this is not final. One page may be added. vmem_cache_count will hold final # of pages.
 	}
+}
+
+!ifdef SCROLLBACK_RAM_PAGES {
+	SCROLLBACK_RAM_START_PAGE = VMEM_END_PAGE - SCROLLBACK_RAM_PAGES
 }
 
 !ifndef TERPNO {
@@ -292,13 +298,6 @@
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
 program_start
-
-;	lda #4
-;	sta $d020
-
-;	lda #$41
-;	jsr $ffd2
-;	jsr wait_a_sec
 
 !ifdef TARGET_C128 {
 	jsr VDCInit
@@ -804,7 +803,15 @@ reu_last_disk_end_block = string_array ; 2 bytes
 }
 
 reu_boost_mode !byte 0 ; Set to $ff to activate
+!ifdef SCROLLBACK_RAM_START_PAGE {
+!if SCROLLBACK_RAM_START_PAGE < first_banked_memory_page {
+reu_boost_hash_table = (SCROLLBACK_RAM_START_PAGE - reu_boost_hash_pages) * 256
+} else {
 reu_boost_hash_table = (first_banked_memory_page - reu_boost_hash_pages) * 256
+}
+} else {
+reu_boost_hash_table = (first_banked_memory_page - reu_boost_hash_pages) * 256
+}
 
 ; The values calculated here for reu_boost_area_start_page and reu_boost_area_pagecount
 ; are correct for C128. For C64, they are changed at runtime, as they can't be calculated
@@ -814,8 +821,6 @@ reu_boost_area_start_page !byte >story_start
 reu_boost_area_pagecount !byte (>reu_boost_hash_table) - (>story_start)
 } ; ifdef REUBOOST
 } ; if SUPPORT_REU = 1
-
-
 
 ; global variables
 ; filelength !byte 0, 0, 0
@@ -1122,14 +1127,17 @@ c128_move_dynmem_and_calc_vmem
 	bne - ; Always branch
 
 .done_vmem_move
-
 	; Add free RAM in bank 1 as vmem memory
 
 	lda #>story_start
 	sta vmap_first_ram_page
 
 	; Remember above which index in vmem the blocks are in bank 1
+!ifdef SCROLLBACK_RAM_PAGES {
+	lda #SCROLLBACK_RAM_START_PAGE
+} else {
 	lda #VMEM_END_PAGE
+}
 	sec
 	sbc #>story_start
 	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
@@ -1141,16 +1149,12 @@ c128_move_dynmem_and_calc_vmem
 	sta vmap_first_ram_page_in_bank_1
 
 	; Calculate how many vmem pages we can fit in bank 1
-	lda nonstored_pages
-	lsr ; To get # of dynmem blocks, which are 512 bytes instead of 256
-	sta object_temp
 	lda #VMEM_END_PAGE
 	sec
 	sbc vmap_first_ram_page_in_bank_1
 	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
 	; Now A holds the # of vmem blocks we can fit in bank 1
-	adc vmap_max_entries ; Add the # we had room for in bank 0 from the start
-	adc object_temp ; Add the # we made room for by moving dynmem to bank 1
+	adc first_vmap_entry_in_bank_1 ; Add the # of vmem blocks in bank 0
 	cmp #vmap_max_size
 	bcc +
 	lda #vmap_max_size
@@ -1890,7 +1894,11 @@ deletable_init
 	clc
 	adc #>story_start
 	sta vmap_first_ram_page
+!ifdef SCROLLBACK_RAM_PAGES {
+	lda #SCROLLBACK_RAM_START_PAGE
+} else {
 	lda #VMEM_END_PAGE
+}
 	sec
 	sbc vmap_first_ram_page
 	lsr

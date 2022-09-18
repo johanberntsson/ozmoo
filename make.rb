@@ -1037,6 +1037,7 @@ def build_interpreter()
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
 	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
+	optionalsettings += " -DSCROLLBACK_RAM_PAGES=#{$scrollback_ram_pages}" if $scrollback_ram_pages
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
@@ -1327,8 +1328,9 @@ def play(filename)
 end
 
 def limit_vmem_data_preload(vmem_data)
-	if $dynmem_and_vmem_size_bank_0 < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
-		vmem_data[3] = $dynmem_and_vmem_size_bank_0 / $VMEM_BLOCKSIZE - $dynmem_blocks
+	puts "%%% #{$dynmem_and_vmem_size_bank_0_max}, #{vmem_data[3]} #{$dynmem_blocks} #{$VMEM_BLOCKSIZE}"
+	if $dynmem_and_vmem_size_bank_0_max < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
+		vmem_data[3] = $dynmem_and_vmem_size_bank_0_max / $VMEM_BLOCKSIZE - $dynmem_blocks
 	end
 end
 
@@ -1998,7 +2000,7 @@ def print_usage
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
-	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1]] [-rb[:0|1]]"
+	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]]"
@@ -2023,7 +2025,7 @@ def print_usage
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
-	puts "  -sb: Use the scrollback buffer"
+	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
 	puts "  -rb: Enable the REU Boost feature"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
 	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
@@ -2094,6 +2096,7 @@ $no_sector_preload = nil
 $file_name = 'story'
 $sound_format = nil
 $disk_title = nil
+$scrollback_ram_pages = nil
 reserve_dir_track = nil
 check_errors = nil
 dark_mode = nil
@@ -2245,7 +2248,7 @@ begin
 			else
 				dark_mode = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-sb(?::([01]))?$/ then
+		elsif ARGV[i] =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
 			if $1 == nil
 				scrollback = 1
 			else
@@ -2318,8 +2321,12 @@ if $use_history and $use_history > 0
 	end
 end
 
-if scrollback == nil and $target == "c64" || $target == "c128"
-	scrollback = 0
+if scrollback == nil
+	if $target == "mega65"
+		scrollback = 1
+	else
+		scrollback = 0
+	end
 end
 if scrollback == 1 and $target == "plus4"
 	puts "ERROR: Scrollback buffer is not supported on this target platform."
@@ -2327,6 +2334,16 @@ if scrollback == 1 and $target == "plus4"
 elsif scrollback == 0
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 end
+if scrollback > 1
+	if $target == "c128"
+		scrollback = 11 if scrollback > 11 # Because 11 KB fits above the $d000 mark on C128, making life easier
+		$scrollback_ram_pages = 4 * scrollback
+	else
+		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
+		exit 1
+	end
+end
+
 
 if $target == "mega65"
 	$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS')
@@ -2712,7 +2729,13 @@ end
 
 build_interpreter()
 
-$dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart
+$dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart - 
+	($scrollback_ram_pages ? 256 * $scrollback_ram_pages : 0)
+
+$dynmem_and_vmem_size_bank_0_max = $dynmem_and_vmem_size_bank_0
+if $target == 'c128'
+	$dynmem_and_vmem_size_bank_0_max = $memory_end_address - $storystart
+end
 
 if $target != 'mega65' and 
 		$storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
@@ -2721,8 +2744,11 @@ if $target != 'mega65' and
 end
 puts "Dynamic memory: #{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes" if $verbose 
 
-$vmem_blocks_in_ram = ($memory_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+$vmem_blocks_in_ram = ($memory_end_address - ($scrollback_ram_pages ? 256 * $scrollback_ram_pages : 0) -
+		$storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+
 $unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+
 if $target == 'c128' then
 	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
 	$unbanked_vmem_blocks += $dynmem_blocks
@@ -2730,7 +2756,7 @@ end
 if $target != 'mega65'
 	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 	puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
-	if	$unbanked_vmem_blocks == 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+	if	$unbanked_vmem_blocks <= 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
 		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
 		exit 1
 	end
@@ -2767,6 +2793,7 @@ unless $DEBUGFLAGS.include?('PREOPT') then
 	if mode == MODE_P 
 		mapped_vmem_blocks = total_storyfile_blocks - $dynmem_blocks
 	else
+		puts "### #{$vmem_blocks_in_ram}, #{total_storyfile_blocks} - #{$dynmem_blocks}"
 		mapped_vmem_blocks = [$vmem_blocks_in_ram, total_storyfile_blocks - $dynmem_blocks].min()
 #		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
 #			total_storyfile_blocks - $dynmem_blocks].min()

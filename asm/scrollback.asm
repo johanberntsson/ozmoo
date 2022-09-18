@@ -1,6 +1,7 @@
 !zone scrollback {
 
 scrollback_enabled !byte 0 ; This is set to $ff at init if an REU is present and there is space
+scrollback_in_ram !byte 0 ; This is set to $ff at init if a scrollback buffer in RAM should be used
 !ifdef TARGET_MEGA65 {
 scrollback_supported !byte $ff
 normal_line_length = 80
@@ -443,27 +444,6 @@ scrollback_colour_backup_page !byte $08,0
 .msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
 
 init_reu_scrollback
-	lda scrollback_bank + 1
-	!ifdef TARGET_C128 {
-		ldx COLS_40_80
-		beq +
-		; In 80 column mode we don't need the second bank (used for VIC screen data backup)
-		lda scrollback_bank
-+
-	}
-	cmp reu_banks
-	bcs .disable_scrollback
-	dec scrollback_supported ; Set to $ff = supported
-	
-; Init values
-	sta scrollback_screen_backup_page + 1
-	sta scrollback_colour_backup_page + 1
-	lda scrollback_bank
-	sta scrollback_prebuffer_start + 2 ; Bank value
-	sta scrollback_start_minus_25_lines + 2
-	sta scrollback_start + 2
-	sta scrollback_current + 2
-	sta scrollback_prebuffer_copy_from + 2
 !ifdef TARGET_C128 {
 	ldx COLS_40_80
 	bne .is_80_col
@@ -482,15 +462,284 @@ init_reu_scrollback
 	sta scrollback_prebuffer_copy_from + 1
 .is_80_col
 }
+
+	lda scrollback_bank + 1
+	!ifdef TARGET_C128 {
+		ldx COLS_40_80
+		beq +
+		; In 80 column mode we don't need the second bank (used for VIC screen data backup)
+		lda scrollback_bank
++
+	}
+	cmp reu_banks
+	bcs .no_reu_space_for_scrollback
+	dec scrollback_supported ; Set to $ff = supported
 	
+; Init values
+	sta scrollback_screen_backup_page + 1
+	sta scrollback_colour_backup_page + 1
+	lda scrollback_bank
+	sta scrollback_prebuffer_start + 2 ; Bank value
+	sta scrollback_start_minus_25_lines + 2
+	sta scrollback_start + 2
+	sta scrollback_current + 2
+	sta scrollback_prebuffer_copy_from + 2
 	rts
-.disable_scrollback
+
+.no_reu_space_for_scrollback
+!ifdef SCROLLBACK_RAM_PAGES {
+	jmp init_scrollback_ram_buffer	
+} else {
+; .disable_scrollback
 	lda #>.msg_not_available
 	ldx #<.msg_not_available
 	jsr printstring_raw
 	jmp wait_a_sec
 	; lda #147
 	; jmp s_printchar
+}
+
+!ifdef SCROLLBACK_RAM_PAGES {
+init_scrollback_ram_buffer
+	bit scrollback_in_ram
+	bmi .ret
+	dec scrollback_supported ; Set to $ff = supported
+	dec scrollback_in_ram ; Set to $ff = enable
+
+;scrollback_prebuffer_start !byte 0, 0, $20, $08 ; First two bytes must be 0. Third value is altered on init for C64/C128. Last value is ignored for C64/128
+;scrollback_start !byte 0, scrollback_prebuffer_pages, $20, $08
+;scrollback_current !byte 0, scrollback_prebuffer_pages, $20, $08
+	
+
+;!ifdef TARGET_C128 {
+;	lda #1
+;} else {
+;	lda #0
+;}
+;	sta scrollback_screen_backup_page + 1
+;	sta scrollback_colour_backup_page + 1
+;	sta scrollback_prebuffer_start + 2 ; Bank value
+;	sta scrollback_start_minus_25_lines + 2
+;	sta scrollback_start + 2
+;	sta scrollback_current + 2
+;	sta scrollback_prebuffer_copy_from + 2
+
+	lda #VMEM_END_PAGE - 8
+	sta scrollback_screen_backup_page
+	lda #VMEM_END_PAGE - 4
+	sta scrollback_colour_backup_page
+
+	lda scrollback_start_minus_25_lines + 1
+	clc
+	adc #SCROLLBACK_RAM_START_PAGE
+	sta scrollback_start_minus_25_lines + 1
+	lda scrollback_prebuffer_start + 1
+	adc #SCROLLBACK_RAM_START_PAGE
+	sta scrollback_prebuffer_start + 1
+	lda scrollback_start + 1
+	adc #SCROLLBACK_RAM_START_PAGE
+	sta scrollback_start + 1
+	sta scrollback_current + 1
+!ifdef TARGET_C128 {
+	ldx COLS_40_80
+	beq .ram_buf_40_col
+	lda #<(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80)
+	sta scrollback_max_line_count
+	lda #>(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80)
+	sta scrollback_max_line_count + 1
+	lda #<(80*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80))
+	sta scrollback_prebuffer_copy_from
+	lda #(>(80*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80))) + SCROLLBACK_RAM_START_PAGE
+	sta scrollback_prebuffer_copy_from + 1
+	rts
+
+.ram_buf_40_col
+}
+	; Reserve room for 8 additional pages, for backup of screen and colour RAM
+	lda #<(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40)
+	sta scrollback_max_line_count
+	lda #>(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40)
+	sta scrollback_max_line_count + 1
+	lda #<(40*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40))
+	sta scrollback_prebuffer_copy_from
+	lda #(>(40*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40))) + SCROLLBACK_RAM_START_PAGE
+	sta scrollback_prebuffer_copy_from + 1
+
+.ret
+	rts
+} ; ifdef SCROLLBACK_RAM_PAGES
+
+sb_copy_io !byte 0 ; %1xxxxxxx means copy from I/O, %x1xxxxxx means copy to I/O
+sb_copy_ram = object_temp ; !byte 0,0
+;sb_copy_buffer = z_temp + 9 ; !byte 0,0,0
+sb_copy_buffer = zp_temp ; !byte 0,0,0
+sb_copy_len = z_temp + 7 ;!byte 0,0
+
+store_sb_transfer_params
+	; a,x = REU page
+	; y = C64 page
+	; Transfer size: $01 if C is set, $100 if C is clear
+	sta sb_copy_buffer + 2
+	stx sb_copy_buffer + 1
+	sty sb_copy_ram + 1
+	ldx #0
+	stx sb_copy_io
+	stx sb_copy_ram
+	stx sb_copy_buffer
+	; Transfer size: $01 if C is set, $100 if C is clear
+	lda #>$0100 ; Transfer one page
+	bcc +
+	; Set transfer size to $01
+	txa
+	inx
++	stx sb_copy_len
+	sta sb_copy_len + 1
+	rts
+
+sb_copy_params_to_reu
+	lda sb_copy_buffer + 2
+	ldx sb_copy_buffer + 1
+	ldy sb_copy_ram + 1
+	clc
+	jsr store_reu_transfer_params
+	lda sb_copy_len
+	sta reu_translen
+	lda sb_copy_len + 1
+	sta reu_translen + 1
+	lda sb_copy_ram
+	sta reu_c64base
+	lda sb_copy_buffer
+	sta reu_reubase
+	rts
+
+sb_copy_to_buffer
+!ifdef SCROLLBACK_RAM_PAGES {
+	bit scrollback_in_ram
+	bmi .copy_to_buf_ram
+}
+	jsr sb_copy_params_to_reu
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+}
+	lda #%10110000;  c64 -> REU with immediate execution
+	sta reu_command
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
+	rts
+
+!ifdef SCROLLBACK_RAM_PAGES {
+.copy_to_buf_ram
+	sei
+	ldy#0
+-	ldx #0
+	bit sb_copy_io
+	bmi +
+	inx
++	sta c128_mmu_load_pcra,x
+	lda (sb_copy_ram),y
+	sta c128_mmu_load_pcrb
+	sta (sb_copy_buffer),y
+	iny
+	bne +
+	inc sb_copy_ram + 1
+	inc sb_copy_buffer + 1
++	dec sb_copy_len
+	lda sb_copy_len
+	cmp #$ff
+	bne +
+	dec sb_copy_len + 1
++	ora sb_copy_len + 1
+	bne -
+	sta c128_mmu_load_pcra
+	cli
+	rts
+}
+
+sb_copy_to_ram
+!ifdef SCROLLBACK_RAM_PAGES {
+	bit scrollback_in_ram
+	bmi .copy_to_ram_ram
+}
+	jsr sb_copy_params_to_reu
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+}
+	lda #%10110001;  REU -> c64 with immediate execution
+	sta reu_command
+!ifdef TARGET_C128 {
+	jsr restore_2mhz
+}
+	rts
+
+!ifdef SCROLLBACK_RAM_PAGES {
+.copy_to_ram_ram
+	sei
+	ldy#0
+-	sta c128_mmu_load_pcrb
+	lda (sb_copy_buffer),y
+	ldx #0
+	bit sb_copy_io
+	bvs +
+	inx
++	sta c128_mmu_load_pcra,x
+	sta (sb_copy_ram),y
+	iny
+	bne +
+	inc sb_copy_ram + 1
+	inc sb_copy_buffer + 1
++	dec sb_copy_len
+	lda sb_copy_len
+	cmp #$ff
+	bne +
+	dec sb_copy_len + 1
++	ora sb_copy_len + 1
+	bne -
+	sta c128_mmu_load_pcra
+	cli
+	rts
+}
+
+sb_fill_buffer
+!ifdef SCROLLBACK_RAM_PAGES {
+	bit scrollback_in_ram
+	bmi .fill_buffer_ram
+}
+	jsr sb_copy_params_to_reu
+	lda #$80
+	sta reu_control ; Fix C64 address
+	lda #%10110000;  c64 -> REU with immediate execution
+	sta reu_command
+	rts
+
+!ifdef SCROLLBACK_RAM_PAGES {
+.fill_buffer_ram
+	sei
+	ldy #0
+	sta c128_mmu_load_pcrb
+	lda (sb_copy_ram),y
+	sta sb_copy_ram
+-	lda sb_copy_ram
+	sta (sb_copy_buffer),y
+	iny
+	bne +
+	inc sb_copy_buffer + 1
++	dec sb_copy_len
+	lda sb_copy_len
+	cmp #$ff
+	bne +
+	dec sb_copy_len + 1
++	ora sb_copy_len + 1
+	bne -
+	sta c128_mmu_load_pcra
+	cli
+	rts
+}
+
 
 copy_line_to_scrollback
 	lda scrollback_enabled
@@ -503,39 +752,41 @@ copy_line_to_scrollback
 	ldx scrollback_current + 1
 	ldy zp_screenline + 1
 	sec
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
 	lda s_screen_width
-	sta reu_translen
+	sta sb_copy_len
 	lda scrollback_current
-	sta reu_reubase
+	sta sb_copy_buffer
 !ifdef TARGET_C128 {
-	lda #0
-	sta allow_2mhz_in_40_col
-	sta reg_2mhz	;CPU = 1MHz
+;	lda #0
+;	sta allow_2mhz_in_40_col
+;	sta reg_2mhz	;CPU = 1MHz
 
 	ldx COLS_40_80
 	beq .copy_40_col
 	; 80 column -> Get characters from VDC
 	ldy #79
--	jsr VDCGetChar
+-	
+	jsr VDCGetChar
 	sta SCREEN_ADDRESS,y
 	dey
 	bpl -
 	lda #>SCREEN_ADDRESS
-	sta reu_c64base + 1
+	sta sb_copy_ram + 1
 	lda #<SCREEN_ADDRESS
 	beq .do_copy ; Always branch
 .copy_40_col
 }	
 	lda zp_screenline
 .do_copy
-	sta reu_c64base
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
+	sta sb_copy_ram
+	jsr sb_copy_to_buffer
+;	lda #%10110000;  c64 -> REU with immediate execution
+;	sta reu_command
 
-!ifdef TARGET_C128 {
-	jsr restore_2mhz
-}
+;!ifdef TARGET_C128 {
+;	jsr restore_2mhz
+;}
 
 	; Increase scrollback_current by screen width
 	clc
@@ -577,16 +828,7 @@ launch_scrollback
 	lda scrollback_enabled
 	beq .return
 
-	; Backup screen and colour RAM to safe place
-	lda scrollback_screen_backup_page + 1
-	ldx scrollback_screen_backup_page
-	ldy #>SCREEN_ADDRESS
-	clc
-	jsr store_reu_transfer_params
-	lda #<1000
-	sta reu_translen
-	lda #>1000
-	sta reu_translen + 1
+	; Either change screen RAM pointers or backup screen RAM
 !ifdef TARGET_C128 {
 	lda #0
 	sta allow_2mhz_in_40_col
@@ -647,22 +889,36 @@ launch_scrollback
 	beq .bak_have_copied_screen ; Always branch
 .bak_copy_40_col
 }	
+	; Backup screen and colour RAM to safe place
+	lda scrollback_screen_backup_page + 1
+	ldx scrollback_screen_backup_page
+	ldy #>SCREEN_ADDRESS
+	clc
+	jsr store_sb_transfer_params
+	lda #<1000
+	sta sb_copy_len
+	lda #>1000
+	sta sb_copy_len + 1
 	; lda zp_screenline
 	; sta reu_c64base
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
+;	lda #%10110000;  c64 -> REU with immediate execution
+;	sta reu_command
+	jsr sb_copy_to_buffer
 
 	lda scrollback_colour_backup_page + 1
 	ldx scrollback_colour_backup_page
 	ldy #>COLOUR_ADDRESS
 	clc
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
+	lda #%10000000
+	sta sb_copy_io
 	lda #>1000
-	sta reu_translen + 1
+	sta sb_copy_len + 1
 	lda #<1000
-	sta reu_translen
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
+	sta sb_copy_len
+;	lda #%10110000;  c64 -> REU with immediate execution
+;	sta reu_command
+	jsr sb_copy_to_buffer
 	lda $d021
 	sta z_operand_value_low_arr + 4
 	ldx darkmode
@@ -698,16 +954,13 @@ launch_scrollback
 	ldx scrollback_prebuffer_start + 1
 	ldy #>.space
 	clc
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
 	lda #<.space
-	sta reu_c64base
+	sta sb_copy_ram
 	lda #scrollback_prebuffer_pages
-	sta reu_translen + 1
-	lda #$80
-	sta reu_control ; Fix C64 address
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
-	bne .done_filling_prebuffer ; Always branch
+	sta sb_copy_len + 1
+	jsr sb_fill_buffer
+	jmp .done_filling_prebuffer ; Always branch
 
 .copy_end_to_beginning
 	jsr get_free_vmem_buffer
@@ -724,21 +977,26 @@ launch_scrollback
 	lda scrollback_prebuffer_copy_from + 2
 	ldy z_operand_value_low_arr + 6
 	clc
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
 	lda scrollback_prebuffer_copy_from
-	sta reu_reubase
-	lda #%10110001;  REU -> c64 with immediate execution
-	sta reu_command
+	sta sb_copy_buffer
+	jsr sb_copy_to_ram
 
+!ifdef SCROLLBACK_RAM_PAGES {
+	lda z_operand_value_low_arr + 7
+	bit scrollback_in_ram
+	bpl +
+	clc
+	adc #SCROLLBACK_RAM_START_PAGE
++	tax
+} else {
 	ldx z_operand_value_low_arr + 7
+}
 	lda scrollback_prebuffer_start + 2
 	ldy z_operand_value_low_arr + 6
 	clc
-	jsr store_reu_transfer_params
-	; lda #0
-	; sta reu_reubase
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
+	jsr store_sb_transfer_params
+	jsr sb_copy_to_buffer
 
 	dec z_operand_value_low_arr + 7
 	bpl -
@@ -858,13 +1116,12 @@ launch_scrollback
 	ldx z_temp + 1
 	ldy #>SCREEN_ADDRESS
 	sec
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
 	ldy z_temp
-	sty reu_reubase
+	sty sb_copy_buffer
 	lda #240
-	sta reu_translen
-	lda #%10110001;  REU -> c64 with immediate execution
-	sta reu_command
+	sta sb_copy_len
+	jsr sb_copy_to_ram
 
 	ldy #0
 	ldx #VDC_DATA
@@ -891,17 +1148,16 @@ launch_scrollback
 	ldx z_temp + 1
 	ldy #>(SCREEN_ADDRESS + 40)
 	clc
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
 	ldy z_temp
-	sty reu_reubase
+	sty sb_copy_buffer
 	ldy #<(SCREEN_ADDRESS + 40)
-	sty reu_c64base
+	sty sb_copy_ram
 	lda #>(1000 - 40)
-	sta reu_translen + 1
+	sta sb_copy_len + 1
 	lda #<(1000 - 40)
-	sta reu_translen
-	lda #%10110001;  REU -> c64 with immediate execution
-	sta reu_command
+	sta sb_copy_len
+	jsr sb_copy_to_ram
 
 	; ; Wait for keypresses and scroll accordingly in buffer
 .get_char
@@ -969,36 +1225,32 @@ launch_scrollback
 	ldx scrollback_screen_backup_page
 	ldy #>SCREEN_ADDRESS
 	clc
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
 	lda #>1000
-	sta reu_translen + 1
+	sta sb_copy_len + 1
 	lda #<1000
-	sta reu_translen
-	lda #%10110001;  REU -> c64 with immediate execution
-	sta reu_command
+	sta sb_copy_len
+	jsr sb_copy_to_ram
 
 	lda scrollback_colour_backup_page + 1
 	ldx scrollback_colour_backup_page
 	ldy #>COLOUR_ADDRESS
 	clc
-	jsr store_reu_transfer_params
+	jsr store_sb_transfer_params
+	lda #%01000000
+	sta sb_copy_io
 	lda #>1000
-	sta reu_translen + 1
+	sta sb_copy_len + 1
 	lda #<1000
-	sta reu_translen
-	lda #%10110001;  REU -> c64 with immediate execution
-	sta reu_command
+	sta sb_copy_len
+	jsr sb_copy_to_ram
 
 .restore_have_restored_screen
 
 	lda z_operand_value_low_arr + 4
 	sta $d021
 
-!ifdef TARGET_C128 {
-	jmp restore_2mhz
-} else {
 	rts
-}
 	
 
 .scroll_up_one_line
