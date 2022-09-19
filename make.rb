@@ -2329,13 +2329,13 @@ if scrollback == nil
 	end
 end
 if scrollback == 1 and $target == "plus4"
-	puts "ERROR: Scrollback buffer is not supported on this target platform."
+	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
 	exit 1
 elsif scrollback == 0
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 end
 if scrollback > 1
-	if $target =~ /c64|c128/
+	if $target =~ /c64|c128|plus4/
 		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
 		$scrollback_ram_pages = 4 * scrollback
 	else

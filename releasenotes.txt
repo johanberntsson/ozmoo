@@ -15,7 +15,7 @@ Bugfixes:
 - Ozmoo didn't change the default colours when switching between lightmode and darkmode, so attempts to use colour number 1 (default colour) would always use the default colour for lightmode.
 - Backslash wasn't recognized when giving a path to sound files.
 - Made interpreter, in addition to make.rb, recognize scenarion on C64 when dynamic memory is so large that REU Boost mode can't be engaged.
-- Allow scrollback on C128 and C64 to use RAM if REU is unavailble. Enable with -sb:6|8|10|12 for different buffer sizes. 
+- Allow scrollback on C64, C128 and Plus/4 to use RAM (only if REU is unavailble on C64/C128).  Enable with -sb:6|8|10|12 for different buffer sizes. 
 
 ================================================
 Release 11.2: 10 August 2022

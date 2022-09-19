@@ -45,6 +45,14 @@
 	!ifndef SLOW {
 		SLOW = 1
 	}
+	!ifndef NOSCROLLBACK {
+		SCROLLBACK = 1
+		; SCROLLBACK_RAM_PAGES may be set by make.rb;
+		; Must be an even number, where 6 * 4 <= SCROLLBACK_RAM_PAGES <= 11 * 4
+		!ifndef SCROLLBACK_RAM_PAGES {
+			SCROLLBACK_RAM_PAGES = 6 * 4
+		}
+	}
 }
 !ifdef TARGET_C64 {
 	TARGET_ASSIGNED = 1
@@ -907,7 +915,11 @@ game_id		!byte 0,0,0,0
 	}
 	lda #147
 	jsr s_printchar
+} else {
+	; This case is used by Plus/4 only
+	jsr init_reu_scrollback
 }
+
 .supercpu
 }
 	jsr deletable_init

@@ -1083,3 +1083,46 @@ divide16
 }
 
 ; screen update routines
+
+!ifdef TARGET_C128 {
+SETBORDERMACRO_DEFINED = 1
+!macro SetBorderColour {
+	jsr C128SetBorderColour
+}
+!macro SetBackgroundColour {
+	jsr C128SetBackgroundColour
+}
+}
+
+
+!ifdef TARGET_PLUS4 {
+SETBORDERMACRO_DEFINED = 1
+!macro SetBorderColour {
+	stx s_stored_x
+	pha
+	tax
+	lda plus4_vic_colours,x
+	sta reg_bordercolour
+	pla
+	ldx s_stored_x
+}
+!macro SetBackgroundColour {
+	stx s_stored_x
+	pha
+	tax
+	lda plus4_vic_colours,x
+	sta reg_backgroundcolour
+	pla
+	ldx s_stored_x
+}
+}
+
+!ifndef SETBORDERMACRO_DEFINED {
+!macro SetBorderColour {
+	sta reg_bordercolour
+}
+!macro SetBackgroundColour {
+	sta reg_backgroundcolour
+}
+}
+

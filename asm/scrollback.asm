@@ -444,6 +444,7 @@ scrollback_colour_backup_page !byte $08,0
 .msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
 
 init_reu_scrollback
+!ifndef TARGET_PLUS4 {
 !ifdef TARGET_C128 {
 	ldx COLS_40_80
 	bne .is_80_col
@@ -497,6 +498,7 @@ init_reu_scrollback
 	jmp wait_a_sec
 	; lda #147
 	; jmp s_printchar
+}
 }
 
 !ifdef SCROLLBACK_RAM_PAGES {
@@ -596,6 +598,7 @@ store_sb_transfer_params
 	sta sb_copy_len + 1
 	rts
 
+!ifndef TARGET_PLUS4 {
 sb_copy_params_to_reu
 	lda sb_copy_buffer + 2
 	ldx sb_copy_buffer + 1
@@ -611,24 +614,27 @@ sb_copy_params_to_reu
 	lda sb_copy_buffer
 	sta reu_reubase
 	rts
+}
 
 sb_copy_to_buffer
-!ifdef SCROLLBACK_RAM_PAGES {
-	bit scrollback_in_ram
-	bmi .copy_to_buf_ram
+!ifndef TARGET_PLUS4 {
+	!ifdef SCROLLBACK_RAM_PAGES {
+		bit scrollback_in_ram
+		bmi .copy_to_buf_ram
+	}
+		jsr sb_copy_params_to_reu
+	!ifdef TARGET_C128 {
+		lda #0
+		sta allow_2mhz_in_40_col
+		sta reg_2mhz	;CPU = 1MHz
+	}
+		lda #%10110000;  c64 -> REU with immediate execution
+		sta reu_command
+	!ifdef TARGET_C128 {
+		jsr restore_2mhz
+	}
+		rts
 }
-	jsr sb_copy_params_to_reu
-!ifdef TARGET_C128 {
-	lda #0
-	sta allow_2mhz_in_40_col
-	sta reg_2mhz	;CPU = 1MHz
-}
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
-!ifdef TARGET_C128 {
-	jsr restore_2mhz
-}
-	rts
 
 !ifdef SCROLLBACK_RAM_PAGES {
 .copy_to_buf_ram
@@ -686,22 +692,24 @@ sb_copy_to_buffer
 }
 
 sb_copy_to_ram
-!ifdef SCROLLBACK_RAM_PAGES {
-	bit scrollback_in_ram
-	bmi .copy_to_ram_ram
+!ifndef TARGET_PLUS4 {
+	!ifdef SCROLLBACK_RAM_PAGES {
+		bit scrollback_in_ram
+		bmi .copy_to_ram_ram
+	}
+		jsr sb_copy_params_to_reu
+	!ifdef TARGET_C128 {
+		lda #0
+		sta allow_2mhz_in_40_col
+		sta reg_2mhz	;CPU = 1MHz
+	}
+		lda #%10110001;  REU -> c64 with immediate execution
+		sta reu_command
+	!ifdef TARGET_C128 {
+		jsr restore_2mhz
+	}
+		rts
 }
-	jsr sb_copy_params_to_reu
-!ifdef TARGET_C128 {
-	lda #0
-	sta allow_2mhz_in_40_col
-	sta reg_2mhz	;CPU = 1MHz
-}
-	lda #%10110001;  REU -> c64 with immediate execution
-	sta reu_command
-!ifdef TARGET_C128 {
-	jsr restore_2mhz
-}
-	rts
 
 !ifdef SCROLLBACK_RAM_PAGES {
 .copy_to_ram_ram
@@ -758,16 +766,18 @@ sb_copy_to_ram
 }
 
 sb_fill_buffer
-!ifdef SCROLLBACK_RAM_PAGES {
-	bit scrollback_in_ram
-	bmi .fill_buffer_ram
+!ifndef TARGET_PLUS4 {
+	!ifdef SCROLLBACK_RAM_PAGES {
+		bit scrollback_in_ram
+		bmi .fill_buffer_ram
+	}
+		jsr sb_copy_params_to_reu
+		lda #$80
+		sta reu_control ; Fix C64 address
+		lda #%10110000;  c64 -> REU with immediate execution
+		sta reu_command
+		rts
 }
-	jsr sb_copy_params_to_reu
-	lda #$80
-	sta reu_control ; Fix C64 address
-	lda #%10110000;  c64 -> REU with immediate execution
-	sta reu_command
-	rts
 
 !ifdef SCROLLBACK_RAM_PAGES {
 .fill_buffer_ram
@@ -985,15 +995,19 @@ launch_scrollback
 ;	lda #%10110000;  c64 -> REU with immediate execution
 ;	sta reu_command
 	jsr sb_copy_to_buffer
-	lda $d021
+	lda reg_backgroundcolour
 	sta z_operand_value_low_arr + 4
 	ldx darkmode
 	ldy bgcol,x
 	lda zcolours,y
-	sta $d021
+	+SetBackgroundColour
 	; ; Fill colour RAM with the game's foreground colour
 	ldy fgcol,x
 	lda zcolours,y
+!ifdef TARGET_PLUS4 {
+	tay
+	lda plus4_vic_colours,y
+}
 	ldx #250
 -	sta COLOUR_ADDRESS - 1,x
 	sta COLOUR_ADDRESS + 250 - 1,x
@@ -1029,7 +1043,11 @@ launch_scrollback
 	jmp .done_filling_prebuffer ; Always branch
 
 .copy_end_to_beginning
+!ifdef TARGET_PLUS4 {
+	lda #(>SCREEN_ADDRESS) + 1
+} else {
 	jsr get_free_vmem_buffer
+}
 	sta z_operand_value_low_arr + 6
 
 	; Copy prebuffer size pages from scrollback_prebuffer_copy_from to prebuffer
@@ -1314,7 +1332,7 @@ launch_scrollback
 .restore_have_restored_screen
 
 	lda z_operand_value_low_arr + 4
-	sta $d021
+	sta reg_backgroundcolour
 
 	rts
 	
