@@ -441,8 +441,6 @@ scrollback_screen_backup_page !byte 0,0
 scrollback_colour_backup_page !byte $08,0
 .space !byte 32
 
-.msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
-
 init_reu_scrollback
 !ifndef TARGET_PLUS4 {
 !ifdef TARGET_C128 {
@@ -498,8 +496,12 @@ init_reu_scrollback
 	jmp wait_a_sec
 	; lda #147
 	; jmp s_printchar
+
+.msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
+
 }
-}
+
+} ; ifndef TARGET_PLUS4
 
 !ifdef SCROLLBACK_RAM_PAGES {
 init_scrollback_ram_buffer
