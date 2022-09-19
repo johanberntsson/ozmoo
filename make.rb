@@ -1328,7 +1328,7 @@ def play(filename)
 end
 
 def limit_vmem_data_preload(vmem_data)
-	puts "%%% #{$dynmem_and_vmem_size_bank_0_max}, #{vmem_data[3]} #{$dynmem_blocks} #{$VMEM_BLOCKSIZE}"
+#	puts "%%% #{$dynmem_and_vmem_size_bank_0_max}, #{vmem_data[3]} #{$dynmem_blocks} #{$VMEM_BLOCKSIZE}"
 	if $dynmem_and_vmem_size_bank_0_max < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
 		vmem_data[3] = $dynmem_and_vmem_size_bank_0_max / $VMEM_BLOCKSIZE - $dynmem_blocks
 	end
@@ -2335,8 +2335,8 @@ elsif scrollback == 0
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 end
 if scrollback > 1
-	if $target == "c128"
-		scrollback = 11 if scrollback > 11 # Because 11 KB fits above the $d000 mark on C128, making life easier
+	if $target =~ /c64|c128/
+		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
 		$scrollback_ram_pages = 4 * scrollback
 	else
 		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
@@ -2756,8 +2756,8 @@ end
 if $target != 'mega65'
 	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 	puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
-	if	$unbanked_vmem_blocks <= 0 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
-		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be zero unbanked VMEM blocks." 
+	if	$unbanked_vmem_blocks < 2 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be less than 1 KB of unbanked RAM for VMEM." 
 		exit 1
 	end
 end
@@ -2793,7 +2793,7 @@ unless $DEBUGFLAGS.include?('PREOPT') then
 	if mode == MODE_P 
 		mapped_vmem_blocks = total_storyfile_blocks - $dynmem_blocks
 	else
-		puts "### #{$vmem_blocks_in_ram}, #{total_storyfile_blocks} - #{$dynmem_blocks}"
+#		puts "### #{$vmem_blocks_in_ram}, #{total_storyfile_blocks} - #{$dynmem_blocks}"
 		mapped_vmem_blocks = [$vmem_blocks_in_ram, total_storyfile_blocks - $dynmem_blocks].min()
 #		mapped_vmem_blocks = [$max_vmem_kb * 1024 / $VMEM_BLOCKSIZE - $dynmem_blocks,
 #			total_storyfile_blocks - $dynmem_blocks].min()

@@ -112,7 +112,7 @@
 }
 
 !ifdef SCROLLBACK_RAM_PAGES {
-	SCROLLBACK_RAM_START_PAGE = VMEM_END_PAGE - SCROLLBACK_RAM_PAGES
+	SCROLLBACK_RAM_START_PAGE = (VMEM_END_PAGE - SCROLLBACK_RAM_PAGES) & $ff ; VMEM_END_PAGE is 0 for C64, hence & $ff
 }
 
 !ifndef TERPNO {
@@ -803,15 +803,7 @@ reu_last_disk_end_block = string_array ; 2 bytes
 }
 
 reu_boost_mode !byte 0 ; Set to $ff to activate
-!ifdef SCROLLBACK_RAM_START_PAGE {
-!if SCROLLBACK_RAM_START_PAGE < first_banked_memory_page {
-reu_boost_hash_table = (SCROLLBACK_RAM_START_PAGE - reu_boost_hash_pages) * 256
-} else {
 reu_boost_hash_table = (first_banked_memory_page - reu_boost_hash_pages) * 256
-}
-} else {
-reu_boost_hash_table = (first_banked_memory_page - reu_boost_hash_pages) * 256
-}
 
 ; The values calculated here for reu_boost_area_start_page and reu_boost_area_pagecount
 ; are correct for C128. For C64, they are changed at runtime, as they can't be calculated
@@ -2097,9 +2089,7 @@ insert_disks_at_boot
 	sta reu_boost_mode
 
 !ifdef TARGET_C64 {
-	lda #>story_start
-	clc
-	adc nonstored_pages
+	lda vmap_first_ram_page
 	sta reu_boost_area_start_page
 	lda #>reu_boost_hash_table
 	sec

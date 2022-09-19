@@ -570,10 +570,10 @@ init_scrollback_ram_buffer
 } ; ifdef SCROLLBACK_RAM_PAGES
 
 sb_copy_io !byte 0 ; %1xxxxxxx means copy from I/O, %x1xxxxxx means copy to I/O
-sb_copy_ram = object_temp ; !byte 0,0
+sb_copy_ram = object_temp ; $2e ; object_temp ; !byte 0,0
 ;sb_copy_buffer = z_temp + 9 ; !byte 0,0,0
-sb_copy_buffer = zp_temp ; !byte 0,0,0
-sb_copy_len = z_temp + 7 ;!byte 0,0
+sb_copy_buffer = zp_temp + 1 ; $30 ; zp_temp + 1 ; !byte 0,0,0
+sb_copy_len = z_temp + 7 ;$03 ; z_temp + 7 ;!byte 0,0
 
 store_sb_transfer_params
 	; a,x = REU page
@@ -632,15 +632,38 @@ sb_copy_to_buffer
 
 !ifdef SCROLLBACK_RAM_PAGES {
 .copy_to_buf_ram
+!ifdef TARGET_PLUS4 {
+	+before_dynmem_read
+} else {
 	sei
+}
 	ldy#0
--	ldx #0
+-
+!ifdef TARGET_C128 {
+	ldx #1
 	bit sb_copy_io
-	bmi +
-	inx
+	bpl +
+	dex
 +	sta c128_mmu_load_pcra,x
+}
+!ifdef TARGET_C64 {
+	ldx #%00110000 ; Show all RAM
+	bit sb_copy_io
+	bpl +
+	ldx #%00110110 ; Show I/O
++	stx zero_processorports
+}
+
 	lda (sb_copy_ram),y
+
+!ifdef TARGET_C128 {
 	sta c128_mmu_load_pcrb
+}
+!ifdef TARGET_C64 {
+	ldx #%00110000 ; Show all RAM
+	stx zero_processorports
+}
+
 	sta (sb_copy_buffer),y
 	iny
 	bne +
@@ -653,8 +676,12 @@ sb_copy_to_buffer
 	dec sb_copy_len + 1
 +	ora sb_copy_len + 1
 	bne -
-	sta c128_mmu_load_pcra
+	+set_memory_no_basic_unsafe
+!ifdef TARGET_PLUS4 {
+	+after_dynmem_read
+} else {
 	cli
+}
 	rts
 }
 
@@ -678,15 +705,37 @@ sb_copy_to_ram
 
 !ifdef SCROLLBACK_RAM_PAGES {
 .copy_to_ram_ram
+!ifdef TARGET_PLUS4 {
+	+before_dynmem_read
+} else {
 	sei
+}
 	ldy#0
--	sta c128_mmu_load_pcrb
+-
+!ifdef TARGET_C128 {
+	sta c128_mmu_load_pcrb
+}
+!ifdef TARGET_C64 {
+	ldx #%00110000 ; Show all RAM
+	stx zero_processorports
+}
 	lda (sb_copy_buffer),y
-	ldx #0
+
+!ifdef TARGET_C128 {
+	ldx #1
 	bit sb_copy_io
-	bvs +
-	inx
+	bvc +
+	dex
 +	sta c128_mmu_load_pcra,x
+}
+!ifdef TARGET_C64 {
+	ldx #%00110000 ; Show all RAM
+	bit sb_copy_io
+	bvc +
+	ldx #%00110110 ; Show I/O
++	stx zero_processorports
+}
+
 	sta (sb_copy_ram),y
 	iny
 	bne +
@@ -699,8 +748,12 @@ sb_copy_to_ram
 	dec sb_copy_len + 1
 +	ora sb_copy_len + 1
 	bne -
-	sta c128_mmu_load_pcra
+	+set_memory_no_basic_unsafe
+!ifdef TARGET_PLUS4 {
+	+after_dynmem_read
+} else {
 	cli
+}
 	rts
 }
 
@@ -718,9 +771,19 @@ sb_fill_buffer
 
 !ifdef SCROLLBACK_RAM_PAGES {
 .fill_buffer_ram
+!ifdef TARGET_PLUS4 {
+	+before_dynmem_read
+} else {
 	sei
+}
 	ldy #0
+!ifdef TARGET_C128 {
 	sta c128_mmu_load_pcrb
+}
+!ifdef TARGET_C64 {
+	ldx #%00110000 ; Show all RAM
+	stx zero_processorports
+}
 	lda (sb_copy_ram),y
 	sta sb_copy_ram
 -	lda sb_copy_ram
@@ -735,11 +798,14 @@ sb_fill_buffer
 	dec sb_copy_len + 1
 +	ora sb_copy_len + 1
 	bne -
-	sta c128_mmu_load_pcra
+	+set_memory_no_basic_unsafe
+!ifdef TARGET_PLUS4 {
+	+after_dynmem_read
+} else {
 	cli
+}
 	rts
 }
-
 
 copy_line_to_scrollback
 	lda scrollback_enabled
@@ -912,10 +978,10 @@ launch_scrollback
 	jsr store_sb_transfer_params
 	lda #%10000000
 	sta sb_copy_io
-	lda #>1000
-	sta sb_copy_len + 1
 	lda #<1000
 	sta sb_copy_len
+	lda #>1000
+	sta sb_copy_len + 1
 ;	lda #%10110000;  c64 -> REU with immediate execution
 ;	sta reu_command
 	jsr sb_copy_to_buffer
@@ -967,8 +1033,8 @@ launch_scrollback
 	sta z_operand_value_low_arr + 6
 
 	; Copy prebuffer size pages from scrollback_prebuffer_copy_from to prebuffer
-	ldx #scrollback_prebuffer_pages
-	dex
+	ldx #scrollback_prebuffer_pages - 1
+;	dex
 	stx z_operand_value_low_arr + 7
 -	lda z_operand_value_low_arr + 7
 	clc
