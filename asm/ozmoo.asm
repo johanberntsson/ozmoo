@@ -917,7 +917,9 @@ game_id		!byte 0,0,0,0
 	jsr s_printchar
 } else {
 	; This case is used by Plus/4 only
-	jsr init_reu_scrollback
+	!ifdef SCROLLBACK_RAM_PAGES {
+		jsr init_reu_scrollback
+	}
 }
 
 .supercpu
