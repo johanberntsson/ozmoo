@@ -23,6 +23,7 @@ scrollback_prebuffer_pages = $04; (in pages) $0400 = 1KB
 scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_pages << 8) - 25 * 40
 }
 }
+scrollback_prebuffer_pages_final !byte scrollback_prebuffer_pages
 scrollback_prebuffer_start !byte 0, 0, $20, $08 ; First two bytes must be 0. Third value is altered on init for C64/C128. Last value is ignored for C64/128
 scrollback_start !byte 0, scrollback_prebuffer_pages, $20, $08
 scrollback_current !byte 0, scrollback_prebuffer_pages, $20, $08
@@ -447,6 +448,8 @@ init_reu_scrollback
 	ldx COLS_40_80
 	bne .is_80_col
 	; 40 column -> Set new values for some constants
+	lda #4
+	sta scrollback_prebuffer_pages_final
 	lda #<((scrollback_prebuffer_pages << 8) - 25 * 40)
 	sta scrollback_start_minus_25_lines
 	lda #>((scrollback_prebuffer_pages << 8) - 25 * 40)
@@ -558,7 +561,30 @@ init_scrollback_ram_buffer
 	rts
 
 .ram_buf_40_col
-}
+
+	lda #SCROLLBACK_RAM_START_PAGE + 4
+;	lda scrollback_start + 1
+;	sec
+;	sbc #4
+	sta scrollback_start + 1
+	sta scrollback_current + 1
+
+	lda #<(SCROLLBACK_RAM_START_PAGE * 256 + $400 - 25 * 40)
+	sta scrollback_start_minus_25_lines
+	lda #>(SCROLLBACK_RAM_START_PAGE * 256 + $400 - 25 * 40)
+	sta scrollback_start_minus_25_lines + 1
+
+	; Reserve room for 8 additional pages, for backup of screen and colour RAM
+	lda #<(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40)
+	sta scrollback_max_line_count
+	lda #>(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40)
+	sta scrollback_max_line_count + 1
+	lda #<(40*(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40))
+	sta scrollback_prebuffer_copy_from
+	lda #(>(40*(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40))) + SCROLLBACK_RAM_START_PAGE
+	sta scrollback_prebuffer_copy_from + 1
+
+} else {
 	; Reserve room for 8 additional pages, for backup of screen and colour RAM
 	lda #<(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40)
 	sta scrollback_max_line_count
@@ -568,6 +594,7 @@ init_scrollback_ram_buffer
 	sta scrollback_prebuffer_copy_from
 	lda #(>(40*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40))) + SCROLLBACK_RAM_START_PAGE
 	sta scrollback_prebuffer_copy_from + 1
+}
 
 .ret
 	rts
@@ -1039,7 +1066,7 @@ launch_scrollback
 	jsr store_sb_transfer_params
 	lda #<.space
 	sta sb_copy_ram
-	lda #scrollback_prebuffer_pages
+	lda scrollback_prebuffer_pages_final
 	sta sb_copy_len + 1
 	jsr sb_fill_buffer
 	jmp .done_filling_prebuffer ; Always branch
@@ -1053,8 +1080,9 @@ launch_scrollback
 	sta z_operand_value_low_arr + 6
 
 	; Copy prebuffer size pages from scrollback_prebuffer_copy_from to prebuffer
-	ldx #scrollback_prebuffer_pages - 1
-;	dex
+	ldx scrollback_prebuffer_pages_final
+	dex
+;	ldx #scrollback_prebuffer_pages - 1
 	stx z_operand_value_low_arr + 7
 -	lda z_operand_value_low_arr + 7
 	clc
