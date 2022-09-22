@@ -7,6 +7,7 @@ Optimizations:
 
 - Faster page copying on C64 and C128 with REU, by copying to the REU and then from it.
 - REU Boost Mode for C64 + C128 - When REU is used for caching, use a vmem model better suited to REU. This is enabled by default. Build with -rb:0 to disable.
+- Faster screen clearing on C128 in 80 col mode.
 
 Bugfixes:
 
@@ -16,6 +17,7 @@ Bugfixes:
 - Backslash wasn't recognized when giving a path to sound files.
 - Made interpreter, in addition to make.rb, recognize scenarion on C64 when dynamic memory is so large that REU Boost mode can't be engaged.
 - Allow scrollback on C64, C128 and Plus/4 to use RAM (only if REU is unavailble on C64/C128).  Enable with -sb:6|8|10|12 for different buffer sizes. 
+- Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
 
 ================================================
 Release 11.2: 10 August 2022

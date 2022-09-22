@@ -150,7 +150,7 @@ VDCGetChar
 VDCPrintChar
 	; 80 columns, use VDC screen
 	sty .stored_x_or_y
-	sta .stored_a
+	pha
 	lda zp_screenline + 1
 	sec
 	sbc #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
@@ -161,7 +161,7 @@ VDCPrintChar
 	bcc +
 	iny
 +	jsr VDCSetAddress
-	lda .stored_a
+	pla
 	ldy .stored_x_or_y
 	ldx #VDC_DATA
 	jmp VDCWriteReg
@@ -173,7 +173,7 @@ VDCPrintColour
 	tax
 	lda vdc_vic_colours,x
 	ora #$80 ; lower-case
-	sta .stored_a
+	pha
 	lda zp_colourline + 1
 	sec
 	sbc #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
@@ -184,7 +184,7 @@ VDCPrintColour
 	bcc +
 	iny
 +	jsr VDCSetAddress
-	lda .stored_a
+	pla
 	ldy .stored_x_or_y
 	ldx #VDC_DATA
 	jmp VDCWriteReg
@@ -839,23 +839,87 @@ s_erase_line
 	jmp .done_erasing	
 .col80_5
 	; erase line in VDC
+
 	tya
+	clc 
+	adc zp_screenline
 	pha
--	cpy s_screen_width
-	bcs +
+	lda zp_screenline + 1
+	adc #$00
+	sec
+	sbc #$04
+	sta .stored_a
+	ldx #VDC_DATA_HI
+	jsr VDCWriteReg
+	pla
+	pha
+	ldx #VDC_DATA_LO
+	jsr VDCWriteReg
 	lda #$20
-	jsr VDCPrintChar
-	iny
-	bne -
+
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	; We have written a space character to the first position
+	; Now fill the rest of the line.
+	lda #0 ; Set to Fill mode
+	ldx #VDC_VSCROLL
+	jsr VDCWriteReg
+	sty .stored_x_or_y
+	lda #79
+	sec
+	sbc .stored_x_or_y
+	beq +
+	ldx #VDC_COUNT
+	jsr VDCWriteReg
++
+
+	lda .stored_a
+	clc
+	adc #$08 ; Colour RAM starts at $0800, while screen RAM starts at $0000
+	ldx #VDC_DATA_HI
+	jsr VDCWriteReg
+	pla
+	ldx #VDC_DATA_LO
+	jsr VDCWriteReg
+
+	ldx s_colour
+	lda vdc_vic_colours,x
+	ora #$80 ; lower-case
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	; We have written the first byte to colour memory
+	; Now fill the rest of the line.
+	lda #0 ; Set to Fill mode
+	ldx #VDC_VSCROLL
+	jsr VDCWriteReg
+	sty .stored_x_or_y
+	lda #79
+	sec
+	sbc .stored_x_or_y
+	beq +
+	ldx #VDC_COUNT
+	jsr VDCWriteReg
++
+
+
+	; tya
+	; pha
+; -	cpy s_screen_width
+	; bcs +
+	; lda #$20
+	; jsr VDCPrintChar
+	; iny
+	; bne -
 	; also reset attributes/colours
-+	pla
-	tay
--	cpy s_screen_width
-	bcs .done_erasing
-	lda s_colour
-	jsr VDCPrintColour
-	iny
-	bne -
+;+	pla
+;	tay
+
+; -	cpy s_screen_width
+	; bcs .done_erasing
+	; lda s_colour
+	; jsr VDCPrintColour
+	; iny
+	; bne -
 } else {
 -	cpy s_screen_width
 	bcs .done_erasing

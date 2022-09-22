@@ -942,6 +942,9 @@ game_id		!byte 0,0,0,0
 
 	jsr deletable_screen_init_2
 
+	lda #0
+	sta keyboard_buff_len
+
 	jsr z_init
 
 !ifdef TARGET_C128 {
