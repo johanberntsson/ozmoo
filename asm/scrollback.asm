@@ -28,15 +28,6 @@ scrollback_prebuffer_start !byte 0, 0, $20, $08 ; First two bytes must be 0. Thi
 scrollback_start !byte 0, scrollback_prebuffer_pages, $20, $08
 scrollback_current !byte 0, scrollback_prebuffer_pages, $20, $08
 scrollback_line_count !word 0
-; !ifdef TARGET_C64 {
-; scrollback_max_line_count !word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40), 0
-; scrollback_prebuffer_copy_from !word 40*((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 40), 0
-; } else {
-; !ifdef TARGET_C128 {
-; ; First word must be > 50. Second word must be 0.
-; scrollback_max_line_count !word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 80), 0
-; scrollback_prebuffer_copy_from !word 80*((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / 80), 0
-; } else {
 ; First word must be > 50. Second word must be 0.
 scrollback_max_line_count 
 	!word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / normal_line_length), 0
@@ -51,7 +42,12 @@ scrollback_has_wrapped !byte 0
 .adjusted_top_line !word 0, 0
 .lowest_top_line !word 0, 0
 .highest_top_line !word 0, 0
-!ifndef TARGET_C64 {
+
+!ifdef TARGET_MEGA65 {
+.scrollback_instructions 
+	!scrxor $80, " SCROLLBACK MODE    Use Cursor Up/Down, F5, F7                     Enter = Exit "
+}
+!ifdef TARGET_C128 {
 .scrollback_instructions 
 	!scrxor $80, " SCROLLBACK MODE    Use Cursor Up/Down, F5, F7                     Enter = Exit "
 }
@@ -489,9 +485,10 @@ init_reu_scrollback
 	rts
 
 .no_reu_space_for_scrollback
-!ifdef SCROLLBACK_RAM_PAGES {
-	jmp init_scrollback_ram_buffer	
-} else {
+
+	; Unless there's a RAM buffer, fall through to init_scrollback_ram_buffer
+
+!ifndef SCROLLBACK_RAM_PAGES {
 ; .disable_scrollback
 	lda #>.msg_not_available
 	ldx #<.msg_not_available
@@ -563,9 +560,6 @@ init_scrollback_ram_buffer
 .ram_buf_40_col
 
 	lda #SCROLLBACK_RAM_START_PAGE + 4
-;	lda scrollback_start + 1
-;	sec
-;	sbc #4
 	sta scrollback_start + 1
 	sta scrollback_current + 1
 
@@ -573,6 +567,10 @@ init_scrollback_ram_buffer
 	sta scrollback_start_minus_25_lines
 	lda #>(SCROLLBACK_RAM_START_PAGE * 256 + $400 - 25 * 40)
 	sta scrollback_start_minus_25_lines + 1
+
+	; Reserve room for 8 additional pages, for backup of screen and colour RAM
+
+} 
 
 	; Reserve room for 8 additional pages, for backup of screen and colour RAM
 	lda #<(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40)
@@ -583,18 +581,6 @@ init_scrollback_ram_buffer
 	sta scrollback_prebuffer_copy_from
 	lda #(>(40*(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40))) + SCROLLBACK_RAM_START_PAGE
 	sta scrollback_prebuffer_copy_from + 1
-
-} else {
-	; Reserve room for 8 additional pages, for backup of screen and colour RAM
-	lda #<(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40)
-	sta scrollback_max_line_count
-	lda #>(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40)
-	sta scrollback_max_line_count + 1
-	lda #<(40*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40))
-	sta scrollback_prebuffer_copy_from
-	lda #(>(40*(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages - 8) * 256) / 40))) + SCROLLBACK_RAM_START_PAGE
-	sta scrollback_prebuffer_copy_from + 1
-}
 
 .ret
 	rts
@@ -935,9 +921,9 @@ launch_scrollback
 
 	; Either change screen RAM pointers or backup screen RAM
 !ifdef TARGET_C128 {
-	lda #0
-	sta allow_2mhz_in_40_col
-	sta reg_2mhz	;CPU = 1MHz
+;	lda #0
+;	sta allow_2mhz_in_40_col
+;	sta reg_2mhz	;CPU = 1MHz
 
 	ldx COLS_40_80
 	beq .bak_copy_40_col
@@ -946,7 +932,7 @@ launch_scrollback
 	ldx #VDC_COLORS
 	jsr VDCReadReg
 	sta z_operand_value_low_arr + 5
-	jsr VDCSetToScrollback
+;	jsr VDCSetToScrollback
 
 	; ; Fill relevant portion of colour RAM (start at offset $1800) with the game's foreground colour
 	lda #$18
@@ -1213,7 +1199,7 @@ launch_scrollback
 	ldx COLS_40_80
 	beq .copy_screenful_40
 
-	; Copy a 24 * 80 (= 8 * 240) characters from REU to VDC
+	; Copy 24 * 80 (= 8 * 240) characters from REU to VDC
 
 	lda #>($1000 + 80)
 	ldx #VDC_DATA_HI
@@ -1254,7 +1240,8 @@ launch_scrollback
 
 +	dec z_operand_value_high_arr + 7
 	bne ---
-	beq .get_char ; Always branch
+	jsr VDCSetToScrollback
+	jmp .get_char
 
 .copy_screenful_40
 }
@@ -1325,11 +1312,8 @@ launch_scrollback
 	ldx COLS_40_80
 	beq .restore_copy_40_col
 	; 80 column -> Change pointers in VDC
+	lda z_operand_value_low_arr + 5 ; Background colour
 	jsr VDCInit
-	; colours
-	lda z_operand_value_low_arr + 5
-	ldx #VDC_COLORS
-	jsr VDCWriteReg
 
 	jmp .restore_have_restored_screen
 
@@ -1417,13 +1401,6 @@ launch_scrollback
 !ifdef TARGET_C128 {
 VDCSetToScrollback
 	; set the VDC configuration for scrollback mode
-	; screen $1000 (reg 12,13)
-	lda #$10  ; 7f
-	ldx #VDC_DSP_HI
-	jsr VDCWriteReg
-	lda #$00
-	ldx #VDC_DSP_LO
-	jsr VDCWriteReg
 
 	; Set background colour
 	ldx darkmode
@@ -1432,6 +1409,14 @@ VDCSetToScrollback
 	tay
 	lda vdc_vic_colours,y
 	ldx #VDC_COLORS
+	jsr VDCWriteReg
+
+	; screen $1000 (reg 12,13)
+	lda #$10  ; 7f
+	ldx #VDC_DSP_HI
+	jsr VDCWriteReg
+	lda #$00
+	ldx #VDC_DSP_LO
 	jsr VDCWriteReg
 
 	; attributes/colour $1800 (reg 20,21)

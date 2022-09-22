@@ -308,6 +308,7 @@
 program_start
 
 !ifdef TARGET_C128 {
+	lda #$f0 ; Background colour
 	jsr VDCInit
 	; initialize is in Basic LO ROM in C128 mode, so we need
 	; to turn off BASIC already here. Since the set_memory_no_basic

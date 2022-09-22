@@ -35,7 +35,12 @@ VDC_CPYSRC_HI = 32 ; $20
 VDC_CPYSRC_LO = 33 ; $21
 
 VDCInit
+	; In: A = Background colour
+	
 	; set the default VDC configuration
+	; colours
+	ldx #VDC_COLORS
+	jsr VDCWriteReg
 	; screen $0000 (reg 12,13)
 	lda #$00  ; 7f
 	ldx #VDC_DSP_HI
@@ -53,10 +58,6 @@ VDCInit
 	; char mem
 	lda #$2f
 	ldx #VDC_CSET
-	jsr VDCWriteReg
-	; colours
-	lda #$f0
-	ldx #VDC_COLORS
 	jsr VDCWriteReg
 	; number of lines
 	lda #$19
