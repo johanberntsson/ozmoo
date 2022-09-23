@@ -253,8 +253,7 @@ copy_page_c128_via_reu
 	sta $d506
 
 	cli
-	jsr restore_2mhz
-	rts
+	jmp restore_2mhz
 
 copy_page_c128_src
 ; a = source

@@ -2735,6 +2735,10 @@ $dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart -
 $dynmem_and_vmem_size_bank_0_max = $dynmem_and_vmem_size_bank_0
 if $target == 'c128'
 	$dynmem_and_vmem_size_bank_0_max = $memory_end_address - $storystart
+	if $dynmem_blocks < $scrollback_ram_pages / 2
+		$dynmem_and_vmem_size_bank_0_max = $memory_end_address - $storystart - 
+			$scrollback_ram_pages * 256 + $dynmem_blocks * $VMEM_BLOCKSIZE
+	end
 end
 
 if $target != 'mega65' and 
