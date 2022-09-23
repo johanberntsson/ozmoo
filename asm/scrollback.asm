@@ -10,34 +10,39 @@ scrollback_prebuffer_pages_32 !byte 0, scrollback_prebuffer_pages, 0, 0
 .scrollback_screen_ram !le32 $00040000
 scrollback_total_buffer_size = $100000;
 scrollback_start_minus_50_lines !le32 $08200000 + (scrollback_prebuffer_pages << 8) - 50 * 80
+scrollback_page_offset = 0
+reserve_pages_for_backup = 0
 } else {
-scrollback_supported !byte 0
+!ifdef TARGET_PLUS4 {
+scrollback_page_offset = SCROLLBACK_RAM_START_PAGE
+scrollback_total_buffer_size = SCROLLBACK_RAM_PAGES * 256;
+reserve_pages_for_backup = 8
+} else {
+scrollback_page_offset = 0
 scrollback_total_buffer_size = $10000;
+reserve_pages_for_backup = 0
+}
+scrollback_supported !byte 0
 !ifdef TARGET_C128 {
 normal_line_length = 80
 scrollback_prebuffer_pages = $08; (in pages) $0800 = 2KB
-scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_pages << 8) - 25 * 80
 } else {
 normal_line_length = 40
 scrollback_prebuffer_pages = $04; (in pages) $0400 = 1KB
-scrollback_start_minus_25_lines !le32 $00000000 + (scrollback_prebuffer_pages << 8) - 25 * 40
 }
+scrollback_start_minus_25_lines !le32 $00000000 + ((scrollback_page_offset + scrollback_prebuffer_pages) << 8) - 25 * normal_line_length
 }
 scrollback_prebuffer_pages_final !byte scrollback_prebuffer_pages
-scrollback_prebuffer_start !byte 0, 0, $20, $08 ; First two bytes must be 0. Third value is altered on init for C64/C128. Last value is ignored for C64/128
-scrollback_start !byte 0, scrollback_prebuffer_pages, $20, $08
-scrollback_current !byte 0, scrollback_prebuffer_pages, $20, $08
+scrollback_prebuffer_start !byte 0, scrollback_page_offset, $20, $08 ; First two bytes must be 0. Third value is altered on init for C64/C128. Last value is ignored for C64/128
+scrollback_start !byte 0, scrollback_page_offset + scrollback_prebuffer_pages, $20, $08
+scrollback_current !byte 0, scrollback_page_offset + scrollback_prebuffer_pages, $20, $08
 scrollback_line_count !word 0
 ; First word must be > 50. Second word must be 0.
 scrollback_max_line_count 
-	!word ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / normal_line_length), 0
+	!word ((scrollback_total_buffer_size - 256 * (scrollback_prebuffer_pages + reserve_pages_for_backup)) / normal_line_length), 0
 scrollback_prebuffer_copy_from 
-	!le32  $08200000 + normal_line_length * ((scrollback_total_buffer_size - scrollback_prebuffer_pages * 256) / normal_line_length)
-; }
-; } 
+	!le32  $08200000 + (scrollback_page_offset * 256) + normal_line_length * ((scrollback_total_buffer_size - 256 * (scrollback_prebuffer_pages + reserve_pages_for_backup)) / normal_line_length)
 scrollback_has_wrapped !byte 0
-!ifdef TARGET_MEGA65 {
-}
 .selected_top_line !word 0, 0
 .adjusted_top_line !word 0, 0
 .lowest_top_line !word 0, 0
@@ -434,8 +439,15 @@ scrollback_bank
 		!byte 4,5
 	}
 }
+
+
+!ifdef TARGET_PLUS4 {
+scrollback_screen_backup_page !byte VMEM_END_PAGE - 8,0
+scrollback_colour_backup_page !byte VMEM_END_PAGE - 4,0
+} else {
 scrollback_screen_backup_page !byte 0,0
 scrollback_colour_backup_page !byte $08,0
+}
 .space !byte 32
 
 init_reu_scrollback
@@ -510,24 +522,7 @@ init_scrollback_ram_buffer
 	dec scrollback_supported ; Set to $ff = supported
 	dec scrollback_in_ram ; Set to $ff = enable
 
-;scrollback_prebuffer_start !byte 0, 0, $20, $08 ; First two bytes must be 0. Third value is altered on init for C64/C128. Last value is ignored for C64/128
-;scrollback_start !byte 0, scrollback_prebuffer_pages, $20, $08
-;scrollback_current !byte 0, scrollback_prebuffer_pages, $20, $08
-	
-
-;!ifdef TARGET_C128 {
-;	lda #1
-;} else {
-;	lda #0
-;}
-;	sta scrollback_screen_backup_page + 1
-;	sta scrollback_colour_backup_page + 1
-;	sta scrollback_prebuffer_start + 2 ; Bank value
-;	sta scrollback_start_minus_25_lines + 2
-;	sta scrollback_start + 2
-;	sta scrollback_current + 2
-;	sta scrollback_prebuffer_copy_from + 2
-
+!ifndef TARGET_PLUS4 {
 	lda #VMEM_END_PAGE - 8
 	sta scrollback_screen_backup_page
 	lda #VMEM_END_PAGE - 4
@@ -544,6 +539,8 @@ init_scrollback_ram_buffer
 	adc #SCROLLBACK_RAM_START_PAGE
 	sta scrollback_start + 1
 	sta scrollback_current + 1
+}
+
 !ifdef TARGET_C128 {
 	ldx COLS_40_80
 	beq .ram_buf_40_col
@@ -572,6 +569,7 @@ init_scrollback_ram_buffer
 
 } 
 
+!ifndef TARGET_PLUS4 {
 	; Reserve room for 8 additional pages, for backup of screen and colour RAM
 	lda #<(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40)
 	sta scrollback_max_line_count
@@ -581,7 +579,7 @@ init_scrollback_ram_buffer
 	sta scrollback_prebuffer_copy_from
 	lda #(>(40*(((SCROLLBACK_RAM_PAGES - 4 - 8) * 256) / 40))) + SCROLLBACK_RAM_START_PAGE
 	sta scrollback_prebuffer_copy_from + 1
-
+}
 .ret
 	rts
 } ; ifdef SCROLLBACK_RAM_PAGES
