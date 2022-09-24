@@ -2335,13 +2335,17 @@ elsif scrollback == 0
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
 end
 if scrollback > 1
-	if $target =~ /c64|c128|plus4/
+	if $target =~ /^(c64|c128|plus4)$/
 		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
 		$scrollback_ram_pages = 4 * scrollback
 	else
 		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
 		exit 1
 	end
+end
+if scrollback > 0 and mode == MODE_P
+	puts "ERROR: Scrollback is not supported for build mode P."
+	exit 1
 end
 
 
