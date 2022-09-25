@@ -49,7 +49,7 @@ plus4_vic_colours
 	!byte $63   ; cyan
 	!byte $44   ; purple
 	!byte $65   ; green
-	!byte $3e   ; blue
+	!byte $26   ; blue
 	!byte $77   ; yellow
 	!byte $48   ; orange
 	!byte $39   ; brown 
