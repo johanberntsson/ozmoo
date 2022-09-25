@@ -3,6 +3,12 @@ RELEASE NOTES
 ================================================
 Release 12: ---
 
+New/changed features:
+
+- Allow scrollback on C64, C128 and Plus/4 to use RAM (only if REU is unavailble on C64/C128).  Enable with -sb:6|8|10|12 for different buffer sizes. 
+- Allow build mode 71 (for 1571 disk) on C64 and Plus/4.
+- Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
+
 Optimizations:
 
 - Faster page copying on C64 and C128 with REU, by copying to the REU and then from it.
@@ -16,9 +22,7 @@ Bugfixes:
 - Fixed that an extra empty line was put in scrollback buffer when a newline character came just after a line ending in the last column.
 - Ozmoo didn't change the default colours when switching between lightmode and darkmode, so attempts to use colour number 1 (default colour) would always use the default colour for lightmode.
 - Backslash wasn't recognized when giving a path to sound files.
-- Made interpreter, in addition to make.rb, recognize scenarion on C64 when dynamic memory is so large that REU Boost mode can't be engaged.
-- Allow scrollback on C64, C128 and Plus/4 to use RAM (only if REU is unavailble on C64/C128).  Enable with -sb:6|8|10|12 for different buffer sizes. 
-- Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
+- Made interpreter, in addition to make.rb, recognize scenarios on C64 when dynamic memory is so large that REU Boost mode can't be engaged.
 
 ================================================
 Release 11.2: 10 August 2022

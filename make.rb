@@ -2403,10 +2403,10 @@ if mode != MODE_81 and $target == 'mega65'
 	exit 1
 end
 
-if mode == MODE_71 and $target != 'c128'
-	puts "ERROR: Build mode 71 is not supported on this target platform."
-	exit 1
-end
+# if mode == MODE_71 and $target != 'c128'
+	# puts "ERROR: Build mode 71 is not supported on this target platform."
+	# exit 1
+# end
 
 if mode == MODE_P and $target == 'c128'
 	puts "ERROR: Build mode P is not supported on this target platform."
