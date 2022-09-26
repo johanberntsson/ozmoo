@@ -10,7 +10,7 @@ splashline4
 
 !ifndef NODARKMODE {
 	!ifdef SCROLLBACK {
-		!pet " Ozmoo @vs@   F1=Darkmode F5=Scrollback"
+		!pet " Ozmoo @vs@  F1=Darkmode F5=Scrollback"
 	} else {
 		!pet "        Ozmoo @vs@   F1=Darkmode"
 	}
