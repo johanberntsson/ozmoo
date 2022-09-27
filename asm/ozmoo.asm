@@ -727,6 +727,10 @@ z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
 
 z_number_of_opcodes_implemented = * - z_jump_low_arr
 
+!ifdef Z5PLUS {
+game_uses_colour !byte 0
+} 
+
 !ifdef TARGET_C128 {
 !source "constants-c128.asm"
 
@@ -1377,6 +1381,13 @@ z_init
 } else { ; Z5PLUS
 	ldy #header_flags_1
 	jsr read_header_word
+!ifdef Z5PLUS {
+	pha
+	lsr
+	bcc +
+	dec game_uses_colour
++	pla
+}
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 	jsr write_header_byte

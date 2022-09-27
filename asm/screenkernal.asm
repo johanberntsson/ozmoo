@@ -461,8 +461,7 @@ s_printchar
 	eor #%11000000
 +	and #%01111111
 ++  ; print the char
-	clc
-	adc s_reverse
+	ora s_reverse
 	pha
 	jsr .update_screenpos
 	pla

@@ -634,28 +634,131 @@ printchar_buffered
 .print_40
 	; If we can't find a place to break, and buffered output started in column > 0, print a line break and move the text in the buffer to the next line.
 	ldx first_buffered_column
-	bne .move_remaining_chars_to_buffer_start
+	beq .print_40_2
+	jmp .move_remaining_chars_to_buffer_start
 .print_40_2	
 	ldy max_chars_on_line
 .store_break_pos
 	sty last_break_char_buffer_pos
 .print_buffer
-	ldx first_buffered_column
 	lda s_reverse
 	pha
+!ifdef TARGET_C128 {
+	lda COLS_40_80
+	bne +
+	jmp .printline40
+
++	lda zp_screenline + 1
+	sec
+	sbc #$04 ; adjust from $0400 (VIC-II) to $0000 (VDC)
+	tay
+	lda zp_screenline
+	clc
+	adc zp_screencolumn
+	bcc +
+	iny
++	jsr VDCSetAddress
+	ldy #VDC_DATA
+	sty VDC_ADDR_REG
+
+	dec last_break_char_buffer_pos ; Print last character using normal print routine, to avoid trouble
+	
+	ldx first_buffered_column
 -   cpx last_break_char_buffer_pos
-	beq +
-	txa ; kernal_printchar destroys x,y
+	beq .done_print_80
+	lda print_buffer,x
+   ; convert from pet ascii to screen code
+	cmp #$40
+	bcc ++    ; no change if numbers or special chars
+	cmp #$60
+	bcs +
+	and #%00111111
+	bcc ++ ; always jump
++   cmp #$80
+	bcs +
+	and #%11011111
+	bcc ++ ; always jump
++	cmp #$c0
+	bcs +
+	eor #%11000000
++	and #%01111111
+++  ; print the char
+	ora print_buffer2,x
+
+	sta VDC_DATA_REG
+;	jsr VDCWriteReg
+
+	inx
+	bne - ; Always branch
+
+.done_print_80	
+
+	lda last_break_char_buffer_pos
+	sec
+	sbc first_buffered_column
+
+!ifdef Z5PLUS {
+	; ldy zp_screenrow
+	; cpy screen_height_minus_1
+	bit game_uses_colour
+	bpl .dont_colour_80
+
+	pha ; Char count
+
+	; Set colour for these characters too
+	; ; Fill relevant portion of colour RAM (start at offset $1800) with the game's foreground colour
+	lda zp_colourline + 1
+	sec
+	sbc #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
+	tay
+	lda zp_colourline
+	clc
+	adc zp_screencolumn
+	bcc +
+	iny
++	jsr VDCSetAddress
+
+	ldx s_colour
+	lda vdc_vic_colours,x
+	ora #$80 ; Bit 7 = charset, bit 0-4 = fg colour
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	; We have written default fg colour to the first position in colour RAM. Now fill the rest positions.
+	lda #0 ; Set to Fill mode ; Not needed, we have 0 in A
+	ldx #VDC_VSCROLL
+	jsr VDCWriteReg
+	ldx #VDC_COUNT
+	pla
 	pha
+	sec
+	sbc #1
+	jsr VDCWriteReg
+	pla
+	
+.dont_colour_80	
+}
+	clc
+	adc zp_screencolumn
+	sta zp_screencolumn
+
+	ldx last_break_char_buffer_pos
+	inc last_break_char_buffer_pos
+	bne ++ ; Always branch
+	
+.printline40
+}
+	ldx first_buffered_column
+-   cpx last_break_char_buffer_pos
+	beq +++
+++
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
-	pla
-	tax
 	inx
 	bne - ; Always branch
-+   pla
++++   
+	pla
 	sta s_reverse
 
 .move_remaining_chars_to_buffer_start
