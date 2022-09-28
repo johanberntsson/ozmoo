@@ -15,7 +15,7 @@ Optimizations:
 - REU Boost Mode for C64 + C128 - When REU is used for caching, use a vmem model better suited to REU. This is enabled by default. Build with -rb:0 to disable.
 - Faster screen clearing on C128 in 80 col mode.
 - Faster writing of characters to screen on C128 in 80 col mode.
-- Optimized printing an entire line to screen on C128 in 80 col mode.
+- Faster writing of buffered text to screen (faster on all platforms, a lot faster on C128 in 80 col mode).
 
 Bugfixes:
 

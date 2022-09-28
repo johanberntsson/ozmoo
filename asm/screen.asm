@@ -643,6 +643,9 @@ printchar_buffered
 .print_buffer
 	lda s_reverse
 	pha
+
+	dec last_break_char_buffer_pos ; Print last character using normal print routine, to avoid trouble
+	
 !ifdef TARGET_C128 {
 	lda COLS_40_80
 	bne +
@@ -661,33 +664,13 @@ printchar_buffered
 	ldy #VDC_DATA
 	sty VDC_ADDR_REG
 
-	dec last_break_char_buffer_pos ; Print last character using normal print routine, to avoid trouble
-	
 	ldx first_buffered_column
 -   cpx last_break_char_buffer_pos
 	beq .done_print_80
 	lda print_buffer,x
-   ; convert from pet ascii to screen code
-	cmp #$40
-	bcc ++    ; no change if numbers or special chars
-	cmp #$60
-	bcs +
-	and #%00111111
-	bcc ++ ; always jump
-+   cmp #$80
-	bcs +
-	and #%11011111
-	bcc ++ ; always jump
-+	cmp #$c0
-	bcs +
-	eor #%11000000
-+	and #%01111111
-++  ; print the char
+	jsr convert_petscii_to_screencode
 	ora print_buffer2,x
-
 	sta VDC_DATA_REG
-;	jsr VDCWriteReg
-
 	inx
 	bne - ; Always branch
 
@@ -698,14 +681,9 @@ printchar_buffered
 	sbc first_buffered_column
 
 !ifdef Z5PLUS {
-	; ldy zp_screenrow
-	; cpy screen_height_minus_1
-	bit game_uses_colour
-	bpl .dont_colour_80
 
 	pha ; Char count
 
-	; Set colour for these characters too
 	; ; Fill relevant portion of colour RAM (start at offset $1800) with the game's foreground colour
 	lda zp_colourline + 1
 	sec
@@ -741,23 +719,54 @@ printchar_buffered
 	adc zp_screencolumn
 	sta zp_screencolumn
 
-	ldx last_break_char_buffer_pos
-	inc last_break_char_buffer_pos
-	bne ++ ; Always branch
+	jmp +++ ; Always branch
 	
 .printline40
 }
-	ldx first_buffered_column
--   cpx last_break_char_buffer_pos
-	beq +++
-++
+
+!ifdef TARGET_MEGA65 {
+	jsr colour2k	
+}
+	ldy first_buffered_column
+-   cpy last_break_char_buffer_pos
+	beq ++
+	lda print_buffer,y
+	jsr convert_petscii_to_screencode
+	ora print_buffer2,y
+	sta (zp_screenline),y
+!ifdef Z5PLUS {
+!ifdef TARGET_PLUS4 {
+	ldx s_colour
+	lda plus4_vic_colours,x
+} else {
+	lda s_colour
+}
+}
+	sta (zp_colourline),y
+	iny
+	bne - ; Always branch
+
+++	
+
+	lda last_break_char_buffer_pos
+	sec
+	sbc first_buffered_column
+	clc
+	adc zp_screencolumn
+	sta zp_screencolumn
+
++++
+
+	ldx last_break_char_buffer_pos
+	inc last_break_char_buffer_pos ; Restore old value, since we decreased it by one before
+
+	; Print last character
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
 	inx
-	bne - ; Always branch
-+++   
+
 	pla
 	sta s_reverse
 

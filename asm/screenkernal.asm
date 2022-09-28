@@ -254,6 +254,24 @@ s_screen_width_minus_one !byte 0
 s_screen_height_minus_one !byte 0
 s_screen_size !byte 0, 0
 
+convert_petscii_to_screencode
+   ; convert from pet ascii to screen code
+	cmp #$40
+	bcc ++    ; no change if numbers or special chars
+	cmp #$60
+	bcs +
+	and #%00111111
+	bcc ++ ; always jump
++   cmp #$80
+	bcs +
+	and #%11011111
+	bcc ++ ; always jump
++	cmp #$c0
+	bcs +
+	eor #%11000000
++	and #%01111111
+++ 	rts
+
 s_init
 	; set up screen_width and screen_width_minus_one
 !ifdef TARGET_C128 {
@@ -445,22 +463,7 @@ s_printchar
 	pla ; Doesn't affect C
 	bcs .outside_current_window
 .resume_printing_normal_char	
-   ; convert from pet ascii to screen code
-	cmp #$40
-	bcc ++    ; no change if numbers or special chars
-	cmp #$60
-	bcs +
-	and #%00111111
-	bcc ++ ; always jump
-+   cmp #$80
-	bcs +
-	and #%11011111
-	bcc ++ ; always jump
-+	cmp #$c0
-	bcs +
-	eor #%11000000
-+	and #%01111111
-++  ; print the char
+	jsr convert_petscii_to_screencode
 	ora s_reverse
 	pha
 	jsr .update_screenpos
