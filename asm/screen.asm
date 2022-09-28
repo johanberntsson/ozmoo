@@ -680,7 +680,7 @@ printchar_buffered
 	sec
 	sbc first_buffered_column
 
-!ifdef Z5PLUS {
+!ifdef COLOURFUL_LOWER_WIN {
 
 	pha ; Char count
 
@@ -734,7 +734,7 @@ printchar_buffered
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,y
 	sta (zp_screenline),y
-!ifdef Z5PLUS {
+!ifdef COLOURFUL_LOWER_WIN {
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
 	lda plus4_vic_colours,x
@@ -748,6 +748,9 @@ printchar_buffered
 
 ++	
 
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
 	lda last_break_char_buffer_pos
 	sec
 	sbc first_buffered_column

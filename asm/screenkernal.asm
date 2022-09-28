@@ -487,10 +487,11 @@ s_printchar
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
-	lda s_colour
 !ifdef TARGET_PLUS4 {
-	tax
+	ldx s_colour
 	lda plus4_vic_colours,x
+} else {
+	lda s_colour
 }
 	sta (zp_colourline),y
 	!ifdef TARGET_MEGA65 {

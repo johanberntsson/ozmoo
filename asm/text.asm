@@ -315,6 +315,7 @@ z_ins_read
 
 
 !ifdef USE_INPUTCOL {
+	; x = 3 means the routine does not turn on input colour
 	jsr activate_inputcol
 }
 
