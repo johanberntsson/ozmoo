@@ -741,8 +741,8 @@ printchar_buffered
 } else {
 	lda s_colour
 }
-}
 	sta (zp_colourline),y
+}
 	iny
 	bne - ; Always branch
 
