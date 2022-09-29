@@ -1289,7 +1289,7 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	
 	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
-		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" autoboot.c65"
+		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" #{$file_name}"
 #		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 #		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\"" # No longer needed
 		# $sound_files.each do |file|
@@ -2094,6 +2094,7 @@ $verbose = nil
 $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
+custom_file_name = nil
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
@@ -2261,7 +2262,7 @@ begin
 				reu_boost = $1.to_i
 			end
 		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
-			$file_name = $1
+			custom_file_name = $1
 		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
 			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
 		elsif ARGV[i] =~ /^-/i then
@@ -2281,6 +2282,14 @@ rescue => e
 	print "ERROR: "
 	puts e.message
 	exit 1
+end
+
+if $target == "mega65"
+	$file_name = 'autoboot.c65'
+end
+
+if custom_file_name
+	$file_name = custom_file_name
 end
 
 if $target =~ /^c(64|128)$/ and reu_boost == nil
@@ -2711,7 +2720,7 @@ File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
 # Boot file name handling
 
 file_name = File.read(File.join($SRCDIR, 'file-name.tpl'))
-file_name.sub!("@fn@", $target == 'mega65' ? 'autoboot.c65' : $file_name)
+file_name.sub!("@fn@", $file_name)
 File.write(File.join($SRCDIR, 'file-name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway

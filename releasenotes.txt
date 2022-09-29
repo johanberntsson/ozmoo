@@ -8,6 +8,7 @@ New/changed features:
 - Allow scrollback on C64, C128 and Plus/4 to use RAM (only if REU is unavailble on C64/C128).  Enable with -sb:6|8|10|12 for different buffer sizes. 
 - Allow build mode 71 (for 1571 disk) on C64 and Plus/4.
 - Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
+- Allow a non-standard boot file name on MEGA65 too (makes the game not auto-boot, which may be what you want.)
 
 Optimizations:
 
