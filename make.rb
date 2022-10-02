@@ -2703,7 +2703,7 @@ splash.gsub!("@vs@", version)
 	text = splashes[i]
 	indent = 0
 	if text.length > 0
-		$splash_wait = 10 unless $splash_wait
+		$splash_wait = 30 unless $splash_wait
 		text.gsub!(/(\n|\t)+/, ' ')
 		if text.length > 40
 			puts "Splashline #{i + 1} is longer than 40 characters."

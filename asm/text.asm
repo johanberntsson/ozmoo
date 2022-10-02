@@ -1011,24 +1011,61 @@ update_read_text_timer
 }
 
 getchar_and_maybe_toggle_darkmode
+	stx .getchar_save_x
 	jsr kernal_getchar
 !ifndef NODARKMODE {
  	cmp #133 ; Charcode for F1
 	bne +
 	jsr toggle_darkmode
-	ldx #40 ; Side effect to help when called from MORE prompt
-	lda #0
+	jmp .did_something
 +	
 }
 !ifdef SCROLLBACK {
 	cmp #135 ; F5
 	bne +
 	jsr launch_scrollback
-	ldx #40 ; Side effect to help when called from MORE prompt
-	lda #0
+	jmp .did_something
 +	
 }
+	ldx #3
+-	cmp .scroll_delay_keys,x
+	beq .is_scroll_delay_key
+	dex
+	bpl -
+	bmi +
+.is_scroll_delay_key
+	stx scroll_delay
+	jmp .did_something
++
+	cmp #18 ; Ctrl-R for key repeating
+	bne +
+	; Toggle key repeat (People using fast emulators want to turn it off)
+	lda #64
+	bit key_repeat
+	bvc ++
+	lda #0
+++	sta key_repeat
+	jmp .did_something
++
+
+	cmp #4 ; Ctrl-D to forget device# for saves
+	bne .did_nothing
+	; Forget device# for saves
+	dec ask_for_save_device ; Normally 0. Even if we decrease 100 times, we still get the same effect
+	; Fall through to .did_something
+	
+.did_something
+	ldx #2
+	jsr play_beep
+	lda #0
+.did_nothing
+	ldx .getchar_save_x
 	rts
+
+.scroll_delay_keys !byte 146, 144, 5, 28 ; Ctrl-0, 1, 2, 3
+.getchar_save_x !byte 0
+
+
 
 read_char
 	; return: 0,1: return value of routine (false, true)

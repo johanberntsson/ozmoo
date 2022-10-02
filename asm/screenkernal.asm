@@ -39,6 +39,7 @@ statuslinecol !byte STATCOL, STATCOLDM
 cursorcol !byte CURSORCOL, CURSORCOLDM
 current_cursor_colour !byte CURSORCOL
 cursor_character !byte CURSORCHAR
+scroll_delay !byte 0
 
 !ifdef TARGET_PLUS4 {
 plus4_vic_colours
@@ -677,7 +678,19 @@ s_erase_window
 	cmp s_screen_height
 	bpl +
 	rts
-+   ; set up copy mode
++   
+	ldx scroll_delay
+	beq .done_delaying_vdc
+-	txa
+	pha
+	jsr wait_an_interval
+	pla
+	tax
+	dex
+	bne -
+.done_delaying_vdc
+
+	; set up copy mode
 	ldx #VDC_VSCROLL
 	jsr VDCReadReg
 	ora #$80 ; set copy bit
@@ -745,6 +758,17 @@ s_scrolled_lines !byte 0
 	bpl +
 	rts
 +	
+	ldx scroll_delay
+	beq .done_delaying
+-	txa
+	pha
+	jsr wait_an_interval
+	pla
+	tax
+	dex
+	bne -
+.done_delaying
+
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }

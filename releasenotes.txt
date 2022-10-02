@@ -9,6 +9,7 @@ New/changed features:
 - Allow build mode 71 (for 1571 disk) on C64 and Plus/4.
 - Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
 - Allow a non-standard boot file name on MEGA65 too (makes the game not auto-boot, which may be what you want.)
+- Let player choose slower scrolling, key repeat mode and change device# for saves.
 
 Optimizations:
 

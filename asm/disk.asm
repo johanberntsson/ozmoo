@@ -1737,33 +1737,74 @@ do_save
 
 }	
 
+interval_length = 30 ; Unit: ms
+
+
+!ifdef TARGET_C128 {
+wait_an_interval
+; Delay a little for scrolling
+	ldx #interval_length*6/100
+	bne .wait_any_jiffies ; Always branch
+
 wait_a_sec
 ; Delay ~1.2 s so player can read the last text before screen is cleared
-!ifdef TARGET_C128 {
-	ldx #40 ; How many frames to wait
---	ldy #1
--	bit $d011
-	bmi --
-	cpy #0
-	beq -
-	; This is the beginning of a new frame
-	dey
-	dex
-	bne -
+	ldx #60
+.wait_any_jiffies
+	sei
+	stx $0a1d ; Timer
+	ldx #0
+	stx $0a1e
+	stx $0a1f
+	cli
+-	bit $0a1f
+	bpl -
+	; ldx #40 ; How many frames to wait
+; --	ldy #1
+; -	bit $d011
+	; bmi --
+	; cpy #0
+	; beq -
+	; ; This is the beginning of a new frame
+	; dey
+	; dex
+	; bne -
+	rts
 } else {
+wait_a_sec
+; Delay ~1.2 s so player can read the last text before screen is cleared
 	ldx #0
 !ifdef TARGET_MEGA65 {
 	ldy #40*5
 } else {
 	ldy #5
 }
+; -	jsr kernal_delay_1ms
+	; dex
+	; bne -
+	; dey
+	; bne -
+	; rts
+
+wait_yx_ms
 -	jsr kernal_delay_1ms
 	dex
 	bne -
 	dey
 	bne -
-}
 	rts
+
+wait_an_interval
+;	inc reg_bordercolour
+	; Used for scrolling
+!ifdef TARGET_MEGA65 {
+	ldx #(<(40 * interval_length + 256))
+	ldy #(>(40 * interval_length + 256))
+} else {
+	ldx #(<(interval_length + 256))
+	ldy #(>(interval_length + 256))
+}
+	jmp wait_yx_ms
+}
 
 	
 }

@@ -729,11 +729,11 @@ sound_effect
 
 z_ins_sound_effect
 	ldy z_operand_count
-	beq .play_beep ; beep if no args (Z-machine standards, p101)
+	beq play_beep ; beep if no args (Z-machine standards, p101)
 	ldx z_operand_value_low_arr
 !ifdef SOUND {
     cpx #$03
-    bcc .play_beep
+    bcc play_beep
     ; parse rest of the args
 	lda z_operand_value_low_arr + 1 ; effect
 	sta sound_arg_effect
@@ -792,7 +792,7 @@ z_ins_sound_effect
 }
     jmp sound_effect
 } ; ifdef SOUND
-.play_beep
+play_beep
 	lda #$08 ; Frequency for low-pitched beep
     dex
 	beq .sound_high_pitched_beep
@@ -806,20 +806,24 @@ z_ins_sound_effect
 	sta $d401
 	lda #$21
 	sta $d404
-!ifdef TARGET_MEGA65 {
-	ldz #40
-.outer_loop
-}
-	ldy #40
---	ldx #0
--	dex
-	bne -
-	dey
-	bne --
-!ifdef TARGET_MEGA65 {
-	dez
-	bne .outer_loop
-}
+; !ifdef TARGET_MEGA65 {
+	; ldz #40
+; .outer_loop
+; }
+; !ifdef TARGET_C128 {
+; }
+	; ldy #40
+; --	ldx #0
+; -	dex
+	; bne -
+	; dey
+	; bne --
+; !ifdef TARGET_MEGA65 {
+	; dez
+	; bne .outer_loop
+; }
+	jsr wait_an_interval
+	jsr wait_an_interval
 	lda #$20
 	sta $d404
 	rts

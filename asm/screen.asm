@@ -499,7 +499,7 @@ show_more_prompt
 	jsr colour1k
 }
 .check_for_keypress
-	ldx s_screen_width
+	ldx #40
 ---	lda ti_variable + 2 ; $a2
 -	cmp ti_variable + 2 ; $a2
 	beq -

@@ -299,7 +299,7 @@
 }
 
 !ifndef SPLASHWAIT {
-	SPLASHWAIT = 3
+	SPLASHWAIT = 15
 }
 
 !ifndef Z5PLUS {
@@ -1677,19 +1677,10 @@ calc_dynmem_size
 deletable_init
 	cld
 
-	; stop key repeat (preventing problems with input in fast emulators)
-!ifdef TARGET_C64 {
-	lda #127
-	sta $028a
-}
-!ifdef TARGET_C128 {
-	lda #96
-	sta $0a22
-}
-!ifdef TARGET_PLUS4 {
-	lda #96
-	sta $0540
-}
+	; Set only space, del, cursor to repeat
+	lda #0
+	sta key_repeat
+
 
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu

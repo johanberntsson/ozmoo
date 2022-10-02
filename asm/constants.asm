@@ -13,6 +13,7 @@ CURRENT_DEVICE        = $ba
 ti_variable           = $a0; 3 bytes
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
+key_repeat            = $028a
 
 use_reu				  = $9b
 reu_boost_vmap_clock  = $b1
@@ -42,6 +43,7 @@ CURRENT_DEVICE        = $ae
 ti_variable           = $a3; 3 bytes
 keyboard_buff_len     = $ef
 keyboard_buff         = $527
+key_repeat            = $0540
 
 
 zp_temp               = $3b ; 5 bytes
@@ -90,6 +92,7 @@ ti_variable           = $a0; 3 bytes
 num_rows 			  = $a6 ; !byte 0
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
+key_repeat            = $028a
 
 use_reu				  = $9b
 window_start_row	  = $2a; 4 bytes
