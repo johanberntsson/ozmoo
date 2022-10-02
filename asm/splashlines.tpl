@@ -24,7 +24,7 @@ splashline4
 splashline5
 	!pet "  Ctrl: D=Reset device#, R=Repeat keys",0
 splashline6
-	!pet "            0-4=Scroll delay",0
+	!pet "            0-3=Scroll delay",0
 
 
 splash_index_col
