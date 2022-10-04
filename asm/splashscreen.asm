@@ -24,7 +24,7 @@ splash_line_y
 	jsr printstring_raw
 	inc z_temp
 	ldy z_temp
-	cpy #7
+	cpy #8
 	bne splash_line_y
 
 .restart_timer
@@ -68,9 +68,9 @@ splash_line_y
 !source "splashlines.asm"
 
 splash_index_line
-	!byte 2, 4, 6, 8, 22, 23, 24
+	!byte 2, 4, 6, 8, 20, 22, 23, 24
 splash_index_lb
-	!byte <splashline0, <splashline1, <splashline2, <splashline3, <splashline4, <splashline5, <splashline6
+	!byte <splashline0, <splashline1, <splashline2, <splashline3, <splashline4, <splashline5, <splashline6, <splashline7
 splash_index_hb
-	!byte >splashline0, >splashline1, >splashline2, >splashline3, >splashline4, >splashline5, >splashline6
+	!byte >splashline0, >splashline1, >splashline2, >splashline3, >splashline4, >splashline5, >splashline6, >splashline7
 }	

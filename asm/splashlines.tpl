@@ -7,26 +7,28 @@ splashline2
 splashline3
 	!pet "@3s@", 0
 splashline4
+	!pet "               Ozmoo @vs@",0
 
+splashline5
 !ifndef NODARKMODE {
 	!ifdef SCROLLBACK {
-		!pet " Ozmoo @vs@  F1=Darkmode F5=Scrollback",0
+		!pet "        F1=Darkmode F5=Scrollback",0
 	} else {
-		!pet "        Ozmoo @vs@   F1=Darkmode",0
+		!pet "               F1=Darkmode",0
 	}
 } else {
 	!ifdef SCROLLBACK {
-		!pet "       Ozmoo @vs@   F5=Scrollback",0
+		!pet "              F5=Scrollback",0
 	} else {
-		!pet "               Ozmoo @vs@",0
+		!pet " ",0
 	}
 }
-splashline5
-	!pet "  Ctrl: D=Reset device#, R=Repeat keys",0
 splashline6
+	!pet "   Ctrl: D=Reset device# R=Repeat keys",0
+splashline7
 	!pet "            0-3=Scroll delay",0
 
 
 splash_index_col
-	!byte @0c@, @1c@, @2c@, @3c@, 0, 0, 0
+	!byte @0c@, @1c@, @2c@, @3c@, 0, 0, 0, 0
 
