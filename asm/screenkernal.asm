@@ -782,12 +782,11 @@ s_scrolled_lines !byte 0
 	lda zp_screenline
 	sta .scroll_load_screen + 1
 	sta .scroll_load_screen_2 + 1
+	sta .scroll_load_colour + 1
+	sta .scroll_load_colour_2 + 1
 	lda zp_screenline + 1
 	sta .scroll_load_screen + 2
 	sta .scroll_load_screen_2 + 2
-	lda zp_colourline
-	sta .scroll_load_colour + 1
-	sta .scroll_load_colour_2 + 1
 	lda zp_colourline + 1
 	sta .scroll_load_colour + 2
 	sta .scroll_load_colour_2 + 2
@@ -820,32 +819,22 @@ s_scrolled_lines !byte 0
 	clc
 	adc s_screen_width
 	sta zp_screenline
-	bcc +
-	inc zp_screenline + 1
-+
-	lda zp_colourline
-	clc
-	adc s_screen_width
 	sta zp_colourline
 	bcc +
+	inc zp_screenline + 1
 	inc zp_colourline + 1
-+	
++
 	lda .scroll_load_screen + 1
 	clc
 	adc s_screen_width
 	sta .scroll_load_screen + 1
-	sta .scroll_load_screen_2 + 1
-	bcc +
-	inc .scroll_load_screen + 2
-	inc .scroll_load_screen_2 + 2
-+
-	lda .scroll_load_colour + 1
-	clc
-	adc s_screen_width
 	sta .scroll_load_colour + 1
+	sta .scroll_load_screen_2 + 1
 	sta .scroll_load_colour_2 + 1
 	bcc +
+	inc .scroll_load_screen + 2
 	inc .scroll_load_colour + 2
+	inc .scroll_load_screen_2 + 2
 	inc .scroll_load_colour_2 + 2
 +
  	jmp -
