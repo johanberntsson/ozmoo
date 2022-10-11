@@ -252,6 +252,8 @@ s_screen_width !byte 0
 s_screen_height !byte 0
 s_screen_width_plus_one !byte 0
 s_screen_width_minus_one !byte 0
+s_screen_width_half !byte 0
+s_screen_width_half_minus_one !byte 0
 s_screen_height_minus_one !byte 0
 s_screen_size !byte 0, 0
 
@@ -290,6 +292,10 @@ s_init
 	sta s_screen_width_minus_one
 	inc s_screen_width_plus_one
 	dec s_screen_width_minus_one
+	lsr
+	sta s_screen_width_half
+	sta s_screen_width_half_minus_one
+	dec s_screen_width_half_minus_one
 
 	; set up screen_height and screen_width_minus_one
 	lda #SCREEN_HEIGHT
@@ -781,8 +787,10 @@ s_scrolled_lines !byte 0
 	jsr .update_screenpos
 	lda zp_screenline
 	sta .scroll_load_screen + 1
-	sta .scroll_load_screen_2 + 1
 	sta .scroll_load_colour + 1
+	clc
+	adc s_screen_width_half
+	sta .scroll_load_screen_2 + 1
 	sta .scroll_load_colour_2 + 1
 	lda zp_screenline + 1
 	sta .scroll_load_screen + 2
@@ -794,8 +802,10 @@ s_scrolled_lines !byte 0
 	jsr .update_screenpos
 	lda zp_screenline
 	sta .scroll_load_screen + 4
-	sta .scroll_load_screen_2 + 4
 	sta .scroll_load_colour + 4
+	clc
+	adc s_screen_width_half
+	sta .scroll_load_screen_2 + 4
 	sta .scroll_load_colour_2 + 4
 	lda zp_screenline + 1
 	sta .scroll_load_screen + 5
@@ -808,14 +818,13 @@ s_scrolled_lines !byte 0
 	sbc zp_screenrow
 	tax
 -
-	ldy s_screen_width_minus_one
+	ldy s_screen_width_half_minus_one
 .scroll_load_screen
 	lda $8000,y ; This address is modified above
 	sta $8000,y ; This address is modified above
 .scroll_load_colour
 	lda $8000,y ; This address is modified above
 	sta $8000,y ; This address is modified above
-	dey
 .scroll_load_screen_2
 	lda $8000,y ; This address is modified above
 	sta $8000,y ; This address is modified above
@@ -831,25 +840,34 @@ s_scrolled_lines !byte 0
 	lda .scroll_load_screen + 1
 	sta .scroll_load_screen + 4
 	sta .scroll_load_colour + 4
-	sta .scroll_load_screen_2 + 4
-	sta .scroll_load_colour_2 + 4
 	; ...and load from the next row.
 	clc
 	adc s_screen_width
 	sta .scroll_load_screen + 1
 	sta .scroll_load_colour + 1
-	sta .scroll_load_screen_2 + 1
-	sta .scroll_load_colour_2 + 1
-
+	; high bytes
 	lda .scroll_load_screen + 2
 	sta .scroll_load_screen + 5
-	sta .scroll_load_screen_2 + 5
 	lda .scroll_load_colour + 2
 	sta .scroll_load_colour + 5
-	sta .scroll_load_colour_2 + 5
 	bcc +
 	inc .scroll_load_screen + 2
 	inc .scroll_load_colour + 2
++
+	; same for the second half
+	lda .scroll_load_screen_2 + 1
+	sta .scroll_load_screen_2 + 4
+	sta .scroll_load_colour_2 + 4
+	clc
+	adc s_screen_width
+	sta .scroll_load_screen_2 + 1
+	sta .scroll_load_colour_2 + 1
+	; high bytes
+	lda .scroll_load_screen_2 + 2
+	sta .scroll_load_screen_2 + 5
+	lda .scroll_load_colour_2 + 2
+	sta .scroll_load_colour_2 + 5
+	bcc +
 	inc .scroll_load_screen_2 + 2
 	inc .scroll_load_colour_2 + 2
 +
