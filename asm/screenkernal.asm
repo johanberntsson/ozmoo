@@ -792,6 +792,17 @@ s_scrolled_lines !byte 0
 	sta .scroll_load_colour_2 + 2
 	dec zp_screenrow
 	jsr .update_screenpos
+	lda zp_screenline
+	sta .scroll_load_screen + 4
+	sta .scroll_load_screen_2 + 4
+	sta .scroll_load_colour + 4
+	sta .scroll_load_colour_2 + 4
+	lda zp_screenline + 1
+	sta .scroll_load_screen + 5
+	sta .scroll_load_screen_2 + 5
+	lda zp_colourline + 1
+	sta .scroll_load_colour + 5
+	sta .scroll_load_colour_2 + 5
 	lda s_screen_height_minus_one
 	sec
 	sbc zp_screenrow
@@ -800,37 +811,42 @@ s_scrolled_lines !byte 0
 	ldy s_screen_width_minus_one
 .scroll_load_screen
 	lda $8000,y ; This address is modified above
-	sta (zp_screenline),y
+	sta $8000,y ; This address is modified above
 .scroll_load_colour
 	lda $8000,y ; This address is modified above
-	sta (zp_colourline),y
+	sta $8000,y ; This address is modified above
 	dey
 .scroll_load_screen_2
 	lda $8000,y ; This address is modified above
-	sta (zp_screenline),y
+	sta $8000,y ; This address is modified above
 .scroll_load_colour_2
 	lda $8000,y ; This address is modified above
-	sta (zp_colourline),y
+	sta $8000,y ; This address is modified above
 	dey
 	bpl .scroll_load_screen
 	dex
 	beq .done_scrolling
-	lda zp_screenline
-	clc
-	adc s_screen_width
-	sta zp_screenline
-	sta zp_colourline
-	bcc +
-	inc zp_screenline + 1
-	inc zp_colourline + 1
-+
+
+	; new row: store where we previously loaded...
 	lda .scroll_load_screen + 1
+	sta .scroll_load_screen + 4
+	sta .scroll_load_colour + 4
+	sta .scroll_load_screen_2 + 4
+	sta .scroll_load_colour_2 + 4
+	; ...and load from the next row.
 	clc
 	adc s_screen_width
 	sta .scroll_load_screen + 1
 	sta .scroll_load_colour + 1
 	sta .scroll_load_screen_2 + 1
 	sta .scroll_load_colour_2 + 1
+
+	lda .scroll_load_screen + 2
+	sta .scroll_load_screen + 5
+	sta .scroll_load_screen_2 + 5
+	lda .scroll_load_colour + 2
+	sta .scroll_load_colour + 5
+	sta .scroll_load_colour_2 + 5
 	bcc +
 	inc .scroll_load_screen + 2
 	inc .scroll_load_colour + 2
