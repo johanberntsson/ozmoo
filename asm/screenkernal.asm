@@ -781,12 +781,16 @@ s_scrolled_lines !byte 0
 	jsr .update_screenpos
 	lda zp_screenline
 	sta .scroll_load_screen + 1
+	sta .scroll_load_screen_2 + 1
 	lda zp_screenline + 1
 	sta .scroll_load_screen + 2
+	sta .scroll_load_screen_2 + 2
 	lda zp_colourline
 	sta .scroll_load_colour + 1
+	sta .scroll_load_colour_2 + 1
 	lda zp_colourline + 1
 	sta .scroll_load_colour + 2
+	sta .scroll_load_colour_2 + 2
 	dec zp_screenrow
 	jsr .update_screenpos
 	lda s_screen_height_minus_one
@@ -802,6 +806,13 @@ s_scrolled_lines !byte 0
 	lda $8000,y ; This address is modified above
 	sta (zp_colourline),y
 	dey
+.scroll_load_screen_2
+	lda $8000,y ; This address is modified above
+	sta (zp_screenline),y
+.scroll_load_colour_2
+	lda $8000,y ; This address is modified above
+	sta (zp_colourline),y
+	dey
 	bpl .scroll_load_screen
 	dex
 	beq .done_scrolling
@@ -811,7 +822,7 @@ s_scrolled_lines !byte 0
 	sta zp_screenline
 	bcc +
 	inc zp_screenline + 1
-+		
++
 	lda zp_colourline
 	clc
 	adc s_screen_width
@@ -823,16 +834,21 @@ s_scrolled_lines !byte 0
 	clc
 	adc s_screen_width
 	sta .scroll_load_screen + 1
+	sta .scroll_load_screen_2 + 1
 	bcc +
 	inc .scroll_load_screen + 2
-+		
+	inc .scroll_load_screen_2 + 2
++
 	lda .scroll_load_colour + 1
 	clc
 	adc s_screen_width
 	sta .scroll_load_colour + 1
+	sta .scroll_load_colour_2 + 1
 	bcc +
 	inc .scroll_load_colour + 2
-+	jmp -
+	inc .scroll_load_colour_2 + 2
++
+ 	jmp -
 
 .done_scrolling
 !ifdef TARGET_MEGA65 {
