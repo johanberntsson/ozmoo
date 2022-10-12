@@ -229,7 +229,7 @@ init_mega65
 	
 colour2k
 	; start mapping 2nd KB of colour RAM to $DC00-$DFFF
-	sei
+	+disable_interrupts
 	pha
 	jsr mega65io
 	lda #$01
@@ -244,7 +244,7 @@ colour1k
 	lda #$00
 	sta $d030
 	pla
-	cli
+	+enable_interrupts
 	rts
 }
 
@@ -774,6 +774,13 @@ s_scrolled_lines !byte 0
 }
 !ifdef TARGET_MEGA65 {
 	jsr colour2k	
+}
+!ifndef NOSMOOTHSCROLL {
+	lda smoothscrolling
+	beq +
+	jsr smoothscroll
+	jmp .done_scrolling
++
 }
 	ldx window_start_row + 1 ; how many top lines to protect
 	stx zp_screenrow

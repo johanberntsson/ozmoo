@@ -1012,6 +1012,9 @@ update_read_text_timer
 
 getchar_and_maybe_toggle_darkmode
 	stx .getchar_save_x
+!ifndef NOSMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	jsr kernal_getchar
 !ifndef NODARKMODE {
  	cmp #133 ; Charcode for F1
@@ -1019,6 +1022,13 @@ getchar_and_maybe_toggle_darkmode
 	jsr toggle_darkmode
 	jmp .did_something
 +	
+}
+!ifndef NOSMOOTHSCROLL {
+	cmp #137 ; F2
+	bne +
+	jsr toggle_smoothscroll
+	jmp .did_something
++
 }
 !ifdef SCROLLBACK {
 	cmp #135 ; F5

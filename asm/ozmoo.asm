@@ -995,9 +995,9 @@ game_id		!byte 0,0,0,0
 	sta $d011
 	lda #251 ; low raster bit (1 raster beyond visible screen)
 	sta $d012
+	cli
 ++
 }
-	cli
 
 !ifdef SCROLLBACK {
 	lda scrollback_supported
@@ -1026,6 +1026,9 @@ game_id		!byte 0,0,0,0
 
 
 ; include other assembly files
+!ifndef NOSMOOTHSCROLL {
+!source "smoothscroll.asm"
+}
 !source "utilities.asm"
 !ifdef SCROLLBACK {
 !source "scrollback.asm"

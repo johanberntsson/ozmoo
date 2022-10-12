@@ -9,11 +9,11 @@ if $is_windows then
     $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
     $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
     $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\xplus4.exe -autostart-delay-random"
-	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
+  $MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
     $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
-	$commandline_quotemark = "\""
+        $commandline_quotemark = "\""
 else
 	# Paths on Linux
     $X64 = "x64 -autostart-delay-random"
@@ -34,6 +34,7 @@ $GENERALFLAGS = [
 #	'CHECK_ERRORS' # Check for all runtime errors, making code bigger and slower
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
+#	'NOSMOOTHSCROLL', # Disables smooth-scrolling support. This makes the terp ~800 bytes smaller.
 #	'NOSCROLLBACK', # Disables scrollback support (MEGA65, C64, C128). This makes the terp ~1 KB smaller.
 #	'REUBOOST', # Enables REU Boost (MEGA65, C64, C128). This makes the terp ~160 bytes larger.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
@@ -1049,6 +1050,9 @@ def build_interpreter()
 	if $use_history and $use_history > 0
 		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
 	end
+	if $target != 'c64'
+		optionalsettings += " -DNOSMOOTHSCROLL=1"
+	end
 	
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
@@ -2033,6 +2037,7 @@ def print_usage
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
 	puts "  -dm: Enable the ability to switch to dark mode"
+	puts "  -smooth: Enable the ability to activate smooth-scrolling"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
@@ -2101,6 +2106,7 @@ $scrollback_ram_pages = nil
 reserve_dir_track = nil
 check_errors = nil
 dark_mode = nil
+smooth_scroll = nil
 scrollback = nil
 reu_boost = nil
 
@@ -2248,6 +2254,12 @@ begin
 				dark_mode = 1
 			else
 				dark_mode = $1.to_i
+			end
+		elsif ARGV[i] =~ /^-smooth(?::([01]))?$/ then
+			if $1 == nil
+				smooth_scroll = 1
+			else
+				smooth_scroll = $1.to_i
 			end
 		elsif ARGV[i] =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
 			if $1 == nil
@@ -2618,12 +2630,17 @@ if dark_mode == 0
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
 end	
 
+if smooth_scroll == 0
+	$GENERALFLAGS.push('NOSMOOTHSCROLL') unless $GENERALFLAGS.include?('NOSMOOTHSCROLL')
+end
+
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number
 	# Turn off features that don't work properly in BZ anyway
 	$use_history = nil 
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') or dark_mode == 1 
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') or scrollback == 1
+	$GENERALFLAGS.push('NOSMOOTHSCROLL') unless $GENERALFLAGS.include?('NOSMOOTHSCROLL') or smoothscroll == 1
 	patch_data_string = $beyondzork_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
 	patch_address = patch_data_arr.shift.to_i(16)
