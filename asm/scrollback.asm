@@ -641,6 +641,9 @@ sb_copy_to_buffer
 		sta allow_2mhz_in_40_col
 		sta reg_2mhz	;CPU = 1MHz
 	}
+	!ifdef SMOOTHSCROLL {
+		jsr wait_smoothscroll
+	}
 		lda #%10110000;  c64 -> REU with immediate execution
 		sta reu_command
 	!ifdef TARGET_C128 {
@@ -654,7 +657,7 @@ sb_copy_to_buffer
 !ifdef TARGET_PLUS4 {
 	+before_dynmem_read
 } else {
-	sei
+	+disable_interrupts
 }
 	ldy#0
 -
@@ -699,7 +702,7 @@ sb_copy_to_buffer
 !ifdef TARGET_PLUS4 {
 	+after_dynmem_read
 } else {
-	cli
+	+enable_interrupts
 }
 	rts
 }
@@ -716,6 +719,9 @@ sb_copy_to_ram
 		sta allow_2mhz_in_40_col
 		sta reg_2mhz	;CPU = 1MHz
 	}
+	!ifdef SMOOTHSCROLL {
+		jsr wait_smoothscroll
+	}
 		lda #%10110001;  REU -> c64 with immediate execution
 		sta reu_command
 	!ifdef TARGET_C128 {
@@ -729,7 +735,7 @@ sb_copy_to_ram
 !ifdef TARGET_PLUS4 {
 	+before_dynmem_read
 } else {
-	sei
+	+disable_interrupts
 }
 	ldy#0
 -
@@ -773,7 +779,7 @@ sb_copy_to_ram
 !ifdef TARGET_PLUS4 {
 	+after_dynmem_read
 } else {
-	cli
+	+enable_interrupts
 }
 	rts
 }
@@ -787,6 +793,9 @@ sb_fill_buffer
 		jsr sb_copy_params_to_reu
 		lda #$80
 		sta reu_control ; Fix C64 address
+	!ifdef SMOOTHSCROLL {
+		jsr wait_smoothscroll
+	}
 		lda #%10110000;  c64 -> REU with immediate execution
 		sta reu_command
 		rts
@@ -797,7 +806,7 @@ sb_fill_buffer
 !ifdef TARGET_PLUS4 {
 	+before_dynmem_read
 } else {
-	sei
+	+disable_interrupts
 }
 	ldy #0
 !ifdef TARGET_C128 {
@@ -825,7 +834,7 @@ sb_fill_buffer
 !ifdef TARGET_PLUS4 {
 	+after_dynmem_read
 } else {
-	cli
+	+enable_interrupts
 }
 	rts
 }
@@ -870,6 +879,9 @@ copy_line_to_scrollback
 .do_copy
 	sta sb_copy_ram
 	jsr sb_copy_to_buffer
+;!ifdef SMOOTHSCROLL {
+;	jsr wait_smoothscroll
+;}
 ;	lda #%10110000;  c64 -> REU with immediate execution
 ;	sta reu_command
 
@@ -990,6 +1002,9 @@ launch_scrollback
 	sta sb_copy_len + 1
 	; lda zp_screenline
 	; sta reu_c64base
+;!ifdef SMOOTHSCROLL {
+;	jsr wait_smoothscroll
+;}
 ;	lda #%10110000;  c64 -> REU with immediate execution
 ;	sta reu_command
 	jsr sb_copy_to_buffer

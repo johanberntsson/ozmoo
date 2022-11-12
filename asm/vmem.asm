@@ -576,6 +576,9 @@ hej
 	sta allow_2mhz_in_40_col
 	sta reg_2mhz	;CPU = 1MHz
 }
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	lda #%10010001;  REU -> c128 with immediate execution
 	sta reu_command
 !ifdef TARGET_C128 {

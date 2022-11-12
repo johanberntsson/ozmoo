@@ -789,6 +789,12 @@ s_scrolled_lines !byte 0
 	sta .scroll_load_colour + 2
 	dec zp_screenrow
 	jsr .update_screenpos
+!ifdef SMOOTHSCROLL {
+	lda smoothscrolling
+	beq +
+	jsr smoothscroll
++
+}
 	lda s_screen_height_minus_one
 	sec
 	sbc zp_screenrow
@@ -837,6 +843,9 @@ s_scrolled_lines !byte 0
 .done_scrolling
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
+}
+!ifdef SMOOTHSCROLL {
+	+done_smoothscroll
 }
 	lda s_screen_height_minus_one
 	sta zp_screenrow

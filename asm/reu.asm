@@ -145,6 +145,9 @@ copy_page_to_reu
 	clc
 	jsr store_reu_transfer_params
 
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 -	lda #%10110000;  c64 -> REU with immediate execution
 	sta reu_command
 
@@ -218,6 +221,9 @@ copy_page_from_reu
 	clc
 	jsr store_reu_transfer_params
 
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	lda #%10110001;  REU -> c64 with immediate execution
 	sta reu_command
 
@@ -509,4 +515,3 @@ print_reu_progress_bar
 	sta reu_progress_bar_updates
 
 	rts
-	
