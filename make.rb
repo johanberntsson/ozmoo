@@ -35,7 +35,6 @@ $GENERALFLAGS = [
 #	'SLOW', # Remove some optimizations for speed. This makes the terp ~100 bytes smaller.
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'NOSCROLLBACK', # Disables scrollback support (MEGA65, C64, C128). This makes the terp ~1 KB smaller.
-#	'NOSMOOTHSCROLL', # Disables smooth-scrolling support.
 #	'REUBOOST', # Enables REU Boost (MEGA65, C64, C128). This makes the terp ~160 bytes larger.
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
@@ -1050,9 +1049,6 @@ def build_interpreter()
 	if $use_history and $use_history > 0
 		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
 	end
-	if $target != 'c64'
-		optionalsettings += " -DNOSMOOTHSCROLL=1"
-	end
 
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
@@ -2007,7 +2003,7 @@ def print_usage
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
-	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]]"
+	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
@@ -2037,9 +2033,9 @@ def print_usage
 	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
 	puts "  -dm: Enable the ability to switch to dark mode"
-        puts "  -smooth: Enable smooth-scrolling support (C64). This makes the terp ~460 bytes larger."
-        puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
+	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
+	puts "  -smooth: Enable smooth-scrolling support (C64)."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
@@ -2313,6 +2309,14 @@ if reu_boost == 1
 		puts "ERROR: REU Boost is not available for this platform." 
 		exit 1
 	end
+end
+
+if smooth_scroll == nil
+	smooth_scroll = 0
+end
+if $target !~ /^(c64)$/ and smooth_scroll == 1
+	puts "ERROR: Smooth scroll is not available for this platform." 
+	exit 1
 end
 
 if $target == "mega65" and $use_history == nil
@@ -2631,7 +2635,7 @@ if dark_mode == 0
 end	
 
 if smooth_scroll == 1
-	$GENERALFLAGS.push('SMOOTHSCROLL') unless $GENERALFLAGS.include?('SMOOTHSCROLL') or $GENERALFLAGS.include?('NOSMOOTHSCROLL')
+	$GENERALFLAGS.push('SMOOTHSCROLL') unless $GENERALFLAGS.include?('SMOOTHSCROLL')
 end
 
 if is_beyondzork
