@@ -40,14 +40,14 @@ plus4_enable_rom = $ff3e
 
 !macro before_dynmem_read {
 !ifdef TARGET_PLUS4 {
-	sei
+	+disable_interrupts
 	sta plus4_enable_ram
 }
 }
 !macro after_dynmem_read {
 !ifdef TARGET_PLUS4 {
 	sta plus4_enable_rom
-	cli
+	+enable_interrupts
 }
 }
 
@@ -127,11 +127,17 @@ plus4_enable_rom = $ff3e
 
 ; to be expanded to disable NMI IRQs later if needed
 !macro disable_interrupts {
+!ifdef SMOOTHSCROLL {
+	jsr smoothscroll_off
+}
 	sei 
 }
 
 !macro enable_interrupts {
 	cli
+!ifdef SMOOTHSCROLL {
+	jsr smoothscroll_on
+}
 }
 
 
@@ -150,11 +156,11 @@ plus4_enable_rom = $ff3e
 read_next_byte_at_z_pc_sub
 	ldy #0
 !ifdef TARGET_PLUS4 {
-	sei
+	+disable_interrupts
 	sta plus4_enable_ram
 	lda (z_pc_mempointer),y
 	sta plus4_enable_rom
-	cli
+	+enable_interrupts
 } else {
 !ifdef SKIP_BUFFER {
 	+disable_interrupts

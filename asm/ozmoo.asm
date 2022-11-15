@@ -1026,6 +1026,9 @@ game_id		!byte 0,0,0,0
 
 
 ; include other assembly files
+!ifdef SMOOTHSCROLL {
+!source "smoothscroll.asm"
+}
 !source "utilities.asm"
 !ifdef SCROLLBACK {
 !source "scrollback.asm"
@@ -1304,6 +1307,9 @@ vmem_cache_count = vmem_cache_size / 256
 stack_start
 
 deletable_screen_init_1
+!ifdef SMOOTHSCROLL {
+	jsr toggle_smoothscroll
+}
 	; start text output from bottom of the screen
 
 !ifndef Z4PLUS {

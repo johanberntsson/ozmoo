@@ -175,7 +175,7 @@ get_page_at_z_pc_did_pha
 !ifdef TARGET_C128 {
 copy_page_c128_via_reu
 
-	sei
+	+disable_interrupts
 	stx .load_bank_again + 1
 	sty .load_dest_page + 1
 
@@ -252,7 +252,7 @@ copy_page_c128_via_reu
 	and #%00111111
 	sta $d506
 
-	cli
+	+enable_interrupts
 	jmp restore_2mhz
 
 copy_page_c128_src
@@ -287,7 +287,7 @@ copy_page_c128_src
 	lda #0
 	sta reg_2mhz	;CPU = 1MHz
 
-+	sei
++	+disable_interrupts
 	sta c128_mmu_load_pcrb,x
 -   ldy #0
 .copy
@@ -296,7 +296,7 @@ copy_page_c128_src
 	iny
 	bne .copy
 	sta c128_mmu_load_pcra
-	cli
+	+enable_interrupts
 	rts
 
 !if SUPPORT_REU = 1 {
@@ -315,7 +315,7 @@ read_word_from_far_dynmem
 ; y retains its value
 	sta .read_word + 1
 	sta .read_word_2 + 1
-	sei
+	+disable_interrupts
 	sta c128_mmu_load_pcrc
 	iny
 .read_word
@@ -325,7 +325,7 @@ read_word_from_far_dynmem
 .read_word_2
 	lda ($fb),y
 	sta c128_mmu_load_pcra
-	cli
+	+enable_interrupts
 	rts
 
 write_word_to_far_dynmem
@@ -334,7 +334,7 @@ write_word_to_far_dynmem
 ; a,x = value (byte 1, byte 2)
 ; y = offset from address in zp vector
 ; y is increased by 1
-	sei
+	+disable_interrupts
 	sta c128_mmu_load_pcrc
 .write_word
 	sta ($fb),y
@@ -343,7 +343,7 @@ write_word_to_far_dynmem
 .write_word_2
 	sta ($fb),y
 	sta c128_mmu_load_pcra
-	cli
+	+enable_interrupts
 	rts
 
 write_word_far_dynmem_zp_1 = .write_word + 1
@@ -363,14 +363,14 @@ copy_page
 	sta .cp_dma_source_address + 1
 	sty .cp_dma_dest_address + 1
 	ldy #0
-	sei
+	+disable_interrupts
 	jsr mega65io
 	sty $d702 ; DMA list is in bank 0
 	lda #>.cp_dma_list
 	sta $d701
 	lda #<.cp_dma_list
 	sta $d705 
-	cli
+	+enable_interrupts
 	clc
 	rts
 	
@@ -444,7 +444,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 }
 	sta .copy + 2
 	sty .copy + 5
-	sei
+	+disable_interrupts
 	+set_memory_all_ram_unsafe
 	+before_dynmem_read
 -   ldy #0
@@ -455,7 +455,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 	bne .copy
 	+after_dynmem_read
 	+set_memory_no_basic_unsafe
-	cli
+	+enable_interrupts
 	rts
 
 !if SUPPORT_REU = 1 {
@@ -468,7 +468,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 	jsr store_reu_transfer_params
 	lda #%10100000;  c64 -> REU with delayed execution
 	sta reu_command
-	sei
+	+disable_interrupts
 	+set_memory_all_ram_unsafe
 	+before_dynmem_read
 	lda $ff00
@@ -487,7 +487,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 	sta $ff00
 	+after_dynmem_read
 	+set_memory_no_basic_unsafe
-	cli
+	+enable_interrupts
 
 	rts
 }

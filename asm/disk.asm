@@ -128,6 +128,10 @@ readblock
 	; set values in readblocks_* before calling this function
 	; register a,x,y
 
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
+
 !ifdef TRACE_FLOPPY {
 	jsr print_following_string
 	!pet "Readblock: ",0
@@ -498,6 +502,9 @@ print_insert_disk_msg
 	lda #>insert_msg_3
 	ldx #<insert_msg_3
 	jsr printstring_raw
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	;jsr kernal_readchar ; this shows the standard kernal prompt (not good)
 -	jsr kernal_getchar
 	beq -
@@ -589,7 +596,7 @@ z_ins_restart
 	lda #$17
 	sta reg_screen_char_mode
 
-	sei
+	+disable_interrupts
 	lda #$37
 	sta $01
 	lda #0
@@ -598,18 +605,15 @@ z_ins_restart
 	taz
 	map
 	eom
-	cli
+	+enable_interrupts
 
 	lda #>$0400 		; Make sure screen memory set to sensible location
 	sta $0288		; before we call screen init $FF5B
 	jsr $ff5b ; more init
-
-	
-
 }
 
 ;!ifndef TARGET_MEGA65 {
-	sei
+	+disable_interrupts
 	cld
 !ifdef TARGET_C128 {
 	lda #0
@@ -618,7 +622,7 @@ z_ins_restart
 	jsr $ff8a ; restor (Fill vector table at $0314-$0333 with default values)
 	jsr $ff84 ; ioinit (Initialize CIA's, SID, memory config, interrupt timer)
 	jsr $ff81 ; scinit (Initialize VIC; set nput/output to keyboard/screen)
-	cli
+	+enable_interrupts
 !ifdef TARGET_C128 {
 	sta c128_mmu_load_pcra
 }
@@ -731,6 +735,9 @@ z_ins_save
 	; return: x = number of characters read
 	;         .inputstring: null terminated string read (max 20 characters)
 	; modifies a,x,y
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	jsr turn_on_cursor
 	lda #0
 	sta .inputlen
@@ -832,6 +839,9 @@ list_save_files
 	lda zp_screenline + 1
 	sta .base_screen_pos + 1
 
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	; open the channel file
 !ifdef TARGET_C128 {
 	lda #$00
@@ -860,6 +870,9 @@ list_save_files
 	bne -
 
 .read_next_line	
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	lda #0
 	sta zp_temp + 1
 	; Read row pointer
@@ -1339,6 +1352,9 @@ save_game
 	lda #>.save_msg
 	ldx #<.save_msg
 	jsr printstring_raw
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 
 	; Erase old file, if any
 !ifdef TARGET_C128 {
@@ -1390,6 +1406,9 @@ save_game
 .m65_save_count = 	z_temp + 8 ; 2 bytes
 
 do_restore
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 !ifdef TARGET_MEGA65 {
 	jsr close_io
 
@@ -1503,6 +1522,9 @@ do_restore
 } ; Not TARGET_MEGA65
 
 do_save
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 !ifdef TARGET_MEGA65 {
 	jsr close_io
 
@@ -1750,12 +1772,12 @@ wait_a_sec
 ; Delay ~1.2 s so player can read the last text before screen is cleared
 	ldx #60
 .wait_any_jiffies
-	sei
+	+disable_interrupts
 	stx $0a1d ; Timer
 	ldx #0
 	stx $0a1e
 	stx $0a1f
-	cli
+	+enable_interrupts
 -	bit $0a1f
 	bpl -
 	; ldx #40 ; How many frames to wait

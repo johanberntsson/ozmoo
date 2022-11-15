@@ -286,6 +286,9 @@ z_ins_split_window
 ;    jmp split_window ; Not needed since split_window follows
 
 split_window
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
+}
 	; split if <x> > 0, unsplit if <x> = 0
 	cpx #0
 	bne .split_window
