@@ -159,3 +159,4 @@ Special thanks to:
 * Steve Flintham for bug fixes and porting Ozmoo to Acorn computers
 * Bart van Leeuwen for testing Ozmoo on the C128
 * Karol Stasiak for several configuration and vmem patches
+* Dennis Holmes for adding smooth scrolling support

@@ -354,6 +354,19 @@ For legacy reason AIFF is also supported, using sound-aiff.asm, and the `-asa pa
 
 When compiled with extended sound support, Ozmoo will preload all sound files during startup into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
 
+# Smooth Scrolling
+This feature adds smooth scrolling support for the c64 target. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience. The user can toggle whether smooth scrolling is active using the F2 key during the game. 
+
+Smooth scrolling is activated at program startup if the support was included. The code for the feature is in the new file smoothscroll.asm. Moving the screen data is performed using the existing scrolling code in screenkernal.asm, while the fine-scrolling manipulation is performed in a raster interrupt. This means that some program processing, including printing to the screen, could occur while scrolling is being performed. This helps keep an overall smooth effect when multiple lines are being printed and scrolled (such as with a long room description), but it also means that some coordination is necessary to prevent visual glitches when:
+
+* the program wants to scroll again while scrolling is in progress
+* the program will disable interrupts
+* the program will perform REU access, which pauses the CPU
+
+One mechanism provided to handle this is the `wait_smoothscroll` function, which can be called to wait until any current scrolling activity has completed. Another is the `smoothscroll_off` and `smoothscroll_on` functions, which can be used to temporarily disable and later re-enable smooth scrolling. The latter are used in the macros `disable_interrupts` and `enable_interrupts`, which are typically used in place of explicit sei and cli instructions.
+
+The inclusion of smooth scrolling adds about 460 bytes to the interpreter size.
+
 # Accented Characters
 
 Ozmoo has some support for using accented characters in games. Since the Commodore 64 doesn't really support accented characters, some tricks are needed to make this work.

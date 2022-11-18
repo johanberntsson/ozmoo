@@ -471,6 +471,14 @@ enable it use -ch or -ch:1. This will allocate a history buffer large enough to 
 
 Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. Requires a MEGA65, or a C64 or C128 with REU. Also, the REU has to be big enough to hold the buffer. The buffer is 1 MB in size for the MEGA65, 64 KB for a C64 or C128 with REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0.
 
+# Smooth scrolling
+
+This feature adds smooth scrolling support. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience.
+
+The build option -smooth can be used to include smooth scrolling support on supported targets (currently only available on the C64)
+
+The user can toggle whether smooth scrolling is active using the F2 key during the game. Smooth scrolling is activated at program startup if the support was included.
+
 # Miscellaneous options
 
 ## Option -sp:n
