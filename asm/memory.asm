@@ -265,16 +265,15 @@ copy_page_c128_src
 	sty .copy + 5
 
 ; Skip speed decrease if we can
-	lda COLS_40_80
+	bit COLS_40_80
 !if SUPPORT_REU = 1 {
-	beq ++
-	lda use_reu
-	beq +
-	lda .copy + 2
+	bpl ++
+	bit use_reu
+	bpl +
 	jmp copy_page_c128_via_reu
 ++	
 } else {
-	bne + ; In 80 col mode, there is no reason to lower speed
+	bmi + ; In 80 col mode, there is no reason to lower speed
 }
 	bit $d011
 	bmi + ; If we're at raster line > 255, stay at 2 MHz
@@ -315,7 +314,10 @@ read_word_from_far_dynmem
 ; y retains its value
 	sta .read_word + 1
 	sta .read_word_2 + 1
-	+disable_interrupts
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll_min
+}
+	sei
 	sta c128_mmu_load_pcrc
 	iny
 .read_word
@@ -325,7 +327,7 @@ read_word_from_far_dynmem
 .read_word_2
 	lda ($fb),y
 	sta c128_mmu_load_pcra
-	+enable_interrupts
+	cli
 	rts
 
 write_word_to_far_dynmem
@@ -334,7 +336,10 @@ write_word_to_far_dynmem
 ; a,x = value (byte 1, byte 2)
 ; y = offset from address in zp vector
 ; y is increased by 1
-	+disable_interrupts
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll_min
+}
+	sei
 	sta c128_mmu_load_pcrc
 .write_word
 	sta ($fb),y
@@ -343,7 +348,7 @@ write_word_to_far_dynmem
 .write_word_2
 	sta ($fb),y
 	sta c128_mmu_load_pcra
-	+enable_interrupts
+	cli
 	rts
 
 write_word_far_dynmem_zp_1 = .write_word + 1

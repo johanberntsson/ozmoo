@@ -2035,7 +2035,7 @@ def print_usage
 	puts "  -dm: Enable the ability to switch to dark mode"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
-	puts "  -smooth: Enable smooth-scrolling support (C64)."
+	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
 	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
@@ -2314,7 +2314,7 @@ end
 if smooth_scroll == nil
 	smooth_scroll = 0
 end
-if $target !~ /^(c64)$/ and smooth_scroll == 1
+if $target !~ /^(c64|c128)$/ and smooth_scroll == 1
 	puts "ERROR: Smooth scroll is not available for this platform." 
 	exit 1
 end
