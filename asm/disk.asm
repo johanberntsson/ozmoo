@@ -858,8 +858,9 @@ list_save_files
 +   ldy #0      ; secondary address 2
 	jsr kernal_setlfs ; call SETLFS
 	jsr kernal_open     ; call OPEN
-	bcs disk_error    ; if carry set, the file could not be opened
-
+	bcc +
+	jmp disk_error    ; if carry set, the file could not be opened
++
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 

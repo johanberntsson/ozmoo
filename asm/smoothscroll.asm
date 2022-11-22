@@ -4,9 +4,11 @@
 ; Call smoothscroll_off and smoothscroll_on to change it.
 smoothscrolling !byte 0
 
+!ifndef TARGET_C128 {
 ; When $ff, we're in a critical timing phase and shouldn't do potentially
 ; expensive things such as calling the kernal's IRQ handler.
 smoothcritical !byte 0
+}
 
 ; The last addressable byte of the VIC-II's 16KB bank is used as the
 ; pixel data value in idle state.
@@ -28,6 +30,9 @@ smoothcritical !byte 0
 .orgscrl !byte $00      ; original fine-scroll value
 .fld     !byte $ff      ; lines to shift text down during the frame, -1
 .irqline !byte 0        ; current raster IRQ line when scrolling
+!ifdef TARGET_C128 {
+.need_kernal_irq !byte 0 ; $ff = IRQ handler should perform kernal actions
+}
 
 ;--------------------
 ; Wait for any in-progress smooth-scrolling to complete.
@@ -39,6 +44,36 @@ wait_smoothscroll
 -	bit .fld
 	bpl -
 	rts
+
+!ifdef TARGET_C128 {
+;--------------------
+; Quick routines can call this before disabling interrupts to wait until
+; there is no risk of disrupting an in-progress smooth-scroll.  This is
+; better than calling wait_smoothscroll if it is known that interrupts will
+; be disabled only for a very short time.
+wait_smoothscroll_min
+	bit .fld
+	bmi +++         ; not scrolling
+	bit $d011
+	bmi +++         ; raster > 255
+	pha
+	txa
+
+	ldx $d012
+	inx
+	beq ++          ; raster = 255
+	cpx .irqline
+	bcc ++          ; raster < target line - 1
+
+	; wait until raster is past the target line
+	ldx .irqline
+-	cpx $d012
+	bcs -
+++
+	tax
+	pla
++++	rts
+}
 
 ;--------------------
 ; Activate smooth scrolling, if enabled.
@@ -69,8 +104,15 @@ smoothscroll_off
 smoothscroll
 	jsr wait_smoothscroll
 
+!ifdef TARGET_C128 {
+	; interrupt at bottom-of-screen for the speedup
+	ldx .raster_border
+	; interrupting there will decrement fld earlier, so compensate
+	ldy #7 ; smooth-scroll offset
+} else {
 	ldx #0 ; skip interrupts until the next frame
 	ldy #6 ; smooth-scroll offset (7 - 1)
+}
 
 	; A SuperCPU in fast mode can easily move all the data
 	; while off-screen.  ($D0B8 bit 6 indicates 1MHz vs. fast mode.)
@@ -87,7 +129,7 @@ smoothscroll
 	asl
 	asl
 	asl
-	adc #.raster_top
+	adc #.raster_top + 1
 	adc .orgscrl
 +
 -	cmp $d012
@@ -96,8 +138,10 @@ smoothscroll
 	bmi -
 
 	stx $d012
+!ifndef TARGET_C128 {
 	dex
 	stx smoothcritical
+}
 
 	sty .fld
 	rts
@@ -105,8 +149,10 @@ smoothscroll
 ;--------------------
 ; This should be used after moving screen data.
 !macro done_smoothscroll {
+!ifndef TARGET_C128 {
 	lda #0
 	sta smoothcritical
+}
 }
 
 ;--------------------
@@ -114,6 +160,11 @@ smoothscroll
 ; Call this to switch the enabled state (at the user's request).
 ; (See smoothscroll_off for the program's own needs.)
 toggle_smoothscroll
+!ifdef TARGET_C128 {
+	; only available in 40-column mode
+	bit COLS_40_80
+	bmi +++
+}
 	lda .smoothmode
 	eor #$ff
 	sta .smoothmode
@@ -133,14 +184,20 @@ toggle_smoothscroll
 	adc #.raster_top
 	tax
 	dex
+!ifdef TARGET_C128 {
+	; The 128 seems to take a little longer to process the interrupt.
+	dex
+}
 	stx .raster_bot
 	adc #3
 	sta .raster_border
 
 	sei
 
-	lda #$7f        ; disable CIA#1 interrupts
-	sta $dc0d
+	lda #$7f
+!ifdef TARGET_C64 {
+	sta $dc0d       ; disable CIA#1 interrupts
+}
 
 	and $d011       ; clear raster interrupt MSB
 	sta $d011
@@ -171,6 +228,25 @@ toggle_smoothscroll
 	cli
 +++	rts
 
+!ifdef TARGET_C128 {
+;--------------------
+; Revert to 1MHz speed just before the text area.
+.slowdown
+	; 6 (3) cycles
+	lda #$00
+	sta reg_2mhz
+
+	; 12 cycles
+	lda #<.vidirq   ; re-set the interrupt vector
+	sta $0314
+	lda #>.vidirq
+	sta $0315
+
+	; 6 cycles
+	lda .reserve
+	bne .setup
+}
+
 ;--------------------
 ; Raster interrupt handler
 .vidirq
@@ -178,7 +254,15 @@ toggle_smoothscroll
 	; 8 cycles
 	lda $d019       ; triggered by raster position?
 	and #$01
+!ifdef TARGET_C128 {
+	; 2 cycles
+	bne +
+.vector
+	jmp $fa65
++
+} else {
 	beq .stdirq
+}
 
 	; 15 cycles (to .shift_screen)
 	ldx $d012
@@ -199,6 +283,15 @@ toggle_smoothscroll
 -	cpy $d012
 	bcs -
 
+!ifdef TARGET_C128 {
+	; in the border now, so speed it up
+	lda allow_2mhz_in_40_col
+	sta reg_2mhz
+	; C128 kernal interrupts are raster-based and once per frame, so
+	; always perform one at bottom of screen.
+	dec .need_kernal_irq
+}
+
 	stx .filler
 
 	bit .fld
@@ -211,6 +304,25 @@ toggle_smoothscroll
 	ora .vicmode
 	sta $d011
 
+!ifdef TARGET_C128 {
+	; slow it back down to draw the text again
+	lda #<.slowdown
+	sta $0314
+	lda #>.slowdown
+	sta $0315
+
+	lda .reserve
+	beq .setup
+
+	; set IRQ for just above the text area
+	lda #.raster_top - 1
+	clc
+	adc .orgscrl
+	tax
+	bne .setirq     ; always
+}
+
+.setup
 	; Calculate the raster line to interrupt for scrolling update.
 	; The target bad line to defer is reserve*8+48+Yscroll.
 	; We need to interrupt 2 lines before that, in order to:
@@ -224,8 +336,16 @@ toggle_smoothscroll
 	adc #.raster_top - 2
 	adc .orgscrl
 	sta .irqline    ; stash it for reference
-
 	tax
+!ifdef TARGET_C128 {
+	; Special case: When reserve is zero we'll enter at .slowdown and
+	; need a little more time for its actions.
+	lda .reserve
+	bne +
+	dex
++
+}
+!ifdef TARGET_C64 {
 	bit .fld
 	bpl .setirq     ; scrolling in progress
 	; Need a second IRQ in the frame for the clock, but a bit later
@@ -233,10 +353,12 @@ toggle_smoothscroll
 	inx
 	inx
 	inx
+}
 .setirq
 	stx $d012
 	lda #$01        ; unlatch raster IRQ flag
 	sta $d019
+!ifdef TARGET_C64 {
 	lda #$7f
 	sta $dc0d       ; disable CIA#1 IRQ (in case it's been re-enabled)
 
@@ -244,11 +366,20 @@ toggle_smoothscroll
 	bne .stdirq
 	lda .fld
 	bne .return     ; once per scroll, make up the skipped IRQ
+}
 .stdirq
+!ifdef TARGET_C128 {
+	bit .need_kernal_irq
+	bpl .return
+	inc .need_kernal_irq
+	jsr $c22c       ; flash VIC cursor, etc.
+	jmp $fa6b       ; update jiffy clock, etc. and return from IRQ
+} else {
 	bit smoothcritical
 	bmi .return
 .vector
 	jmp $ea31
+}
 
 .shift_screen
 	; 6 cycles
@@ -321,10 +452,14 @@ toggle_smoothscroll
 	bne .setirq ; always
 
 .return
+!ifdef TARGET_C128 {
+	jmp $ff33
+} else {
 	pla             ; restore Y, X, A
 	tay
 	pla
 	tax
 	pla
 	rti
+}
 } ; zone smoothscroll
