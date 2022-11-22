@@ -10,6 +10,7 @@ New/changed features:
 - Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
 - Allow a non-standard boot file name on MEGA65 too (makes the game not auto-boot, which may be what you want.)
 - Let player choose slower scrolling, key repeat mode and change device# for saves.
+- Fixed bug that could cause z5+ games that use colour to print invisible text.
 
 Optimizations:
 
