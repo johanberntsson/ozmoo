@@ -302,7 +302,7 @@
 	SPLASHWAIT = 15
 }
 
-!ifndef Z5PLUS {
+!ifdef Z5PLUS {
 	COLOURFUL_LOWER_WIN = 1
 }
 !ifdef USE_INPUTCOL {
