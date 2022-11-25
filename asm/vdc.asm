@@ -68,12 +68,12 @@ VDCInit
 VDCSetAddress
 	; sets the current address of the VDC
 	; input: a low, y = high
-	ldx     #VDC_DATA_LO
-	stx     VDC_ADDR_REG
-	sta     VDC_DATA_REG
 	ldx     #VDC_DATA_HI
 	stx     VDC_ADDR_REG
 	sty     VDC_DATA_REG
+	ldx     #VDC_DATA_LO
+	stx     VDC_ADDR_REG
+	sta     VDC_DATA_REG
 	rts
 	
 	; pha
