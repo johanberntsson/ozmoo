@@ -673,6 +673,8 @@ printchar_buffered
 	lda print_buffer,x
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,x
+--	bit     VDC_ADDR_REG
+	bpl --
 	sta VDC_DATA_REG
 	inx
 	bne - ; Always branch

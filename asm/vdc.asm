@@ -70,6 +70,8 @@ VDCSetAddress
 	; input: a low, y = high
 	ldx     #VDC_DATA_HI
 	stx     VDC_ADDR_REG
+-   bit     VDC_ADDR_REG
+	bpl     -
 	sty     VDC_DATA_REG
 	ldx     #VDC_DATA_LO
 	stx     VDC_ADDR_REG
