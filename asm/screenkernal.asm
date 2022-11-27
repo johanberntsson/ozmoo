@@ -698,9 +698,11 @@ s_erase_window
 	; scroll characters
 	lda #$00
 	jsr .s_scroll_vdc_copy
+!ifdef COLOURFUL_LOWER_WIN {
 	; scroll colours
 	lda #$08
 	jsr .s_scroll_vdc_copy
+}
 	; prepare for erase line
 	sty zp_screenrow
 	lda #$ff
@@ -783,10 +785,12 @@ s_scrolled_lines !byte 0
 	sta .scroll_load_screen + 1
 	lda zp_screenline + 1
 	sta .scroll_load_screen + 2
+!ifdef COLOURFUL_LOWER_WIN {
 	lda zp_colourline
 	sta .scroll_load_colour + 1
 	lda zp_colourline + 1
 	sta .scroll_load_colour + 2
+}
 	dec zp_screenrow
 	jsr .update_screenpos
 !ifdef SMOOTHSCROLL {
@@ -804,9 +808,11 @@ s_scrolled_lines !byte 0
 .scroll_load_screen
 	lda $8000,y ; This address is modified above
 	sta (zp_screenline),y
+!ifdef COLOURFUL_LOWER_WIN {
 .scroll_load_colour
 	lda $8000,y ; This address is modified above
 	sta (zp_colourline),y
+}
 	dey
 	bpl .scroll_load_screen
 	dex
@@ -818,6 +824,7 @@ s_scrolled_lines !byte 0
 	bcc +
 	inc zp_screenline + 1
 +		
+!ifdef COLOURFUL_LOWER_WIN {
 	lda zp_colourline
 	clc
 	adc s_screen_width
@@ -825,6 +832,7 @@ s_scrolled_lines !byte 0
 	bcc +
 	inc zp_colourline + 1
 +	
+}
 	lda .scroll_load_screen + 1
 	clc
 	adc s_screen_width
@@ -832,13 +840,16 @@ s_scrolled_lines !byte 0
 	bcc +
 	inc .scroll_load_screen + 2
 +		
+!ifdef COLOURFUL_LOWER_WIN {
 	lda .scroll_load_colour + 1
 	clc
 	adc s_screen_width
 	sta .scroll_load_colour + 1
 	bcc +
 	inc .scroll_load_colour + 2
-+	jmp -
++
+}	
+	jmp -
 
 .done_scrolling
 !ifdef TARGET_MEGA65 {
