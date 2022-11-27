@@ -867,8 +867,6 @@ s_erase_line
 	lda #$20
 	sta (zp_screenline),y
 	lda s_colour
-	txa
-	lda vdc_vic_colours,x
 	sta (zp_colourline),y
 	iny
 	bne - ; Always branch
