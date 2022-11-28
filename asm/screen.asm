@@ -538,15 +538,33 @@ printchar_flush
 	jsr select_lower_window
 	lda s_reverse
 	pha
+
 	ldx first_buffered_column
--   cpx buffer_index
+	cpx buffer_index
 	bcs +
+
+	ldx buffer_index
+	dex
+	stx last_break_char_buffer_pos
+	jsr print_line_from_buffer
+	
+	ldx buffer_index
+	dex
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
-	inx
-	bne -
+
+	; ldx first_buffered_column
+; -   cpx buffer_index
+	; bcs +
+	; lda print_buffer2,x
+	; sta s_reverse
+	; lda print_buffer,x
+	; jsr s_printchar
+	; inx
+	; bne -
+
 +	pla
 	sta s_reverse
 	jsr start_buffering
@@ -558,97 +576,8 @@ printchar_flush
 	; We have re-selected the upper window, restore cursor position
 	jmp restore_cursor
 
-printchar_buffered
-	; a is PETSCII character to print
-	sta .buffer_char
-	; need to save x,y
-	txa
-	pha
-	tya
-	pha
-	; is this a buffered window?
-	lda current_window
-	bne .is_not_buffered
-	lda is_buffered_window
-	bne .buffered_window
-.is_not_buffered
-	lda .buffer_char
-	jsr s_printchar
-	jmp .printchar_done
-	; update the buffer
-.buffered_window
-	lda .buffer_char
-	; add this char to the buffer
-	cmp #$0d
-	bne .check_break_char
-	jsr printchar_flush
-	; more on the same line
-	jsr increase_num_rows
-	lda #$0d
-	jsr s_printchar
-	jsr start_buffering
-	jmp .printchar_done
-.check_break_char
-	ldy buffer_index
-	cpy s_screen_width
-	bcs .add_char ; Don't register break chars on last position of buffer.
-	cmp #$20 ; Space
-	beq .break_char
-	cmp #$2d ; -
-	bne .add_char
-.break_char
-	; update index to last break character
-	sty last_break_char_buffer_pos
-.add_char
-;	ldy buffer_index ; TODO: REMOVE!
-	sta print_buffer,y
-	lda s_reverse
-	sta print_buffer2,y
-	iny
-	sty buffer_index
-	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
-	beq +
-	jmp .printchar_done
-+
-	; print the line until last space
-	; First calculate max# of characters on line
-	ldx s_screen_width
-	lda window_start_row
-	sec
-	sbc window_start_row + 1
-	sbc #2
-	cmp num_rows
-	bcs +
-	dex ; Max 39 chars on last line on screen.
-+	stx max_chars_on_line
-	; Check if we have a "perfect space" - a space after 40 characters
-	lda print_buffer,x
-	cmp #$20
-	beq .print_40_2 ; Print all in buffer, regardless of which column buffering started in
-	; Now find the character to break on
-	ldy last_break_char_buffer_pos
-	beq .print_40 ; If there are no break characters on the line, print all 40 characters
-	; Check if the break character is a space
-	lda print_buffer,y
-	cmp #$20
-	beq .print_buffer
-	iny
-	bne .store_break_pos ; Always branch
-.print_40
-	; If we can't find a place to break, and buffered output started in column > 0, print a line break and move the text in the buffer to the next line.
-	ldx first_buffered_column
-	beq .print_40_2
-	jmp .move_remaining_chars_to_buffer_start
-.print_40_2	
-	ldy max_chars_on_line
-.store_break_pos
-	sty last_break_char_buffer_pos
-.print_buffer
-	lda s_reverse
-	pha
-
-	dec last_break_char_buffer_pos ; Print last character using normal print routine, to avoid trouble
-	
+print_line_from_buffer
+	; Prints the text from first_buffered_column to last_break_char_buffer_pos
 !ifdef TARGET_C128 {
 	lda COLS_40_80
 	bne +
@@ -764,6 +693,100 @@ printchar_buffered
 	sta zp_screencolumn
 
 +++
+	rts
+
+printchar_buffered
+	; a is PETSCII character to print
+	sta .buffer_char
+	; need to save x,y
+	txa
+	pha
+	tya
+	pha
+	; is this a buffered window?
+	lda current_window
+	bne .is_not_buffered
+	lda is_buffered_window
+	bne .buffered_window
+.is_not_buffered
+	lda .buffer_char
+	jsr s_printchar
+	jmp .printchar_done
+	; update the buffer
+.buffered_window
+	lda .buffer_char
+	; add this char to the buffer
+	cmp #$0d
+	bne .check_break_char
+	jsr printchar_flush
+	; more on the same line
+	jsr increase_num_rows
+	lda #$0d
+	jsr s_printchar
+	jsr start_buffering
+	jmp .printchar_done
+.check_break_char
+	ldy buffer_index
+	cpy s_screen_width
+	bcs .add_char ; Don't register break chars on last position of buffer.
+	cmp #$20 ; Space
+	beq .break_char
+	cmp #$2d ; -
+	bne .add_char
+.break_char
+	; update index to last break character
+	sty last_break_char_buffer_pos
+.add_char
+;	ldy buffer_index ; TODO: REMOVE!
+	sta print_buffer,y
+	lda s_reverse
+	sta print_buffer2,y
+	iny
+	sty buffer_index
+	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
+	beq +
+	jmp .printchar_done
++
+	; print the line until last space
+	; First calculate max# of characters on line
+	ldx s_screen_width
+	lda window_start_row
+	sec
+	sbc window_start_row + 1
+	sbc #2
+	cmp num_rows
+	bcs +
+	dex ; Max 39 chars on last line on screen.
++	stx max_chars_on_line
+	; Check if we have a "perfect space" - a space after 40 characters
+	lda print_buffer,x
+	cmp #$20
+	beq .print_40_2 ; Print all in buffer, regardless of which column buffering started in
+	; Now find the character to break on
+	ldy last_break_char_buffer_pos
+	beq .print_40 ; If there are no break characters on the line, print all 40 characters
+	; Check if the break character is a space
+	lda print_buffer,y
+	cmp #$20
+	beq .print_buffer
+	iny
+	bne .store_break_pos ; Always branch
+.print_40
+	; If we can't find a place to break, and buffered output started in column > 0, print a line break and move the text in the buffer to the next line.
+	ldx first_buffered_column
+	beq .print_40_2
+	jmp .move_remaining_chars_to_buffer_start
+.print_40_2	
+	ldy max_chars_on_line
+.store_break_pos
+	sty last_break_char_buffer_pos
+.print_buffer
+	lda s_reverse
+	pha
+
+	dec last_break_char_buffer_pos ; Print last character using normal print routine, to avoid trouble
+
+	jsr print_line_from_buffer
 
 	ldx last_break_char_buffer_pos
 	inc last_break_char_buffer_pos ; Restore old value, since we decreased it by one before
