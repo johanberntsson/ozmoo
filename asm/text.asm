@@ -1030,8 +1030,10 @@ getchar_and_maybe_toggle_darkmode
 +	
 }
 !ifdef SMOOTHSCROLL {
-	cmp #137 ; F2
+	cmp #159 ; Ctrl-4
 	bne +
+	bit smoothscrolling
+	bmi .did_something
 	jsr toggle_smoothscroll
 	jmp .did_something
 +
@@ -1051,6 +1053,11 @@ getchar_and_maybe_toggle_darkmode
 	bmi +
 .is_scroll_delay_key
 	stx scroll_delay
+!ifdef SMOOTHSCROLL {
+	bit smoothscrolling
+	bpl .did_something
+	jsr toggle_smoothscroll
+}
 	jmp .did_something
 +
 	cmp #18 ; Ctrl-R for key repeating

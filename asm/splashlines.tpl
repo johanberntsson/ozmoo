@@ -26,7 +26,11 @@ splashline5
 splashline6
 	!pet "   Ctrl: D=Reset device# R=Repeat keys",0
 splashline7
-	!pet "            0-3=Scroll delay",0
+!ifdef SMOOTHSCROLL {
+	!pet "  0-3=Scroll slowness, 4=Smooth scroll",0
+} else {
+	!pet "           0-3=Scroll slowness",0
+}
 
 
 splash_index_col
