@@ -1034,6 +1034,8 @@ getchar_and_maybe_toggle_darkmode
 	bne +
 	bit smoothscrolling
 	bmi .did_something
+	ldx #0
+	stx scroll_delay
 	jsr toggle_smoothscroll
 	jmp .did_something
 +

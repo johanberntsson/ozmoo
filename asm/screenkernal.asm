@@ -759,16 +759,26 @@ s_scrolled_lines !byte 0
 	cmp s_screen_height
 	bpl +
 	rts
-+	
-	ldx scroll_delay
+
++	ldx scroll_delay
 	beq .done_delaying
--	txa
-	pha
-	jsr wait_an_interval
-	pla
-	tax
-	dex
+	sei
+--	lda #rasterline_bottom_border
+-	cmp reg_rasterline
 	bne -
+	lda #rasterline_bottom_border + 1
+-	cmp reg_rasterline
+	bne -
+	dex
+	bne --
+	cli
+; -	txa
+	; pha
+	; jsr wait_an_interval
+	; pla
+	; tax
+	; dex
+	; bne -
 .done_delaying
 
 !ifdef SCROLLBACK {

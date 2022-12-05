@@ -188,9 +188,11 @@ story_start_far_ram = $1000 + (STACK_PAGES + 2 -  (STACK_PAGES & 1))  * $100 ; N
 
 ; --- I/O registers ---
 reg_screen_char_mode  = $0a2c
+reg_rasterline        = $d012
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
 reg_2mhz			  = $d030
+rasterline_bottom_border = 250;
 
 ; --- MMU config ---
 c128_mmu_pcra         = $d501
