@@ -762,6 +762,10 @@ s_scrolled_lines !byte 0
 
 +	ldx scroll_delay
 	beq .done_delaying
+!ifdef TARGET_MEGA65 {
+	; Delay an extra frame on this fast platform
+	inx
+}
 	sei
 --	lda #rasterline_bottom_border
 -	cmp reg_rasterline
