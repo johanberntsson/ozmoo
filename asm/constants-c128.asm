@@ -192,7 +192,7 @@ reg_rasterline        = $d012
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
 reg_2mhz			  = $d030
-rasterline_bottom_border = 250;
+rasterline_bottom_border = 249;
 
 ; --- MMU config ---
 c128_mmu_pcra         = $d501

@@ -310,16 +310,16 @@
 		COLOURFUL_LOWER_WIN = 1
 	}
 }
-!if CURSORCOL > 1 {
-	!ifndef COLOURFUL_LOWER_WIN {
-		COLOURFUL_LOWER_WIN = 1
-	}
-}
-!if CURSORCOLDM > 1 {
-	!ifndef COLOURFUL_LOWER_WIN {
-		COLOURFUL_LOWER_WIN = 1
-	}
-}
+;!if CURSORCOL > 1 {
+;	!ifndef COLOURFUL_LOWER_WIN {
+;		COLOURFUL_LOWER_WIN = 1
+;	}
+;}
+;!if CURSORCOLDM > 1 {
+;	!ifndef COLOURFUL_LOWER_WIN {
+;		COLOURFUL_LOWER_WIN = 1
+;	}
+;}
 
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801

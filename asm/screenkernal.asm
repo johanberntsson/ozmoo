@@ -352,6 +352,13 @@ s_delete_cursor
 }
 	ldy zp_screencolumn
 	sta (zp_screenline),y
+!ifdef TARGET_PLUS4 {
+	ldx s_colour
+	lda plus4_vic_colours,x
+} else {
+	lda s_colour
+}
+	sta (zp_colourline),y
 	rts
 
 s_printchar
@@ -784,7 +791,6 @@ s_scrolled_lines !byte 0
 	; dex
 	; bne -
 .done_delaying
-
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
