@@ -1030,7 +1030,7 @@ getchar_and_maybe_toggle_darkmode
 +	
 }
 !ifdef SMOOTHSCROLL {
-	cmp #159 ; Ctrl-4
+	cmp #18 ; Ctrl-9
 	bne +
 	bit smoothscrolling
 	bmi .did_something
@@ -1047,14 +1047,15 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_something
 +	
 }
-	ldx #3
+	ldx #8
 -	cmp .scroll_delay_keys,x
 	beq .is_scroll_delay_key
 	dex
 	bpl -
 	bmi +
 .is_scroll_delay_key
-	stx scroll_delay
+	lda .scroll_delay_values,x
+	sta scroll_delay
 !ifdef SMOOTHSCROLL {
 	bit smoothscrolling
 	bpl .did_something
@@ -1062,7 +1063,7 @@ getchar_and_maybe_toggle_darkmode
 }
 	jmp .did_something
 +
-	cmp #18 ; Ctrl-R for key repeating
+	cmp #11 ; Ctrl-K for key repeating
 	bne +
 	; Toggle key repeat (People using fast emulators want to turn it off)
 	lda #64
@@ -1087,7 +1088,12 @@ getchar_and_maybe_toggle_darkmode
 	ldx .getchar_save_x
 	rts
 
-.scroll_delay_keys !byte 146, 144, 5, 28 ; Ctrl-0, 1, 2, 3
+.scroll_delay_keys !byte 146, 144, 5, 28, 159, 156, 30, 31, 158 ; Ctrl-0, 1, 2, 3
+!ifdef TARGET_MEGA65 {
+.scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 9 ; Ctrl-0, 1, 2, 3
+} else {
+.scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 8 ; Ctrl-0, 1, 2, 3
+}
 .getchar_save_x !byte 0
 
 

@@ -260,21 +260,21 @@ reg_bordercolour      = $ff19
 reg_backgroundcolour  = $ff15 
 reg_rasterline        = $ff1d
 
-rasterline_bottom_border = 203;
+rasterline_for_scroll = 2;
 }
 !ifdef TARGET_MEGA65 {
 reg_rasterline        = $d012
 reg_screen_char_mode  = $d018 
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
-rasterline_bottom_border = 250;
+rasterline_for_scroll = 250;
 }
 !ifdef TARGET_C64 {
 reg_rasterline        = $d012
 reg_screen_char_mode  = $d018 
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
-rasterline_bottom_border = 250;
+rasterline_for_scroll = 56;
 }
 
 ; --- Kernel routines ---

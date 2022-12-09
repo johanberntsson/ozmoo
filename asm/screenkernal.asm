@@ -39,7 +39,11 @@ statuslinecol !byte STATCOL, STATCOLDM
 cursorcol !byte CURSORCOL, CURSORCOLDM
 current_cursor_colour !byte CURSORCOL
 cursor_character !byte CURSORCHAR
+!ifdef SMOOTHSCROLL {
 scroll_delay !byte 0
+} else {
+scroll_delay !byte 1 ; Start in fastest flicker-free + tear-free scroll speed
+}
 
 !ifdef TARGET_PLUS4 {
 plus4_vic_colours
@@ -767,39 +771,14 @@ s_scrolled_lines !byte 0
 	bpl +
 	rts
 
-+	ldx scroll_delay
-	beq .done_delaying
-!ifdef TARGET_MEGA65 {
-	; Delay an extra frame on this fast platform
-	inx
-}
-	sei
---	lda #rasterline_bottom_border
--	cmp reg_rasterline
-	bne -
-	lda #rasterline_bottom_border + 1
--	cmp reg_rasterline
-	bne -
-	dex
-	bne --
-	cli
-; -	txa
-	; pha
-	; jsr wait_an_interval
-	; pla
-	; tax
-	; dex
-	; bne -
-.done_delaying
++	
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
-!ifdef TARGET_MEGA65 {
-	jsr colour2k	
-}
 	ldx window_start_row + 1 ; how many top lines to protect
+	inx
 	stx zp_screenrow
-	inc zp_screenrow
+;	inc zp_screenrow
 	jsr .update_screenpos
 	lda zp_screenline
 	sta .scroll_load_screen + 1
@@ -813,65 +792,124 @@ s_scrolled_lines !byte 0
 }
 	dec zp_screenrow
 	jsr .update_screenpos
+	lda zp_screenline
+	sta .scroll_store_screen + 1
+	lda zp_screenline + 1
+	sta .scroll_store_screen + 2
+!ifdef COLOURFUL_LOWER_WIN {
+	lda zp_colourline
+	sta .scroll_store_colour + 1
+	lda zp_colourline + 1
+	sta .scroll_store_colour + 2
+}
 !ifdef SMOOTHSCROLL {
 	lda smoothscrolling
 	beq +
 	jsr smoothscroll
 +
 }
+
+; ----------- Delay for slower scrolling
+
+	ldx scroll_delay
+	beq .done_delaying
+!ifdef TARGET_MEGA65 {
+	clc ; Carry is expected to be clear when entering the following loop
+	lda #rasterline_for_scroll
+} else {
+	lda window_start_row + 1 ; how many top lines to protect
+	asl
+	asl
+	asl ; Multiplied by 8 (There are 8 raster lines per row)
+	adc #rasterline_for_scroll
+}
+	sei
+--
+; --	lda #rasterline_for_scroll
+	cmp reg_rasterline
+	bne --
+	adc #0 ; Carry is always set, so this adds 1
+;	lda #rasterline_for_scroll + 1
+-	cmp reg_rasterline
+	bne -
+	sbc #1 ; Carry is set, so this subtracts 1
+	dex
+	bne --
+	cli
+; -	txa
+	; pha
+	; jsr wait_an_interval
+	; pla
+	; tax
+	; dex
+	; bne -
+.done_delaying
+;	inc reg_backgroundcolour
+
+!ifdef TARGET_MEGA65 {
+	jsr colour2k	
+}
+
 	lda s_screen_height_minus_one
 	sec
 	sbc zp_screenrow
 	tax
+	clc
+;	sei
 -
 	ldy s_screen_width_minus_one
 .scroll_load_screen
 	lda $8000,y ; This address is modified above
-	sta (zp_screenline),y
+.scroll_store_screen
+	sta $8000,y ; This address is modified above
 !ifdef COLOURFUL_LOWER_WIN {
 .scroll_load_colour
 	lda $8000,y ; This address is modified above
-	sta (zp_colourline),y
+.scroll_store_colour
+	sta $8000,y ; This address is modified above
 }
 	dey
 	bpl .scroll_load_screen
 	dex
 	beq .done_scrolling
-	lda zp_screenline
-	clc
+	lda .scroll_store_screen + 1
+;	clc
 	adc s_screen_width
-	sta zp_screenline
+	sta .scroll_store_screen + 1
 	bcc +
-	inc zp_screenline + 1
+	clc
+	inc .scroll_store_screen + 2
 +		
 !ifdef COLOURFUL_LOWER_WIN {
-	lda zp_colourline
-	clc
+	lda .scroll_store_colour + 1
 	adc s_screen_width
-	sta zp_colourline
+	sta .scroll_store_colour + 1
 	bcc +
-	inc zp_colourline + 1
+	clc
+	inc .scroll_store_colour + 2
 +	
 }
 	lda .scroll_load_screen + 1
-	clc
 	adc s_screen_width
 	sta .scroll_load_screen + 1
 	bcc +
+	clc
 	inc .scroll_load_screen + 2
 +		
 !ifdef COLOURFUL_LOWER_WIN {
 	lda .scroll_load_colour + 1
-	clc
 	adc s_screen_width
 	sta .scroll_load_colour + 1
-	bcc +
+	bcc -
+	clc
 	inc .scroll_load_colour + 2
-+
 }	
-	jmp -
+	bne - ; Always branch
 
 .done_scrolling
+;	cli
+;	dec reg_backgroundcolour
+
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }

@@ -24,12 +24,12 @@ splashline5
 	}
 }
 splashline6
-	!pet "   Ctrl: D=Reset device# R=Repeat keys",0
+	!pet "   Ctrl: D=Reset device# K=Key repeat",0
 splashline7
 !ifdef SMOOTHSCROLL {
-	!pet "  0-3=Scroll slowness, 4=Smooth scroll",0
+	!pet "  0-8=Scroll slowness, 9=Smooth scroll",0
 } else {
-	!pet "           0-3=Scroll slowness",0
+	!pet "           0-8=Scroll slowness",0
 }
 
 

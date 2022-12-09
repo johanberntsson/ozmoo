@@ -9,8 +9,11 @@ New/changed features:
 - Allow build mode 71 (for 1571 disk) on C64 and Plus/4.
 - Empty keyboard buffer when game starts, so player doesn't accidentally miss an initial quote screen or something.
 - Allow a non-standard boot file name on MEGA65 too (makes the game not auto-boot, which may be what you want.)
-- Let player choose slower scrolling, key repeat mode and change device# for saves.
 - Fixed bug that could cause z5+ games that use colour to print invisible text.
+- Let player choose slower scrolling, key repeat mode and change device# for saves.
+- Made scrolling flicker free and tear free except when using fastest scroll speed.
+- Added soft scrolling as an option for C64 and for C128 in 40 col mode
+- Games start in slow scroll mode if available, otherwise with scroll slowness = 1 (fastest mode that is flicker-free and tear-free).
 
 Optimizations:
 
@@ -19,7 +22,7 @@ Optimizations:
 - Faster screen clearing on C128 in 80 col mode.
 - Faster writing of characters to screen on C128 in 80 col mode.
 - Faster writing of buffered text to screen (faster on all platforms, a lot faster on C128 in 80 col mode).
-- Optimized scrolling (don't scroll colour memory for games that don't use colour).
+- Optimized scrolling (don't scroll colour memory for games that don't use colour, + general code optimization).
 
 Bugfixes:
 
