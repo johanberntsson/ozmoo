@@ -258,9 +258,11 @@ reg_screen_bitmap_mode = $ff12
 reg_screen_char_mode  = $ff13
 reg_bordercolour      = $ff19
 reg_backgroundcolour  = $ff15 
+reg_rasterline_highbit=	$ff1c
 reg_rasterline        = $ff1d
 
-rasterline_for_scroll = 2;
+rasterline_for_scroll = 6; 6 works well for PAL and NTSC
+
 }
 !ifdef TARGET_MEGA65 {
 reg_rasterline        = $d012
@@ -270,11 +272,12 @@ reg_backgroundcolour  = $d021
 rasterline_for_scroll = 250;
 }
 !ifdef TARGET_C64 {
+reg_rasterline_highbit=	$d011
 reg_rasterline        = $d012
 reg_screen_char_mode  = $d018 
 reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
-rasterline_for_scroll = 56;
+rasterline_for_scroll = 56; 56 works well for PAL and NTSC
 }
 
 ; --- Kernel routines ---

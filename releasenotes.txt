@@ -11,7 +11,7 @@ New/changed features:
 - Allow a non-standard boot file name on MEGA65 too (makes the game not auto-boot, which may be what you want.)
 - Fixed bug that could cause z5+ games that use colour to print invisible text.
 - Let player choose slower scrolling, key repeat mode and change device# for saves.
-- Made scrolling flicker free and tear free except when using fastest scroll speed.
+- Made scrolling flicker free and tear free except when using fastest scroll speed, on all but 80 col C128.
 - Added soft scrolling as an option for C64 and for C128 in 40 col mode
 - Games start in slow scroll mode if available, otherwise with scroll slowness = 1 (fastest mode that is flicker-free and tear-free).
 

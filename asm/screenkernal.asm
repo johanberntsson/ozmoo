@@ -825,9 +825,20 @@ s_scrolled_lines !byte 0
 }
 	sei
 --
-; --	lda #rasterline_for_scroll
 	cmp reg_rasterline
 	bne --
+!ifndef TARGET_MEGA65 {
+!ifdef TARGET_PLUS4 {
+	pha
+	lda reg_rasterline_highbit
+	lsr
+	pla
+	bcs --
+} else {
+	bit reg_rasterline_highbit
+	bmi --
+}
+}
 	adc #0 ; Carry is always set, so this adds 1
 ;	lda #rasterline_for_scroll + 1
 -	cmp reg_rasterline
@@ -844,7 +855,8 @@ s_scrolled_lines !byte 0
 	; dex
 	; bne -
 .done_delaying
-;	inc reg_backgroundcolour
+;	dec reg_backgroundcolour
+;	inc	 reg_backgroundcolour
 
 !ifdef TARGET_MEGA65 {
 	jsr colour2k	
@@ -876,39 +888,52 @@ s_scrolled_lines !byte 0
 ;	clc
 	adc s_screen_width
 	sta .scroll_store_screen + 1
+!ifdef COLOURFUL_LOWER_WIN {
+	sta .scroll_store_colour + 1
+}
 	bcc +
 	clc
 	inc .scroll_store_screen + 2
-+		
 !ifdef COLOURFUL_LOWER_WIN {
-	lda .scroll_store_colour + 1
-	adc s_screen_width
-	sta .scroll_store_colour + 1
-	bcc +
-	clc
 	inc .scroll_store_colour + 2
-+	
 }
++		
+; !ifdef COLOURFUL_LOWER_WIN {
+	; lda .scroll_store_colour + 1
+	; adc s_screen_width
+	; sta .scroll_store_colour + 1
+	; bcc +
+	; clc
+	; inc .scroll_store_colour + 2
+; +	
+; }
 	lda .scroll_load_screen + 1
 	adc s_screen_width
 	sta .scroll_load_screen + 1
-	bcc +
-	clc
-	inc .scroll_load_screen + 2
-+		
 !ifdef COLOURFUL_LOWER_WIN {
-	lda .scroll_load_colour + 1
-	adc s_screen_width
 	sta .scroll_load_colour + 1
+}
 	bcc -
 	clc
+	inc .scroll_load_screen + 2
+!ifdef COLOURFUL_LOWER_WIN {
 	inc .scroll_load_colour + 2
-}	
+}
+
+; !ifdef COLOURFUL_LOWER_WIN {
+	; lda .scroll_load_colour + 1
+	; adc s_screen_width
+	; sta .scroll_load_colour + 1
+	; bcc -
+	; clc
+	; inc .scroll_load_colour + 2
+; }	
 	bne - ; Always branch
 
 .done_scrolling
 ;	cli
 ;	dec reg_backgroundcolour
+;	inc reg_backgroundcolour
 
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
