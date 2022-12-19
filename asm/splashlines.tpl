@@ -28,6 +28,10 @@ splashline6
 splashline7
 !ifdef SMOOTHSCROLL {
 	!pet "  0-8=Scroll slowness, 9=Smooth scroll",0
+!ifdef TARGET_C128 {
+splashline7alt
+	!pet "           0-8=Scroll slowness",0
+}
 } else {
 	!pet "           0-8=Scroll slowness",0
 }

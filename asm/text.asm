@@ -1030,6 +1030,10 @@ getchar_and_maybe_toggle_darkmode
 +	
 }
 !ifdef SMOOTHSCROLL {
+!ifdef TARGET_C128 { ; Smooth scroll not available on 80 col C128
+	ldx COLS_40_80
+	bne +
+}
 	cmp #18 ; Ctrl-9
 	bne +
 	bit smoothscrolling

@@ -326,15 +326,6 @@
 
 program_start
 
-!ifdef TARGET_C128 {
-	lda #$f0 ; Background colour
-	jsr VDCInit
-	; initialize is in Basic LO ROM in C128 mode, so we need
-	; to turn off BASIC already here. Since the set_memory_no_basic
-	; macro isn't defined yet we'll have to do it manually
-	lda #%00001110
-	sta $ff00
-}
 	jmp .initialize
 
 !ifdef VMEM {
@@ -857,6 +848,27 @@ game_id		!byte 0,0,0,0
 .initialize
 	cld
 	cli
+
+!ifdef TARGET_C128 {
+	lda #$f0 ; Background colour
+	jsr VDCInit
+	; initialize is in Basic LO ROM in C128 mode, so we need
+	; to turn off BASIC already here. Since the set_memory_no_basic
+	; macro isn't defined yet we'll have to do it manually
+	lda #%00001110
+	sta $ff00
+!if SPLASHWAIT > 0 {
+	lda COLS_40_80
+	beq +
+	lda #<splashline7alt
+	sta splash_index_lb + 7
+	lda #>splashline7alt
+	sta splash_index_hb + 7
++
+}
+}
+
+
 !ifdef TESTSCREEN {
 	jmp testscreen
 }
