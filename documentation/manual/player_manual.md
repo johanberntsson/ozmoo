@@ -50,8 +50,21 @@ When you meet intelligent creatures, you can talk to them by typing their name, 
 # Darkmode
 Ozmoo games can toggle between normal colours and a dark mode. This is done by pushing the F1 key whenever the game is waiting for input. The colours used by normal and dark mode are decided by the game author.
 
+# Scrolling slowness / Smooth scrolling
+You can choose how fast text scrolling is, by pressing one of these keys while the game is waiting for input.
+
+Ctrl-0: Make scrolling as fast as possible
+Ctrl-1 .. Ctrl-8: Make scrolling gradually slower, while making sure the scrolling is flicker-free and tear-free (= looks better) *
+Ctrl-9: Enable smooth scrolling, if available (scroll text one pixel at a time)
+
+Mode Ctrl-9 is default if available, otherwise mode Ctrl-1 is default.
+
+(*) On C128 in 80 column mode, Ozmoo can't guarantee flicker-free and tear-free scrolling
+
 # Saving
 The "save" commands creates a snapshot of your current position. You can return to a saved position in the future by using the "restore" command. When you use "save" or "restore" you will be asked to insert a save disk. If your game disk is a 1581 floppy disk (or a .d81 floppy image) then you can safely use it as a save disk as well, otherwise you will need to prepare an empty floppy disk or a disk image (d64, d71 or d81) to use as a save disk. Do not store other files on this disk, and do not use the same disk as a save disk for several games!
+
+Once you have saved or restored the game the first time during a play session, Ozmoo will remember the save device you chose and won't ask again. If you want to change the save device, press Ctrl-D, and you'll be asked to input the save device next time you save or restore.
 
 # Large games
 Ozmoo has several build modes to allow even large game files to be played, which may require more than one floppy disk. Small games fit on one floppy (called the Boot / Story disk), while large games have one Boot disk and one Story disk. You start the game from the Boot disk, and then change to the Story disk when prompted.
@@ -69,9 +82,9 @@ If Ozmoo detects an REU at startup, and it's big enough to hold all game data, O
 An REU can be used instead of a second floppy drive when playing very large games that would otherwise need dual floppy drives, as described in the "Large games" section above.
 
 # Scrollback buffer
-Ozmoo has an optional feature called Scrollback buffer, which can be used on the MEGA65, on a C64 with an REU, or on a C128 with an REU. This allows you to press F5 at any input prompt or More prompt, to access the text the game has printed this far. You should be able to scroll through the last 30 screenfuls of text or more, using F5/F7 as PageUp/PageDown.
+Ozmoo has an optional feature called Scrollback buffer. , which can be used on the MEGA65, on a C64 with an REU, or on a C128 with an REU. This allows you to press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown. On the C64 and C128, this may require an REU, or the person building the game chose to reserve a bit of RAM for the scrollback buffer.
 
-If Ozmoo was built with this feature, the splash screen will say "F5=Scrollback". If you have an REU, it will then ask if you want to use the REU for faster gameplay. If you answer Yes, part of the REU memory or all of it will be reserved for storing game data. If there is enough room left for a scrollback buffer, the scrollback feature will work. If not, you will get a message saying "Scrollback not available.". This will also happen if you don't have an REU.
+If Ozmoo was built with this feature, the splash screen will say "F5=Scrollback". If you have an REU, it will then ask if you want to use the REU for faster gameplay. If you answer Yes, part of the REU memory or all of it will be reserved for storing game data. If there is enough room left for a scrollback buffer, or the game was built with some RAM reserved for scrollback buffer, the scrollback feature will work. If not, you will get a message saying "Scrollback not available.".
 
 If you have a smaller REU, you may have to choose whether you want to use it for caching game data or to keep a scrollback buffer. If you answer No to the question at the beginning, or you don't get the question because the REU is too small to hold the game data, the scrollback buffer will be available.
 

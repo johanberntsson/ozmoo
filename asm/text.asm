@@ -1058,7 +1058,7 @@ getchar_and_maybe_toggle_darkmode
 	bpl -
 	bmi +
 .is_scroll_delay_key
-	lda .scroll_delay_values,x
+	lda scroll_delay_values,x
 	sta scroll_delay
 !ifdef SMOOTHSCROLL {
 	bit smoothscrolling
@@ -1094,9 +1094,9 @@ getchar_and_maybe_toggle_darkmode
 
 .scroll_delay_keys !byte 146, 144, 5, 28, 159, 156, 30, 31, 158 ; Ctrl-0, 1, 2, 3
 !ifdef TARGET_MEGA65 {
-.scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 9 ; Ctrl-0, 1, 2, 3
+scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 9 ; Ctrl-0, 1, 2, 3
 } else {
-.scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 8 ; Ctrl-0, 1, 2, 3
+scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 8 ; Ctrl-0, 1, 2, 3
 }
 .getchar_save_x !byte 0
 

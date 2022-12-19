@@ -475,9 +475,9 @@ Allows the player to press F5 to enter scrollback mode, where they can scroll up
 
 This feature adds smooth scrolling support. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience.
 
-The build option -smooth can be used to include smooth scrolling support on supported targets (currently only available on the C64)
+The build option -smooth can be used to include smooth scrolling support on supported targets (currently only available on the C64 and C128 (and doesn't work on C128 in 80 column mode)).
 
-The user can toggle whether smooth scrolling is active using the F2 key during the game. Smooth scrolling is activated at program startup if the support was included.
+Smooth scrolling is automatically activated at program startup if the support was included. While playing the game, the user can disable smooth scrolling with Ctrl-0 .. Ctrl-8, and re-enable smooth scrolling with Ctrl-9.
 
 # Miscellaneous options
 

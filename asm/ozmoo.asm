@@ -864,6 +864,8 @@ game_id		!byte 0,0,0,0
 	sta splash_index_lb + 7
 	lda #>splashline7alt
 	sta splash_index_hb + 7
+	lda scroll_delay_values + 1
+	sta scroll_delay
 +
 }
 }
