@@ -1,7 +1,7 @@
 RELEASE NOTES
 
 ================================================
-Release 12: ---
+Release 12: 20 December 2022
 
 New/changed features:
 
