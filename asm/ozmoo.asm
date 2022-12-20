@@ -858,6 +858,7 @@ game_id		!byte 0,0,0,0
 	lda #%00001110
 	sta $ff00
 !if SPLASHWAIT > 0 {
+!ifdef SMOOTHSCROLL {
 	lda COLS_40_80
 	beq +
 	lda #<splashline7alt
@@ -867,6 +868,7 @@ game_id		!byte 0,0,0,0
 	lda scroll_delay_values + 1
 	sta scroll_delay
 +
+}
 }
 }
 
