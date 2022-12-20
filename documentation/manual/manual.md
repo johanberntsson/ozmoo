@@ -469,7 +469,7 @@ enable it use -ch or -ch:1. This will allocate a history buffer large enough to 
 
 # Scrollback buffer
 
-Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. Requires a MEGA65, or a C64 or C128 with REU. Also, the REU has to be big enough to hold the buffer. The buffer is 1 MB in size for the MEGA65, 64 KB for a C64 or C128 with REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0.
+Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. This feature uses an REU if available on C64 or C128, and AtticRAM on MEGA65. Optionally, it can use a smaller portion of RAM on Plus/4 as well as C64 or C128 without REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0. Add a RAM buffer on Plus/4, C64 or C128 with -sb:6|8|10|12.
 
 # Smooth scrolling
 

@@ -53,9 +53,9 @@ Ozmoo games can toggle between normal colours and a dark mode. This is done by p
 # Scrolling slowness / Smooth scrolling
 You can choose how fast text scrolling is, by pressing one of these keys while the game is waiting for input.
 
-Ctrl-0: Make scrolling as fast as possible
-Ctrl-1 .. Ctrl-8: Make scrolling gradually slower, while making sure the scrolling is flicker-free and tear-free (= looks better) *
-Ctrl-9: Enable smooth scrolling, if available (scroll text one pixel at a time)
+* Ctrl-0: Make scrolling as fast as possible
+* Ctrl-1 .. Ctrl-8: Make scrolling gradually slower, while making sure the scrolling is flicker-free and tear-free (= looks better)
+* Ctrl-9: Enable smooth scrolling, if available (scroll text one pixel at a time)
 
 Mode Ctrl-9 is default if available, otherwise mode Ctrl-1 is default.
 
