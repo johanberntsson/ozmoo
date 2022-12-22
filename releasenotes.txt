@@ -1,5 +1,11 @@
 RELEASE NOTES
 
+Release 12.1: 22 December 2022
+
+Bugfixes:
+
+- z1 and z2 games that used an REU for scrollback buffer *and* the player chose to use the REU for caching, crashed due to scrollback data overwriting story data.
+
 ================================================
 Release 12: 20 December 2022
 

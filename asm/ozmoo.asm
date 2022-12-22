@@ -905,7 +905,11 @@ game_id		!byte 0,0,0,0
 !if SUPPORT_REU = 1 {
 	lda #0
 	sta z_temp + 1
-	lda story_start + header_filelength
+	!ifdef Z3PLUS {
+		lda story_start + header_filelength
+	} else {
+		lda #$ff ; For z1 and z2 we don't know, so we assume the biggest size
+	}
 	!ifndef Z4PLUS {
 		asl
 		rol z_temp + 1
@@ -1042,6 +1046,10 @@ game_id		!byte 0,0,0,0
 	sta 1
 ;	+set_memory_normal
 	jmp (basic_reset)
+}
+
+!if SUPPORT_REU = 1 {
+statmem_reu_banks !byte 0
 }
 
 
@@ -2268,8 +2276,6 @@ copy_data_from_disk_at_zp_temp_to_reu
 
 .reu_error
 	jmp reu_error
-
-statmem_reu_banks !byte 0
 
 reu_start
 	lda #0
