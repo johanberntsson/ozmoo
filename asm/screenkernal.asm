@@ -347,6 +347,9 @@ s_set_text_colour
 	rts
 
 s_delete_cursor
+!ifdef TARGET_MEGA65 {
+	jsr colour2k	
+}
 	lda #$20 ; blank space
 !ifdef TARGET_C128 {
 	ldx COLS_40_80

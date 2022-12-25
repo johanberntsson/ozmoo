@@ -1,5 +1,17 @@
 RELEASE NOTES
 
+
+Release 12.2: 26 December 2022
+
+New/changed features:
+
+- Allow games with just one vmem block in unbanked RAM (requirement was two, up to now).
+
+Bugfixes:
+
+- Game could hang if player pressed backspace while entering a save comment on MEGA65.
+
+================================================
 Release 12.1: 22 December 2022
 
 Bugfixes:

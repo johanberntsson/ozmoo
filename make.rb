@@ -2793,8 +2793,8 @@ end
 if $target != 'mega65'
 	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 	puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
-	if	$unbanked_vmem_blocks < 2 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
-		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be less than 1 KB of unbanked RAM for VMEM." 
+	if	$unbanked_vmem_blocks < 1 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be no unbanked RAM for VMEM." 
 		exit 1
 	end
 end
