@@ -348,7 +348,7 @@ s_set_text_colour
 
 s_delete_cursor
 !ifdef TARGET_MEGA65 {
-	jsr colour2k	
+	jsr colour2k
 }
 	lda #$20 ; blank space
 !ifdef TARGET_C128 {
@@ -366,6 +366,9 @@ s_delete_cursor
 	lda s_colour
 }
 	sta (zp_colourline),y
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
 	rts
 
 s_printchar
