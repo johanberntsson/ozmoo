@@ -11,6 +11,8 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018-2022
 
 ## Status
 
+Update 2022-Dec-20: Release 12 with support for smooth scrolling on C64 and C128 in 40 column mode, player-selectable scroll speed and tear-free scrolling, plus optional scrollback buffer in RAM for all platforms.
+
 Update 2022-Aug-09: Release 11 with support for a scrollback buffer on MEGA65, C64 with REU and C128 with REU. Ozmoo can also utilize smaller REUs now.
 
 Update 2022-Jun-16: Release 10 with MEGA65 support for sound, unlimited dynamic memory and large stack (the stack mod makes it possible to play some lightweight Inform 7 games).
