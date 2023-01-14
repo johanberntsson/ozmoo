@@ -1,11 +1,12 @@
 RELEASE NOTES
 
-Release 12.3
+Upcoming release
 
 Bugfixes:
 
 - Picture loader gave build error.
 
+================================================
 Release 12.2: 26 December 2022
 
 New/changed features:
