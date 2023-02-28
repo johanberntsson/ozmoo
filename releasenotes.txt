@@ -5,6 +5,7 @@ Upcoming release
 Bugfixes:
 
 - Picture loader gave build error.
+- Fix buggy printing when erase_window was called while buffered printing was active.
 
 ================================================
 Release 12.2: 26 December 2022

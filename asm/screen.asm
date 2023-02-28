@@ -74,6 +74,7 @@ init_screen_colours
 !ifdef Z4PLUS {
 z_ins_erase_window
 	; erase_window window
+	jsr printchar_flush
 	ldx z_operand_value_low_arr
 ;    jmp erase_window ; Not needed, since erase_window follows
 }
@@ -83,6 +84,7 @@ erase_window
 	;     1: clear upper window
 	;    -1: clear screen and unsplit
 	;    -2: clear screen and keep split
+;	stx save_x
 	lda zp_screenrow
 	pha
 ;    lda z_operand_value_low_arr
@@ -129,6 +131,13 @@ erase_window
 }
 	stx cursor_row + 1
 	pha
+	tax
+	ldy cursor_column
+	clc
+	jsr s_plot ; Update screen and colour pointers
+	lda is_buffered_window
+	beq .end_erase
+	jsr start_buffering
 	jmp .end_erase
 .window_1
 	lda window_start_row + 1
@@ -863,17 +872,6 @@ printstring_raw
 	bne .read_byte
 +	rts
 	
-set_cursor
-	; input: y=column (0-39)
-	;        x=row (0-24)
-	clc
-	jmp s_plot
-
-get_cursor
-	; output: y=column (0-39)
-	;         x=row (0-24)
-	sec
-	jmp s_plot
 
 save_cursor
 	jsr get_cursor
@@ -888,7 +886,19 @@ restore_cursor
 	ldx cursor_row,y
 	lda cursor_column,y
 	tay
-	jmp set_cursor
+;	jmp set_cursor
+
+set_cursor
+	; input: y=column (0-39)
+	;        x=row (0-24)
+	clc
+	jmp s_plot
+
+get_cursor
+	; output: y=column (0-39)
+	;         x=row (0-24)
+	sec
+	jmp s_plot
 
 !ifndef Z4PLUS {
 
