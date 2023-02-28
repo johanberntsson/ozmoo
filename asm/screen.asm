@@ -132,7 +132,7 @@ erase_window
 	stx cursor_row + 1
 	pha
 	tax
-	ldy cursor_column
+	ldy #0
 	clc
 	jsr s_plot ; Update screen and colour pointers
 	lda is_buffered_window
