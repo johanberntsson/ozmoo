@@ -8,14 +8,19 @@
 ; bgcol
 ; zcolours
 
+!macro init_screen_model {
+    rts
+}
 
 fgcol
+update_cursor
+turn_on_cursor
+turn_off_cursor
 s_screen_height_minus_one
 z_ins_set_colour
 s_printchar
 s_screen_width_minus_one
 s_screen_width
-mega65io
 darkmode
 bgcol
 zcolours
@@ -106,7 +111,6 @@ show_more_prompt
 clear_num_rows
 start_buffering
 toggle_darkmode
-scroll_delay
 s_delete_cursor
 cursor_character
 current_cursor_colour

@@ -2348,34 +2348,6 @@ if $use_history and $use_history > 0
 	end
 end
 
-if scrollback == nil
-	if $target == "mega65"
-		scrollback = 1
-	else
-		scrollback = 0
-	end
-end
-if scrollback == 1 and $target == "plus4"
-	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
-	exit 1
-elsif scrollback == 0
-	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
-end
-if scrollback > 1
-	if $target =~ /^(c64|c128|plus4)$/
-		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
-		$scrollback_ram_pages = 4 * scrollback
-	else
-		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
-		exit 1
-	end
-end
-if scrollback > 0 and mode == MODE_P
-	puts "ERROR: Scrollback is not supported for build mode P."
-	exit 1
-end
-
-
 if $target == "mega65"
 	$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS')
 end
@@ -2561,7 +2533,7 @@ if optimize then
 end
 
 $DEBUGFLAGS.push('DEBUG') if $force_debug
-$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG') 
+$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
 
 
 # Check for file specifying which blocks to preload
@@ -2621,6 +2593,39 @@ if ($input_colour or $input_colour_dm) and $zcode_version > 4
 	puts "ERROR: Options -ic and -dmic can only be used with z1-z4 story files."
 	exit 1
 end	
+
+puts $zcode_version
+if scrollback == nil
+	if $target == "mega65" and $zcode_version != 6
+		scrollback = 1
+	else
+		scrollback = 0
+	end
+end
+if scrollback == 1 and $target == "plus4"
+	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
+	exit 1
+elsif scrollback > 0 and $zcode_version == 6
+	puts "ERROR: Scrollback buffer not supported in version 6 games"
+	exit 1
+elsif scrollback == 0
+	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
+end
+if scrollback > 1
+	if $target =~ /^(c64|c128|plus4)$/
+		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
+		$scrollback_ram_pages = 4 * scrollback
+	else
+		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
+		exit 1
+	end
+end
+if scrollback > 0 and mode == MODE_P
+	puts "ERROR: Scrollback is not supported for build mode P."
+	exit 1
+end
+
+
 
 # check header.static_mem_start (size of dynmem)
 $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
