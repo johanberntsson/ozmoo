@@ -1092,6 +1092,12 @@ getchar_and_maybe_toggle_darkmode
 	ldx .getchar_save_x
 	rts
 
+!ifdef SMOOTHSCROLL {
+scroll_delay !byte 0
+} else {
+scroll_delay !byte 1 ; Start in fastest flicker-free + tear-free scroll speed
+}
+
 .scroll_delay_keys !byte 146, 144, 5, 28, 159, 156, 30, 31, 158 ; Ctrl-0, 1, 2, 3
 !ifdef TARGET_MEGA65 {
 scroll_delay_values !byte 0, 1, 2, 3, 4, 5, 6, 7, 9 ; Ctrl-0, 1, 2, 3
@@ -1221,67 +1227,6 @@ read_char
 	jmp read_char
 +	sta .petscii_char_read
 	jmp translate_petscii_to_zscii
-
-s_cursorswitch !byte 0
-!ifdef USE_BLINKING_CURSOR {
-s_cursormode !byte 0
-}
-turn_on_cursor
-!ifdef USE_BLINKING_CURSOR {
-	jsr reset_cursor_blink
-	lda #CURSORCHAR
-	sta cursor_character
-}
-	lda #1
-	sta s_cursorswitch
-	bne update_cursor ; always branch
-
-turn_off_cursor
-	lda #0
-	sta s_cursorswitch
-
-update_cursor
-	sty object_temp
-	ldy zp_screencolumn
-	lda s_cursorswitch
-	bne +++
-	; no cursor
-	jsr s_delete_cursor
-	ldy object_temp
-	rts
-+++	; cursor
-!ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq +
-	; 80 columns
-	lda cursor_character
-	jsr VDCPrintChar
-	lda current_cursor_colour
-	jsr VDCPrintColour
-	jmp .vdc_printed_char_and_colour
-+	; 40 columns
-}
-	lda cursor_character
-	sta (zp_screenline),y
-	lda current_cursor_colour
-!ifdef TARGET_PLUS4 {
-	stx object_temp + 1
-	tax
-	lda plus4_vic_colours,x
-	ldx object_temp + 1
-}
-!ifdef TARGET_MEGA65 {
-	jsr colour2k
-}
-	sta (zp_colourline),y
-!ifdef TARGET_MEGA65 {
-	jsr colour1k
-}
-
-.vdc_printed_char_and_colour
-
-	ldy object_temp
-	rts
 
 !ifdef USE_BLINKING_CURSOR {
 init_cursor_timer

@@ -10,6 +10,17 @@ ask_for_save_device !byte $ff
 
 !ifdef TARGET_MEGA65 {
 
+mega65io
+    ; enable C65GS/VIC-IV IO registers
+    ;
+    ; (they will only be active until the first access
+    ; so mega65io needs to be called before any extended I/O)
+    lda #$47
+    sta $d02f
+    lda #$53
+    sta $d02f
+    rts
+
 nonstored_pages			!byte 0
 
 m65_run_dma

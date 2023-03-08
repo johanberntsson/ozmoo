@@ -1062,6 +1062,7 @@ statmem_reu_banks !byte 0
 !source "scrollback.asm"
 }
 !source "screenkernal.asm"
+!source "screen.asm"
 !source "streams.asm" ; Must come before "text.asm"
 !source "disk.asm"
 ;!ifdef SOUND {
@@ -1072,7 +1073,6 @@ statmem_reu_banks !byte 0
 	!source "reu.asm"
 	}
 ;}
-!source "screen.asm"
 !source "memory.asm"
 !source "stack.asm"
 ;##!ifdef VMEM {
@@ -1119,7 +1119,7 @@ calc_z7_offsets
 
 !ifdef Z4PLUS {
 update_screen_width_in_header
-	lda s_screen_width
+	lda #SCREEN_WIDTH
 	ldy #header_screen_width_chars
 !ifdef Z5PLUS {
 	jsr write_header_byte
@@ -1352,23 +1352,7 @@ deletable_screen_init_1
 		; Default values are correct, nothing to do here.
 	}
 }
-	
-	lda #147 ; clear screen
-	jsr s_printchar
-	ldy #0
-	sty current_window
-	sty window_start_row + 3
-!ifndef Z4PLUS {
-	iny
-}
-	sty window_start_row + 2
-	sty window_start_row + 1
-	ldy s_screen_height
-	sty window_start_row
-	ldy #0
-	sty is_buffered_window
-	ldx #$ff
-	jmp erase_window
+	+init_screen_model
 
 deletable_screen_init_2
 !ifdef SMOOTHSCROLL {
@@ -1475,7 +1459,7 @@ z_init
 !ifdef TARGET_C128 {
 	jsr update_screen_width_in_header
 } else {
-	lda s_screen_width
+	lda #SCREEN_WIDTH
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
