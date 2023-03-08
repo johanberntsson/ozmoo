@@ -1107,7 +1107,7 @@ statmem_reu_banks !byte 0
 !source "scrollback.asm"
 }
 !ifdef Z6 {
-!source "screenkernal-z6.asm"
+!source "screenmodel-z6.asm"
 } else {
 !source "screenkernal.asm"
 }
@@ -1121,9 +1121,7 @@ statmem_reu_banks !byte 0
 	!source "reu.asm"
 	}
 ;}
-!ifdef Z6 {
-!source "screen-z6.asm"
-} else {
+!ifndef Z6 {
 !source "screen.asm"
 }
 !source "memory.asm"
