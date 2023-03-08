@@ -1,4 +1,345 @@
 ; screen update routines
+;
+;   Z3                                  Z4PLUS
+;   status (1 row)                (1,1) win1 (0-n rows)
+;   win1   (0-n rows)                   win0 (n-s_screen_height)
+;   win0   (n-1-s_screen_height)
+;
+; Z-spec is using 1,1 as top left, but internally (in current_window_*)
+; we use (0,0) to simplify calculations. Cursor can't be directly moved
+; in Z3 games
+
+!ifdef DEBUG {
+;TRACE_SCREEN = 1
+}
+
+window_y_size = $aa
+window_x_size = $aa
+current_window_x = $aa
+current_window_y = $aa
+current_window_w = $aa
+current_window_h = $aa
+
+WIN_WRAPPING = 1
+WIN_SCROLLING = 2
+WIN_TRANSCRIPT = 3
+WIN_BUFFERED = 8
+
+; the props must be defined as in the spec for put/get_wind_prop to work
+!ifdef Z6 {
+window_y               !byte 0,0,0,0,0,0,0,0
+window_x               !byte 0,0,0,0,0,0,0,0
+window_h               !byte 0,0,0,0,0,0,0,0
+window_w               !byte 0,0,0,0,0,0,0,0
+window_y_cursor        !byte 0,0,0,0,0,0,0,0
+window_x_cursor        !byte 0,0,0,0,0,0,0,0
+window_left_margin     !byte 0,0,0,0,0,0,0,0
+window_right_margin    !byte 0,0,0,0,0,0,0,0
+window_newline_routine !byte 0,0,0,0,0,0,0,0
+window_newline_countd  !byte 0,0,0,0,0,0,0,0
+window_style           !byte 0,0,0,0,0,0,0,0
+window_colour          !byte 0,0,0,0,0,0,0,0
+window_font            !byte 0,0,0,0,0,0,0,0
+window_font_size       !byte 0,0,0,0,0,0,0,0
+window_attributes      !byte 0,0,0,0,0,0,0,0
+window_linecount       !byte 0,0,0,0,0,0,0,0
+} else {
+window_y               !byte 0,0
+window_x               !byte 0,0
+window_h               !byte 0,0
+window_w               !byte 0,0
+window_font            !byte 0,0
+window_colour          !byte 0,0
+window_attributes      !byte 0,0
+}
+
+reset_all_windows
+!ifdef Z6 {
+    ; default values (see z-spec 8.8.3.3)
+	lda #0
+	sta current_window
+	ldx #40
+	lda #1
+-   sta window_y,x
+	dex
+	bne -
+	ldx #80
+	lda #0
+-   sta window_y_size,x
+	dex
+	bne -
+	ldx #7
+	lda #8
+-   sta window_attributes + 1,x
+	dex
+	bne -
+	; special values for window 0 and 1
+	lda #15
+	sta window_attributes
+	lda s_screen_height
+	sta window_y_size
+	lda s_screen_width
+	sta window_x_size
+	sta window_x_size + 1
+} else {
+	lda s_screen_width
+	sta window_w
+	sta window_w + 1
+	ldy #0
+	ldx s_screen_height
+!ifndef Z4PLUS {
+	; allow for the fixed status line in Z3
+	dex
+	iny
+}
+	stx window_h
+	sty window_h + 1
+	sty window_y
+	lda #0
+	sta window_y + 1
+	sta window_x
+	sta window_x + 1
+	sta current_window
+	sta window_attributes + 1
+	lda #WIN_BUFFERED
+	sta window_attributes
+	;jmp update_current_window
+}
+
+update_current_window
+	; read current_window and update current_window_*
+	; (this is for easier and faster access in scrollkernal.asm)
+	ldx current_window
+	lda window_x,x
+	sta current_window_x
+	lda window_y,x
+	sta current_window_y
+	lda window_w,x
+	sta current_window_w
+	lda window_h,x
+	sta current_window_h
+	lda window_colour,x
+	sta s_colour
+	; convert to internal coordinates (using (0,0) instead of (1,1))
+	dec current_window_x
+	dec current_window_y
+	rts
+
+!ifdef Z6 {
+z_ins_draw_picture
+	; draw_picture picture-number y x
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_draw_picture ",0
+	jsr newline
+}
+	rts
+
+z_ins_picture_data
+	; picture_data picture-number array ?(label)
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_picture_data ",0
+	jsr newline
+}
+	jmp make_branch_false
+ 
+z_ins_erase_picture
+	; erase_picture picture-number y x
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_erase_picture ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_set_margins
+	; set_margins left right window
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_set_margins ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_move_window
+	; move_window window y x
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_move_window ",0
+	jsr newline
+}
+	ldy z_operand_value_low_arr
+	lda z_operand_value_low_arr + 1
+	sta window_y,y
+	sta window_y_cursor,y
+	lda z_operand_value_low_arr + 2
+	sta window_x,y
+	sta window_x_cursor,y
+	jmp update_current_window
+ 
+z_ins_window_size
+	; window_size window y x
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_window_size ",0
+	jsr newline
+}
+	ldy z_operand_value_low_arr
+	lda z_operand_value_low_arr + 1
+	sta window_h,y
+	lda z_operand_value_low_arr + 2
+	sta window_w,y
+	jmp update_current_window
+ 
+z_ins_window_style
+	; window_style window flags operation
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_window_style ",0
+	jsr newline
+}
+	ldy z_operand_value_low_arr
+	ldx z_operand_value_low_arr + 2
+	bne +
+	; set to these settings
+	lda z_operand_value_low_arr + 1
+	jmp ++
++   cpx #1
+	bne +
+	; set the bits supplied
+	lda window_attributes,y
+	ora z_operand_value_low_arr + 1
+	jmp ++
++   cpx #2
+	bne +
+	; clear the bits supplied
+	lda window_attributes,y
+	and z_operand_value_low_arr + 1
+	jmp ++
++   ; reverse the bits supplied (xor)
+	lda window_attributes,y
+	eor z_operand_value_low_arr + 1
+++
+	sta window_attributes,y
+	rts
+ 
+z_ins_get_wind_prop
+	; get_wind_prop window property-number -> (result)
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_window_size ",0
+	jsr newline
+	lda #99
+	jsr printa
+	jsr newline
+}
+	; return value at window_y + property-number * 8 (or 2) + window
+	lda z_operand_value_low_arr + 1
+	asl ; * 8 for
+	asl
+	asl
+	clc
+	adc z_operand_value_low_arr
+	tay
+	ldx window_y,y
+	lda #0
+	jmp z_store_result
+ 
+z_ins_scroll_window
+	; scroll_window window pixels
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_scroll_window ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_pop_stack
+	; pop_stack items stack
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_pop_stack ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_read_mouse
+	; read_mouse array
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_read_mouse ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_mouse_window
+	; mouse_window window
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_mouse_window ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_push_stack
+	; push_stack value stack ?(label)
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_push_stack ",0
+	jsr newline
+}
+	jmp make_branch_false
+ 
+z_ins_put_wind_prop
+	; put_wind_prop window property-number value
+	; Note: a game should only use put_wind_prop to set the
+	; newline interrupt routine, the interrupt countdown and
+	; the line count, everything else is either set by the
+	; interpreter or by specialised opcodes (such as set_font)
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_put_wind_prop ",0
+	jsr newline
+}
+	lda z_operand_value_low_arr + 1
+	asl ; * 8
+	asl
+	asl
+	clc
+	adc z_operand_value_low_arr
+	tay
+	lda z_operand_value_low_arr + 2
+	sta window_y,y
+	rts
+ 
+z_ins_print_form
+	; print_form formatted-table
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_print_form ",0
+	jsr newline
+}
+	rts
+ 
+z_ins_make_menu
+	; make_menu number table ?(label)
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_make_menu ",0
+	jsr newline
+}
+	jmp make_branch_false
+ 
+z_ins_picture_table
+	; picture_table table
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_picture_table ",0
+	jsr newline
+}
+	rts
+}
 
 ;init_screen_colours_invisible
 ;	lda zcolours + BGCOL

@@ -194,7 +194,7 @@ stack_call_routine
 }
 }
 
-!ifdef Z7 {
+!ifdef Z6_Z7 {
 	pha
 	lda z_operand_value_low_arr
 	clc

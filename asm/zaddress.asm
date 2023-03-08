@@ -1,6 +1,6 @@
 ; z_address !byte 0,0,0
 ; z_address_temp !byte 0
-!ifdef Z7 {
+!ifdef Z6_Z7 {
 string_offset !byte 0,0,0
 routine_offset !byte 0,0,0
 }
@@ -112,7 +112,7 @@ set_z_paddress
 	rol
 }
 	sta z_address
-!ifdef Z7 {
+!ifdef Z6_Z7 {
 	lda z_address + 2
 	clc
 	adc string_offset + 2

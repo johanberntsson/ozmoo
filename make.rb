@@ -20,7 +20,7 @@ else
     $X128 = "x128 -autostart-delay-random"
     #$X128 = "x128 -80col -autostart-delay-random"
     $XPLUS4 = "xplus4 -autostart-delay-random"
-    $MEGA65 = "xemu-xmega65"
+    $MEGA65 = "xemu-xmega65 -besure"
     $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
@@ -2171,6 +2171,8 @@ begin
 			end
 		elsif ARGV[i] =~ /^-v$/ then
 			$verbose = true
+		elsif ARGV[i] =~ /^-debug$/ then
+			$force_debug = true
 		elsif ARGV[i] =~ /^-b$/ then
 			$no_sector_preload = true
 		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
@@ -2558,7 +2560,8 @@ if optimize then
 	$DEBUGFLAGS.push('PREOPT')
 end
 
-$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
+$DEBUGFLAGS.push('DEBUG') if $force_debug
+$DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG') 
 
 
 # Check for file specifying which blocks to preload

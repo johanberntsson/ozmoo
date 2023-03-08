@@ -1,11 +1,12 @@
 ; Which Z-machine to generate binary for
 ; (usually defined on the acme command line instead)
-; Z6 will never be supported
+; Z6 has partial support (window model, but not graphics)
 ;Z1 = 1
 ;Z2 = 1
 ;Z3 = 1
 ;Z4 = 1
 ;Z5 = 1
+;Z6 = 1
 ;Z7 = 1
 ;Z8 = 1
 
@@ -148,18 +149,29 @@
 	Z4PLUS = 1
 	Z5PLUS = 1
 }
+!ifdef Z6 {
+	ZMACHINEVERSION = 6
+	Z3PLUS = 1
+	Z4PLUS = 1
+	Z5PLUS = 1
+	Z6PLUS = 1
+	Z6_Z7 = 1
+}
 !ifdef Z7 {
 	ZMACHINEVERSION = 7
 	Z3PLUS = 1
 	Z4PLUS = 1
 	Z5PLUS = 1
+	Z6PLUS = 1
 	Z7PLUS = 1
+	Z6_Z7 = 1
 }
 !ifdef Z8 {
 	ZMACHINEVERSION = 8
 	Z3PLUS = 1
 	Z4PLUS = 1
 	Z5PLUS = 1
+	Z6PLUS = 1
 	Z7PLUS = 1
 }
 
@@ -722,16 +734,39 @@ z_opcount_ext_jump_low_arr
 	!byte <(z_ins_log_shift - 1)
 	!byte <(z_ins_art_shift - 1)
 	!byte <(z_ins_set_font - 1)
+!ifdef Z6 {
+	!byte <(z_ins_draw_picture - 1)
+	!byte <(z_ins_picture_data - 1)
+	!byte <(z_ins_erase_picture - 1)
+	!byte <(z_ins_set_margins - 1)
+} else {
 	!byte <(z_not_implemented - 1)
 	!byte <(z_not_implemented - 1)
 	!byte <(z_not_implemented - 1)
 	!byte <(z_not_implemented - 1)
+}
 	!byte <(z_ins_save_restore_undo - 1)
 	!byte <(z_ins_save_restore_undo - 1)
 	!byte <(z_ins_print_unicode - 1)
 	!byte <(z_ins_check_unicode - 1)
 	!byte <(z_ins_set_true_colour - 1)
-}
+!ifdef Z6 {
+	!byte <(z_not_implemented - 1)
+	!byte <(z_not_implemented - 1)
+	!byte <(z_ins_move_window - 1)
+	!byte <(z_ins_window_size - 1)
+	!byte <(z_ins_window_style - 1)
+	!byte <(z_ins_get_wind_prop - 1)
+	!byte <(z_ins_scroll_window - 1)
+	!byte <(z_ins_pop_stack - 1)
+	!byte <(z_ins_read_mouse - 1)
+	!byte <(z_ins_mouse_window - 1)
+	!byte <(z_ins_push_stack - 1)
+	!byte <(z_ins_put_wind_prop - 1)
+	!byte <(z_ins_print_form - 1)
+	!byte <(z_ins_make_menu - 1)
+	!byte <(z_ins_picture_table - 1)
+}}
 
 z_number_of_ext_opcodes_implemented = * - z_opcount_ext_jump_low_arr
 
@@ -1028,6 +1063,16 @@ game_id		!byte 0,0,0,0
 	sta scrollback_enabled
 }
 
+!ifdef Z6 {
+	ldy #header_initial_pc
+	jsr read_header_word
+	sta z_operand_value_high_arr
+	stx z_operand_value_low_arr
+	lda #0
+	ldx #0
+	ldy #0
+	jsr stack_call_routine
+}
 	jsr z_execute
 
 !ifdef TARGET_PLUS4_OR_C128 {
@@ -1091,8 +1136,8 @@ statmem_reu_banks !byte 0
 	}
 }
 
-!ifdef Z7 {
-calc_z7_offsets
+!ifdef Z6_Z7 {
+calc_z6_z7_offsets
 	ldy #header_string_offset
 	jsr read_header_word
 	sta string_offset + 1
@@ -1406,8 +1451,8 @@ z_init
 }
 
 	; Calculate Z7 string offset and routine offset
-!ifdef Z7 {
-	jsr calc_z7_offsets
+!ifdef Z6_Z7 {
+	jsr calc_z6_z7_offsets
 }
 	
 	; Modify header to tell game about terp capabilities
