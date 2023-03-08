@@ -1106,7 +1106,11 @@ statmem_reu_banks !byte 0
 !ifdef SCROLLBACK {
 !source "scrollback.asm"
 }
+!ifdef Z6 {
+!source "screenkernal-z6.asm"
+} else {
 !source "screenkernal.asm"
+}
 !source "streams.asm" ; Must come before "text.asm"
 !source "disk.asm"
 ;!ifdef SOUND {
@@ -1117,7 +1121,11 @@ statmem_reu_banks !byte 0
 	!source "reu.asm"
 	}
 ;}
+!ifdef Z6 {
+!source "screen-z6.asm"
+} else {
 !source "screen.asm"
+}
 !source "memory.asm"
 !source "stack.asm"
 ;##!ifdef VMEM {
