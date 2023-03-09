@@ -122,7 +122,7 @@ cursor_row            = $9b ; 2 bytes ### OK C128
 cursor_column         = $a6 ; 2 bytes ### OK C128
 
 
-window_start_row      = $a8 ; 4 bytes ### OK C128
+;TODO window_start_row      = $a8 ; 4 bytes ### OK C128
 
 num_rows              = $b0 ; ### OK C128
 current_window 	      = $b1 ; ### OK C128

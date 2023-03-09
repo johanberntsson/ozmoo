@@ -17,7 +17,7 @@ key_repeat            = $028a
 
 use_reu				  = $9b
 reu_boost_vmap_clock  = $b1
-window_start_row	  = $2a; 4 bytes
+;TODO window_start_row	  = $2a; 4 bytes
 
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
@@ -49,7 +49,7 @@ key_repeat            = $0540
 zp_temp               = $3b ; 5 bytes
 ;use_reu				  = $87
 ;window_start_row	  = $88; 4 bytes
-window_start_row	  = $2a; 4 bytes
+;TODO window_start_row	  = $2a; 4 bytes
 
 
 num_rows 			  = $b7 ; !byte 0
@@ -95,7 +95,7 @@ keyboard_buff         = $277
 key_repeat            = $028a
 
 use_reu				  = $9b
-window_start_row	  = $2a; 4 bytes
+;TODO window_start_row	  = $2a; 4 bytes
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
 s_ignore_next_linebreak = $b0 ; 3 bytes

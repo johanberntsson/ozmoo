@@ -1,3 +1,31 @@
+
+!macro dma_fill .ADDR, .VALUE, .COUNT, .SKIP {
+    lda #.VALUE
+    sta dma_source_address
+    lda #<.ADDR
+    sta dma_dest_address
+    lda #>.ADDR
+    sta dma_dest_address + 1
+    lda #((.ADDR >> 16) & $0f)
+    sta dma_dest_bank_and_flags
+    lda #(.ADDR >> 20)
+    sta dma_dest_address_top
+    lda #$03
+    sta dma_command_lsb
+    ldx #<.COUNT ; Enough for 25 or 50 rows
+    stx dma_count
+    ldx #>.COUNT ; Enough for 25 or 50 rows
+    stx dma_count + 1
+    lda #.SKIP
+    sta dma_dest_skip
+    jsr m65_run_dma
+    ; restore DMA
+    lda #$00
+    sta dma_command_lsb ; Has been changed to $03 (FILL), restore to $00 (COPY)
+    lda #1
+    sta dma_dest_skip
+}
+
 !zone disk {
 
 first_unavailable_save_slot_charcode	!byte 0
@@ -42,6 +70,8 @@ dma_list
 dma_source_address_top		!byte 0
 	!byte $81 ; Set destination address bit 20-27
 dma_dest_address_top		!byte 0
+	!byte $85 ; Set destination skip rate
+dma_dest_skip 		 		!byte 1
 	!byte $00 ; End of options
 dma_command_lsb			!byte 0		; 0 = Copy
 dma_count					!word $100	; Always copy one page
@@ -1162,7 +1192,7 @@ directory_name_len = * - directory_name
 	jmp erase_window
 } else {
 	jsr erase_window
-	ldx window_start_row + 1 ; First line in lower window
+	ldx window_y + 1 ; First line in lower window
 	ldy #0
 	jmp set_cursor
 }	

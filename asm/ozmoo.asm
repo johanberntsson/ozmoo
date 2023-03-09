@@ -535,16 +535,41 @@ z_opcount_ext_jump_high_arr
 	!byte >(z_ins_log_shift - 1)
 	!byte >(z_ins_art_shift - 1)
 	!byte >(z_ins_set_font - 1)
-	!byte >(z_not_implemented - 1)
-	!byte >(z_not_implemented - 1)
-	!byte >(z_not_implemented - 1)
-	!byte >(z_not_implemented - 1)
+!ifdef Z6 {
+    !byte >(z_ins_draw_picture - 1)
+    !byte >(z_ins_picture_data - 1)
+    !byte >(z_ins_erase_picture - 1)
+    !byte >(z_ins_set_margins - 1)
+} else {
+    !byte >(z_not_implemented - 1)
+    !byte >(z_not_implemented - 1)
+    !byte >(z_not_implemented - 1)
+    !byte >(z_not_implemented - 1)
+}
+
 	!byte >(z_ins_save_restore_undo - 1)
 	!byte >(z_ins_save_restore_undo - 1)
 	!byte >(z_ins_print_unicode - 1)
 	!byte >(z_ins_check_unicode - 1)
 	!byte >(z_ins_set_true_colour - 1)
-}
+!ifdef Z6 {
+    !byte >(z_not_implemented - 1)
+    !byte >(z_not_implemented - 1)
+    !byte >(z_ins_move_window - 1)
+    !byte >(z_ins_window_size - 1)
+    !byte >(z_ins_window_style - 1)
+    !byte >(z_ins_get_wind_prop - 1)
+    !byte >(z_ins_scroll_window - 1)
+    !byte >(z_ins_pop_stack - 1)
+    !byte >(z_ins_read_mouse - 1)
+    !byte >(z_ins_mouse_window - 1)
+    !byte >(z_ins_push_stack - 1)
+    !byte >(z_ins_put_wind_prop - 1)
+    !byte >(z_ins_print_form - 1)
+    !byte >(z_ins_make_menu - 1)
+    !byte >(z_ins_picture_table - 1)
+}}
+
 
 
 ; =========================================== Lowbytes of jump table
@@ -1106,14 +1131,15 @@ statmem_reu_banks !byte 0
 !ifdef SCROLLBACK {
 !source "scrollback.asm"
 }
+!source "disk.asm"
 !ifdef Z6 {
-!source "screenmodel-z6.asm"
+!source "screenkernal-z6.asm"
+!source "screen-z6.asm"
 } else {
-!source "screenkernal.asm"
-!source "screen.asm"
+!source "screenkernal-z6.asm"
+!source "screen-z6.asm"
 }
 !source "streams.asm" ; Must come before "text.asm"
-!source "disk.asm"
 ;!ifdef SOUND {
 !source "sound.asm"
 ;}
@@ -1410,8 +1436,10 @@ deletable_screen_init_2
 	; clear and unsplit screen, start text output from bottom of the screen (top of screen if z5)
 	ldy #1
 	sty is_buffered_window
+!ifndef Z6 {
 	ldx #$ff
 	jsr erase_window
+}
 	jmp start_buffering
 
 z_init
