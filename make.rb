@@ -20,7 +20,7 @@ else
     $X128 = "x128 -autostart-delay-random"
     #$X128 = "x128 -80col -autostart-delay-random"
     $XPLUS4 = "xplus4 -autostart-delay-random"
-    $MEGA65 = "xemu-xmega65"
+    $MEGA65 = "xemu-xmega65 -besure"
     $C1541 = "c1541"
     $EXOMIZER = "exomizer/src/exomizer"
     $ACME = "acme"
@@ -2005,7 +2005,8 @@ def print_usage
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
-	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] <storyfile>"
+	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
+	puts "         [-u] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2043,6 +2044,7 @@ def print_usage
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
+	puts "  -u: Add support for UNDO. Enabled by default for MEGA65."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2096,6 +2098,7 @@ $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
 custom_file_name = nil
+$undo = false
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
@@ -2171,6 +2174,8 @@ begin
 			end
 		elsif ARGV[i] =~ /^-v$/ then
 			$verbose = true
+		elsif ARGV[i] =~ /^-debug$/ then
+			$force_debug = true
 		elsif ARGV[i] =~ /^-b$/ then
 			$no_sector_preload = true
 		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
@@ -2209,6 +2214,8 @@ begin
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
+		elsif ARGV[i] =~ /^-u$/ then
+			$undo = true
 		elsif ARGV[i] =~ /^-cf$/ then
 			await_preloadfile = true
 			fill_preload = true
@@ -2346,34 +2353,6 @@ if $use_history and $use_history > 0
 	end
 end
 
-if scrollback == nil
-	if $target == "mega65"
-		scrollback = 1
-	else
-		scrollback = 0
-	end
-end
-if scrollback == 1 and $target == "plus4"
-	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
-	exit 1
-elsif scrollback == 0
-	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
-end
-if scrollback > 1
-	if $target =~ /^(c64|c128|plus4)$/
-		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
-		$scrollback_ram_pages = 4 * scrollback
-	else
-		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
-		exit 1
-	end
-end
-if scrollback > 0 and mode == MODE_P
-	puts "ERROR: Scrollback is not supported for build mode P."
-	exit 1
-end
-
-
 if $target == "mega65"
 	$GENERALFLAGS.push('CHECK_ERRORS') unless $GENERALFLAGS.include?('CHECK_ERRORS')
 end
@@ -2474,6 +2453,16 @@ if $font_filename
 	end
 end
 
+#$undo = true if $target == 'mega65' # undo is enabled by default on MEGA65
+
+if $undo
+	if $target != 'mega65'
+		puts "ERROR: Undo is only supported for the MEGA65 target platform."
+		exit 1
+	end
+	$GENERALFLAGS.push('UNDO')
+end
+
 if $sound_path
 	if $target != 'mega65'
 		puts "ERROR: Sound is only supported for the MEGA65 target platform."
@@ -2558,6 +2547,7 @@ if optimize then
 	$DEBUGFLAGS.push('PREOPT')
 end
 
+$DEBUGFLAGS.push('DEBUG') if $force_debug
 $DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
 
 
@@ -2618,6 +2608,39 @@ if ($input_colour or $input_colour_dm) and $zcode_version > 4
 	puts "ERROR: Options -ic and -dmic can only be used with z1-z4 story files."
 	exit 1
 end	
+
+puts $zcode_version
+if scrollback == nil
+	if $target == "mega65" and $zcode_version != 6
+		scrollback = 1
+	else
+		scrollback = 0
+	end
+end
+if scrollback == 1 and $target == "plus4"
+	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
+	exit 1
+elsif scrollback > 0 and $zcode_version == 6
+	puts "ERROR: Scrollback buffer not supported in version 6 games"
+	exit 1
+elsif scrollback == 0
+	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
+end
+if scrollback > 1
+	if $target =~ /^(c64|c128|plus4)$/
+		scrollback = 11 if $target == "c128" and scrollback > 11 # Because 11 KB fits above $d000 on C128
+		$scrollback_ram_pages = 4 * scrollback
+	else
+		puts "ERROR: Scrollback buffer in RAM is not supported on this target platform."
+		exit 1
+	end
+end
+if scrollback > 0 and mode == MODE_P
+	puts "ERROR: Scrollback is not supported for build mode P."
+	exit 1
+end
+
+
 
 # check header.static_mem_start (size of dynmem)
 $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]

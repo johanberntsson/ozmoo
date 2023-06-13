@@ -14,10 +14,6 @@
 ; usage: first call s_init, then replace
 ; $ffd2 with s_printchar and so on.
 ; s_scrollstart is set to the number of top lines to keep when scrolling
-;
-; Uncomment TESTSCREEN and call testscreen for a demo.
-
-;TESTSCREEN = 1
 
 !zone screenkernal {
 
@@ -39,11 +35,6 @@ statuslinecol !byte STATCOL, STATCOLDM
 cursorcol !byte CURSORCOL, CURSORCOLDM
 current_cursor_colour !byte CURSORCOL
 cursor_character !byte CURSORCHAR
-!ifdef SMOOTHSCROLL {
-scroll_delay !byte 0
-} else {
-scroll_delay !byte 1 ; Start in fastest flicker-free + tear-free scroll speed
-}
 
 !ifdef TARGET_PLUS4 {
 plus4_vic_colours
@@ -65,7 +56,6 @@ plus4_vic_colours
 	!byte $56   ; light blue
 	!byte $61   ; light grey
 }
-
 
 !ifdef TARGET_C128 {
 !source "vdc.asm"
@@ -196,16 +186,6 @@ VDCPrintColour
 }
 
 !ifdef TARGET_MEGA65 {
-mega65io
-	; enable C65GS/VIC-IV IO registers
-	;
-	; (they will only be active until the first access
-	; so mega65io needs to be called before any extended I/O)
-	lda #$47
-	sta $d02f
-	lda #$53
-	sta $d02f
-	rts
 
 init_mega65
 	; MEGA65 IO enable
@@ -1084,6 +1064,66 @@ s_erase_line_from_cursor
 	ldy zp_screencolumn
 	jmp .erase_line_from_any_col
 
+s_cursorswitch !byte 0
+!ifdef USE_BLINKING_CURSOR {
+s_cursormode !byte 0
+}
+turn_on_cursor
+!ifdef USE_BLINKING_CURSOR {
+    jsr reset_cursor_blink
+    lda #CURSORCHAR
+    sta cursor_character
+}
+    lda #1
+    sta s_cursorswitch
+    bne update_cursor ; always branch
+
+turn_off_cursor
+    lda #0
+    sta s_cursorswitch
+
+update_cursor
+    sty object_temp
+    ldy zp_screencolumn
+    lda s_cursorswitch
+    bne +++
+    ; no cursor
+    jsr s_delete_cursor
+    ldy object_temp
+    rts
++++ ; cursor
+!ifdef TARGET_C128 {
+    ldx COLS_40_80
+    beq +
+    ; 80 columns
+    lda cursor_character
+    jsr VDCPrintChar
+    lda current_cursor_colour
+    jsr VDCPrintColour
+    jmp .vdc_printed_char_and_colour
++   ; 40 columns
+}
+    lda cursor_character
+    sta (zp_screenline),y
+    lda current_cursor_colour
+!ifdef TARGET_PLUS4 {
+    stx object_temp + 1
+    tax
+    lda plus4_vic_colours,x
+    ldx object_temp + 1
+}
+!ifdef TARGET_MEGA65 {
+    jsr colour2k
+}
+    sta (zp_colourline),y
+!ifdef TARGET_MEGA65 {
+    jsr colour1k
+}
+
+.vdc_printed_char_and_colour
+
+    ldy object_temp
+    rts
 
 !ifndef NODARKMODE {
 toggle_darkmode
@@ -1432,71 +1472,5 @@ z_ins_set_colour
 	rts
 }
 
-!ifdef TESTSCREEN {
-
-.testtext
-	!pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
-	!pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
-	!pet 155,"third",20,13                                ; light gray
-	!pet "fourth line",13
-	!pet 13,13,13,13,13,13
-	!pet 13,13,13,13,13,13,13
-	!pet 13,13,13,13,13,13,13
-	!pet "last line",1
-	!pet "aaaaaaaaabbbbbbbbbbbcccccccccc",1
-	!pet "d",1 ; last char on screen
-	!pet "efg",1 ; should scroll here and put efg on new line
-	!pet 13,"h",1; should scroll again and f is on new line
-	!pet 0
-
-testscreen
-	jsr init_screen_colours
-!ifdef TARGET_PLUS4 {
-	lda #212 ; 212 upper/lower, 208 = upper/special
-} else {
-	lda #23 ; 23 upper/lower, 21 = upper/special (22/20 also ok)
-}
-	sta reg_screen_char_mode
-	jsr s_init
-	;lda #1
-	;sta s_scrollstart
-	lda #25
-	sta window_start_row ; 25 lines in window 0
-	lda #1
-	sta window_start_row + 1 ; 1 status line
-	sta window_start_row + 2 ; 1 status line
-	lda #0
-	sta window_start_row + 3
-	ldx #0
--   lda .testtext,x
-	bne +
-	rts
-+   cmp #2
-	bne +
-	; use upper window
-	lda #1
-	sta current_window
-	jmp ++
-+   cmp #3
-	bne +
-	; use lower window
-	lda #0
-	sta current_window
-	jmp ++
-+   cmp #1
-	bne +
-	txa
-	pha
---  jsr kernal_getchar
-	beq --
-	pla
-	tax
-	bne ++
-	; NOTE: s_printchar no longer recognizes the colour codes, so the
-	; colours will not change. But rev on/off still works
-+   jsr s_printchar
-++  inx
-	bne -
-}
 }
 

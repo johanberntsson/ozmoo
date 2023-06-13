@@ -1,5 +1,24 @@
 ; screen update routines
 
+!macro init_screen_model {
+    lda #147 ; clear screen
+    jsr s_printchar
+    ldy #0
+    sty current_window
+    sty window_start_row + 3
+!ifndef Z4PLUS {
+    iny
+}
+    sty window_start_row + 2
+    sty window_start_row + 1
+    ldy #SCREEN_HEIGHT
+    sty window_start_row
+    ldy #0
+    sty is_buffered_window
+    ldx #$ff
+    jmp erase_window
+}
+
 ;init_screen_colours_invisible
 ;	lda zcolours + BGCOL
 ;	bpl + ; Always branch
