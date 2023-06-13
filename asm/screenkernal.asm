@@ -266,11 +266,11 @@ convert_petscii_to_screencode
 	cmp #$60
 	bcs +
 	and #%00111111
-	bcc ++ ; always jump
+	rts
 +   cmp #$80
 	bcs +
 	and #%11011111
-	bcc ++ ; always jump
+	rts
 +	cmp #$c0
 	bcs +
 	eor #%11000000
