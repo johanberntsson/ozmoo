@@ -2005,7 +2005,8 @@ def print_usage
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
-	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] <storyfile>"
+	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
+	puts "         [-u] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2043,6 +2044,7 @@ def print_usage
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
+	puts "  -u: Add support for UNDO. Enabled by default for MEGA65."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2096,6 +2098,7 @@ $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
 custom_file_name = nil
+$undo = false
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
@@ -2211,6 +2214,8 @@ begin
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
+		elsif ARGV[i] =~ /^-u$/ then
+			$undo = true
 		elsif ARGV[i] =~ /^-cf$/ then
 			await_preloadfile = true
 			fill_preload = true
@@ -2446,6 +2451,16 @@ if $font_filename
 		puts "ERROR: Custom fonts are currently not supported for this target platform."
 		exit 1
 	end
+end
+
+#$undo = true if $target == 'mega65' # undo is enabled by default on MEGA65
+
+if $undo
+	if $target != 'mega65'
+		puts "ERROR: Undo is only supported for the MEGA65 target platform."
+		exit 1
+	end
+	$GENERALFLAGS.push('UNDO')
 end
 
 if $sound_path

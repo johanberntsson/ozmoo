@@ -1939,11 +1939,7 @@ z_ins_set_font
 	ldx z_font,y ; a is already 0
 	jmp z_store_result
 
-z_ins_save_restore_undo
-	; Return -1 to indicate that this is not supported
-	ldx #$ff
-	txa
-	jmp z_store_result
+; z_ins_save_restore_undo moved to disk.asm
 }
 
 ; z_ins_set_true_colour placed at end of VAR z_ins_print_num

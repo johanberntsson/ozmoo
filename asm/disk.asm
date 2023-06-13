@@ -1841,7 +1841,148 @@ wait_an_interval
 }
 
 	
+
+!ifndef UNDO {
+z_ins_save_undo
+z_ins_restore_undo
+    ; Return -1 to indicate that this is not supported
+    ldx #$ff
+    txa
+    jmp z_store_result
+} else {
+!ifdef TARGET_MEGA65 {
+!ifdef Z5PLUS {
+    ; the "undo" assembler instruction is only available in Z5+
+z_ins_save_undo
+    jsr .do_save_undo
+    ; Return 2 if just restored, -1 if not supported, 1 if saved, 0 if fail
+    ldx #1
+    lda #0
+    jmp z_store_result
+
+z_ins_restore_undo
+    jsr .do_restore_undo
+    ; Return 0 if failed
+    ldx #2
+    lda #0
+    jmp z_store_result
 }
+
+; we provide basic undo support for z3 as well through a hot key
+; so the basic undo routines need to be available for all versions
+
+.do_save_undo
+    ; prepare saving of zp variables
+	jsr .swap_pointers_for_save
+
+	; save zp variables + stack
+    ; source address
+    lda #>(stack_start - zp_bytes_to_save)
+    ldx #<(stack_start - zp_bytes_to_save)
+    stx dma_source_address
+    sta dma_source_address + 1
+    lda #0
+    sta dma_source_bank_and_flags
+    sta dma_source_address_top
+    ; number of bytes
+    lda #>(stack_size + zp_bytes_to_save)
+    ldx #<(stack_size + zp_bytes_to_save)
+    stx dma_count
+    sta dma_count + 1
+    ; destination address ($50000)
+    lda #0
+    sta dma_dest_address
+    sta dma_dest_address + 1
+    sta dma_dest_address_top
+    lda #$05
+    sta dma_dest_bank_and_flags
+    jsr m65_run_dma
+	jmp .swap_pointers_for_save ; TODO: testing only stack + ZP
+
+    ; save dynmem
+    ; source address ($80000 - attic RAM)
+    lda #0
+    stx dma_source_address
+    sta dma_source_address + 1
+    sta dma_source_bank_and_flags
+    lda #$80
+    sta dma_source_address_top
+    ; number of bytes
+    ldy #header_static_mem
+    jsr read_header_word
+    stx dma_count
+    sta dma_count + 1
+    ; destination address
+    lda #0
+    sta dma_dest_address
+    sta dma_dest_address_top
+    lda #>(stack_size + zp_bytes_to_save)
+    clc
+    adc #1
+    sta dma_dest_address + 1
+    lda #$05
+    sta dma_dest_bank_and_flags
+    jsr m65_run_dma
+
+    ; restore ZP variables
+	jmp .swap_pointers_for_save
+
+.do_restore_undo
+	; restore zp variables + stack
+    ; source address ($50000)
+    lda #0
+    sta dma_source_address
+    sta dma_source_address + 1
+    sta dma_source_address_top
+    lda #$05
+    sta dma_source_bank_and_flags
+    ; number of bytes
+    lda #>(stack_size + zp_bytes_to_save)
+    ldx #<(stack_size + zp_bytes_to_save)
+    stx dma_count
+    sta dma_count + 1
+    ; destination address
+    lda #>(stack_start - zp_bytes_to_save)
+    ldx #<(stack_start - zp_bytes_to_save)
+    stx dma_dest_address
+    sta dma_dest_address + 1
+    lda #0
+    sta dma_dest_bank_and_flags
+    sta dma_dest_address_top
+    jsr m65_run_dma
+	jmp .swap_pointers_for_save ; TODO: testing only stack + ZP
+
+    ; restore dynmem
+    ; source address
+    lda #0
+    sta dma_source_address
+    sta dma_source_address_top
+    lda #>(stack_size + zp_bytes_to_save)
+    clc
+    adc #1
+    sta dma_source_address + 1
+    lda #$05
+    sta dma_source_bank_and_flags
+    ; number of bytes
+    ldy #header_static_mem
+    jsr read_header_word
+    stx dma_count
+    sta dma_count + 1
+    ; dest address
+    lda #0
+    stx dma_dest_address
+    sta dma_dest_address + 1
+    sta dma_dest_bank_and_flags
+    lda #$80
+    sta dma_dest_address_top
+    jsr m65_run_dma
+
+    ; restore ZP variables
+	jmp .swap_pointers_for_save
+}
+}
+
+} ; end zone save_restore
 
 } ; end zone disk
 	

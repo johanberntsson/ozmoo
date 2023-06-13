@@ -527,8 +527,8 @@ z_opcount_ext_jump_high_arr
 	!byte >(z_not_implemented - 1)
 	!byte >(z_not_implemented - 1)
 	!byte >(z_not_implemented - 1)
-	!byte >(z_ins_save_restore_undo - 1)
-	!byte >(z_ins_save_restore_undo - 1)
+	!byte >(z_ins_save_undo - 1)
+	!byte >(z_ins_restore_undo - 1)
 	!byte >(z_ins_print_unicode - 1)
 	!byte >(z_ins_check_unicode - 1)
 	!byte >(z_ins_set_true_colour - 1)
@@ -726,8 +726,8 @@ z_opcount_ext_jump_low_arr
 	!byte <(z_not_implemented - 1)
 	!byte <(z_not_implemented - 1)
 	!byte <(z_not_implemented - 1)
-	!byte <(z_ins_save_restore_undo - 1)
-	!byte <(z_ins_save_restore_undo - 1)
+	!byte <(z_ins_save_undo - 1)
+	!byte <(z_ins_restore_undo - 1)
 	!byte <(z_ins_print_unicode - 1)
 	!byte <(z_ins_check_unicode - 1)
 	!byte <(z_ins_set_true_colour - 1)
@@ -1417,9 +1417,24 @@ z_init
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 	jsr write_header_byte
+
+check_undo
 	ldy #header_flags_2 + 1
 	jsr read_header_word
+	and #(255 - 8 - 32) ; pictures and mouse never available
+	pha
+	; check if the game wants undo functionality, and if we can support this
+	and #16
+	beq + 
+	; undo requested by the game
+	; TODO: check if enough RAM available. For now, assume things are good
+	;pla
+	;and #(255 - 16) ; no undo
+	;pha
++    
 !ifdef SOUND {
+	; check if the game wants to play sounds, and if we can support this
+	pla
 	pha
 	and #$80
 	beq + ; Game doesn't want to play sounds
@@ -1427,15 +1442,16 @@ z_init
 	bcc +
 	; No sound files found, so tell game sound isn't supported
 	pla
-	and #(255 - 128) 
-	ldy #header_flags_2 + 1
+	and #(255 - 128)  ; no sound effect
 	pha
-+	pla
-	and #(255 - 8 - 16 - 32) ; pictures, undo and mouse not available
++
+    pla
 	ldy #header_flags_2 + 1
 	jsr write_header_byte
 } else {
-	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
+    pla
+	and #(255 - 128)  ; no sound effect
+	ldy #header_flags_2 + 1
 	jsr write_header_byte
 }
 }
