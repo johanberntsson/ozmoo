@@ -2006,7 +2006,7 @@ def print_usage
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
-	puts "         [-u] <storyfile>"
+	puts "         [-u[:0|1]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2098,7 +2098,7 @@ $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
 custom_file_name = nil
-$undo = false
+$undo = nil
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
@@ -2214,8 +2214,12 @@ begin
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
-		elsif ARGV[i] =~ /^-u$/ then
-			$undo = true
+		elsif ARGV[i] =~ /^-u(?::([01]))?$/ then
+			if $1 == nil
+				$undo = 1
+			else
+				$undo = $1.to_i
+			end
 		elsif ARGV[i] =~ /^-cf$/ then
 			await_preloadfile = true
 			fill_preload = true
@@ -2453,16 +2457,6 @@ if $font_filename
 	end
 end
 
-#$undo = true if $target == 'mega65' # undo is enabled by default on MEGA65
-
-if $undo
-	if $target != 'mega65'
-		puts "ERROR: Undo is only supported for the MEGA65 target platform."
-		exit 1
-	end
-	$GENERALFLAGS.push('UNDO')
-end
-
 if $sound_path
 	if $target != 'mega65'
 		puts "ERROR: Sound is only supported for the MEGA65 target platform."
@@ -2547,7 +2541,6 @@ if optimize then
 	$DEBUGFLAGS.push('PREOPT')
 end
 
-$DEBUGFLAGS.push('DEBUG') if $force_debug
 $DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
 
 
@@ -2609,7 +2602,6 @@ if ($input_colour or $input_colour_dm) and $zcode_version > 4
 	exit 1
 end	
 
-puts $zcode_version
 if scrollback == nil
 	if $target == "mega65" and $zcode_version != 6
 		scrollback = 1
@@ -2725,6 +2717,27 @@ $statmem_blocks = $story_size / $VMEM_BLOCKSIZE - $dynmem_blocks
 if $verbose then 
 	puts "$zmachine_memory_size = #{$zmachine_memory_size}"
 	puts "$story_size = #{$story_size}"
+end
+
+$undo = 2 if ($undo == nil and $target == 'mega65') # undo is enabled by default on MEGA65
+
+if $undo > 0
+	if $target != 'mega65'
+		puts "ERROR: Undo is only supported for the MEGA65 target platform."
+		exit 1
+	end
+	if $dynmem_blocks * ($VMEM_BLOCKSIZE / 256) + $stack_pages + 1 > 256
+		if $undo == 1
+			puts "ERROR: Dynmem + stack too large to support UNDO."
+			exit 1
+		else
+			$undo = 0
+		end
+	end
+	if $undo > 0
+		$GENERALFLAGS.push('UNDO')
+		$undo = 1
+	end
 end
 
 

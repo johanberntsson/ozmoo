@@ -1422,16 +1422,11 @@ check_undo
 	ldy #header_flags_2 + 1
 	jsr read_header_word
 	and #(255 - 8 - 32) ; pictures and mouse never available
+!ifndef UNDO {
+	; Tell game UNDO isn't supported
+	and #(255 - 16) ; no undo
+}
 	pha
-	; check if the game wants undo functionality, and if we can support this
-	and #16
-	beq + 
-	; undo requested by the game
-	; TODO: check if enough RAM available. For now, assume things are good
-	;pla
-	;and #(255 - 16) ; no undo
-	;pha
-+    
 !ifdef SOUND {
 	; check if the game wants to play sounds, and if we can support this
 	pla

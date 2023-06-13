@@ -2,6 +2,10 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+
+- Single step undo is supported for z5+ on MEGA65
+
 Bugfixes:
 
 - Picture loader gave build error.

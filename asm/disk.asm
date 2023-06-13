@@ -1857,16 +1857,25 @@ z_ins_save_undo
     jsr .do_save_undo
     ; Return 2 if just restored, -1 if not supported, 1 if saved, 0 if fail
     ldx #1
+	stx undo_state_available
     lda #0
     jmp z_store_result
 
 z_ins_restore_undo
+	ldx undo_state_available
+	beq .undo_failed
     jsr .do_restore_undo
+	dec undo_state_available
     ; Return 0 if failed
     ldx #2
-    lda #0
+-   lda #0
     jmp z_store_result
+.undo_failed
+	ldx #0
+    beq - ; Always branch
 }
+
+undo_state_available !byte 0
 
 ; we provide basic undo support for z3 as well through a hot key
 ; so the basic undo routines need to be available for all versions
@@ -1897,12 +1906,12 @@ z_ins_restore_undo
     lda #$05
     sta dma_dest_bank_and_flags
     jsr m65_run_dma
-	jmp .swap_pointers_for_save ; TODO: testing only stack + ZP
+	jsr .swap_pointers_for_save ; TODO: testing only stack + ZP
 
     ; save dynmem
     ; source address ($80000 - attic RAM)
     lda #0
-    stx dma_source_address
+    sta dma_source_address
     sta dma_source_address + 1
     sta dma_source_bank_and_flags
     lda #$80
@@ -1922,14 +1931,13 @@ z_ins_restore_undo
     sta dma_dest_address + 1
     lda #$05
     sta dma_dest_bank_and_flags
-    jsr m65_run_dma
+    jmp m65_run_dma
 
-    ; restore ZP variables
-	jmp .swap_pointers_for_save
 
 .do_restore_undo
 	; restore zp variables + stack
     ; source address ($50000)
+	jsr .swap_pointers_for_save
     lda #0
     sta dma_source_address
     sta dma_source_address + 1
@@ -1950,7 +1958,9 @@ z_ins_restore_undo
     sta dma_dest_bank_and_flags
     sta dma_dest_address_top
     jsr m65_run_dma
-	jmp .swap_pointers_for_save ; TODO: testing only stack + ZP
+
+	jsr .swap_pointers_for_save ; TODO: testing only stack + ZP
+	jsr get_page_at_z_pc
 
     ; restore dynmem
     ; source address
@@ -1970,15 +1980,13 @@ z_ins_restore_undo
     sta dma_count + 1
     ; dest address
     lda #0
-    stx dma_dest_address
+    sta dma_dest_address
     sta dma_dest_address + 1
     sta dma_dest_bank_and_flags
     lda #$80
     sta dma_dest_address_top
-    jsr m65_run_dma
-
-    ; restore ZP variables
-	jmp .swap_pointers_for_save
+    jmp m65_run_dma
+	
 }
 }
 
