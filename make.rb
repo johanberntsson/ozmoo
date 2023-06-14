@@ -2720,6 +2720,7 @@ if $verbose then
 end
 
 $undo = 2 if ($undo == nil and $target == 'mega65') # undo is enabled by default on MEGA65
+$undo = 0 if $undo == nil
 
 if $undo > 0
 	if $target != 'mega65'
