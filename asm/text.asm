@@ -12,6 +12,14 @@
 input_colour_active !byte 0
 }
 
+!ifndef Z5PLUS {
+!ifdef UNDO {
+undo_possible   !byte 0
+undo_requested  !byte 0
+undo_msg        !pet "(Turn undone)",13,13,">",0 
+}
+}
+
 ; only ENTER + cursor + F1-F8 possible on a C64
 num_terminating_characters !byte 1
 terminating_characters !byte $0d
@@ -286,6 +294,14 @@ z_ins_read
 	; z4: sread text parse time routine
 	; z5: aread text parse time routine -> (result)
 	jsr printchar_flush
+
+!ifndef Z5PLUS {
+!ifdef UNDO {
+	lda undo_state_available
+	sta undo_possible
+}
+}
+
 !ifndef Z4PLUS {
 	; Z1 - Z3 should redraw the status line before input
 	jsr draw_status_line
@@ -323,6 +339,7 @@ z_ins_read
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jsr read_text
+
 !ifdef TRACE_READTEXT {
 	jsr print_following_string
 	!pet "read_text ",0
@@ -458,6 +475,35 @@ z_ins_read
 	jsr s_set_text_colour
 }
 
+!ifdef UNDO {
+	lda undo_requested
+	beq ++
+	dec undo_requested
+	jsr do_restore_undo
+	lda #>undo_msg
+	ldx #<undo_msg
+	jsr printstring_raw
+	jmp +++
+++	
+	; Save undo state, where z_pc points to where this read instruction starts
+	ldx #2
+-	lda z_pc,x
+	pha
+	lda z_pc_before_instruction,x
+	sta z_pc,x
+	dex
+	bpl -
+	jsr do_save_undo
+	pla
+	sta z_pc
+	pla
+	sta z_pc + 1
+	pla
+	sta z_pc + 2
+	
++++	lda #0
+	sta undo_possible ; Set to not possible whenever we exit the read instruction
+}
 	rts
 }
 ; ============================= End of new unified read instruction
@@ -1078,6 +1124,19 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_something
 +
 
+!ifndef Z5PLUS {
+!ifdef UNDO {
+	cmp #21 ; Ctrl-U for Undo
+	bne +
+	ldx undo_possible
+	beq +
+	stx undo_requested
+	dec undo_possible
+	jmp .did_something
++	
+}
+}
+
 	cmp #4 ; Ctrl-D to forget device# for saves
 	bne .did_nothing
 	; Forget device# for saves
@@ -1222,6 +1281,16 @@ read_char
 }
 .no_timer
 	jsr getchar_and_maybe_toggle_darkmode
+
+!ifndef Z5PLUS {
+!ifdef UNDO {
+	ldy undo_requested
+	beq ++
+	lda #13 ; Pretend the user pressed Enter, to get out of routine
+++
+}
+}
+
 	cmp #$00
 	bne +
 	jmp read_char

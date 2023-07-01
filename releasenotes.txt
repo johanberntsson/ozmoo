@@ -5,6 +5,7 @@ Upcoming release
 New/changed features:
 
 - Single step undo is supported for z5+ on MEGA65
+- Single step undo using hotkey Ctrl-U is supported for z1-z4 on MEGA65
 
 Bugfixes:
 

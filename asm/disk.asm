@@ -1854,18 +1854,15 @@ z_ins_restore_undo
 !ifdef Z5PLUS {
     ; the "undo" assembler instruction is only available in Z5+
 z_ins_save_undo
-    jsr .do_save_undo
+    jsr do_save_undo
     ; Return 2 if just restored, -1 if not supported, 1 if saved, 0 if fail
-    ldx #1
-	stx undo_state_available
     lda #0
     jmp z_store_result
 
 z_ins_restore_undo
 	ldx undo_state_available
 	beq .undo_failed
-    jsr .do_restore_undo
-	dec undo_state_available
+    jsr do_restore_undo
     ; Return 0 if failed
     ldx #2
 -   lda #0
@@ -1880,7 +1877,7 @@ undo_state_available !byte 0
 ; we provide basic undo support for z3 as well through a hot key
 ; so the basic undo routines need to be available for all versions
 
-.do_save_undo
+do_save_undo
     ; prepare saving of zp variables
 	jsr .swap_pointers_for_save
 
@@ -1931,10 +1928,12 @@ undo_state_available !byte 0
     sta dma_dest_address + 1
     lda #$05
     sta dma_dest_bank_and_flags
-    jmp m65_run_dma
+    jsr m65_run_dma
+    ldx #1
+	stx undo_state_available
+	rts
 
-
-.do_restore_undo
+do_restore_undo
 	; restore zp variables + stack
     ; source address ($50000)
 	jsr .swap_pointers_for_save
@@ -1985,7 +1984,10 @@ undo_state_available !byte 0
     sta dma_dest_bank_and_flags
     lda #$80
     sta dma_dest_address_top
-    jmp m65_run_dma
+    jsr m65_run_dma
+    ldx #0
+	stx undo_state_available
+	rts
 	
 }
 }
