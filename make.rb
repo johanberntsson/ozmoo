@@ -6,11 +6,11 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
 	# Paths on Windows
-    $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
-    $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
-    $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\xplus4.exe -autostart-delay-random"
+    $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
+    $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
+    $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random"
 	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
-    $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
+    $C1541 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
 	$commandline_quotemark = "\""
@@ -2723,8 +2723,8 @@ $undo = 2 if ($undo == nil and $target == 'mega65') # undo is enabled by default
 $undo = 0 if $undo == nil
 
 if $undo > 0
-	if $target != 'mega65'
-		puts "ERROR: Undo is only supported for the MEGA65 target platform."
+	if $target !~ /c64|c128|mega65/
+		puts "ERROR: Undo is only supported for the MEGA65, C64 and C128 target platforms."
 		exit 1
 	end
 	if $dynmem_blocks * ($VMEM_BLOCKSIZE / 256) + $stack_pages + 1 > 256

@@ -1850,7 +1850,9 @@ z_ins_restore_undo
     txa
     jmp z_store_result
 } else {
-!ifdef TARGET_MEGA65 {
+
+undo_state_available !byte 0
+
 !ifdef Z5PLUS {
     ; the "undo" assembler instruction is only available in Z5+
 z_ins_save_undo
@@ -1872,10 +1874,10 @@ z_ins_restore_undo
     beq - ; Always branch
 }
 
-undo_state_available !byte 0
-
 ; we provide basic undo support for z3 as well through a hot key
 ; so the basic undo routines need to be available for all versions
+
+!ifdef TARGET_MEGA65 {
 
 do_save_undo
     ; prepare saving of zp variables
@@ -1903,7 +1905,7 @@ do_save_undo
     lda #$05
     sta dma_dest_bank_and_flags
     jsr m65_run_dma
-	jsr .swap_pointers_for_save ; TODO: testing only stack + ZP
+	jsr .swap_pointers_for_save
 
     ; save dynmem
     ; source address ($80000 - attic RAM)
@@ -1922,9 +1924,7 @@ do_save_undo
     lda #0
     sta dma_dest_address
     sta dma_dest_address_top
-    lda #>(stack_size + zp_bytes_to_save)
-    clc
-    adc #1
+    lda #(>(stack_size + zp_bytes_to_save)) + 1
     sta dma_dest_address + 1
     lda #$05
     sta dma_dest_bank_and_flags
@@ -1958,7 +1958,7 @@ do_restore_undo
     sta dma_dest_address_top
     jsr m65_run_dma
 
-	jsr .swap_pointers_for_save ; TODO: testing only stack + ZP
+	jsr .swap_pointers_for_save
 	jsr get_page_at_z_pc
 
     ; restore dynmem
@@ -1966,9 +1966,7 @@ do_restore_undo
     lda #0
     sta dma_source_address
     sta dma_source_address_top
-    lda #>(stack_size + zp_bytes_to_save)
-    clc
-    adc #1
+    lda #(>(stack_size + zp_bytes_to_save)) + 1
     sta dma_source_address + 1
     lda #$05
     sta dma_source_bank_and_flags
@@ -1989,7 +1987,127 @@ do_restore_undo
 	stx undo_state_available
 	rts
 	
+} else {
+	; Not MEGA65, so this is for C64/C128
+
+reu_bank_for_undo !byte $ff ; $ff means don't use REU for undo
+
+do_save_undo
+	bit reu_bank_for_undo
+	bmi .save_undo_done
+    ; prepare saving of zp variables
+	jsr .swap_pointers_for_save
+
+	jsr .setup_transfer_stack
+	lda #%10110000;  C64 -> REU with immediate execution
+	sta reu_command
+	
+	jsr .swap_pointers_for_save
+
+!ifdef TARGET_C128 {
+    ; ; save dynmem
+
+	jsr .setup_transfer_dynmem
+	lda #%10110000;  c128 -> REU with immediate execution
+	sta reu_command
+
+	; Restore REU to see RAM bank 0
+	lda $d506
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
 }
+    ldx #1
+	stx undo_state_available
+.save_undo_done
+	rts
+
+do_restore_undo
+	; restore zp variables + stack
+    ; source address ($50000)
+	jsr .swap_pointers_for_save
+
+	jsr .setup_transfer_stack
+	lda #%10110001;  REU -> c64 with immediate execution
+	sta reu_command
+
+!ifdef TARGET_C128 {
+    ; ; save dynmem
+
+	jsr .setup_transfer_dynmem
+	
+	lda #%10110001;  REU -> c128 with immediate execution
+	sta reu_command
+
+	; Restore REU to see RAM bank 0
+	lda $d506
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+}
+
+	jsr .swap_pointers_for_save
+	jsr get_page_at_z_pc
+
+    ldx #0
+	stx undo_state_available
+	rts
+
+.setup_transfer_stack
+	; ; save zp variables + stack
+    ; source address in C64 RAM
+    ldy #>(stack_start - zp_bytes_to_save)
+	; Target address in REU
+	lda reu_bank_for_undo
+	ldx #0
+	; clc ; Doesn't matter, since we set exact transfer size after call
+	jsr store_reu_transfer_params
+	; Set C64 address lowbyte
+    ldx #<(stack_start - zp_bytes_to_save)
+	stx reu_c64base
+	; Set transfer size
+!ifdef TARGET_C64 {
+	lda story_start + header_static_mem + 1
+	clc
+	adc #<(stack_size + zp_bytes_to_save)
+	sta reu_translen
+	lda story_start + header_static_mem
+	adc #>(stack_size + zp_bytes_to_save)
+	sta reu_translen + 1
+} else {
+	; C128
+	ldx #<(stack_size + zp_bytes_to_save)
+	stx reu_translen
+	ldx #>(stack_size + zp_bytes_to_save)
+	stx reu_translen + 1
+}
+	rts
+
+!ifdef TARGET_C128 {
+.setup_transfer_dynmem
+	; Make REU see RAM bank 1
+	lda $d506
+	ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+
+    ; source address in C128 RAM
+    ldy #>story_start_far_ram
+	; Target address in REU
+	lda reu_bank_for_undo
+	ldx #(>stack_size) + 1
+	clc
+	jsr store_reu_transfer_params
+
+	; Set transfer size
+    ldy #header_static_mem
+    jsr read_header_word
+	stx reu_translen
+    sta reu_translen + 1
+
+	rts
+}
+
+
+}
+
 }
 
 } ; end zone save_restore

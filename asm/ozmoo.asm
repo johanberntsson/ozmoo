@@ -947,9 +947,15 @@ game_id		!byte 0,0,0,0
 		ldx use_reu
 		beq .store_bank_number
 		ldx statmem_reu_banks
-		cpx scrollback_bank
-		bcs +
+;		cpx scrollback_bank
+;		bcs +
 .store_bank_number
+		!ifdef UNDO {
+			bit reu_bank_for_undo
+			bmi .no_undo_reu_bank
+			inx
+.no_undo_reu_bank
+		}
 		stx scrollback_bank
 		inx
 		stx scrollback_bank + 1
@@ -1119,7 +1125,7 @@ calc_z7_offsets
 
 !ifdef Z4PLUS {
 update_screen_width_in_header
-	lda #SCREEN_WIDTH
+	lda s_screen_width
 	ldy #header_screen_width_chars
 !ifdef Z5PLUS {
 	jsr write_header_byte
@@ -2293,23 +2299,34 @@ reu_start
 	jsr printstring_raw
 -	jsr kernal_getchar
 	cmp #78
-	beq .no_reu
+	beq .dont_cache_to_reu
 	cmp #89
 	bne -
 	ldx #$80 ; Use REU, set vmem to reu loading mode
 	stx use_reu
+!ifdef UNDO {
+	ldx statmem_reu_banks
+	cpx reu_banks
+	beq .no_reu_room_for_undo
+	stx reu_bank_for_undo
+.no_reu_room_for_undo
+}
 !ifdef TARGET_C128 {
 	; Make sure REU uses RAM bank 0
 	pha
 	lda $d506
-	and #%00111111
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
 	sta $d506
 	pla
 }
 	ora #$80
 	bne .print_reply_and_return ; Always branch
 
-.no_reu
+.dont_cache_to_reu
+!ifdef UNDO {
+	ldx #0
+	stx reu_bank_for_undo
+}
 	lda #78 + 128
 .print_reply_and_return
 	jsr s_printchar

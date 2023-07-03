@@ -429,17 +429,7 @@ launch_scrollback
 +	rts
 } else { ; =================================================================================
 ; Not MEGA65, so this is REU version
-scrollback_bank
-!ifndef Z4PLUS {
-	!byte 2,3 ; Bank to store text, bank to backup screen + colour RAM
-} else {
-	!ifdef Z7PLUS {
-		!byte 8,9
-	} else {
-		!byte 4,5
-	}
-}
-
+scrollback_bank !byte 0,1 ; Bank to store text, bank to backup screen + colour RAM (calculated at boot)
 
 !ifdef TARGET_PLUS4 {
 scrollback_screen_backup_page !byte VMEM_END_PAGE - 8,0
@@ -472,7 +462,6 @@ init_reu_scrollback
 	sta scrollback_prebuffer_copy_from + 1
 .is_80_col
 }
-
 	lda scrollback_bank + 1
 	!ifdef TARGET_C128 {
 		ldx COLS_40_80

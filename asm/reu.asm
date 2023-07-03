@@ -271,7 +271,7 @@ store_reu_transfer_params
 .temp = vmem_cache_start + 2
 
 
-.reu_banks_to_check = 48 ; Can be up to 128, but make sure .reu_tmp has room 
+.reu_banks_to_check = 16 ; Can be up to 128, but make sure .reu_tmp has room 
 .reu_tmp = streams_stack; 60 bytes, we use less (see line just before this)
 
 reu_banks !byte 0
@@ -332,102 +332,40 @@ check_reu_size
 	rts
 } else {
 	; Target not MEGA65
-;	lda #8 ; Guess 512 KB
-;	rts
-;}
 
-; Robin Harbron version
-	; lda #0
-	; sta $df04
-	; sta $df05
-	; sta $df08
-	; sta $df0a
-	; lda #1
-	; sta $df07
-
-	; lda #<.temp
-	; sta $df02
-	; lda #>.temp
-	; sta $df03
-
-	; ldx #0
-; .loop1
-	; stx $df06
-	; stx .temp
-	; lda #178
-	; sta $df01
-	; lda .temp
-	; sta .temp+1,x
-	; inx
-	; bne .loop1
-
-	; ldy #177
-	; ldx #0
-	; stx .old
-; .loop2
-	; stx $df06
-	; sty $df01
-	; lda .temp
-	; cmp .old
-	; bcc .next
-	; sta .old
-	; inx
-	; bne .loop2
-; .next
-	; stx .size
-	; ldy #176
-	; ldx #255
-; .loop3
-	; stx $df06
-	; lda .temp+1,x
-	; sta .temp
-	; sty $df01
-	; dex
-	; cpx #255
-	; bne .loop3
-	; lda .size
-;	rts
-
-
-
-; My verison
 	ldx #0
-	stx object_temp
-	; %%%
-	; Backup the first value in each 64 KB block in REU, to C64 memory
+	stx object_temp ; Bank currently being checked
+
+	; Backup the first value in this 64 KB bank in REU, to C64 memory
 -	lda object_temp
 	jsr .reu_check_read
 	ldx object_temp
 	sta .reu_tmp,x
 
-	; Write the number of the 64KB block to the first byte in the block
+	; Write the number of the 64KB bank to the first byte in the bank
 	lda object_temp
 	sta $100
 	jsr .reu_check_write
 
-; NEW PART	
-	; Check if the number in the first byte in the block is correct
+	; Check if the first byte of this and all previous 64 KB banks are correct
 	lda object_temp
+	sta object_temp + 1
+--	lda object_temp + 1
 	jsr .reu_check_read
-	cmp object_temp
+	cmp object_temp + 1
 	bne +
+	dec object_temp + 1
+	bpl --
 	
-	; Read the number in the first byte of the first 64 KB block to see if it's untouched
-	lda #0
-	jsr .reu_check_read
-	cmp #0
-	bne +
 	inc object_temp
 	lda object_temp
 	cmp #.reu_banks_to_check
 	bcc -
-+		
-	; Restore the original contents in all blocks
-	ldx object_temp ; This now holds the # of 64 KB blocks available in REU
++
+	; Restore the original contents in all banks, in reverse order
+	ldx object_temp ; This now holds the # of 64 KB banks available in REU
 	dex
 	stx object_temp + 1
-	
-	; Write the original content of the first byte of each 64KB block to the REU
 -	ldx object_temp + 1
 	lda .reu_tmp,x
 	sta $100
@@ -435,7 +373,14 @@ check_reu_size
 	jsr .reu_check_write
 	dec object_temp + 1
 	bpl -
-	lda object_temp
+
+	; Round the # of 64 KB banks down to 2^n
+	lda #$80
+-	bit object_temp
+	bne .done
+	lsr
+	bcc -
+.done
 	rts
 
 .reu_check_store	
