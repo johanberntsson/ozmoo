@@ -1280,6 +1280,20 @@ load_suggested_pages
 } ; ifndef NOSECTORPRELOAD
 } ; ifdef VMEM
 
+!ifdef UNDO {
+print_no_undo
+	; ldy #header_flags_2 + 1
+	; jsr read_header_word
+	; and #(255 - 16) ; no undo
+	; ldy #header_flags_2 + 1
+	; jsr write_header_byte
+	lda #>.no_undo_msg
+	ldx #<.no_undo_msg
+	jsr printstring_raw
+	jmp wait_a_sec
+.no_undo_msg
+	!pet "Undo not available",13,13,0
+}
 	
 program_end
 
@@ -1424,14 +1438,17 @@ z_init
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 	jsr write_header_byte
 
-check_undo
+; check_undo
 	ldy #header_flags_2 + 1
 	jsr read_header_word
 	and #(255 - 8 - 32) ; pictures and mouse never available
-!ifndef UNDO {
+!ifdef UNDO {
+	bit reu_bank_for_undo
+	bpl .undo_is_available
+}
 	; Tell game UNDO isn't supported
 	and #(255 - 16) ; no undo
-}
+.undo_is_available	
 	pha
 !ifdef SOUND {
 	; check if the game wants to play sounds, and if we can support this
@@ -2331,12 +2348,20 @@ reu_start
 .print_reply_and_return
 	jsr s_printchar
 	lda #13
-	jmp s_printchar
-.no_reu_present	
+	jsr s_printchar
+	lda #13
+	jsr s_printchar
+.no_reu_present
+!ifdef UNDO {
+	bit reu_bank_for_undo
+	bpl +
+	jmp print_no_undo
++
+}
 	rts
 
 .use_reu_question
-	!pet 13,"Use REU for faster play? (Y/N)",0
+	!pet 13,"Use REU for faster play? (Y/N) ",0
 
 
 } ; if SUPPORT_REU = 1

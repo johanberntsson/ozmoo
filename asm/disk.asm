@@ -1856,10 +1856,13 @@ undo_state_available !byte 0
 !ifdef Z5PLUS {
     ; the "undo" assembler instruction is only available in Z5+
 z_ins_save_undo
-    jsr do_save_undo
-    ; Return 2 if just restored, -1 if not supported, 1 if saved, 0 if fail
-    lda #0
-    jmp z_store_result
+	lda reu_bank_for_undo ; This is $ff if not available
+	tax
+	bmi ++
++	jsr do_save_undo
+	; Return 2 if just restored, -1 if not supported, 1 if saved, 0 if fail
+	lda #0
+++	jmp z_store_result
 
 z_ins_restore_undo
 	ldx undo_state_available
@@ -1999,6 +2002,11 @@ do_save_undo
 	jsr .swap_pointers_for_save
 
 	jsr .setup_transfer_stack
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+}
 	lda #%10110000;  C64 -> REU with immediate execution
 	sta reu_command
 	
@@ -2010,6 +2018,7 @@ do_save_undo
 	jsr .setup_transfer_dynmem
 	lda #%10110000;  c128 -> REU with immediate execution
 	sta reu_command
+	jsr restore_2mhz
 
 	; Restore REU to see RAM bank 0
 	lda $d506
@@ -2027,16 +2036,22 @@ do_restore_undo
 	jsr .swap_pointers_for_save
 
 	jsr .setup_transfer_stack
+!ifdef TARGET_C128 {
+	lda #0
+	sta allow_2mhz_in_40_col
+	sta reg_2mhz	;CPU = 1MHz
+}
 	lda #%10110001;  REU -> c64 with immediate execution
 	sta reu_command
 
 !ifdef TARGET_C128 {
-    ; ; save dynmem
+    ; ; restore dynmem
 
 	jsr .setup_transfer_dynmem
 	
 	lda #%10110001;  REU -> c128 with immediate execution
 	sta reu_command
+	jsr restore_2mhz
 
 	; Restore REU to see RAM bank 0
 	lda $d506

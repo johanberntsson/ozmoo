@@ -1093,6 +1093,8 @@ getchar_and_maybe_toggle_darkmode
 !ifdef SCROLLBACK {
 	cmp #135 ; F5
 	bne +
+	ldx scrollback_supported
+	beq +
 	jsr launch_scrollback
 	jmp .did_something
 +	

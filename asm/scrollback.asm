@@ -498,7 +498,7 @@ init_reu_scrollback
 	; lda #147
 	; jmp s_printchar
 
-.msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
+.msg_not_available !pet "Scrollback not available.", 13, 13, 0
 
 }
 
