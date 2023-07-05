@@ -5,7 +5,7 @@ first_unavailable_save_slot_charcode	!byte 0
 ; the index into disk_info where information about this disk starts *MINUS 3*
 ; So 0 means save disk, 8 means boot disk or boot/story disk etc.
 current_disks !byte $ff, $ff, $ff, $ff,$ff, $ff, $ff, $ff
-boot_device !byte 0
+boot_device !byte 8
 ask_for_save_device !byte $ff
 
 !ifdef TARGET_MEGA65 {
@@ -1859,7 +1859,7 @@ z_ins_save_undo
 	lda reu_bank_for_undo ; This is $ff if not available
 	tax
 	bmi ++
-+	jsr do_save_undo
+	jsr do_save_undo
 	; Return 2 if just restored, -1 if not supported, 1 if saved, 0 if fail
 	lda #0
 ++	jmp z_store_result
@@ -1875,6 +1875,13 @@ z_ins_restore_undo
 .undo_failed
 	ldx #0
     beq - ; Always branch
+}
+
+reu_bank_for_undo
+!ifdef TARGET_MEGA65 {
+	!byte $00 ; $00 means it's supported by default. May be changed to $ff at boot.
+} else {
+	!byte $ff ; $ff means don't use REU for undo. May be changed to $ff at boot.
 }
 
 ; we provide basic undo support for z3 as well through a hot key
@@ -1992,8 +1999,6 @@ do_restore_undo
 	
 } else {
 	; Not MEGA65, so this is for C64/C128
-
-reu_bank_for_undo !byte $ff ; $ff means don't use REU for undo
 
 do_save_undo
 	bit reu_bank_for_undo

@@ -883,6 +883,19 @@ game_id		!byte 0,0,0,0
 	jsr splash_screen
 }
 
+!ifdef TARGET_MEGA65 {
+!ifdef UNDO {
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcc + ; Dynmem + stack + ZP fits in 64 KB
+	ldy #$ff
+	sty reu_bank_for_undo ; Disable undo
+	jsr print_no_undo
++
+}
+}
+
 !ifdef VMEM {
 !ifdef TARGET_C64 {
 	; set up C64 SuperCPU if any
@@ -1443,8 +1456,12 @@ z_init
 	jsr read_header_word
 	and #(255 - 8 - 32) ; pictures and mouse never available
 !ifdef UNDO {
+!ifdef TARGET_MEGA65 {
+	jmp .undo_is_available
+} else {
 	bit reu_bank_for_undo
 	bpl .undo_is_available
+}
 }
 	; Tell game UNDO isn't supported
 	and #(255 - 16) ; no undo
@@ -1604,6 +1621,34 @@ fkey_codes !byte $85,$89,$86,$8a,$87,$8b,$88,$8c
 
 deletable_init_start
 
+	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
+	+set_memory_no_basic
+
+!ifdef TARGET_MEGA65 {
+	lda #$0
+	sta dynmem_pointer
+	sta dynmem_pointer + 1
+	sta dynmem_pointer + 2
+	sta mempointer
+	sta mempointer + 1
+;	sta mempointer + 2 ; Will be set after reading the header
+	lda #$08
+	sta dynmem_pointer + 3
+	sta mempointer + 3
+;	sta mempointer_4bytes + 3
+	sta z_pc_mempointer + 3
+}
+
+	ldy CURRENT_DEVICE
+	cpy #8
+	bcc .pick_default_boot_device
+	cpy #16
+	bcc .store_boot_device
+.pick_default_boot_device
+	ldy #8
+.store_boot_device
+	sty boot_device ; Boot device# stored
+
 ; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
 !ifdef TARGET_PLUS4_OR_C128 {
 	ldx #8
@@ -1676,8 +1721,15 @@ deletable_init_start
 	lda #0
 	sta mempointer
 
-	jmp init_screen_colours ; _invisible
-	
+	jsr init_screen_colours ; _invisible
+
+
+!ifdef TARGET_MEGA65 {
+	jsr m65_load_header
+}
+	jsr calc_dynmem_size
+
+	rts
 
 
 !ifdef TARGET_C128 {
@@ -1709,21 +1761,24 @@ calc_dynmem_size
 }
 	stx dynmem_size
 	sta dynmem_size + 1
-	
-!ifdef TARGET_MEGA65 {
+
+;!ifdef TARGET_MEGA65 {
 	tay
 	cpx #0
 	beq .maybe_inc_nonstored_pages
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
 .maybe_inc_nonstored_pages
 	tya
-;	and #vmem_indiv_block_mask ; keep index into kB chunk
+!ifdef VMEM {
+	and #vmem_indiv_block_mask ; keep index into kB chunk
+} else {
 	and #%00000001 ; keep index into kB chunk
+}
 	beq .store_nonstored_pages
 	iny
 .store_nonstored_pages
 	sty nonstored_pages
-}
+;}
 	rts
 
 deletable_init
@@ -1737,41 +1792,12 @@ deletable_init
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu
 }
-!ifdef TARGET_MEGA65 {
-	lda #$0
-	sta dynmem_pointer
-	sta dynmem_pointer + 1
-	sta dynmem_pointer + 2
-	sta mempointer
-	sta mempointer + 1
-;	sta mempointer + 2 ; Will be set after reading the header
-	lda #$08
-	sta dynmem_pointer + 3
-	sta mempointer + 3
-;	sta mempointer_4bytes + 3
-	sta z_pc_mempointer + 3
-}
-
-
-
-; Read and parse config from boot disk
-	ldy CURRENT_DEVICE
-	cpy #8
-	bcc .pick_default_boot_device
-	cpy #16
-	bcc .store_boot_device
-.pick_default_boot_device
-	ldy #8
-.store_boot_device
-	sty boot_device ; Boot device# stored
 
 !ifdef TARGET_MEGA65 {
 	jsr m65_init_reu
 
 !ifdef Z3PLUS {
-	jsr m65_load_header
-	jsr calc_dynmem_size
-	; Header of game on disk is now loaded, starting at beginning of Attic RAM
+	; Header of game on disk is already loaded, starting at beginning of Attic RAM
 
 	lda #<m65_attic_checksum_page
 	sta mempointer + 1
@@ -1928,12 +1954,12 @@ deletable_init
 	sta disk_info + 1 ; # of save slots
 }
 
-	; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
-	+set_memory_no_basic
+	; ; Default banks during execution: Like standard except Basic ROM is replaced by RAM.
+	; +set_memory_no_basic
 
 ; parse_header section
 
-	jsr calc_dynmem_size
+;	jsr calc_dynmem_size
 
 !ifdef TARGET_MEGA65 {
 	bit m65_statmem_already_loaded
@@ -1951,18 +1977,7 @@ deletable_init
 }
 	
 !ifdef VMEM {
-	tay
-	cpx #0
-	beq .maybe_inc_nonstored_pages
-	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_pages
-	tya
-	and #vmem_indiv_block_mask ; keep index into kB chunk
-	beq .store_nonstored_pages
-	iny
-.store_nonstored_pages
-	sty nonstored_pages
-	tya
+	lda nonstored_pages
 	clc
 	adc #>story_start
 	sta vmap_first_ram_page
@@ -2309,7 +2324,7 @@ reu_start
 ;	lda #0 ; SKIP REU FOR DEBUGGING PURPOSES
 	sta reu_banks
 	cmp statmem_reu_banks
-	bcc .no_reu_present ; REU is too small to cache this game
+	bcc .reu_too_small_for_game ; REU is too small to cache this game
 
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
@@ -2341,8 +2356,7 @@ reu_start
 
 .dont_cache_to_reu
 !ifdef UNDO {
-	ldx #0
-	stx reu_bank_for_undo
+	inc reu_bank_for_undo ; Sets it to 0
 }
 	lda #78 + 128
 .print_reply_and_return
@@ -2354,11 +2368,30 @@ reu_start
 .no_reu_present
 !ifdef UNDO {
 	bit reu_bank_for_undo
-	bpl +
+	; bmi ++
+	bpl +++
 	jmp print_no_undo
-+
++++
+.check_undo_size
+
+	; Can't be > 64 KB on C64 or C128 anyway, so commented out for now
+
+	; clc
+	; lda #(>STACK_PAGES) + 1
+	; adc nonstored_pages
+	; bcc + ; Dynmem + stack + ZP fits in 64 KB
+	; dec reu_bank_for_undo ; Disable undo
+; ++	jmp print_no_undo
+; +
+} else {
+.reu_too_small_for_game
 }
 	rts
+!ifdef UNDO {
+.reu_too_small_for_game
+	inc reu_bank_for_undo ; Sets it to 0
+	beq .check_undo_size ; Always branch
+}
 
 .use_reu_question
 	!pet 13,"Use REU for faster play? (Y/N) ",0
@@ -2480,7 +2513,7 @@ m65_load_dynmem_maybe_statmem
 	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
 	txa
 	
-	jmp m65_load_file_to_reu ; in reu.asm
+ 	jmp m65_load_file_to_reu ; in reu.asm
 
 .zcodefilename
 	!pet "zcode,s,r"
