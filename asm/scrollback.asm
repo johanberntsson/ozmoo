@@ -20,7 +20,7 @@ reserve_pages_for_backup = 8
 } else {
 scrollback_page_offset = 0
 scrollback_total_buffer_size = $10000;
-reserve_pages_for_backup = 0
+reserve_pages_for_backup = 8
 }
 scrollback_supported !byte 0
 !ifdef TARGET_C128 {
@@ -429,14 +429,13 @@ launch_scrollback
 +	rts
 } else { ; =================================================================================
 ; Not MEGA65, so this is REU version
-scrollback_bank !byte 0,1 ; Bank to store text, bank to backup screen + colour RAM (calculated at boot)
-
+scrollback_bank !byte 0; Bank to store text, backup screen + colour RAM (calculated at boot)
 !ifdef TARGET_PLUS4 {
 scrollback_screen_backup_page !byte VMEM_END_PAGE - 8,0
 scrollback_colour_backup_page !byte VMEM_END_PAGE - 4,0
 } else {
-scrollback_screen_backup_page !byte 0,0
-scrollback_colour_backup_page !byte $08,0
+scrollback_screen_backup_page !byte $f8,0
+scrollback_colour_backup_page !byte $fc,0
 }
 .space !byte 32
 
@@ -462,14 +461,14 @@ init_reu_scrollback
 	sta scrollback_prebuffer_copy_from + 1
 .is_80_col
 }
-	lda scrollback_bank + 1
-	!ifdef TARGET_C128 {
-		ldx COLS_40_80
-		beq +
-		; In 80 column mode we don't need the second bank (used for VIC screen data backup)
-		lda scrollback_bank
-+
-	}
+	lda scrollback_bank
+	; !ifdef TARGET_C128 {
+		; ldx COLS_40_80
+		; beq +
+		; ; In 80 column mode we don't need the second bank (used for VIC screen data backup)
+		; lda scrollback_bank
+; +
+	; }
 	cmp reu_banks
 	bcs .no_reu_space_for_scrollback
 	dec scrollback_supported ; Set to $ff = supported
@@ -477,7 +476,7 @@ init_reu_scrollback
 ; Init values
 	sta scrollback_screen_backup_page + 1
 	sta scrollback_colour_backup_page + 1
-	lda scrollback_bank
+	; lda scrollback_bank
 	sta scrollback_prebuffer_start + 2 ; Bank value
 	sta scrollback_start_minus_25_lines + 2
 	sta scrollback_start + 2

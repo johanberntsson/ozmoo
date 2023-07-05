@@ -963,8 +963,8 @@ game_id		!byte 0,0,0,0
 .no_undo_reu_bank
 		}
 		stx scrollback_bank
-		inx
-		stx scrollback_bank + 1
+		; inx
+		; stx scrollback_bank + 1
 +		jsr init_reu_scrollback
 	}
 	lda #147
