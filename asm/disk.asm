@@ -1877,6 +1877,13 @@ z_ins_restore_undo
     beq - ; Always branch
 }
 
+reu_bank_for_undo
+!ifdef TARGET_MEGA65 {
+	!byte $00 ; $00 means it's supported by default. May be changed to $ff at boot.
+} else {
+	!byte $ff ; $ff means don't use REU for undo. May be changed to $ff at boot.
+}
+
 ; we provide basic undo support for z3 as well through a hot key
 ; so the basic undo routines need to be available for all versions
 
@@ -1992,8 +1999,6 @@ do_restore_undo
 	
 } else {
 	; Not MEGA65, so this is for C64/C128
-
-reu_bank_for_undo !byte $ff ; $ff means don't use REU for undo
 
 do_save_undo
 	bit reu_bank_for_undo

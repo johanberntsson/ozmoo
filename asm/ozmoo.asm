@@ -941,6 +941,12 @@ game_id		!byte 0,0,0,0
 	; A now holds an upper limit on statmem size in 64 KB blocks
 	sta statmem_reu_banks
 
+!ifdef TARGET_C128 {
+	; Make sure REU uses RAM bank 0
+	lda $d506
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+}
 	jsr reu_start
 
 	!ifdef SCROLLBACK {
@@ -1767,12 +1773,11 @@ deletable_init
 
 !ifdef TARGET_MEGA65 {
 	jsr m65_init_reu
-
-!ifdef Z3PLUS {
 	jsr m65_load_header
 	jsr calc_dynmem_size
 	; Header of game on disk is now loaded, starting at beginning of Attic RAM
 
+!ifdef Z3PLUS {
 	lda #<m65_attic_checksum_page
 	sta mempointer + 1
 	lda #>m65_attic_checksum_page
@@ -1796,6 +1801,17 @@ deletable_init
 	dec m65_statmem_already_loaded ; Set it to $ff
 
 .must_load_statmem
+}
+
+!ifdef UNDO {
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcc + ; Dynmem + stack + ZP fits in 64 KB
+	ldy #$ff
+	sty reu_bank_for_undo ; Disable undo
+	jsr print_no_undo
++
 }
 
 	lda #0
@@ -2328,14 +2344,14 @@ reu_start
 	stx reu_bank_for_undo
 .no_reu_room_for_undo
 }
-!ifdef TARGET_C128 {
-	; Make sure REU uses RAM bank 0
-	pha
-	lda $d506
-	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
-	sta $d506
-	pla
-}
+; !ifdef TARGET_C128 {
+	; ; Make sure REU uses RAM bank 0
+	; pha
+	; lda $d506
+	; and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	; sta $d506
+	; pla
+; }
 	ora #$80
 	bne .print_reply_and_return ; Always branch
 
