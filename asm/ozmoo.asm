@@ -850,6 +850,10 @@ game_id		!byte 0,0,0,0
 	cli
 
 !ifdef TARGET_C128 {
+	; ldx COLS_40_80
+	; bne +
+	; jsr c128_copy_font_to_bank_1
+; +
 	lda #$f0 ; Background colour
 	jsr VDCInit
 	; initialize is in Basic LO ROM in C128 mode, so we need
@@ -1144,6 +1148,38 @@ update_screen_width_in_header
 }
 }
 
+
+.setup_copy_font
+	ldy #>$0800
+	lda reu_bank_for_undo
+	ldx #$fc
+	clc
+	jsr store_reu_transfer_params
+	lda #4
+    sta reu_translen + 1
+	rts
+
+; ; Font is actually at $1800, where it can't be copied to bank 1, since dynmem starts at $1600
+; c128_copy_font_to_bank_1
+	; jsr .setup_copy_font
+	; lda #%10110000;  C64 -> REU with immediate execution
+	; sta reu_command
+	; ; Wait until raster is in border
+; -	bit $d011
+	; bpl -
+	; ; Make REU see RAM bank 1
+	; lda $d506
+	; ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
+	; sta $d506
+	; jsr .setup_copy_font
+	; lda #%10110001;  REU -> c64 with immediate execution
+	; sta reu_command
+	; ; Restore REU to see RAM bank 0
+	; lda $d506
+	; and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	; sta $d506
+	; rts	
+
 c128_setup_mmu
 	lda #5 ; 4 KB common RAM at bottom only
 	sta c128_mmu_ram_cfg
@@ -1300,6 +1336,39 @@ print_no_undo
 .no_undo_msg
 	!pet "Undo not available",13,13,0
 }
+
+calc_dynmem_size
+	; Store the size of dynmem AND (if VMEM is enabled)
+	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+!ifdef TARGET_C128 {
+	; Special case because we need to read a header word from dynmem before dynmem
+	; has been moved to its final location.
+	lda story_start + header_static_mem
+	ldx story_start + header_static_mem + 1
+} else {
+	; Target is not C128
+	ldy #header_static_mem
+	jsr read_header_word
+}
+	stx dynmem_size
+	sta dynmem_size + 1
+	
+!ifdef TARGET_MEGA65 {
+	tay
+	cpx #0
+	beq .maybe_inc_nonstored_pages
+	iny ; Add one page if statmem doesn't start on a new page ($xx00)
+.maybe_inc_nonstored_pages
+	tya
+;	and #vmem_indiv_block_mask ; keep index into kB chunk
+	and #%00000001 ; keep index into kB chunk
+	beq .store_nonstored_pages
+	iny
+.store_nonstored_pages
+	sty nonstored_pages
+}
+	rts
+
 	
 program_end
 
@@ -1699,38 +1768,6 @@ c128_mmu_values !byte $0e,$3f,$7f
 m65_statmem_already_loaded !byte 0
 m65_attic_checksum_page = ($08000000 + 512 * 1024) / 256
 }
-
-calc_dynmem_size
-	; Store the size of dynmem AND (if VMEM is enabled)
-	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
-!ifdef TARGET_C128 {
-	; Special case because we need to read a header word from dynmem before dynmem
-	; has been moved to its final location.
-	lda story_start + header_static_mem
-	ldx story_start + header_static_mem + 1
-} else {
-	; Target is not C128
-	ldy #header_static_mem
-	jsr read_header_word
-}
-	stx dynmem_size
-	sta dynmem_size + 1
-	
-!ifdef TARGET_MEGA65 {
-	tay
-	cpx #0
-	beq .maybe_inc_nonstored_pages
-	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_pages
-	tya
-;	and #vmem_indiv_block_mask ; keep index into kB chunk
-	and #%00000001 ; keep index into kB chunk
-	beq .store_nonstored_pages
-	iny
-.store_nonstored_pages
-	sty nonstored_pages
-}
-	rts
 
 deletable_init
 	cld

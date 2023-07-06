@@ -2102,11 +2102,42 @@ do_restore_undo
 	rts
 
 !ifdef TARGET_C128 {
+.setup_copy_screen
+	ldy #>SCREEN_ADDRESS
+	lda reu_bank_for_undo
+	ldx #$fc
+	clc
+	jsr store_reu_transfer_params
+	lda #4
+    sta reu_translen + 1
+	rts
+	
 .setup_transfer_dynmem
+	ldx COLS_40_80
+	bne .no_screen_copying_to_reu
+	; Copy screen memory to REU (and later to bank 1, to avoid ugly flicker of garbage)
+	jsr .setup_copy_screen
+	
+	lda #%10110000;  C64 -> REU with immediate execution
+	sta reu_command
+
+	; Wait until raster is in border
+-	bit $d011
+	bpl -
+.no_screen_copying_to_reu
+
 	; Make REU see RAM bank 1
 	lda $d506
 	ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
 	sta $d506
+
+	ldx COLS_40_80
+	bne .no_screen_copying_from_reu
+	; Copy screen memory contents from REU to bank 1 to avoid ugly flicker of garbage
+	jsr .setup_copy_screen
+	lda #%10110001;  REU -> c64 with immediate execution
+	sta reu_command
+.no_screen_copying_from_reu
 
     ; source address in C128 RAM
     ldy #>story_start_far_ram
