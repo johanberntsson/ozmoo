@@ -326,6 +326,10 @@
 
 program_start
 
+		!ifdef TARGET_C128 {
+			lda #%00001110 ; 48K RAM0 (0-$c000)
+			sta $ff00
+		}
 	jmp .initialize
 
 !ifdef VMEM {
@@ -740,6 +744,44 @@ z_number_of_opcodes_implemented = * - z_jump_low_arr
 !ifdef TARGET_C128 {
 !source "constants-c128.asm"
 
+!ifdef CUSTOM_FONT {
+!ifdef UNDO {
+.setup_copy_font
+	ldy #>$1800
+	lda reu_bank_for_undo
+	ldx #$fc
+	clc
+	jsr store_reu_transfer_params
+	lda #8
+    sta reu_translen + 1
+	rts
+
+; Font is actually at $1800, where it can't be copied to bank 1, since dynmem starts at $1600
+; so we copy it to $0800 instead
+c128_copy_font_to_bank_1
+	jsr .setup_copy_font
+	lda #%10110000;  C64 -> REU with immediate execution
+	sta reu_command
+	; Wait until raster is in border
+-	bit $d011
+	bpl -
+	; Make REU see RAM bank 1
+	lda $d506
+	ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+	jsr .setup_copy_font
+	ldy #>$0800
+	sty reu_c64base + 1
+	lda #%10110001;  REU -> c64 with immediate execution
+	sta reu_command
+	; Restore REU to see RAM bank 0
+	lda $d506
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+	rts	
+}
+}
+
 c128_reset_to_basic
 	; this needs to be at the start of the program since
 	; I need to bank back the normal memory and the latter
@@ -848,12 +890,7 @@ game_id		!byte 0,0,0,0
 .initialize
 	cld
 	cli
-
 !ifdef TARGET_C128 {
-	; ldx COLS_40_80
-	; bne +
-	; jsr c128_copy_font_to_bank_1
-; +
 	lda #$f0 ; Background colour
 	jsr VDCInit
 	; initialize is in Basic LO ROM in C128 mode, so we need
@@ -953,6 +990,18 @@ game_id		!byte 0,0,0,0
 }
 	jsr reu_start
 
+!ifdef TARGET_C128 {
+!ifdef CUSTOM_FONT {
+!ifdef UNDO {
+	ldx COLS_40_80
+	bne +
+	bit reu_bank_for_undo
+	bmi +
+	jsr c128_copy_font_to_bank_1
++
+}
+}
+}
 	!ifdef SCROLLBACK {
 		ldx use_reu
 		beq .store_bank_number
@@ -1147,38 +1196,6 @@ update_screen_width_in_header
 	jmp write_header_byte
 }
 }
-
-
-.setup_copy_font
-	ldy #>$0800
-	lda reu_bank_for_undo
-	ldx #$fc
-	clc
-	jsr store_reu_transfer_params
-	lda #4
-    sta reu_translen + 1
-	rts
-
-; ; Font is actually at $1800, where it can't be copied to bank 1, since dynmem starts at $1600
-; c128_copy_font_to_bank_1
-	; jsr .setup_copy_font
-	; lda #%10110000;  C64 -> REU with immediate execution
-	; sta reu_command
-	; ; Wait until raster is in border
-; -	bit $d011
-	; bpl -
-	; ; Make REU see RAM bank 1
-	; lda $d506
-	; ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
-	; sta $d506
-	; jsr .setup_copy_font
-	; lda #%10110001;  REU -> c64 with immediate execution
-	; sta reu_command
-	; ; Restore REU to see RAM bank 0
-	; lda $d506
-	; and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
-	; sta $d506
-	; rts	
 
 c128_setup_mmu
 	lda #5 ; 4 KB common RAM at bottom only

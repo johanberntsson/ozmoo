@@ -2029,6 +2029,11 @@ do_save_undo
 	lda $d506
 	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
 	sta $d506
+
+!ifdef CUSTOM_FONT {
+	lda #$17 ; 0001 011X = $0400 $1800
+	sta $d018
+}
 }
     ldx #1
 	stx undo_state_available
@@ -2062,6 +2067,11 @@ do_restore_undo
 	lda $d506
 	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
 	sta $d506
+
+!ifdef CUSTOM_FONT {
+	lda #$17 ; 0001 011X = $0400 $1800
+	sta $d018
+}
 }
 
 	jsr .swap_pointers_for_save
@@ -2133,6 +2143,10 @@ do_restore_undo
 
 	ldx COLS_40_80
 	bne .no_screen_copying_from_reu
+!ifdef CUSTOM_FONT {
+	lda #$12 ; 0001 001X = $0400 $0800
+	sta $d018
+}
 	; Copy screen memory contents from REU to bank 1 to avoid ugly flicker of garbage
 	jsr .setup_copy_screen
 	lda #%10110001;  REU -> c64 with immediate execution
