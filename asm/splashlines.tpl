@@ -23,8 +23,19 @@ splashline5
 		!pet " ",0
 	}
 }
+!ifdef UNDO {
+!ifndef Z5PLUS {
+SHOWUNDO=1
+}
+}
+
 splashline6
+!ifdef SHOWUNDO {
+	!pet " Ctrl: D=Reset device# K=Key rpt U=Undo",0
+} else {
 	!pet "   Ctrl: D=Reset device# K=Key repeat",0
+}
+
 splashline7
 !ifdef SMOOTHSCROLL {
 	!pet "  0-8=Scroll slowness, 9=Smooth scroll",0
