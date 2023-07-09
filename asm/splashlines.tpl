@@ -7,7 +7,11 @@ splashline2
 splashline3
 	!pet "@3s@", 0
 splashline4
+!ifdef UNDO {
+	!pet "          Ozmoo @vs@ with Undo",0
+} else {
 	!pet "               Ozmoo @vs@",0
+}
 
 splashline5
 !ifndef NODARKMODE {

@@ -74,19 +74,28 @@ However, really large games may use two Story disks. Such games can only be play
 # Copying
 An Ozmoo game stores data directly onto the floppy disk in addition to files. Because of this, it is not possible to copy a game to a new floppy by just copying files. If you want to make a copy you need to use a copy program that copies the whole disk, sectors by sector.
 
+# Ozmoo and REUs
+Ozmoo for C64 and C128 can use a RAM expansion unit (REU). This is what happens when the game starts, if an REU is detected:
+* Ozmoo asks if you want to use the REU for faster play. If you answer Yes, space is reserved for caching the entire game in the REU. This reserves 1-8 64 KB banks in the REU.
+* If Ozmoo was built with Undo support, and there's a free 64 KB bank in the REU, one such bank is reserved for Undo.
+* If Ozmoo was built with Scrollback support, and there's a free 64 KB bank in the REU, one such bank is reserved for Scrollback.
+
+Additionally, an REU can be used instead of a second floppy drive when playing very large games that would otherwise need dual floppy drives, as described in the "Large games" section above.
+
 # Using an REU for faster gameplay
-Ozmoo for C64 and C128 can use a RAM expansion unit (REU) to cache story data. This makes gameplay faster, but the game will take longer to start. 
+Ozmoo for C64 and C128 can use an REU to cache story data. This makes gameplay faster, but the game will take longer to start. 
 
 If Ozmoo detects an REU at startup, and it's big enough to hold all game data, Ozmoo will ask if you want to use the REU for faster play. If the REU is 512 KB or more, any game will fit.
 
-An REU can be used instead of a second floppy drive when playing very large games that would otherwise need dual floppy drives, as described in the "Large games" section above.
+# Undo
+Ozmoo can be built with support for Undo, meaning the player can revert the effects of their last move in a game. This feature is available on the MEGA65, the C64 with an REU and the C128 with an REU. If the game uses Z-code version 5 or higher, the game needs to provide an UNDO command (which most version 5+ games do). For version 1-4, Ozmoo provides Ctrl-U as a hotkey to perform undo - this can be pressed at a text prompt only. If no REU is detected, or there's no room for an undo buffer in the REU, Ozmoo will print a message saying undo is not available.
 
 # Scrollback buffer
-Ozmoo has an optional feature called Scrollback buffer. , which can be used on the MEGA65, on a C64 with an REU, or on a C128 with an REU. This allows you to press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown. On the C64 and C128, this may require an REU, or the person building the game chose to reserve a bit of RAM for the scrollback buffer.
+Ozmoo has an optional feature called Scrollback buffer, which can be used on all platforms. With the Scrollback feature enabled, you can press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown, and Enter to exit scrollback mode. 
 
-If Ozmoo was built with this feature, the splash screen will say "F5=Scrollback". If you have an REU, it will then ask if you want to use the REU for faster gameplay. If you answer Yes, part of the REU memory or all of it will be reserved for storing game data. If there is enough room left for a scrollback buffer, or the game was built with some RAM reserved for scrollback buffer, the scrollback feature will work. If not, you will get a message saying "Scrollback not available.".
+On the C64 and C128, scrollback can either be built to work with an REU only, or it can reserve a buffer in RAM as well. On the MEGA65 and Plus/4, it always uses a RAM buffer. If Ozmoo was built to work only with an REU, and no REU is detected, or there is no room for a scrollback buffer in the REU, Ozmoo will print a message saying scrollback isn't available.
 
-If you have a smaller REU, you may have to choose whether you want to use it for caching game data or to keep a scrollback buffer. If you answer No to the question at the beginning, or you don't get the question because the REU is too small to hold the game data, the scrollback buffer will be available.
+If Ozmoo was built with this feature, the splash screen will say "F5=Scrollback".
 
 # Patched games
 
