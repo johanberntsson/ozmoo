@@ -138,6 +138,14 @@ The story file is read piece by piece by mapping the program counter to the corr
 
 disk.asm also contains save and restore functionality. The main functions are do_save and do_restore. The save files are normal files that contain some important internal variables such as the program counter, the Z-machine stack, and the dynmem part of the RAM.
 
+# Undo
+
+If extra memory is available then it can be used to support undo for games that probe for this functionality. This is currently supported for C64 and C128 with a RAM Expansion Unit (REU), and for the MEGA65. To enable undo support the make.rb script should be called with the -u switch. If undo is enabled and the header has the undo flag set, then Ozmoo checks for available memory. If not found, then the undo header flag is cleared, and an error message is shown.
+
+When undo support is active then the current game state (the stack, dynamic memory and some variables) are copied into the undo buffer before a new command is read from the user. This is similar to the save command, but saves to memory instead of saving to a file. If the user gives the undo command, then the state (dynamic memory, stack etc.) is instead copied from the undo buffer, and the execution continues from the saved state, undoing the previous turn.
+
+The main functions for undo are do_save_undo and do_restore_undo in disk.asm. As in Frotz, a hotkey (Ctrl-U) has been added to enable undo support for z3 games, even if official undo support is only available for z5 and upwards. The hotkey handling code is found in text.asm.
+
 # Screenkernal 
 
 Screenkernal, implemented in screenkernal.asm, is a replacement for the
