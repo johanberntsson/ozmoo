@@ -6,8 +6,8 @@ splash_line_y
 	ldx splash_index_line,y
 	lda splash_index_col,y
 !ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	clc
 	adc #20
 +

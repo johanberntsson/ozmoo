@@ -442,8 +442,8 @@ scrollback_colour_backup_page !byte $fc,0
 init_reu_scrollback
 !ifndef TARGET_PLUS4 {
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .is_80_col
+	bit COLS_40_80
+	bmi .is_80_col
 	; 40 column -> Set new values for some constants
 	lda #4
 	sta scrollback_prebuffer_pages_final
@@ -462,13 +462,6 @@ init_reu_scrollback
 .is_80_col
 }
 	lda scrollback_bank
-	; !ifdef TARGET_C128 {
-		; ldx COLS_40_80
-		; beq +
-		; ; In 80 column mode we don't need the second bank (used for VIC screen data backup)
-		; lda scrollback_bank
-; +
-	; }
 	cmp reu_banks
 	bcs .no_reu_space_for_scrollback
 	dec scrollback_supported ; Set to $ff = supported
@@ -530,8 +523,8 @@ init_scrollback_ram_buffer
 }
 
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq .ram_buf_40_col
+	bit COLS_40_80
+	bpl .ram_buf_40_col
 	lda #<(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80)
 	sta scrollback_max_line_count
 	lda #>(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80)
@@ -848,8 +841,8 @@ copy_line_to_scrollback
 ;	sta allow_2mhz_in_40_col
 ;	sta reg_2mhz	;CPU = 1MHz
 
-	ldx COLS_40_80
-	beq .copy_40_col
+	bit COLS_40_80
+	bpl .copy_40_col
 	; 80 column -> Get characters from VDC
 	ldy #79
 -	
@@ -923,8 +916,8 @@ launch_scrollback
 ;	sta allow_2mhz_in_40_col
 ;	sta reg_2mhz	;CPU = 1MHz
 
-	ldx COLS_40_80
-	beq .bak_copy_40_col
+	bit COLS_40_80
+	bpl .bak_copy_40_col
 	; 80 column -> Get characters from VDC
 	; colours
 	ldx #VDC_COLORS
@@ -1176,8 +1169,8 @@ launch_scrollback
 	pla
 	ldy #3
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	iny
 +
 }
@@ -1197,8 +1190,8 @@ launch_scrollback
 	; ; Copy 24 lines of text to screen ($1050 in VDC or SCREEN_ADDRESS + 40 for VIC)
 	
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq .copy_screenful_40
+	bit COLS_40_80
+	bpl .copy_screenful_40
 
 	; Copy 24 * 80 (= 8 * 240) characters from REU to VDC
 
@@ -1310,8 +1303,8 @@ launch_scrollback
 .done
 	; ; Restore screen and color RAM pointers from safe place
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq .restore_copy_40_col
+	bit COLS_40_80
+	bpl .restore_copy_40_col
 	; 80 column -> Change pointers in VDC
 	lda z_operand_value_low_arr + 5 ; Background colour
 	jsr VDCInit

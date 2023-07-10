@@ -231,8 +231,8 @@ copy_page_from_reu
 restore_2mhz
 	lda #1
 	sta allow_2mhz_in_40_col
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	lda use_2mhz_in_80_col
 	sta reg_2mhz	;CPU = 2MHz
 +

@@ -102,8 +102,8 @@ vdc_vic_colours = $ce5c ; The official conversion table in ROM
 
 C128SetBackgroundColour
 	stx .stored_x_or_y
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	sta .stored_a
 	tax
@@ -118,8 +118,8 @@ C128SetBackgroundColour
 
 C128SetBorderColour
 	stx .stored_x_or_y
-	ldx COLS_40_80
-	bne + ; no border in VDC, only use background
+	bit COLS_40_80
+	bmi + ; no border in VDC, only use background
 	; 40 column mode
 	sta reg_bordercolour
 +	ldx .stored_x_or_y
@@ -261,8 +261,8 @@ s_init
 	; set up screen_width and screen_width_minus_one
 !ifdef TARGET_C128 {
 	lda #40
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	lda #80
 +
@@ -332,8 +332,8 @@ s_delete_cursor
 }
 	lda #$20 ; blank space
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	jmp VDCPrintChar
 +
 }
@@ -392,8 +392,8 @@ s_printchar
 	lda #$20
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .col80_1
+	bit COLS_40_80
+	bmi .col80_1
 	; 40 columns, use VIC-II screen
 	sta (zp_screenline),y
 	lda s_colour
@@ -468,8 +468,8 @@ s_printchar
 	pla
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .col80_2
+	bit COLS_40_80
+	bmi .col80_2
 	; 40 columns, use VIC-II screen
 	sta (zp_screenline),y
 	lda s_colour
@@ -516,8 +516,8 @@ s_printchar
 	jmp .printchar_end
 +
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .col80_3
+	bit COLS_40_80
+	bmi .col80_3
 	; 40 columns, use VIC-II screen
 	jsr .s_scroll
 	jmp .col80_3_end
@@ -571,8 +571,8 @@ s_printchar
 	sta zp_screencolumn
 	inc zp_screenrow
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .col80_4
+	bit COLS_40_80
+	bmi .col80_4
 	; 40 columns, use VIC-II screen
 	jsr .s_scroll
 	jmp .col80_4_end
@@ -648,8 +648,8 @@ s_erase_window
 	asl
 	rol product + 1 ; 40x
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq ++
+	bit COLS_40_80
+	bpl ++
 	asl
 	rol product + 1
 ++
@@ -939,8 +939,8 @@ s_erase_line
 	ldy #0
 .erase_line_from_any_col	
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .col80_5
+	bit COLS_40_80
+	bmi .col80_5
 	; 40 columns, use VIC-II screen
 -	cpy s_screen_width
 	bcs .done_erasing
@@ -1093,8 +1093,8 @@ update_cursor
     rts
 +++ ; cursor
 !ifdef TARGET_C128 {
-    ldx COLS_40_80
-    beq +
+	bit COLS_40_80
+	bpl +
     ; 80 columns
     lda cursor_character
     jsr VDCPrintChar
@@ -1140,8 +1140,8 @@ toggle_darkmode
 	ldy fgcol,x
 	lda zcolours,y
 !ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	tay
 	lda vdc_vic_colours,y
@@ -1160,8 +1160,8 @@ toggle_darkmode
 	ldy inputcol,x
 	lda zcolours,y
 !ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	tay
 	lda vdc_vic_colours,y
@@ -1195,8 +1195,8 @@ toggle_darkmode
 	ldy inputcol,x
 	lda zcolours,y
 !ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	tay
 	lda vdc_vic_colours,y
@@ -1219,8 +1219,8 @@ toggle_darkmode
 	sta z_temp + 6 ; New foreground colour, as C64 colour 
 	jsr s_set_text_colour
 !ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	tay
 	lda vdc_vic_colours,y
@@ -1274,8 +1274,8 @@ toggle_darkmode
 	ldy statuslinecol,x
 	lda zcolours,y
 !ifdef TARGET_C128 {
-	ldy COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode selected
 	tay
 	lda vdc_vic_colours,y
@@ -1288,8 +1288,8 @@ toggle_darkmode
 	ldy s_screen_width_minus_one
 -
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne +
+	bit COLS_40_80
+	bmi +
 	sta COLOUR_ADDRESS,y
 	jmp ++
 +
@@ -1363,8 +1363,8 @@ toggle_darkmode
 ; }
 !ifdef TARGET_C128 {
 	pha
-	lda COLS_40_80
-	bne +
+	bit COLS_40_80
+	bmi +
 	pla
 	sta (z_temp + 10),y
 	jmp ++

@@ -915,8 +915,8 @@ list_save_files
 	bne .not_a_save_file ; Since there is another save file with the same number, we ignore this file.
 
 !ifdef TARGET_C128 {
-	lda COLS_40_80
-	bne +++
+	bit COLS_40_80
+	bmi +++
 }
 ; Set the first 40 chars of each row to the current text colour	
 	lda s_colour
@@ -966,8 +966,8 @@ list_save_files
 	bne +
 
 !ifdef TARGET_C128 {
-	lda COLS_40_80
-	bne +++
+	bit COLS_40_80
+	bmi +++
 }
 ; Set the first 40 chars of each row to the current text colour	
 	lda s_colour
@@ -1007,8 +1007,8 @@ list_save_files
 	; Parameters: x, .sort_item: item (1-9)
 	stx .current_item
 !ifdef TARGET_C128 {
-    lda COLS_40_80
-    bne vdc_insertion_sort
+    bit COLS_40_80
+    bmi vdc_insertion_sort
 }
 --	jsr .calc_screen_address
 	stx zp_temp + 2
@@ -2123,8 +2123,8 @@ do_restore_undo
 	rts
 	
 .setup_transfer_dynmem
-	ldx COLS_40_80
-	bne .no_screen_copying_to_reu
+	bit COLS_40_80
+	bmi .no_screen_copying_to_reu
 	; Copy screen memory to REU (and later to bank 1, to avoid ugly flicker of garbage)
 	jsr .setup_copy_screen
 	
@@ -2141,8 +2141,8 @@ do_restore_undo
 	ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
 	sta $d506
 
-	ldx COLS_40_80
-	bne .no_screen_copying_from_reu
+	bit COLS_40_80
+	bmi .no_screen_copying_from_reu
 !ifdef CUSTOM_FONT {
 	lda #$12 ; 0001 001X = $0400 $0800
 	sta $d018

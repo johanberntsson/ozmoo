@@ -487,8 +487,8 @@ show_more_prompt
 	jsr clear_num_rows
 
 !ifdef TARGET_C128 {
-    ldx COLS_40_80
-    beq +
+    bit COLS_40_80
+    bpl +
     ; 80 columns
 	jsr vdc_show_more
 	jmp .alternate_colours
@@ -520,8 +520,8 @@ show_more_prompt
 	jsr colour2k
 }
 !ifdef TARGET_C128 {
-    lda COLS_40_80
-    bne .check_for_keypress
+    bit COLS_40_80
+    bmi .check_for_keypress
     ; Only show more prompt in C128 VIC-II screen
 }
 .more_access3
@@ -543,8 +543,8 @@ show_more_prompt
 +
 }
 !ifdef TARGET_C128 {
-    ldx COLS_40_80
-    beq +
+    bit COLS_40_80
+    bpl +
     ; 80 columns
 	jsr vdc_hide_more
 	jmp .increase_num_rows_done
@@ -607,8 +607,8 @@ printchar_flush
 print_line_from_buffer
 	; Prints the text from first_buffered_column to last_break_char_buffer_pos
 !ifdef TARGET_C128 {
-	lda COLS_40_80
-	bne +
+	bit COLS_40_80
+	bmi +
 	jmp .printline40
 
 +	lda zp_screenline + 1

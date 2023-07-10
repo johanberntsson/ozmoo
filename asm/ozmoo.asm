@@ -900,8 +900,8 @@ game_id		!byte 0,0,0,0
 	sta $ff00
 !if SPLASHWAIT > 0 {
 !ifdef SMOOTHSCROLL {
-	lda COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	lda #<splashline7alt
 	sta splash_index_lb + 7
 	lda #>splashline7alt
@@ -993,8 +993,8 @@ game_id		!byte 0,0,0,0
 !ifdef TARGET_C128 {
 !ifdef CUSTOM_FONT {
 !ifdef UNDO {
-	ldx COLS_40_80
-	bne +
+	bit COLS_40_80
+	bmi +
 	bit reu_bank_for_undo
 	bmi +
 	jsr c128_copy_font_to_bank_1
@@ -1058,8 +1058,8 @@ game_id		!byte 0,0,0,0
 	; this needs to be after the z_init call since 
 	; z_init uses SID to initialize the random number generator
 	; and SID doesn't work in fast mode.
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode
 	; switch to 2MHz
 	lda #use_2mhz_in_80_col_in_game_value
@@ -1451,8 +1451,8 @@ deletable_screen_init_1
 
 !ifndef Z4PLUS {
 	!ifdef TARGET_C128 {
-		lda COLS_40_80
-		beq .width40
+		bit COLS_40_80
+		bpl .width40
 		; 80 col
 		lda #54
 		sta sl_score_pos
