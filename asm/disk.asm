@@ -545,7 +545,6 @@ insert_msg_3
 !pet " [ENTER] ",0
 }
 
-
 !ifdef RESTART_SUPPORTED {
 z_ins_restart
 	; insert device# for boot disk in LOAD command
@@ -627,12 +626,22 @@ z_ins_restart
 	+disable_interrupts
 	cld
 !ifdef TARGET_C128 {
+	lda COLS_40_80
+	sta first_unavailable_save_slot_charcode
 	lda #0
 	sta c128_mmu_cfg
 }
 	jsr $ff8a ; restor (Fill vector table at $0314-$0333 with default values)
 	jsr $ff84 ; ioinit (Initialize CIA's, SID, memory config, interrupt timer)
 	jsr $ff81 ; scinit (Initialize VIC; set nput/output to keyboard/screen)
+!ifdef TARGET_C128 {
+	lda COLS_40_80
+	cmp first_unavailable_save_slot_charcode
+	beq +
+	jsr kernal_jswapper
++
+}
+
 	+enable_interrupts
 !ifdef TARGET_C128 {
 	sta c128_mmu_load_pcra

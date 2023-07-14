@@ -12,6 +12,7 @@ Bugfixes:
 - Picture loader gave build error.
 - Fix buggy printing when erase_window was called while buffered printing was active.
 - Don't recognize F5 key if there's no REU or RAM available for scrollback.
+- Ozmoo on C128 would boot into 80 column mode when game restarted in 40 column mode.
 
 Refactoring:
 - Moved cursor code from text.asm to screenkernal.asm.
