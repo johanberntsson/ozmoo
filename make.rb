@@ -2006,7 +2006,7 @@ def print_usage
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
-	puts "         [-u[:0|1]] <storyfile>"
+	puts "         [-u[:0|1|r]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2044,7 +2044,7 @@ def print_usage
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
-	puts "  -u: Add support for UNDO. Enabled by default for MEGA65."
+	puts "  -u: Add support for UNDO. Enabled by default for MEGA65. Use -u:r for RAM buffer (C128 only)"
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2099,6 +2099,7 @@ $no_sector_preload = nil
 $file_name = 'story'
 custom_file_name = nil
 $undo = nil
+$undo_ram = nil
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
@@ -2214,9 +2215,12 @@ begin
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
-		elsif ARGV[i] =~ /^-u(?::([01]))?$/ then
+		elsif ARGV[i] =~ /^-u(?::([01r]))?$/ then
 			if $1 == nil
 				$undo = 1
+			elsif $1 == 'r'
+				$undo = 1
+				$undo_ram = 1
 			else
 				$undo = $1.to_i
 			end
@@ -2722,12 +2726,27 @@ end
 $undo = 2 if ($undo == nil and $target == 'mega65') # undo is enabled by default on MEGA65
 $undo = 0 if $undo == nil
 
+undo_size = $dynmem_blocks * $VMEM_BLOCKSIZE + ($stack_pages + 1) * 256
+max_dynmem_for_ram_undo = 18 # 18 KB dynmem is a good limit to keep a decent speed and vmem size. Up to 28 KB is possible.
+max_ram_undo_size = (max_dynmem_for_ram_undo + 1) * 1024 + 256 # dynmem + stack + 256 bytes for ZP-vars 
+
 if $undo > 0
-	if $target !~ /c64|c128|mega65/
+	if $target !~ /^(c64|c128|mega65)$/
 		puts "ERROR: Undo is only supported for the MEGA65, C64 and C128 target platforms."
 		exit 1
 	end
-	if $dynmem_blocks * ($VMEM_BLOCKSIZE / 256) + $stack_pages + 1 > 256
+	if $undo_ram == 1
+		$GENERALFLAGS.push('UNDO_RAM')
+		if $target !~ /^c128$/ 
+			puts "ERROR: Undo RAM buffer is only supported for the C128 target platform."
+			exit 1
+		elsif undo_size > max_ram_undo_size
+			puts "ERROR: Undo size (dynmem + stack + 1 page) too big for Undo RAM buffer. Undo size is #{undo_size} bytes" +
+				", while maximum allowed size is #{max_ram_undo_size} bytes."
+			exit 1
+		end
+	end
+	if undo_size > 64*1024
 		if $undo == 1
 			puts "ERROR: Dynmem + stack too large to support UNDO."
 			exit 1

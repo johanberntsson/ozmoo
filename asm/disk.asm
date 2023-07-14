@@ -1272,17 +1272,6 @@ restore_game
 	jsr restore_2mhz
 	; Copy stack and pointers from bank 1 to bank 0
 	jsr .copy_stack_and_pointers_to_bank_0
-	; z_temp + 4 now holds the page# where the zp registers are stored in vmem_cache
-	lda #(>stack_start) - 1
-	sta z_temp + 2
-	lda #($100 - zp_bytes_to_save)
-	sta z_temp + 1
-	sta z_temp + 3
-	ldy #zp_bytes_to_save - 1
--	lda (z_temp + 3),y
-	sta (z_temp + 1),y
-	dey
-	bpl -
 }
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
@@ -1767,7 +1756,19 @@ do_save
 	dec z_temp + 1
 	dec z_temp + 2
 	bne - ; Always branch
-+	rts
++	
+	; z_temp + 4 now holds the page# where the zp registers are stored in vmem_cache
+	lda #(>stack_start) - 1
+	sta z_temp + 2
+	lda #($100 - zp_bytes_to_save)
+	sta z_temp + 1
+	sta z_temp + 3
+	ldy #zp_bytes_to_save - 1
+-	lda (z_temp + 3),y
+	sta (z_temp + 1),y
+	dey
+	bpl -
+	rts
 
 }	
 
@@ -1881,7 +1882,10 @@ reu_bank_for_undo
 !ifdef TARGET_MEGA65 {
 	!byte $00 ; $00 means it's supported by default. May be changed to $ff at boot.
 } else {
-	!byte $ff ; $ff means don't use REU for undo. May be changed to $ff at boot.
+	!byte $ff 	; $ff means no undo. May be changed at boot. Meaning:
+				; Bit 7: Undo disabled?
+				; Bit 6: Undo (if enabled) uses a RAM buffer?
+				; Bit 0-5: REU bank for undo, if enabled and doesn't use a RAM buffer
 }
 
 ; we provide basic undo support for z3 as well through a hot key
@@ -2000,9 +2004,17 @@ do_restore_undo
 } else {
 	; Not MEGA65, so this is for C64/C128
 
+!ifdef UNDO_RAM {
+ram_undo_page !byte $ff ; Set during init, if RAM undo is to be used
+vmap_entries_reserved !byte 0 ; Changed during init, if RAM undo is to be used
+}
+
 do_save_undo
 	bit reu_bank_for_undo
 	bmi .save_undo_done
+!ifdef UNDO_RAM {
+	bvs save_undo_in_ram
+}
     ; prepare saving of zp variables
 	jsr .swap_pointers_for_save
 
@@ -2040,7 +2052,74 @@ do_save_undo
 .save_undo_done
 	rts
 
+!ifdef UNDO_RAM {
+	; This is a C128 only option, so code is C128 specific
+save_undo_in_ram
+	jsr .swap_pointers_for_save
+
+	; Copy zp + stack to bank 1
+	jsr .copy_stack_and_pointers_to_bank_1
+
+	; Copy zp + stack + dynmem to undo RAM
+	lda #(>story_start_far_ram) - (>stack_size) - 1
+	sta z_temp + 1 ; Source page
+	lda ram_undo_page
+	sta z_temp + 2 ; Destination page
+	lda #(>stack_size) + 1
+	clc
+	adc nonstored_pages
+	sta z_temp + 3 ; # of pages to copy
+-	lda z_temp + 1
+	ldy z_temp + 2
+	ldx #1 ; Copy within bank 1
+	jsr copy_page_c128 ; Copy a page
+	inc z_temp + 1
+	inc z_temp + 2
+	dec z_temp + 3
+	bne -
+	
+	jsr .swap_pointers_for_save
+    ldx #1
+	stx undo_state_available
+	rts
+
+restore_undo_from_ram
+	jsr .swap_pointers_for_save
+
+	; Copy zp + stack + dynmem from undo RAM
+	lda ram_undo_page
+	sta z_temp + 1 ; Source page
+	lda #(>story_start_far_ram) - (>stack_size) - 1
+	sta z_temp + 2 ; Destination page
+	lda #(>stack_size) + 1
+	clc
+	adc nonstored_pages
+	sta z_temp + 3 ; # of pages to copy
+-	lda z_temp + 1
+	ldy z_temp + 2
+	ldx #1 ; Copy within bank 1
+	jsr copy_page_c128 ; Copy a page
+	inc z_temp + 1
+	inc z_temp + 2
+	dec z_temp + 3
+	bne -
+
+	; Copy zp + stack to bank 0
+	jsr .copy_stack_and_pointers_to_bank_0
+
+	jmp .finalize_restore_undo
+	; jsr .swap_pointers_for_save
+	; jsr get_page_at_z_pc
+    ; ldx #0
+	; stx undo_state_available
+	; rts
+}
+
 do_restore_undo
+!ifdef UNDO_RAM {
+	bit reu_bank_for_undo
+	bvs restore_undo_from_ram ; Bit 7 is always clear if we get here, so just need to check bit 6 
+}
 	; restore zp variables + stack
     ; source address ($50000)
 	jsr .swap_pointers_for_save
@@ -2074,6 +2153,7 @@ do_restore_undo
 }
 }
 
+.finalize_restore_undo
 	jsr .swap_pointers_for_save
 	jsr get_page_at_z_pc
 

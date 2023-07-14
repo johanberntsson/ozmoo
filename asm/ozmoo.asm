@@ -995,8 +995,9 @@ game_id		!byte 0,0,0,0
 !ifdef UNDO {
 	bit COLS_40_80
 	bmi +
-	bit reu_bank_for_undo
-	bmi +
+	lda reu_bank_for_undo
+	cmp #$7f ; $7f = undo in RAM, $80+ = no undo
+	bcs +
 	jsr c128_copy_font_to_bank_1
 +
 }
@@ -1010,8 +1011,9 @@ game_id		!byte 0,0,0,0
 ;		bcs +
 .store_bank_number
 		!ifdef UNDO {
-			bit reu_bank_for_undo
-			bmi .no_undo_reu_bank
+			lda reu_bank_for_undo
+			cmp #$7f ; $7f = undo in RAM, $80+ = no undo
+			bcs .no_undo_reu_bank
 			inx
 .no_undo_reu_bank
 		}
@@ -1213,6 +1215,50 @@ c128_setup_mmu
 	bne -
 	rts
 
+!ifdef UNDO_RAM {
+; Setup a RAM buffer for Undo
+undo_ram_setup
+	bit reu_bank_for_undo
+	bpl + ; An REU bank has already been assigned
+	; Check if undo fits in bank 1
+	jsr calc_dynmem_size
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcs + ; Dynmem + stack + ZP > 64 KB, so no way to fit in RAM buffer
+	sta object_temp
+	adc nonstored_pages
+	; adc story_start + header_static_mem
+	; bcs +
+	; ldy story_start + header_static_mem + 1
+	; beq +++
+	; clc
+	; adc #1
+	bcs +
++++	adc #>story_start_far_ram
+	bcs +
+	cmp #VMEM_END_PAGE
+	bcs +
+	lda #VMEM_END_PAGE
+	sec
+	sbc object_temp
+	sta ram_undo_page
+	; Decrease vmem size
+	lda object_temp
+	lsr ; Divide by 2 to get # of VMEM blocks
+	bcc ++
+	adc #0 ; Adds one since C=1 (for when undo size is e.g. 20.5 VMEM blocks)
+++	sta vmap_entries_reserved
+	; lda vmap_max_entries
+	; sec
+	; sbc object_temp + 1
+	; sta vmap_max_entries
+	ldy #$7f
+	sty reu_bank_for_undo ; Special value $7f means undo uses RAM buffer
++
+	rts
+}
+
 c128_move_dynmem_and_calc_vmem
 	; Copy dynmem to bank 1
 	lda #>story_start
@@ -1278,7 +1324,13 @@ c128_move_dynmem_and_calc_vmem
 	sec
 	sbc vmap_first_ram_page_in_bank_1
 	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
+!ifdef UNDO_RAM {
+	sec
+	sbc vmap_entries_reserved
+	clc
+}
 	; Now A holds the # of vmem blocks we can fit in bank 1
+
 	adc first_vmap_entry_in_bank_1 ; Add the # of vmem blocks in bank 0
 	cmp #vmap_max_size
 	bcc +
@@ -1354,6 +1406,14 @@ print_no_undo
 	!pet "Undo not available",13,13,0
 }
 
+!ifdef TARGET_MEGA65 {
+NEED_CALC_DYNMEM = 1
+}
+!ifdef VMEM {
+NEED_CALC_DYNMEM = 1
+}
+
+!ifdef NEED_CALC_DYNMEM {
 calc_dynmem_size
 	; Store the size of dynmem AND (if VMEM is enabled)
 	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
@@ -1370,21 +1430,25 @@ calc_dynmem_size
 	stx dynmem_size
 	sta dynmem_size + 1
 	
-!ifdef TARGET_MEGA65 {
+;!ifdef TARGET_MEGA65 {
 	tay
 	cpx #0
 	beq .maybe_inc_nonstored_pages
 	iny ; Add one page if statmem doesn't start on a new page ($xx00)
 .maybe_inc_nonstored_pages
 	tya
-;	and #vmem_indiv_block_mask ; keep index into kB chunk
+!ifdef TARGET_MEGA65 {
 	and #%00000001 ; keep index into kB chunk
+} else {
+	and #vmem_indiv_block_mask ; keep index into kB chunk
+}
 	beq .store_nonstored_pages
 	iny
 .store_nonstored_pages
 	sty nonstored_pages
-}
+;}
 	rts
+}
 
 	
 program_end
@@ -1793,7 +1857,6 @@ deletable_init
 	lda #0
 	sta key_repeat
 
-
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu
 }
@@ -2021,18 +2084,20 @@ deletable_init
 }
 	
 !ifdef VMEM {
-	tay
-	cpx #0
-	beq .maybe_inc_nonstored_pages
-	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_pages
-	tya
-	and #vmem_indiv_block_mask ; keep index into kB chunk
-	beq .store_nonstored_pages
-	iny
-.store_nonstored_pages
-	sty nonstored_pages
-	tya
+	; tay
+	; cpx #0
+	; beq .maybe_inc_nonstored_pages
+	; iny ; Add one page if statmem doesn't start on a new page ($xx00)
+; .maybe_inc_nonstored_pages
+	; tya
+	; and #vmem_indiv_block_mask ; keep index into kB chunk
+	; beq .store_nonstored_pages
+	; iny
+; .store_nonstored_pages
+	; sty nonstored_pages
+	; tya
+	lda nonstored_pages
+	
 	clc
 	adc #>story_start
 	sta vmap_first_ram_page
@@ -2048,6 +2113,7 @@ deletable_init
 	bcc ++
 	lda #vmap_max_size
 ++
+
 !ifdef VMEM_STRESS {
 	lda #2 ; one block for PC, one block for data
 }
@@ -2423,6 +2489,9 @@ reu_start
 	jsr s_printchar
 .no_reu_present
 !ifdef UNDO {
+!ifdef UNDO_RAM {
+	jsr undo_ram_setup
+}
 	bit reu_bank_for_undo
 	bpl +
 	jmp print_no_undo
