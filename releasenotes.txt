@@ -2,10 +2,14 @@ RELEASE NOTES
 
 Upcoming release
 
+-
+
+================================================
+Release 13: 18 July 2022
+
 New/changed features:
 
-- Single step undo is supported for z5+ on C64/C128 with REU, C128 without REU (slower, and with limited dynmem size), and on MEGA65.
-- Single step undo using hotkey Ctrl-U is supported for z1-z4 on C64/C128 with REU and on MEGA65.
+- Single step undo is supported for z5+ (using UNDO command) and for z1-z4 (using Ctrl-U key) on C64/C128 with REU, C128 without REU (slower, and with limited dynmem size), and on MEGA65.
 
 Bugfixes:
 
