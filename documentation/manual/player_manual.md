@@ -76,6 +76,7 @@ An Ozmoo game stores data directly onto the floppy disk in addition to files. Be
 
 # Ozmoo and REUs
 Ozmoo for C64 and C128 can use a RAM expansion unit (REU). This is what happens when the game starts, if an REU is detected:
+
 * Ozmoo asks if you want to use the REU for faster play. If you answer Yes, space is reserved for caching the entire game in the REU. This reserves 1-8 64 KB banks in the REU.
 * If Ozmoo was built with Undo support, and there's a free 64 KB bank in the REU, one such bank is reserved for Undo.
 * If Ozmoo was built with Scrollback support, and there's a free 64 KB bank in the REU, one such bank is reserved for Scrollback.

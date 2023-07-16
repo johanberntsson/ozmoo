@@ -471,9 +471,10 @@ enable it use -ch or -ch:1. This will allocate a history buffer large enough to 
 # Scrollback buffer
 
 Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. This feature uses an REU if available on C64 or C128, and AtticRAM on MEGA65. Optionally, it can use a smaller portion of RAM on Plus/4 as well as C64 or C128 without REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0. Add a RAM buffer on Plus/4, C64 or C128 with -sb:6|8|10|12.
+
 # Undo
 
-This feature allows the game state to be saved to memory and turns to be undone, if enough extra memory is available. Undo support is enabled with -u. It is enabled by default on the MEGA65, and is available for C64 and C128 computers that use a RAM Expansion Unit.
+This feature allows the game state to be saved to memory and turns to be undone, if enough extra memory is available. Undo support is enabled with -u. It is enabled by default on the MEGA65, and is available for C64 and C128 computers that use a RAM Expansion Unit. For C128 only, there is also an option to use undo without a REU by allocating some of the RAM as an undo buffer. This is enabled by -u:r.
 
 In addition to the standard undo support for z5+ games, Ozmoo adds a keyboard shortcut (Ctrl-u) to enable undo for z3 games.
 
