@@ -474,9 +474,11 @@ Allows the player to press F5 to enter scrollback mode, where they can scroll up
 
 # Undo
 
-This feature allows the game state to be saved to memory and turns to be undone, if enough extra memory is available. Undo support is enabled with -u. It is enabled by default on the MEGA65, and is available for C64 and C128 computers that use a RAM Expansion Unit. For C128 only, there is also an option to use undo without a REU by allocating some of the RAM as an undo buffer. This is enabled by -u:r.
+This feature allows the game state to be saved to memory each turn, so the player can undo the last turn. It is enabled by default on the MEGA65, and is available for C64 and C128 computers that use a RAM Expansion Unit. For C128 only, there is also an option to use undo without requiring an REU, by allocating some of the RAM as an undo buffer.
 
-In addition to the standard undo support for z5+ games, Ozmoo adds a keyboard shortcut (Ctrl-u) to enable undo for z3 games.
+In addition to the standard undo support for z5+ games (enabling the UNDO command which many games have), Ozmoo adds a keyboard shortcut (Ctrl-U) to enable undo for z1-z4 games.
+
+To build a game with undo support, use option -u or -u:1. To disabled undo support, use -u:0 (for MEGA65, where it's otherwise enabled by default). Use -u:r to enable undo using REU *and* allocate a RAM buffer to use if no REU is detected (C128 only). 
 
 # Smooth scrolling
 
