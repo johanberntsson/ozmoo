@@ -4,12 +4,14 @@
 
 A Z-machine interpreter for the Commodore 64 and similar computers
 
-Written by Johan Berntsson and Fredrik Ramsberg in 2018-2022
+Written by Johan Berntsson and Fredrik Ramsberg in 2018-2023
 
 ![Mini-Zork I running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
 
 
 ## Status
+
+Update 2023-Jul-18: Release 13 with support for undo on C64 with REU, C128 and MEGA65.
 
 Update 2022-Dec-20: Release 12 with support for smooth scrolling on C64 and C128 in 40 column mode, player-selectable scroll speed and tear-free scrolling, plus optional scrollback buffer in RAM for all platforms.
 
@@ -79,11 +81,11 @@ Ozmoo supports:
 * Custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian, Spanish and French.
 * Custom colour schemes.
 * A fully configurable secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
-* A scrollback buffer, letting the player reread the text that has scrolled off the screen. Requires a MEGA65, a C64 with an REU or a C128 with an REU.
+* Undo, for all Z-code versions, i.e. the player can undo their last move. Requires a C64 with REU, a C128 or a MEGA65.
+* A scrollback buffer, letting the player reread the text that has scrolled off the screen. Can use an REU, or a smaller buffer in RAM.
 * A configurable splash screen which is shown just before the game starts.
-* Up to ten save slots on a save disk (and most games will get the full ten slots).
-* Writing a name for each saves position.
-* Building a Z-code game without virtual memory (C64 and Plus/4 only). This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
+* Named saved game states, with up to ten save slots on a save disk.
+* Building a Z-code game without virtual memory (C64 and Plus/4 only). This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. Save/restore does require a diskdrive. Also, a game built in this mode doesn't support RESTART.
 * Building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator. Ozmoo uses the 1581 disk format's partitioning mechanism to protect the game data from being overwritten, which means you can safely use the game disk for game saves as well, thus eliminating the need for disk swapping when saving/restoring.
 * Using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
 
