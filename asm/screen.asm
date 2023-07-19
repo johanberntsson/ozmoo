@@ -691,7 +691,7 @@ print_line_from_buffer
 }
 	ldy first_buffered_column
 -   cpy last_break_char_buffer_pos
-	beq ++
+	bcs ++
 	lda print_buffer,y
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,y
