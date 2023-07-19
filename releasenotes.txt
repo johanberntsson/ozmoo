@@ -2,9 +2,12 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 13.1: 19 July 2022
+
 Bugfixes:
 
-- Fixed bug in text printing that could crash game, when text buffering was started in the middle of a screen line.
+- Fixed bug in text printing that could crash game, when printing a word longer than a line, or when text buffering was started in the middle of a screen line.
 
 ================================================
 Release 13: 18 July 2022
