@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- make.rb prints a warning if undo support was requested but game is z5-z8 and doesn't support undo.
+
 ================================================
 Release 13.1: 19 July 2022
 

@@ -2676,7 +2676,7 @@ if is_beyondzork
 			patch_data_arr.pack("C*")
 		puts "Successfully patched Beyond Zork story file."
 	else
-		puts "### WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
+		puts "WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
 	end
 end
 
@@ -2695,7 +2695,7 @@ if is_trinity
 			patch_data_arr.pack("C*")
 		puts "Successfully patched Trinity story file."
 	else
-		puts "### WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
+		puts "WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
 	end
 end
 
@@ -2753,6 +2753,9 @@ if $undo > 0
 		else
 			$undo = 0
 		end
+	end
+	if $undo == 1 and $zcode_version > 4 and $story_file_data[0x11].ord & 16 == 0 then
+		puts "WARNING: Games using Z-code version 5-8 need to implement undo functionality in the game, or undo won't work. This game says it doesn't do this, so you could just as well build Ozmoo without undo support, making the interpreter a little smaller."
 	end
 	if $undo > 0
 		$GENERALFLAGS.push('UNDO')
