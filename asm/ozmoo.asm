@@ -2066,7 +2066,9 @@ deletable_init
 
 ; parse_header section
 
+!ifdef NEED_CALC_DYNMEM {
 	jsr calc_dynmem_size
+}
 
 !ifdef TARGET_MEGA65 {
 	bit m65_statmem_already_loaded
