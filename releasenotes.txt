@@ -5,6 +5,8 @@ Upcoming release
 New/changed features:
 - make.rb prints a warning if undo support was requested but game is z5-z8 and doesn't support undo.
 - Build using -P didn't work, probably since v13.0. Fixed.
+- make.rb didn't protest when asked to build with Undo in mode P, though it's not possible. Now it halts with an error.
+- make.rb would sometimes reserve too small a buffer for splash screen in mode P.
 
 ================================================
 Release 13.1: 19 July 2022

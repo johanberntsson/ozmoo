@@ -2010,7 +2010,7 @@ def print_usage
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
-	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start."
+	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -c: read preload config from preloadfile, previously created with -o"
@@ -2404,7 +2404,7 @@ if mode == MODE_P
 	else
 		len = 0
 		splashes.each { |s| len += s.length }
-		if len <= 100
+		if len == 0
 			$CACHE_PAGES = 1 # With this little text, we can go down from 2 pages to 1
 		end
 	end
@@ -2731,6 +2731,10 @@ max_dynmem_for_ram_undo = 18 # 18 KB dynmem is a good limit to keep a decent spe
 max_ram_undo_size = (max_dynmem_for_ram_undo + 1) * 1024 + 256 # dynmem + stack + 256 bytes for ZP-vars 
 
 if $undo > 0
+	if mode == MODE_P
+		puts "ERROR: Undo is not supported for build mode P."
+		exit 1
+	end
 	if $target !~ /^(c64|c128|mega65)$/
 		puts "ERROR: Undo is only supported for the MEGA65, C64 and C128 target platforms."
 		exit 1
