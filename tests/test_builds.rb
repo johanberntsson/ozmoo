@@ -22,7 +22,9 @@ def test_build(storyfile, target, mode, params, outfiles)
 	
 end
 
-test_build('../infocom/minizork.z3', 'c64', 'P', '', {'c64_minizork.d64' => 1})
-test_build('../infocom/minizork.z3', 'plus4', 'S1', '', {'plus4_minizork.d64' => 1})
-test_build('../infocom/minizork.z3', 'c128', '', '', {'c128_minizork.d71' => 1})
-test_build('../infocom/minizork.z3', 'mega65', '', '', {'mega65_minizork.d81' => 1})
+minizork = '../examples/minizork.z3'
+
+test_build(minizork, 'c64', 'P', '', {'c64_minizork.d64' => 1})
+test_build(minizork, 'plus4', 'S1', '', {'plus4_minizork.d64' => 1})
+test_build(minizork, 'c128', '', '', {'c128_minizork.d71' => 1})
+test_build(minizork, 'mega65', '', '', {'mega65_minizork.d81' => 1})
