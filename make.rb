@@ -2990,6 +2990,10 @@ end
 
 case mode
 when MODE_P
+	sizediff = $story_size - $zmachine_memory_size
+	if sizediff >= 256 and sizediff < 512 then
+		$story_size -= 256;
+	end
 	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
 	error = build_P(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S1
