@@ -2,7 +2,10 @@ RELEASE NOTES
 
 Upcoming release
 
-New/changed features:
+================================================
+Release 13.6: 17 November 2023
+
+Bugfixes:
 - make.rb prints a warning if undo support was requested but game is z5-z8 and doesn't support undo.
 - Build using -P didn't work, probably since v13.0. Fixed.
 - make.rb didn't protest when asked to build with Undo in mode P, though it's not possible. Now it halts with an error.
@@ -10,14 +13,14 @@ New/changed features:
 - make.rb couldn't build a mode P game using the full memory if the story file had an odd number of pages, e.g. a game of 51.25 KB couldn't be built even if a 51 KB game left an empty memory page at the end.
 
 ================================================
-Release 13.1: 19 July 2022
+Release 13.1: 19 July 2023
 
 Bugfixes:
 
 - Fixed bug in text printing that could crash game, when printing a word longer than a line, or when text buffering was started in the middle of a screen line.
 
 ================================================
-Release 13: 18 July 2022
+Release 13: 18 July 2023
 
 New/changed features:
 
