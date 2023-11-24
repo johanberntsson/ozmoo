@@ -32,6 +32,37 @@ vmap_buffer_start     = $0334
 vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 }
 
+!ifdef TARGET_X16 {
+basic_reset           = $a000
+SCREEN_HEIGHT         = 60
+SCREEN_WIDTH          = 80
+SCREEN_ADDRESS        = $b000
+COLOUR_ADDRESS        = $b001
+COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
+num_rows 			  = $a6 ; !byte 0
+CURRENT_DEVICE        = $ba
+ti_variable           = $a0; 3 bytes
+keyboard_buff_len     = $c6
+keyboard_buff         = $277
+key_repeat            = $028a
+
+use_reu				  = $9b
+reu_boost_vmap_clock  = $b1
+window_start_row	  = $2a; 4 bytes
+
+
+; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+s_ignore_next_linebreak = $b0 ; 3 bytes
+s_reverse 			  = $b3 ; !byte 0
+
+zp_temp               = $fb ; 5 bytes
+savefile_zp_pointer   = $c1 ; 2 bytes
+first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+reu_filled            = $0255 ; 4 bytes
+vmap_buffer_start     = $0334
+vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+}
+
 !ifdef TARGET_PLUS4 {
 basic_reset           = $8000
 SCREEN_HEIGHT         = 25
@@ -272,6 +303,14 @@ reg_backgroundcolour  = $d021
 rasterline_for_scroll = 250;
 }
 !ifdef TARGET_C64 {
+reg_rasterline_highbit=	$d011
+reg_rasterline        = $d012
+reg_screen_char_mode  = $d018 
+reg_bordercolour      = $d020
+reg_backgroundcolour  = $d021 
+rasterline_for_scroll = 56; 56 works well for PAL and NTSC
+}
+!ifdef TARGET_X16 {
 reg_rasterline_highbit=	$d011
 reg_rasterline        = $d012
 reg_screen_char_mode  = $d018 
