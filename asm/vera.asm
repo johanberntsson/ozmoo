@@ -12,3 +12,10 @@ VERA_L1_config		= $9f34
 VERA_L1_mapbase		= $9f35
 VERA_L1_tilebase	= $9f36
 
+;VRAM_layer1_map   = $1B000
+;VRAM_layer0_map   = $00000
+;VRAM_lowerchars   = $0B000
+;VRAM_lower_rev    = VRAM_lowerchars + 128*8
+;VRAM_petscii      = $1F000
+;VRAM_palette      = $1FA00
+

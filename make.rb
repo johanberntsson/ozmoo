@@ -16,6 +16,7 @@ if $is_windows then
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
+    $X16 = "x16-emulator/x16emu"
     $X64 = "x64 -autostart-delay-random"
     $X128 = "x128 -autostart-delay-random"
     #$X128 = "x128 -80col -autostart-delay-random"
@@ -1027,7 +1028,9 @@ end
 def build_interpreter()
 	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1"
 	necessarysettings +=  " -DCONF_TRK=#{$CONFIG_TRACK}" if $CONFIG_TRACK
-	if $target == 'mega65' then
+	if $target == 'x16' then
+		necessarysettings +=  " --cpu 65c02"
+	elsif $target == 'mega65' then
 		necessarysettings +=  " --cpu m65"
 	else
 		necessarysettings +=  " --cpu 6510"
@@ -1309,7 +1312,9 @@ def add_boot_file(finaldiskname, diskimage_filename)
 end
 
 def play(filename)
-	if $target == "mega65" then
+	if $target == "x16" then
+		command = "#{$X16} -run \"#{filename}\""
+	elsif $target == "mega65" then
 		if defined? $MEGA65 then
 			command = "#{$MEGA65} -8 \"#{filename}\""
 		else
@@ -2007,7 +2012,7 @@ def print_usage
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
 	puts "         [-u[:0|1|r]] <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
+	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
@@ -2136,10 +2141,15 @@ begin
 		elsif ARGV[i] =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
+		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4|x16)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    $start_address = 0x1001
+			elsif $target == "x16" then
+			    $start_address = 0x0801
+				$memory_end_address = 0xa000
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
 			elsif $target == "plus4" then
 			    $start_address = 0x1001
 				$memory_end_address = 0xfc00

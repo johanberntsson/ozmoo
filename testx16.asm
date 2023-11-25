@@ -1,6 +1,6 @@
 ; To compile and run using acme and x16emu
 ;
-; acme  -o testx16.bin testx16.asm
+; acme --cpu 65c02 -o testx16.bin --format cbm testx16.asm
 ; x16-emulator/x16emu -prg testx16.bin -run
 
 COL2 = 0
@@ -27,10 +27,9 @@ STATCOL = FGCOL
 STATCOLDM = FGCOLDM
 TARGET_X16 = 1
 
-
 *=$0801
-!byte $01,$08,$0b,$08,$01,$00,$9e,$32,$30,$36,$31,$00,$00,$00
-jmp .testvera
+    !byte $0b,$08,$01,$00,$9e,$32,$30,$36,$31,$00,$00,$00
+    jmp .testx16
 
 scroll_delay !byte 0
 streams_print_output
@@ -40,6 +39,7 @@ print_num_signed
 print_num_unsigned
 write_header_byte
     rts
+
 !source "asm/constants.asm"
 !source "asm/vera.asm"
 !source "asm/constants-header.asm"
@@ -47,14 +47,18 @@ write_header_byte
 !source "asm/screenkernal.asm"
 
 .testx16
-lda #14 
-jsr $ffd2
-jsr s_init
-lda #65
-jsr s_printchar
-RTS
+    lda #14 
+    jsr $ffd2
+    jsr s_init
+    lda #65 ; 'a'
+    jsr s_printchar
+    rts
 
 .testvera
+lda #14
+jsr $ffd2
+lda #65
+jmp $ffd2
 ;jsr .testx16
 lda #$1c 
 jsr $ffd2
