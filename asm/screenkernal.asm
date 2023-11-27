@@ -716,10 +716,10 @@ s_erase_window
 	asl
 	rol product + 1 ; 80x
 ++
+}
 !ifdef TARGET_X16 {
 	asl
 	rol product + 1 ; 80x
-}
 }
 	sta zp_screenline
 	sta zp_colourline
