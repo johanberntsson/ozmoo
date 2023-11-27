@@ -34,10 +34,10 @@ vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buff
 
 !ifdef TARGET_X16 {
 basic_reset           = $a000
-SCREEN_HEIGHT         = 60
+SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 80
-SCREEN_ADDRESS        = $b000
-COLOUR_ADDRESS        = $b001
+SCREEN_ADDRESS        = $0000
+COLOUR_ADDRESS        = $0000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 num_rows 			  = $a6 ; !byte 0
 CURRENT_DEVICE        = $ba
