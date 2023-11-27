@@ -57,30 +57,59 @@ plus4_vic_colours
 }
 
 !ifdef TARGET_X16 {
+; Vera stores the screen in its own memory at $b000 in
+; pairs of (char,colour).
 
 .stored_x_or_y !byte 0
+
+.convert_screenline_y_to_vera_address
+    ; convert screenline,y to addres in VERA
+    lda zp_screenline + 1
+    sta VERA_addr_high
+    lda zp_screenline
+    sta VERA_addr_low
+    asl VERA_addr_low
+    rol VERA_addr_high
+    tya
+    asl ; *2 to account for char,colour pairs
+    clc
+    adc VERA_addr_low
+    sta VERA_addr_low
+    bcc +
+    inc VERA_addr_high
++   lda VERA_addr_high
+    clc
+    adc #$b0
+    sta VERA_addr_high
+    rts
 
 VERAPrintChar
 	; a = character, y = column
 	pha
 	sty .stored_x_or_y
-    ; VERA stores char1,col1,char2,col2... so char pos is y*2 (max 2 * 80)
-    tya
-    clc
-    rol
-    ; add y*2 to screenline
-	ldy zp_screenline + 1
-	clc
-	adc zp_screenline
-	bcc +
-	iny
-    ; set address
-+   sta VERA_addr_low
-    sty VERA_addr_high
+    jsr .convert_screenline_y_to_vera_address
     ; write character
     pla
     sta VERA_data0
+    ; restore y
 	ldy .stored_x_or_y
+    rts
+
+VERAPrintColour
+	pha
+	sty .stored_x_or_y
+    jsr .convert_screenline_y_to_vera_address
+    ; increase to colour address
+    inc VERA_addr_low
+    bne +
+    inc VERA_addr_high
+    ; write colour
++   pla
+    lda #1
+    sta VERA_data0
+    ; restore y
+	ldy .stored_x_or_y
+    rts
     rts
 }
 
@@ -363,6 +392,9 @@ s_delete_cursor
 	bpl +
 	jmp VDCPrintChar
 +
+}
+!ifdef TARGET_X16 {
+	jmp VERAPrintChar
 }
 	ldy zp_screencolumn
 	sta (zp_screenline),y
@@ -682,8 +714,12 @@ s_erase_window
 	bit COLS_40_80
 	bpl ++
 	asl
-	rol product + 1
+	rol product + 1 ; 80x
 ++
+!ifdef TARGET_X16 {
+	asl
+	rol product + 1 ; 80x
+}
 }
 	sta zp_screenline
 	sta zp_colourline
@@ -988,7 +1024,6 @@ s_erase_line
 	jmp .done_erasing	
 .col80_5
 	; erase line in VDC
-
 	tya
 	clc 
 	adc zp_screenline
@@ -1074,7 +1109,11 @@ s_erase_line
 	bcs .done_erasing
 	; set character
 	lda #$20
+!ifdef TARGET_X16 {
+    jsr VERAPrintChar
+} else {
 	sta (zp_screenline),y
+}
     ; set colour
     !ifdef TARGET_MEGA65 {
         jsr colour2k
@@ -1085,7 +1124,11 @@ s_erase_line
 } else {
 	lda s_colour
 }
+!ifdef TARGET_X16 {
+    jsr VERAPrintColour
+} else {
 	sta (zp_colourline),y
+}
     !ifdef TARGET_MEGA65 {
         jsr colour1k
     }
@@ -1139,6 +1182,8 @@ update_cursor
 +   ; 40 columns
 } else ifdef TARGET_X16 {
     jsr VERAPrintChar
+    lda current_cursor_colour
+    jsr VERAPrintColour
     jmp .vdc_printed_char_and_colour
 }
     lda cursor_character
@@ -1539,13 +1584,7 @@ testscreen
 }
 	sta reg_screen_char_mode
 	jsr s_init
-	;lda #1
-	;sta s_scrollstart
-!ifdef TARGET_X16 {
-	lda #60
-} else {
-	lda #25
-}
+	lda #SCREEN_HEIGHT
 	sta window_start_row ; total number of  lines in window 0
 	lda #1
 	sta window_start_row + 1 ; 1 status line
