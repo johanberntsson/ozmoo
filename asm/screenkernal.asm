@@ -61,6 +61,7 @@ plus4_vic_colours
 ; pairs of (char,colour).
 
 .stored_x_or_y !byte 0
+.vera_background !byte 0
 
 .convert_screenline_y_to_vera_address
     ; convert screenline,y to addres in VERA
@@ -81,6 +82,18 @@ plus4_vic_colours
     clc
     adc #$b0
     sta VERA_addr_high
+    rts
+
+VERASetBorderColour
+    ; no such thing on the X16
+    rts
+
+VERASetBackgroundColour
+    asl
+    asl
+    asl
+    asl
+    sta .vera_background
     rts
 
 VERAPrintChar
@@ -105,7 +118,7 @@ VERAPrintColour
     inc VERA_addr_high
     ; write colour
 +   pla
-    lda #1
+    ora .vera_background
     sta VERA_data0
     ; restore y
 	ldy .stored_x_or_y
@@ -1584,6 +1597,8 @@ testscreen
 }
 	sta reg_screen_char_mode
 	jsr s_init
+    lda #3
+    +SetBackgroundColour
 	lda #SCREEN_HEIGHT
 	sta window_start_row ; total number of  lines in window 0
 	lda #1
