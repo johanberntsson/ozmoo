@@ -1090,6 +1090,16 @@ divide16
 
 ; screen update routines
 
+!ifdef TARGET_X16 {
+SETBORDERMACRO_DEFINED = 1
+!macro SetBorderColour {
+	jsr VERASetBorderColour
+}
+!macro SetBackgroundColour {
+	jsr VERASetBackgroundColour
+}
+}
+
 !ifdef TARGET_C128 {
 SETBORDERMACRO_DEFINED = 1
 !macro SetBorderColour {
