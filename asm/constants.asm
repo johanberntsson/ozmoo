@@ -324,6 +324,10 @@ rasterline_for_scroll = 56; 56 works well for PAL and NTSC
 kernal_reset          = $fce2 ; cold reset of the C64
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
+!ifdef TARGET_X16 {
+kernal_reset          = $fce2 ; cold reset of the C64
+kernal_delay_1ms      = $eeb3 ; delay 1 ms
+}
 !ifdef TARGET_PLUS4 {
 kernal_reset          = $fff6 ; cold reset of the PLUS4
 kernal_delay_1ms      = $e2dc ; delay 1 ms

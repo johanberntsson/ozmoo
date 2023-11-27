@@ -17,7 +17,6 @@
 
 !zone screenkernal {
 
-
 ; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 zcolours	!byte $ff,$ff ; current/default colour
 			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
@@ -55,6 +54,34 @@ plus4_vic_colours
 	!byte $75   ; light green
 	!byte $56   ; light blue
 	!byte $61   ; light grey
+}
+
+!ifdef TARGET_X16 {
+
+.stored_x_or_y !byte 0
+
+VERAPrintChar
+	; a = character, y = column
+	pha
+	sty .stored_x_or_y
+    ; VERA stores char1,col1,char2,col2... so char pos is y*2 (max 2 * 80)
+    tya
+    clc
+    rol
+    ; add y*2 to screenline
+	ldy zp_screenline + 1
+	clc
+	adc zp_screenline
+	bcc +
+	iny
+    ; set address
++   sta VERA_addr_low
+    sty VERA_addr_high
+    ; write character
+    pla
+    sta VERA_data0
+	ldy .stored_x_or_y
+    rts
 }
 
 !ifdef TARGET_C128 {
@@ -402,6 +429,8 @@ s_printchar
 .col80_1
 	jsr VDCPrintChar
 .col80_1_end
+} else ifdef TARGET_X16 {
+    jsr VERAPrintChar
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -480,6 +509,8 @@ s_printchar
 	lda s_colour
 	jsr VDCPrintColour
 .col80_2_end
+} else ifdef TARGET_X16 {
+    jsr VERAPrintChar
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -1106,6 +1137,9 @@ update_cursor
     jsr VDCPrintColour
     jmp .vdc_printed_char_and_colour
 +   ; 40 columns
+} else ifdef TARGET_X16 {
+    jsr VERAPrintChar
+    jmp .vdc_printed_char_and_colour
 }
     lda cursor_character
     sta (zp_screenline),y
@@ -1476,5 +1510,78 @@ z_ins_set_colour
 	rts
 }
 
+!ifdef TESTSCREEN {
+
+.testtext
+	!pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
+	!pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
+	!pet 155,"third",20,13                                ; light gray
+	!pet "fourth line",13
+	!pet 13,13,13,13,13,13
+	!pet 13,13,13,13,13,13,13
+	!pet 13,13,13,13,13,13,13
+	!pet "last line",1
+	!pet "aaaaaaaaabbbbbbbbbbbcccccccccc",1
+	!pet "d",1 ; last char on screen
+	!pet "efg",1 ; should scroll here and put efg on new line
+	!pet 13,"h",1; should scroll again and f is on new line
+	!pet 0
+
+testscreen
+	jsr init_screen_colours
+!ifdef TARGET_X16 {
+    lda #14 
+    jsr $ffd2
+} else ifdef TARGET_PLUS4 {
+	lda #212 ; 212 upper/lower, 208 = upper/special
+} else {
+	lda #23 ; 23 upper/lower, 21 = upper/special (22/20 also ok)
+}
+	sta reg_screen_char_mode
+	jsr s_init
+	;lda #1
+	;sta s_scrollstart
+!ifdef TARGET_X16 {
+	lda #60
+} else {
+	lda #25
+}
+	sta window_start_row ; total number of  lines in window 0
+	lda #1
+	sta window_start_row + 1 ; 1 status line
+	sta window_start_row + 2 ; 1 status line
+	lda #0
+	sta window_start_row + 3
+	ldx #0
+-   lda .testtext,x
+	bne +
+	rts
++   cmp #2
+	bne +
+	; use upper window
+	lda #1
+	sta current_window
+	jmp ++
++   cmp #3
+	bne +
+	; use lower window
+	lda #0
+	sta current_window
+	jmp ++
++   cmp #1
+	bne +
+	txa
+	pha
+--  jsr kernal_getchar
+	beq --
+	pla
+	tax
+	bne ++
+	; NOTE: s_printchar no longer recognizes the colour codes, so the
+	; colours will not change. But rev on/off still works
++   jsr s_printchar
+++  inx
+	bne -
+}
 }
 
