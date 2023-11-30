@@ -70,7 +70,6 @@ plus4_vic_colours
     lda zp_screenline
     sta VERA_addr_low
     asl VERA_addr_low
-    rol VERA_addr_high
     tya
     asl ; *2 to account for char,colour pairs
     clc
@@ -681,7 +680,16 @@ s_erase_window
 	beq .same_row
 	; need to recalculate zp_screenline
 	stx s_current_screenpos_row
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_X16 {
+    txa
+    clc
+    adc #$00
+	sta zp_screenline + 1
+	sta zp_colourline + 1
+    lda #0
+	sta zp_screenline
+	sta zp_colourline
+} else ifdef TARGET_MEGA65 {
 	; calculate zp_screenline = zp_current_screenpos_row * 40
 	; Use MEGA65's hardware multiplier
 	jsr mega65io
@@ -729,10 +737,6 @@ s_erase_window
 	asl
 	rol product + 1 ; 80x
 ++
-}
-!ifdef TARGET_X16 {
-	asl
-	rol product + 1 ; 80x
 }
 	sta zp_screenline
 	sta zp_colourline
@@ -1567,6 +1571,7 @@ z_ins_set_colour
 !ifdef TESTSCREEN {
 
 .testtext
+	;!pet 147,2,"hello",3,"johan",0
 	!pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
 	!pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
 	!pet 155,"third",20,13                                ; light gray
@@ -1595,6 +1600,10 @@ testscreen
 	jsr s_init
     lda #3
     +SetBackgroundColour
+	lda #1
+	sta zp_screenrow
+    jsr s_erase_line
+    ;rts
 	lda #SCREEN_HEIGHT
 	sta window_start_row ; total number of  lines in window 0
 	lda #1
