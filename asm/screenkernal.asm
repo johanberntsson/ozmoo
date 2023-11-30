@@ -83,6 +83,43 @@ plus4_vic_colours
     sta VERA_addr_high
     rts
 
+.s_scroll_vera
+	; scroll routine for VERA
+	lda zp_screenrow
+	cmp s_screen_height
+	bpl +
+    rts
++   lda #0
+    sta VERA_ctrl
+	ldy window_start_row + 1 ; how many top lines to protect
+-   ldx #0
+--  stx VERA_addr_low
+    tya
+    clc
+    adc #$b0
+    sta VERA_addr_high
+    inc VERA_addr_high
+    lda VERA_data0
+    pha
+    stx VERA_addr_low
+    tya
+    clc
+    adc #$b0
+    sta VERA_addr_high
+    pla
+    sta VERA_data0
+    inx
+    cpx #160 
+    bne --
+    iny
+    cpy s_screen_height_minus_one
+    bne -
+	; prepare for erase line
+	sty zp_screenrow
+	lda #$ff
+	sta s_current_screenpos_row ; force recalculation
+	jmp s_erase_line
+
 VERASetBorderColour
     ; no such thing on the X16
     rts
@@ -599,6 +636,8 @@ s_printchar
 .col80_3
 	jsr .s_scroll_vdc
 .col80_3_end
+} else ifdef TARGET_X16 {
+	jsr .s_scroll_vera
 } else {
 	jsr .s_scroll
 }
@@ -654,6 +693,8 @@ s_printchar
 .col80_4
 	jsr .s_scroll_vdc
 .col80_4_end
+} else ifdef TARGET_X16 {
+	jsr .s_scroll_vera
 } else {
 	jsr .s_scroll
 }
@@ -1577,7 +1618,7 @@ z_ins_set_colour
 .testtext
 	;!pet 147,2,"hello",3,"johan",0
 	!pet 2, 5,147,18,"Status Line 123         ",146,13    ; white REV
-	!pet 3, 28,"tesx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
+	!pet 3, 28,"resx",20,"t aA@! ",18,"Test aA@!",146,13  ; red
 	!pet 155,"third",20,13                                ; light gray
 	!pet "fourth line",13
 	!pet 13,13,13,13,13,13
