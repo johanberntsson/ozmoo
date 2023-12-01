@@ -17,6 +17,9 @@
 }
 }
 
+!ifdef TARGET_X16 {
+	TARGET_ASSIGNED = 1
+}
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
 	FAR_DYNMEM = 1
