@@ -52,8 +52,38 @@ z_ins_print_num
 !source "asm/screen.asm"
 
 .testx16
-    jsr VERAInit
     jmp testscreen
+
+; Banked memory is $A000-$BFFF. The current bank is selected by POKE0,X
+; where X=0 as default.
+.filename
+!pet "testbench.z5",0
+filename_length = * - .filename
+
+bankmem = $a000
+
+.testload
+	lda #filename_length
+	ldx #<.filename
+	ldy #>.filename
+	jsr kernal_setnam
+	lda #1      ; file number
+	ldx CURRENT_DEVICE ; Device#
+	ldy #0      ; $01 means: load to address stored in file
+	jsr kernal_setlfs
+    ldx #<bankmem
+    ldy #>bankmem
+	lda #$00      ; $00 means: load to memory (not verify)
+	jsr kernal_load
+	lda #1 
+	jsr kernal_close
+    bcs .error
+    lda #0
+    sta $0000
+    brk
+.error
+    sta $2000
+    rts
 
 .testvera
     lda #14

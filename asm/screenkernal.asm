@@ -57,8 +57,7 @@ plus4_vic_colours
 }
 
 !ifdef TARGET_X16 {
-; Vera stores the screen in its own memory at $b000 in
-; pairs of (char,colour).
+!source "vera.asm"
 
 .stored_x_or_y !byte 0
 .vera_background !byte 0
