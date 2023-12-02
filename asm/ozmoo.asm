@@ -327,6 +327,11 @@
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
+!ifdef TARGET_X16 {
+; Basic: 1 SYS2061
+!byte $0b,$08,$01,$00,$9e,$32,$30,$36,$31,$00,$00,$00
+}
+
 program_start
 
 		!ifdef TARGET_C128 {
@@ -1779,6 +1784,10 @@ deletable_init_start
 }
 
 
+!ifdef TARGET_X16 {
+    lda #14 
+    jsr $ffd2
+}
 !ifdef TARGET_PLUS4 {
 	!ifdef CUSTOM_FONT {
 		lda reg_screen_char_mode

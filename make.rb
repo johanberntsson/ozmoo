@@ -1312,9 +1312,9 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	end
 end
 
-def play(filename)
+def play(filename, storyname)
 	if $target == "x16" then
-		command = "#{$X16} -run \"#{filename}\""
+		command = "cd #{filename} && ../#{$X16} -prg #{storyname} -run -scale 2"
 	elsif $target == "mega65" then
 		if defined? $MEGA65 then
 			command = "#{$MEGA65} -8 \"#{filename}\""
@@ -1999,18 +1999,19 @@ end
 def build_zip(storyname, diskimage_filename, config_data, vmem_data, 
               vmem_contents, preload_max_vmem_blocks)
     # create folder if needed, and clear old contents, if any
-	foldername = "#{$target}_#{storyname}"
+    foldername = "#{$target}_#{storyname}"
     FileUtils.rm_rf(foldername)
     FileUtils.mkdir_p(foldername)
 
     # Add terp and story file
-    FileUtils.cp($good_zip_file, foldername+"/"+storyname+".prg")
+    FileUtils.cp($ozmoo_file, foldername+"/"+storyname)
     FileUtils.cp($story_file, foldername+"/"+storyname+".dat")
 
-	# Add bootfile + terp + preloaded vmem blocks file to disk
-	# if add_boot_file(diskfilename, diskimage_filename) != true
-	puts "Successfully built game as #{foldername}"
-	nil # Signal success
+    # Add bootfile + terp + preloaded vmem blocks file to disk
+    # if add_boot_file(diskfilename, diskimage_filename) != true
+    puts "Successfully built game as #{foldername}"
+	$bootdiskname = foldername
+    nil # Signal success
 end
 
 def print_usage_and_exit
@@ -3063,7 +3064,7 @@ else
 end
 
 if !error and auto_play then 
-	play("#{$bootdiskname}")
+	play("#{$bootdiskname}", storyname)
 end
 
 
