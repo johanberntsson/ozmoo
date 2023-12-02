@@ -74,6 +74,7 @@ MODE_D2 = 4
 MODE_D3 = 5
 MODE_71 = 6
 MODE_81 = 7
+MODE_ZIP = 8
 
 DISKNAME_BOOT = 128
 DISKNAME_STORY = 129
@@ -1995,6 +1996,23 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
+def build_zip(storyname, diskimage_filename, config_data, vmem_data, 
+              vmem_contents, preload_max_vmem_blocks)
+    # create folder if needed, and clear old contents, if any
+	foldername = "#{$target}_#{storyname}"
+    FileUtils.rm_rf(foldername)
+    FileUtils.mkdir_p(foldername)
+
+    # Add terp and story file
+    FileUtils.cp($good_zip_file, foldername+"/"+storyname+".prg")
+    FileUtils.cp($story_file, foldername+"/"+storyname+".dat")
+
+	# Add bootfile + terp + preloaded vmem blocks file to disk
+	# if add_boot_file(diskfilename, diskimage_filename) != true
+	puts "Successfully built game as #{foldername}"
+	nil # Signal success
+end
+
 def print_usage_and_exit
 	print_usage
 	exit 1
@@ -2399,6 +2417,8 @@ print_usage_and_exit() if await_soundpath or await_preloadfile or await_fontfile
 unless mode
 	if $target == 'c128'
 		mode = MODE_71
+	elsif $target == 'x16'
+		mode = MODE_ZIP
 	elsif $target == 'mega65'
 		mode = MODE_81
 	else 
@@ -2422,6 +2442,11 @@ end
 
 if mode != MODE_81 and $target == 'mega65'
 	puts "ERROR: Only build mode 81 is supported on this target platform."
+	exit 1
+end
+
+if mode != MODE_ZIP and $target == 'x16'
+	puts "ERROR: Only build mode ZIP is supported on this target platform."
 	exit 1
 end
 
@@ -3029,6 +3054,9 @@ when MODE_71
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
 	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
+when MODE_ZIP
+	diskimage_filename = File.join($TEMPDIR, "temp1.zip")
+	error = build_zip(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
 else
 	puts "Unsupported build mode."
 	exit 1

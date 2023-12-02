@@ -1,7 +1,7 @@
 all: x16
 
 x16:
-	ruby make.rb -s examples/dragontroll.z5 -t:x16 -v
+	ruby make.rb examples/dragontroll.z5 -t:x16 -v
 	#acme --cpu 65c02 -o testx16.bin --format cbm -l temp/acme_labels.txt testx16.asm
 	# Need F12 to enter the debugger
 	#grep testscreen temp/acme_labels.txt
