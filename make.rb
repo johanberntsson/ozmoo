@@ -2001,11 +2001,17 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     # create folder if needed, and clear old contents, if any
     foldername = "#{$target}_#{storyname}"
     FileUtils.rm_rf(foldername)
+    FileUtils.rm_rf(foldername+".zip")
     FileUtils.mkdir_p(foldername)
 
     # Add terp and story file
     FileUtils.cp($ozmoo_file, foldername+"/"+storyname)
-    FileUtils.cp($story_file, foldername+"/"+storyname+".dat")
+    FileUtils.cp($story_file, foldername+"/storyfile")
+
+    # Create the zip file
+    command = "zip -r #{foldername}.zip #{foldername}"
+	puts command if $verbose
+    system(command)
 
     # Add bootfile + terp + preloaded vmem blocks file to disk
     # if add_boot_file(diskfilename, diskimage_filename) != true
