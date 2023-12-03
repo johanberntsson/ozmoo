@@ -20,9 +20,13 @@
 !ifdef TARGET_X16 {
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
+;	FAR_DYNMEM = 1 ; This will most likely be used for X16
 	SUPPORT_REU = 1
 	SUPPORT_80COL = 1;
-	SLOW = 1
+	!ifndef SLOW {
+		SLOW = 1
+	}
+	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
 }
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
@@ -34,11 +38,7 @@
 	!ifndef SLOW {
 		SLOW = 1
 	}
-	!ifdef SLOW {
-		!ifndef VMEM {
-			SKIP_BUFFER = 1
-		}
-	}
+	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
 	!ifndef NOSCROLLBACK {
 		SCROLLBACK = 1
 	}

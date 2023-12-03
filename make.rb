@@ -2659,6 +2659,11 @@ if optimize and mode == MODE_P
 	exit 1
 end
 
+if optimize and $target =~ /^(mega65|x16)$/
+	puts "ERROR: Option -o can't be used for this platform."
+	exit 1
+end
+
 if limit_preload_vmem_blocks and !$VMEM and $target != 'mega65'
 	puts "ERROR: Option -p can't be used with this build mode."
 	exit 1
