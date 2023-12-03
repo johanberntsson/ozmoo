@@ -19,6 +19,10 @@
 
 !ifdef TARGET_X16 {
 	TARGET_ASSIGNED = 1
+	COMPLEX_MEMORY = 1
+	SUPPORT_REU = 1
+	SUPPORT_80COL = 1;
+	SLOW = 1
 }
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
@@ -1911,6 +1915,9 @@ deletable_init
 .store_boot_device
 	sty boot_device ; Boot device# stored
 
+!ifdef TARGET_X16 {
+;TODO TODO
+}
 !ifdef TARGET_MEGA65 {
 	jsr m65_init_reu
 	jsr m65_load_header

@@ -1329,7 +1329,9 @@ end
 
 def play(filename, storyname)
 	if $target == "x16" then
-		command = "cd #{filename} && ../#{$X16} -prg #{storyname} -run -scale 2"
+		command = "cd #{filename} && ../#{$X16} -prg #{storyname} -run"
+		command += " -dump B" # Ctrl-S from the emulator to dump memory
+		#command += " -scale 2"
 	elsif $target == "mega65" then
 		if defined? $MEGA65 then
 			command = "#{$MEGA65} -8 \"#{filename}\""
@@ -2091,7 +2093,7 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
 
     # Add terp and story file
     FileUtils.cp($ozmoo_file, foldername+"/"+storyname)
-    FileUtils.cp($story_file, foldername+"/storyfile")
+    FileUtils.cp($story_file, foldername+"/zcode")
 
     # Create the zip file
     command = "zip -r #{foldername}.zip #{foldername}"
@@ -2618,7 +2620,7 @@ if $sound_path
 #	puts $sound_files
 end
 
-$VMEM = (mode != MODE_P && $target != 'mega65')
+$VMEM = (mode != MODE_P && $target != 'mega65' && $target != 'x16')
 
 $GENERALFLAGS.push('DANISH_CHARS') if $char_map == 'da'
 $GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'

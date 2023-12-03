@@ -278,7 +278,10 @@ reu_banks !byte 0
 
 check_reu_size
 
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_X16 {
+    ; test banks until value won't change (memory not available)
+;TODO TODO
+} else ifdef TARGET_MEGA65 {
 	; Start checking at address $08 00 00 00
 	ldz #0
 	ldy #0
