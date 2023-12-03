@@ -1870,6 +1870,9 @@ deletable_init_start
 ; pcrc: RAM in bank 1, RAM everywhere
 c128_mmu_values !byte $0e,$3f,$7f
 }
+!ifdef TARGET_X16 {
+x16_statmem_already_loaded !byte 0
+}
 !ifdef TARGET_MEGA65 {
 .first_value = z_temp
 .different_values !byte 0
@@ -1916,7 +1919,15 @@ deletable_init
 	sty boot_device ; Boot device# stored
 
 !ifdef TARGET_X16 {
-;TODO TODO
+	jsr x16_init_reu
+	jsr x16_load_header
+    lda #'X'
+    jsr $ffd2
+    jsr $ffd2
+    jsr $ffd2
+-   jmp -
+	;jsr calc_dynmem_size
+	; Header of game on disk is now loaded, starting at $a000 (banked memory)
 }
 !ifdef TARGET_MEGA65 {
 	jsr m65_init_reu
@@ -2618,6 +2629,13 @@ prepare_static_high_memory
 
 } ; End of VMEM
 
+!ifdef TARGET_X16 {
+x16_init_reu
+	jsr check_reu_size
+	sta reu_banks
+	rts
+}
+
 !ifdef TARGET_MEGA65 {
 m65_init_reu
 	jsr check_reu_size
@@ -2625,7 +2643,36 @@ m65_init_reu
 	rts
 }
 
+!ifdef TARGET_X16 {
+x16_load_header
+	ldx #$00
+	stx reu_progress_bar_updates
+	inx
+	stx x16_reu_load_page_limit        ; read only one page (the header)
+	stx x16_reu_enable_load_page_limit
+	bne ++ ; Always branch
 
+x16_load_dynmem_maybe_statmem
+	ldx x16_statmem_already_loaded
+	beq ++ ; Statmem is not loaded => load entire zcode file
+	ldx nonstored_pages
+	stx x16_reu_load_page_limit
+	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
+	stx x16_reu_enable_load_page_limit
+
+++	lda #.zcodefilenamelen
+	ldx #<.zcodefilename
+	ldy #>.zcodefilename
+	jsr kernal_setnam ; call SETNAM
+	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	txa
+	
+	jmp x16_load_file_to_reu ; in reu.asm
+
+.zcodefilename
+	!pet "zcode,s,r"
+.zcodefilenamelen = * - .zcodefilename
+}
 !ifdef TARGET_MEGA65 {
 m65_load_header
 	ldx #$00
