@@ -112,7 +112,9 @@ The disk I/O routines are located in disk.asm.  The virtual memory uses read_blo
 
 ## REU
 
-If Ozmoo detects a RAM Expansion Unit (REU), the player gets the question if they want to use it. If they do, the entire story file is read into the REU before the game starts. When the virtual memory system needs to read data from the story file by calling read_block or read_blocks (disk.asm) it will read the blocks from the REU instead of the floppy drive.
+If Ozmoo detects a RAM Expansion Unit (REU), and it's big enough to hold the entire story file, the player gets the question if they want to use it. If they do, the static part of the story file is read into the REU before the game starts. When the virtual memory system needs to read data from the story file by calling read_block or read_blocks (disk.asm) it will read the blocks from the REU instead of the floppy drive.
+
+The interpreter detects the size of the REU in banks, where a bank is 64 KB. After deciding whether to use the REU for caching the story file, it may also allocate a bank for undo and a bank for scrollback buffer, if there is room and the game was built with support for these features. If the story file is stored in REU, it always begins in bank 0 and may use up to 8 banks. If story data is stored in the REU, the first page of bank 0 is reserved for fast page copying operations.
 
 ## X16 builds
 
@@ -365,7 +367,6 @@ This also has the advantage that we can access up to 256 entries using our 8-bit
 
 ## Banking
 
-
 On the Commodore 64, Commodore 128 and MEGA65 there's an additional wrinkle because some blocks of RAM are hidden
 behind the I/O area and the kernal ROM and there's a mechanism to copy those blocks of RAM into the so-called vmem cache in always-visible RAM when necessary. 
 
@@ -495,6 +496,10 @@ Replace color in Z-machine palette with a certain colur from the C64 palette.
 
 Tell the interpreter on which track the config blocks are located (in sector 0 and 1).
 
+	CURSORCHAR=n
+
+Use this character code as the cursor.
+
     CUSTOM_FONT
 
 Tell the interpreter that a custom font will be used.
@@ -504,13 +509,25 @@ Tell the interpreter that a custom font will be used.
 
 Set the foreground colour for normal mode and darkmode.
 
+	LURKING_HORROR
+
+If the game uses sound, enable the code that defines assumptions we need to make for the Lurking Horror, i.e. use a hardcoded table defining which sounds have repetition enabled, as the Z-code opcode to play sound doesn't support setting this parameter in z3.
+
 	NOSECTORPRELOAD
 
 Don't load any parts of static memory into RAM from disk sectors on boot. If make.rb can decide that this won't be needed anyway, it will set this flag, to make the interpreter a little smaller.
 
-    SCROLLBACK_RAM_PAGES
+    PREOPT
 
-Todo
+Build the interpreter in PREOPT mode (used to pick which virtual memory blocks should be preloaded into memory when the game starts).
+
+	REUBOOST
+
+Add support for an alternate virtual memory model which is simpler and faster, for use with REU. When the story file is stored in an REU, copying a page from REU to RAM is so fast that it doesn't pay off to spend a lot of time figuring out which vmem block to replace. Defining REUBOOST typically makes games played with an REU about 10% faster.
+
+    SCROLLBACK_RAM_PAGES=n
+
+This value is typically between 24 and 48. Reserve this many pages at the top of RAM bank 0 for a scrollback buffer. However, if an REU is detected and used for scrollback at runtime, this RAM buffer should not be allocated. If the interpreter is built with REUBOOST, and there is room for the story file in the REU, and the user chooses to load the story file into the REU, this won't matter, because the top 12 KB of RAM bank 0 are unused in this scenario anyway. SCROLLBACK_RAM_PAGES is not used or supported for MEGA65, since it always uses AtticRAM for scrollback buffer.
 
     SLOW
 
@@ -520,9 +537,13 @@ Prioritise small size over speed, making the interpreter smaller and slower. For
 
 Include support for sound (.wav sample files playback).
 
+SPLASHWAIT=n
+
+Set how many seconds the splash screen should show. If this is set to 0, disable the splash screen completely, making the binary slightly smaller. On the C64, the splash screen resides in the virtual memory buffer, which means story_start and the maximum amount of dynamic memory aren't affected for a virtual memory build, but the empty space does allow Exomizer to compress the boot file better.
+
     STACK_PAGES=n
 
-Set the number of memory pages to use for stack.
+Set the number of memory pages to use for stack. Can't be less than 2 for a mode P build, or less than 4 for any other build, since the stack holds initialization code on boot. 4 is good for pretty much any ZIL or Inform 6 game. Inform 7 games expect a 64 page stack, and are likely to crash at some point if they get a stack as small as 4 pages.
 
     STATCOL=n
 
@@ -547,6 +568,14 @@ Allocate a page of memory to keep a record of the last 64 instructions that were
     UNSAFE
 
 Remove some checks for runtime errors, making the interpreter smaller and faster.	
+
+	USE_BLINKING_CURSOR=n
+
+Make the cursor blink during player input, where n is the number of jiffies between blinks.
+
+	USE_HISTORY=n
+
+Enable command history, and allocate at least n bytes for storing it. Since the code to support command history is small, and since the storage is placed between the interpreter and the next thing in RAM (virtual memory buffers or stack or virtual memory) which needs to be page-aligned anyway, this can sometimes be enabled without causing story_start to move up.
 
     VMEM
 
@@ -577,11 +606,11 @@ These flags are set and used internally in Ozmoo, depending on the settings of t
 
 	COMPLEX_MEMORY
 
-If COMPLEX_MEMORY is set, then the Z-machine dynamic memory is not directly accessible in RAM, but instead banking (C128, X16) or far memory access (MEGA65) is needed.
+If COMPLEX_MEMORY is set, then the Z-machine dynamic memory is not directly accessible in RAM, so we can't use simple lda/sta to access it. Instead, special routines are required. For C128 and X16, this involves selecting the right RAM bank, for MEGA65 it involves far memory access, while for Plus/4 it just means we need to bank out ROM which normally covers large areas of RAM during execution. Plus/4 has COMPLEX_MEMORY set, but not FAR_DYNMEM.
 
 	FAR_DYNMEM
 
-If FAR_DYNMEM is set, then the Z-machine dynamic memory is not directly accessible from the interpreter by simple lda/sta operations, and additional code is needed to read and write from the story data.
+If FAR_DYNMEM is set, then the Z-machine dynamic memory is not in the part of RAM which can be directly accessed with 16-bit addresses. This means we can't use simple lda/sta operations, and we can't assume that dynamic memory starts at the story_start marker. Thus, additional code is needed to read and write to dynamic memory. A platform that has FAR_DYNMEM set must also have COMPLEX_MEMORY set.
 
 	HAS_SID
 
@@ -595,10 +624,9 @@ If the target has an 80 column display.
 
 If the target potentially supports extended memory of some sort, to be used as a RAM disk for faster game play.
 
-	VMEM_END_PAGE
+	VMEM_END_PAGE=n
 
-Todo
-
+This is the page where virtual memory storage ends, i.e. the last page that can be used by the virtual memory system plus one. For the C64, the last page is $FF (address $FF00-$FFFF), so VMEM_END_PAGE is $00.
 
 ## Debug flags 
 
@@ -615,10 +643,6 @@ When the game starts, replay a number of colon-separated commands which have bee
     COUNT_SWAPS
 
 Keep track of how many vmem block reads have been done.
-
-    PREOPT
-
-Built the interpreter in PREOPT mode (used to pick which virtual memory blocks should be preloaded into memory when the game starts).
 
     PRINT_SWAPS
 
