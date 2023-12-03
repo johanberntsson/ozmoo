@@ -1,7 +1,7 @@
 all: x16
 
 x16:
-	ruby make.rb -s examples/dragontroll.z5 -t:x16 
+	ruby make.rb -s examples/dragontroll.z5 -t:x16 -v
 	#acme --cpu 65c02 -o testx16.bin --format cbm -l temp/acme_labels.txt testx16.asm
 	# Need F12 to enter the debugger
 	#grep testscreen temp/acme_labels.txt
@@ -9,7 +9,7 @@ x16:
 	#x16-emulator/x16emu -prg testx16.bin -scale 2 -debug -run
 
 mega65:
-	ruby make.rb -t:mega65 ./games/infocom/sherlock.z5 -u -s -ch:100 -sb:0 -dm:0 
+	ruby make.rb -t:mega65 ./games/infocom/sherlock.z5 -u -s -ch:100 -sb:0 -dm:0  -v
 	#ruby make.rb examples/Aventyr.z5 -ch -s -t:mega65 -smooth
 	#ruby make.rb games/infocom/planetfall.z5 -s -t:mega65 -sw:0
 	#ruby make.rb -debug -v -ch -s games/infocom/hollywood.z3 -t:mega65 -sw:0

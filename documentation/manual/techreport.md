@@ -114,9 +114,38 @@ The disk I/O routines are located in disk.asm.  The virtual memory uses read_blo
 
 If Ozmoo detects a RAM Expansion Unit (REU), the player gets the question if they want to use it. If they do, the entire story file is read into the REU before the game starts. When the virtual memory system needs to read data from the story file by calling read_block or read_blocks (disk.asm) it will read the blocks from the REU instead of the floppy drive.
 
+## X16 builds
+
+On the X16, the main game file doesn't hold any story data. The entire Z-code file is held in a file called "zcode" and is loaded into banked RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place (using banking), this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a X16 game can be copied from one disk to another using a regular file copier.
+
+### X16 Memory map
+
+Similar to C128, the graphics output is handled by a chip called VERA that contains the video memory. This means that no normal memory is needed for screen RAM. There is a standard 512 KB extended memory, of which a chunk/bank at a time is available at \$a000-\$bfff. The currently accessible bank of the extended memory is controlled by setting $0000 to the chunk number.
+
+#### Normal memory
+
+| **Address range** | **KB** |  **Usage** |
+| -- |  - | ---- |
+| \$0000-\$9fff | 40 | System RAM, interpreter |
+| \$a000-\$bfff | 8 | Story file (currently banked chunk) |
+
+#### Video memory (VERA)
+
+The standard text mode needs 80 x 60 x 2 = 9600 bytes, starting from \$1b000, since the screen is 80 columns, 60 rows, and each character is stored as a (character code, colour) tuple.
+
+| **Address range** | **KB** |  **Usage** |
+| -- |  - | ---- |
+| \$1b000-\$1d580 | about 10 | Screen RAM |
+
+#### Extended/banked memory
+
+| **Address range** | **KB** |  **Usage** |
+| -- |  - | ---- |
+| \$00000-\$7ffff | 512 | Story file |
+
 ## MEGA65 builds
 
-On the MEGA65, the boot file doesn't hold any story data, the entire Z-code file is held in a SEQ file called "zcode" and is loaded into Attic RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place, this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a MEGA65 game can be copied from one disk to another using a regular file copier.
+On the MEGA65, the boot file doesn't hold any story data. The entire Z-code file is held in a SEQ file called "zcode" and is loaded into Attic RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place, this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a MEGA65 game can be copied from one disk to another using a regular file copier.
 
 ### MEGA65 Memory map
 | **Address range** | **KB** |  **Usage** |
@@ -479,9 +508,13 @@ Set the foreground colour for normal mode and darkmode.
 
 Don't load any parts of static memory into RAM from disk sectors on boot. If make.rb can decide that this won't be needed anyway, it will set this flag, to make the interpreter a little smaller.
 
+    SCROLLBACK_RAM_PAGES
+
+Todo
+
     SLOW
 
-Prioritise small size over speed, making the interpreter smaller and slower. For C128 and Plus/4, this is enabled by default and can't be disabled, due to their memory models.
+Prioritise small size over speed, making the interpreter smaller and slower. For X16, C128 and Plus/4, this is enabled by default and can't be disabled, due to their memory models.
 
     SOUND (MEGA65 only)
 
@@ -495,8 +528,9 @@ Set the number of memory pages to use for stack.
 
 Set the statusline colour. (only for z1-z3).
 
-    TARGET_C128
     TARGET_C64
+    TARGET_X16
+    TARGET_C128
     TARGET_PLUS4
     TARGET_MEGA65
 
@@ -536,6 +570,35 @@ Build the interpreter to run Z-machine version 1, 2, 3, 4, 5, 7 or 8.
 	SWEDISH_CHARS 
 
 Map national characters in ZSCII to their PETSCII equivalents. No more than one of these can be enabled.
+
+## Internal Flags
+
+These flags are set and used internally in Ozmoo, depending on the settings of the general flags, especially the TARGET_??? flag.
+
+	COMPLEX_MEMORY
+
+If COMPLEX_MEMORY is set, then the Z-machine dynamic memory is not directly accessible in RAM, but instead banking (C128, X16) or far memory access (MEGA65) is needed.
+
+	FAR_DYNMEM
+
+If FAR_DYNMEM is set, then the Z-machine dynamic memory is not directly accessible from the interpreter by simple lda/sta operations, and additional code is needed to read and write from the story data.
+
+	HAS_SID
+
+If the target has a SID chip for sound generation.
+
+	SUPPORT_80COL
+
+If the target has an 80 column display.
+
+	SUPPORT_REU
+
+If the target potentially supports extended memory of some sort, to be used as a RAM disk for faster game play.
+
+	VMEM_END_PAGE
+
+Todo
+
 
 ## Debug flags 
 
