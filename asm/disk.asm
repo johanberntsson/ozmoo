@@ -8,6 +8,10 @@ current_disks !byte $ff, $ff, $ff, $ff,$ff, $ff, $ff, $ff
 boot_device !byte 0
 ask_for_save_device !byte $ff
 
+!ifdef TARGET_X16 {
+nonstored_pages			!byte 0
+}
+
 !ifdef TARGET_MEGA65 {
 
 mega65io
