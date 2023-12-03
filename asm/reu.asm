@@ -24,10 +24,75 @@ reu_error
 	!pet 13,"REU error, disabled. [SPACE]",0
 
 
+!ifdef TARGET_X16 {
+
+x16_reu_load_page_limit = z_temp + 10  ; max page # to read
+x16_reu_enable_load_page_limit !byte 0 ; respect page # limit or not
+.x16_reu_load_address = object_temp
+.x16_reu_page_count = z_temp + 11
+
+x16_load_file_to_reu
+	; In: a,x: REU load page (0 means first address of Attic RAM)
+	; Returns: a: Number of pages loaded.
+	; Call SETNAM before calling this
+	; Opens file as #2. Closes file at end.
+
+	; Prepare for copying data to REU
+	stx .x16_reu_load_address ; Lowbyte of current page in REU memory
+	sta .x16_reu_load_address + 1 ; Highbyte of current page in REU memory
+
+	lda #2      ; file number 2
+	tay
+	ldx boot_device
+	jsr kernal_setlfs ; call SETLFS
+
+	jsr kernal_open     ; call OPEN
+	bcc +
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++
+	ldx #2      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+
+    ldx #0
+    stx z_temp
+
+johan
+	
+.next_bank
+    stx $0000
+    lda #$a0
+    sta z_temp + 1
+	
+-	ldy #0
+--	jsr kernal_readst
+	bne .file_copying_done
+	jsr kernal_readchar
+    sta (z_temp),y
+	iny
+	bne --
+
+    inc z_temp + 1
+    lda z_temp + 1
+    cmp #$c0
+    bne -
+
+    inx 
+    jmp .next_bank
+
+.file_copying_done
+	lda #$00     
+	sta x16_reu_enable_load_page_limit
+	jsr kernal_chkin  ; restore input to keyboard
+	lda #$02      ; filenumber 2
+	jsr kernal_close ; call CLOSE
+	lda .x16_reu_page_count
+	rts
+}
 !ifdef TARGET_MEGA65 {
 
-m65_reu_load_page_limit = z_temp + 10
-m65_reu_enable_load_page_limit !byte 0
+m65_reu_load_page_limit = z_temp + 10  ; max page # to read
+m65_reu_enable_load_page_limit !byte 0 ; respect page # limit or not
 .m65_reu_load_address = object_temp
 .m65_reu_memory_buffer = zp_temp + 2
 .m65_reu_page_count = z_temp + 11
@@ -277,9 +342,19 @@ store_reu_transfer_params
 reu_banks !byte 0
 
 check_reu_size
+    ; return REU size in multiples of 64 KB
+    ; input: -
+    ; output: a=number of 64 KB banks of REU memory
+    ; side effects: 
+    ; used registers: 
 
 !ifdef TARGET_X16 {
-    ; test banks until value won't change (memory not available)
+    ; TODO: we know that 512 KB is available, but the emulator
+    ; wraps around, so we cannot test by writing to $a000 how
+    ; large the memory actually is. Is there a better method?
+    lda #8 ; 8 * 64 = 512 KB
+    rts
+
 ;TODO TODO
 } else ifdef TARGET_MEGA65 {
 	; Start checking at address $08 00 00 00

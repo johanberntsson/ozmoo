@@ -921,7 +921,11 @@ get_cursor
 
 !ifndef Z4PLUS {
 
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_X16 {
+sl_score_pos !byte 54
+sl_moves_pos !byte 67
+sl_time_pos !byte 64
+} else ifdef TARGET_MEGA65 {
 sl_score_pos !byte 54
 sl_moves_pos !byte 67
 sl_time_pos !byte 64
