@@ -20,9 +20,9 @@
 !ifdef TARGET_X16 {
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
-;	FAR_DYNMEM = 1 ; This will most likely be used for X16
+	;FAR_DYNMEM = 1 ; TODO: enable this
 	SUPPORT_REU = 1
-	SUPPORT_80COL = 1;
+	SUPPORT_80COL = 1
 	!ifndef SLOW {
 		SLOW = 1
 	}
