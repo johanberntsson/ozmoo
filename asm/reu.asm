@@ -54,13 +54,13 @@ x16_load_file_to_reu
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
-    ldx #0
-    stx z_temp
-
-johan
+    ldx #1 ; start at bank 1 since bank 0 is reserved for kernal
 	
 .next_bank
-    stx $0000
+    stx $0000  ; switch bank
+
+    lda #$00   ; start from $a000
+    sta z_temp
     lda #$a0
     sta z_temp + 1
 	

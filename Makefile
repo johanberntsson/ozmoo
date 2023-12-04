@@ -2,11 +2,13 @@ all: x16
 
 x16:
 	ruby make.rb -s examples/dejavu.z3 -t:x16 -v
+	tail --bytes=+8193 x16_dejavu/dump.bin > x16_dejavu/dump2.bin
+	cmp x16_dejavu/dump2.bin x16_dejavu/zcode
 	#acme --cpu 65c02 -o testx16.bin --format cbm -l temp/acme_labels.txt testx16.asm
 	# Need F12 to enter the debugger
 	#grep testscreen temp/acme_labels.txt
 	#grep s_printchar temp/acme_labels.txt
-	#x16-emulator/x16emu -prg testx16.bin -scale 2 -debug -run
+	#x16-emulator/x16emu -prg testx16.bin -scale 2 -dump B -zeroram -debug -run
 
 mega65:
 	ruby make.rb -t:mega65 ./games/infocom/sherlock.z5 -u -s -ch:100 -sb:0 -dm:0  -v

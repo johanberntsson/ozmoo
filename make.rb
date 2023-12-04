@@ -1318,6 +1318,7 @@ def play(filename, storyname)
 		command = "cd #{filename} && ../#{$X16} -prg #{storyname} -run"
 		command += " -dump B" # Ctrl-S from the emulator to dump memory
 		command += " -debug"
+		command += " -zeroram"
 		#command += " -scale 2"
 	elsif $target == "mega65" then
 		if defined? $MEGA65 then
