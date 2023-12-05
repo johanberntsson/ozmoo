@@ -13,6 +13,12 @@ Bugfixes:
 - Made QUIT work correctly on MEGA65 games with and without a custom font.
 
 ================================================
+Release 13.7: 
+
+New/changed features:
+- Commander X16 support
+
+================================================
 Release 13.6: 17 November 2023
 
 Bugfixes:

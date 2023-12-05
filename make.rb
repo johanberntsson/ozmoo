@@ -1329,8 +1329,9 @@ end
 
 def play(filename, storyname)
 	if $target == "x16" then
-        system("grep johan temp/acme_labels.txt")
-		command = "cd #{filename} && ../#{$X16} -prg #{storyname} -run"
+        #system("grep johan temp/acme_labels.txt")
+		command = "cd #{filename} && ../#{$X16} -prg #{storyname}"
+		command += " -run"
 		command += " -dump B" # Ctrl-S from the emulator to dump memory
 		command += " -debug"
 		command += " -zeroram"
