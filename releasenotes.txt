@@ -3,6 +3,12 @@ RELEASE NOTES
 Upcoming release
 
 ================================================
+Release 13.7: 
+
+New/changed features:
+- Commander X16 support
+
+================================================
 Release 13.6: 17 November 2023
 
 Bugfixes:

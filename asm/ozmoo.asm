@@ -18,6 +18,7 @@
 }
 
 !ifdef TARGET_X16 {
+    DEBUG = 1; TODO remove me
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
 	;FAR_DYNMEM = 1 ; TODO: enable this
@@ -1418,6 +1419,9 @@ print_no_undo
 	!pet "Undo not available",13,13,0
 }
 
+!ifdef TARGET_X16 {
+NEED_CALC_DYNMEM = 1
+}
 !ifdef TARGET_MEGA65 {
 NEED_CALC_DYNMEM = 1
 }
@@ -1450,6 +1454,8 @@ calc_dynmem_size
 .maybe_inc_nonstored_pages
 	tya
 !ifdef TARGET_MEGA65 {
+	and #%00000001 ; keep index into kB chunk
+} else ifdef TARGET_X16 {
 	and #%00000001 ; keep index into kB chunk
 } else {
 	and #vmem_indiv_block_mask ; keep index into kB chunk
@@ -1910,13 +1916,47 @@ deletable_init
 !ifdef TARGET_X16 {
 	jsr x16_init_reu
 	jsr x16_load_header
-    lda #'X'
-    jsr $ffd2
-    jsr $ffd2
-    jsr $ffd2
--   jmp -
-	;jsr calc_dynmem_size
+	jsr calc_dynmem_size
 	; Header of game on disk is now loaded, starting at $a000 (banked memory)
+
+	lda #0
+	sta reu_last_disk_end_block
+	sta reu_last_disk_end_block + 1
+	
+	lda #0
+	sta z_temp + 5
+	ldy #header_filelength
+	lda $a000,y
+!ifdef Z4PLUS {
+	!ifdef Z7PLUS {
+		ldx #3 ; File size multiplier is 2^3 = 8
+	} else {
+		ldx #2 ; File size multiplier is 2^2 = 4
+	}
+} else {
+	ldx #1 ; File size multiplier is 2^1 = 2
+}
+-	asl
+	rol z_temp + 5
+	dex
+	bne -
+	sta z_temp + 4
+
+	bit x16_statmem_already_loaded
+	beq +
+
+	; We are only to load dynmem
+	ldy #header_static_mem
+    lda $a000,y
+	sta z_temp + 4
+	lda #0
+	sta z_temp + 5
+	
++	jsr print_reu_progress_bar
+
+	jsr x16_load_dynmem_maybe_statmem
+
+-   jmp -
 }
 !ifdef TARGET_MEGA65 {
 	jsr m65_init_reu
@@ -1924,6 +1964,9 @@ deletable_init
 	jsr calc_dynmem_size
 	; Header of game on disk is now loaded, starting at beginning of Attic RAM
 
+    ; check stored copy of header data (filelength, checksum) in attic ram
+    ; to see if the game file has already been loaded. This happens if
+    ; we restart the game.
 !ifdef Z3PLUS {
 	lda #<m65_attic_checksum_page
 	sta mempointer + 1

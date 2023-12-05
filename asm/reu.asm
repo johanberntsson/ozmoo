@@ -30,6 +30,7 @@ x16_reu_load_page_limit = z_temp + 10  ; max page # to read
 x16_reu_enable_load_page_limit !byte 0 ; respect page # limit or not
 .x16_reu_load_address = object_temp
 .x16_reu_page_count = z_temp + 11
+.x16_bank !byte 0 ; current bank (8 KB, $a000-$bfff)
 
 x16_load_file_to_reu
 	; In: a,x: REU load page (0 means first address of Attic RAM)
@@ -40,6 +41,26 @@ x16_load_file_to_reu
 	; Prepare for copying data to REU
 	stx .x16_reu_load_address ; Lowbyte of current page in REU memory
 	sta .x16_reu_load_address + 1 ; Highbyte of current page in REU memory
+    ; find out which bank
+	lda .x16_reu_load_address
+    and #$e0
+    sta .x16_bank
+	lda .x16_reu_load_address + 1
+    lsr
+    ror .x16_bank
+    ror .x16_bank
+    ror .x16_bank
+    ror .x16_bank
+    ror .x16_bank
+    inc .x16_bank ; start at bank 1 since bank 0 is reserved for kernal
+    ; find out the remainder
+	lda .x16_reu_load_address
+    ora #$1f
+    clc
+    adc #$a0
+    sta z_temp + 1
+    lda #$00
+    sta z_temp
 
 	lda #2      ; file number 2
 	tay
@@ -54,10 +75,10 @@ x16_load_file_to_reu
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
-    ldx #1 ; start at bank 1 since bank 0 is reserved for kernal
+    ldx .x16_bank
 	
 .next_bank
-    stx $0000  ; switch bank
+    stx $0     ; switch bank
 
     lda #$00   ; start from $a000
     sta z_temp
@@ -72,6 +93,15 @@ x16_load_file_to_reu
 	iny
 	bne --
 
+    jsr .update_progress_bar
+	inc .x16_reu_page_count
+
+	lda x16_reu_enable_load_page_limit
+	beq +
+	dec x16_reu_load_page_limit
+	beq .file_copying_done
+
++
     inc z_temp + 1
     lda z_temp + 1
     cmp #$c0
@@ -89,6 +119,7 @@ x16_load_file_to_reu
 	lda .x16_reu_page_count
 	rts
 }
+
 !ifdef TARGET_MEGA65 {
 
 m65_reu_load_page_limit = z_temp + 10  ; max page # to read
