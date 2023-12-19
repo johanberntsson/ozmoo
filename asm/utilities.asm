@@ -346,39 +346,96 @@ convert_byte_to_two_digits
 	rts
 }
 
-!ifdef TARGET_X16 {
-; Macros for far memory read and write 
-; TODO
-!macro read_far_byte .vector {
-	lda #.vector
-	sta $02aa
-	ldx #$7f
-	jsr $02a2
-}
-
-!macro write_far_byte .vector {
-	ldx #.vector
-	stx $02b9
-	ldx #$7f
-	jsr $02af
-}
-}
-
 !ifdef TARGET_C128 {
 ; Macros for far memory read and write 
 !macro read_far_byte .vector {
 	lda #.vector
 	sta $02aa
 	ldx #$7f
-	jsr $02a2
+	jsr $02a2 ; bank peek routine
 }
 
 !macro write_far_byte .vector {
 	ldx #.vector
 	stx $02b9
 	ldx #$7f
-	jsr $02af
+	jsr $02af ; bank poke routine
 }
+}
+
+!ifdef TARGET_X16 {
+; Macros for far memory read and write 
+
+!macro read_far_byte .vector {
+	lda #.vector
+	jsr x16_read_far_byte
+}
+
+!macro write_far_byte .vector {
+	ldx #.vector
+	jsr x16_write_far_byte
+}
+
+x16_prepare_dynmen_bank
+    ; convert from dynmen to bankmem and bank if necessary
+    ; find out which bank, switch to the bank, and set up
+    ; bankmem_pointer to the proper offset within the bank
+	lda dynmem_pointer + 1
+    and #$e0
+    sta bank
+	lda dynmem_pointer + 2
+    lsr
+    ror bank
+    ror bank
+    ror bank
+    ror bank
+    ror bank
+    inc bank ; start at bank 1 since bank 0 is reserved for kernal
+    lda bank
+    sta $0 ; switch bank
+    ; find out the remainder
+	lda dynmem_pointer + 1
+    ora #$1f
+    clc
+    adc #$a0
+    sta bankmem_pointer + 1
+	lda dynmem_pointer
+    sta bankmem_pointer
+    rts
+
+x16_read_far_byte
+; a = zp vector holding address in far memory
+; y = offset from address in zp vector
+; Returns value in a
+; y retains its value
+	tax
+	lda 0,x
+	sta dynmem_pointer
+	lda 1,x
+	sta dynmem_pointer + 1
+    lda #0
+	sta dynmem_pointer + 2
+    jsr x16_prepare_dynmen_bank
+	lda (bankmem_pointer),y
+	rts
+
+x16_write_far_byte
+; a = value to write
+; x = zp vector holding address in far memory
+; y = offset from address in zp vector
+; y retains its value
+    pha
+	tax
+	lda 0,x
+	sta dynmem_pointer
+	lda 1,x
+	sta dynmem_pointer + 1
+    lda #0
+	sta dynmem_pointer + 2
+    jsr x16_prepare_dynmen_bank
+    pla
+	sta (bankmem_pointer),y
+	rts
 }
 
 !ifdef TARGET_MEGA65 {
