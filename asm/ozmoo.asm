@@ -18,10 +18,9 @@
 }
 
 !ifdef TARGET_X16 {
-    DEBUG = 1; TODO remove me
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
-	;FAR_DYNMEM = 1 ; TODO: enable this
+	FAR_DYNMEM = 1
 	SUPPORT_REU = 1
 	SUPPORT_80COL = 1
 	!ifndef SLOW {
@@ -1065,6 +1064,9 @@ game_id		!byte 0,0,0,0
 
 	lda #0
 	sta keyboard_buff_len
+-   lda #'a'
+    jsr $ffd2
+    jmp -
 
 	jsr z_init
 
@@ -1963,8 +1965,6 @@ deletable_init
 +	jsr print_reu_progress_bar
 
 	jsr x16_load_dynmem_maybe_statmem
-
--   jmp -
 }
 !ifdef TARGET_MEGA65 {
 	jsr m65_init_reu
@@ -2113,6 +2113,18 @@ deletable_init
 	lda #$ff ; Use REU
 	sta use_reu
 }
+!ifdef TARGET_X16 {
+	ldy boot_device ; Boot device# stored
+	sty disk_info + 4 ; Device# for save disk
+	sty disk_info + 4 + 8 ; Device# for boot/story disk
+	; Store boot device in current_disks
+	lda #8 ; Index of story disk in disk_info - 3
+	sta current_disks - 8,y
+
+	lda #$ff ; Use REU
+	sta use_reu
+}
+
 	ldy #header_static_mem
 	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
 	ldx #$30 ; First unavailable slot
@@ -2164,6 +2176,12 @@ deletable_init
 }	
 +
 	jsr init_screen_colours
+}
+!ifdef TARGET_X16 {
+	bit x16_statmem_already_loaded
+	bmi + 
+	jsr init_screen_colours
++
 }
 	
 !ifdef VMEM {
