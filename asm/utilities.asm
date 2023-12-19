@@ -61,6 +61,7 @@ plus4_enable_rom = $ff3e
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
 ;	sta plus4_enable_ram
+} else ifdef TARGET_X16 {
 } else {
 	sta zero_processorports
 }
@@ -76,6 +77,7 @@ plus4_enable_rom = $ff3e
 	lda #%00110000 
 !ifdef TARGET_PLUS4 {
 ;	sta plus4_enable_ram
+} else ifdef TARGET_X16 {
 } else {
 	sta zero_processorports
 }
@@ -84,6 +86,7 @@ plus4_enable_rom = $ff3e
 
 !macro set_memory_no_basic {
 	!ifdef TARGET_PLUS4 {
+    } else ifdef TARGET_X16 {
 	} else {
 			pha
 		!ifdef TARGET_C128 {
@@ -99,6 +102,7 @@ plus4_enable_rom = $ff3e
 
 !macro set_memory_no_basic_unsafe {
 	!ifdef TARGET_PLUS4 {
+    } else ifdef TARGET_X16 {
 	} else {
 		!ifdef TARGET_C128 {
 			lda #%00001110 ; 48K RAM0 (0-$c000)
@@ -112,6 +116,7 @@ plus4_enable_rom = $ff3e
 
 !macro set_memory_normal {
 	!ifdef TARGET_PLUS4 {
+    } else ifdef TARGET_X16 {
 	} else {
 			pha
 		!ifdef TARGET_C128 {
@@ -339,6 +344,24 @@ convert_byte_to_two_digits
 	dex
 	adc #10 + $30 ; Carry already clear. Add 10 to fix going < 0. Add $30 to make it a digit
 	rts
+}
+
+!ifdef TARGET_X16 {
+; Macros for far memory read and write 
+; TODO
+!macro read_far_byte .vector {
+	lda #.vector
+	sta $02aa
+	ldx #$7f
+	jsr $02a2
+}
+
+!macro write_far_byte .vector {
+	ldx #.vector
+	stx $02b9
+	ldx #$7f
+	jsr $02af
+}
 }
 
 !ifdef TARGET_C128 {

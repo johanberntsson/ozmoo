@@ -33,7 +33,8 @@ vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buff
 }
 
 !ifdef TARGET_X16 {
-basic_reset           = $a000
+basic_reset           = $a000 ; TODO: check this
+story_start_far_ram   = 0 ; NOTE: This is in banked RAM
 SCREEN_HEIGHT         = 60
 SCREEN_WIDTH          = 80
 SCREEN_ADDRESS        = $0000
