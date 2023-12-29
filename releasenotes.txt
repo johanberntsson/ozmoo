@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Bugfixes:
+- "erase_window 0" would crash the interpreter if window 0 had height 0.
+
 ================================================
 Release 13.6: 17 November 2023
 

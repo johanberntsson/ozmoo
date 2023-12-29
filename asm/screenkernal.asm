@@ -933,7 +933,11 @@ s_scrolled_lines !byte 0
 	sta s_current_screenpos_row ; force recalculation
 s_erase_line
 	; registers: a,x,y
-	lda #0
+	lda zp_screenrow
+	cmp #25
+	bcc +
+	rts ; Illegal row, just ignore
++	lda #0
 	sta zp_screencolumn
 	jsr .update_screenpos
 	ldy #0

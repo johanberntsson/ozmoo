@@ -130,13 +130,14 @@ erase_window
 	lda window_start_row + 1
 .clear_from_a
 	sta zp_screenrow
--   jsr s_erase_line
-	inc zp_screenrow
-	lda zp_screenrow
+-	lda zp_screenrow
 	cmp #25
-	bcc -
+	bcs +
+	jsr s_erase_line
+	inc zp_screenrow
+	bne - ; Always branch
 	jsr clear_num_rows
-	; set cursor to top left (or, if Z4, bottom left)
++	; set cursor to top left (or, if Z4, bottom left)
 	pla
 	ldx #0
 	stx cursor_column + 1
