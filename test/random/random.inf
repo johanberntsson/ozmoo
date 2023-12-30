@@ -165,7 +165,6 @@ Global iterations = 0;
 	@set_window 0;
 	@erase_window -1;
 
-
 	print "^^This program drops ~balls~ from the very top-middle of
 a vertical two-dimensional field filled with pegs.  The balls bounce off
 the pegs either left or right until they drop into one of several slots
@@ -190,7 +189,7 @@ is represented by 'o'.^";
 		! Granularity = 1;
 	! }
 
-	print "^^Press any key to begin.  ";
+	print "^Press any key to begin.  ";
 	@read_char 1 -> _crap;
 
 	@split_window screen_height;
@@ -235,25 +234,6 @@ is represented by 'o'.^";
 			}
 		}
 
-		! if(delay == 0) {
-			! _crap = 0;
-			! if(dropcount % granularity == 0)
-				! @read_char 1 1 pause -> _crap;
-		! } else
-			! @read_char 1 delay pause -> _crap;
-
-		! if (_crap >= '0' && _crap <= '9') {
-			! delay = _crap - '0';
-		! } else if (_crap == ' ') {
-! !			@erase_window 1;
-			! @set_cursor 1 20;
-			! print "===  Paused ===";
-			! @read_char 1 -> _crap;
-			! redraw_bellcurve();
-		! } else if (_crap == 'q' or 'Q') {
-			! @erase_window -1;
-			! rtrue;
-		! }
 	}
 ];
 
@@ -296,8 +276,6 @@ is represented by 'o'.^";
 			}
 			if(_y == 0)
 				print (char) bar_base_char;
-			! else if (_x == mid_lane)
-				! print (char) mid_bar_char;
 			else
 				print (char) 'o';
 		}
@@ -332,12 +310,10 @@ is represented by 'o'.^";
 
 	if(horisontal_mode) {
 		bar_base_char = '|';
-		mid_bar_char = '-';
 		lanes = screen_height - SPREAD_RESERVED_ROWS;
 		max_bar_height = screen_width - 1;
 	} else {
 		bar_base_char = '=';
-		mid_bar_char = '|';
 		lanes = screen_width;
 		max_bar_height = screen_height - SPREAD_RESERVED_ROWS - 1;
 	}
@@ -347,6 +323,15 @@ is represented by 'o'.^";
 	for (_x = 0: _x < lanes: _x++) {
 		bin-->_x = 0;
 	}
+
+	@set_window 0;
+	@erase_window -1;
+
+	print "^^This program draws random numbers in the range 1-n, where n is 
+		the number of columns or rows available on screen, up to 80. In the
+		long run, all the bars should be just about the same length.^^";
+	print "Press any key to begin.  ";
+	@read_char 1 -> _crap;
 
 	iterations = 0;
 	granularity = 1;
@@ -389,14 +374,283 @@ is represented by 'o'.^";
 
 	@erase_window -1;
 
-!	Height = $24-->0;
-
-	! while (1) {
-		! randomize_spread();
-		! display_spread();
-		! @read_char -> x;
-	! }
 ];
+
+[ redraw_evenodd _x _y _q _top _temp;
+
+	@split_window screen_height;
+	@erase_window -2;
+	@set_window 1;
+
+	@set_cursor 1 1;
+	print "iterations: ";
+	@set_cursor 1 13;
+	print iterations;
+	@set_cursor 2 1;
+	print "granularity: ", granularity;
+	@set_cursor 1 20;
+	print "<space>: Pause.";
+	@set_cursor 2 20;
+	print "'q': Quit.";
+
+	@set_cursor 6 2;
+	print "Even->Even: ";
+	@set_cursor 8 2;
+	print "Even->Odd: ";
+	@set_cursor 10 2;
+	print "Odd->Even: ";
+	@set_cursor 12 2;
+	print "Odd->Odd: ";
+
+	top_bar_height = 0;
+
+	for (_x = 0: _x < lanes: _x++) {
+		_top = bin-->_x / granularity;
+		if (_top > top_bar_height) {
+			top_bar_height = _top;
+		}
+		if(top_bar_height >= max_bar_height)
+			_top = max_bar_height; ! Draw for now, this will trigger a granularity increase
+		_temp = 2 * _x + 6;
+		for (_y = 0: _y <= _top: _y++) {
+			_q = _y + 14;
+			@set_cursor _temp _q;
+			if(_y == 0)
+				print (char) bar_base_char;
+			else
+				print (char) 'o';
+		}
+	}
+];
+
+[ update_evenodd p_lane _top _q _temp;
+	_top = bin-->p_lane;
+	if(_top % granularity == 0) {
+		_top = _top / granularity;
+		if (_top > top_bar_height) {
+			top_bar_height = _top;
+		}
+		if(top_bar_height >= max_bar_height)
+			_top = max_bar_height; ! Draw for now, this will trigger a granularity increase
+		_q = _top + 14;
+		_temp = 2 * p_lane + 6;
+		@set_cursor _temp _q;
+		print (char) 'o';
+	}
+	@set_cursor 1 13;
+	print iterations;
+];
+
+[ Main_evenodd _rnd _last_rnd _x _crap;
+
+	bar_base_char = '|';
+	lanes = 4;
+	max_bar_height = screen_width - 15;
+
+	for (_x = 0: _x < lanes: _x++) {
+		bin-->_x = 0;
+	}
+
+	@set_window 0;
+	@erase_window -1;
+
+	print "^^This program draws a sequence of random numbers in 
+		the range 1-254 and shows how common it is for an even 
+		number to be followed by an even number, for an even number
+		to be followed by an odd number, etc.^^";
+	print "Press any key to begin.  ";
+	@read_char 1 -> _crap;
+
+	iterations = 0;
+	granularity = 1;
+	redraw_evenodd();
+
+	_last_rnd = random(254) & 1;
+	@log_shift _last_rnd 1 -> _last_rnd;
+	
+	while (1) {
+		_rnd = random(254) & 1;
+		_x = _last_rnd + _rnd;
+		@log_shift _rnd 1 -> _last_rnd;
+		
+		bin-->_x = bin-->_x + 1;
+		iterations++;
+		update_evenodd(_x);
+		if (top_bar_height >= max_bar_height) {
+			granularity = granularity * 2;
+			redraw_evenodd();
+		}
+
+		! If delay is 0 and turbo mode enabled, allow key reads every 32 iterations
+		if(delay > 0 || turbo_mode == false || iterations % 32 == 0) {
+			_crap = 0;
+			if(delay == 0) {
+				if(iterations % granularity == 0)
+					@read_char 1 1 pause -> _crap;
+			} else
+				@read_char 1 delay pause -> _crap;
+			if (_crap >= '0' && _crap <= '9') {
+				delay = _crap - '0';
+			} else if (_crap == ' ') {
+				@set_cursor 1 20;
+				print "===  Paused ===";
+				@read_char 1 -> _crap;
+				redraw_evenodd();
+			} else if (_crap == 'q' or 'Q') {
+				break;
+			}
+		}
+		
+	}
+
+	@read_char 1 -> _x;
+
+	@erase_window -1;
+
+];
+
+[ redraw_dicesequence _x _y _q _top _temp;
+
+	@split_window screen_height;
+	@erase_window -2;
+	@set_window 1;
+
+	@set_cursor 1 1;
+	print "iterations: ";
+	@set_cursor 1 13;
+	print iterations;
+	@set_cursor 2 1;
+	print "granularity: ", granularity;
+	@set_cursor 1 20;
+	print "<space>: Pause.";
+	@set_cursor 2 20;
+	print "'q': Quit.";
+
+	for(_x=0: _x<6: _x++) {
+		for(_y=0: _y<6: _y++) {
+			_temp = 4 + 7 * (_x % 3) + _y; 
+			_q = 1;
+			if(_x>2)
+				_q = screen_width / 2 + 1;
+			@set_cursor _temp _q;
+			print _x + 1, ",", _y + 1;
+		}
+	}
+
+	top_bar_height = 0;
+
+	for (_x = 0: _x < lanes: _x++) {
+		_top = bin-->_x / granularity;
+		if (_top > top_bar_height) {
+			top_bar_height = _top;
+		}
+		if(top_bar_height >= max_bar_height)
+			_top = max_bar_height; ! Draw for now, this will trigger a granularity increase
+		_temp = 4 + 7 * ((_x / 6) % 3) + (_x % 6);
+		for (_y = 0: _y <= _top: _y++) {
+			_q = _y + 4;
+			if(_x>17)
+				_q = _q + screen_width / 2;
+			@set_cursor _temp _q;
+			if(_y == 0)
+				print (char) bar_base_char;
+			else
+				print (char) 'o';
+		}
+	}
+!	@read_char 1 -> _x;
+];
+
+[ update_dicesequence p_lane _top _q _temp;
+	_top = bin-->p_lane;
+	if(_top % granularity == 0) {
+		_top = _top / granularity;
+		if (_top > top_bar_height) {
+			top_bar_height = _top;
+		}
+		if(top_bar_height >= max_bar_height)
+			_top = max_bar_height; ! Draw for now, this will trigger a granularity increase
+		_temp = 4 + 7 * ((p_lane / 6) % 3) + (p_lane % 6);
+		_q = _top + 4;
+		if(p_lane>17)
+			_q = _q + screen_width / 2;
+		@set_cursor _temp _q;
+		print (char) 'o';
+	}
+	@set_cursor 1 13;
+	print iterations;
+];
+
+[ Main_dicesequence _rnd _last_rnd _x _crap;
+
+	bar_base_char = ':';
+	lanes = 36;
+	max_bar_height = screen_width / 2 - 4;
+
+	for (_x = 0: _x < lanes: _x++) {
+		bin-->_x = 0;
+	}
+
+	@set_window 0;
+	@erase_window -1;
+
+	print "^^This program simulates throwing a six-sided die multiple times,
+		and shows how common it is for one result to be followed by 
+		a certain other result, e.g. how common it is for a 1 to be followed
+		by a 1.^^
+		";
+	print "Press any key to begin.  ";
+	@read_char 1 -> _crap;
+
+	iterations = 0;
+	granularity = 1;
+	redraw_dicesequence();
+
+	_last_rnd = random(6) - 1;
+	_last_rnd = _last_rnd * 6;
+	
+	while (1) {
+		_rnd = random(6) - 1;
+		_x = _last_rnd + _rnd;
+		_last_rnd = _rnd * 6;
+		
+		bin-->_x = bin-->_x + 1;
+		iterations++;
+		update_dicesequence(_x);
+		if (top_bar_height >= max_bar_height) {
+			granularity = granularity * 2;
+			redraw_dicesequence();
+		}
+
+		! If delay is 0 and turbo mode enabled, allow key reads every 32 iterations
+		if(delay > 0 || turbo_mode == false || iterations % 32 == 0) {
+			_crap = 0;
+			if(delay == 0) {
+				if(iterations % granularity == 0)
+					@read_char 1 1 pause -> _crap;
+			} else
+				@read_char 1 delay pause -> _crap;
+			if (_crap >= '0' && _crap <= '9') {
+				delay = _crap - '0';
+			} else if (_crap == ' ') {
+				@set_cursor 1 20;
+				print "===  Paused ===";
+				@read_char 1 -> _crap;
+				redraw_dicesequence();
+			} else if (_crap == 'q' or 'Q') {
+				break;
+			}
+		}
+		
+	}
+
+	@read_char 1 -> _x;
+
+	@erase_window -1;
+
+];
+
+
 
 [ Main _mychar;
 	screen_height = $20->0;
@@ -433,11 +687,15 @@ is represented by 'o'.^";
 
 		print "1) Bellcurve graph.^";
 		print "2) Spread graph.^";
+		print "3) Even-odd graph.^";
+		print "4) Dice sequence graph.^";
 		print "^Please select a test: ";
 		@read_char 1 _mychar;
 		switch (_mychar) {
 			'1':	Main_bellcurve();
 			'2':	Main_spread();
+			'3':	Main_evenodd();
+			'4':	Main_dicesequence();
 			default: print "^";
 		}
 	}
