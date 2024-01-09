@@ -233,6 +233,12 @@ z_temp				  = $68 ; 12 bytes
 
 s_colour 			  = $74 ; !byte 1 ; white as default
 
+!ifdef TARGET_X16 {
+dynmem_pointer			= $85; 3 bytes
+bankmem_pointer			= $88; 2 bytes
+bank				= $8a; 1 byte
+}
+
 !ifdef TARGET_MEGA65 {
 dynmem_pointer			= $85; 4 bytes
 ;dynmem_pointer			= $26; 4 bytes

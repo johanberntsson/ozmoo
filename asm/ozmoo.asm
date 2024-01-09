@@ -1064,9 +1064,12 @@ game_id		!byte 0,0,0,0
 
 	lda #0
 	sta keyboard_buff_len
+!ifdef TARGET_X16 {
+    ; TODO REMOVEME just a test signal
 -   lda #'a'
     jsr $ffd2
     jmp -
+}
 
 	jsr z_init
 

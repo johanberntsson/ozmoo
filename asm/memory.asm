@@ -172,6 +172,34 @@ get_page_at_z_pc_did_pha
 }
 
 !zone {
+
+!ifdef TARGET_X16 {
+
+read_word_from_far_dynmem
+; a = zp vector pointing to base address
+; y = offset from address in zp vector
+; Returns word in a,x (byte 1, byte 2)
+; y retains its value
+    rts
+
+write_word_to_far_dynmem
+; zp vector pointing to base address must be stored in
+;   write_word_far_dynmem_zp_1 and write_word_far_dynmem_zp_2 before call 
+; a,x = value (byte 1, byte 2)
+; y = offset from address in zp vector
+; y is increased by 1
+	pha
+.write_word
+	lda $fb
+.write_word_2
+    pla
+    rts
+
+write_word_far_dynmem_zp_1 = .write_word + 1
+write_word_far_dynmem_zp_2 = .write_word_2 + 1
+
+} else {
+
 !ifdef TARGET_C128 {
 copy_page_c128_via_reu
 
@@ -503,6 +531,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 } ; end zone
 
 } ; not TARGET_C128
+} ; not TARGET_X16
 }
 
 
