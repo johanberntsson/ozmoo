@@ -58,7 +58,15 @@ read_byte_at_z_address
 	; a,x,y (high, mid, low) contains address.
 	; Returns: value in a
 
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_X16 {
+	sta dynmem_pointer + 2
+	stx dynmem_pointer + 1
+	sty dynmem_pointer
+    jsr x16_prepare_bankmem
+	ldy dynmem_pointer
+	lda (bankmem_pointer),y
+	rts
+} else ifdef TARGET_MEGA65 {
 	sta mempointer + 2
 	stx mempointer + 1
 	sty mempointer
@@ -139,7 +147,7 @@ read_byte_at_z_address
 	jmp .return_result 
 } ; Not SKIP_VMEM_BUFFERS
 } ; Not TARGET_PLUS4
-} ; Not target MEGA65	
+} ; Not target MEGA6A or X16
 } else {
 ; virtual memory
 
