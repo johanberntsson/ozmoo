@@ -380,9 +380,9 @@ check_reu_size
     ; used registers: 
 
 !ifdef TARGET_X16 {
-    ; TODO: we know that 512 KB is available, but the emulator
-    ; wraps around, so we cannot test by writing to $a000 how
-    ; large the memory actually is. Is there a better method?
+    ; TODO: we know that at least 512 KB is available, but thei
+    ; emulator wraps around, so we cannot test by writing to $a000
+    ; how large the memory actually is. Is there a better method?
     lda #8 ; 8 * 64 = 512 KB
     rts
 

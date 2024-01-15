@@ -140,7 +140,25 @@ write_next_byte
 	bcs .write_outside_dynmem
 }
 
-!ifdef TARGET_C128 {
+!ifdef TARGET_X16 {
+	txa
+	pha
+	tya
+	pha
+	lda z_address + 2
+	sta dynmem_pointer
+	lda z_address + 1
+	sta dynmem_pointer + 1
+	jsr x16_prepare_bankmem
+    ldy #0
+	lda z_address_temp
+	sta (bankmem_pointer),y
+	pla
+	tay
+	pla
+	tax
+	lda z_address_temp
+} else ifdef TARGET_C128 {
 	txa
 	pha
 	tya
@@ -159,8 +177,7 @@ write_next_byte
 	pla
 	tax
 	lda z_address_temp
-} else {
-!ifdef TARGET_MEGA65 {
+} else ifdef TARGET_MEGA65 {
 	lda z_address + 2
 	sta dynmem_pointer
 	lda z_address + 1
@@ -168,8 +185,8 @@ write_next_byte
 	ldz #0
 	lda z_address_temp
 	sta [dynmem_pointer],z
-} else { 
-	; not TARGET_C128 or MEGA65
+} else {
+	; not TARGET_X16, TARGET_C128 or MEGA65
 	lda z_address + 2
 	sta .write_byte + 1
 	lda z_address + 1
@@ -179,7 +196,6 @@ write_next_byte
 	lda z_address_temp
 .write_byte
 	sta $8000 ; This address is modified above
-}
 }
 
 	inc z_address + 2

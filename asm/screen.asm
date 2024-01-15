@@ -765,7 +765,6 @@ printchar_buffered
 	; update index to last break character
 	sty last_break_char_buffer_pos
 .add_char
-;	ldy buffer_index ; TODO: REMOVE!
 	sta print_buffer,y
 	lda s_reverse
 	sta print_buffer2,y

@@ -376,7 +376,7 @@ convert_byte_to_two_digits
 	jsr x16_write_far_byte
 }
 
-x16_prepare_dynmen_bank
+x16_prepare_bankmem
     ; convert from dynmen to bankmem and bank if necessary
     ; find out which bank, switch to the bank, and set up
     ; bankmem_pointer to the proper offset within the bank
@@ -415,7 +415,7 @@ x16_read_far_byte
 	sta dynmem_pointer + 1
     lda #0
 	sta dynmem_pointer + 2
-    jsr x16_prepare_dynmen_bank
+    jsr x16_prepare_bankmem
 	lda (bankmem_pointer),y
 	rts
 
@@ -432,7 +432,7 @@ x16_write_far_byte
 	sta dynmem_pointer + 1
     lda #0
 	sta dynmem_pointer + 2
-    jsr x16_prepare_dynmen_bank
+    jsr x16_prepare_bankmem
     pla
 	sta (bankmem_pointer),y
 	rts

@@ -14,8 +14,8 @@
 ;
 ; Currently we only support sample files with 8 bits, one channel.
 ;
-; TODO:
-; - perhaps change preload of all sounds to load on demand for faster init
+; Future improvements:
+; - perhaps change preload of all sounds to load on demand for faster init?
 
 !ifdef SOUND {
 !zone sound_support {
