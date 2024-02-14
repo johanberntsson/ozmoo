@@ -99,7 +99,7 @@ There is a port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmo
 
 ## Building and running
 
-The simplest option is to use [Ozmoo Online](http://microheaven.com/ozmooonline/), a web page we have setup where you can build games with Ozmoo without installing anything on your computer. It supports all of the most important features. If you want to be able to use all the features and have full control of the build process, this is not the option for you.
+The simplest option is to use [Ozmoo Online](http://ozmoo.online), a web page we have setup where you can build games with Ozmoo without installing anything on your computer. It supports all of the most important features. If you want to be able to use all the features and have full control of the build process, this is not the option for you.
 
 The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X.
 
