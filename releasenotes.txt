@@ -2,8 +2,13 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- Varicella is now automatically patched to (a) fix a bug in colour handling in the game, and (b) adapt the game to Ozmoo's limitations in colour handling. 
+
 Bugfixes:
 - "erase_window 0" would crash the interpreter if window 0 had height 0.
+- Default screen colours weren't written into the header after a restart on MEGA65.
+- Build mode -P was broken, because dynmem size wasn't calculated. May have affected saves.
 
 ================================================
 Release 13.6: 17 November 2023

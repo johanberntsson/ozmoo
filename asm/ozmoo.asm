@@ -1406,12 +1406,21 @@ print_no_undo
 	!pet "Undo not available",13,13,0
 }
 
-!ifdef TARGET_MEGA65 {
 NEED_CALC_DYNMEM = 1
+
+
+!ifndef VMEM {
+!ifndef TARGET_MEGA65 {
+SIMPLE_NON_VMEM = 1
 }
-!ifdef VMEM {
-NEED_CALC_DYNMEM = 1
 }
+
+; !ifdef TARGET_MEGA65 {
+; NEED_CALC_DYNMEM = 1
+; }
+; !ifdef VMEM {
+; NEED_CALC_DYNMEM = 1
+; }
 
 !ifdef NEED_CALC_DYNMEM {
 calc_dynmem_size
@@ -1429,7 +1438,8 @@ calc_dynmem_size
 }
 	stx dynmem_size
 	sta dynmem_size + 1
-	
+
+!ifndef SIMPLE_NON_VMEM {	
 ;!ifdef TARGET_MEGA65 {
 	tay
 	cpx #0
@@ -1447,6 +1457,7 @@ calc_dynmem_size
 .store_nonstored_pages
 	sty nonstored_pages
 ;}
+}
 	rts
 }
 
@@ -2074,7 +2085,6 @@ deletable_init
 	bit m65_statmem_already_loaded
 	bmi + 
 ;	jsr m65_load_statmem
-	jsr init_screen_colours
 !ifdef SOUND {
 	; When we had to load statmem, we will also need to load sound effects, if any
 	jsr setup_sound_mempointer_32
@@ -2083,6 +2093,7 @@ deletable_init
 	sta [sound_mempointer_32],z
 }	
 +
+	jsr init_screen_colours
 }
 	
 !ifdef VMEM {

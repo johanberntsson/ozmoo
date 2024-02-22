@@ -124,6 +124,20 @@ $beyondzork_releases = {
     "r60-s880610" => "f2dc 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1"
 }
 
+$varicella_releases = {
+	"r1-s990831" => [
+		"11b48 0102 09 02", 
+		"13577 0102 09 02",
+		"26a85 0102 09 02",
+		"27284 0102 09 02",
+		"27381 0102 09 02",
+		"268c3 0404 04 02",
+		"273bc 0404 04 02",
+		"268cc 0204 04 00"
+	]
+}
+
+
 $d81interleave = [
 	# 0:No interleave
 	{},
@@ -2645,6 +2659,7 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
 storyfile_key = "r%d-s%s" % [ release, serial ]
+is_varicella = $zcode_version == 8 && $varicella_releases.has_key?(storyfile_key)
 is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
@@ -2690,13 +2705,36 @@ if is_trinity
 		patch_data_arr[i] = patch_data_arr[i].to_i(16)
 	end
 	if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
-		puts patch_data_arr.length
 		$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
 			patch_data_arr.pack("C*")
 		puts "Successfully patched Trinity story file."
 	else
 		puts "WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
 	end
+end
+
+if is_varicella
+	patch_success = true
+	patch_data_arr = $varicella_releases[storyfile_key]
+	patch_data_arr.each { |patch_data_string|
+#	patch_data_string = $varicella_releases[storyfile_key]	
+		patch_data_arr = patch_data_string.split(/ /)
+		patch_address = patch_data_arr.shift.to_i(16)
+		patch_check = patch_data_arr.shift.to_i(16)
+		# Change all hex strings to 8-bit unsigned ints instead, due to bug in Ruby's array.pack("H")
+		patch_data_arr.length.times do |i|
+			patch_data_arr[i] = patch_data_arr[i].to_i(16)
+		end
+		if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
+			$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
+				patch_data_arr.pack("C*")
+		else
+			patch_success = false
+			puts "WARNING: Story file matches serial + version# for Trinity, but contents differ (patch data string \"#{patch_data_string}\"). Failed to patch."
+			break
+		end
+	}
+	puts "Successfully patched Varicella story file." if patch_success
 end
 
 if $target == 'c128' and $interpreter_number == nil
