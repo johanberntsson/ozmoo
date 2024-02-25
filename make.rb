@@ -2153,7 +2153,8 @@ begin
 		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
 			$target = $1
 			if $target == "mega65" then
-			    $start_address = 0x1001
+			    # $start_address = 0x1001
+				$start_address = 0x1800
 			elsif $target == "plus4" then
 			    $start_address = 0x1001
 				$memory_end_address = 0xfc00
