@@ -649,7 +649,7 @@ An interpreter needs to reserve this space for disk information:
 
 z1/z2/z3: 1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + (1 + 1 + 2 + 1 + 40 + 6) = 4 + 2 * 8 + 51 = 71 bytes
 
-z4/z5/z8:  1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 4 + 2 * 8 + 2 * 50 = 120 bytes
+z4/z5/z8:  1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40 + 5) = 4 + 2 * 8 + 2 * 50 = 120 bytes (* see Double 1571 drive support below)
 
 1571 drive support:
 
@@ -657,10 +657,12 @@ z4/z5/z8:  1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40
 - z4/z5 games: A single disk using only track 1-53 can hold all story data. Disk information will then fit in less than the number of bytes stated above.
 - z8 games: Disk information for a single drive game will fit in the number of bytes stated above. 
 
-Double 1571 drive support is possible but not a high priority. 
+Double 1571 drive support:
+
+- z1/z2/z3/z4/z5 games: Any game fits in less than the amount of bytes calculated for a 3-disk game above.
+- z7/z8 games: We need an additional 9 bytes to fit a full-size game. Thus, we allocate 130 bytes. 
 
 1581 drive support: This system should work, without extending the limits above, using only 31 sectors per track for story data, while allowing z8 games of up to 512 KB in size on a single disk. If we want to store several games on a single 1581 disk, we should add a track offset in each disk entry (i.e. saying that tracks below track x are considered empty).
-
 
 
 # Printer Support

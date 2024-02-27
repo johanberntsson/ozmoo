@@ -72,7 +72,8 @@ MODE_S2 = 3
 MODE_D2 = 4
 MODE_D3 = 5
 MODE_71 = 6
-MODE_81 = 7
+MODE_71D = 7
+MODE_81 = 8
 
 DISKNAME_BOOT = 128
 DISKNAME_STORY = 129
@@ -1899,6 +1900,76 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
+def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, reserve_dir_track)
+
+	config_data[7] = 3 # 3 disks used in total
+	outfile1name = "#{$target}_#{storyname}_boot_story_1.d71"
+	outfile2name = "#{$target}_#{storyname}_story_2.d71"
+	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/2' : '')
+	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/2' : '')
+	disk1 = D71_image.new(disk_title: disk1title, diskimage_filename: d71_filename_1, 
+		is_boot_disk: true, reserve_dir_track: reserve_dir_track)
+	disk2 = D71_image.new(disk_title: disk2title, diskimage_filename: d71_filename_2, 
+		is_boot_disk: false, reserve_dir_track: nil)
+
+	# Figure out how to put story blocks on the disks in optimal way.
+	# Rule 1: Spread story data as evenly as possible, so heads will move less.
+	max_story_blocks = 9999
+	total_raw_story_blocks = ($story_size - $story_file_cursor) / 256
+	# Spread story data evenly over the two disks
+	max_story_blocks = total_raw_story_blocks / 2
+	
+	free_blocks_1 = disk1.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
+	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}" if $verbose
+	free_blocks_2 = disk2.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}" if $verbose
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks_1)
+	vmem_data[3] = vmem_preload_blocks
+	
+	# Add config data about boot disk / story disk 1
+	disk_info_size = 13 + disk1.config_track_map.length
+	last_block_plus_1 = 0
+	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk1.config_track_map.length] + disk1.config_track_map
+	config_data += [DISKNAME_BOOT, DISKNAME_DISK, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, "1".ord, 0]  # Name: "Boot disk / Story disk 1"
+	config_data[4] += disk_info_size
+	
+	# Add config data about story disk 2
+	disk_info_size = 9 + disk2.config_track_map.length
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk2.config_track_map.length] + disk2.config_track_map
+	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
+	config_data[4] += disk_info_size
+	
+	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
+	config_data += vmem_data
+
+	#	puts config_data
+	disk1.set_config_data(config_data)
+	disk1.save()
+	disk2.save()
+	
+	# Add bootfile + terp + preloaded vmem blocks file to disk
+	if add_boot_file(outfile1name, d71_filename_1) != true
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
+		exit 1
+	end
+	File.delete(outfile2name) if File.exist?(outfile2name)
+	File.rename(d71_filename_2, "./#{outfile2name}")
+	
+	$bootdiskname = "#{outfile1name}"
+	puts "Successfully built game as #{$bootdiskname} + #{outfile2name}"
+	nil # Signal success
+end
+
 def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
 				preload_max_vmem_blocks)
 
@@ -2010,7 +2081,7 @@ def print_usage_and_exit
 end
 
 def print_usage
-	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
@@ -2022,7 +2093,7 @@ def print_usage
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
 	puts "         [-u[:0|1|r]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
-	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
+	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
@@ -2180,6 +2251,8 @@ begin
 			mode = MODE_D3
 		elsif ARGV[i] =~ /^-71$/ then
 			mode = MODE_71
+		elsif ARGV[i] =~ /^-71D$/ then
+			mode = MODE_71D
 		elsif ARGV[i] =~ /^-81$/ then
 			mode = MODE_81
 		elsif ARGV[i] =~ /^-ch(?::(\d{1,3}))?$/ then
@@ -2854,7 +2927,7 @@ if $target != 'c128' and limit_preload_vmem_blocks == false
 	case mode
 	when MODE_S1
 		$no_sector_preload = true if 170 - used_kb > 3
-	when MODE_S2, MODE_D3, MODE_81
+	when MODE_S2, MODE_D3, MODE_71D, MODE_81
 		$no_sector_preload = true
 	when MODE_D2, MODE_71
 		$no_sector_preload = true if 340 - used_kb > 3
@@ -3055,6 +3128,11 @@ when MODE_D3
 when MODE_71
 	diskimage_filename = File.join($TEMPDIR, "temp1.d71")
 	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, reserve_dir_track)
+when MODE_71D
+	d71_filename_1 = File.join($TEMPDIR, "temp1.d71")
+	d71_filename_2 = File.join($TEMPDIR, "temp2.d71")
+	error = build_71D(storyname, d71_filename_1, d71_filename_2, config_data.dup, vmem_data.dup, vmem_contents, 
+		preload_max_vmem_blocks, nil)
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
 	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
