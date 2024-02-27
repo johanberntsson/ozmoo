@@ -3,6 +3,7 @@ RELEASE NOTES
 Upcoming release
 
 New/changed features:
+- Added build mode -71D, for dual 1571 drives.
 - Varicella is now automatically patched to (a) fix a bug in colour handling in the game, and (b) adapt the game to Ozmoo's limitations in colour handling. 
 
 Bugfixes:
