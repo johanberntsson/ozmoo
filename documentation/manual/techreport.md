@@ -660,7 +660,7 @@ z4/z5/z8:  1 + 1 + 1 + 1 + 2 * (1 + 1 + 2 + 1 + 0 + 3) + 2 * (1 + 1 + 2 + 1 + 40
 Double 1571 drive support:
 
 - z1/z2/z3/z4/z5 games: Any game fits in less than the amount of bytes calculated for a 3-disk game above.
-- z7/z8 games: We need an additional 9 bytes to fit a full-size game. Thus, we allocate 130 bytes. 
+- z7/z8 games: We need an additional 11 bytes to fit a full-size game. Thus, we allocate 133 bytes, to have some margin. 
 
 1581 drive support: This system should work, without extending the limits above, using only 31 sectors per track for story data, while allowing z8 games of up to 512 KB in size on a single disk. If we want to store several games on a single 1581 disk, we should add a track offset in each disk entry (i.e. saying that tracks below track x are considered empty).
 
