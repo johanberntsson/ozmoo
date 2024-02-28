@@ -86,7 +86,7 @@ disk_info
 	!fill 94
 }
 !ifdef Z7PLUS {
-	!fill 133
+	!fill 150
 }
 
 readblocks
