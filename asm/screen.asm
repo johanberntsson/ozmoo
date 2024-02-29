@@ -514,7 +514,11 @@ show_more_prompt
 	tya
 	and #1
 	beq +
+!ifdef TARGET_X16 {
+	ldx bgcol
+} else {
 	ldx reg_backgroundcolour
+}
 +
 !ifdef TARGET_MEGA65 {
 	jsr colour2k

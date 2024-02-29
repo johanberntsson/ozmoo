@@ -1,4 +1,10 @@
-all: x16-dragontroll
+all: x16-test
+
+x16-test:
+	ruby make.rb -s test.z5 -t:x16 -v
+
+mega65-test:
+	ruby make.rb -s test.z5 -t:mega65 -v
 
 x16-dragontroll:
 	ruby make.rb -s examples/dragontroll.z5 -t:x16 -v

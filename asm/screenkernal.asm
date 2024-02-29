@@ -919,6 +919,7 @@ s_scrolled_lines !byte 0
 +
 }
 
+!ifndef TARGET_X16 {
 ; ----------- Delay for slower scrolling
 
 	ldx scroll_delay
@@ -965,6 +966,7 @@ s_scrolled_lines !byte 0
 	; dex
 	; bne -
 .done_delaying
+}
 ;	dec reg_backgroundcolour
 ;	inc	 reg_backgroundcolour
 
