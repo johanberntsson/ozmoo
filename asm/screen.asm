@@ -131,7 +131,7 @@ erase_window
 .clear_from_a
 	sta zp_screenrow
 -	lda zp_screenrow
-	cmp #25
+	cmp #SCREEN_HEIGHT
 	bcs +
 	jsr s_erase_line
 	inc zp_screenrow
@@ -147,7 +147,7 @@ erase_window
 !ifdef Z5PLUS {
 	lda window_start_row + 1
 } else {
-	lda #24
+	lda #SCREEN_HEIGHT-1
 }
 	stx cursor_row + 1
 	pha
@@ -304,9 +304,9 @@ start_buffering
 	rts
 
 !ifndef Z4PLUS {
-.max_lines = 24
+.max_lines = SCREEN_HEIGHT-1
 } else {
-.max_lines = 25
+.max_lines = SCREEN_HEIGHT
 }
 
 z_ins_split_window

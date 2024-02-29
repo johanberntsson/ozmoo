@@ -1060,7 +1060,7 @@ s_scrolled_lines !byte 0
 s_erase_line
 	; registers: a,x,y
 	lda zp_screenrow
-	cmp #25
+	cmp #SCREEN_HEIGHT
 	bcc +
 	rts ; Illegal row, just ignore
 +	lda #0

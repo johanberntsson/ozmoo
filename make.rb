@@ -6,6 +6,7 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
 	# Paths on Windows
+    $X16 = "C:\\ProgramsWoInstall\\x16emu\\x16emu"
     $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
     $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
     $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random"
@@ -1330,7 +1331,8 @@ end
 def play(filename, storyname)
 	if $target == "x16" then
         #system("grep johan temp/acme_labels.txt")
-		command = "cd #{filename} && ../#{$X16} -prg #{storyname}"
+#		command = "cd #{filename} && ../#{$X16} -prg #{storyname}"
+		command = "cd #{filename} && #{$X16} -prg #{storyname}"
 		command += " -run"
 		command += " -dump B" # Ctrl-S from the emulator to dump memory
 		command += " -debug"
