@@ -33,7 +33,6 @@ vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buff
 }
 
 !ifdef TARGET_X16 {
-basic_reset           = $a000 ; TODO: check this
 story_start_far_ram   = 0 ; NOTE: This is in banked RAM
 SCREEN_HEIGHT         = 60
 SCREEN_WIDTH          = 80
@@ -317,14 +316,6 @@ reg_bordercolour      = $d020
 reg_backgroundcolour  = $d021 
 rasterline_for_scroll = 56; 56 works well for PAL and NTSC
 }
-!ifdef TARGET_X16 {
-reg_rasterline_highbit=	$d011
-reg_rasterline        = $d012
-reg_screen_char_mode  = $d018 
-reg_bordercolour      = $d020
-reg_backgroundcolour  = $d021 
-rasterline_for_scroll = 56; 56 works well for PAL and NTSC
-}
 
 ; --- Kernel routines ---
 !ifdef TARGET_C64 {
@@ -332,7 +323,8 @@ kernal_reset          = $fce2 ; cold reset of the C64
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 !ifdef TARGET_X16 {
-kernal_reset          = $fce2 ; cold reset of the C64
+; TODO: check these addresses
+kernal_reset          = $fce2 ; cold reset of the X16
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 !ifdef TARGET_PLUS4 {

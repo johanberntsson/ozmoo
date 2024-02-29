@@ -18,6 +18,7 @@
 }
 
 !ifdef TARGET_X16 {
+	X16_DEBUG = 1
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
 	FAR_DYNMEM = 1
@@ -27,6 +28,9 @@
 		SLOW = 1
 	}
 	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
+}
+!ifdef X16_DEBUG {
+	DEBUG = 1
 }
 !ifdef TARGET_MEGA65 {
 	TARGET_ASSIGNED = 1
@@ -1109,16 +1113,15 @@ game_id		!byte 0,0,0,0
 
 	jsr z_execute
 
-!ifdef TARGET_PLUS4_OR_C128 {
 !ifdef TARGET_C128 {
 	jmp c128_reset_to_basic
-} else {
+} else ifdef TARGET_PLUS4 {
 	lda #$01
 	sta $2b
 	lda #$10
 	sta $2c
 	jmp basic_reset
-}
+} else ifdef TARGET_X16 {
 } else {
 	; Back to normal memory banks
 	lda #%00110111
@@ -1564,6 +1567,12 @@ deletable_screen_init_2
 	sty is_buffered_window
 	ldx #$ff
 	jsr erase_window
+!ifdef X16_DEBUG {
+	jsr print_following_string
+	!pet "x16 debug",13,0
+    jsr printchar_flush
+-   jmp -
+}
 	jmp start_buffering
 
 z_init
