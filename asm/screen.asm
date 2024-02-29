@@ -691,39 +691,52 @@ print_line_from_buffer
 .printline40
 }
 
-!ifdef TARGET_MEGA65 {
-	jsr colour2k	
-}
+!ifdef TARGET_X16 {
 	ldy first_buffered_column
 -   cpy last_break_char_buffer_pos
 	bcs ++
+	lda print_buffer2,y
+	sta s_reverse
 	lda print_buffer,y
-	jsr convert_petscii_to_screencode
-	ora print_buffer2,y
-	sta (zp_screenline),y
-!ifdef COLOURFUL_LOWER_WIN {
-!ifdef TARGET_PLUS4 {
-	ldx s_colour
-	lda plus4_vic_colours,x
-} else {
-	lda s_colour
-}
-	sta (zp_colourline),y
-}
+	jsr s_printchar
 	iny
 	bne - ; Always branch
+++
+} else {
+	!ifdef TARGET_MEGA65 {
+		jsr colour2k	
+	}
+		ldy first_buffered_column
+	-   cpy last_break_char_buffer_pos
+		bcs ++
+		lda print_buffer,y
+		jsr convert_petscii_to_screencode
+		ora print_buffer2,y
+		sta (zp_screenline),y
+	!ifdef COLOURFUL_LOWER_WIN {
+	!ifdef TARGET_PLUS4 {
+		ldx s_colour
+		lda plus4_vic_colours,x
+	} else {
+		lda s_colour
+	}
+		sta (zp_colourline),y
+	}
+		iny
+		bne - ; Always branch
 
-++	
-
-!ifdef TARGET_MEGA65 {
-	jsr colour1k
+	++	
+	!ifdef TARGET_MEGA65 {
+		jsr colour1k
+	}
+		lda last_break_char_buffer_pos
+		sec
+		sbc first_buffered_column
+		clc
+		adc zp_screencolumn
+		sta zp_screencolumn
 }
-	lda last_break_char_buffer_pos
-	sec
-	sbc first_buffered_column
-	clc
-	adc zp_screencolumn
-	sta zp_screencolumn
+
 
 +++
 	rts
