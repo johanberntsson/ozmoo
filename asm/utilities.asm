@@ -380,27 +380,26 @@ x16_prepare_bankmem
     ; convert from dynmen to bankmem and bank if necessary
     ; find out which bank, switch to the bank, and set up
     ; bankmem_pointer to the proper offset within the bank
-	lda dynmem_pointer + 1
-    and #$e0
+	lda mempointer + 1
     sta bank
-	lda dynmem_pointer + 2
+	lda mempointer
+    lsr bank
+    ror
+    lsr bank
+    ror
+    lsr bank
+    ror
     lsr
-    ror bank
-    ror bank
-    ror bank
-    ror bank
-    ror bank
-    inc bank ; start at bank 1 since bank 0 is reserved for kernal
-    lda bank
-    sta $0 ; switch bank
+    lsr
+	sta 0
+    inc 0 ; start at bank 1 since bank 0 is reserved for kernal
     ; find out the remainder
-	lda dynmem_pointer + 1
-    ora #$1f
-    clc
-    adc #$a0
-    sta bankmem_pointer + 1
-	lda dynmem_pointer
-    sta bankmem_pointer
+	lda mempointer
+    and #$1f
+    ora #$a0
+    sta mempointer + 1
+	lda #0
+    sta mempointer
     rts
 
 x16_read_far_byte
@@ -409,14 +408,14 @@ x16_read_far_byte
 ; Returns value in a
 ; y retains its value
 	tax
-	lda 0,x
-	sta dynmem_pointer
 	lda 1,x
-	sta dynmem_pointer + 1
-    lda #0
-	sta dynmem_pointer + 2
+	sta mempointer
+	lda #0
+	sta mempointer + 1
     jsr x16_prepare_bankmem
-	lda (bankmem_pointer),y
+	lda 0,x
+	sta mempointer
+	lda (mempointer),y
 	rts
 
 x16_write_far_byte
@@ -425,16 +424,15 @@ x16_write_far_byte
 ; y = offset from address in zp vector
 ; y retains its value
     pha
-	tax
-	lda 0,x
-	sta dynmem_pointer
 	lda 1,x
-	sta dynmem_pointer + 1
-    lda #0
-	sta dynmem_pointer + 2
+	sta mempointer
+	lda #0
+	sta mempointer + 1
     jsr x16_prepare_bankmem
-    pla
-	sta (bankmem_pointer),y
+	lda 0,x
+	sta mempointer
+	pla
+	sta (mempointer),y
 	rts
 }
 

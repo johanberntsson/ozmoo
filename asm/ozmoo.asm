@@ -1567,12 +1567,6 @@ deletable_screen_init_2
 	sty is_buffered_window
 	ldx #$ff
 	jsr erase_window
-!ifdef X16_DEBUG {
-	jsr print_following_string
-	!pet "x16 debug",13,0
-    jsr printchar_flush
--   jmp -
-}
 	jmp start_buffering
 
 z_init
@@ -1731,6 +1725,17 @@ z_init
 ;	sty alphabet_table + 1
 	
 	; Copy z_pc from header
+!ifdef cX16_DEBUG {
+	sta mem_temp
+	; lda #0
+	; sta z_operand_value_low_arr
+	; jsr z_ins_buffer_mode
+	jsr print_following_string
+	!pet "x16 debug",13,0
+    jsr printchar_flush
+-   jmp -
+	lda mem_temp
+}
 	ldy #header_initial_pc
 	jsr read_header_word
 	pha
@@ -1743,7 +1748,7 @@ z_init
 	sta z_pc
 }
 	jsr set_z_pc
-	jsr get_page_at_z_pc
+;	jsr get_page_at_z_pc NOT NEEDED - DONE AT THE END OF set_z_pc
 
 	; Setup globals pointer
 	ldy #header_globals

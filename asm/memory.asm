@@ -47,8 +47,8 @@ set_z_pc
 ; Parameters: New value of z_pc in a,x,y
 !zone {
 	sty z_pc + 2
-
-!ifndef TARGET_MEGA65 {	
+!ifdef TARGET_X16 {
+} else ifndef TARGET_MEGA65 {	
 	!ifdef VMEM {
 		cmp z_pc
 		bne .unsafe_1
@@ -174,14 +174,38 @@ get_page_at_z_pc_did_pha
 !zone {
 
 !ifdef TARGET_X16 {
+.countdown = mem_temp + 1
 
 read_word_from_far_dynmem
 ; a = zp vector pointing to base address
 ; y = offset from address in zp vector
 ; Returns word in a,x (byte 1, byte 2)
 ; y retains its value
-    rts
-
+	tax
+	lda 0,x
+	sta mem_temp
+	lda 1,x
+	sta mem_temp + 1
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	inx
+	stx 0
+	lda mem_temp + 1
+	and #%00011111
+	clc
+	adc #$a0
+	sta mem_temp + 1
+	iny
+	lda (mem_temp),y
+	tax
+	dey
+	lda (mem_temp),y
+	rts
+	
 write_word_to_far_dynmem
 ; zp vector pointing to base address must be stored in
 ;   write_word_far_dynmem_zp_1 and write_word_far_dynmem_zp_2 before call 
@@ -189,11 +213,37 @@ write_word_to_far_dynmem
 ; y = offset from address in zp vector
 ; y is increased by 1
 	pha
+	txa
+	pha
+	ldx #0
 .write_word
-	lda $fb
+	lda $ff,x
+	sta mem_temp
+	inx
 .write_word_2
-    pla
-    rts
+	lda $ff,x
+	sta mem_temp + 1
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	inx
+	stx 0
+	lda mem_temp + 1
+	and #%00011111
+	clc
+	adc #$a0
+	sta mem_temp + 1
+	iny
+	pla
+	sta (mem_temp),y
+	pla
+	dey
+	sta (mem_temp),y
+	iny
+	rts
 
 write_word_far_dynmem_zp_1 = .write_word + 1
 write_word_far_dynmem_zp_2 = .write_word_2 + 1
@@ -594,6 +644,13 @@ write_header_byte
 	ldz #0
 	stz dynmem_pointer + 1
 	sta [dynmem_pointer],z
+	rts
+} else ifdef TARGET_X16 {
+	pha
+	lda #1
+	sta 0
+	pla
+	sta $a000,y
 	rts
 } else {
 	sta story_start,y

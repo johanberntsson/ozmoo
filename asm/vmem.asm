@@ -59,12 +59,10 @@ read_byte_at_z_address
 	; Returns: value in a
 
 !ifdef TARGET_X16 {
-	sta dynmem_pointer + 2
-	stx dynmem_pointer + 1
-	sty dynmem_pointer
+	sta mempointer + 1
+	stx mempointer
     jsr x16_prepare_bankmem
-	ldy dynmem_pointer
-	lda (bankmem_pointer),y
+	lda (mempointer),y
 	rts
 } else ifdef TARGET_MEGA65 {
 	sta mempointer + 2

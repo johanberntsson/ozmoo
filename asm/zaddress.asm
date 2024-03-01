@@ -152,7 +152,7 @@ write_next_byte
 	jsr x16_prepare_bankmem
     ldy #0
 	lda z_address_temp
-	sta (bankmem_pointer),y
+	sta (mempointer),y
 	pla
 	tay
 	pla

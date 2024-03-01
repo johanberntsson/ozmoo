@@ -707,7 +707,7 @@ print_line_from_buffer
 		jsr colour2k	
 	}
 		ldy first_buffered_column
-	-   cpy last_break_char_buffer_pos
+-	   cpy last_break_char_buffer_pos
 		bcs ++
 		lda print_buffer,y
 		jsr convert_petscii_to_screencode
@@ -725,7 +725,7 @@ print_line_from_buffer
 		iny
 		bne - ; Always branch
 
-	++	
+++	
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
