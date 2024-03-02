@@ -861,6 +861,8 @@ c128_border_phase1
 	jmp $ff33	;return from IRQ
 }
 
+} else ifdef TARGET_X16 {
+!source "constants-x16.asm"
 } else {
 !source "constants.asm"
 }
