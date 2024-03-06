@@ -27,7 +27,7 @@
 	!ifndef SLOW {
 		SLOW = 1
 	}
-	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
+;	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
 }
 !ifdef X16_DEBUG {
 	DEBUG = 1

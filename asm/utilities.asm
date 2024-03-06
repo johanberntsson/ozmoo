@@ -159,8 +159,8 @@ plus4_enable_rom = $ff3e
 }
 } else {
 read_next_byte_at_z_pc_sub
-	ldy #0
 !ifdef TARGET_PLUS4 {
+	ldy #0
 	+disable_interrupts
 	sta plus4_enable_ram
 	lda (z_pc_mempointer),y
@@ -168,12 +168,18 @@ read_next_byte_at_z_pc_sub
 	+enable_interrupts
 } else {
 !ifdef SKIP_BUFFER {
+	ldy #0
 	+disable_interrupts
 	+set_memory_all_ram_unsafe
 	lda (z_pc_mempointer),y
 	+set_memory_no_basic
 	+enable_interrupts
 } else {
+!ifdef TARGET_X16 {
+	ldy x16_z_pc_bank
+	sty 0
+}
+	ldy #0
 	lda (z_pc_mempointer),y
 }
 }
@@ -377,9 +383,8 @@ convert_byte_to_two_digits
 }
 
 x16_prepare_bankmem
-    ; convert from dynmen to bankmem and bank if necessary
-    ; find out which bank, switch to the bank, and set up
-    ; bankmem_pointer to the proper offset within the bank
+    ; Read top two bytes of Z-machine address from mempointer 
+	; Store absolute address in mempointer, and set bank as necessary
 	lda mempointer + 1
     sta bank
 	lda mempointer

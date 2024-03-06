@@ -894,8 +894,11 @@ streams_unset_z_address
 	sta z_address,x
 	dex
 	bpl -
+!ifdef TARGET_X16 {
+	jmp x16_bank_z_address
+} else {
 	rts
-	
+}
 
 .z_address
 	!byte 0, 0, 0

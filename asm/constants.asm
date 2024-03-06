@@ -1,4 +1,5 @@
-; C128 is now in a separate constants-c128 instead
+; C128 is in a separate constants-c128
+; X16 is in a separate constants-x16
 ;
 
 !ifdef TARGET_C64 {
@@ -7,37 +8,6 @@ SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d800
-COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
-num_rows 			  = $a6 ; !byte 0
-CURRENT_DEVICE        = $ba
-ti_variable           = $a0; 3 bytes
-keyboard_buff_len     = $c6
-keyboard_buff         = $277
-key_repeat            = $028a
-
-use_reu				  = $9b
-reu_boost_vmap_clock  = $b1
-window_start_row	  = $2a; 4 bytes
-
-
-; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
-s_ignore_next_linebreak = $b0 ; 3 bytes
-s_reverse 			  = $b3 ; !byte 0
-
-zp_temp               = $fb ; 5 bytes
-savefile_zp_pointer   = $c1 ; 2 bytes
-first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-reu_filled            = $0255 ; 4 bytes
-vmap_buffer_start     = $0334
-vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
-}
-
-!ifdef TARGET_X16 {
-story_start_far_ram   = 0 ; NOTE: This is in banked RAM
-SCREEN_HEIGHT         = 60
-SCREEN_WIDTH          = 80
-SCREEN_ADDRESS        = $0000
-COLOUR_ADDRESS        = $0000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 num_rows 			  = $a6 ; !byte 0
 CURRENT_DEVICE        = $ba
@@ -232,11 +202,6 @@ z_temp				  = $68 ; 12 bytes
 
 s_colour 			  = $74 ; !byte 1 ; white as default
 
-!ifdef TARGET_X16 {
-dynmem_pointer			= $85; 2 bytes
-bank				= $8a; 1 byte
-}
-
 !ifdef TARGET_MEGA65 {
 dynmem_pointer			= $85; 4 bytes
 ;dynmem_pointer			= $26; 4 bytes
@@ -319,11 +284,6 @@ rasterline_for_scroll = 56; 56 works well for PAL and NTSC
 ; --- Kernel routines ---
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
-}
-!ifdef TARGET_X16 {
-; TODO: check these addresses
-kernal_reset          = $fce2 ; cold reset of the X16
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 !ifdef TARGET_PLUS4 {

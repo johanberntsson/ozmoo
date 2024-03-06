@@ -136,6 +136,14 @@ zp_colourline         = $ed ; 2 bytes current line (pointer to colour memory)
 cursor_row			  = $ef ; 2 bytes
 cursor_column		  = $f1 ; 2 bytes
 
+x16_z_address_bank    = $f3
+x16_z_adress_pointer  = $f4 ; 2 bytes
+x16_z_pc_bank         = $f6
+
+; $d4-$ff is reserved for Basic, and is free to use for an ML program
+
+
+
 print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
 

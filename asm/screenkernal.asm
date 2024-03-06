@@ -591,6 +591,8 @@ s_printchar
 .col80_2_end
 } else ifdef TARGET_X16 {
     jsr VERAPrintChar
+   lda s_colour
+   jsr VERAPrintColour
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {

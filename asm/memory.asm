@@ -159,6 +159,10 @@ get_page_at_z_pc_did_pha
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address
+!ifdef TARGET_X16 {
+	ldy 0
+	sty x16_z_pc_bank
+}
 	ldy mempointer + 1
 	sty z_pc_mempointer + 1
 !ifdef TARGET_MEGA65 {
