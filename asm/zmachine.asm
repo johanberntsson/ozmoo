@@ -248,7 +248,7 @@ dumptovice
 	sta z_trace_page,y
 	inc z_trace_index
 }
-	
+dummy	
 !ifdef DEBUG {	
 	;jsr print_following_string
 	;!pet "opcode: ",0
@@ -580,7 +580,10 @@ z_set_variable_reference_to_value
 	; input: Value in a,x.
 	;        (zp_temp) must point to variable, possibly using zp_temp + 2 to store bank
 	; affects registers: a,x,y,p
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	ldy zp_temp + 2
+	sty 0
+} else ifdef FAR_DYNMEM {
 	bit zp_temp + 2
 	bpl .set_in_bank_0
 	ldy #zp_temp
@@ -604,8 +607,10 @@ z_get_variable_reference_and_value
 	;         Value in a,x
 	; affects registers: p
 !ifdef FAR_DYNMEM {
+!ifndef TARGET_X16 {
 	ldx #0
 	stx zp_temp + 2 ; 0 for bank 0, $ff for far memory
+}
 }
 	cpy #0
 	bne +
@@ -631,7 +636,10 @@ z_get_variable_reference_and_value
 	sta zp_temp + 1
 
 z_get_referenced_value
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	lda zp_temp + 2
+	sta 0
+} else ifdef FAR_DYNMEM {
 	bit zp_temp + 2
 	bpl .in_bank_0
 	lda #zp_temp
@@ -652,7 +660,9 @@ z_get_referenced_value
 	ldx #0
 	stx zp_temp + 1
 !ifdef FAR_DYNMEM {
+!ifndef TARGET_X16 {
 	dec zp_temp + 2 ; Set to $ff, meaning referenced value is in far memory
+}
 }
 	asl
 	rol zp_temp + 1
@@ -660,6 +670,20 @@ z_get_referenced_value
 	sta zp_temp
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
+!ifdef TARGET_X16 {
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	tay
+	iny
+	sty zp_temp + 2
+	pla
+	and #%00011111
+	ora #$a0
+}
 	sta zp_temp + 1
 	jmp z_get_referenced_value
 

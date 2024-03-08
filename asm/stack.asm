@@ -649,7 +649,6 @@ z_ins_pull
 	pla
 	tax
 	pla
-	jsr z_set_variable_reference_to_value
-	rts
+	jmp z_set_variable_reference_to_value
 	
 }
