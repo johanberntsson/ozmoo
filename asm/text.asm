@@ -2173,6 +2173,9 @@ print_addr
 	sta z_address + 1
 	pla
 	sta z_address
+!ifdef TARGET_X16 {
+	jsr x16_bank_z_address
+}
 	pla
 	tax
 	lda #0

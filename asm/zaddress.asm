@@ -122,9 +122,9 @@ read_next_byte
 +
 !ifdef TARGET_X16 {
 	pha
-	lda z_address + 1
-	and #%00011111
-	bne +
+;	lda z_address + 1
+;	and #%00011111
+;	bne +
 	jsr x16_bank_z_address
 +	pla
 }
