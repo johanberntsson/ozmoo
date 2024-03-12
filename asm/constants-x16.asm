@@ -17,21 +17,8 @@ zero_datadirection    = $00
 zero_processorports   = $01
 
 
-num_rows 			  = $a6 ; !byte 0
-use_reu				  = $9b
-reu_boost_vmap_clock  = $b1
-window_start_row	  = $2a; 4 bytes
-
-; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
-s_ignore_next_linebreak = $b0 ; 3 bytes
-s_reverse 			  = $b3 ; !byte 0
-
-zp_temp               = $fb ; 5 bytes
-savefile_zp_pointer   = $c1 ; 2 bytes
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-reu_filled            = $0255 ; 4 bytes
-;vmap_buffer_start     = $0334
-;vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
+;reu_filled            = $0255 ; 4 bytes
 
 ; Zero-page addresses which we can move
 ; 123 bytes
@@ -71,7 +58,6 @@ z_operand_value_low_arr = $3d ;  8 bytes
 ; End of contiguous zero page block
 ;
 
-;vmap_max_entries	  = $34
 zchar_triplet_cnt	  = $55
 packed_text			  = $56 ; 2 bytes
 alphabet_offset		  = $58
@@ -112,6 +98,19 @@ mempointer            = $7c ; 2 bytes
 
 vmem_temp			  = $7e ; 2 bytes
 
+
+; $a9-$d3 is for math library and Basic, can safely be used
+num_rows 			  = $a9
+; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+s_ignore_next_linebreak = $aa ; 3 bytes
+s_reverse 			  = $ad
+
+savefile_zp_pointer   = $ae ; 2 bytes
+
+use_reu				  = $b0
+
+
+; $d4-$ff is reserved for Basic, and is free to use for an ML program
 z_temp				  = $d4 ; 12 bytes
 
 current_window		  = $e0 
@@ -140,7 +139,11 @@ x16_z_address_bank    = $f3
 x16_z_adress_pointer  = $f4 ; 2 bytes
 x16_z_pc_bank         = $f6
 
-; $d4-$ff is reserved for Basic, and is free to use for an ML program
+window_start_row	  = $f7; 4 bytes
+zp_temp               = $fb ; 5 bytes
+
+
+
 
 
 
