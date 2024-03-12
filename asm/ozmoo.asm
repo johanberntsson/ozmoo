@@ -19,6 +19,7 @@
 
 !ifdef TARGET_X16 {
 	X16_DEBUG = 1
+	NO_VMEM_CACHE = 1
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
 	FAR_DYNMEM = 1
@@ -48,6 +49,7 @@
 	}
 }
 !ifdef TARGET_PLUS4 {
+	NO_VMEM_CACHE = 1
 	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
@@ -69,6 +71,7 @@
 	TARGET_ASSIGNED = 1
 }
 !ifdef TARGET_C128 {
+	NO_VMEM_CACHE = 1
 	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	FAR_DYNMEM = 1
@@ -1169,7 +1172,7 @@ statmem_reu_banks !byte 0
 !source "objecttable.asm"
 
 
-!ifdef TARGET_PLUS4_OR_C128 {
+!ifdef NO_VMEM_CACHE {
 	!if SPLASHWAIT > 0 {
 		!source "splashscreen.asm"
 	}
@@ -1510,7 +1513,7 @@ vmem_cache_start
 }
 vmem_cache_start_maybe
 
-!ifndef TARGET_PLUS4_OR_C128 {
+!ifndef NO_VMEM_CACHE {
 	!if SPLASHWAIT > 0 {
 		!source "splashscreen.asm"
 	}
@@ -1521,7 +1524,8 @@ end_of_routines_in_vmem_cache
 
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
-!ifndef TARGET_C128 {
+;!ifndef TARGET_C128 {
+!ifndef NO_VMEM_CACHE {
 	!fill cache_pages * 256 - (* - vmem_cache_start_maybe),0 ; Typically 4 pages
 } 
 

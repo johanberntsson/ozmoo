@@ -5,7 +5,6 @@
 	* = $801
 }
 !ifdef TARGET_PLUS4 {
-	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	* = $1001
 	bitmap_source = loader_pic_start + $800
@@ -22,7 +21,6 @@
 	TARGET_ASSIGNED = 1
 }
 !ifdef TARGET_C128 {
-	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	* = $1c01
 }
