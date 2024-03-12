@@ -2148,6 +2148,9 @@ print_addr
 	asl z_address + 2
 	rol z_address + 1 
 	rol z_address 
+!ifdef TARGET_X16 {
+	jsr x16_bank_z_address
+}
 	; print the abbreviation
 	jsr print_addr
 	; restore state
