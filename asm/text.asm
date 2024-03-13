@@ -2141,16 +2141,15 @@ print_addr
 	jsr read_next_byte ; 0
 	pha
 	jsr read_next_byte ; 33
+	; abbreviation index is word, *2 for bytes, address is in first 128 KB
+	asl
 	tax
 	pla
-	jsr set_z_address
-	; abbreviation index is word, *2 for bytes
-	asl z_address + 2
-	rol z_address + 1 
-	rol z_address 
-!ifdef TARGET_X16 {
-	jsr x16_bank_z_address
-}
+	rol
+	ldy #0
+	bcc +
+	iny
++	jsr set_z_himem_address
 	; print the abbreviation
 	jsr print_addr
 	; restore state
