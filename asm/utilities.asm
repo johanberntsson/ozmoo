@@ -220,38 +220,36 @@ string_array_read_byte
 	tax
 	lda #0
 	jsr read_byte_at_z_address
-	sta .temp + 2
 	ldy .temp
 	ldx .temp + 1
-	lda .temp + 2
+	cmp #0
 	rts
 
 string_array_write_byte
 	sta .temp
 	sty .temp + 1
-	lda z_address
-	pha
 	lda z_address + 1
+	pha
+	lda z_address
 	pha
 	lda z_address + 2
 	pha
 	lda string_array
 	clc
 	adc .temp + 1
-	sta z_address + 2
+	tax
 	lda string_array + 1
 	adc #0
-	sta z_address + 1
-	lda #0
-	sta z_address
+	jsr set_z_address
 	lda .temp
 	jsr write_next_byte
 	pla
-	sta z_address + 2
+	tax
 	pla
-	sta z_address + 1
+	tay
 	pla
-	sta z_address
+	jsr set_z_himem_address
+	ldy .temp + 1
 	lda .temp
 	rts
 	
@@ -267,38 +265,36 @@ parse_array_read_byte
 	tax
 	lda #0
 	jsr read_byte_at_z_address
-	sta .temp + 2
 	ldy .temp
 	ldx .temp + 1
-	lda .temp + 2
+	cmp #0
 	rts
 
 parse_array_write_byte
 	sta .temp
 	sty .temp + 1
-	lda z_address
-	pha
 	lda z_address + 1
+	pha
+	lda z_address
 	pha
 	lda z_address + 2
 	pha
 	lda parse_array
 	clc
 	adc .temp + 1
-	sta z_address + 2
+	tax
 	lda parse_array + 1
 	adc #0
-	sta z_address + 1
-	lda #0
-	sta z_address
+	jsr set_z_address
 	lda .temp
 	jsr write_next_byte
 	pla
-	sta z_address + 2
+	tax
 	pla
-	sta z_address + 1
+	tay
 	pla
-	sta z_address
+	jsr set_z_himem_address
+	ldy .temp + 1
 	lda .temp
 	rts
 
