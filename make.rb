@@ -2452,7 +2452,7 @@ end
 if reu_boost == 1
 	$GENERALFLAGS.push('REUBOOST') unless $GENERALFLAGS.include?('REUBOOST')
 	if $target !~ /^c(64|128)$/
-		puts "ERROR: REU Boost is not available for this platform." 
+		puts "ERROR: REU Boost is not supported for this target platform." 
 		exit 1
 	end
 end
@@ -2461,7 +2461,7 @@ if smooth_scroll == nil
 	smooth_scroll = 0
 end
 if $target !~ /^(c64|c128)$/ and smooth_scroll == 1
-	puts "ERROR: Smooth scroll is not available for this platform." 
+	puts "ERROR: Smooth scroll is not supported for this target platform." 
 	exit 1
 end
 
@@ -2666,7 +2666,7 @@ if optimize and mode == MODE_P
 end
 
 if optimize and $target =~ /^(mega65|x16)$/
-	puts "ERROR: Option -o can't be used for this platform."
+	puts "ERROR: Option -o can't be used for this target platform."
 	exit 1
 end
 
@@ -2759,8 +2759,11 @@ end
 if scrollback == 1 and $target == "plus4"
 	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
 	exit 1
+elsif scrollback > 0 and $target == "x16"
+	puts "ERROR: Scrollback buffer is not supported on this target platform."
+	exit 1
 elsif scrollback > 0 and $zcode_version == 6
-	puts "ERROR: Scrollback buffer not supported in version 6 games"
+	puts "ERROR: Scrollback buffer is not supported in version 6 games"
 	exit 1
 elsif scrollback == 0
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
@@ -3004,7 +3007,7 @@ if $target == 'c128'
 	end
 end
 
-if $target != 'mega65' and 
+if $target !~ /^(mega65|x16)$/ and 
 		$storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
@@ -3020,7 +3023,7 @@ if $target == 'c128' then
 	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
 	$unbanked_vmem_blocks += $dynmem_blocks
 end
-if $target != 'mega65'
+if $target !~ /^(mega65|x16)$/
 	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 	puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
 	if	$unbanked_vmem_blocks < 1 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
