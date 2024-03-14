@@ -111,11 +111,12 @@ x16_load_file_to_reu
     jmp .next_bank
 
 .file_copying_done
-	lda #$00     
-	sta x16_reu_enable_load_page_limit
+	ldx #$00     
+	stx x16_reu_enable_load_page_limit
 	jsr kernal_chkin  ; restore input to keyboard
 	lda #$02      ; filenumber 2
 	jsr kernal_close ; call CLOSE
+	jsr kernal_clrchn
 	lda .x16_reu_page_count
 	rts
 }

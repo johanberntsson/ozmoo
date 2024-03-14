@@ -577,7 +577,9 @@ fatalerror
 	jsr printstring
 	pla
 	tax
+!ifndef TARGET_X16 {
 	stx SCREEN_ADDRESS + 79
+}
 	lda #0
 	jsr printinteger
 	lda #$0d

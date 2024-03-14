@@ -8,11 +8,11 @@ SCREEN_ADDRESS        = $0000
 COLOUR_ADDRESS        = $0000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
-CURRENT_DEVICE        = $ba
-ti_variable           = $a0; 3 bytes
-keyboard_buff_len     = $c6
-keyboard_buff         = $277
-key_repeat            = $028a
+CURRENT_DEVICE        = $ba ; WRONG
+ti_variable           = $a82f; 3 bytes
+keyboard_buff_len     = $0501 ; WRONG
+keyboard_buff         = $0502 ; WRONG
+key_repeat            = $0503 ; WRONG 
 zero_datadirection    = $00
 zero_processorports   = $01
 
@@ -147,13 +147,13 @@ zp_temp               = $fb ; 5 bytes
 
 
 
-print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
-print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes
+print_buffer		  = $600 ; SCREEN_WIDTH + 1 bytes
+print_buffer2         = $400 ; SCREEN_WIDTH + 1 bytes
 
-memory_buffer         =	$02a7
+memory_buffer         =	$452
 memory_buffer_length  = 89
 
-charset_switchable 	  = $291
+charset_switchable 	  = $500 ; WRONG
 
 ; --- I/O registers ---
 

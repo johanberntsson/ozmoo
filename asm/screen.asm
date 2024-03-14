@@ -27,6 +27,7 @@ init_screen_colours
 	; calculate the position for the more prompt
 	; (self modifying code since we don't want to
 	; ZP space is limited)
+!ifndef TARGET_X16 {
 	lda s_screen_size + 1
 	clc
 	adc #>SCREEN_ADDRESS
@@ -48,6 +49,7 @@ init_screen_colours
 	sta .more_access3 + 1
 }
 	sta .more_access4 + 1
+}
 	; colours
 	lda zcolours + FGCOL
 !if BORDERCOL_FINAL = 1 {
@@ -501,7 +503,11 @@ show_more_prompt
 	sta .more_text_char
 	lda #128 + $2a ; screen code for reversed "*"
 .more_access2
+!ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
+} else {
+	lda $8000
+}
 
 	; wait for ENTER
 .alternate_colours
@@ -530,13 +536,22 @@ show_more_prompt
     ; Only show more prompt in C128 VIC-II screen
 }
 .more_access3
+!ifndef TARGET_X16 {
 	stx COLOUR_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+} else {
+	ldx $8000
+}
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
 .check_for_keypress
 	ldx #40
----	lda ti_variable + 2 ; $a2
+---
+!ifdef TARGET_X16 {
+	lda #0
+	sta 0 ; Bank in timer
+}
+	lda ti_variable + 2 ; $a2
 -	cmp ti_variable + 2 ; $a2
 	beq -
 	jsr getchar_and_maybe_toggle_darkmode
@@ -558,7 +573,11 @@ show_more_prompt
 }
 	lda .more_text_char
 .more_access4
+!ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
+} else {
+	lda $8000
+}
 .increase_num_rows_done
 	rts
 

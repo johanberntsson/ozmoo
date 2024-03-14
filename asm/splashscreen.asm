@@ -32,6 +32,10 @@ splash_line_y
 	bne splash_line_y
 
 .restart_timer
+!ifdef TARGET_X16 {
+	lda #0
+	sta 0 ; Bank in timer
+}
 	lda ti_variable + 2
 	clc
 	adc #<(SPLASHWAIT*60)
@@ -39,7 +43,7 @@ splash_line_y
 	lda ti_variable + 1
 	adc #>(SPLASHWAIT*60)
 	sta z_temp + 1	
-	
+
 -	jsr kernal_getchar
 !ifndef NODARKMODE {
 	tay

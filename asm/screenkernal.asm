@@ -443,7 +443,7 @@ s_delete_cursor
 }
 !ifdef TARGET_X16 {
 	jmp VERAPrintChar
-}
+} else {
 	ldy zp_screencolumn
 	sta (zp_screenline),y
 !ifdef TARGET_PLUS4 {
@@ -457,6 +457,7 @@ s_delete_cursor
 	jsr colour1k
 }
 	rts
+}
 
 s_printchar
 	; replacement for CHROUT ($ffd2)
@@ -590,9 +591,9 @@ s_printchar
 	jsr VDCPrintColour
 .col80_2_end
 } else ifdef TARGET_X16 {
-    jsr VERAPrintChar
-   lda s_colour
-   jsr VERAPrintColour
+	jsr VERAPrintChar
+	lda s_colour
+	jsr VERAPrintColour
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -1245,8 +1246,8 @@ update_cursor
     jsr VERAPrintChar
     lda current_cursor_colour
     jsr VERAPrintColour
-    jmp .vdc_printed_char_and_colour
 }
+!ifndef TARGET_X16 {
     lda cursor_character
     sta (zp_screenline),y
     lda current_cursor_colour
@@ -1262,6 +1263,7 @@ update_cursor
     sta (zp_colourline),y
 !ifdef TARGET_MEGA65 {
     jsr colour1k
+}
 }
 
 .vdc_printed_char_and_colour
