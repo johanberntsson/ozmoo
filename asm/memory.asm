@@ -22,7 +22,14 @@ inc_z_pc_page
 	bcc get_page_at_z_pc_did_pha
 } else {
 ; No vmem
-	!ifdef TARGET_MEGA65 {
+	!ifdef TARGET_X16 {
+		bne +
+		inc z_pc
+		inc z_pc_mempointer + 2
++		lda z_pc + 1
+		and #%00011111
+		beq get_page_at_z_pc_did_pha
+	} else ifdef TARGET_MEGA65 {
 		bne +
 		inc z_pc
 		inc z_pc_mempointer + 2
