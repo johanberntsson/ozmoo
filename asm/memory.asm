@@ -27,9 +27,12 @@ inc_z_pc_page
 		inc z_pc
 		inc z_pc_mempointer + 2
 +
+		lda z_pc
+		bne ++
 		lda z_pc + 1
 		cmp #$40
 		bcc + ; We're in the first 16 KB, i.e. normal RAM
+++		lda z_pc + 1
 		and #%00011111
 		beq get_page_at_z_pc_did_pha ; Branch if we just hit a new bank
 +

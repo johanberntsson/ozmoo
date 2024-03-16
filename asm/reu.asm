@@ -114,7 +114,6 @@ x16_load_file_to_reu
 
 	; Go to next page
 +
-beppe
 --	inc z_temp + 1
     lda z_temp + 1
 	cmp #$9f ; Skip $9f00, since it holds I/O registers
