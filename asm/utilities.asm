@@ -382,23 +382,41 @@ x16_prepare_bankmem
     ; Read top two bytes of Z-machine address from mempointer 
 	; Store absolute address in mempointer, and set bank as necessary
 	lda mempointer + 1
-    sta bank
+	cmp #0
+	bne .in_high_ram
 	lda mempointer
-    lsr bank
-    ror
-    lsr bank
-    ror
-    lsr bank
-    ror
-    lsr
-    lsr
+	cmp #64
+	bcs .in_high_ram_loaded_mempointer
+
+	; Normal RAM
+	; Set bank to -1 or 0
+	; stz 0
+	; cmp #$20
+	; bcs +
+	; dec 0
+; +	
+	clc
+	adc #$5f ; Story starts at $5f00
+	sta mempointer + 1
+	bne .done_bank_calc ; Always branch
+
+.in_high_ram
+	lda mempointer
+.in_high_ram_loaded_mempointer	
+	asl
+	rol mempointer + 1
+	asl
+	rol mempointer + 1
+	asl
+	lda mempointer + 1
+	rol
+	sbc #0 ; Carry is already clear, so this substracts 1
 	sta 0
-    inc 0 ; start at bank 1 since bank 0 is reserved for kernal
-    ; find out the remainder
 	lda mempointer
-    and #$1f
-    ora #$a0
-    sta mempointer + 1
+	and #$1f
+	ora #$a0
+	sta mempointer + 1
+.done_bank_calc
 	lda #0
     sta mempointer
     rts

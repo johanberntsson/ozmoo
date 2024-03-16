@@ -1127,6 +1127,8 @@ game_id		!byte 0,0,0,0
 	sta $2c
 	jmp basic_reset
 } else ifdef TARGET_X16 {
+	stz 1
+	jmp ($fffc)
 } else {
 	; Back to normal memory banks
 	lda #%00110111
@@ -1944,7 +1946,7 @@ deletable_init
 	jsr x16_init_reu
 	jsr x16_load_header
 	jsr calc_dynmem_size
-	; Header of game on disk is now loaded, starting at $a000 (banked memory)
+	; Header of game on disk is now loaded, starting at $5f00
 
 	lda #0
 	sta reu_last_disk_end_block
@@ -1953,7 +1955,7 @@ deletable_init
 	lda #0
 	sta z_temp + 5
 	ldy #header_filelength
-	lda $a000,y
+	jsr read_header_word
 !ifdef Z4PLUS {
 	!ifdef Z7PLUS {
 		ldx #3 ; File size multiplier is 2^3 = 8
@@ -1974,7 +1976,7 @@ deletable_init
 
 	; We are only to load dynmem
 	ldy #header_static_mem
-    lda $a000,y
+	jsr read_header_word
 	sta z_temp + 4
 	lda #0
 	sta z_temp + 5
@@ -2739,7 +2741,7 @@ x16_load_dynmem_maybe_statmem
 	ldx #<.zcodefilename
 	ldy #>.zcodefilename
 	jsr kernal_setnam ; call SETNAM
-	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	ldx #0 ; Start on page 0 
 	txa
 	
 	jmp x16_load_file_to_reu ; in reu.asm

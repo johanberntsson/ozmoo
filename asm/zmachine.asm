@@ -623,8 +623,8 @@ z_get_variable_reference_and_value
 	cmp #16
 	bcs .find_global_var
 	; Local variable
-	dey
 !ifdef CHECK_ERRORS {
+	dey
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
@@ -671,18 +671,25 @@ z_get_referenced_value
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
 !ifdef TARGET_X16 {
-	pha
+	cmp #64
+	bcs +
+; Normal RAM
+	adc #$5f ; Story starts on $5f00
+	bne ++ ; Always branch
+; High RAM
++	pha
 	lsr
 	lsr
 	lsr
 	lsr
 	lsr
 	tay
-	iny
+	dey
 	sty zp_temp + 2
 	pla
 	and #%00011111
 	ora #$a0
+++
 }
 	sta zp_temp + 1
 	jmp z_get_referenced_value

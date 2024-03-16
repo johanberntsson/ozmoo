@@ -26,9 +26,13 @@ inc_z_pc_page
 		bne +
 		inc z_pc
 		inc z_pc_mempointer + 2
-+		lda z_pc + 1
++
+		lda z_pc + 1
+		cmp #$40
+		bcc + ; We're in the first 16 KB, i.e. normal RAM
 		and #%00011111
-		beq get_page_at_z_pc_did_pha
+		beq get_page_at_z_pc_did_pha ; Branch if we just hit a new bank
++
 	} else ifdef TARGET_MEGA65 {
 		bne +
 		inc z_pc
@@ -186,35 +190,29 @@ get_page_at_z_pc_did_pha
 
 !ifdef TARGET_X16 {
 .countdown = mem_temp + 1
+.temp !byte 0,0,0
 
 read_word_from_far_dynmem
 ; a = zp vector pointing to base address
 ; y = offset from address in zp vector
 ; Returns word in a,x (byte 1, byte 2)
 ; y retains its value
+	sty .temp
 	tax
 	lda 0,x
+	clc
+	adc .temp
 	sta mem_temp
 	lda 1,x
-	sta mem_temp + 1
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
+	adc #0
+	ldx mem_temp
+	jsr set_z_address
+	jsr read_next_byte
+	sta .temp + 1
+	jsr read_next_byte
 	tax
-	inx
-	stx 0
-	lda mem_temp + 1
-	and #%00011111
-	clc
-	adc #$a0
-	sta mem_temp + 1
-	iny
-	lda (mem_temp),y
-	tax
-	dey
-	lda (mem_temp),y
+	lda .temp + 1
+	ldy .temp
 	rts
 	
 write_word_to_far_dynmem
@@ -223,37 +221,27 @@ write_word_to_far_dynmem
 ; a,x = value (byte 1, byte 2)
 ; y = offset from address in zp vector
 ; y is increased by 1
-	pha
-	txa
-	pha
+	sty .temp
+	sta .temp + 1
+	stx .temp + 2
 	ldx #0
 .write_word
 	lda $ff,x
+	clc
+	adc .temp
 	sta mem_temp
 	inx
 .write_word_2
 	lda $ff,x
-	sta mem_temp + 1
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
-	tax
-	inx
-	stx 0
-	lda mem_temp + 1
-	and #%00011111
-	clc
-	adc #$a0
-	sta mem_temp + 1
-	iny
-	pla
-	sta (mem_temp),y
-	pla
-	dey
-	sta (mem_temp),y
-	iny
+	adc #0
+	ldx mem_temp
+	jsr set_z_address
+	lda .temp + 1
+	jsr write_next_byte
+	lda .temp + 2
+	jsr write_next_byte
+	ldy .temp
+	iny 
 	rts
 
 write_word_far_dynmem_zp_1 = .write_word + 1
@@ -601,15 +589,18 @@ read_header_word
 ; y contains the address in the header
 ; Returns: Value in a,x
 ; y retains its original value
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	lda $5f01,y
+	tax
+	lda $5f00,y
+	rts
+} else ifdef FAR_DYNMEM {
 	jsr setup_to_write_to_header_far_ram
 	txa
 	jmp read_word_from_far_dynmem
 } else {
-	iny
-	lda story_start,y
+	lda story_start + 1,y
 	tax
-	dey
 	lda story_start,y
 	rts
 ; }
@@ -619,7 +610,12 @@ write_header_word
 ; y contains the address in the header
 ; a,x contains word value
 ; a,x,y are destroyed
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	sta $5f00,y
+	txa
+	sta $5f01,y
+	rts
+} else  ifdef FAR_DYNMEM {
 	stx .tmp
 	jsr setup_to_write_to_header_far_ram
 	stx write_word_far_dynmem_zp_1
@@ -628,9 +624,8 @@ write_header_word
 	jmp write_word_to_far_dynmem
 } else {
 	sta story_start,y
-	iny
 	txa
-	sta story_start,y
+	sta story_start + 1,y
 	rts
 ; }
 }
@@ -657,11 +652,7 @@ write_header_byte
 	sta [dynmem_pointer],z
 	rts
 } else ifdef TARGET_X16 {
-	pha
-	lda #1
-	sta 0
-	pla
-	sta $a000,y
+	sta $5f00,y
 	rts
 } else {
 	sta story_start,y

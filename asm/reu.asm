@@ -30,37 +30,58 @@ x16_reu_load_page_limit = z_temp + 10  ; max page # to read
 x16_reu_enable_load_page_limit !byte 0 ; respect page # limit or not
 .x16_reu_load_address = object_temp
 .x16_reu_page_count = z_temp + 11
-.x16_bank !byte 0 ; current bank (8 KB, $a000-$bfff)
+;.x16_bank !byte 0 ; current bank (8 KB, $a000-$bfff)
 
 x16_load_file_to_reu
-	; In: a,x: REU load page (0 means first address of Attic RAM)
+	; In: a,x: REU load page (0-63 are in normal RAM, at $6000-$9fff, 64- are in high RAM, bank 1 and up)
 	; Returns: a: Number of pages loaded.
 	; Call SETNAM before calling this
 	; Opens file as #2. Closes file at end.
 
 	; Prepare for copying data to REU
+	stz z_temp
+
+    ; find out which bank
+	cmp #0
+	bne .in_high_ram
+	cpx #64
+	bcs .in_high_ram
+	
+	; In normal RAM
+	; Set bank to -1 or 0
+	stz 0
+	cpx #$21
+	bcs +
+	dec 0
+	cpx #0
+	bne +
+	dec 0
++	txa
+	clc
+	adc #$5f 	; Start at $5f00
+	sta z_temp + 1
+	bne .done_bank_calc ; Always branch
+
+.in_high_ram
+	
 	stx .x16_reu_load_address ; Lowbyte of current page in REU memory
 	sta .x16_reu_load_address + 1 ; Highbyte of current page in REU memory
-    ; find out which bank
-	lda .x16_reu_load_address
-    and #$e0
-    sta .x16_bank
+	txa
+	asl
+	rol .x16_reu_load_address + 1
+	asl
+	rol .x16_reu_load_address + 1
+	asl
 	lda .x16_reu_load_address + 1
-    lsr
-    ror .x16_bank
-    ror .x16_bank
-    ror .x16_bank
-    ror .x16_bank
-    ror .x16_bank
-    inc .x16_bank ; start at bank 1 since bank 0 is reserved for kernal
-    ; find out the remainder
+	rol
+	sbc #0 ; Carry is already clear, so this substracts 1
+	sta 0
 	lda .x16_reu_load_address
-    ora #$1f
-    clc
-    adc #$a0
-    sta z_temp + 1
-    lda #$00
-    sta z_temp
+	and #$1f
+	ora #$a0
+	sta z_temp + 1
+
+.done_bank_calc
 
 	lda #2      ; file number 2
 	tay
@@ -75,23 +96,13 @@ x16_load_file_to_reu
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
-    ldx .x16_bank
-	
-.next_bank
-    stx $0     ; switch bank
-
-    lda #$00   ; start from $a000
-    sta z_temp
-    lda #$a0
-    sta z_temp + 1
-	
--	ldy #0
---	jsr kernal_readst
+	ldy #0
+-	jsr kernal_readst
 	bne .file_copying_done
 	jsr kernal_readchar
     sta (z_temp),y
 	iny
-	bne --
+	bne -
 
     jsr .update_progress_bar
 	inc .x16_reu_page_count
@@ -101,17 +112,25 @@ x16_load_file_to_reu
 	dec x16_reu_load_page_limit
 	beq .file_copying_done
 
+	; Go to next page
 +
-    inc z_temp + 1
+beppe
+--	inc z_temp + 1
+    lda z_temp + 1
+	cmp #$9f ; Skip $9f00, since it holds I/O registers
+	beq --
+	and #$1f
+	bne - ; No bank change
+	inc 0
     lda z_temp + 1
     cmp #$c0
     bne -
-
-    inx 
-    jmp .next_bank
+	lda #$a0
+	sta z_temp + 1
+	bne - ; Always jump
 
 .file_copying_done
-	ldx #$00     
+	ldx #$00
 	stx x16_reu_enable_load_page_limit
 	jsr kernal_chkin  ; restore input to keyboard
 	lda #$02      ; filenumber 2
