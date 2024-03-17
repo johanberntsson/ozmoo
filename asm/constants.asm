@@ -15,6 +15,7 @@ ti_variable           = $a0; 3 bytes
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
 key_repeat            = $028a
+directory_buffer      = $700 ; 140 bytes, must be near end of screen RAM
 
 use_reu				  = $9b
 reu_boost_vmap_clock  = $b1
@@ -45,6 +46,7 @@ ti_variable           = $a3; 3 bytes
 keyboard_buff_len     = $ef
 keyboard_buff         = $527
 key_repeat            = $0540
+directory_buffer      = $f00 ; 140 bytes, must be near end of screen RAM
 
 
 zp_temp               = $3b ; 5 bytes
@@ -94,6 +96,7 @@ num_rows 			  = $a6 ; !byte 0
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
 key_repeat            = $028a
+directory_buffer      = SCREEN_ADDRESS + $700 ; 140 bytes, must be near end of screen RAM
 
 use_reu				  = $9b
 window_start_row	  = $2a; 4 bytes

@@ -857,11 +857,6 @@ list_save_files
 -	sta .occupied_slots - 1,x
 	dex
 	bne -
-	; Remember address of row where first entry is printed
-	lda zp_screenline
-	sta .base_screen_pos
-	lda zp_screenline + 1
-	sta .base_screen_pos + 1
 
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
@@ -885,6 +880,23 @@ list_save_files
 	bcc +
 	jmp disk_error    ; if carry set, the file could not be opened
 +
+
+!ifndef TARGET_X16 {
+	!ifdef TARGET_MEGA65 {
+		jsr colour2k
+	}
+	ldx #140
+	lda reg_backgroundcolour
+--
+	sta (directory_buffer + COLOUR_ADDRESS_DIFF - 1) & $ffff,x
+	dex
+	bne --
+	!ifdef TARGET_MEGA65 {
+		jsr colour1k
+	}
+}
+
+
 	ldx #2      ; filenumber 2
 	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
 
@@ -895,9 +907,6 @@ list_save_files
 	bne -
 
 .read_next_line	
-!ifdef SMOOTHSCROLL {
-	jsr wait_smoothscroll
-}
 	lda #0
 	sta zp_temp + 1
 	; Read row pointer
@@ -926,31 +935,25 @@ list_save_files
 	tax
 	lda .occupied_slots - $30,x
 	bne .not_a_save_file ; Since there is another save file with the same number, we ignore this file.
-
-!ifdef TARGET_C128 {
-	bit COLS_40_80
-	bmi +++
-}
-; Set the first 40 chars of each row to the current text colour	
-	lda s_colour
-!ifdef TARGET_PLUS4 {
-	tay
-	lda plus4_vic_colours,y 
-}
-	ldy #39
--	sta (zp_colourline),y
-	dey
-	bpl -
-+++
-	
 	txa
 	sta .occupied_slots - $30,x
-	jsr s_printchar
-	lda #58
-	jsr s_printchar
-	lda #32
-	jsr s_printchar
-	dec zp_temp + 1
+	and #$0f
+	; Store save name in correct slot in directory buffer
+	sta multiplier
+	lda #0
+	sta multiplier + 1
+	lda #14
+	jsr mult8
+	lda product
+	clc
+	adc #<directory_buffer
+	sta zp_temp + 2
+	lda #0
+	adc #>directory_buffer
+	sta zp_temp + 3
+	ldy #0
+	; (zp_temp + 2) now holds address where we will store save name
+	dec zp_temp + 1 ; Note that the current file is a save file, to be printed
 	
 -	jsr kernal_readchar
 .not_a_save_file	
@@ -958,189 +961,68 @@ list_save_files
 	beq .end_of_name
 	bit zp_temp + 1
 	bpl - ; Skip printing if not a save file
-	jsr s_printchar
-	jmp -
+	cpy #14
+	bcs - ; Reached our save name limit
+	sta (zp_temp + 2),y
+	iny
+	bne - ; Always branch
 .end_of_name
+	cpy #14
+	bcs +
+	lda #0
+	sta (zp_temp + 2),y
++
 -	jsr kernal_readchar
 	cmp #0 ; EOL
 	bne -
-	bit zp_temp + 1
-	bpl .read_next_line ; Skip printing if not a save file
-	lda #13
-	jsr s_printchar
 	jmp .read_next_line
 	
 .end_of_dir
 	jsr close_io
 
-	; Fill in blanks
-	ldx #0
--	lda .occupied_slots,x
-	bne +
-
-!ifdef TARGET_C128 {
-	bit COLS_40_80
-	bmi +++
+	; Print all slots
+!ifdef SMOOTHSCROLL {
+	jsr wait_smoothscroll
 }
-; Set the first 40 chars of each row to the current text colour	
-	lda s_colour
-!ifdef TARGET_PLUS4 {
-	tay
-	lda plus4_vic_colours,y 
-}
-	ldy #39
----	sta (zp_colourline),y
-	dey
-	bpl ---
-+++
-
+	lda #<directory_buffer
+	sta zp_temp + 2
+	lda #>directory_buffer
+	sta zp_temp + 3
+	ldx #0 ; Slot number
+.print_next_slot
 	txa
 	ora #$30
 	jsr s_printchar
-	lda #58
+	lda #58 ; ":"
 	jsr s_printchar
+	lda #32
+	jsr s_printchar
+	lda .occupied_slots,x
+	beq .print_empty_slot
+	; Occupied slot
+	ldy #0
+-	lda (zp_temp + 2),y
+	beq .print_empty_slot
+	jsr s_printchar
+	iny
+	cpy #14
+	bcc -
+.print_empty_slot
 	lda #13
 	jsr s_printchar
+	lda zp_temp + 2
+	clc
+	adc #14
+	sta zp_temp + 2
+	bcc +
+	inc zp_temp + 3
 +	inx
-	cpx disk_info + 1 ; # of save slots
-	bcc -
-	; Sort list
-	ldx #1
-	stx .sort_item
--	jsr .insertion_sort_item
-	inc .sort_item
-	ldx .sort_item
-	cpx disk_info + 1; # of save slots
-	bcc -
+	cpx #10
+	bcc .print_next_slot
 	
 	lda #1 ; Signal success
 	rts
 
-.insertion_sort_item
-	; Parameters: x, .sort_item: item (1-9)
-	stx .current_item
-!ifdef TARGET_C128 {
-    bit COLS_40_80
-    bmi vdc_insertion_sort
-}
---	jsr .calc_screen_address
-	stx zp_temp + 2
-	sta zp_temp + 3
-	ldx .current_item
-	dex
-	jsr .calc_screen_address
-	stx zp_temp
-	sta zp_temp + 1
-	ldy #0
-	lda (zp_temp + 2),y
-	cmp (zp_temp),y
-	bcs .done_sort
-	; Swap items
-	ldy #17
--	lda (zp_temp),y
-	pha
-	lda (zp_temp + 2),y
-	sta (zp_temp),y
-	pla
-	sta (zp_temp + 2),y
-	dey
-	bpl -
-	dec .current_item
-	ldx .current_item
-	bne --
-.done_sort
-	rts
-!ifdef TARGET_C128 {
-vdc_insertion_sort
-	jsr .calc_screen_address
-	stx zp_temp + 2 ; convert from $0400 (VIC-II) to $0000 (VDC)
-	sec
-	sbc #$04
-	sta zp_temp + 3
-	ldx .current_item
-	dex
-	jsr .calc_screen_address
-	stx zp_temp ; convert from $0400 (VIC-II) to $0000 (VDC)
-	sec
-	sbc #$04
-	sta zp_temp + 1
-	; read  both rows from VCD into temp buffers
-	lda zp_temp
-	ldy zp_temp + 1
-	jsr VDCSetAddress
-	ldy #0
--	jsr VDCReadByte
-	sta $0400,y
-	iny
-	cpy #17
-	bne -
-	lda zp_temp + 2
-	ldy zp_temp + 3
-	jsr VDCSetAddress
-	ldy #0
--	jsr VDCReadByte
-	sta $0428,y
-	iny
-	cpy #17
-	bne -
-	; sort in the buffer
-	ldy #0
-	lda $0428,y ; (zp_temp + 2),y
-	cmp $0400,y ; (zp_temp),y
-	bcs .done_sort
-	; Swap items
-	ldy #17
--	lda $0400,y ; (zp_temp),y
-	pha
-	lda $0428,y ; (zp_temp + 2),y
-	sta $0400,y ; (zp_temp),y
-	pla
-	sta $0428,y ; (zp_temp + 2),y
-	dey
-	bpl -
-	; copy back from the buffers into VDC
-	lda zp_temp
-	ldy zp_temp + 1
-	jsr VDCSetAddress
-	ldy #0
--	lda $0400,y
-	jsr VDCWriteByte
-	iny
-	cpy #17
-	bne -
-	lda zp_temp + 2
-	ldy zp_temp + 3
-	jsr VDCSetAddress
-	ldy #0
--	lda $0428,y
-	jsr VDCWriteByte
-	iny
-	cpy #17
-	bne -
-	; check next line
-	dec .current_item
-	ldx .current_item
-	beq +
-	jmp vdc_insertion_sort
-+	rts
-}
-.calc_screen_address
-	lda .base_screen_pos
-	ldy .base_screen_pos + 1
-	stx .counter
-	clc
--	dec .counter
-	bmi +
-	adc s_screen_width
-	tax
-	tya
-	adc #0
-	tay
-	txa
-	bcc - ; Always branch
-+	tax
-	tya
-	rts
 directory_name
 	!pet "$"
 directory_name_len = * - directory_name
@@ -1148,14 +1030,6 @@ directory_name_len = * - directory_name
 	!fill 10,0
 .disk_error_msg
 	!pet 13,"Disk error #",0
-.sort_item
-	!byte 0
-.current_item
-	!byte 0
-.counter
-	!byte 0
-.base_screen_pos
-	!byte 0,0
 .insert_save_disk
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
@@ -1189,8 +1063,7 @@ directory_name_len = * - directory_name
 	tya
 	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
-+	ldx #0
-	jmp erase_window
++	rts
 
 maybe_ask_for_save_device
 	lda ask_for_save_device
@@ -1300,6 +1173,8 @@ restore_game
 	jsr update_screen_width_in_header
 }
 }
+	ldx #0
+	jsr erase_window
 	jsr get_page_at_z_pc
 	lda #0
 	ldx #1
@@ -1317,6 +1192,8 @@ restore_game
 !ifdef TARGET_C128 {
 	jsr restore_2mhz
 }
+	ldx #0
+	jsr erase_window
 	lda #0
 	tax
 	rts
@@ -1412,6 +1289,8 @@ save_game
 }
 	jsr .insert_story_disk
 .dont_insert_story_disk
+	ldx #0
+	jsr erase_window
 	lda #0
 	ldx #1
 	rts

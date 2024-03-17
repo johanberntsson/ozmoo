@@ -14,6 +14,7 @@ COLS_40_80            = $d7
 keyboard_buff_len     = $d0
 keyboard_buff         = $34a
 key_repeat            = $0a22
+directory_buffer      = $700 ; 140 bytes, must be near end of screen RAM
 
 ; --- ZERO PAGE -- ; available zero page variables (pseudo registers)
 mempointer_y          = $08 ; !byte 0 ### OK C128

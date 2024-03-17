@@ -6,11 +6,15 @@ New/changed features:
 - Added build mode -71D, for dual 1571 drives.
 - Varicella is now automatically patched to (a) fix a bug in colour handling in the game, and (b) adapt the game to Ozmoo's limitations in colour handling. 
 
+Optimizations:
+- The code for listing save files is now faster *and* shorter.
+
 Bugfixes:
 - "erase_window 0" would crash the interpreter if window 0 had height 0.
 - Default screen colours weren't written into the header after a restart on MEGA65.
 - Build mode -P was broken, because dynmem size wasn't calculated. May have affected saves.
 - Made QUIT work correctly on MEGA65 games with and without a custom font.
+- Screen wasn't cleared after save/restore if REU caching was used.
 
 ================================================
 Release 13.7: 

@@ -155,6 +155,8 @@ memory_buffer_length  = 89
 
 charset_switchable 	  = $500 ; WRONG
 
+directory_buffer      = $700 ; 140 bytes
+
 ; --- I/O registers ---
 
 ; --- Kernel routines ---
