@@ -1390,6 +1390,77 @@ do_restore
 	clc ; Should do SEC, but this leads to horrible terp behaviour, for unknown reasons
 	rts
 
+} else ifdef TARGET_X16 {
+	jsr close_io
+
+	lda #3
+	ldx #<.restore_filename
+	ldy #>.restore_filename
+	jsr kernal_setnam
+
+	lda #2      ; file# 2
+	ldx disk_info + 4 ; Device# for save disk
+	tay         ; secondary address: 3
+	jsr kernal_setlfs
+
+	jsr kernal_open     ; call OPEN
+	bcc +
+	; TODO: No fatal error
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++
+	ldx #2      ; filenumber 2
+	jsr kernal_chkin ; (file 2 now used for output)
+
+	; Restore stack + zp vars
+	lda #>(stack_start - zp_bytes_to_save)
+	ldx #<(stack_start - zp_bytes_to_save)
+	stx zp_temp
+	sta zp_temp + 1
+	lda #>($10000 - stack_size - zp_bytes_to_save)
+	ldx #<($10000 - stack_size - zp_bytes_to_save)
+	sta zp_temp + 2
+	ldy #0
+-	jsr kernal_readchar
+	sta (zp_temp),y
+	iny
+	bne +
+	inc zp_temp + 1
++	inx
+	bne -
+	inc zp_temp + 2
+	bne - 
+
+	; Save dynmem
+	ldy #header_static_mem
+	jsr read_header_word
+	stx zp_temp
+	sta zp_temp + 1
+	lda #0
+	sec
+	sbc zp_temp
+	sta zp_temp + 3
+	lda #0
+	sbc zp_temp + 1
+	sta zp_temp + 2
+	
+	lda #0
+	tax
+	jsr set_z_address
+	
+	ldx zp_temp + 3
+-	jsr kernal_readchar
+	jsr write_next_byte
+	inx
+	bne -
+	inc zp_temp + 2
+	bne - 
+	
+;	php ; store c flag so error can be checked by calling routine
+	jsr close_io
+;	plp ; restore c flag
+	clc
+	rts
 
 } else {
 !ifdef TARGET_C128 {
@@ -1561,7 +1632,7 @@ do_save
 	bne +
 	inc zp_temp + 1
 +	inx
-	bne - ; This is OK because stack is always > 1 page
+	bne -
 	inc zp_temp + 2
 	bne - 
 
