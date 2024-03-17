@@ -1512,7 +1512,89 @@ do_save
 .file_copying_done
 	clc
 	rts
+} else ifdef TARGET_X16 {
+	jsr close_io
 
+	ldx .inputlen
+	lda #$2c
+	sta .filename + 2,x
+	sta .filename + 4,x
+	lda #$53
+	sta .filename + 3,x
+	lda #$57
+	sta .filename + 5,x
+
+
+	lda .inputlen
+	clc
+	adc #6 ; add 2 bytes for prefix
+	ldx #<.filename
+	ldy #>.filename
+	jsr kernal_setnam
+
+	lda #2      ; file# 2
+	ldx disk_info + 4 ; Device# for save disk
+	tay         ; secondary address: 3
+	jsr kernal_setlfs
+
+	jsr kernal_open     ; call OPEN
+	bcc +
+	; TODO: No fatal error
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++
+	ldx #2      ; filenumber 2
+	jsr kernal_chkout ; (file 2 now used for output)
+
+	; Save stack + zp vars
+	lda #>(stack_start - zp_bytes_to_save)
+	ldx #<(stack_start - zp_bytes_to_save)
+	stx zp_temp
+	sta zp_temp + 1
+	lda #>($10000 - stack_size - zp_bytes_to_save)
+	ldx #<($10000 - stack_size - zp_bytes_to_save)
+	sta zp_temp + 2
+	ldy #0
+-	lda (zp_temp),y
+	jsr kernal_printchar
+	iny
+	bne +
+	inc zp_temp + 1
++	inx
+	bne - ; This is OK because stack is always > 1 page
+	inc zp_temp + 2
+	bne - 
+
+	; Save dynmem
+	ldy #header_static_mem
+	jsr read_header_word
+	stx zp_temp
+	sta zp_temp + 1
+	lda #0
+	sec
+	sbc zp_temp
+	sta zp_temp + 3
+	lda #0
+	sbc zp_temp + 1
+	sta zp_temp + 2
+	
+	lda #0
+	tax
+	jsr set_z_address
+	
+	ldx zp_temp + 3
+-	jsr read_next_byte
+	jsr kernal_printchar
+	inx
+	bne -
+	inc zp_temp + 2
+	bne - 
+	
+;	php ; store c flag so error can be checked by calling routine
+	jsr close_io
+;	plp ; restore c flag
+	clc
+	rts
 
 } else {
 !ifdef TARGET_C128 {
