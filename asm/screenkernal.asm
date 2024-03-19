@@ -370,6 +370,9 @@ s_init
 	; 80 columns mode selected
 	lda #80
 +
+} else ifdef TARGET_X16 {
+	jsr $ffed
+	txa
 } else {
 	lda #SCREEN_WIDTH
 }
@@ -380,7 +383,11 @@ s_init
 	dec s_screen_width_minus_one
 
 	; set up screen_height and screen_width_minus_one
+!ifdef TARGET_X16 {
+	tya
+} else {
 	lda #SCREEN_HEIGHT
+}
 	sta s_screen_height
 	sta s_screen_height_minus_one
 	dec s_screen_height_minus_one
@@ -1243,6 +1250,7 @@ update_cursor
     jmp .vdc_printed_char_and_colour
 +   ; 40 columns
 } else ifdef TARGET_X16 {
+    lda cursor_character
     jsr VERAPrintChar
     lda current_cursor_colour
     jsr VERAPrintColour

@@ -1203,23 +1203,45 @@ calc_z7_offsets
 	rts
 }
 
-
-!ifdef TARGET_C128 {
-
 !ifdef Z4PLUS {
+!ifdef TARGET_C128 {
 update_screen_width_in_header
 	lda s_screen_width
 	ldy #header_screen_width_chars
-!ifdef Z5PLUS {
 	jsr write_header_byte
+!ifdef Z5PLUS {
 	ldy #header_screen_width_units
 	tax
 	lda #0
-	jmp write_header_word
-} else {
-	jmp write_header_byte
+	jsr write_header_word
 }
+	rts
+} else ifdef TARGET_X16 {
+update_screen_width_in_header
+	lda s_screen_width
+	ldy #header_screen_width_chars
+	jsr write_header_byte
+!ifdef Z5PLUS {
+	ldy #header_screen_width_units
+	tax
+	lda #0
+	jsr write_header_word
 }
+	lda s_screen_height
+	ldy #header_screen_height_chars
+	jsr write_header_byte
+!ifdef Z5PLUS {
+	ldy #header_screen_height_units
+	tax
+	lda #0
+	jsr write_header_word
+}
+	rts
+}
+} ; Z4PLUS
+
+
+!ifdef TARGET_C128 {
 
 c128_setup_mmu
 	lda #5 ; 4 KB common RAM at bottom only
@@ -1683,6 +1705,8 @@ z_init
 	jsr write_header_word
 }
 !ifdef TARGET_C128 {
+	jsr update_screen_width_in_header
+} else ifdef TARGET_X16 {
 	jsr update_screen_width_in_header
 } else {
 	lda #SCREEN_WIDTH

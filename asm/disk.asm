@@ -1171,6 +1171,8 @@ restore_game
 !ifdef Z4PLUS {
 !ifdef TARGET_C128 {
 	jsr update_screen_width_in_header
+} else ifdef TARGET_X16 {
+	jsr update_screen_width_in_header
 }
 }
 	ldx #0
