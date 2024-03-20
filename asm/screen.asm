@@ -16,7 +16,7 @@
     ldy #0
     sty is_buffered_window
     ldx #$ff
-    jmp erase_window
+    jsr erase_window
 }
 
 ;init_screen_colours_invisible

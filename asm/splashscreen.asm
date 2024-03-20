@@ -2,24 +2,28 @@
 
 !ifdef TARGET_X16 {
 x16_switch_to_mode_and_clear_screen
-	pha
-	lda #1
-	jsr kernal_printchar
-	ldx darkmode
-	lda bgcol,x
-	tax
-	lda zcolours,x
-	tax
-	lda colour_petscii,x
-	jsr kernal_printchar
-	lda #1
-	jsr kernal_printchar
-	pla
+;	pha
+	; lda #1
+	; jsr kernal_printchar
+	; ldx darkmode
+	; lda bgcol,x
+	; tax
+	; lda zcolours,x
+	; tax
+	; lda colour_petscii,x
+	; jsr kernal_printchar
+	; lda #1
+	; jsr kernal_printchar
+;	pla
 	clc
 	jsr $ff5f
-	lda #147
-	jsr kernal_printchar
-	jmp s_init
+	jsr s_init
+	+init_screen_model
+	ldx #0
+	ldy #0
+	jmp set_cursor
+	; lda #147
+	; jmp s_printchar
 }
 
 

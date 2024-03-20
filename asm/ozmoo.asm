@@ -1587,6 +1587,7 @@ deletable_screen_init_1
 	}
 }
 	+init_screen_model
+	rts
 
 deletable_screen_init_2
 !ifdef SMOOTHSCROLL {
