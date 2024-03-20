@@ -1228,7 +1228,7 @@ update_screen_width_in_header
 	jsr write_header_word
 }
 	lda s_screen_height
-	ldy #header_screen_height_chars
+	ldy #header_screen_height_lines
 	jsr write_header_byte
 !ifdef Z5PLUS {
 	ldy #header_screen_height_units
