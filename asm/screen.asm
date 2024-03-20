@@ -1,5 +1,52 @@
 ; screen update routines
 
+; sl_score_pos !byte 54
+; sl_moves_pos !byte 67
+; sl_time_pos !byte 64
+
+!ifdef TARGET_X16 {
+!ifndef Z4PLUS {
+update_statusline_params
+	lda s_screen_width
+	cmp #67
+	bcs .width80
+	cmp #37
+	bcs .width40
+	cmp #30
+	bcs .width32
+	; Width 20 or 22
+	lda #$ff
+	tay
+	bne .store_and_rts ; Always branch
+.width32
+	lda s_screen_width
+	sec
+	sbc #8
+	ora #$80 ; No "Score: " or "Time: " string
+	tay
+	dey
+	ldx #0
+	beq .store_and_rts ; Always branch
+.width40
+	lda s_screen_width
+	sec
+	sbc #15
+	tay
+	ldx #0
+	beq .store_and_rts ; Always branch
+.width80
+	lda #54
+	ldx #67
+	ldy #60
+.store_and_rts
+	sta sl_score_pos
+	stx sl_moves_pos
+	sty sl_time_pos
+	rts
+	
+}
+}
+
 !macro init_screen_model {
     lda #147 ; clear screen
     jsr s_printchar
@@ -15,6 +62,11 @@
     sty window_start_row
     ldy #0
     sty is_buffered_window
+!ifdef TARGET_X16 {
+!ifndef Z4PLUS {
+	jsr update_statusline_params
+}
+}
     ldx #$ff
     jsr erase_window
 }
@@ -958,13 +1010,13 @@ get_cursor
 !ifndef Z4PLUS {
 
 !ifdef TARGET_X16 {
-sl_score_pos !byte 54
-sl_moves_pos !byte 67
-sl_time_pos !byte 64
+sl_score_pos !byte 52
+sl_moves_pos !byte 66
+sl_time_pos !byte 60
 } else ifdef TARGET_MEGA65 {
-sl_score_pos !byte 54
-sl_moves_pos !byte 67
-sl_time_pos !byte 64
+sl_score_pos !byte 52
+sl_moves_pos !byte 66
+sl_time_pos !byte 60
 } else {
 sl_score_pos !byte 25
 !ifdef TARGET_C128 {
@@ -1031,20 +1083,36 @@ draw_status_line
 	pha
 	ldx #0
 	ldy sl_score_pos
+!ifdef TARGET_X16 {
+	bpl .normal_score
+	cpy #$ff
+	beq .all_done_score_sl ; No score or moves
+	; Don't print "Score: " string
+	tya
+	and #$7f
+	tay
+	jsr set_cursor
+	jmp .print_score_number
+.normal_score
+}
 	jsr set_cursor
 	ldy #0
 -   lda .score_str,y
-	beq +
+	beq .print_score_number
 	jsr s_printchar
 	iny
-	bne -
-+   lda #17
+	bne - ; Always branch
+.print_score_number
+	lda #17
 	jsr z_get_low_global_variable_value
 	stx z_operand_value_low_arr
 	sta z_operand_value_high_arr
 	jsr z_ins_print_num
 !ifdef SUPPORT_80COL {
 	ldy sl_moves_pos
+!ifdef TARGET_X16 {
+	bmi .all_done_score_sl
+}
 	bne +
 	lda #47
 	jsr s_printchar
@@ -1067,6 +1135,7 @@ draw_status_line
 	stx z_operand_value_low_arr
 	sta z_operand_value_high_arr
 	jsr z_ins_print_num
+.all_done_score_sl
 	pla
 	sta z_operand_value_high_arr + 1
 	pla
@@ -1106,10 +1175,23 @@ draw_status_line
 	; time game
 	ldx #0
 	ldy sl_time_pos
+!ifdef TARGET_X16 {
+	bpl .normal_time
+	cpy #$ff
+	beq .statusline_done ; No score or moves
+	; Don't print "Score: " string
+	tya
+	and #$7f
+	tay
+	jsr set_cursor
+	jmp .print_time_data
+.normal_time
+}
 	jsr set_cursor
 	lda #>.time_str
 	ldx #<.time_str
 	jsr printstring_raw
+.print_time_data
 ; Print hours
 	lda #65 + 32
 	sta .ampm_str + 1

@@ -1576,11 +1576,11 @@ deletable_screen_init_1
 		bit COLS_40_80
 		bpl .width40
 		; 80 col
-		lda #54
+		lda #52
 		sta sl_score_pos
-		lda #67
+		lda #66
 		sta sl_moves_pos
-		lda #64
+		lda #60
 		sta sl_time_pos
 .width40
 		; Default values are correct, nothing to do here.
