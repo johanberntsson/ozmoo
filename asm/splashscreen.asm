@@ -1,9 +1,49 @@
 !zone splash_screen {
+
+!ifdef TARGET_X16 {
+x16_switch_to_mode_and_clear_screen
+	pha
+	lda #1
+	jsr kernal_printchar
+	ldx darkmode
+	lda bgcol,x
+	tax
+	lda zcolours,x
+	tax
+	lda colour_petscii,x
+	jsr kernal_printchar
+	lda #1
+	jsr kernal_printchar
+	pla
+	clc
+	jsr $ff5f
+	lda #147
+	jsr kernal_printchar
+	jmp s_init
+}
+
+
 splash_screen
+!ifdef TARGET_X16 {
+	lda s_x16_screen_mode
+	pha
+	lda #3
+	jsr x16_switch_to_mode_and_clear_screen
+}
 	ldy #0
 	sty z_temp ; String number currently printing
 splash_line_y
 	ldx splash_index_line,y
+!ifdef TARGET_X16 {
+	cpx #20
+	bcc +
+	inx
+	inx
+	inx
+	inx
++
+}
+	
 	lda splash_index_col,y
 !ifdef TARGET_C128 {
 	bit COLS_40_80
@@ -11,10 +51,6 @@ splash_line_y
 	clc
 	adc #20
 +
-}
-!ifdef TARGET_X16 {
-	clc
-	adc #20
 }
 !ifdef TARGET_MEGA65 {
 	clc
@@ -61,17 +97,19 @@ splash_line_y
 	bne -
 +
 !ifndef NODARKMODE {
-	; sty SCREEN_ADDRESS
-; -
-	; jmp -
 	cpy #$85
 	bne +
 	jsr toggle_darkmode
 	jmp .restart_timer
 +
 }
+!ifdef TARGET_X16 {
+	pla
+	jmp x16_switch_to_mode_and_clear_screen
+} else {
 	lda #147
 	jmp s_printchar
+}
 
 !source "splashlines.asm"
 

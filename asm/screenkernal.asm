@@ -17,7 +17,9 @@
 
 !zone screenkernal {
 
-; colours		!byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+!ifdef TARGET_X16 {
+colour_petscii !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
+}
 zcolours	!byte $ff,$ff ; current/default colour
 			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
 			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
@@ -342,6 +344,9 @@ s_screen_width_plus_one !byte 0
 s_screen_width_minus_one !byte 0
 s_screen_height_minus_one !byte 0
 s_screen_size !byte 0, 0
+!ifdef TARGET_X16 {
+s_x16_screen_mode	!byte 0
+}
 
 convert_petscii_to_screencode
    ; convert from pet ascii to screen code
@@ -371,7 +376,9 @@ s_init
 	lda #80
 +
 } else ifdef TARGET_X16 {
-	jsr $ffed
+	sec
+	jsr $ff5f
+	sta s_x16_screen_mode
 	txa
 } else {
 	lda #SCREEN_WIDTH
