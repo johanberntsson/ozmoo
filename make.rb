@@ -17,7 +17,7 @@ if $is_windows then
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
-    $X16 = "x16-emulator/x16emu"
+    $X16 = "../x16-emulator/x16emu"
     $X64 = "x64 -autostart-delay-random"
     $X128 = "x128 -autostart-delay-random"
     #$X128 = "x128 -80col -autostart-delay-random"
@@ -1332,7 +1332,7 @@ def play(filename, storyname)
 	if $target == "x16" then
         #system("grep johan temp/acme_labels.txt")
 #		command = "cd #{filename} && ../#{$X16} -prg #{storyname}"
-		command = "cd #{filename} && #{$X16} -prg #{storyname}"
+        command = "cd #{filename} && #{$X16} -prg #{storyname.upcase}"
 		command += " -run"
 		command += " -dump B" # Ctrl-S from the emulator to dump memory
 		command += " -debug"
