@@ -1033,6 +1033,7 @@ directory_name_len = * - directory_name
 .disk_error_msg
 	!pet 13,"Disk error #",0
 .insert_save_disk
+!ifndef TARGET_X16 {	
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
@@ -1043,6 +1044,7 @@ directory_name_len = * - directory_name
 	lda #0
 	sta current_disks - 8,x
 	beq .insert_done ; Always branch
+}
 .dont_print_insert_save_disk
 	jsr wait_a_sec
 .insert_done
@@ -1058,6 +1060,7 @@ directory_name_len = * - directory_name
 	
 
 .insert_story_disk
+!ifndef TARGET_X16 {
 	ldy .last_disk
 	beq + ; Save disk was in drive before, no need to change
 	bmi + ; The drive was empty before, no need to change disk now
@@ -1065,7 +1068,9 @@ directory_name_len = * - directory_name
 	tya
 	ldx disk_info + 4 ; Device# for save disk
 	sta current_disks - 8,x
-+	rts
++
+}
+	rts
 
 maybe_ask_for_save_device
 !ifdef TARGET_X16 {
@@ -1117,6 +1122,7 @@ maybe_ask_for_save_device
 .incorrect_device
 	sec
 	rts
+.save_device_msg !pet 13,"Device# (8-15, RETURN=default): ",0
 }
 	
 restore_game
@@ -1732,7 +1738,6 @@ do_save
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,"Saving...",13,0
 .restore_msg	!pet 13,"Restoring...",13,0
-.save_device_msg !pet 13,"Device# (8-15, RETURN=default): ",0
 .restore_filename !pet "!0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
