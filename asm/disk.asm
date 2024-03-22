@@ -1068,6 +1068,13 @@ directory_name_len = * - directory_name
 +	rts
 
 maybe_ask_for_save_device
+!ifdef TARGET_X16 {
+	; Always use device 8 on X16
+	lda #8
+	sta disk_info + 4
+	clc
+	rts
+} else {
 	lda ask_for_save_device
 	beq .ok_dont_ask
 .ask_again
@@ -1110,6 +1117,7 @@ maybe_ask_for_save_device
 .incorrect_device
 	sec
 	rts
+}
 	
 restore_game
 
