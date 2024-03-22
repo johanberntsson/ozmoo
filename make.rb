@@ -2098,7 +2098,7 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     FileUtils.mkdir_p(foldername)
 
     # Add terp and story file
-    FileUtils.cp($ozmoo_file, foldername+"/"+storyname.upcase)
+    FileUtils.cp($ozmoo_file, foldername+"/"+$file_name.upcase)
     FileUtils.cp($story_file, foldername+"/ZCODE")
 
     # Create the zip file
@@ -2438,14 +2438,6 @@ rescue => e
 	exit 1
 end
 
-if $target == "mega65"
-	$file_name = 'autoboot.c65'
-end
-
-if custom_file_name
-	$file_name = custom_file_name
-end
-
 if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1
 end
@@ -2711,6 +2703,18 @@ extension = File.extname($story_file)
 filename = File.basename($story_file)
 storyname = File.basename($story_file, extension)
 $disk_title = storyname unless $disk_title
+
+if $target == "mega65"
+	$file_name = 'autoboot.c65'
+end
+if $target == "x16"
+	$file_name = storyname
+end
+
+if custom_file_name
+	$file_name = custom_file_name
+end
+
 
 begin
 	puts "Reading file #{$story_file}..." if $verbose
@@ -3203,7 +3207,7 @@ else
 end
 
 if !error and auto_play then 
-	play("#{$bootdiskname}", storyname)
+	play("#{$bootdiskname}", $file_name)
 end
 
 

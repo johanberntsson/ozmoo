@@ -19,6 +19,7 @@
 
 !ifdef TARGET_X16 {
 	X16_DEBUG = 1
+	TARGET_MEGA65_OR_X16 = 1
 	NO_VMEM_CACHE = 1
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
@@ -34,6 +35,7 @@
 	DEBUG = 1
 }
 !ifdef TARGET_MEGA65 {
+	TARGET_MEGA65_OR_X16 = 1
 	TARGET_ASSIGNED = 1
 	FAR_DYNMEM = 1
 	COMPLEX_MEMORY = 1
@@ -355,6 +357,9 @@ program_start
 	RESTART_SUPPORTED = 1
 } else {
 	!ifdef TARGET_MEGA65 {
+		RESTART_SUPPORTED = 1
+	} 
+	!ifdef TARGET_X16 {
 		RESTART_SUPPORTED = 1
 	} 
 }
@@ -911,6 +916,9 @@ game_id		!byte 0,0,0,0
 .initialize
 	cld
 	cli
+!ifdef TARGET_X16 {
+	jsr x16_backup_basic_zp
+}
 !ifdef TARGET_C128 {
 	lda #$f0 ; Background colour
 	jsr VDCInit
@@ -1127,8 +1135,11 @@ game_id		!byte 0,0,0,0
 	sta $2c
 	jmp basic_reset
 } else ifdef TARGET_X16 {
-	stz 1
-	jmp ($fffc)
+!ifdef TARGET_X16 {
+	jmp x16_restore_basic_zp
+}
+	; stz 1
+	; jmp ($fffc)
 } else {
 	; Back to normal memory banks
 	lda #%00110111
@@ -2778,6 +2789,25 @@ x16_load_dynmem_maybe_statmem
 .zcodefilename
 	!pet "zcode,s,r"
 .zcodefilenamelen = * - .zcodefilename
+
+x16_backup_basic_zp
+	ldx #last_basic_zp_address - first_basic_zp_address + 1
+-	lda first_basic_zp_address - 1,x
+	sta basic_zp_backup_area - 1,x
+	dex
+	bne -
+	rts
+
+x16_restore_basic_zp
+	ldx #last_basic_zp_address - first_basic_zp_address + 1
+-	lda basic_zp_backup_area - 1,x
+	sta first_basic_zp_address - 1,x
+	dex
+	bne -
+	rts
+
+basic_zp_backup_area
+!fill last_basic_zp_address - first_basic_zp_address + 1, 0
 }
 !ifdef TARGET_MEGA65 {
 m65_load_header
