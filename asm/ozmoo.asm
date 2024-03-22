@@ -2169,6 +2169,9 @@ deletable_init
 	sta use_reu
 }
 
+!ifdef TARGET_X16 {
+	ldx #$3a
+} else {
 	ldy #header_static_mem
 	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
 	ldx #$30 ; First unavailable slot
@@ -2192,6 +2195,7 @@ deletable_init
 	tya
 	bcc .one_more_slot ; Always branch
 .no_more_slots
+}
 	stx first_unavailable_save_slot_charcode
 	txa
 	and #$0f

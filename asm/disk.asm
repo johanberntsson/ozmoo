@@ -1019,7 +1019,7 @@ list_save_files
 	bcc +
 	inc zp_temp + 3
 +	inx
-	cpx #10
+	cpx disk_info + 1
 	bcc .print_next_slot
 	
 	lda #1 ; Signal success
