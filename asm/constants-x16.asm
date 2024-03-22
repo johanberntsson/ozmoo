@@ -142,6 +142,8 @@ x16_z_pc_bank         = $f6
 window_start_row	  = $f7; 4 bytes
 zp_temp               = $fb ; 5 bytes
 
+first_basic_zp_address = $a9
+last_basic_zp_address  = $ff
 
 
 

@@ -2098,7 +2098,7 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     FileUtils.mkdir_p(foldername)
 
     # Add terp and story file
-    FileUtils.cp($ozmoo_file, foldername+"/"+storyname.upcase)
+    FileUtils.cp($ozmoo_file, foldername+"/"+$file_name.upcase)
     FileUtils.cp($story_file, foldername+"/ZCODE")
 
     # Create the zip file
