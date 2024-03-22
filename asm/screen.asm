@@ -525,6 +525,34 @@ vdc_hide_more
 	jmp VDCWriteReg
 }
 
+!ifdef TARGET_X16 {
+
+.vera_more_temp !byte 0
+vera_show_more
+	sty .vera_more_temp
+	lda s_screen_height_minus_one
+	sta zp_screenline + 1
+	lda #$2a + 128
+	bne .vera_common_more ; Always branch
+
+vera_hide_more
+	sty .vera_more_temp
+	lda s_screen_height_minus_one
+	sta zp_screenline + 1
+	lda #32
+.vera_common_more
+	ldy s_screen_width_minus_one
+	jsr VERAPrintChar
+	lda s_colour
+	jsr VERAPrintColourAfterChar
+	lda zp_screenrow
+	sta zp_screenline + 1
+	ldy .vera_more_temp
+	rts
+}
+
+
+
 increase_num_rows
 	lda current_window
 	bne .increase_num_rows_done ; Upper window is never buffered
@@ -556,7 +584,7 @@ show_more_prompt
 	lda #128 + $2a ; screen code for reversed "*"
 .more_access2
 !ifndef TARGET_X16 {
-	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
 } else {
 	lda $8000
 }
@@ -574,11 +602,16 @@ show_more_prompt
 	and #1
 	beq +
 !ifdef TARGET_X16 {
-	ldx bgcol
+	jsr vera_hide_more
+	jmp ++
 } else {
 	ldx reg_backgroundcolour
 }
 +
+!ifdef TARGET_X16 {
+	jsr vera_show_more
+}
+++
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
@@ -629,6 +662,7 @@ show_more_prompt
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
 } else {
 	lda $8000
+	jsr vera_hide_more
 }
 .increase_num_rows_done
 	rts

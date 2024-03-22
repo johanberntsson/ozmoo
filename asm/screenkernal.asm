@@ -63,25 +63,19 @@ plus4_vic_colours
 
 .stored_x_or_y !byte 0
 .vera_background !byte 0
+.vera_temp !byte 0,0
 
 .convert_screenline_y_to_vera_address
     ; convert screenline,y to addres in VERA
-    lda zp_screenline + 1
-    sta VERA_addr_high
-    lda zp_screenline
-    sta VERA_addr_low
-    asl VERA_addr_low
-    tya
-    asl ; *2 to account for char,colour pairs
-    clc
-    adc VERA_addr_low
-    sta VERA_addr_low
-    bcc +
-    inc VERA_addr_high
-+   lda VERA_addr_high
-    clc
-    adc #$b0
-    sta VERA_addr_high
+	tya
+	clc
+	adc zp_screenline
+	sta VERA_addr_low
+	lda zp_screenline + 1
+	adc #0
+	asl VERA_addr_low
+	adc #$b0 ; Carry should already be clear
+	sta VERA_addr_high
     rts
 
 .s_scroll_vera
@@ -90,32 +84,34 @@ plus4_vic_colours
 	cmp s_screen_height
 	bpl +
     rts
-+   lda #0
-    sta VERA_ctrl
-	ldy window_start_row + 1 ; how many top lines to protect
++	lda s_screen_width
+	asl
+	sta .vera_temp
+	lda s_screen_height_minus_one
+	adc #$b0
+	sta .vera_temp + 1
+	lda #0
+	sta VERA_ctrl
+	lda window_start_row + 1 ; how many top lines to protect
+	adc #$b0
+	tay
 -   ldx #0
 --  stx VERA_addr_low
-    tya
-    clc
-    adc #$b0
-    sta VERA_addr_high
-    inc VERA_addr_high
+	iny
+    sty VERA_addr_high
+	dey
     lda VERA_data0
-    pha
     stx VERA_addr_low
-    tya
-    clc
-    adc #$b0
-    sta VERA_addr_high
-    pla
+    sty VERA_addr_high
     sta VERA_data0
     inx
-    cpx #160 
+    cpx .vera_temp
     bne --
     iny
-    cpy s_screen_height_minus_one
+    cpy .vera_temp + 1
     bne -
 	; prepare for erase line
+	ldy s_screen_height_minus_one
 	sty zp_screenrow
 	lda #$ff
 	sta s_current_screenpos_row ; force recalculation
@@ -145,21 +141,26 @@ VERAPrintChar
 	ldy .stored_x_or_y
     rts
 
-VERAPrintColour
-	pha
-	sty .stored_x_or_y
-    jsr .convert_screenline_y_to_vera_address
-    ; increase to colour address
-    inc VERA_addr_low
-    bne +
-    inc VERA_addr_high
-    ; write colour
-+   pla
+; VERAPrintColour
+	; pha
+	; sty .stored_x_or_y
+    ; jsr .convert_screenline_y_to_vera_address
+    ; ; increase to colour address
+    ; inc VERA_addr_low
+    ; bne +
+    ; inc VERA_addr_high
+    ; ; write colour
+; +   pla
+    ; ora .vera_background
+    ; sta VERA_data0
+    ; ; restore y
+	; ldy .stored_x_or_y
+    ; rts
+
+VERAPrintColourAfterChar
+	; a = colour
     ora .vera_background
     sta VERA_data0
-    ; restore y
-	ldy .stored_x_or_y
-    rts
     rts
 }
 
@@ -607,7 +608,7 @@ s_printchar
 } else ifdef TARGET_X16 {
 	jsr VERAPrintChar
 	lda s_colour
-	jsr VERAPrintColour
+	jsr VERAPrintColourAfterChar
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -739,8 +740,6 @@ s_erase_window
 	stx s_current_screenpos_row
 !ifdef TARGET_X16 {
     txa
-    clc
-    adc #$00
 	sta zp_screenline + 1
 	sta zp_colourline + 1
     lda #0
@@ -1201,7 +1200,7 @@ s_erase_line
 	lda s_colour
 }
 !ifdef TARGET_X16 {
-    jsr VERAPrintColour
+    jsr VERAPrintColourAfterChar
 } else {
 	sta (zp_colourline),y
 }
@@ -1260,7 +1259,7 @@ update_cursor
     lda cursor_character
     jsr VERAPrintChar
     lda current_cursor_colour
-    jsr VERAPrintColour
+    jsr VERAPrintColourAfterChar
 }
 !ifndef TARGET_X16 {
     lda cursor_character
