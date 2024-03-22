@@ -984,6 +984,13 @@ z_ins_quit
 	ora #$80
 	sta $d05d
 }
+!ifdef TARGET_X16 {
+	; Hardware reset
+	ldx #$42  ; System Management Controller
+	ldy #$02  ; magic location for system reset
+	lda #$00  ; magic value for system power controller
+	Jmp $fec9 ; power off or reset the system
+}
 
 	jmp kernal_reset
 
