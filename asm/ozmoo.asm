@@ -1860,7 +1860,9 @@ deletable_init_start
 
 
 !ifdef TARGET_X16 {
-    lda #14 
+    lda #$0e
+    jsr $ffd2
+    lda #$08
     jsr $ffd2
 }
 !ifdef TARGET_PLUS4 {

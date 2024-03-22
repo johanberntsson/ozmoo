@@ -1099,6 +1099,7 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_something
 +	
 }
+!ifndef TARGET_X16 {
 	ldx #8
 -	cmp .scroll_delay_keys,x
 	beq .is_scroll_delay_key
@@ -1126,6 +1127,13 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_something
 +
 
+	cmp #4 ; Ctrl-D to forget device# for saves
+	bne +
+	; Forget device# for saves
+	dec ask_for_save_device ; Normally 0. Even if we decrease 100 times, we still get the same effect
+	jmp .did_something
++
+}
 !ifndef Z5PLUS {
 !ifdef UNDO {
 	cmp #21 ; Ctrl-U for Undo
@@ -1135,15 +1143,10 @@ getchar_and_maybe_toggle_darkmode
 	stx undo_requested
 	dec undo_possible
 	jmp .did_something
-+	
++
 }
 }
-
-	cmp #4 ; Ctrl-D to forget device# for saves
-	bne .did_nothing
-	; Forget device# for saves
-	dec ask_for_save_device ; Normally 0. Even if we decrease 100 times, we still get the same effect
-	; Fall through to .did_something
+	jmp .did_nothing
 	
 .did_something
 	ldx #2

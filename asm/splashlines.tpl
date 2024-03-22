@@ -34,7 +34,9 @@ SHOWUNDO=1
 }
 
 splashline6
-!ifdef SHOWUNDO {
+!ifdef TARGET_X16 {
+	!pet "",0
+} else ifdef SHOWUNDO {
 	!pet " Ctrl: D=Reset device# K=Key rpt U=Undo",0
 } else {
 	!pet "   Ctrl: D=Reset device# K=Key repeat",0
@@ -47,6 +49,8 @@ splashline7
 splashline7alt
 	!pet "           0-8=Scroll slowness",0
 }
+} else ifdef TARGET_X16 {
+	!pet "",0
 } else {
 	!pet "           0-8=Scroll slowness",0
 }
