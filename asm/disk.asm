@@ -967,6 +967,8 @@ list_save_files
 	iny
 	bne - ; Always branch
 .end_of_name
+	bit zp_temp + 1
+	bpl + ; Skip writing end of filename marker if not a save file
 	cpy #14
 	bcs +
 	lda #0
