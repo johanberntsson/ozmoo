@@ -68,13 +68,10 @@ plus4_vic_colours
 .convert_screenline_y_to_vera_address
     ; convert screenline,y to addres in VERA
 	tya
-	clc
-	adc zp_screenline
+	asl
 	sta VERA_addr_low
 	lda zp_screenline + 1
-	adc #0
-	asl VERA_addr_low
-	adc #$b0 ; Carry should already be clear
+	adc #$b0 ; Carry is already clear after ASL
 	sta VERA_addr_high
     rts
 
@@ -1288,11 +1285,20 @@ update_cursor
 !ifndef NODARKMODE {
 toggle_darkmode
 
-; z_temp + 6: New foreground colour, as C64 colour 
-; z_temp + 7: New foreground colour, tranformed for target platform
-; z_temp + 8: New background colour, adapted to target platform
-; z_temp + 9: Old foreground colour, adapted to target platform
-; z_temp + 10, 11: Pointer into colour RAM
+.new_bg 		= z_temp + 5 ; New background colour, adapted to target platform
+.new_fg_c64		= z_temp + 6 ; New foreground colour, as C64 colour
+.new_fg			= z_temp + 7 ; New foreground colour, adapted to target platform
+.new_input		= z_temp + 8 ; New input colour, adapted to target platform
+.old_input		= z_temp + 9 ; Old input colour, adapted to target platform
+.colour_ram_pointer = z_temp + 10 ; (2 bytes) Pointer into colour RAM
+
+!ifdef TARGET_X16 {
+	ldy #0
+	sty zp_screenline + 1
+	jsr .convert_screenline_y_to_vera_address
+	lda #0
+	sta VERA_ctrl
+}
 
 !ifdef Z5PLUS {
 	; We will need the old fg colour later, to check which characters have the default colour
@@ -1311,7 +1317,7 @@ toggle_darkmode
 	tay
 	lda plus4_vic_colours,y
 }
-	sta z_temp + 9 ; old fg colour
+	sta .old_input ; old fg colour TODO - was +9, but comment says old fg?
 } else { ; This is z3 or z4
 !ifdef USE_INPUTCOL {
 
@@ -1331,13 +1337,13 @@ toggle_darkmode
 	tay
 	lda plus4_vic_colours,y
 }
-	sta z_temp + 9 ; old input colour
+	sta .old_input ; old input colour
 
 	; If the mode we switch *from* has inputcol = fgcol, make sure inputcol is never matched
 	lda inputcol,x
 	cmp fgcol,x
 	bne +
-	inc z_temp + 9
+	inc .old_input
 +
 } ; USE_INPUTCOL
 
@@ -1366,7 +1372,7 @@ toggle_darkmode
 	tay
 	lda plus4_vic_colours,y
 }
-	sta z_temp + 8 ; new input colour
+	sta .new_input ; new input colour
 
 } ; USE_INPUTCOL	
 	
@@ -1376,7 +1382,7 @@ toggle_darkmode
 	jsr write_header_byte
 	tay
 	lda zcolours,y
-	sta z_temp + 6 ; New foreground colour, as C64 colour 
+	sta .new_fg_c64 ; New foreground colour, as C64 colour 
 	jsr s_set_text_colour
 !ifdef TARGET_C128 {
 	bit COLS_40_80
@@ -1390,13 +1396,13 @@ toggle_darkmode
 	tay
 	lda plus4_vic_colours,y
 }
-	sta z_temp + 7 ; New foreground colour, tranformed for target platform
+	sta .new_fg ; New foreground colour, tranformed for target platform
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
 ; Set cursor colour
 	ldy cursorcol,x
-	lda z_temp + 6
+	lda .new_fg_c64
 	cpy #1
 	beq +
 	lda zcolours,y
@@ -1410,7 +1416,7 @@ toggle_darkmode
 	+SetBackgroundColour
 !ifdef Z5PLUS {
 	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
-	sta z_temp + 8 ; new background colour
+	sta .new_bg ; new background colour
 }
 ; Set border colour 
 	ldy bordercol,x
@@ -1447,7 +1453,10 @@ toggle_darkmode
 }
 	ldy s_screen_width_minus_one
 -
-!ifdef TARGET_C128 {
+!ifdef TARGET_X16 {
+	ldx VERA_data0 ; Go past character
+	jsr VERAPrintColourAfterChar
+} else ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi +
 	sta COLOUR_ADDRESS,y
@@ -1471,50 +1480,86 @@ toggle_darkmode
 	dey
 	bpl -
 }
+
+!ifdef TARGET_X16 {
+	lda s_screen_height_minus_one
+	sta zp_screenline + 1
+--	ldy #0
+	jsr .convert_screenline_y_to_vera_address
+-	lda VERA_data0 ; Skip character data
+	lda VERA_data0 ; Get colour data
+;	sta z_temp + 5 ; Temporary storage
+	and #$0f
+!ifdef USE_INPUTCOL {
+	cmp .old_input ; Old input colour
+	bne +
+	lda .new_input ; New input colour
+	jmp ++
++
+	; cmp .old_fg
+	; beq +++
+	; cmp .new_bg ; New background colour
+	; bne ++
+; +++
+}
+	lda .new_fg
+++	dec VERA_addr_low
+	jsr VERAPrintColourAfterChar
+	iny
+	cpy s_screen_width
+	bcc -
+	dec zp_screenline + 1
+	lda zp_screenline + 1
+!ifdef Z4PLUS {
+	bpl --
+} else {
+	bne --
+}
+} else {
 	;; Work out how many pages of colour RAM to examine
 	ldx s_screen_size + 1
 	inx
 	ldy #>COLOUR_ADDRESS
-	sty z_temp + 11
+	sty .colour_ram_pointer + 1
 	ldy #0
-	sty z_temp + 10
+	sty .colour_ram_pointer
 !ifndef Z4PLUS {
 	ldy s_screen_width ; Since we have coloured the statusline separately, skip it now
 }
 !ifndef Z5PLUS {
 ;	ldy #0 ; But y is already 0, so we skip this
-	lda z_temp + 7 ; For Z3 and Z4 we can just load this value before the loop  
+	lda .new_fg ; For Z3 and Z4 we can just load this value before the loop  
 }
 .compare
 !ifdef TARGET_C128 {
-	lda z_temp + 7  ; too much work to read old colour from VDC
+	lda .new_fg  ; too much work to read old colour from VDC
 	bit COLS_40_80
 	bmi .toggle_80
 } ; else {
 !ifdef Z5PLUS {
-	lda (z_temp + 10),y
+	lda (.colour_ram_pointer),y
 !ifndef TARGET_PLUS4 {
 	and #$0f
 }
-	cmp z_temp + 9
+	cmp .old_input
 	beq .change
-	cmp z_temp + 8
+	cmp .new_bg ; New background colour
 	bne .dont_change
 .change	
-	lda z_temp + 7
+	lda .new_fg
 }
 
 !ifdef USE_INPUTCOL {
-	lda (z_temp + 10),y
+	lda (.colour_ram_pointer),y
 !ifndef TARGET_PLUS4 {
 	and #$0f
 }
-	cmp z_temp + 9
+	cmp .old_input
 	bne .change
-	lda z_temp + 8
+	lda .new_input
 	bne + ; Always branch
 .change	
-	lda z_temp + 7
+	lda .new_fg
 +
 }
 
@@ -1526,17 +1571,17 @@ toggle_darkmode
 	bit COLS_40_80
 	bmi +
 	pla
-	sta (z_temp + 10),y
+	sta (.colour_ram_pointer),y
 	jmp ++
 +
 	; 80 columns mode selected
 	stx s_stored_x
 	sty s_stored_y
-	lda z_temp + 11
+	lda .colour_ram_pointer + 1
 	sec
 	sbc #$d0 ; adjust from $d800 (VIC-II) to $0800 (VDC)
 	tay
-	lda z_temp + 10
+	lda .colour_ram_pointer
 	clc
 	adc s_stored_y
 	bcc +
@@ -1550,17 +1595,18 @@ toggle_darkmode
 	ldx s_stored_x
 ++
 } else {
-	sta (z_temp + 10),y
+	sta (.colour_ram_pointer),y
 }
 .dont_change
 	iny
 	bne .compare
-	inc z_temp + 11
+	inc .colour_ram_pointer + 1
 	dex
 	bne .compare
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
+} ; Not TARGET_X16
 
 !ifdef USE_INPUTCOL {
 	; Switch to the new input colour, if input colour is active (we could be at a MORE prompt or in a timed input)
@@ -1569,6 +1615,11 @@ toggle_darkmode
 	jsr activate_inputcol
 	ldx darkmode
 +
+}
+
+!ifdef TARGET_X16 {
+	ldy zp_screenrow
+	sty zp_screenline + 1
 }
 	jmp update_cursor
 } ; ifndef NODARKMODE
