@@ -228,6 +228,7 @@ string_array_read_byte
 string_array_write_byte
 	sta .temp
 	sty .temp + 1
+	stx .temp + 2
 	lda z_address + 1
 	pha
 	lda z_address
@@ -249,6 +250,7 @@ string_array_write_byte
 	tay
 	pla
 	jsr set_z_himem_address
+	ldx .temp + 2
 	ldy .temp + 1
 	lda .temp
 	rts
@@ -273,6 +275,7 @@ parse_array_read_byte
 parse_array_write_byte
 	sta .temp
 	sty .temp + 1
+	stx .temp + 2
 	lda z_address + 1
 	pha
 	lda z_address
@@ -294,6 +297,7 @@ parse_array_write_byte
 	tay
 	pla
 	jsr set_z_himem_address
+	ldx .temp + 2
 	ldy .temp + 1
 	lda .temp
 	rts
