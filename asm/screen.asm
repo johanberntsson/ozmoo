@@ -908,9 +908,9 @@ printchar_buffered
 	lda window_start_row
 	sec
 	sbc window_start_row + 1
-	sbc #2
+	sbc #1
 	cmp num_rows
-	bcs +
+	bne +
 	dex ; Max 39 chars on last line on screen.
 +	stx max_chars_on_line
 	; Check if we have a "perfect space" - a space after 40 characters
