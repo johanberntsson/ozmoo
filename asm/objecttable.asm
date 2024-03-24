@@ -30,7 +30,7 @@ z_ins_get_child
 	; object is 0, store 0 and return false
 !ifdef DEBUG {
 	jsr print_following_string
-	!pet "WARNING: get_child called with object 0",13,0
+	!text "WARNING: get_child called with object 0",13,0
 }
 	ldx #0
 	lda #0

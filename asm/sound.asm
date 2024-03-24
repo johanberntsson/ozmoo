@@ -547,7 +547,7 @@ sound_effect
 	beq .return
 !ifdef TRACE_SOUND {
     jsr print_following_string
-    !pet "play_sound_effect ",0
+    !text "play_sound_effect ",0
     lda .current_effect
     jsr printa
     jsr space

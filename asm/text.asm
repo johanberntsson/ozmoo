@@ -342,7 +342,7 @@ z_ins_read
 
 !ifdef TRACE_READTEXT {
 	jsr print_following_string
-	!pet "read_text ",0
+	!text "read_text ",0
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr printx
@@ -435,7 +435,7 @@ z_ins_read
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!raw "[preopt mode. type xxx to exit early.]",13,0
+	!text "[preopt mode. type xxx to exit early.]",13,0
 !ifdef Z5PLUS {
 	ldy #2
 } else {

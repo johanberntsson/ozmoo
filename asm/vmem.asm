@@ -222,7 +222,7 @@ print_optimized_vm_map
 	sta streams_output_selected + 2
 	sta is_buffered_window
 	jsr print_following_string
-	!pet 13,"$po$:",0
+	!text 13,"$PO$:",0
 
 	ldx #0
 -	lda vmap_z_h,x
@@ -245,7 +245,7 @@ print_optimized_vm_map
 	
 +++	
 	jsr print_following_string
-	!pet "$$$$",0
+	!text "$$$$",0
 	jsr kernal_readchar   ; read keyboard
 	jmp kernal_reset      ; reset
 }
@@ -376,7 +376,7 @@ load_blocks_from_index
 	jsr readblocks
 !ifdef TRACE_VM {
 	jsr print_following_string
-	!pet "load_blocks (normal) ",0
+	!text "load_blocks (normal) ",0
 	jsr print_vm_map
 }
 	rts

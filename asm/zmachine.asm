@@ -442,11 +442,11 @@ z_not_implemented
 !ifdef CHECK_ERRORS {
 !ifdef DEBUG {
 	jsr print_following_string
-	!pet "opcode: ",0
+	!text "opcode: ",0
 	ldx z_opcode
 	jsr printx
 	jsr print_following_string
-	!pet " @ ",0
+	!text " @ ",0
 	ldx z_pc + 2
 	lda z_pc + 1
 	jsr printinteger
@@ -1634,7 +1634,7 @@ z_ins_random
 	ldy z_test
 	beq +
 	jsr print_following_string
-	!pet "seed 0!",13,0
+	!text "seed 0!",13,0
 +	
 }
 	jsr z_rnd_init_random
@@ -1649,7 +1649,7 @@ z_ins_random
 	beq +
 	tax
 	jsr print_following_string
-	!pet "seed -1!",13,0
+	!text "seed -1!",13,0
 	txa
 +
 }	

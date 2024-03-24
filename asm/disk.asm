@@ -100,7 +100,7 @@ readblocks
 !ifdef TRACE_FLOPPY {
 	jsr newline
 	jsr print_following_string
-	!pet "readblocks (n,zp,c64) ",0
+	!text "readblocks (n,zp,c64) ",0
 	lda readblocks_numblocks
 	jsr printa
 	jsr comma
@@ -149,7 +149,7 @@ readblock
 
 !ifdef TRACE_FLOPPY {
 	jsr print_following_string
-	!pet "Readblock: ",0
+	!text "Readblock: ",0
 	lda readblocks_currentblock + 1
 	jsr print_byte_as_hex
 	lda readblocks_currentblock

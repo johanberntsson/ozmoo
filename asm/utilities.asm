@@ -609,7 +609,7 @@ fatalerror
 } else {
 	pha
 	jsr print_following_string
-	!pet "fatal error ", 0
+	!text "fatal error ", 0
 	pla
 	tax
 	jsr printa
@@ -830,7 +830,7 @@ pause
 	stx .saved_x
 	sty .saved_y
 	jsr print_following_string
-	!pet "[Intentional pause. Press ENTER.]",13,0
+	!text "[Intentional pause. Press ENTER.]",13,0
 	jsr print_trace
 	jsr printchar_flush
 	jsr kernal_readchar   ; read keyboard
@@ -849,7 +849,7 @@ print_following_string
 !zone {
 	; usage:
 	;    jsr print_following_string
-	;    !pet "message",0
+	;    !text "message",0
 	; uses stack pointer to find start of text, then
 	; updates the stack so that execution continues
 	; directly after the end of the text
@@ -883,7 +883,7 @@ print_trace
 !ifdef TRACE {
 	jsr newline
 	jsr print_following_string
-	!pet "last opcodes: (#, z_pc, opcode)",0
+	!text "last opcodes: (#, z_pc, opcode)",0
 	jsr newline
 	lda z_trace_index
 	tay
@@ -891,7 +891,7 @@ print_trace
 	cmp #%00000011
 	bne +
 	jsr print_following_string
-	!pet "last opcode not stored (shown as $ee)",13,0
+	!text "last opcode not stored (shown as $ee)",13,0
 	lda #$ee
 	sta z_trace_page,y
 	iny

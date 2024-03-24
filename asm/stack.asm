@@ -72,7 +72,7 @@ stack_push_top_value
 	sbc stack_pushed_bytes
 	bcs .not_push_record
 	jsr print_following_string
-!pet 13,"=== Pushed bytes record: ",0 
+!text 13,"=== Pushed bytes record: ",0 
 	lda stack_pushed_bytes
 	sta .stack_pushed_bytes_record
 	ldx stack_pushed_bytes + 1
@@ -95,7 +95,7 @@ stack_push_top_value
 	sbc .stack_size
 	bcs .no_size_record
 	jsr print_following_string
-!pet 13,"### Stack size record: ",0 
+!text 13,"### Stack size record: ",0 
 	lda .stack_size
 	sta .stack_size_record
 	ldx .stack_size + 1
@@ -344,7 +344,7 @@ stack_call_routine
 	sbc .stack_size
 	bcs .no_size_record_2
 	jsr print_following_string
-!pet 13,"### Stack size record: ",0 
+!text 13,"### Stack size record: ",0 
 	lda .stack_size
 	sta .stack_size_record
 	ldx .stack_size + 1
@@ -627,7 +627,7 @@ stack_pull_no_top_value
 .stack_empty_return_0
 !ifdef DEBUG {
 	jsr print_following_string
-	!pet "WARNING: pull from empty stack",13,0
+	!text "WARNING: pull from empty stack",13,0
 }
 	lda #0
 	tax

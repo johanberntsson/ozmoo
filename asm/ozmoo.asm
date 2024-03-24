@@ -1617,7 +1617,7 @@ z_init
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!pet "*** vmem optimization mode ***",13,13,0
+	!text "*** vmem optimization mode ***",13,13,0
 }	
 }
 
@@ -1775,7 +1775,7 @@ z_init
 	; sta z_operand_value_low_arr
 	; jsr z_ins_buffer_mode
 	jsr print_following_string
-	!pet "x16 debug",13,0
+	!text "x16 debug",13,0
     jsr printchar_flush
 -   jmp -
 	lda mem_temp
