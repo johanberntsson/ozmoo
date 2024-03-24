@@ -92,7 +92,9 @@ plus4_vic_colours
 	lda window_start_row + 1 ; how many top lines to protect
 	adc #$b0
 	tay
--   ldx #0
+-	cpy .vera_temp + 1
+    bcs +
+	ldx #0
 --  stx VERA_addr_low
 	iny
     sty VERA_addr_high
@@ -105,9 +107,8 @@ plus4_vic_colours
     cpx .vera_temp
     bne --
     iny
-    cpy .vera_temp + 1
-    bne -
-	; prepare for erase line
+	bne - ; Always branch
++	; prepare for erase line
 	ldy s_screen_height_minus_one
 	sty zp_screenrow
 	lda #$ff
@@ -479,6 +480,15 @@ s_printchar
 	stx s_stored_x
 	sty s_stored_y
 
+	ldx window_start_row + 1
+	cpx s_screen_height
+	bcc +
+	ldx current_window
+	bne +
+	; There is no free line to print on, return with carry set
+	ldx s_stored_x
+	rts
++
 	; Fastlane for the most common characters
 	cmp #$20
 	bcc +
@@ -868,13 +878,14 @@ s_erase_window
 +	jsr VDCSetCopySourceAddress ; where to copy from (next line)
 	; start copying
 	ldy window_start_row + 1 ; how many top lines to protect
--	lda #80 ;copy 80 bytes
+-	cpy s_screen_height_minus_one
+	beq +
+	lda #80 ;copy 80 bytes
 	ldx #VDC_COUNT
 	jsr VDCWriteReg
 	iny
-	cpy s_screen_height_minus_one
-	bne -
-	rts
+	bne - ; Always branch
++	rts
 }
 
 !ifdef SCROLLBACK {
@@ -971,18 +982,8 @@ s_scrolled_lines !byte 0
 	dex
 	bne --
 	cli
-; -	txa
-	; pha
-	; jsr wait_an_interval
-	; pla
-	; tax
-	; dex
-	; bne -
 .done_delaying
 }
-;	dec reg_backgroundcolour
-;	inc	 reg_backgroundcolour
-
 !ifdef TARGET_MEGA65 {
 	jsr colour2k	
 }
@@ -991,6 +992,7 @@ s_scrolled_lines !byte 0
 	sec
 	sbc zp_screenrow
 	tax
+	beq .done_scrolling
 	clc
 ;	sei
 -

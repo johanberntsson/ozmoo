@@ -15,6 +15,7 @@ Bugfixes:
 - Build mode -P was broken, because dynmem size wasn't calculated. May have affected saves.
 - Made QUIT work correctly on MEGA65 games with and without a custom font.
 - Screen wasn't cleared after save/restore if REU caching was used.
+- Fixed bugs that made Ozmoo crash when printing to lower window when it's 0 lines high, or when scrolling the window when it's 1 line high.
 
 ================================================
 Release 13.7: 

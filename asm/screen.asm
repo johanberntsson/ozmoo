@@ -686,12 +686,14 @@ printchar_flush
 	stx last_break_char_buffer_pos
 	jsr print_line_from_buffer
 	
+	bcs + ; The line couldn't be printed
 	ldx buffer_index
 	dex
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
++
 
 	; ldx first_buffered_column
 ; -   cpx buffer_index
@@ -716,6 +718,12 @@ printchar_flush
 
 print_line_from_buffer
 	; Prints the text from first_buffered_column to last_break_char_buffer_pos
+	ldx window_start_row + 1
+	cpx s_screen_height
+	bcc +
+	; There is no free line to print on, return with carry set
+	rts
++
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi +
@@ -779,19 +787,13 @@ print_line_from_buffer
 	jsr VDCWriteReg
 	ldx #VDC_COUNT
 	pla
-	pha
 	sec
 	sbc #1
 	jsr VDCWriteReg
-	pla
 	
 .dont_colour_80	
 }
-	clc
-	adc zp_screencolumn
-	sta zp_screencolumn
-
-	jmp +++ ; Always branch
+	jmp .done_print_line_from_buffer
 	
 .printline40
 }
@@ -812,7 +814,7 @@ print_line_from_buffer
 		jsr colour2k	
 	}
 		ldy first_buffered_column
--	   cpy last_break_char_buffer_pos
+-		cpy last_break_char_buffer_pos
 		bcs ++
 		lda print_buffer,y
 		jsr convert_petscii_to_screencode
@@ -834,16 +836,19 @@ print_line_from_buffer
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
-		lda last_break_char_buffer_pos
-		sec
-		sbc first_buffered_column
-		clc
-		adc zp_screencolumn
-		sta zp_screencolumn
+.done_print_line_from_buffer
+	lda last_break_char_buffer_pos
+	sec
+	sbc first_buffered_column
+	clc
+	adc zp_screencolumn
+	sta zp_screencolumn
 }
 
 
+
 +++
+	clc
 	rts
 
 printchar_buffered
@@ -941,11 +946,13 @@ printchar_buffered
 	ldx last_break_char_buffer_pos
 	inc last_break_char_buffer_pos ; Restore old value, since we decreased it by one before
 
+	bcs + ; The line couldn't be printed
 	; Print last character
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
++
 	inx
 
 	pla
