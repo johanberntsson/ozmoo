@@ -185,7 +185,7 @@ erase_window
 .clear_from_a
 	sta zp_screenrow
 -	lda zp_screenrow
-	cmp #SCREEN_HEIGHT
+	cmp s_screen_height
 	bcs +
 	jsr s_erase_line
 	inc zp_screenrow
@@ -201,7 +201,7 @@ erase_window
 !ifdef Z5PLUS {
 	lda window_start_row + 1
 } else {
-	lda #SCREEN_HEIGHT-1
+	lda s_screen_height_minus_one
 }
 	stx cursor_row + 1
 	pha
@@ -357,12 +357,6 @@ start_buffering
 	sty last_break_char_buffer_pos
 	rts
 
-!ifndef Z4PLUS {
-.max_lines = SCREEN_HEIGHT-1
-} else {
-.max_lines = SCREEN_HEIGHT
-}
-
 z_ins_split_window
 	; split_window lines
 	ldx z_operand_value_low_arr
@@ -380,9 +374,15 @@ split_window
 	stx window_start_row + 1
 	rts
 .split_window
-	cpx #.max_lines
+!ifndef Z4PLUS {
+	cpx s_screen_height_minus_one
 	bcc +
-	ldx #.max_lines
+	ldx s_screen_height_minus_one
+} else {
+	cpx s_screen_height
+	bcc +
+	ldx s_screen_height
+}
 +	txa
 	clc
 	adc window_start_row + 2

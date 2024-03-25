@@ -1075,7 +1075,7 @@ s_scrolled_lines !byte 0
 s_erase_line
 	; registers: a,x,y
 	lda zp_screenrow
-	cmp #SCREEN_HEIGHT
+	cmp s_screen_height
 	bcc +
 	rts ; Illegal row, just ignore
 +	lda #0
@@ -1721,7 +1721,7 @@ testscreen
 	sta zp_screenrow
     jsr s_erase_line
     ;rts
-	lda #SCREEN_HEIGHT
+	lda s_screen_height
 	sta window_start_row ; total number of  lines in window 0
 	lda #1
 	sta window_start_row + 1 ; 1 status line
