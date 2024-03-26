@@ -14,6 +14,7 @@ if $is_windows then
     $C1541 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe"
     $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
     $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
+	$ZIP = "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0"
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
@@ -26,6 +27,7 @@ else
     $C1541 = "c1541"
     $EXOMIZER = __dir__ + "/exomizer/src/exomizer"
     $ACME = "acme"
+	$ZIP = "zip -r"
 	$commandline_quotemark = "'"
 end
 
@@ -2099,15 +2101,18 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
 
     # Add terp and story file
     FileUtils.cp($ozmoo_file, foldername+"/"+$file_name.upcase)
-    FileUtils.cp($story_file, foldername+"/ZCODE")
+#    FileUtils.cp($story_file, foldername+"/ZCODE")
+	IO.binwrite(foldername+"/ZCODE", $story_file_data);
 
     # Create the zip file
-    command = "zip -r #{foldername}.zip #{foldername}"
+    command = "#{$ZIP} #{foldername}.zip #{foldername}"
 	puts command if $verbose
-    system(command)
+    result = system(command)
+	unless result
+		puts "WARNING: There was a problem creating a zip archive. The files are in the folder #{foldername}"
+	end
+#	puts "Result: #{result}!" if result
 
-    # Add bootfile + terp + preloaded vmem blocks file to disk
-    # if add_boot_file(diskfilename, diskimage_filename) != true
     puts "Successfully built game as #{foldername}"
 	$bootdiskname = foldername
     nil # Signal success
@@ -2119,7 +2124,7 @@ def print_usage_and_exit
 end
 
 def print_usage
-	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P] -v"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
@@ -2130,7 +2135,7 @@ def print_usage
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
 	puts "         [-u[:0|1|r]] <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
+	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
@@ -2281,6 +2286,8 @@ begin
 				$normal_ram_end_address = $memory_end_address
 				$CACHE_PAGES = 4 # Cache is static size on C128
 			end
+		elsif ARGV[i] =~ /^-ZIP$/ then
+			mode = MODE_ZIP
 		elsif ARGV[i] =~ /^-P$/ then
 			mode = MODE_P
 			$CACHE_PAGES = 2 # We're not actually using the cache, but there may be a splash screen in it
@@ -2545,10 +2552,10 @@ if mode != MODE_ZIP and $target == 'x16'
 	exit 1
 end
 
-# if mode == MODE_71 and $target != 'c128'
-	# puts "ERROR: Build mode 71 is not supported on this target platform."
-	# exit 1
-# end
+if mode == MODE_ZIP and $target != 'x16'
+	puts "ERROR: Build mode ZIP is not supported on this target platform."
+	exit 1
+end
 
 if mode == MODE_P and $target == 'c128'
 	puts "ERROR: Build mode P is not supported on this target platform."
@@ -3131,7 +3138,7 @@ else # No preload data available
 	vmem_data += lowbytes;
 end
 
-if $target == 'mega65'
+if $target =~ /^(mega65|x16)$/
 	vmem_contents = '';
 else
 	vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]

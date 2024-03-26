@@ -2,10 +2,14 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 14: 26 March 2024
+
 New/changed features:
+- Added target platform Commander X16 (use switch -t:x16)
 - Added build mode -71D, for dual 1571 drives.
 - Varicella is now automatically patched to (a) fix a bug in colour handling in the game, and (b) adapt the game to Ozmoo's limitations in colour handling. 
-- Made game saves generic between MEGA65 and X16, and between builds using different versions and features of Ozmoo.
+- Made game saves generic between MEGA65 and X16, and between builds using different versions and features of Ozmoo. Players should now be able to copy old save games to a build using a new version of Ozmoo, or with other features enabled, or from MEGA65 to X16 or the other way around.
 
 Optimizations:
 - The code for listing save files is now faster *and* shorter.
