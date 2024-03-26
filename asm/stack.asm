@@ -387,17 +387,23 @@ z_ins_catch
 	; Store pointer to first byte where pushed values are stored in current frame.
 	ldx stack_ptr
 	lda stack_ptr + 1
+	sec
+	sbc #>stack_start
 	jmp z_store_result
 
 z_ins_throw
 	; Restore pointer given. Return from routine (frame).
 	
 	; First, restore old stack_ptr, and calculate where # of local vars is stored.
+	lda z_operand_value_high_arr + 1
+	clc
+	adc #>stack_start
+	pha
 	lda z_operand_value_low_arr + 1
 	sec
 	sbc #6
 	sta zp_temp
-	lda z_operand_value_high_arr + 1
+	pla
 	sbc #0
 	sta zp_temp + 1
 	

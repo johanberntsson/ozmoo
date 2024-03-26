@@ -1199,7 +1199,22 @@ restore_game
 	bmi .restore_success_dont_insert_story_disk
 }
 	jsr .insert_story_disk
-.restore_success_dont_insert_story_disk	
+.restore_success_dont_insert_story_disk
+!ifdef TARGET_MEGA65_OR_X16 {
+; Adjust stack location
+	lda z_local_vars_ptr + 1
+	sec
+	sbc stack_start + stack_size - 1
+	clc
+	adc #>stack_start
+	sta z_local_vars_ptr + 1
+	lda stack_ptr + 1
+	sec
+	sbc stack_start + stack_size - 1
+	clc
+	adc #>stack_start
+	sta stack_ptr + 1
+}
 ;	inc zp_pc_l ; Make sure read_byte_at_z_address
 !ifdef Z4PLUS {
 !ifdef TARGET_C128 {

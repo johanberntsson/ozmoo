@@ -1252,6 +1252,27 @@ update_screen_width_in_header
 } ; Z4PLUS
 
 
+!ifdef TARGET_X16 {
+x16_backup_basic_zp
+	ldx #last_basic_zp_address - first_basic_zp_address + 1
+-	lda first_basic_zp_address - 1,x
+	sta basic_zp_backup_area - 1,x
+	dex
+	bne -
+	rts
+
+x16_restore_basic_zp
+	ldx #last_basic_zp_address - first_basic_zp_address + 1
+-	lda basic_zp_backup_area - 1,x
+	sta first_basic_zp_address - 1,x
+	dex
+	bne -
+	rts
+
+basic_zp_backup_area
+!fill last_basic_zp_address - first_basic_zp_address + 1, 0
+}
+
 !ifdef TARGET_C128 {
 
 c128_setup_mmu
@@ -2792,24 +2813,6 @@ x16_load_dynmem_maybe_statmem
 	!pet "zcode,s,r"
 .zcodefilenamelen = * - .zcodefilename
 
-x16_backup_basic_zp
-	ldx #last_basic_zp_address - first_basic_zp_address + 1
--	lda first_basic_zp_address - 1,x
-	sta basic_zp_backup_area - 1,x
-	dex
-	bne -
-	rts
-
-x16_restore_basic_zp
-	ldx #last_basic_zp_address - first_basic_zp_address + 1
--	lda basic_zp_backup_area - 1,x
-	sta first_basic_zp_address - 1,x
-	dex
-	bne -
-	rts
-
-basic_zp_backup_area
-!fill last_basic_zp_address - first_basic_zp_address + 1, 0
 }
 !ifdef TARGET_MEGA65 {
 m65_load_header
@@ -2894,8 +2897,8 @@ init_sid
 
 end_of_routines_in_stack_space
 
-	!fill stack_size - (* - stack_start),0 ; 4 pages
-
+	!fill stack_size - (* - stack_start) - 1,0 ; 4 pages - 1 byte
+	!byte >stack_start
 story_start
 
 !ifdef vmem_cache_size {
