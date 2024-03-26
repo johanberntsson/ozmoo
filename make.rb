@@ -2108,12 +2108,20 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     command = "#{$ZIP} #{foldername}.zip #{foldername}"
 	puts command if $verbose
     result = system(command)
-	unless result
-		puts "WARNING: There was a problem creating a zip archive. The files are in the folder #{foldername}"
+	if result
+		if $delete_zip_files > 0
+			FileUtils.rm_rf(foldername)
+		end
+		puts "Successfully built game as #{foldername}.zip"
+	else
+		msg = "The files are in the folder #{foldername}"
+		if $delete_zip_files > 1
+			FileUtils.rm_rf(foldername)
+			msg = "The files have been deleted."
+		end
+		puts "ERROR: There was a problem creating a zip archive. #{msg}"
 	end
-#	puts "Result: #{result}!" if result
 
-    puts "Successfully built game as #{foldername}"
 	$bootdiskname = foldername
     nil # Signal success
 end
@@ -2134,7 +2142,7 @@ def print_usage
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
-	puts "         [-u[:0|1|r]] <storyfile>"
+	puts "         [-u[:0|1|r]] [-df[:0|1|f]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2173,6 +2181,7 @@ def print_usage
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
 	puts "  -u: Add support for UNDO. Enabled by default for MEGA65. Use -u:r for RAM buffer (C128 only)"
+	puts "  -df: Delete files after creating zip archive in ZIP mode. 0 is default. f=force."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
 
@@ -2231,6 +2240,7 @@ $undo_ram = nil
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
+$delete_zip_files = nil
 reserve_dir_track = nil
 check_errors = nil
 dark_mode = nil
@@ -2353,6 +2363,14 @@ begin
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
+		elsif ARGV[i] =~ /^-df(?::([01f]))?$/ then
+			if $1 == '0'
+				$delete_zip_files = 0
+			elsif $1 == 'f'
+				$delete_zip_files = 2
+			else
+				$delete_zip_files = 1
+			end
 		elsif ARGV[i] =~ /^-u(?::([01r]))?$/ then
 			if $1 == nil
 				$undo = 1
@@ -2454,6 +2472,10 @@ if reu_boost == 1
 		puts "ERROR: REU Boost is not supported for this target platform." 
 		exit 1
 	end
+end
+
+if $delete_zip_files == nil
+	$delete_zip_files = 0
 end
 
 if smooth_scroll == nil
