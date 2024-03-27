@@ -18,7 +18,6 @@
 }
 
 !ifdef TARGET_X16 {
-;	X16_DEBUG = 1
 	TARGET_MEGA65_OR_X16 = 1
 	NO_VMEM_CACHE = 1
 	TARGET_ASSIGNED = 1
@@ -30,9 +29,6 @@
 		SLOW = 1
 	}
 ;	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
-}
-!ifdef X16_DEBUG {
-	DEBUG = 1
 }
 !ifdef TARGET_MEGA65 {
 	TARGET_MEGA65_OR_X16 = 1
@@ -1790,17 +1786,6 @@ z_init
 ;	sty alphabet_table + 1
 	
 	; Copy z_pc from header
-!ifdef cX16_DEBUG {
-	sta mem_temp
-	; lda #0
-	; sta z_operand_value_low_arr
-	; jsr z_ins_buffer_mode
-	jsr print_following_string
-	!text "x16 debug",13,0
-    jsr printchar_flush
--   jmp -
-	lda mem_temp
-}
 	ldy #header_initial_pc
 	jsr read_header_word
 	pha

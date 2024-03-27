@@ -2,7 +2,7 @@
 
 # Overview
 
-Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64, Commodore 128, Commodore Plus/4 and MEGA65. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants). While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
+Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64, Commodore 128, Commodore Plus/4, Commander X16 and MEGA65. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants). While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
 
 ## Features
 
@@ -48,6 +48,7 @@ You need to install:
 - Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
 - The Vice emulator to test C64, C128 and Plus/4 builds on virtual hardware
 - The xemu-xmega65 emulator if you want to test MEGA65 builds on virtual hardware
+- The Commander X16 emulator test X16 builds on virtual hardware
 
 #### Windows
 
@@ -127,6 +128,7 @@ Ozmoo was originally written for the Commodore 64, but has been adapted for some
 | -t:c128 | Build Ozmoo for the Commodore 128 |
 | -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
 | -t:mega65 | Build Ozmoo for the MEGA65 |
+| -t:x16 | Build Ozmoo for the Commander X16 |
 
 Note that not all build options are supported for every platform. If an option isn't supported, the make.rb script will stop with an appropriate error message, and no Ozmoo files will be produced.
 
@@ -147,6 +149,10 @@ The Commodore Plus/4 version makes use of the simplified memory map compared to 
 ## MEGA65
 
 The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. A loader image is currently not supported. Undo is enabled by default for games that support it.
+
+## X16
+
+The X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resoultion used when starting the game.
 
 ## Other targets
 
@@ -261,9 +267,13 @@ Disks used:
 
 - Boot / Story disk
 
-### Modes requiring an SD2IEC:
+### Archive Modes
 
-To be added at a later date. An SD2IEC mode could enable full 512 KB story sizes.
+ZIP: _Compressed archive with game and story data_
+
+Any story size: Full preloading. Full amount of RAM available for virtual memory system.
+
+Creates a ZIP archive containing a folder with two files, the game executable and the zcode story file. This is currently only used for X16 targets.
 
 # Splash Screen
 
@@ -499,6 +509,10 @@ The build option -smooth can be used to include smooth scrolling support on supp
 Smooth scrolling is automatically activated at program startup if the support was included. While playing the game, the user can disable smooth scrolling with Ctrl-0 .. Ctrl-8, and re-enable smooth scrolling with Ctrl-9.
 
 # Miscellaneous options
+
+## Option -df:n
+
+-df:n provides additional control to the ZIP build mode. ZIP mode creates a folder, adding the game binary and the zcode story file to it, and then compressing the folder into the final zip archive. -df controls what will happen with this temporary folder. The accepted values are 0 (create zip archive and keep the folder), 1 (delete the folder if zip archive created successfully) and f ('force'/always delete the folder). The default is 0.
 
 ## Option -sp:n
 

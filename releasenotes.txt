@@ -7,6 +7,7 @@ Release 14: 26 March 2024
 
 New/changed features:
 - Added target platform Commander X16 (use switch -t:x16)
+- Added build mode -ZIP, for X16 targets.
 - Added build mode -71D, for dual 1571 drives.
 - Varicella is now automatically patched to (a) fix a bug in colour handling in the game, and (b) adapt the game to Ozmoo's limitations in colour handling. 
 - Made game saves generic between MEGA65 and X16, and between builds using different versions and features of Ozmoo. Players should now be able to copy old save games to a build using a new version of Ozmoo, or with other features enabled, or from MEGA65 to X16 or the other way around.
@@ -22,12 +23,6 @@ Bugfixes:
 - Screen wasn't cleared after save/restore if REU caching was used.
 - Fixed bugs that made Ozmoo crash when printing to lower window when it's 0 lines high, or when scrolling the window when it's 1 line high.
 - Fixed debug messages and error messages that were stored with the wrong encoding. Some interpreter messages that used to be in upper case will now be in lower case.
-
-================================================
-Release 13.7: 
-
-New/changed features:
-- Commander X16 support
 
 ================================================
 Release 13.6: 17 November 2023

@@ -2144,7 +2144,7 @@ def print_usage
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
 	puts "         [-u[:0|1|r]] [-df[:0|1|f]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
-	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
+	puts "  -S1|-S2|-D2|-D3|-71|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."

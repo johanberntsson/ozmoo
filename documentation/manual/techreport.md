@@ -59,7 +59,7 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | picloader.asm | code to show a picture while reading the story file |
 |  |  |
-| reu.asm | implements the Ram Expansion Unit interface for C64 and C128, and an interface to Attic RAM on MEGA65 |
+| reu.asm | implements the Ram Expansion Unit interface for C64 and C128, banked RAM for the X16, and an interface to Attic RAM on MEGA65 |
 |  |  |
 | screen.asm | printing routines |
 |  |  |
@@ -86,6 +86,8 @@ These source files are located in the asm dictory. The table also shows the most
 | utilities.asm | various utilities, error handling and debug routines |
 |  |  |
 | vdc.asm | low level routines to write text on the C128 in 80 column mode |
+|  |  |
+| vera.asm | low level routines to write text on the X16 |
 |  |  |
 | vmem.asm | virtual memory routines, and corresponding routines for non-vmem builds |
 |  |  |
@@ -143,7 +145,10 @@ The standard text mode needs 80 x 60 x 2 = 9600 bytes, starting from \$1b000, si
 
 | **Address range** | **KB** |  **Usage** |
 | -- |  - | ---- |
-| \$00000-\$7ffff | 512 | Story file |
+| \$00000-\$02000 | 8 | Reserved space |
+| \$02000-\$7ffff | 504 | Story file |
+
+The extended memory is mapped into \$a000-\$bfff, so the memory is accessible in 8KB chunks. Note that the first 8KB is used by the kernal and DOS routines, so we load the story file from \$02000.
 
 ## MEGA65 builds
 
@@ -192,6 +197,8 @@ The main functions of screenkernal are s_printchar, which replaced CHROUT \$FFD2
 Screenkernal is started by calling s_init. Internally it keeps track of the cursor position so it can put a character on the screen when s_printchar is called. 
 
 For the Commodore 64 version the characters are stored directly in the video memory, and the colour in the colour memory.  The Commodore 128 version detects if 40 or 80 columns mode is used while running the program. If 40 characters are used, then it works like the Commodore 64 version. But if 80 columns are used, then the C128's Video Display Controller chip (VDC) is used. Instead of writing directly into the video memory, character output, scrolling and other screen commands are sent by VDC registers. The file vdc.asm contains functions that make this communication easier.
+
+The X16 is using a separate chip called VERA for text output, similar to VDC for the C128. The file vdc.asm contains low-level functions for putting characters to the screen.
 
 The Plus/4 and Commodore 128 in 80 column mode doesn't use the same palette as the Commodore 64. Mapping tables (plus4_vic_colours and vdc_vic_colours) are used to assign C64 colours to their closest equivalents on these platforms.
 
