@@ -4,7 +4,7 @@
 
 A Z-machine interpreter for the Commodore 64 and similar computers
 
-Written by Johan Berntsson and Fredrik Ramsberg in 2018-2023
+Written by Johan Berntsson and Fredrik Ramsberg in 2018-2024
 
 ![Mini-Zork I running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
 
@@ -27,7 +27,7 @@ Update 2021-Oct-03: Release 8 with MEGA65 speedups, plus optimizations and bugfi
 
 Update 2021-May-04: Release 7 with new MEGA65 target, improved z3 statusline on 80 column displays.
 
-Update 2021-Mar-19: Release 6 with input history, input colours, a new font and bug fixes.
+Update 2021-Mar-19: Release 6 with command history, input colours, a new font and bug fixes.
 
 Update 2021-Mar-02: There is now an official port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmoo.html).
 
