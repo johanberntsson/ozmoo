@@ -11,6 +11,8 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018-2023
 
 ## Status
 
+Update 2024-Mar-27: Release 14 with Commander X16 support.
+
 Update 2023-Jul-18: Release 13 with support for undo on C64 with REU, C128 and MEGA65.
 
 Update 2022-Dec-20: Release 12 with support for smooth scrolling on C64 and C128 in 40 column mode, player-selectable scroll speed and tear-free scrolling, plus optional scrollback buffer in RAM for all platforms.
