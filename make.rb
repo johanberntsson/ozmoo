@@ -6,27 +6,27 @@ $is_windows = (ENV['OS'] == 'Windows_NT')
 
 if $is_windows then
 	# Paths on Windows
-    $X16 = "C:\\ProgramsWoInstall\\x16emu\\x16emu"
-    $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
-    $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
-    $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random"
+	$X16 = "C:\\ProgramsWoInstall\\x16emu\\x16emu"
+	$X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
+	$X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
+	$XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random"
 	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
-    $C1541 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
-    $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
+	$C1541 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe"
+	$EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
+	$ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
 	$ZIP = "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0"
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux
-    $X16 = "../x16-emulator/x16emu"
-    $X64 = "x64 -autostart-delay-random"
-    $X128 = "x128 -autostart-delay-random"
-    #$X128 = "x128 -80col -autostart-delay-random"
-    $XPLUS4 = "xplus4 -autostart-delay-random"
-    $MEGA65 = "xemu-xmega65 -besure"
-    $C1541 = "c1541"
-    $EXOMIZER = __dir__ + "/exomizer/src/exomizer"
-    $ACME = "acme"
+	$X16 = "../x16-emulator/x16emu"
+	$X64 = "x64 -autostart-delay-random"
+	$X128 = "x128 -autostart-delay-random"
+	#$X128 = "x128 -80col -autostart-delay-random"
+	$XPLUS4 = "xplus4 -autostart-delay-random"
+	$MEGA65 = "xemu-xmega65 -besure"
+	$C1541 = "c1541"
+	$EXOMIZER = __dir__ + "/exomizer/src/exomizer"
+	$ACME = "acme"
 	$ZIP = "zip -r"
 	$commandline_quotemark = "'"
 end
@@ -43,7 +43,7 @@ $GENERALFLAGS = [
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
-#   'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
+#	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
 ]
 
