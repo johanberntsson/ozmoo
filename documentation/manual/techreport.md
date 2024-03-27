@@ -87,7 +87,7 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | vdc.asm | low level routines to write text on the C128 in 80 column mode |
 |  |  |
-| vera.asm | low level routines to write text on the X16 |
+| vera.asm | defines the interface to the VERA chip for text output on the X16 |
 |  |  |
 | vmem.asm | virtual memory routines, and corresponding routines for non-vmem builds |
 |  |  |
@@ -198,7 +198,7 @@ Screenkernal is started by calling s_init. Internally it keeps track of the curs
 
 For the Commodore 64 version the characters are stored directly in the video memory, and the colour in the colour memory.  The Commodore 128 version detects if 40 or 80 columns mode is used while running the program. If 40 characters are used, then it works like the Commodore 64 version. But if 80 columns are used, then the C128's Video Display Controller chip (VDC) is used. Instead of writing directly into the video memory, character output, scrolling and other screen commands are sent by VDC registers. The file vdc.asm contains functions that make this communication easier.
 
-The X16 is using a separate chip called VERA for text output, similar to VDC for the C128. The file vdc.asm contains low-level functions for putting characters to the screen.
+The X16 is using a separate chip called VERA for text output, similar to VDC for the C128. The file vera.asm defines the interface to the VERA chip used for putting characters on the screen.
 
 The Plus/4 and Commodore 128 in 80 column mode doesn't use the same palette as the Commodore 64. Mapping tables (plus4_vic_colours and vdc_vic_colours) are used to assign C64 colours to their closest equivalents on these platforms.
 

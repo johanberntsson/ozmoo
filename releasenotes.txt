@@ -3,7 +3,7 @@ RELEASE NOTES
 Upcoming release
 
 ================================================
-Release 14: 26 March 2024
+Release 14: 27 March 2024
 
 New/changed features:
 - Added target platform Commander X16 (use switch -t:x16)
