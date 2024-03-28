@@ -152,7 +152,7 @@ The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 m
 
 ## X16
 
-The X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resoultion used when starting the game.
+The X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game.
 
 ## Other targets
 
