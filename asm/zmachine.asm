@@ -1002,7 +1002,7 @@ z_ins_quit
 	lda #z_exe_mode_exit
 	jmp set_z_exe_mode
 .quit_keys
-	!pet 147,"new",13,147,0
+	!pet 147,$1f,"new",$05,13,0
 } else {
 	jmp kernal_reset
 }
