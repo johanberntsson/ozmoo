@@ -1075,8 +1075,10 @@ game_id		!byte 0,0,0,0
 
 	jsr deletable_screen_init_2
 
+!ifndef TARGET_X16 {
 	lda #0
 	sta keyboard_buff_len
+}
 
 	jsr z_init
 
@@ -1951,9 +1953,11 @@ m65_attic_checksum_page = ($08000000 + 512 * 1024) / 256
 deletable_init
 	cld
 
+!ifndef TARGET_X16 {
 	; Set only space, del, cursor to repeat
 	lda #0
 	sta key_repeat
+}
 
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu

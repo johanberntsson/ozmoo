@@ -666,7 +666,7 @@ z_ins_restart
 -	lda .restart_keys,x
 	beq +
 !ifdef TARGET_X16 {
-	jsr $fec3
+	jsr x16_kernal_kbdbuf_put
 } else {
 	sta keyboard_buff,x
 }
@@ -706,7 +706,7 @@ z_ins_restart
 -	lda .restart_code_keys,x
 	beq +
 !ifdef TARGET_X16 {
-	jsr $fec3
+	jsr x16_kernal_kbdbuf_put
 } else {
 	sta keyboard_buff,x
 }

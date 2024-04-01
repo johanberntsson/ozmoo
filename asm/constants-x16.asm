@@ -10,9 +10,6 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
 CURRENT_DEVICE        = $ba ; WRONG
 ti_variable           = $a82f; 3 bytes
-keyboard_buff_len     = $0501 ; WRONG
-keyboard_buff         = $0502 ; WRONG
-key_repeat            = $0503 ; WRONG 
 zero_datadirection    = $00
 zero_processorports   = $01
 
@@ -165,7 +162,7 @@ directory_buffer      = $700 ; 140 bytes
 ; TODO: check these addresses
 kernal_reset          = $fce2 ; cold reset of the X16
 ;kernal_delay_1ms      (custom routine in disk.asm) ; delay 1 ms
-
+x16_kernal_kbdbuf_put = $fec3 ; Append a character to the keyboard queue
 kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name

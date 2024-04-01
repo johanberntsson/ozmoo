@@ -4,6 +4,7 @@ Upcoming release
 
 Bugfixes:
 - Routine to cause delay on X16 was incorrect, could crash game when saving game.
+- Removed C64 keyboard handling references from X16 code.
 
 ================================================
 Release 14: 27 March 2024
