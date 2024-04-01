@@ -97,6 +97,7 @@ keyboard_buff_len     = $c6
 keyboard_buff         = $277
 key_repeat            = $028a
 directory_buffer      = SCREEN_ADDRESS + $700 ; 140 bytes, must be near end of screen RAM
+m65_x16_checksum_quad = $7fc
 
 use_reu				  = $9b
 window_start_row	  = $2a; 4 bytes

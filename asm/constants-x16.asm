@@ -132,7 +132,8 @@ last_basic_zp_address  = $ff
 
 
 ; We can use $400 - $7ff for buffers
-print_buffer		  = $400 ; SCREEN_WIDTH + 1 bytes
+m65_x16_checksum_quad = $400 ; 4 bytes
+print_buffer		  = m65_x16_checksum_quad + 4 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
 
 memory_buffer         =	print_buffer2 + 81

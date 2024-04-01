@@ -4,6 +4,7 @@ Upcoming release
 
 New/changed features:
 - Made Quit work reliably on X16, and without resetting the computer.
+- Made restart fast on X16 (don't reload statmem after restart)
 
 Optimizations:
 - Moved print_buffer, print_buffer2, memory_buffer and directory_buffer to leave more continuous space for future use.
