@@ -9,6 +9,8 @@ New/changed features:
 Optimizations:
 - Moved print_buffer, print_buffer2, memory_buffer and directory_buffer to leave more continuous space for future use.
 - Made printing of a buffered line much faster on X16
+- Made clearing a line, a window or the entire screen much faster on X16
+- Made clearing a line, a window or the entire screen faster on MEGA65
 
 Bugfixes:
 - Routine to cause delay on X16 was incorrect, could crash game when saving game.

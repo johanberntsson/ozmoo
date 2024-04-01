@@ -1179,19 +1179,23 @@ s_erase_line
 	; iny
 	; bne -
 } else {
+
+; set colour
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
+!ifdef TARGET_X16 {
+	jsr .convert_screenline_y_to_vera_address
+}
 -	cpy s_screen_width
 	bcs .done_erasing
 	; set character
 	lda #$20
 !ifdef TARGET_X16 {
-    jsr VERAPrintChar
+    sta VERA_data0
 } else {
 	sta (zp_screenline),y
 }
-    ; set colour
-    !ifdef TARGET_MEGA65 {
-        jsr colour2k
-    }
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
 	lda plus4_vic_colours,x
@@ -1199,17 +1203,19 @@ s_erase_line
 	lda s_colour
 }
 !ifdef TARGET_X16 {
-    jsr VERAPrintColourAfterChar
+	ora vera_background
+    sta VERA_data0
 } else {
 	sta (zp_colourline),y
 }
-    !ifdef TARGET_MEGA65 {
-        jsr colour1k
-    }
 	iny
 	bne -
 }
 .done_erasing	
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
+
  	rts
 s_erase_line_from_cursor
 	jsr .update_screenpos
