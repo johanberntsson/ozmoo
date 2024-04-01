@@ -8,17 +8,10 @@ SCREEN_ADDRESS        = $0000
 COLOUR_ADDRESS        = $0000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
-CURRENT_DEVICE        = $ba ; WRONG
-ti_variable           = $a82f; 3 bytes
-zero_datadirection    = $00
-zero_processorports   = $01
-
-
-first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-;reu_filled            = $0255 ; 4 bytes
+ti_variable           = $a82f; 3 bytes (in bank 0, must set $0 to 0 before access)
 
 ; Zero-page addresses which we can move
-; 123 bytes
+; ~ 123 bytes
 z_trace_index		  = $22
 z_exe_mode	  		  = $23
 z_opcode              = $24
@@ -72,19 +65,12 @@ object_tree_ptr       = $64 ; 2 bytes
 object_num			  = $66 ; 2 bytes
 object_temp			  = $68 ; 2 bytes
 
-;vmap_used_entries	  = $4f
-
 z_low_global_vars_ptr	  = $6a ; 2 bytes
 z_high_global_vars_ptr	  = $6c ; 2 bytes
 
 stack_tmp			  = $6e; ! 5 bytes
 default_properties_ptr = $73 ; 2 bytes
 zchars				  = $75 ; 3 bytes
-
-; vmap_quick_index_match= $60
-; vmap_next_quick_index = $61
-; vmap_quick_index	  = $62 ; Must follow vmap_next_quick_index!
-; vmap_quick_index_length = 6 ; Says how many bytes vmap_quick_index_uses
 
 s_colour 			  = $78 ; !byte 1 ; white as default
 
@@ -145,16 +131,14 @@ last_basic_zp_address  = $ff
 
 
 
+; We can use $400 - $7ff for buffers
+print_buffer		  = $400 ; SCREEN_WIDTH + 1 bytes
+print_buffer2         = print_buffer + 81 ; SCREEN_WIDTH + 1 bytes
 
-print_buffer		  = $600 ; SCREEN_WIDTH + 1 bytes
-print_buffer2         = $400 ; SCREEN_WIDTH + 1 bytes
-
-memory_buffer         =	$452
+memory_buffer         =	print_buffer2 + 81
 memory_buffer_length  = 89
 
-charset_switchable 	  = $500 ; WRONG
-
-directory_buffer      = $700 ; 140 bytes
+directory_buffer      = memory_buffer + memory_buffer_length ; 140 bytes
 
 ; --- I/O registers ---
 

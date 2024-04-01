@@ -985,14 +985,27 @@ z_ins_quit
 	sta $d05d
 }
 !ifdef TARGET_X16 {
-	; Hardware reset
-	ldx #$42  ; System Management Controller
-	ldy #$02  ; magic location for system reset
-	lda #$00  ; magic value for system power controller
-	Jmp $fec9 ; power off or reset the system
-}
-
+	; ; Old method - Hardware reset
+	; ldx #$42  ; System Management Controller
+	; ldy #$02  ; magic location for system reset
+	; lda #$00  ; magic value for system power controller
+	; Jmp $fec9 ; power off or reset the system
+	
+; New method - put NEW and clearscreen in kbd buffer, then have Ozmoo restore Basic ZP area and return
+	ldx #0
+-	lda .quit_keys,x
+	beq +
+	jsr x16_kernal_kbdbuf_put
+	inx
+	bne - ; Always branch
++
+	lda #z_exe_mode_exit
+	jmp set_z_exe_mode
+.quit_keys
+	!pet 147,"new",13,147,0
+} else {
 	jmp kernal_reset
+}
 
 ; z_ins_restart (moved to disk.asm)
 	

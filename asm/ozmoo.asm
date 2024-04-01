@@ -1866,7 +1866,6 @@ deletable_init_start
 }
 }
 
-
 !ifdef TARGET_X16 {
     lda #$0e
     jsr $ffd2
@@ -1924,8 +1923,10 @@ deletable_init_start
 	jsr init_mega65
 }
 
+!ifndef TARGET_X16 { ; For X16, this is done by printing a character at the start of deletable_init_start
 	lda #$80
 	sta charset_switchable
+}
 	lda #0
 	sta mempointer
 
@@ -1980,12 +1981,14 @@ deletable_init
 
 
 ; Read and parse config from boot disk
+!ifndef TARGET_X16 {
 	ldy CURRENT_DEVICE
 	cpy #8
 	bcc .pick_default_boot_device
 	cpy #16
 	bcc .store_boot_device
 .pick_default_boot_device
+}
 	ldy #8
 .store_boot_device
 	sty boot_device ; Boot device# stored
@@ -2169,18 +2172,7 @@ deletable_init
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM
-!ifdef TARGET_MEGA65 {
-	ldy boot_device ; Boot device# stored
-	sty disk_info + 4 ; Device# for save disk
-	sty disk_info + 4 + 8 ; Device# for boot/story disk
-	; Store boot device in current_disks
-	lda #8 ; Index of story disk in disk_info - 3
-	sta current_disks - 8,y
-
-	lda #$ff ; Use REU
-	sta use_reu
-}
-!ifdef TARGET_X16 {
+!ifdef TARGET_MEGA65_OR_X16 {
 	ldy boot_device ; Boot device# stored
 	sty disk_info + 4 ; Device# for save disk
 	sty disk_info + 4 + 8 ; Device# for boot/story disk

@@ -2,6 +2,12 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- Made Quit work reliably on X16, and without resetting the computer.
+
+Optimizations:
+- Moved print_buffer, print_buffer2, memory_buffer and directory_buffer to leave more continuous space for future use.
+
 Bugfixes:
 - Routine to cause delay on X16 was incorrect, could crash game when saving game.
 - Removed C64 keyboard handling references from X16 code.
