@@ -164,7 +164,7 @@ directory_buffer      = $700 ; 140 bytes
 ; --- Kernel routines ---
 ; TODO: check these addresses
 kernal_reset          = $fce2 ; cold reset of the X16
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
+;kernal_delay_1ms      (custom routine in disk.asm) ; delay 1 ms
 
 kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters

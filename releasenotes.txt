@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Bugfixes:
+- Routine to cause delay on X16 was incorrect, could crash game when saving game.
+
 ================================================
 Release 14: 27 March 2024
 
