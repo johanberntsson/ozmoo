@@ -140,6 +140,7 @@ memory_buffer         =	print_buffer2 + 81
 memory_buffer_length  = 89
 
 directory_buffer      = memory_buffer + memory_buffer_length ; 140 bytes
+x16_room_for_buffers  = $800 - directory_buffer - 140
 
 ; --- I/O registers ---
 
