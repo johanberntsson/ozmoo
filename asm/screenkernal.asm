@@ -62,7 +62,7 @@ plus4_vic_colours
 !source "vera.asm"
 
 .stored_x_or_y !byte 0
-.vera_background !byte 0
+vera_background !byte 0
 .vera_temp !byte 0,0
 
 .convert_screenline_y_to_vera_address
@@ -124,7 +124,7 @@ VERASetBackgroundColour
     asl
     asl
     asl
-    sta .vera_background
+    sta vera_background
     rts
 
 VERAPrintChar
@@ -149,7 +149,7 @@ VERAPrintChar
     ; inc VERA_addr_high
     ; ; write colour
 ; +   pla
-    ; ora .vera_background
+    ; ora vera_background
     ; sta VERA_data0
     ; ; restore y
 	; ldy .stored_x_or_y
@@ -157,7 +157,7 @@ VERAPrintChar
 
 VERAPrintColourAfterChar
 	; a = colour
-    ora .vera_background
+    ora vera_background
     sta VERA_data0
     rts
 }

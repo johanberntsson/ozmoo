@@ -800,15 +800,32 @@ print_line_from_buffer
 
 !ifdef TARGET_X16 {
 	ldy first_buffered_column
--   cpy last_break_char_buffer_pos
+	cpy last_break_char_buffer_pos
 	bcs ++
 	lda print_buffer2,y
 	sta s_reverse
 	lda print_buffer,y
 	jsr s_printchar
 	iny
+	dec zp_screencolumn ; I have no idea why we need to do this, but we do...
+
+	; Keep colour + background in x
+	lda s_colour
+	ora vera_background
+	tax
+	
+-   cpy last_break_char_buffer_pos
+	bcs ++
+	lda print_buffer,y
+	jsr convert_petscii_to_screencode
+	ora print_buffer2,y
+	sta VERA_data0
+	txa
+	sta VERA_data0
+	iny
 	bne - ; Always branch
 ++
+	
 } else {
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k	
@@ -836,6 +853,8 @@ print_line_from_buffer
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
+}
+
 .done_print_line_from_buffer
 	lda last_break_char_buffer_pos
 	sec
@@ -843,11 +862,7 @@ print_line_from_buffer
 	clc
 	adc zp_screencolumn
 	sta zp_screencolumn
-}
 
-
-
-+++
 	clc
 	rts
 
