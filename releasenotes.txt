@@ -2,9 +2,12 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 14.7: 2 April 2024
+
 New/changed features:
 - Made Quit work reliably on X16, and without resetting the computer.
-- Made restart fast on X16 (don't reload statmem after restart)
+- Made restart fast on X16 (only reload dynamic part of gamefile after restart)
 - Enabled scroll speed control and tear-free scrolling on X16
 - Made Z-machine beeps work on X16
 - Added support for custom fonts on X16
@@ -12,8 +15,7 @@ New/changed features:
 Optimizations:
 - Moved print_buffer, print_buffer2, memory_buffer and directory_buffer to leave more continuous space for future use.
 - Made printing of a buffered line much faster on X16
-- Made clearing a line, a window or the entire screen much faster on X16
-- Made clearing a line, a window or the entire screen faster on MEGA65
+- Made clearing a line, a window or the entire screen much faster on X16, and a bit faster on MEGA65
 
 Bugfixes:
 - Routine to cause delay on X16 was incorrect, could crash game when saving game.
