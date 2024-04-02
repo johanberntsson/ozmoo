@@ -912,7 +912,7 @@ game_id		!byte 0,0,0,0
 	cld
 	cli
 !ifdef TARGET_X16 {
-	jsr x16_backup_basic_zp
+	jsr x16_backup_basic_zp	
 }
 !ifdef TARGET_C128 {
 	lda #$f0 ; Background colour
@@ -1597,8 +1597,40 @@ vmem_cache_count = vmem_cache_size / 256
 
 stack_start
 
+!ifdef TARGET_X16 {
+!ifdef CUSTOM_FONT {
+fontfile_name !pet "zfont"
+fontfile_name_len = * - fontfile_name
+
+font_read_error
+	lda #ERROR_FLOPPY_READ_ERROR
+	jmp fatalerror
+}
+}
+
 deletable_screen_init_1
 	; start text output from bottom of the screen
+
+!ifdef TARGET_X16 {
+!ifdef CUSTOM_FONT {
+	lda #fontfile_name_len
+	ldx #<fontfile_name
+	ldy #>fontfile_name
+	jsr kernal_setnam ; call SETNAM
+	lda #2      ; file number 2
+	ldx #8
+	ldy #2      ; secondary address
+	jsr kernal_setlfs ; call SETLFS
+	lda #3 ; Load into VRAM, bank 1
+	ldx #$00
+	ldy #$f0
+	jsr kernal_load
+	php
+	jsr close_io
+	plp
+	bcs font_read_error
+}
+}
 
 !ifndef Z4PLUS {
 	!ifdef TARGET_C128 {

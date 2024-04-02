@@ -1203,7 +1203,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	font_clause = ""
 	asm_clause = ""
 	decrunch_effect = ""
-	if $font_filename
+	if $font_filename and $target != 'x16'
 		font_clause = " \"#{$font_filename}\"@#{$font_address}"
 	end
 	exo_target = ""
@@ -2101,8 +2101,9 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
 
     # Add terp and story file
     FileUtils.cp($ozmoo_file, foldername+"/"+$file_name.upcase)
-#    FileUtils.cp($story_file, foldername+"/ZCODE")
 	IO.binwrite(foldername+"/ZCODE", $story_file_data);
+    # Add font, if any
+    FileUtils.cp($font_filename, foldername+"/ZFONT") if $font_filename
 
     # Create the zip file
     command = "#{$ZIP} #{foldername}.zip #{foldername}"
@@ -2614,6 +2615,9 @@ if $font_filename
 	elsif $target == 'plus4'
 		$font_address = 0x1000
 		$start_address = 0x1800
+	elsif $target == 'x16'
+		$font_address = 0xf000
+#		$start_address = 0x1800
 	else
 		puts "ERROR: Custom fonts are currently not supported for this target platform."
 		exit 1

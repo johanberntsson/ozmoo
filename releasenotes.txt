@@ -7,6 +7,7 @@ New/changed features:
 - Made restart fast on X16 (don't reload statmem after restart)
 - Enabled scroll speed control and tear-free scrolling on X16
 - Made Z-machine beeps work on X16
+- Added support for custom fonts on X16
 
 Optimizations:
 - Moved print_buffer, print_buffer2, memory_buffer and directory_buffer to leave more continuous space for future use.
