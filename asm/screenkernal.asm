@@ -75,8 +75,36 @@ vera_background !byte 0
 	sta VERA_addr_high
     rts
 
+;vera_scroll_line !byte 0,0
 .s_scroll_vera
 	; scroll routine for VERA
+	lda zp_screenrow
+	cmp s_screen_height
+	bpl +
+	rts
++   
+	ldx scroll_delay
+	beq .done_delaying_vera
+	dex
+	beq ++
+-	txa
+	pha
+	jsr wait_an_interval
+	pla
+	tax
+	dex
+	bne -
+
+++
+-	ldx $9f28
+	cpx #<450
+	bne -
+	lda $9f26
+	and #$40
+	beq -
+	
+.done_delaying_vera
+	
 	lda zp_screenrow
 	cmp s_screen_height
 	bpl +

@@ -1068,6 +1068,8 @@ getchar_and_maybe_toggle_darkmode
 	jsr wait_smoothscroll
 }
 	jsr kernal_getchar
+	cmp #0
+	beq .did_nothing
 !ifndef NODARKMODE {
  	cmp #133 ; Charcode for F1
 	bne +
@@ -1099,7 +1101,6 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_something
 +	
 }
-!ifndef TARGET_X16 {
 	ldx #8
 -	cmp .scroll_delay_keys,x
 	beq .is_scroll_delay_key
@@ -1116,6 +1117,7 @@ getchar_and_maybe_toggle_darkmode
 }
 	jmp .did_something
 +
+!ifndef TARGET_X16 {
 	cmp #11 ; Ctrl-K for key repeating
 	bne +
 	; Toggle key repeat (People using fast emulators want to turn it off)

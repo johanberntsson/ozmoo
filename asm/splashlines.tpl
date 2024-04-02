@@ -35,7 +35,7 @@ SHOWUNDO=1
 
 splashline6
 !ifdef TARGET_X16 {
-	!pet "",0
+	!pet "       Ctrl: 0-8=Scroll slowness",0
 } else ifdef SHOWUNDO {
 	!pet " Ctrl: D=Reset device# K=Key rpt U=Undo",0
 } else {

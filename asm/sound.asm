@@ -828,7 +828,37 @@ play_beep
 	sta $d404
 	rts
 } else {
-	!ifdef TARGET_PLUS4 {
+	!ifdef TARGET_X16 {
+.sound_low_pitched_beep
+	lda #$02
+.sound_high_pitched_beep
+	stz VERA_ctrl
+	pha
+	lda #$11
+	sta VERA_addr_bank
+	lda #$f9
+	sta VERA_addr_high
+	lda #$c0
+	sta VERA_addr_low
+	lda #0
+	sta VERA_data0
+	pla
+	sta VERA_data0
+	lda #$c0 + 63
+	sta VERA_data0
+	lda #$80
+	sta VERA_data0
+	ldy #1
+	ldx #60
+	jsr wait_yx_ms
+	lda #$f9
+	sta VERA_addr_high
+	lda #$c2
+	sta VERA_addr_low
+	lda #$c0 + 0
+	sta VERA_data0
+	rts
+	} else ifdef TARGET_PLUS4 {
 .sound_high_pitched_beep
 	lda #$f2
 .sound_low_pitched_beep
