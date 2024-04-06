@@ -2,6 +2,12 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- Made a 255 byte command history buffer the default on X16, just like on MEGA65
+
+Optimizations:
+- Made scrolling 3.6 times faster on X16
+
 ================================================
 Release 14.7: 2 April 2024
 

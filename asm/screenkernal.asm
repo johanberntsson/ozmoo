@@ -83,59 +83,78 @@ vera_background !byte 0
 	bpl +
 	rts
 +   
+
+	; Setup VERA for scrolling
+	; Read address is address 0, write address is address 1 in VERA
+	lda s_screen_width
+;	asl
+	sta .vera_temp
+	lda s_screen_height_minus_one
+	adc #$b0
+	sta .vera_temp + 1
+	lda #1
+	sta VERA_ctrl
+	lda #$11
+	sta VERA_addr_bank
+	lda window_start_row + 1 ; how many top lines to protect
+	adc #$b0
+	tay
+	lda #0
+	sta VERA_ctrl
+
+	; Delay
 	ldx scroll_delay
 	beq .done_delaying_vera
 	dex
 	beq ++
--	txa
+-	tya
+	pha
+	txa
 	pha
 	jsr wait_an_interval
 	pla
 	tax
+	pla
+	tay
 	dex
 	bne -
 
 ++
--	ldx $9f28
+
+-	ldx VERA_scanline_l
 	cpx #<450
 	bne -
-	lda $9f26
+	lda VERA_ien
 	and #$40
 	beq -
 	
 .done_delaying_vera
 	
-	lda zp_screenrow
-	cmp s_screen_height
-	bpl +
-    rts
-+	lda s_screen_width
-	asl
-	sta .vera_temp
-	lda s_screen_height_minus_one
-	adc #$b0
-	sta .vera_temp + 1
-	lda #0
-	sta VERA_ctrl
-	lda window_start_row + 1 ; how many top lines to protect
-	adc #$b0
-	tay
+	; Begin actual scrolling
+
 -	cpy .vera_temp + 1
-    bcs +
+	bcs +
+	; Setup for copying a line
+	lda #1
+	sta VERA_ctrl
+	sty VERA_addr_high
 	ldx #0
---  stx VERA_addr_low
+	stx VERA_addr_low
+	stx VERA_ctrl
 	iny
-    sty VERA_addr_high
-	dey
-    lda VERA_data0
-    stx VERA_addr_low
-    sty VERA_addr_high
-    sta VERA_data0
-    inx
-    cpx .vera_temp
-    bne --
-    iny
-	bne - ; Always branch
+	sty VERA_addr_high
+	stx VERA_addr_low
+	ldx .vera_temp
+
+--	lda VERA_data0
+	sta VERA_data1
+	lda VERA_data0
+	sta VERA_data1
+	dex
+	bne --
+	
+	beq - ; Always branch
+	
 +	; prepare for erase line
 	ldy s_screen_height_minus_one
 	sty zp_screenrow

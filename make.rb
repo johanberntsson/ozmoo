@@ -2487,14 +2487,14 @@ if $target !~ /^(c64|c128)$/ and smooth_scroll == 1
 	exit 1
 end
 
-if $target == "mega65" and $use_history == nil
+if $target =~ /^(mega65|x16)$/ and $use_history == nil
 	$use_history = 1 # Default size, set in next step
 end
 if $use_history and $use_history > 0
 	# set default history size
 	if $use_history == 1 then
-		if $target == "mega65" then
-			# MEGA65 has lots of space, default to the max (255)
+		if $target =~ /^(mega65|x16)$/  then
+			# MEGA65/X16 have lots of space, default to the max (255)
 			$use_history = 255
 		elsif $target == "c128" then
 			# c128 doesn't adjust the buffer to .align so we need
