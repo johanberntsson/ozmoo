@@ -16,6 +16,7 @@ Bugfixes:
 - Listing save files didn't work correctly if scrollback buffer was enabled
 - Restart loaded entire story file on MEGA65, if a custom font was used
 - A conditional jump in the code could break because it had to jump too far, if you had smooth scroll, scrollback buffer and undo enabled.
+- A scrollback buffer in regular RAM made Beyond Zork builds break
 
 ================================================
 Release 14.7: 2 April 2024
