@@ -769,7 +769,7 @@ z_ins_save
 
 !zone save_restore {
 .inputlen !byte 0
-.filename !pet "!0" ; 0 is changed to slot number
+.filename !pet $5d,"0" ; 0 is changed to slot number
 .inputstring !fill 19 ; filename max 20 chars (fileprefix + 14 + ",s,w")
 .input_alphanum
 	; read a string with only alphanumeric characters into .inputstring
@@ -862,6 +862,8 @@ disk_error
 	jsr s_printchar
 	lda #0
 	rts
+
+.list_save_files_zp = z_operand_value_low_arr + 6 ; 2 bytes
 	
 list_save_files
 	lda #13
@@ -941,7 +943,7 @@ list_save_files
 	cmp #$22 ; Charcode for "
 	bne -
 	jsr kernal_readchar
-	cmp #$21 ; charcode for !
+	cmp #$5d ; charcode for ]
 	bne .not_a_save_file
 	jsr kernal_readchar
 	cmp #$30 ; charcode for 0
@@ -1004,9 +1006,9 @@ list_save_files
 	jsr wait_smoothscroll
 }
 	lda #<directory_buffer
-	sta zp_temp + 2
+	sta .list_save_files_zp
 	lda #>directory_buffer
-	sta zp_temp + 3
+	sta .list_save_files_zp + 1
 	ldx #0 ; Slot number
 .print_next_slot
 	txa
@@ -1020,7 +1022,7 @@ list_save_files
 	beq .print_empty_slot
 	; Occupied slot
 	ldy #0
--	lda (zp_temp + 2),y
+-	lda (.list_save_files_zp),y
 	beq .print_empty_slot
 	jsr s_printchar
 	iny
@@ -1029,12 +1031,12 @@ list_save_files
 .print_empty_slot
 	lda #13
 	jsr s_printchar
-	lda zp_temp + 2
+	lda .list_save_files_zp
 	clc
 	adc #14
-	sta zp_temp + 2
+	sta .list_save_files_zp
 	bcc +
-	inc zp_temp + 3
+	inc .list_save_files_zp + 1
 +	inx
 	cpx disk_info + 1
 	bcc .print_next_slot
@@ -1770,7 +1772,7 @@ do_save
 .savename_msg	!pet "Comment (RETURN=cancel): ",0
 .save_msg	!pet 13,"Saving...",13,0
 .restore_msg	!pet 13,"Restoring...",13,0
-.restore_filename !pet "!0*" ; 0 will be changed to selected slot
+.restore_filename !pet $5d,"0*" ; 0 will be changed to selected slot
 .erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
 	ldx #zp_bytes_to_save - 1

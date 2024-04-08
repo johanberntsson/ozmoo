@@ -1599,7 +1599,7 @@ stack_start
 
 !ifdef TARGET_X16 {
 !ifdef CUSTOM_FONT {
-fontfile_name !pet "zfont"
+fontfile_name !pet "[font]"
 fontfile_name_len = * - fontfile_name
 
 font_read_error
@@ -2021,8 +2021,8 @@ deletable_init
 	sty boot_device ; Boot device# stored
 
 !ifdef TARGET_X16 {
-	jsr x16_init_reu
-	jsr x16_load_header
+	jsr m65_x16_init_reu
+	jsr m65_x16_load_header
 	jsr calc_dynmem_size
 	; Header of game on disk is now loaded, starting at $5f00
 
@@ -2084,11 +2084,11 @@ deletable_init
 	
 +	jsr print_reu_progress_bar
 
-	jsr x16_load_dynmem_maybe_statmem
+	jsr m65_x16_load_dynmem_maybe_statmem
 }
 !ifdef TARGET_MEGA65 {
-	jsr m65_init_reu
-	jsr m65_load_header
+	jsr m65_x16_init_reu
+	jsr m65_x16_load_header
 	jsr calc_dynmem_size
 	; Header of game on disk is now loaded, starting at beginning of Attic RAM
 
@@ -2165,7 +2165,7 @@ deletable_init
 	
 +	jsr print_reu_progress_bar
 
-	jsr m65_load_dynmem_maybe_statmem
+	jsr m65_x16_load_dynmem_maybe_statmem
 }
 
 
@@ -2807,36 +2807,27 @@ prepare_static_high_memory
 
 } ; End of VMEM
 
-!ifdef TARGET_X16 {
-x16_init_reu
+!ifdef TARGET_MEGA65_OR_X16 {
+m65_x16_init_reu
 	jsr check_reu_size
 	sta reu_banks
 	rts
-}
 
-!ifdef TARGET_MEGA65 {
-m65_init_reu
-	jsr check_reu_size
-	sta reu_banks
-	rts
-}
-
-!ifdef TARGET_X16 {
-x16_load_header
+m65_x16_load_header
 	ldx #$00
 	stx reu_progress_bar_updates
 	inx
-	stx x16_reu_load_page_limit        ; read only one page (the header)
-	stx x16_reu_enable_load_page_limit
+	stx m65_x16_reu_load_page_limit        ; read only one page (the header)
+	stx m65_x16_reu_enable_load_page_limit
 	bne ++ ; Always branch
 
-x16_load_dynmem_maybe_statmem
+m65_x16_load_dynmem_maybe_statmem
 	ldx m65_x16_statmem_already_loaded
 	beq ++ ; Statmem is not loaded => load entire zcode file
 	ldx nonstored_pages
-	stx x16_reu_load_page_limit
+	stx m65_x16_reu_load_page_limit
 	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
-	stx x16_reu_enable_load_page_limit
+	stx m65_x16_reu_enable_load_page_limit
 
 ++	lda #.zcodefilenamelen
 	ldx #<.zcodefilename
@@ -2845,67 +2836,18 @@ x16_load_dynmem_maybe_statmem
 	ldx #0 ; Start on page 0 
 	txa
 	
+!ifdef TARGET_X16 {
 	jmp x16_load_file_to_reu ; in reu.asm
-
 .zcodefilename
-	!pet "zcode,s,r"
-.zcodefilenamelen = * - .zcodefilename
-
-}
-!ifdef TARGET_MEGA65 {
-m65_load_header
-	ldx #$00
-	stx reu_progress_bar_updates
-	inx
-	stx m65_reu_load_page_limit
-	stx m65_reu_enable_load_page_limit
-	bne ++ ; Always branch
-
-m65_load_dynmem_maybe_statmem
-	ldx m65_x16_statmem_already_loaded
-	beq ++ ; Statmem is not loaded => load entire zcode file
-	ldx nonstored_pages
-	stx m65_reu_load_page_limit
-	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
-	stx m65_reu_enable_load_page_limit
-
-++	lda #.zcodefilenamelen
-	ldx #<.zcodefilename
-	ldy #>.zcodefilename
-	jsr kernal_setnam ; call SETNAM
-
-	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
-	txa
-	
+	!pet "[zcode],s,r"
+} else {
 	jmp m65_load_file_to_reu ; in reu.asm
-
 .zcodefilename
 	!pet "zcode,s,r"
+}
 .zcodefilenamelen = * - .zcodefilename
 
-; .dynmemfilename
-	; !pet "zcode-dyn,s,r"
-; .dynmemfilenamelen = * - .dynmemfilename
-; +	
-
-; m65_load_statmem
-	; lda #.statmemfilenamelen
-	; ldx #<.statmemfilename
-	; ldy #>.statmemfilename
-	; jsr kernal_setnam ; call SETNAM
-
-	; ldx nonstored_pages
-	; lda #0
-	
-	; jsr m65_load_file_to_reu ; in reu.asm
-
-	; rts
-
-; .statmemfilename
-	; !pet "zcode-stat,s,r"
-; .statmemfilenamelen = * - .statmemfilename
 }
-
 
 !ifdef HAS_SID {
 init_sid

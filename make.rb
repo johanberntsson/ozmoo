@@ -2101,9 +2101,9 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
 
     # Add terp and story file
     FileUtils.cp($ozmoo_file, foldername+"/"+$file_name.upcase)
-	IO.binwrite(foldername+"/ZCODE", $story_file_data);
+	IO.binwrite(foldername+"/[ZCODE]", $story_file_data);
     # Add font, if any
-    FileUtils.cp($font_filename, foldername+"/ZFONT") if $font_filename
+    FileUtils.cp($font_filename, foldername+"/[FONT]") if $font_filename
 
     # Create the zip file
     command = "#{$ZIP} #{foldername}.zip #{foldername}"

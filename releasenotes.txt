@@ -5,10 +5,16 @@ Upcoming release
 New/changed features:
 - Made a 255 byte command history buffer the default on X16, just like on MEGA65
 - Set border colour on X16
+- Changed savefile prefix (all platforms), Zcode filename and font filename (X16 only), to make sure boot file is listed first on X16
 
 Optimizations:
 - Made scrolling 3.5 times faster on X16
 - Made printing a character faster on X16
+- Unified some MEGA65 + X16 code for loading story file into memory, for ease of maintenance
+
+Bugfixes:
+- Listing save files didn't work correctly if scrollback buffer was enabled
+- Restart loaded entire story file on MEGA65, if a custom font was used
 
 ================================================
 Release 14.7: 2 April 2024

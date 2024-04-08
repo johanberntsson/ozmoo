@@ -1069,7 +1069,9 @@ getchar_and_maybe_toggle_darkmode
 }
 	jsr kernal_getchar
 	cmp #0
-	beq .did_nothing
+	bne +
+	jmp .did_nothing
++
 !ifndef NODARKMODE {
  	cmp #133 ; Charcode for F1
 	bne +

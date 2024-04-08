@@ -97,7 +97,7 @@ keyboard_buff_len     = $c6
 keyboard_buff         = $277
 key_repeat            = $028a
 directory_buffer      = SCREEN_ADDRESS + $700 ; 140 bytes, must be near end of screen RAM
-m65_x16_checksum_quad = $7fc
+m65_x16_checksum_quad = $255
 
 use_reu				  = $9b
 window_start_row	  = $2a; 4 bytes
@@ -109,7 +109,7 @@ s_reverse 			  = $b3 ; !byte 0
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
-reu_filled            = $0255 ; 4 bytes
+;reu_filled            = $0255 ; 4 bytes
 vmap_buffer_start     = $0334
 vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
 
