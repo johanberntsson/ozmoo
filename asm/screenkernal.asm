@@ -62,7 +62,8 @@ plus4_vic_colours
 !source "vera.asm"
 
 .stored_x_or_y !byte 0
-vera_background !byte 0
+.vera_background !byte 0
+vera_composite_colour !byte 0
 .vera_temp !byte 0,0
 
 .convert_screenline_y_to_vera_address
@@ -171,7 +172,16 @@ VERASetBackgroundColour
     asl
     asl
     asl
-    sta vera_background
+    sta .vera_background
+	ora s_colour
+	sta vera_composite_colour
+    rts
+
+VERASetForegroundColour
+    sta s_colour
+	ora .vera_background
+	sta vera_composite_colour
+    lda s_colour
     rts
 
 VERAPrintChar
@@ -182,6 +192,8 @@ VERAPrintChar
     ; write character
     pla
     sta VERA_data0
+	ldy vera_composite_colour
+	sty VERA_data0
     ; restore y
 	ldy .stored_x_or_y
     rts
@@ -202,11 +214,11 @@ VERAPrintChar
 	; ldy .stored_x_or_y
     ; rts
 
-VERAPrintColourAfterChar
-	; a = colour
-    ora vera_background
-    sta VERA_data0
-    rts
+; VERAPrintColourAfterChar
+	; ; a = colour
+    ; ora .vera_background
+    ; sta VERA_data0
+    ; rts
 }
 
 !ifdef TARGET_C128 {
@@ -487,8 +499,12 @@ s_plot
 	jmp .update_screenpos
 
 s_set_text_colour
+!ifdef TARGET_X16 {
+	jmp VERASetForegroundColour
+} else {
 	sta s_colour
 	rts
+}
 
 s_delete_cursor
 !ifdef TARGET_MEGA65 {
@@ -661,8 +677,8 @@ s_printchar
 .col80_2_end
 } else ifdef TARGET_X16 {
 	jsr VERAPrintChar
-	lda s_colour
-	jsr VERAPrintColourAfterChar
+	; lda s_colour
+	; jsr VERAPrintColourAfterChar
 } else {
 	sta (zp_screenline),y
 	!ifdef TARGET_MEGA65 {
@@ -1250,7 +1266,7 @@ s_erase_line
 	lda s_colour
 }
 !ifdef TARGET_X16 {
-	ora vera_background
+	ora .vera_background
     sta VERA_data0
 } else {
 	sta (zp_colourline),y
@@ -1308,10 +1324,16 @@ update_cursor
     jmp .vdc_printed_char_and_colour
 +   ; 40 columns
 } else ifdef TARGET_X16 {
-    lda cursor_character
-    jsr VERAPrintChar
-    lda current_cursor_colour
-    jsr VERAPrintColourAfterChar
+	lda s_colour
+	pha
+	lda current_cursor_colour
+	jsr VERASetForegroundColour
+	lda cursor_character
+	jsr VERAPrintChar
+	pla
+	jsr VERASetForegroundColour
+	; lda current_cursor_colour
+	; jsr VERAPrintColourAfterChar
 }
 !ifndef TARGET_X16 {
     lda cursor_character
@@ -1338,7 +1360,6 @@ update_cursor
     rts
 
 !ifndef NODARKMODE {
-toggle_darkmode
 
 .new_bg 		= z_temp + 5 ; New background colour, adapted to target platform
 .new_fg_c64		= z_temp + 6 ; New foreground colour, as C64 colour
@@ -1346,6 +1367,8 @@ toggle_darkmode
 .new_input		= z_temp + 8 ; New input colour, adapted to target platform
 .old_input		= z_temp + 9 ; Old input colour, adapted to target platform
 .colour_ram_pointer = z_temp + 10 ; (2 bytes) Pointer into colour RAM
+
+toggle_darkmode
 
 !ifdef TARGET_X16 {
 	ldy #0
@@ -1468,11 +1491,11 @@ toggle_darkmode
 	jsr write_header_byte
 	tay
 	lda zcolours,y
-	+SetBackgroundColour
 !ifdef Z5PLUS {
 	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
 	sta .new_bg ; new background colour
 }
+	+SetBackgroundColour
 ; Set border colour 
 	ldy bordercol,x
 !ifdef BORDER_MAY_FOLLOW_BG {
@@ -1494,7 +1517,9 @@ toggle_darkmode
 ; For Z3: Set statusline colour
 	ldy statuslinecol,x
 	lda zcolours,y
-!ifdef TARGET_C128 {
+!ifdef TARGET_X16 {
+	ora .vera_background
+} else ifdef TARGET_C128 {
 	bit COLS_40_80
 	bpl +
 	; 80 columns mode selected
@@ -1510,7 +1535,8 @@ toggle_darkmode
 -
 !ifdef TARGET_X16 {
 	ldx VERA_data0 ; Go past character
-	jsr VERAPrintColourAfterChar
+	sta VERA_data0
+;	jsr VERAPrintColourAfterChar
 } else ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi +
@@ -1536,7 +1562,10 @@ toggle_darkmode
 	bpl -
 }
 
+; ---------- CHANGE COLOURS IN MAIN WINDOW (both for Z4+)
+
 !ifdef TARGET_X16 {
+kaffe
 	lda s_screen_height_minus_one
 	sta zp_screenline + 1
 --	ldy #0
@@ -1559,7 +1588,9 @@ toggle_darkmode
 }
 	lda .new_fg
 ++	dec VERA_addr_low
-	jsr VERAPrintColourAfterChar
+	ora .vera_background
+	sta VERA_data0
+;	jsr VERAPrintColourAfterChar
 	iny
 	cpy s_screen_width
 	bcc -

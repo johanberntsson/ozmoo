@@ -543,8 +543,8 @@ vera_hide_more
 .vera_common_more
 	ldy s_screen_width_minus_one
 	jsr VERAPrintChar
-	lda s_colour
-	jsr VERAPrintColourAfterChar
+	; lda s_colour
+	; jsr VERAPrintColourAfterChar
 	lda zp_screenrow
 	sta zp_screenline + 1
 	ldy .vera_more_temp
@@ -810,9 +810,10 @@ print_line_from_buffer
 	dec zp_screencolumn ; I have no idea why we need to do this, but we do...
 
 	; Keep colour + background in x
-	lda s_colour
-	ora vera_background
-	tax
+	ldx vera_composite_colour
+	; lda s_colour
+	; ora vera_background
+	; tax
 	
 -   cpy last_break_char_buffer_pos
 	bcs ++
@@ -820,8 +821,7 @@ print_line_from_buffer
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,y
 	sta VERA_data0
-	txa
-	sta VERA_data0
+	stx VERA_data0
 	iny
 	bne - ; Always branch
 ++
