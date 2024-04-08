@@ -23,6 +23,7 @@ VERA_scanline_l		= $9f28
 VERA_dc_video		= $9f29
 VERA_dc_hscale		= $9f2a
 VERA_dc_vscale		= $9f2b
+VERA_dc_border		= $9f2c
 VERA_L1_config		= $9f34
 VERA_L1_mapbase		= $9f35
 VERA_L1_tilebase	= $9f36

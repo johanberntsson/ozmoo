@@ -164,7 +164,8 @@ vera_composite_colour !byte 0
 	jmp s_erase_line
 
 VERASetBorderColour
-    ; no such thing on the X16
+	stz VERA_ctrl
+	sta VERA_dc_border
     rts
 
 VERASetBackgroundColour
