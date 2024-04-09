@@ -6,7 +6,7 @@ New/changed features:
 - Made a 255 byte command history buffer the default on X16, just like on MEGA65
 - Set border colour on X16
 - Changed savefile prefix (all platforms), Zcode filename and font filename (X16 only), to make sure boot file is listed first on X16
-- User can create a .ozmoorc file in their home directory to set paths to executables, e.g. X16 = C:\emu\x16emu.exe
+- User can create a .ozmoorc file to set paths to executables, e.g. X16 = C:\emu\x16emu.exe. .ozmoorc can be located in $OZMOO_HOME, cwd, or $HOME
 
 Optimizations:
 - Made scrolling 3.5 times faster on X16

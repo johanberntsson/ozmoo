@@ -36,14 +36,28 @@ else
 	$commandline_quotemark = "'"
 end
 
-# Use .ozmoorc file in home dir to override executables, contents could be e.g. (without the # characters):
+# Use .ozmoorc file to override executables, contents could be e.g.
+# (without the # characters):
 #
 # X16 = C:\myemu\x16emu
 # ACME = C:\myacme\acme -v1
 #
+# make.rb will search for .ozmoorc in this order
+# - folder in OZMOO_HOME, if defined
+# - current working directory (cwd)
+# - home directory ($HOME)
 
-$settings_file = Dir.home + '/.ozmoorc'
-if File.exists? $settings_file then
+$settings_file = ""
+if ENV.has_key?('OZMOO_HOME') then
+    $settings_file = ENV['OZMOO_HOME'] + '/.ozmoorc'
+end
+if $settings_file.empty? && File.exists?('.ozmoorc') then
+    $settings_file = '.ozmoorc'
+end
+if $settings_file.empty? && File.exists?(Dir.home + '/.ozmoorc') then
+    $settings_file = Dir.home + '/.ozmoorc'
+end
+if ! $settings_file.empty?
 	File.foreach $settings_file do |line|
 		if line =~ /^\s*'?(\w+)'?\s*=>?(.*)/ then
 			name = $1.upcase
