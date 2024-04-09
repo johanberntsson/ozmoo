@@ -4,31 +4,55 @@ require 'fileutils'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
+$executables = nil
+
 if $is_windows then
-	# Paths on Windows
-	$X16 = "C:\\ProgramsWoInstall\\x16emu\\x16emu"
-	$X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
-	$X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
-	$XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random"
-	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
-	$C1541 = "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe"
-	$EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
-	$ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
-	$ZIP = "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0"
+	# Paths on Windows. Comment out X16 and/or MEGA65 if you don't have them installed.
+	$executables = {
+		'X16' => "C:\\ProgramsWoInstall\\x16emu\\x16emu",
+		'X64' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp", # -autostart-delay-random"
+		'X128' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random",
+		'XPLUS4' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random",
+		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
+		'C1541' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe",
+		'EXOMIZER' => "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
+		'ACME' => "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe",
+		'ZIP' => "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0",
+	}
 	$commandline_quotemark = "\""
 else
-	# Paths on Linux
-	$X16 = "../x16-emulator/x16emu"
-	$X64 = "x64 -autostart-delay-random"
-	$X128 = "x128 -autostart-delay-random"
-	#$X128 = "x128 -80col -autostart-delay-random"
-	$XPLUS4 = "xplus4 -autostart-delay-random"
-	$MEGA65 = "xemu-xmega65 -besure"
-	$C1541 = "c1541"
-	$EXOMIZER = __dir__ + "/exomizer/src/exomizer"
-	$ACME = "acme"
-	$ZIP = "zip -r"
+	# Paths on Linux. Comment out X16 and/or MEGA65 if you don't have them installed.
+	$executables = {
+		'X16' => "../x16-emulator/x16emu",
+		'X64' => "x64 -autostart-delay-random",
+		'X128' => "x128 -autostart-delay-random",
+		'XPLUS4' => "xplus4 -autostart-delay-random",
+		'MEGA65' => "xemu-xmega65 -besure",
+		'C1541' => "c1541",
+		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
+		'ACME' => "acme",
+		'ZIP' => "zip -r",
+	}
 	$commandline_quotemark = "'"
+end
+
+# Use .ozmoorc file in home dir to override executables, contents could be e.g. (without the # characters):
+#
+# X16 = C:\myemu\x16emu
+# ACME = C:\myacme\acme -v1
+#
+
+$settings_file = Dir.home + '/.ozmoorc'
+if File.exists? $settings_file then
+	File.foreach $settings_file do |line|
+		if line =~ /^\s*'?(\w+)'?\s*=>?(.*)/ then
+			name = $1.upcase
+			val = $2.chomp.strip
+			if name =~ /^(X16|X64|X128|XPLUS4|MEGA65|C1541|EXOMIZER|ACME|ZIP)$/ then
+				$executables[name] = val
+			end
+		end
+	end
 end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
@@ -1123,7 +1147,7 @@ def build_interpreter()
 	compressionflags = ''
 
 	if $target == "mega65" then
-		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" c65toc64wrapper.asm"
+		cmd = "#{$executables['ACME']} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" c65toc64wrapper.asm"
 		puts cmd if $verbose
 		Dir.chdir $SRCDIR
 		ret = system(cmd)
@@ -1131,7 +1155,7 @@ def build_interpreter()
 		exit 0 unless ret
 	end
     
-	cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
+	cmd = "#{$executables['ACME']}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
 		"#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd if $verbose
 	Dir.chdir $SRCDIR
@@ -1169,7 +1193,7 @@ def build_loader_file()
 	optionalsettings = ""
 	optionalsettings += " -DFLICKER=1" if $loader_flicker
 	
-    cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}" +
+    cmd = "#{$executables['ACME']}#{necessarysettings}#{optionalsettings}" +
 		" -l \"#{$loader_labels_file}\" --outfile \"#{$loader_file}\" picloader.asm"
 	puts cmd if $verbose
 	Dir.chdir $SRCDIR
@@ -1183,7 +1207,7 @@ def build_loader_file()
 	puts "Loader pic address: #{$loader_pic_start}"
 
 	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2"
-	exomizer_cmd = "#{$EXOMIZER} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
+	exomizer_cmd = "#{$executables['EXOMIZER']} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
 
 	puts exomizer_cmd if $verbose
 	ret = system(exomizer_cmd)
@@ -1222,7 +1246,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
  #  -Di_irq_during=0 -Di_irq_exit=0
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{decrunch_effect}#{font_clause}#{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+	exomizer_cmd = "#{$executables['EXOMIZER']} sfx #{$start_address}#{exo_target} -B -M256 -C #{decrunch_effect}#{font_clause}#{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
 	puts exomizer_cmd if $verbose
 	ret = system(exomizer_cmd)
@@ -1292,7 +1316,7 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 end
 
 def add_loader_file(diskimage_filename)
-	c1541_cmd = "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
+	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
 	puts c1541_cmd if $verbose
 	system(c1541_cmd)
 end
@@ -1309,9 +1333,9 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	opt = ""
 #	opt = "-silent " unless $verbose # Doesn't work on older Vice versions
 	
-	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
+	c1541_cmd = "#{$executables['C1541']} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
-		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" #{$file_name}"
+		c1541_cmd = "#{$executables['C1541']} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" #{$file_name}"
 #		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 #		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\"" # No longer needed
 		# $sound_files.each do |file|
@@ -1332,27 +1356,30 @@ end
 
 def play(filename, storyname)
 	if $target == "x16" then
-        #system("grep johan temp/acme_labels.txt")
-#		command = "cd #{filename} && ../#{$X16} -prg #{storyname}"
-        command = "cd #{filename} && #{$X16} -prg #{storyname.upcase}"
-		command += " -run"
-		command += " -dump B" # Ctrl-S from the emulator to dump memory
-		command += " -debug"
-		command += " -zeroram"
-		#command += " -scale 2"
-	elsif $target == "mega65" then
-		if defined? $MEGA65 then
-			command = "#{$MEGA65} -8 \"#{filename}\""
+		if $executables.has_key?('X16') then
+			command = "cd #{filename} && #{$executables['X16']} -prg #{storyname.upcase}"
+			command += " -run"
+			command += " -dump B" # Ctrl-S from the emulator to dump memory
+			command += " -debug"
+			command += " -zeroram"
+			command += " -scale 2"
 		else
-			puts "Location of MEGA65 emulator unknown. Please set $MEGA65 at start of make.rb"
+			puts "Location of Commander X16 emulator unknown. Please set X16 executable location at start of make.rb"
+			exit 0
+		end
+	elsif $target == "mega65" then
+		if $executables.has_key?('MEGA65') then
+			command = "#{$executables['MEGA65']} -8 \"#{filename}\""
+		else
+			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
 			exit 0
 		end
 	elsif $target == "plus4" then
-	    command = "#{$XPLUS4} \"#{filename}\""
+	    command = "#{$executables['XPLUS4']} \"#{filename}\""
 	elsif $target == "c128" then
-	    command = "#{$X128} \"#{filename}\""
+	    command = "#{$executables['X128']} \"#{filename}\""
 	else
-	    command = "#{$X64} \"#{filename}\""
+	    command = "#{$executables['X64']} \"#{filename}\""
 	end
 	puts command if $verbose
     system(command)
@@ -2106,7 +2133,7 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     FileUtils.cp($font_filename, foldername+"/[FONT]") if $font_filename
 
     # Create the zip file
-    command = "#{$ZIP} #{foldername}.zip #{foldername}"
+    command = "#{$executables['ZIP']} #{foldername}.zip #{foldername}"
 	puts command if $verbose
     result = system(command)
 	if result

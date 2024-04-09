@@ -18,7 +18,7 @@ paths_else_have_begun = false
 File.readlines('../make.rb', chomp: true).each do |line|
 	paths_have_begun = true if line =~ /^\s*if \$is_windows then/
 	paths_else_have_begun = true if line =~ /^\s*else/
-	if paths_have_begun and line =~ /\$C1541\s*=\s*"(.*)"\s*$/
+	if paths_have_begun and line =~ /\'C1541'\s*=>\s*"(.*)"\s*,\s*$/
 		$C1541 = unescape($1) if paths_else_have_begun == $is_linux
 	end
 	break if paths_have_begun and line == 'end'
