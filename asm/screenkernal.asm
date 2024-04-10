@@ -169,6 +169,7 @@ VERASetBorderColour
     rts
 
 VERASetBackgroundColour
+	pha
     asl
     asl
     asl
@@ -176,6 +177,7 @@ VERASetBackgroundColour
     sta .vera_background
 	ora s_colour
 	sta vera_composite_colour
+	pla
     rts
 
 VERASetForegroundColour

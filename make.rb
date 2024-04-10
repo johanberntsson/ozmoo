@@ -57,7 +57,7 @@ end
 if $settings_file.empty? && File.exists?(Dir.home + '/.ozmoorc') then
     $settings_file = Dir.home + '/.ozmoorc'
 end
-if ! $settings_file.empty?
+unless $settings_file.empty?
 	File.foreach $settings_file do |line|
 		if line =~ /^\s*'?(\w+)'?\s*=>?(.*)/ then
 			name = $1.upcase
@@ -2504,6 +2504,8 @@ rescue => e
 	puts e.message
 	exit 1
 end
+
+puts "Using settings file #{$settings_file}" if $verbose and ! $settings_file.empty?
 
 if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1

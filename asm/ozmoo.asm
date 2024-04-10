@@ -1133,6 +1133,12 @@ game_id		!byte 0,0,0,0
 	jmp basic_reset
 } else ifdef TARGET_X16 {
 !ifdef TARGET_X16 {
+	!ifdef CUSTOM_FONT {
+		lda #2
+		jsr $ff62
+	}
+    lda #$09 ; Unlock font selection
+    jsr $ffd2
 	jmp x16_restore_basic_zp
 }
 	; stz 1
@@ -1898,9 +1904,9 @@ deletable_init_start
 }
 
 !ifdef TARGET_X16 {
-    lda #$0e
+    lda #$0e ; Set font = lower case / upper case
     jsr $ffd2
-    lda #$08
+    lda #$08 ; Lock font selection
     jsr $ffd2
 }
 !ifdef TARGET_PLUS4 {
