@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 14.14: 10 April 2024
+
 New/changed features:
 - Made a 255 byte command history buffer the default on X16, just like on MEGA65
 - Set border colour on X16
