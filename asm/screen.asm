@@ -103,6 +103,7 @@ init_screen_colours
 	sta .more_access4 + 1
 }
 	; colours
+!ifdef NODARKMODE {
 	lda zcolours + FGCOL
 !if BORDERCOL_FINAL = 1 {
 	+SetBorderColour
@@ -133,16 +134,22 @@ init_screen_colours
 	ldy #header_default_fg_colour
 	jsr write_header_byte
 }
-	lda #147 ; clear screen
-	jsr s_printchar
-!ifndef NODARKMODE {
+} else { ; Darkmode is available
 	lda darkmode
-	beq +
-	dec darkmode
-	jmp toggle_darkmode
-+	
+	eor #1
+	sta darkmode
+	jsr toggle_darkmode
 }
-	rts	
+	lda #147 ; clear screen
+	jmp s_printchar
+; !ifndef NODARKMODE {
+	; lda darkmode
+	; beq +
+	; dec darkmode
+	; jmp toggle_darkmode
+; +	
+; }
+;	rts	
 
 !ifdef Z4PLUS {
 z_ins_erase_window

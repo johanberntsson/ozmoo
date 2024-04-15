@@ -1362,6 +1362,19 @@ update_cursor
     ldy object_temp
     rts
 
+write_default_colours_to_header
+	; On exit:
+	; a = fg colour (2-9)
+	; x = darkmode
+	; y = destroyed
+	ldx darkmode
+	lda bgcol,x
+	ldy #header_default_bg_colour
+	jsr write_header_byte
+	lda fgcol,x
+	ldy #header_default_fg_colour
+	jmp write_header_byte
+
 !ifndef NODARKMODE {
 
 .new_bg 		= z_temp + 5 ; New background colour, adapted to target platform
@@ -1431,7 +1444,6 @@ toggle_darkmode
 } ; else (not Z5PLUS)
 
 
-
 ; Toggle darkmode
 	lda darkmode
 	eor #1
@@ -1457,10 +1469,13 @@ toggle_darkmode
 
 } ; USE_INPUTCOL	
 	
+; Write colours to header
+	jsr write_default_colours_to_header	
+	
 ; Set fgcolour
-	lda fgcol,x
-	ldy #header_default_fg_colour
-	jsr write_header_byte
+;	ldy fgcol,x
+	; ldy #header_default_fg_colour
+	; jsr write_header_byte
 	tay
 	lda zcolours,y
 	sta .new_fg_c64 ; New foreground colour, as C64 colour 
@@ -1489,10 +1504,10 @@ toggle_darkmode
 	lda zcolours,y
 +	sta current_cursor_colour
 ; Set bgcolour
-	lda bgcol,x
-	ldy #header_default_bg_colour
-	jsr write_header_byte
-	tay
+	ldy bgcol,x
+	; ldy #header_default_bg_colour
+	; jsr write_header_byte
+	; tay
 	lda zcolours,y
 !ifdef Z5PLUS {
 	; We will need the new bg colour later, to check which characters would become invisible if left unchanged
@@ -1568,7 +1583,6 @@ toggle_darkmode
 ; ---------- CHANGE COLOURS IN MAIN WINDOW (both for Z4+)
 
 !ifdef TARGET_X16 {
-kaffe
 	lda s_screen_height_minus_one
 	sta zp_screenline + 1
 --	ldy #0

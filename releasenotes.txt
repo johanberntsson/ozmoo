@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Bugfixes:
+- Fixed screen colour initialization issues
+
 ================================================
 Release 14.14: 10 April 2024
 

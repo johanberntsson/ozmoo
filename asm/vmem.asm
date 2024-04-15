@@ -500,7 +500,6 @@ read_byte_at_z_address
 	bit reu_boost_mode
 	bmi .boost
 	jmp .no_boost
-hej
 .boost
 	lda zp_pc_h
 	clc

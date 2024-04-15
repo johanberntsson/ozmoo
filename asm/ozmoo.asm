@@ -1966,7 +1966,6 @@ deletable_init_start
 }
 	lda #0
 	sta mempointer
-
 	jmp init_screen_colours ; _invisible
 	
 
@@ -2295,10 +2294,7 @@ deletable_init
 	jsr init_screen_colours
 }
 !ifdef TARGET_X16 {
-	bit m65_x16_statmem_already_loaded
-	bmi + 
 	jsr init_screen_colours
-+
 }
 	
 !ifdef VMEM {
@@ -2339,6 +2335,7 @@ deletable_init
 
 !ifdef TARGET_C128 {
 	jsr c128_move_dynmem_and_calc_vmem
+	jsr init_screen_colours
 }
 
 	jsr prepare_static_high_memory
