@@ -4,6 +4,7 @@ Upcoming release
 
 Bugfixes:
 - Fixed screen colour initialization issues
+- Replaced ti_variable with kernal_readtime to fix hanging "quit" problem
 
 ================================================
 Release 14.14: 10 April 2024

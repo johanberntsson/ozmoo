@@ -640,12 +640,18 @@ show_more_prompt
 	ldx #40
 ---
 !ifdef TARGET_X16 {
-	lda #0
-	sta 0 ; Bank in timer
-}
+	;lda #0
+	;sta 0 ; Bank in timer
+	jsr kernal_readtime
+	sta z_temp
+-	jsr kernal_readtime
+	cmp z_temp
+	beq -
+} else {
 	lda ti_variable + 2 ; $a2
 -	cmp ti_variable + 2 ; $a2
 	beq -
+}
 	jsr getchar_and_maybe_toggle_darkmode
 	cmp #0
 	bne +
