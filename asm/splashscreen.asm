@@ -76,37 +76,37 @@ splash_line_y
 	lda #0
 	sta 0 ; Bank in timer
 }
-	lda ti_variable + 2
-	clc
-	adc #<(SPLASHWAIT*60)
+	lda #<($10000-SPLASHWAIT*60)
+	sta z_temp + 1
+	lda #>($10000-SPLASHWAIT*60)
 	sta z_temp + 2
-	lda ti_variable + 1
-	adc #>(SPLASHWAIT*60)
-	sta z_temp + 1	
+	; lda ti_variable + 2
+	; clc
+	; adc #<(SPLASHWAIT*60)
+	; sta z_temp + 2
+	; lda ti_variable + 1
+	; adc #>(SPLASHWAIT*60)
+	; sta z_temp + 1	
 
 -	jsr kernal_getchar
-!ifndef NODARKMODE {
-	tay
-}
+; !ifndef NODARKMODE {
+	; tay
+; }
 	cmp #0
 	bne +
-	ldx z_temp + 2
-	cpx ti_variable + 2
-	beq ++
-	inx
-	cpx ti_variable + 2
+	jsr wait_a_jiffy
+	inc z_temp + 1
 	bne -
-++	lda z_temp + 1
-	cmp ti_variable + 1
+	inc z_temp + 2
 	bne -
 +
 !ifndef NODARKMODE {
-	cpy #$85
-	bne +
+	cmp #$85
+	bne .exit_splash
 	jsr toggle_darkmode
 	jmp .restart_timer
-+
 }
+.exit_splash
 !ifdef TARGET_X16 {
 	pla
 	jmp x16_switch_to_mode_and_clear_screen

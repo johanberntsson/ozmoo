@@ -104,11 +104,14 @@ z_execute
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda #0
-	sta ti_variable
-	sta ti_variable + 1
-	sta ti_variable + 2
 	sta printspeed_counter
 	sta printspeed_counter + 1
+	tax
+	tay
+	jsr kernal_settime
+	; sta ti_variable
+	; sta ti_variable + 1
+	; sta ti_variable + 2
 }
 }
 
@@ -121,19 +124,25 @@ jmp_main_loop
 read_and_execute_an_instruction
 ; Timing
 !ifdef TIMING {
-	lda ti_variable + 1
-	ldx ti_variable + 2
+	jsr kernal_readtime
+	stx z_temp + 11
+	tax
+	lda z_temp + 11	
+	; lda ti_variable + 1
+	; ldx ti_variable + 2
 	ldy #header_high_mem
 	jsr write_header_word
 }
 
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
-	lda ti_variable + 2
+	jsr kernal_readtime
+;	lda ti_variable + 2
 	cmp #30
 	bcc ++
 	bne +
-	lda ti_variable + 1
+;	lda ti_variable + 1
+	cpx #0
 	bne +
 	lda printspeed_counter + 1
 	asl printspeed_counter
@@ -142,12 +151,20 @@ read_and_execute_an_instruction
 	jsr printinteger
 	jsr comma
 	
-+	lda #0
-	sta ti_variable
-	sta ti_variable + 1
-	sta ti_variable + 2
++	
+	lda #0
 	sta printspeed_counter
 	sta printspeed_counter + 1
+	tax
+	tay
+	jsr kernal_settime
+
+	; lda #0
+	; sta ti_variable
+	; sta ti_variable + 1
+	; sta ti_variable + 2
+	; sta printspeed_counter
+	; sta printspeed_counter + 1
 
 ++	inc printspeed_counter
 	bne +
@@ -891,13 +908,15 @@ calc_address_in_byte_array
 z_rnd_init_random
 	; in: Nothing
 !ifdef TARGET_PLUS4 {
+	jsr kernal_readtime
+	pha
 	lda $ff1d
 	eor z_rnd_a
 	tay
 	lda $ff1e
 	eor z_rnd_b
 	tax
-	lda ti_variable + 2
+	pla
 	eor $ff00
 	eor z_rnd_c	
 } else {

@@ -1308,6 +1308,7 @@ turn_off_cursor
 
 update_cursor
     sty object_temp
+	jsr .update_screenpos
     ldy zp_screencolumn
     lda s_cursorswitch
     bne +++

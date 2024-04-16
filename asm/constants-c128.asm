@@ -61,7 +61,7 @@ s_stored_y               = $40 ; ### OK C128
 parse_array           = $41 ; 2 bytes ### OK C128
 string_array          = $43 ; 2 bytes ### OK C128
 
-ti_variable           = $a0; 3 bytes ### OK C128
+;ti_variable           = $a0; 3 bytes ### OK C128
 
 object_tree_ptr       = $45 ; 2 bytes ### OK C128
 object_num			  = $47 ; 2 bytes ### OK C128
@@ -211,7 +211,7 @@ c128_mmu_load_pcrc    = $ff03
 c128_mmu_load_pcrd    = $ff04
 
 ; --- Kernel routines ---
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
+;kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_reset          = $ff3d ; cold reset of the C128
 kernal_jswapper       = $ff5f ; set bank for I/O
 kernal_setbnk         = $ff68 ; set bank for I/O
@@ -228,6 +228,7 @@ kernal_readchar       = $ffcf ; read byte from default input into a
 kernal_printchar      = $ffd2 ; write char in a
 kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
+kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
 

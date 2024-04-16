@@ -1872,6 +1872,33 @@ interval_length = 30 ; Unit: ms
 
 
 !ifdef TARGET_C128 {
+kernal_delay_1ms
+	pha
+	txa
+	pha
+	tya
+	pha
+	ldy #57
+	lda reg_2mhz
+	and #1
+	bne +
+	ldy #35
++
+-	ldx #0
+	asl .delay_byte,x
+	asl .delay_byte,x
+	asl .delay_byte,x
+	asl .delay_byte,x
+	dey
+	bne -
+	pla
+	tay
+	pla
+	tax
+	pla
+	rts
+.delay_byte !byte 0
+
 wait_an_interval
 ; Delay a little for scrolling
 	ldx #interval_length*6/100
@@ -1902,29 +1929,6 @@ wait_a_sec
 	rts
 } else {
 !ifdef TARGET_X16 {
-
-delay_one_jiffy
-	pha
-	txa
-	pha
-	tya
-	pha
-	ldy #227
--	ldx #10
---	asl .delay_byte
-	asl .delay_byte
-	asl .delay_byte
-	asl .delay_byte
-	dex
-	bne --
-	dey
-	bne -
-	pla
-	tay
-	pla
-	tax
-	pla
-	rts
 
 kernal_delay_1ms
 	pha
@@ -1978,6 +1982,20 @@ wait_an_interval
 }
 	jmp wait_yx_ms
 }
+
+wait_a_jiffy
+	pha
+	lda #17
+-	pha
+	jsr kernal_delay_1ms
+	pla
+	sec
+	sbc #1
+	bne -
+	pla
+	rts
+
+
 
 	
 

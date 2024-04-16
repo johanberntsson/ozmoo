@@ -8,7 +8,7 @@ SCREEN_ADDRESS        = $0000
 COLOUR_ADDRESS        = $0000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
-ti_variable           = $a82f; 3 bytes (in bank 0, must set $0 to 0 before access)
+;ti_variable           = $a82f; 3 bytes (in bank 0, must set $0 to 0 before access)
 
 ; Zero-page addresses which we can move
 ; ~ 123 bytes
@@ -163,5 +163,6 @@ kernal_readchar       = $ffcf ; read byte from default input into a
 kernal_printchar      = $ffd2 ; write char in a
 kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
+kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character

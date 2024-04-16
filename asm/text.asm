@@ -79,11 +79,16 @@ benchmark_read_char
 	jsr translate_petscii_to_zscii
 +++	rts
 ++	jsr dollar
-	lda ti_variable
+	jsr kernal_readtime   ; read start time (in jiffys) in a,x,y (low to high)
+	pha
+	tya
+;	lda ti_variable
 	jsr print_byte_as_hex
-	lda ti_variable + 1
+	txa
+;	lda ti_variable + 1
 	jsr print_byte_as_hex
-	lda ti_variable + 2
+	pla
+;	lda ti_variable + 2
 	jsr print_byte_as_hex
 	jsr space
 	jsr printchar_flush

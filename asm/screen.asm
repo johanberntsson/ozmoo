@@ -639,13 +639,7 @@ show_more_prompt
 .check_for_keypress
 	ldx #40
 ---
-!ifdef TARGET_X16 {
-	jsr delay_one_jiffy
-} else {
-	lda ti_variable + 2 ; $a2
--	cmp ti_variable + 2 ; $a2
-	beq -
-}
+	jsr wait_a_jiffy
 	jsr getchar_and_maybe_toggle_darkmode
 	cmp #0
 	bne +
