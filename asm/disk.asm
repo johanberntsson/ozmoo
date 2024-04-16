@@ -1902,6 +1902,30 @@ wait_a_sec
 	rts
 } else {
 !ifdef TARGET_X16 {
+
+delay_one_jiffy
+	pha
+	txa
+	pha
+	tya
+	pha
+	ldy #227
+-	ldx #10
+--	asl .delay_byte
+	asl .delay_byte
+	asl .delay_byte
+	asl .delay_byte
+	dex
+	bne --
+	dey
+	bne -
+	pla
+	tay
+	pla
+	tax
+	pla
+	rts
+
 kernal_delay_1ms
 	pha
 	txa
