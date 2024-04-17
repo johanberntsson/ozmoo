@@ -608,24 +608,32 @@ show_more_prompt
 	tya
 	and #1
 	beq +
-!ifdef TARGET_X16 {
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl +++
+	; 80 columns
+	jsr vdc_hide_more
+	jmp ++
+	; 40 columns
++++	ldx reg_backgroundcolour
+} else ifdef TARGET_X16 {
 	jsr vera_hide_more
 	jmp ++
 } else {
 	ldx reg_backgroundcolour
 }
 +
-!ifdef TARGET_X16 {
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl ++
+	; 80 columns
+	jsr vdc_show_more
+} else ifdef TARGET_X16 {
 	jsr vera_show_more
 }
 ++
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
-}
-!ifdef TARGET_C128 {
-    bit COLS_40_80
-    bmi .check_for_keypress
-    ; Only show more prompt in C128 VIC-II screen
 }
 .more_access3
 !ifndef TARGET_X16 {

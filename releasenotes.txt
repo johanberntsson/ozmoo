@@ -6,6 +6,7 @@ Bugfixes:
 - Fixed screen colour initialization issues
 - Replaced ti_variable to fix frozen more prompt on X16
 - More prompt blinking frequency adjusted on MEGA65
+- More prompt now blinks in both 40 and 80 col mode on C128
 
 ================================================
 Release 14.14: 10 April 2024
