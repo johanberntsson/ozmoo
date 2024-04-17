@@ -1,13 +1,15 @@
 all: xx16
 
 xx16:
+	ruby make.rb -df:0 -s games/lgop.z5 -t:x16 -v -dc:3:5 -cc:0 -cb:9
 	#ruby make.rb games/infocom/sherlock.z5 -s -ch:100 -t:x16  -v
-	ruby make.rb -df:0 -ch:100 -s examples/dejavu.z3 -t:x16 -v
+	#ruby make.rb -df:0 -ch:100 -s examples/dejavu.z3 -t:x16 -v
 	#ruby make.rb -ch:100 -s games/temple.z5 -t:x16 -v
 	#ruby make.rb -ch:100 -s examples/dragontroll.z5 -t:x16 -v
 
 mega65:
-	ruby make.rb -t:mega65 ./games/infocom/sherlock.z5 -u -s -ch:100 -sb:0 -dm:0  -v
+	ruby make.rb -df:0 -s games/lgop.z5 -t:mega65 -v -dc:3:5 -cc:0 -cb:1
+	#ruby make.rb -t:mega65 ./games/infocom/sherlock.z5 -u -s -ch:100 -sb:0 -dm:0  -v
 	#ruby make.rb examples/Aventyr.z5 -ch -s -t:mega65 -smooth
 	#ruby make.rb games/infocom/planetfall.z5 -s -t:mega65 -sw:0
 	#ruby make.rb -debug -v -ch -s games/infocom/hollywood.z3 -t:mega65 -sw:0
@@ -36,12 +38,13 @@ mega65:
 	#ruby make.rb -s games/infocom/hollywood.z3 -f fonts/en/ClairsysOzmoo-Regular-US.fnt -t:mega65
 
 c128:
+	ruby make.rb -df:0 -s games/lgop.z5 -t:c128 -v -dc:3:5 -cc:0 -cb:1
 	#ruby make.rb -s z6/shogun-r322-s890706.z6 -t:c128 -81
 	#ruby make.rb infocom/trinity-r15-s870628.z4 -t:c128 -81 -s
 	#ruby make.rb -s ./games/infocom/amfvUnprotected.z4 -t:c128
 	#ruby make.rb -s infocom/zork1-invclues-r52-s871125.z5 -t:c128
 	#ruby make.rb -s infocom/beyondzork.z5 -t:c128
-	ruby make.rb -s -ch examples/dragontroll.z5 -t:c128
+	#ruby make.rb -s -ch examples/dragontroll.z5 -t:c128
 	#ruby make.rb -s examples/dejavu.z3 -t:c128
 	#ruby make.rb -s games/infocom/borderzone.z5 -t:c128 -u
 	#ruby make.rb -cb:5 -s games/infocom/hollywood.z3 -t:c128
@@ -50,7 +53,8 @@ c128:
 	#ruby make.rb -ch -s games/infocom/hollywood.z3 -t:c128 -sb:6 -u
 
 c64:
-	ruby make.rb -s examples/dejavu.z3
+	ruby make.rb -df:0 -s games/lgop.z5 -t:c64 -v -dc:3:5 -cc:0 -cb:1
+	#ruby make.rb -s examples/dejavu.z3
 	#ruby make.rb examples/Aventyr.z5 -f fonts/sv/ClairsysOzmoo-Bold-SV.fnt -cm:sv -ch -s -81
 	#ruby make.rb -t:c64 games/infocom/hollywood.z3 -s -ch:100 -sb:0 -dm:0 -smooth
 	#ruby make.rb custard.z7 -81 -s 

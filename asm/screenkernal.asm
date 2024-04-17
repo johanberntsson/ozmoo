@@ -1331,6 +1331,7 @@ update_cursor
 	lda s_colour
 	pha
 	lda current_cursor_colour
+	and #15
 	jsr VERASetForegroundColour
 	lda cursor_character
 	jsr VERAPrintChar
