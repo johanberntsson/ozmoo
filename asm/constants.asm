@@ -296,7 +296,6 @@ kernal_delay_1ms      = $e2dc ; delay 1 ms
 }
 !ifdef TARGET_MEGA65 {
 kernal_reset          = $e4b8 ; Reset back to C65 mode
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
 }
 kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters

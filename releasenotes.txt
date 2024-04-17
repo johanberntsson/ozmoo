@@ -4,7 +4,8 @@ Upcoming release
 
 Bugfixes:
 - Fixed screen colour initialization issues
-- Replaced ti_variable with kernal_readtime to fix hanging "quit" problem
+- Replaced ti_variable to fix frozen more prompt on X16
+- More prompt blinking frequency adjusted on MEGA65
 
 ================================================
 Release 14.14: 10 April 2024

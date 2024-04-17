@@ -1928,6 +1928,27 @@ wait_a_sec
 	; bne -
 	rts
 } else {
+!ifdef TARGET_MEGA65 {
+kernal_delay_1ms
+	pha
+	txa
+	pha
+	tya
+	pha
+	ldy #40 ; 40 MHz
+-	ldx #$b8 ; 1 ms for 1 MHz
+--	dex
+	bne --
+	dey
+	bne -
+	pla
+	tay
+	pla
+	tax
+	pla
+	rts
+}
+
 !ifdef TARGET_X16 {
 
 kernal_delay_1ms
