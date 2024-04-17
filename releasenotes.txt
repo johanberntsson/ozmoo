@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 14.17: 17 April 2024
+
 Bugfixes:
 - Fixed screen colour initialization issues
 - Replaced ti_variable to fix frozen more prompt on X16
