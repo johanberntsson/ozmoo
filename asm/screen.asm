@@ -1116,6 +1116,17 @@ draw_status_line
 	lda #16
 	jsr z_get_low_global_variable_value
 	jsr print_obj
+
+	; Make sure cursor is on top row
+	sec
+	jsr s_plot
+	cpx #0
+	beq +
+	; Cursor was moved down (object name probably contains a newline character). Put cursor on top row again.
+	ldx #0
+	clc
+	jsr s_plot
++
 	;
 	; fill the rest of the line with spaces
 	;

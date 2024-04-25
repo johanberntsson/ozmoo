@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Bugfixes:
+- A z1-z3 game would hang when entering a room where the room object has a newline character in the name
+
 ================================================
 Release 14.17: 17 April 2024
 
