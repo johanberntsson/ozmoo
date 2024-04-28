@@ -1,6 +1,7 @@
 # specialised make for Ozmoo
 
 require 'fileutils'
+require 'date'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
@@ -83,6 +84,7 @@ $GENERALFLAGS = [
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
 #	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
+#	'X_FOR_EXAMINE', # Automatically change "x" (in a verb position) to "examine" in player input
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -147,6 +149,15 @@ $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
 $config_filename = File.join($TEMPDIR, 'config.tmp')
+
+$x_for_examine_releases = {
+	"r11-s860509" => "Trinity",
+	"r12-s860926" => "Trinity",
+	"r15-s870628" => "Trinity",
+	"r77-s850814" => "AMFV",
+	"r79-s851122" => "AMFV",
+	"r52-s871125" => "Zork 1 SG"		
+}
 
 $trinity_releases = {
 	"r11-s860509" => "fddd 2058 01",
@@ -2184,7 +2195,7 @@ def print_usage
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
 	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
-	puts "         [-u[:0|1|r]] [-df[:0|1|f]] <storyfile>"
+	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
 	puts "  -S1|-S2|-D2|-D3|-71|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -2223,6 +2234,7 @@ def print_usage
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
 	puts "  -u: Add support for UNDO. Enabled by default for MEGA65. Use -u:r for RAM buffer (C128 only)"
+	puts "  -x: Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only."
 	puts "  -df: Delete files after creating zip archive in ZIP mode. 0 is default. f=force."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
 end
@@ -2289,6 +2301,7 @@ dark_mode = nil
 smooth_scroll = nil
 scrollback = nil
 reu_boost = nil
+x_for_examine = nil
 
 begin
 	while i < ARGV.length
@@ -2421,6 +2434,12 @@ begin
 				$undo_ram = 1
 			else
 				$undo = $1.to_i
+			end
+		elsif ARGV[i] =~ /^-x(?::([01]))?$/ then
+			if $1 == nil
+				x_for_examine = 1
+			else
+				x_for_examine = $1.to_i
 			end
 		elsif ARGV[i] =~ /^-cf$/ then
 			await_preloadfile = true
@@ -2880,6 +2899,27 @@ is_varicella = $zcode_version == 8 && $varicella_releases.has_key?(storyfile_key
 is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
+
+if x_for_examine == nil
+	if $zcode_version < 4
+		serial_as_date = DateTime.strptime(serial, '%y%m%d') rescue DateTime.strptime('800101', '%y%m%d')
+		if serial_as_date.year >= 1980 and serial_as_date.year <= 1990
+			puts "Zcode version < 4, serial is in 1980-1989 or not a date => enabling X FOR EXAMINE" if $verbose
+			x_for_examine = 1
+		else
+			x_for_examine = 0
+		end
+	elsif [4,5].include?($zcode_version) and $x_for_examine_releases.has_key?(storyfile_key)
+		puts "Zcode version is 4 or 5, serial & release match game that doesn't recognize X => enabling X FOR EXAMINE" if $verbose
+		x_for_examine = 1
+	else
+		x_for_examine = 0
+	end
+end
+
+if x_for_examine == 1
+	$GENERALFLAGS.push('X_FOR_EXAMINE') unless $GENERALFLAGS.include?('X_FOR_EXAMINE')
+end	
 
 if dark_mode == 0
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')

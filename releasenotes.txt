@@ -5,6 +5,7 @@ Upcoming release
 New/changed features:
 - Appended ".prg" to boot file on X16, so it's easily recognizable as an executable file
 - Allow more characters in custom file names, not it's a-z, 0-9 and ".-()[]'"
+- Added option -x to automatically change verb "x" to "examine" in player input. Enabled by default for Infocom games that don't recognize x as a synonym for examine.
 
 Optimizations:
 - Truncated long custom file names to 16 characters for all but X16, so we don't store more characters than necessary
