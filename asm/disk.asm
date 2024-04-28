@@ -1994,13 +1994,8 @@ wait_yx_ms
 wait_an_interval
 ;	inc reg_bordercolour
 	; Used for scrolling
-!ifdef TARGET_MEGA65 {
-	ldx #(<(40 * interval_length + 256))
-	ldy #(>(40 * interval_length + 256))
-} else {
 	ldx #(<(interval_length + 256))
 	ldy #(>(interval_length + 256))
-}
 	jmp wait_yx_ms
 }
 
