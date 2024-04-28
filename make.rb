@@ -2903,7 +2903,7 @@ $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(stor
 if x_for_examine == nil
 	if $zcode_version < 4
 		serial_as_date = DateTime.strptime(serial, '%y%m%d') rescue DateTime.strptime('800101', '%y%m%d')
-		if serial_as_date.year >= 1980 and serial_as_date.year <= 1990
+		if serial_as_date.year >= 1980 and serial_as_date.year < 1990
 			puts "Zcode version < 4, serial is in 1980-1989 or not a date => enabling X FOR EXAMINE" if $verbose
 			x_for_examine = 1
 		else
