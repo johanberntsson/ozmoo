@@ -2,6 +2,13 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- Appended ".prg" to boot file on X16, so it's easily recognizable as an executable file
+- Allow more characters in custom file names, not it's a-z, 0-9 and ".-()[]'"
+
+Optimizations:
+- Truncated long custom file names to 16 characters for all but X16, so we don't store more characters than necessary
+
 Bugfixes:
 - A z1-z3 game would hang when entering a room where the room object has a newline character in the name
 - Beep on MEGA65 played 40 times too long (~3 s)

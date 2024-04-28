@@ -2482,7 +2482,7 @@ begin
 			else
 				reu_boost = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
+		elsif ARGV[i] =~ /^-fn:([a-z0-9\-\[\]\(\)\'\.]+)$/ then
 			custom_file_name = $1
 		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
 			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
@@ -2784,10 +2784,15 @@ if $target == "mega65"
 	$file_name = 'autoboot.c65'
 end
 if $target == "x16"
-	$file_name = storyname
+	$file_name = storyname + '.prg'
 end
 
 if custom_file_name
+	if $target == "x16"
+		custom_file_name += '.prg' unless custom_file_name =~ /.prg$/
+	else
+		custom_file_name = $1 if custom_file_name =~ /^(.{16}).+/
+	end
 	$file_name = custom_file_name
 end
 
