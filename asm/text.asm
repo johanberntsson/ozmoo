@@ -1670,6 +1670,8 @@ read_text
 }
 	cmp #' '
 	beq .is_x
+	cmp #','
+	beq .is_x
 	cmp #'.'
 	bne .not_x
 .is_x
