@@ -555,3 +555,7 @@ The interpreter number is used by a few games to modify the screen output format
 ## Option -sl[:0|1]
 
 -sl or -sl:1 enables slow mode, while -sl:0 disables it. This has an effect on builds for C64 only, and not in -P build mode. Slow mode removes some optimizations for speed, making the interpreter slightly smaller.
+
+## Option -x[:0|1]
+
+Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only.
