@@ -527,12 +527,7 @@ read_operand
 .store_operand
 	ldy z_operand_count
 	sta z_operand_value_high_arr,y
-!ifdef TARGET_C128 {
-	txa
-	sta z_operand_value_low_arr,y
-} else {
 	stx z_operand_value_low_arr,y
-}
 	inc z_operand_count
 	rts
 

@@ -1715,8 +1715,8 @@ read_text
 	cmp #'.'
 	beq .look_for_x
 	cmp #','
-	beq .look_for_x
 	bne -
+	jmp .look_for_x
 .done_expanding_x	
 }
 
