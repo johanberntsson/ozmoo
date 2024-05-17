@@ -1713,10 +1713,11 @@ read_text
 	beq .done_expanding_x
 }
 	cmp #'.'
+.jump_look
 	beq .look_for_x
 	cmp #','
-	bne -
-	jmp .look_for_x
+	beq .jump_look ; Do double jump because a direct jump is a byte too far, for z5
+	bne - ; Always branch
 .done_expanding_x	
 }
 

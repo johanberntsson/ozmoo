@@ -1977,11 +1977,7 @@ kernal_delay_1ms
 wait_a_sec
 ; Delay ~1.2 s so player can read the last text before screen is cleared
 	ldx #0
-!ifdef TARGET_MEGA65 {
-	ldy #40*5
-} else {
 	ldy #5
-}
 
 wait_yx_ms
 -	jsr kernal_delay_1ms
