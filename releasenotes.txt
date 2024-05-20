@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Bugfixes:
+- Cursor could be updated even when not on screen, potentially crashing the interpreter.
+
 ================================================
 Release 14.24: 17 May 2024
 

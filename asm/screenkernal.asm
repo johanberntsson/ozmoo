@@ -1310,6 +1310,9 @@ update_cursor
     sty object_temp
 	jsr .update_screenpos
     ldy zp_screencolumn
+	bmi .skip_cursor_update
+	cpy s_screen_width
+	bcs .skip_cursor_update
     lda s_cursorswitch
     bne +++
     ; no cursor
@@ -1361,6 +1364,7 @@ update_cursor
 
 .vdc_printed_char_and_colour
 
+.skip_cursor_update
     ldy object_temp
     rts
 
