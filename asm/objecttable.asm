@@ -1,7 +1,6 @@
 ; see: http://inform-fiction.org/zmachine/standards/z1point1/sect12.html
 
 ; globals
-num_default_properties !byte 0
 objects_start_ptr      !byte 0, 0
 
 ; object table opcodes
@@ -996,7 +995,6 @@ parse_object_table
 !ifdef Z4PLUS {
 	lda #126 ; 63 words
 }
-	sta num_default_properties
 	; store start of objects
 	clc
 	adc default_properties_ptr

@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Optimizations:
+- Removed num_default_properties, a byte value which was set but never read.
+
 Bugfixes:
 - Cursor could be updated even when not on screen, potentially crashing the interpreter.
 
