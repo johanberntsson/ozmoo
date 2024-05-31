@@ -485,8 +485,9 @@ z_ins_set_cursor
 	ldy current_window
 	beq .do_nothing_2
 	ldx z_operand_value_low_arr ; line 1..
+	beq + ; If line is 0, it's a mistake - they mean line 1.
 	dex ; line 0..
-	ldy z_operand_value_low_arr + 1 ; column
++	ldy z_operand_value_low_arr + 1 ; column
 	dey
 	jmp set_cursor
 }

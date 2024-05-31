@@ -718,6 +718,16 @@ z_ins_restart
 }
 	rts
 
+!ifdef TARGET_X16 {
+.restart_code_string
+	!pet 147,"new",13,13,13,"lO",34,":"
+!source "file-name.asm"
+    !pet 34,","
+.device_no
+	!pet "08",17,17,17,17,13,"rU",13,13,0
+.restart_code_keys
+	!byte 19,13,13,13,00
+} else {
 .restart_code_string
 	!pet 147,"lO",34,":"
 !source "file-name.asm"
@@ -726,6 +736,8 @@ z_ins_restart
 	!pet "08",17,17,17,17,13,"rU",13,13,0
 .restart_code_keys
 	!byte 19,13,13,0
+}
+
 .restart_code_end
 
 }

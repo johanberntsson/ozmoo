@@ -10,6 +10,8 @@ Bugfixes:
 - make.rb didn't complain if story file had an unsupported Z-code version (or wasn't a Z-code file at all).
 - make.rb would not report an error for X16 builds with a stack that's too big (~9+ KB), typically crashing the game at some point.
 - Restart didn't work on X16 if the Z-code file had any capital letters.
+- Call to @set_cursor with line = 0 are illegal (Z-machine screen starts at line 1), but happen. Ozmoo was placing the cursor on the bottom line of the screen, but now the cursor is placed on the top line (line 1) instead. 
+- X16 builds now perform NEW before loading game from disk again when restarting, to make debugging easier if file isn't found.
 
 ================================================
 Release 14.24: 17 May 2024
