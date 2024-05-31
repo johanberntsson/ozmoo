@@ -9,6 +9,7 @@ Bugfixes:
 - Cursor could be updated even when not on screen, potentially crashing the interpreter.
 - make.rb didn't complain if story file had an unsupported Z-code version (or wasn't a Z-code file at all).
 - make.rb would not report an error for X16 builds with a stack that's too big (~9+ KB), typically crashing the game at some point.
+- Restart didn't work on X16 if the Z-code file had any capital letters.
 
 ================================================
 Release 14.24: 17 May 2024

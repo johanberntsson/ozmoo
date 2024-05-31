@@ -2804,7 +2804,7 @@ if $target == "mega65"
 	$file_name = 'autoboot.c65'
 end
 if $target == "x16"
-	$file_name = storyname + '.prg'
+	$file_name = storyname.downcase + '.prg'
 end
 
 if custom_file_name
@@ -2813,7 +2813,7 @@ if custom_file_name
 	else
 		custom_file_name = $1 if custom_file_name =~ /^(.{16}).+/
 	end
-	$file_name = custom_file_name
+	$file_name = custom_file_name.downcase
 end
 
 
