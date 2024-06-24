@@ -2,6 +2,16 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- Builds with 0 blocks of virtual memory RAM in unbanked RAM on C64 and C128 are now allowed (1 block of VMEM in unbanked RAM was a requirement up to now). This makes it possible to build Trinity for C64.
+
+Bugfixes:
+- If virtual memory RAM started at exactly $d000 on C64 (maybe on C128 as well?), translation between Z-machine address and RAM address would fail, leading to (a) loading the game into REU became impossible, and (b) running without REU would break down when code or data in the first 512 byte block of static memory was accessed.
+- Fixed a broken test in tests/test_builds.rb
+
+================================================
+Release 14.29: 17 June 2024
+
 Optimizations:
 - Removed num_default_properties, a byte value which was set but never read.
 
