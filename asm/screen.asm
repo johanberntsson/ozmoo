@@ -1181,10 +1181,7 @@ draw_status_line
 	bne - ; Always branch
 .print_score_number
 	lda #17
-	jsr z_get_low_global_variable_value
-	stx z_operand_value_low_arr
-	sta z_operand_value_high_arr
-	jsr z_ins_print_num
+	jsr print_low_global_variable_value
 !ifdef SUPPORT_80COL {
 	ldy sl_moves_pos
 !ifdef TARGET_X16 {
@@ -1208,10 +1205,7 @@ draw_status_line
 	jsr s_printchar
 }
 	lda #18
-	jsr z_get_low_global_variable_value
-	stx z_operand_value_low_arr
-	sta z_operand_value_high_arr
-	jsr z_ins_print_num
+	jsr print_low_global_variable_value
 .all_done_score_sl
 	pla
 	sta z_operand_value_high_arr + 1

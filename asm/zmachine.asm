@@ -265,7 +265,32 @@ dumptovice
 	sta z_trace_page,y
 	inc z_trace_index
 }
-dummy	
+
+	ldy z_pc + 2
+	cpy #$f5
+	bne +
+	ldy z_pc + 1
+	cpy #$3a
+	bne +
+	ldy z_pc
+	cpy #$00
+	bne +
+	
+dummy
+	ldy #0
++
+	ldy z_pc + 2
+	cpy #$f8
+	bne +
+	ldy z_pc + 1
+	cpy #$3a
+	bne +
+	ldy z_pc
+	cpy #$00
+	bne +
+dummy2
+	ldy #0
++	
 !ifdef DEBUG {	
 	;jsr print_following_string
 	;!pet "opcode: ",0
@@ -1503,6 +1528,13 @@ z_ins_call_xs
 ; z_ins_read (moved to text.asm)
 
 ; z_ins_print_char (moved to text.asm)
+
+!ifndef Z4PLUS {
+print_low_global_variable_value
+	jsr z_get_low_global_variable_value
+	stx z_operand_value_low_arr
+	sta z_operand_value_high_arr
+}
 
 z_ins_print_num
 	lda z_operand_value_high_arr
