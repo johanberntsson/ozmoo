@@ -415,6 +415,18 @@ dummy2
 	lda #0
 	sta z_temp + 5 ; Signal to NOT read up to four more operands
 	+read_next_byte_at_z_pc
+	cmp #30
+	bcc +
+; 	User-defined EXT code, treat like NOP
+	ldx #4
+	stx z_opcode
+	stx z_opcode_number
+	lda z_opcount_0op_jump_high_arr,x
+	pha
+	lda z_opcount_0op_jump_low_arr,x
+	pha
+	bcs ++ ; Always branch
++
 !ifdef CHECK_ERRORS {
 	cmp #z_number_of_ext_opcodes_implemented
 	bcs z_not_implemented
@@ -427,6 +439,7 @@ dummy2
 	pha
 	lda z_opcount_ext_jump_low_arr,x
 	pha
+++
 ;	jmp .get_4_op_types
 }
 

@@ -13,6 +13,7 @@ Bugfixes:
 - If virtual memory RAM started at exactly $d000 on C64 (maybe on C128 as well?), translation between Z-machine address and RAM address would fail, leading to (a) loading the game into REU became impossible, and (b) running without REU would break down when code or data in the first 512 byte block of static memory was accessed.
 - Fixed a broken test in tests/test_builds.rb
 - Disabled tear-free scrolling in benchmark mode.
+- EXT opcodes #30-255 are now treated as NOP, like the standard says.
 
 ================================================
 Release 14.29: 17 June 2024
