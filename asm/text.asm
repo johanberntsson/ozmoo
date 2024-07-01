@@ -1150,7 +1150,9 @@ getchar_and_maybe_toggle_darkmode
 	ldx .getchar_save_x
 	rts
 
-!ifdef SMOOTHSCROLL {
+!ifdef BENCHMARK {
+scroll_delay !byte 0 ; In benchmark mode, use fastest scrolling
+} else ifdef SMOOTHSCROLL {
 scroll_delay !byte 0
 } else {
 scroll_delay !byte 1 ; Start in fastest flicker-free + tear-free scroll speed
