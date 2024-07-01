@@ -4,6 +4,8 @@ Upcoming release
 
 New/changed features:
 - Builds with 0 blocks of virtual memory RAM in unbanked RAM on C64 and C128 are now allowed (1 block of VMEM in unbanked RAM was a requirement up to now). This makes it possible to build Trinity for C64.
+- Added commandline switch -bm to build in Benchmark Mode (automatically play through a game, using one of the walkthroughs supplied in benchmarks.json)
+- Documented the usage of a .ozmoorc file in the manual.
 
 Optimizations:
 - Saved seven bytes in z1-z3 statusline routine by moving a duplicated code segment.

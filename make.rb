@@ -2,6 +2,7 @@
 
 require 'fileutils'
 require 'date'
+require 'json'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
@@ -92,7 +93,7 @@ $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'VIEW_STACK_RECORDS',
 #	'PRINTSPEED'
-#	'BENCHMARK',
+#	'BENCHMARK', # This can now be enabled with -bm
 #	'VMEM_STRESS', # very slow but gives vmem a workout
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
@@ -2188,7 +2189,7 @@ end
 def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
+	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
@@ -2205,6 +2206,7 @@ def print_usage
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
+	puts "  -bm: Build interpreter in Benchmark Mode. There must be a valid walkthrough in benchmarks.json."
 	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
 	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
@@ -2478,6 +2480,8 @@ begin
 			else
 				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 			end
+		elsif ARGV[i] =~ /^-bm$/ then
+			$DEBUGFLAGS.push('BENCHMARK') unless $DEBUGFLAGS.include?('BENCHMARK')
 		elsif ARGV[i] =~ /^-dm(?::([01]))?$/ then
 			if $1 == nil
 				dark_mode = 1
@@ -2905,6 +2909,27 @@ is_varicella = $zcode_version == 8 && $varicella_releases.has_key?(storyfile_key
 is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
+
+$walkthrough_string = nil
+if $DEBUGFLAGS.include?('BENCHMARK')
+	benchmarks_json = JSON.parse(File.read(File.join(__dir__, 'benchmarks.json')))
+	benchmarks_json.each { |walkthrough_hash|
+		if walkthrough_hash['keys'].include?(storyfile_key)
+			walk = walkthrough_hash['walkthrough']
+			$walkthrough_string = (walk.is_a? String) ? walk : walk.join(':')
+		end
+	}
+	if $walkthrough_string
+		walkthrough_src = File.read(File.join($SRCDIR, 'walkthrough.tpl'))
+		walkthrough_src.sub!("@fn@", $walkthrough_string)
+		File.write(File.join($SRCDIR, 'walkthrough.asm'), walkthrough_src)
+	else
+		puts "Benchmark mode enabled, but no valid walkthrough could be found for this game. Check benchmarks.json."
+		exit 1
+	end
+end
+#puts $walkthrough_string if $walkthrough_string
+
 
 if x_for_examine == nil
 	if $zcode_version < 4
