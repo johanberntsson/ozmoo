@@ -1405,72 +1405,155 @@ z_ins_sub
 	sbc z_operand_value_high_arr + 1
 	jmp z_store_result
 
-.mul_product = memory_buffer ; 5 bytes (4 for product + 1 for last bit)
-.mul_inv_multiplicand = memory_buffer + 5 ; 2 bytes
-
 z_ins_mul
-	lda #0
-	ldy #16
-	sta .mul_product
-	sta .mul_product + 1
-	sta .mul_product + 4
-	lda z_operand_value_high_arr
-	sta .mul_product + 2
+
+!ifdef TARGET_MEGA65 {
+	jsr mega65io
 	lda z_operand_value_low_arr
-	sta .mul_product + 3
+	sta $d770
+	lda z_operand_value_high_arr
+	sta $d771
 	lda z_operand_value_low_arr + 1
-	eor #$ff
-	clc
-	adc #1
-	sta .mul_inv_multiplicand + 1
+	sta $d774
 	lda z_operand_value_high_arr + 1
-	eor #$ff
-	adc #0
-	sta .mul_inv_multiplicand
-	; Perform multiplication
-.mul_next_iteration
-	lda .mul_product + 3
-	and #1
-	beq .mul_bottom_is_0
-	; Bottom bit is 1
-	bit .mul_product + 4
-	bmi .mul_do_nothing
-	; Subtract
-	lda .mul_product + 1
-	clc
-	adc .mul_inv_multiplicand + 1
-	sta .mul_product + 1
-	lda .mul_product
-	adc .mul_inv_multiplicand
-	sta .mul_product
-	jmp .mul_do_nothing
-.mul_bottom_is_0
-	; Bottom bit is 0
-	bit .mul_product + 4
-	bpl .mul_do_nothing
-	; Add
-	lda .mul_product + 1
-	clc
-	adc z_operand_value_low_arr + 1
-	sta .mul_product + 1
-	lda .mul_product
-	adc z_operand_value_high_arr + 1
-	sta .mul_product
-.mul_do_nothing
-	clc
-	bit .mul_product
-	bpl +
-	sec
-+	ror .mul_product
-	ror .mul_product + 1
-	ror .mul_product + 2
-	ror .mul_product + 3
-	ror .mul_product + 4
-	dey
-	bne .mul_next_iteration
-	lda .mul_product + 2
-	ldx .mul_product + 3
+	sta $d775
+	lda #0
+	sta $d772
+	sta $d773
+	sta $d776
+	sta $d777
+	; 16-bit signed results are now in $d778-$d779
+	ldx $d778
+	lda $d779
 	jmp z_store_result
+} else {
+; smult9.a
+; based on Dr Jefyll, http://forum.6502.org/viewtopic.php?f=9&t=689&start=0#p19958
+; with modifications by TobyLobster:
+; - adjusted to use fixed zero page addresses
+; - removed 'decrement to avoid clc' as this is slower on average
+; - rearranged memory use to remove final memory copy and give LSB first order to result
+; - X counter counts up from $fe to avoid cpx
+; - ie. mult60, then converted to signed multiply
+;
+;
+; multiplicand
+; +------+------+
+; |  +1  |  +0  |
+; +------+------+
+;       ||
+;      _||_  add
+;      \  /
+;       \/         initially set to
+; result           multiplier
+; +------+------+  +------+------+
+; |  +3  |  +2  |  |  +1  |  +0  |
+; +------+------+  +------+------+
+;
+; (1) first 8 times around loop, shift right: result+3 into +2 into +0:
+;
+; --------> shift         >
+;                \_______/
+;
+; (2) final 8 times around loop, shift right: result+3 into +2 into +1:
+;
+; --------> shift ->
+;
+
+
+; 16 bit x 16 bit signed multiply, 32 bit result
+; Average cycles: 570
+; 81 bytes
+
+.multiplicand = z_temp
+.multiplier = z_temp + 2
+.mul_product = z_temp + 4
+
+; 16 bit x 16 bit unsigned multiply, 32 bit result
+;
+; On Entry:
+;   multiplier:     two byte value
+;   multiplicand:   two byte value
+; On Exit:
+;   .mul_product:         four byte product (note: '.mul_product' shares memory with '.multiplier')
+
+    ; Step 1: unsigned multiply
+    ; copy .multiplier into .mul_product (.multiplier preserved for sign calculation later)
+	lda z_operand_value_low_arr + 1
+	sta .multiplicand
+	lda z_operand_value_high_arr + 1
+	sta .multiplicand + 1
+
+	lda z_operand_value_low_arr
+    sta .multiplier
+    sta .mul_product
+	lda z_operand_value_high_arr
+    sta .multiplier+1
+    sta .mul_product+1
+
+    lda #0              ;
+    sta .mul_product+2        ; 16 bits of zero in A, .mul_product+2
+                        ; (think of A as a local cache of .mul_product+3)
+                        ;  Note:    First 8 shifts are  A -> .mul_product+2 -> .mul_product
+                        ;           Final 8 shifts are  A -> .mul_product+2 -> .mul_product+1
+    ldx #$fe            ; count for outer loop. Loops twice.
+
+    ; outer loop (2 times)
+outer_loop
+    ldy #8              ; count for inner loop
+    lsr .mul_product+2,x      ; think ".mul_product" then later ".mul_product+1"
+
+    ; inner loop (8 times)
+inner_loop
+    bcc +
+    sta .mul_product+3        ; remember A
+    lda .mul_product+2
+    clc
+    adc .multiplicand
+    sta .mul_product+2
+    lda .mul_product+3        ; recall A
+    adc .multiplicand+1
+
++
+    ror                 ; shift
+    ror .mul_product+2
+    ror .mul_product+2,x      ; think ".mul_product" then later ".mul_product+1"
+    dey
+    bne inner_loop      ; go back for 1 more shift?
+
+    inx
+    bne outer_loop      ; go back for 8 more shifts?
+
+    sta .mul_product+3        ; ms byte of hi-word of .mul_product
+
+    ; ; Step 2: apply sign (See C=Hacking16 for details).
+
+	; ONLY needed to get a 32-bit result, not for a 16-bit result!
+
+    ; bit .multiplier+1
+    ; bpl +               ; skip if .multiplier is positive
+    ; sec
+    ; lda .mul_product+2
+    ; sbc .multiplicand
+    ; sta .mul_product+2
+    ; lda .mul_product+3
+    ; sbc .multiplicand+1
+    ; sta .mul_product+3
+; +
+    ; bit .multiplicand+1
+    ; bpl +               ; skip if .multiplicand is positive
+    ; sec
+    ; lda .mul_product+2
+    ; sbc .multiplier
+    ; sta .mul_product+2
+    ; lda .mul_product+3
+    ; sbc .multiplier+1
+    ; sta .mul_product+3
+; +
+	lda .mul_product + 1
+	ldx .mul_product + 0
+	jmp z_store_result
+}
 
 z_ins_div
 	ldy #$ff
