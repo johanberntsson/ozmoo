@@ -1486,9 +1486,11 @@ z_ins_mul
 
 	lda z_operand_value_low_arr
     sta .multiplier
+	eor #$ff
     sta .mul_product
 	lda z_operand_value_high_arr
     sta .multiplier+1
+	eor #$ff
     sta .mul_product+1
 
     lda #0              ;
@@ -1505,10 +1507,10 @@ outer_loop
 
     ; inner loop (8 times)
 inner_loop
-    bcc +
+    bcs +
     sta .mul_product+3        ; remember A
     lda .mul_product+2
-    clc
+;    clc
     adc .multiplicand
     sta .mul_product+2
     lda .mul_product+3        ; recall A
@@ -1524,7 +1526,7 @@ inner_loop
     inx
     bne outer_loop      ; go back for 8 more shifts?
 
-    sta .mul_product+3        ; ms byte of hi-word of .mul_product
+;    sta .mul_product+3        ; ms byte of hi-word of .mul_product - We don't use the top byte of the result
 
     ; ; Step 2: apply sign (See C=Hacking16 for details).
 
