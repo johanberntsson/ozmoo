@@ -23,7 +23,7 @@ Ozmoo for the Commodore 64 supports:
 - Building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator. Ozmoo uses the 1581 disk format's partitioning mechanism to protect the game data from being overwritten, which means you can safely use the game disk for game saves as well, thus eliminating the need for disk swapping when saving/restoring.
 - Using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
 - Adding a loader which shows an image while the game loads (C64 and Plus/4 only).
-- Undo support if enough additional memory can be allocated from a RAM Expansion Unit (REU).
+- Undo support (requires an REU on C64. See separate chapter on Undo for details).
 
 ## Limitations
 
@@ -173,9 +173,9 @@ The Commodore Plus/4 version makes use of the simplified memory map compared to 
 
 The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. A loader image is currently not supported. Undo is enabled by default for games that support it.
 
-## X16
+## Commander X16
 
-The X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game.
+The Commander X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game. Undo is supported.
 
 ## Other targets
 
@@ -517,7 +517,7 @@ Allows the player to press F5 to enter scrollback mode, where they can scroll up
 
 # Undo
 
-This feature allows the game state to be saved to memory each turn, so the player can undo the last turn. It is enabled by default on the MEGA65, and is available for C64 and C128 computers that use a RAM Expansion Unit. For C128 only, there is also an option to use undo without requiring an REU, by allocating some of the RAM as an undo buffer.
+This feature allows the game state to be saved to memory each turn, so the player can undo the last turn. It is enabled by default on the MEGA65. It's also available for Commander X16, and C64 and C128 computers that use a RAM Expansion Unit. For C128 only, there is also an option to use undo without requiring an REU, by allocating some of the RAM as an undo buffer, for games with a moderately large dynamic memory.
 
 In addition to the standard undo support for z5+ games (enabling the UNDO command which many games have), Ozmoo adds a keyboard shortcut (Ctrl-U) to enable undo for z1-z4 games.
 

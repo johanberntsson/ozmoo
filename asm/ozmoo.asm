@@ -2058,6 +2058,16 @@ deletable_init
 ++
 }
 
+!ifdef UNDO {
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcc + ; Dynmem + stack + ZP fits in 64 KB
+	ldy #$ff
+	sty reu_bank_for_undo ; Disable undo
+	jsr print_no_undo
++
+}
 	lda #0
 	sta reu_last_disk_end_block
 	sta reu_last_disk_end_block + 1

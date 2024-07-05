@@ -2059,7 +2059,7 @@ z_ins_restore_undo
 }
 
 reu_bank_for_undo
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_MEGA65_OR_X16 {
 	!byte $00 ; $00 means it's supported by default. May be changed to $ff at boot.
 } else {
 	!byte $ff 	; $ff means no undo. May be changed at boot. Meaning:
@@ -2181,8 +2181,160 @@ do_restore_undo
 	stx undo_state_available
 	rts
 	
+} else ifdef TARGET_X16 {
+do_save_undo
+	jsr .swap_pointers_for_save
+
+	; Copy zp + stack to from RAM to VRAM
+	; Calculate start address in RAM
+	lda #256 - zp_bytes_to_save
+	sta .read_stack + 1
+	lda #(>stack_start) - 1
+	sta .read_stack + 2
+	; Remember where stack ends
+	lda #>(stack_start + stack_size)
+	sta z_temp + 2 ; Stop when this page is reached
+
+	lda VERA_addr_bank
+	pha
+	lda #0
+	sta VERA_ctrl
+	sta VERA_addr_high
+	sta VERA_addr_low
+	lda #$10 ; Increment = 1, bank = 0
+	sta VERA_addr_bank
+	
+.read_stack
+	lda $8000 ; Self-modifying
+	sta VERA_data0
+	inc .read_stack + 1
+	bne .read_stack
+	inc .read_stack + 2
+	lda .read_stack + 2
+	cmp z_temp + 2
+	bne .read_stack
+	
+	; Copy dynmem from RAM to VRAM
+	; Set start address in RAM
+	lda #0
+	sta z_temp
+	sta z_temp + 2 ; Z-code page
+	lda #$5f
+	sta z_temp + 1
+	; Remember pagecount for dynmem
+	ldx nonstored_pages
+
+.read_dynmem
+	lda (z_temp),y
+	sta VERA_data0
+	iny
+	bne .read_dynmem
+
+	; Next page
+	dex
+	beq ++ ; No more pages to copy!
+	inc z_temp + 1
+	inc z_temp + 2
+	lda z_temp + 2
+	and #%00011111
+	bne .read_dynmem
+
+	; We are entering a new 8KB block, so we need to calculate bank
+	lda z_temp + 2
+	sta mempointer
+	lda #0
+	sta mempointer + 1
+	jsr x16_prepare_bankmem
+	lda mempointer + 1
+	sta z_temp + 1
+	bne .read_dynmem ; Always branch
+
+++	pla
+	sta VERA_addr_bank
+	
+	jsr .swap_pointers_for_save
+    ldx #1
+	stx undo_state_available
+	rts
+
+do_restore_undo
+	jsr .swap_pointers_for_save
+
+	; Copy zp + stack from VRAM to RAM
+	; Calculate start address in RAM
+	lda #256 - zp_bytes_to_save
+	sta .write_stack + 1
+	lda #(>stack_start) - 1
+	sta .write_stack + 2
+	; Remember where stack ends
+	lda #>(stack_start + stack_size)
+	sta z_temp + 2 ; Stop when this page is reached
+
+	lda VERA_addr_bank
+	pha
+	lda #0
+	sta VERA_ctrl
+	sta VERA_addr_high
+	sta VERA_addr_low
+	lda #$10 ; Increment = 1, bank = 0
+	sta VERA_addr_bank
+
+-	lda VERA_data0	
+.write_stack
+	sta $8000 ; Self-modifying
+	inc .write_stack + 1
+	bne -
+	inc .write_stack + 2
+	lda .write_stack + 2
+	cmp z_temp + 2
+	bne -
+	
+	; Copy dynmem from VRAM to RAM
+	; Set start address in RAM
+	lda #0
+	sta z_temp
+	sta z_temp + 2 ; Current Z-code page
+	lda #$5f
+	sta z_temp + 1
+	; Remember pagecount for dynmem
+	ldx nonstored_pages
+
+.write_dynmem
+	lda VERA_data0
+	sta (z_temp),y
+	iny
+	bne .write_dynmem
+
+	; Next page
+	dex
+	beq ++ ; No more pages to copy!
+	inc z_temp + 1
+	inc z_temp + 2
+	lda z_temp + 2
+	and #%00011111
+	bne .write_dynmem
+
+	; We are entering a new 8KB block, so we need to calculate bank
+	lda z_temp + 2
+	sta mempointer
+	lda #0
+	sta mempointer + 1
+	jsr x16_prepare_bankmem
+	lda mempointer + 1
+	sta z_temp + 1
+	bne .write_dynmem ; Always branch
+
+++
+	pla
+	sta VERA_addr_bank
+
+    ldx #0
+	stx undo_state_available
+	jsr .swap_pointers_for_save
+ 	jmp get_page_at_z_pc
+
 } else {
-	; Not MEGA65, so this is for C64/C128
+	; C64/C128
 
 !ifdef UNDO_RAM {
 ram_undo_page !byte $ff ; Set during init, if RAM undo is to be used
@@ -2334,12 +2486,10 @@ do_restore_undo
 }
 
 .finalize_restore_undo
-	jsr .swap_pointers_for_save
-	jsr get_page_at_z_pc
-
     ldx #0
 	stx undo_state_available
-	rts
+	jsr .swap_pointers_for_save
+	jmp get_page_at_z_pc
 
 .setup_transfer_stack
 	; ; save zp variables + stack

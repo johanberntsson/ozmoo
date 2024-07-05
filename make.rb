@@ -1387,7 +1387,7 @@ def play(filename, storyname)
 		if $executables.has_key?('X16') then
 			command = "cd #{filename} && #{$executables['X16']} -prg #{storyname.upcase}"
 			command += " -run"
-			command += " -dump B" # Ctrl-S from the emulator to dump memory
+			command += " -dump RV" # Ctrl-S from the emulator to dump memory
 			command += " -debug"
 			command += " -zeroram"
 			command += " -scale 2"
@@ -3062,8 +3062,8 @@ if $undo > 0
 		puts "ERROR: Undo is not supported for build mode P."
 		exit 1
 	end
-	if $target !~ /^(c64|c128|mega65)$/
-		puts "ERROR: Undo is only supported for the MEGA65, C64 and C128 target platforms."
+	if $target !~ /^(c64|c128|mega65|x16)$/
+		puts "ERROR: Undo is only supported for the MEGA65, Commander X16, C64 and C128 target platforms."
 		exit 1
 	end
 	if $undo_ram == 1
@@ -3077,7 +3077,7 @@ if $undo > 0
 			exit 1
 		end
 	end
-	if undo_size > 64*1024
+	if undo_size > 64*1024 - 256
 		if $undo == 1
 			puts "ERROR: Dynmem + stack too large to support UNDO."
 			exit 1

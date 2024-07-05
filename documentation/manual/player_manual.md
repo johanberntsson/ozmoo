@@ -89,18 +89,25 @@ Ozmoo for C64 and C128 can use an REU to cache story data. This makes gameplay f
 If Ozmoo detects an REU at startup, and it's big enough to hold all game data, Ozmoo will ask if you want to use the REU for faster play. If the REU is 512 KB or more, any game will fit.
 
 # Undo
-Ozmoo can be built with support for Undo, meaning the player can revert the effects of their last move in a game. This feature is available on the MEGA65, the C64 with an REU and the C128 with or without an REU. If the game uses Z-code version 5 or higher, the game needs to provide an UNDO command (which most version 5+ games do). For version 1-4, Ozmoo provides Ctrl-U as a hotkey to perform undo - this can be pressed at a text prompt only. If no REU is detected, or there's no room for an undo buffer in the REU, and Ozmoo wasn't built with support for undo in RAM (C128 only), Ozmoo will print a message saying undo is not available.
+Ozmoo can be built with support for Undo, meaning the player can revert the effects of their last move in a game. This feature is available on the MEGA65, The Commander X16, the C64 with an REU and the C128 with or without an REU. If the game uses Z-code version 5 or higher, the game needs to provide an UNDO command (which most version 5+ games do). For version 1-4, Ozmoo provides Ctrl-U as a hotkey to perform undo - this can be pressed at a text prompt only. If no REU is detected, or there's no room for an undo buffer in the REU, and Ozmoo wasn't built with support for undo in RAM (C128 only), Ozmoo will print a message saying undo is not available.
+
+If Ozmoo was built with this feature, the splash screen will mention the undo feature.
 
 # Scrollback buffer
-Ozmoo has an optional feature called Scrollback buffer, which can be used on all platforms. With the Scrollback feature enabled, you can press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown, and Enter to exit scrollback mode. 
+Ozmoo has an optional feature called Scrollback buffer, which can be used on all platforms except Commander X16. With the Scrollback buffer feature enabled, you can press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown, and Enter to exit scrollback mode. 
 
 On the C64 and C128, scrollback can either be built to work with an REU only, or it can reserve a buffer in RAM as well. On the MEGA65 and Plus/4, it always uses a RAM buffer. If Ozmoo was built to work only with an REU, and no REU is detected, or there is no room for a scrollback buffer in the REU, Ozmoo will print a message saying scrollback isn't available.
 
 If Ozmoo was built with this feature, the splash screen will say "F5=Scrollback".
 
 # Patched games
+Ozmoo has a list of known game files which it can patch on the fly while bundling the game with Ozmoo.
 
 ## Beyond Zork
 Ozmoo has support for Beyond Zork, which was never released on the Commodore 64. Beyond Zork was designed for 80 column screens, and to make it playable Ozmoo makes minor modifications to fit all information on a 40 column screen. The map and screen decorations are using simplified ASCII characters, and Darkmode is disabled since Beyond Zork requires control over the colours. The title screen hasn't been modified, so it shows text that doesn't quite fit on a 40 column screen.
 
+## Trinity
+Trinity will normally check that the screen is wide enough (60+ characters) and if it's not, print a message and exit the game. Ozmoo will automatically patch the game to remove this check.
 
+## Varicella
+Varicella has a monochrome mode, a limited colour mode and a full colour mode. The full colour mode does some tricks which would confuse Ozmoo. For this reason, Ozmoo patches Varicella to make the full colour mode work well even on Ozmoo.
