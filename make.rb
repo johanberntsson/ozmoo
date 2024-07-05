@@ -1110,6 +1110,7 @@ def build_interpreter()
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
 	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
 	optionalsettings += " -DSCROLLBACK_RAM_PAGES=#{$scrollback_ram_pages}" if $scrollback_ram_pages
+	optionalsettings += " -DFREE_SAVE_BLOCKS=#{$free_blocks_for_saves}" if $free_blocks_for_saves
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
@@ -3148,6 +3149,15 @@ if $target != 'c128' and limit_preload_vmem_blocks == false
 	end
 end
 
+$free_blocks_for_saves = 664
+if $target == 'x16'
+	$free_blocks_for_saves = 9999 # No real limit
+elsif $target == 'mega65'
+	$free_blocks_for_saves = 3160 - ($story_size / 254) - 1 - 60 # Overestimate boot file size
+end
+save_slots = [255, $free_blocks_for_saves / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
+puts "Blocks per save: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}" if $verbose
+puts "Save slots: #{save_slots}" if $verbose
 
 build_interpreter()
 
@@ -3197,13 +3207,6 @@ if reu_boost == 1 and $target == 'c64' and $unbanked_vmem_blocks * $VMEM_BLOCKSI
 	puts "ERROR: REU Boost requires at least 3 KB of unbanked RAM. Dynamic memory is #{$dynmem_blocks * $VMEM_BLOCKSIZE / 1024} KB, leaving only #{$unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 1024} KB of unbanked RAM for REU Boost." 
 	exit 1		
 end
-
-############################# End of moved block
-
-save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
-#puts "Static mem start: #{$static_mem_start}"
-#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}"
-#puts "Save slots: #{save_slots}"
 
 config_data = 
 [$BUILD_ID].pack("I>").unpack("CCCC") + 

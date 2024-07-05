@@ -17,6 +17,10 @@
 }
 }
 
+!ifndef FREE_SAVE_BLOCKS {
+	FREE_SAVE_BLOCKS = 664  ; Default to the free space of an empty 1541 disk
+}
+
 !ifdef TARGET_X16 {
 	TARGET_MEGA65_OR_X16 = 1
 	NO_VMEM_CACHE = 1
@@ -2242,20 +2246,34 @@ deletable_init
 } else {
 	ldy #header_static_mem
 	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
-	ldx #$30 ; First unavailable slot
 	clc
-	adc #(>stack_size) + 4
+	adc #(>stack_size) + 1 ; For PC etc
 	sta zp_temp
-	lda #>664
+	sta zp_temp + 2
+	lda #0
+	adc #0
+	tay
+;	sta zp_temp + 1
+	; Add overhead due to blocks holding 254 bytes of data, not 256
+	asl zp_temp + 2
+	rol
+	adc zp_temp ; Carry already clear
+	sta zp_temp
+;	lda zp_temp + 1
+	tya
+	adc #0
 	sta zp_temp + 1
-	lda #<664
+	lda #>FREE_SAVE_BLOCKS
+	sta zp_temp + 2
+	lda #<FREE_SAVE_BLOCKS
+	ldx #$30 ; First unavailable slot
 .one_more_slot
 	sec
 	sbc zp_temp
 	tay
-	lda zp_temp + 1
-	sbc #0
-	sta zp_temp + 1
+	lda zp_temp + 2
+	sbc zp_temp + 1
+	sta zp_temp + 2
 	bmi .no_more_slots
 	inx
 	cpx #$3a
