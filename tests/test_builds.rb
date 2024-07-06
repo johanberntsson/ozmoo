@@ -160,7 +160,7 @@ dragontroll = '../examples/dragontroll.z5'
 show_dir = {'*SHOW' => 1}
 
 dir = 'x16_minizork'
-expect_success(minizork, 'x16', '-ZIP -re -fn:hello -bc:0 -dc:2:3 -ic:4 -sc:4 -dmdc:3:2 -dmic:4 -dmsc:4 -df:0 -dt:goodbye -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -ch -cb:30 -cs:b -sw:30 -ss1:"123456789 123456789 123456789 123456789" -ss2:"123456789 123456789 123456789 123456789" -ss4:"123456789 123456789 123456789 123456789" -ss3:"123456789 123456789 123456789 123456789"', 
+expect_success(minizork, 'x16', '-ZIP -re -fn:hello -bc:0 -dc:2:3 -ic:4 -sc:4 -dmdc:3:2 -dmic:4 -dmsc:4 -df:0 -dt:goodbye -u -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -ch -cb:30 -cs:b -sw:30 -ss1:"123456789 123456789 123456789 123456789" -ss2:"123456789 123456789 123456789 123456789" -ss4:"123456789 123456789 123456789 123456789" -ss3:"123456789 123456789 123456789 123456789"', 
 	{"#{dir}.zip" => 1, "#{dir}/HELLO.PRG" => 1, "#{dir}/[ZCODE]" => 1, "#{dir}/[FONT]" => 1, "#{dir}" => 1})
 
 expect_failure(dragontroll, 'c64', '-P -u', 'ERROR: Undo is not supported for build mode P', false, nil)
