@@ -90,7 +90,7 @@ Edit the file make.rb. At the top of the file, you need to specify paths to the 
 If you sometimes update Ozmoo to a new version, you may grow tired of updating the paths to different programs in make.rb. What you can do instead is create a file called ".ozmoorc" where you specify the paths you'd otherwise need to edit. make.rb will look for such a file in three locations, in this order: 
 * the folder specified by the environment variable OZMOO_HOME, if any
 * current working directory (cwd)
-* HOME directory (on Windows, this is typically something like "C:\Users\MyName"). 
+* HOME directory (on Windows, this is typically something like "C:\\Users\\MyName"). 
 
 The first file found is the only one used.
 
