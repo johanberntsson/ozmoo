@@ -2,17 +2,20 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 14.36: 6 July 2024
+
 New/changed features:
+- Undo is now supported on Commander X16.
+- Documented the usage of a .ozmoorc file in the manual.
 - Builds with 0 blocks of virtual memory RAM in unbanked RAM on C64 and C128 are now allowed (1 block of VMEM in unbanked RAM was a requirement up to now). This makes it possible to build Trinity for C64.
 - Added commandline switch -bm to build in Benchmark Mode (automatically play through a game, using one of the walkthroughs supplied in benchmarks.json)
-- Documented the usage of a .ozmoorc file in the manual.
 - Calculation of the number of save slots that fit on a disk has been changed. For MEGA65, it's now assumed that saves are placed on the game disk. For X16, there's always room for ten saves. For all other platforms, the save disk is assumed to be an initially empty 1541 disk. A slightly less consevative estimation of save file size means there will now be one more available save slot in some games.
-- Undo is now supported on Commander X16.
 
 Optimizations:
+- Z-code multiplication now uses hardware multiplication on MEGA65, and a faster algorithm than before on all other platforms (Thanks to TobyLobster et al for new algorithm).
 - Saved seven bytes in z1-z3 statusline routine by moving a duplicated code segment.
 - Microoptimizations in memory access for X16.
-- Z-code multiplication now uses hardware multiplication on MEGA65, and a faster algorithm than before on all other platforms (Thanks to TobeyLobster et al for new algorithm).
 
 Bugfixes:
 - If virtual memory RAM started at exactly $d000 on C64 (maybe on C128 as well?), translation between Z-machine address and RAM address would fail, leading to (a) loading the game into REU became impossible, and (b) running without REU would break down when code or data in the first 512 byte block of static memory was accessed.
