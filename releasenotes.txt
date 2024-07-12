@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Optimizations:
+- Changed reading a byte at PC on X16 from a subroutine to a macro, making Hollywood Hijinx about 3% faster.
+
 ================================================
 Release 14.36: 6 July 2024
 

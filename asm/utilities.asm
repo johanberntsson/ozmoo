@@ -148,7 +148,19 @@ plus4_enable_rom = $ff3e
 
 
 !ifdef SLOW {
-!ifdef TARGET_MEGA65 {
+
+!ifdef TARGET_X16 {
+!macro read_next_byte_at_z_pc {
+	ldy x16_z_pc_bank
+	sty 0
+	ldy #0
+	lda (z_pc_mempointer),y
+	inc z_pc_mempointer ; Also increases z_pc
+	bne ++
+	jsr inc_z_pc_page
+++
+}
+} else ifdef TARGET_MEGA65 {
 !macro read_next_byte_at_z_pc {
 	ldz #0
 	lda [z_pc_mempointer],z
@@ -175,10 +187,6 @@ read_next_byte_at_z_pc_sub
 	+set_memory_no_basic
 	+enable_interrupts
 } else {
-!ifdef TARGET_X16 {
-	ldy x16_z_pc_bank
-	sty 0
-}
 	ldy #0
 	lda (z_pc_mempointer),y
 }
