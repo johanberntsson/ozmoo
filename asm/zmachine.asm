@@ -1014,8 +1014,10 @@ z_ins_quit
 	; so use the more prompt to pause before the reset
 	; (otherwise we wouldn't be able to read it).
 	jsr printchar_flush
+	lda anything_printed
+	beq + ; Nothing has been printed since last read, don't show MORE prompt
 	jsr show_more_prompt
-
++
 !ifdef TARGET_MEGA65 {
 	; call hyppo_d81detach to unmount d81 and prevent
 	; autoboot.c65 from running

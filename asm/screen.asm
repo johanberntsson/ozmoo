@@ -879,6 +879,10 @@ print_line_from_buffer
 printchar_buffered
 	; a is PETSCII character to print
 	sta .buffer_char
+	cmp #13
+	beq +
+	sta anything_printed
++	
 	; need to save x,y
 	txa
 	pha
@@ -1021,6 +1025,7 @@ printchar_buffered
 	pla
 	tax
 	rts
+anything_printed       !byte 0
 .buffer_char       !byte 0
 ; print_buffer            !fill 41, 0
 .save_x			   !byte 0

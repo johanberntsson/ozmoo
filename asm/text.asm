@@ -154,6 +154,7 @@ z_ins_read_char
 	lda #0 ; time routine returned true, and read_char should return 0
 +   tax
 	lda #0
+	sta anything_printed ; Signal that nothing has been printed since last read, to allow QUIT without MORE prompt
 	jmp z_store_result
 }
 	
@@ -467,6 +468,7 @@ z_ins_read
 }
 !ifdef Z5PLUS {
 	lda #0
+	sta anything_printed ; Signal that nothing has been printed since last read, to allow QUIT without MORE prompt
 	ldx .read_text_return_value
 	jmp z_store_result
 } else {
@@ -511,6 +513,8 @@ z_ins_read
 +++	lda #0
 	sta undo_possible ; Set to not possible whenever we exit the read instruction
 }
+	lda #0
+	sta anything_printed ; Signal that nothing has been printed since last read, to allow QUIT without MORE prompt
 	rts
 }
 ; ============================= End of new unified read instruction
