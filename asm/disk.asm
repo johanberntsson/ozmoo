@@ -721,7 +721,7 @@ z_ins_restart
 !ifdef TARGET_X16 {
 .restart_code_string
 	!pet 147,"new",13,13,13,"lO",34,":"
-!source "file-name.asm"
+!source "../temp/file-name.asm"
     !pet 34,","
 .device_no
 	!pet "08",17,17,17,17,13,"rU",13,13,0
@@ -730,7 +730,7 @@ z_ins_restart
 } else {
 .restart_code_string
 	!pet 147,"lO",34,":"
-!source "file-name.asm"
+!source "../temp/file-name.asm"
     !pet 34,","
 .device_no
 	!pet "08",17,17,17,17,13,"rU",13,13,0

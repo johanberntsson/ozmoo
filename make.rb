@@ -2923,7 +2923,7 @@ if $DEBUGFLAGS.include?('BENCHMARK')
 	if $walkthrough_string
 		walkthrough_src = File.read(File.join($SRCDIR, 'walkthrough.tpl'))
 		walkthrough_src.sub!("@fn@", $walkthrough_string)
-		File.write(File.join($SRCDIR, 'walkthrough.asm'), walkthrough_src)
+		File.write(File.join($TEMPDIR, 'walkthrough.asm'), walkthrough_src)
 	else
 		puts "Benchmark mode enabled, but no valid walkthrough could be found for this game. Check benchmarks.json."
 		exit 1
@@ -3125,13 +3125,13 @@ splash.gsub!("@vs@", version)
 	splash.sub!("@#{i}s@", text)
 	splash.sub!("@#{i}c@", indent.to_s)
 end
-File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+File.write(File.join($TEMPDIR, 'splashlines.asm'), splash)
 
 # Boot file name handling
 
 file_name = File.read(File.join($SRCDIR, 'file-name.tpl'))
 file_name.sub!("@fn@", $file_name)
-File.write(File.join($SRCDIR, 'file-name.asm'), file_name)
+File.write(File.join($TEMPDIR, 'file-name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128' and limit_preload_vmem_blocks == false

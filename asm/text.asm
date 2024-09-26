@@ -67,7 +67,7 @@ parse_terminating_characters
 benchmark_commands
 ; !pet "turn statue w:turn it e:turn it n:n:open door:",255,0
 !byte 255
-!source "walkthrough.asm"
+!source "../temp/walkthrough.asm"
 !pet ":",255,0
 benchmark_read_char
 	lda benchmark_commands

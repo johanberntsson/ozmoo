@@ -115,7 +115,7 @@ splash_line_y
 	jmp s_printchar
 }
 
-!source "splashlines.asm"
+!source "../temp/splashlines.asm"
 
 splash_index_line
 	!byte 2, 4, 6, 8, 20, 22, 23, 24

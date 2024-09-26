@@ -326,7 +326,7 @@ interrupt_vector = $314
 }
 	
 .filename
-!source "file-name.asm"
+!source "../temp/file-name.asm"
 filename_length = * - .filename
 }
 .end_of_loader
