@@ -80,6 +80,7 @@ $GENERALFLAGS = [
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'NOSCROLLBACK', # Disables scrollback support (MEGA65, C64, C128). This makes the terp ~1 KB smaller.
 #	'REUBOOST', # Enables REU Boost (MEGA65, C64, C128). This makes the terp ~160 bytes larger.
+#	'NO_DEFAULT_UNICODE_MAP' # Disables the default unicode output map, saving 83 bytes
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
@@ -2191,7 +2192,7 @@ def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
-	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-um[:0|1]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
 	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
@@ -2215,6 +2216,7 @@ def print_usage
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
@@ -2474,6 +2476,12 @@ begin
 				check_errors = 1
 			else
 				check_errors = $1.to_i
+			end
+		elsif ARGV[i] =~ /^-um(?::([0-1]))?$/ then
+			if $1 == '0'
+				$GENERALFLAGS.push('NO_DEFAULT_UNICODE_MAP') unless $GENERALFLAGS.include?('NO_DEFAULT_UNICODE_MAP') 
+			else
+				$GENERALFLAGS.delete('NO_DEFAULT_UNICODE_MAP') if $GENERALFLAGS.include?('NO_DEFAULT_UNICODE_MAP')
 			end
 		elsif ARGV[i] =~ /^-sl(?::([0-1]))?$/ then
 			if $1 == '0'

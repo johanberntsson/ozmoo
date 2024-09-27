@@ -826,6 +826,11 @@ z_ins_output_stream
 	sta streams_output_selected + 2
 	rts
 
+!ifndef NO_DEFAULT_UNICODE_MAP {
+default_unicode_out
+!pet "aouAOUs\"\"eiyEIaeiouyAEIOUYaeiouAEIOUaeiouAEIOUaAoOanoANOaAcCttTTLoO!?" 
+}
+
 translate_zscii_to_petscii
 	; Return PETSCII code *OR* set carry if this ZSCII character is unsupported
 	sty .streams_tmp + 1
@@ -836,6 +841,16 @@ translate_zscii_to_petscii
 	dey
 	bpl -
 .no_match
+!ifndef NO_DEFAULT_UNICODE_MAP {
+	cmp #224
+	bcs .no_mapping
+	cmp #155
+	bcc .no_mapping
+	tay
+	lda default_unicode_out - 155,y
+	bne .ldy_and_return ; Always branch
+.no_mapping
+}
 	ldy .streams_tmp + 1
 	; Check if legal
 	cmp #13
@@ -868,6 +883,7 @@ translate_zscii_to_petscii
 	rts
 .match
 	lda character_translation_table_out_end,y
+.ldy_and_return
 	ldy .streams_tmp + 1
 	clc
 	rts
