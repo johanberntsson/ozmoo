@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+================================================
+Release 14.40: 28 Sep 2024
+
 New/changed features:
 - Made Quit not show a MORE prompt if no text has been printed since the last read or read_char instruction.
 - Moved all generated source files to temp folder, so asm folder can be read-only.

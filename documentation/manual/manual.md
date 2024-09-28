@@ -547,6 +547,10 @@ To run an Inform 7 game (which may be feasible on the MEGA65), you want to set t
 
 Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo has support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
 
+## Option -um:[:0|1]
+
+This enables or disables the default unicode table mapping. I.e. if a game tries to print one of the 69 characters that are in the default Z-code unicode table, and the character has not been remapped to a special character using -cm, Ozmoo maps it to the closest single-character approximation, and prints that instead. E.g. "ä" is printed as "a". This feature is enabled by default. Disabling it saves 83 bytes.
+
 ## Option -in:[n]
 
 -in sets the interpreter number.
