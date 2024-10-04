@@ -266,31 +266,31 @@ dumptovice
 	inc z_trace_index
 }
 
-	ldy z_pc + 2
-	cpy #$f5
-	bne +
-	ldy z_pc + 1
-	cpy #$3a
-	bne +
-	ldy z_pc
-	cpy #$00
-	bne +
+	; ldy z_pc + 2
+	; cpy #$f5
+	; bne +
+	; ldy z_pc + 1
+	; cpy #$3a
+	; bne +
+	; ldy z_pc
+	; cpy #$00
+	; bne +
 	
-dummy
-	ldy #0
-+
-	ldy z_pc + 2
-	cpy #$f8
-	bne +
-	ldy z_pc + 1
-	cpy #$3a
-	bne +
-	ldy z_pc
-	cpy #$00
-	bne +
-dummy2
-	ldy #0
-+	
+; dummy
+	; ldy #0
+; +
+	; ldy z_pc + 2
+	; cpy #$f8
+	; bne +
+	; ldy z_pc + 1
+	; cpy #$3a
+	; bne +
+	; ldy z_pc
+	; cpy #$00
+	; bne +
+; dummy2
+	; ldy #0
+; +	
 !ifdef DEBUG {	
 	;jsr print_following_string
 	;!pet "opcode: ",0
