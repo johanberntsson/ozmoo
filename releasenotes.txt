@@ -4,6 +4,9 @@ Upcoming release
 
 Optimizations:
 - Commented out a few lines of code meant for debug in zmachine.asm
+- Changed File.exists to File.exist in make.rb, as the latter is correct, and the former isn't supported in newer Ruby versions.
+- Removed option -scale 2 for xemu (X16 emulator), as this could wreck havoc on some screens.
+- Updated the manual section on dependencies.
 
 ================================================
 Release 14.40: 28 Sep 2024

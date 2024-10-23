@@ -45,10 +45,11 @@ You need to install:
 
 - Acme cross-assembler
 - Exomizer file compression program (tested with 3.0.0, 3.0.1 and 3.0.2)
-- Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
+- Ruby (Tested with 2.4.2 and 3.3.5, but any version in between should work fine)
 - The Vice emulator to test C64, C128 and Plus/4 builds on virtual hardware
 - The xemu-xmega65 emulator if you want to test MEGA65 builds on virtual hardware
-- The Commander X16 emulator test X16 builds on virtual hardware
+- A zip program if you want to build games for X16
+- The Commander X16 emulator if you want to test X16 builds on virtual hardware
 
 #### Windows
 
@@ -59,6 +60,12 @@ Exomizer can be downloaded from Bitbucket. The download includes binaries for Wi
 Get WinVice from SourceForge: http://vice-emu.sourceforge.net/windows.html
 
 You can get Ruby from RubyInstaller: https://rubyinstaller.org/
+
+Download the MEGA65 emulator from https://github.lgb.hu/xemu/, and read the instructions on setting it up at https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart
+
+Get 7-Zip from https://www.7-zip.org/
+
+The Commander X16 emulator is available at https://github.com/X16Community/x16-emulator
 
 ####  Linux
 
@@ -80,6 +87,12 @@ Note that you have to supply the ROM images (kernal, basic, chargen, dos1541) un
 Ruby is available on Debian/Ubuntu with:
 
     > sudo apt install ruby
+
+Download the MEGA65 emulator from https://github.lgb.hu/xemu/, and read the instructions on setting it up at https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart
+
+The zip program that ships with Linux is all you need for zipping Ozmoo games for X16.
+
+The Commander X16 emulator is available at https://github.com/X16Community/x16-emulator
 
 ## Customizing the make script
 
@@ -175,7 +188,7 @@ The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 m
 
 ## Commander X16
 
-The Commander X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game. Undo is supported.
+The Commander X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game. Undo is supported. Unlike the other platforms, scrollback buffer is currently not supported on the X16. The only supported build mode is ZIP.
 
 ## Other targets
 

@@ -53,10 +53,10 @@ $settings_file = ""
 if ENV.has_key?('OZMOO_HOME') then
     $settings_file = ENV['OZMOO_HOME'] + '/.ozmoorc'
 end
-if $settings_file.empty? && File.exists?('.ozmoorc') then
+if $settings_file.empty? && File.exist?('.ozmoorc') then
     $settings_file = '.ozmoorc'
 end
-if $settings_file.empty? && File.exists?(Dir.home + '/.ozmoorc') then
+if $settings_file.empty? && File.exist?(Dir.home + '/.ozmoorc') then
     $settings_file = Dir.home + '/.ozmoorc'
 end
 unless $settings_file.empty?
@@ -1391,7 +1391,6 @@ def play(filename, storyname)
 			command += " -dump RV" # Ctrl-S from the emulator to dump memory
 			command += " -debug"
 			command += " -zeroram"
-			command += " -scale 2"
 		else
 			puts "Location of Commander X16 emulator unknown. Please set X16 executable location at start of make.rb"
 			exit 0
