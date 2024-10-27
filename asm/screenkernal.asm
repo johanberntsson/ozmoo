@@ -21,8 +21,10 @@
 colour_petscii !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 }
 zcolours	!byte $ff,$ff ; current/default colour
-			!byte COL2,COL3,COL4,COL5  ; black, red, green, yellow
-			!byte COL6,COL7,COL8,COL9  ; blue, magenta, cyan, white
+			!byte 0,2,5,7  ; black, red, green, yellow
+			!byte 6,4,3,1  ; blue, magenta, cyan, white
+			!byte $ff,$ff,$ff,$ff,$ff,$ff ; Colour 10-15 are unused
+			!byte 8,9,10,11,12,13,14,15 ; Colour 16-23 are C64 colours 8-15
 darkmode	!byte 0
 bgcol		!byte BGCOL, BGCOLDM
 fgcol		!byte FGCOL, FGCOLDM

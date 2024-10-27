@@ -334,9 +334,11 @@ ruby make.rb supermm.z5 -ss1:"Super Mario Murders" -ss2:"A coin-op mystery" \
 
 # Colours
 
-
 Ozmoo lets you pick two different colour schemes for your game. We refer to these two colour schemes as normal mode and darkmode. The idea is that you may want lighter text on a dark background when playing at night, while dark text on a light background has proven to be easier to read, in well-lit conditions. Ozmoo will always start in normal mode, and the player can switch between normal mode and darkmode using the F1 key. When switching modes, Ozmoo will change the colour of all onscreen text which has the default foreground colour *or* which has the same colour as the background colour in the mode it's switching to and thus would otherwise become invisible.
 
+## A word of caution
+
+The C64 has severe problems showing certain colours next to each other, e.g. brown text on blue background is typically impossible to read. As a rule of thumb, when two colours are to be next to each other on screen, make sure one of them is black or white, and the other has a reasonable high contrast to the first colour. E.g. Blue text on white background is fine, as is black text on light green background. 
 
 ## Colour switches
 
@@ -345,37 +347,79 @@ make.rb has the following switches to control colours:
     -dm:0
 Disables darkmode. (-dm or -dm:1 can be used to enable it, but it's already enabled by default unless the game is Beyond Zork)
 
-    -rc:(Z-code colour)=(C64 colour), ...
-Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
+	-fgcol:<colourname>
+Foreground colour: This picks the colour to use as default foreground colour. (Games in z5+ format can change this colour at will)
 
-    -dc:(Default background colour):(Default foreground colour)
-Default colours: This picks the Z-code colours to use as default background and foreground colours.
+	-bgcol:<colourname>
+Background colour: This picks the colour to use as default background colour. (Games in z5+ format can change this colour at will)
 
-    -sc:(Statusline colour)
-Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 1, 2 and 3 story files (z1/z2/z3).
+    -bordercol:<colourname>
+Border colour. This picks the colour to use as border colour. 
+Special colournames: bg = same as background colour (default), fg = same as foreground colour. If the game itself changes the screen colours, as games in z5+ format may do, values bg and fg mean the border changes too.
 
-    -ic:(Input colour)
-Input colour: This picks the Z-code colour to use for player input text. This is only possible with version 1, 2, 3 and 4 story files (z1/z2/z3/z4).
+    -statuscol:<colourname>
+Statusline colour: This picks the colour to use as statusline colour. This is only possible with version 1, 2 and 3 story files (z1/z2/z3).
 
-    -bc:(Border colour)
-Border colour. This picks the Z-code colour to use as border colour. 
-Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
+    -inputcol:<colourname>
+Input colour: This picks the colour to use for player input text. This is only possible with version 1, 2, 3 and 4 story files (z1/z2/z3/z4).
 
-    -cc:(Cursor color)
-Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 1 = same as foreground colour (default). If the game itself changes the screen colours, as it may do in Z5+ games, value 1 mean the cursor changes too.
+    -cursorcol:<colourname>
+Cursor colour: This picks the colour for the cursor shown when waiting for player input. fg = same as foreground colour (default). If the game itself changes the foreground colour, as games in z5+ format may do, value fg mean the cursor changes too.
 
 
-    -dmdc: (same as -dc but for darkmode)
+    -dmfgcol: (same as -fgcol but for darkmode)
 
-    -dmsc: (same as -sc but for darkmode)
+    -dmbgcol: (same as -bgcol but for darkmode)
 
-    -dmic: (same as -ic but for darkmode)
+    -dmbordercol: (same as -bordercol but for darkmode)
 
-    -dmbc: (same as -bc but for darkmode)
+    -dmstatuscol: (same as -statuscol but for darkmode)
 
-    -dmcc: (same as -dc but for darkmode)
+    -dminputcol: (same as -inputcol but for darkmode)
 
-## Cursor switches
+    -dmcursorcol: (same as -cursorcol but for darkmode)
+
+## Palette
+
+Z-code normally has a palette of eight colours, numbered 2-9:
+
+```
+    2 = black        (blk, black)           
+    3 = red          (red)
+    4 = green        (grn, green)
+    5 = yellow       (yel, yellow)
+    6 = blue         (blu, blue)
+    7 = magenta      (magenta, pur, purple)
+    8 = cyan         (cyn, cyan)
+    9 = white        (wht, white)
+```
+
+Additionally, Ozmoo provides eight more colours in the palette:
+
+```
+    16 = orange      (orng, orange)
+    17 = brown       (brn, brown)
+    18 = light red   (lred, lightred)   
+    19 = dark grey   (dgry, darkgrey, dgrey, darkgray, dgray) 
+    20 = medium grey (mgry, mediumgrey, mgrey, grey, mediumgray, mgray, gray)       
+    21 = light green (lightgreen, lgreen)   
+    22 = light blue  (lblu, lightblue, lblue)     
+    23 = light grey  (lgry, lightgrey, lgrey, lightgray, lgray)
+```
+
+The names in parenthesis are some of the synonyms you can use to refer to the colours on the command line. The short forms of the colours (e.g. blk and mgry) are the names printed on the key caps of the C64 and MEGA65.
+
+These sixteen colours are the colours that are provided by the C64. On other platforms, the same sixteen colours or approximations of these colours are used.
+
+## An example of setting colours
+Use cyan text on black background, have the border be the same colour as the text, and make the statusbar light grey (Please note that specifying the colour of the statusbar only works for z2/z2/z3 games!):
+
+```
+make.rb -fgcol:cyan -bgcol:black -bordercol:fg -statuscol:lightgrey game.z3
+```
+
+
+# Cursor switches
 
 The shape and the blinking of the cursor can also be customized:
 
@@ -384,62 +428,6 @@ Cursor blinking frequency. delay is 1 to 99, where 1 is fastest.
 
     -cs:(Cursor shape)
 Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
-
-## Palette
-
-Z-code has a palette of 8 colours, numbered 2-9:
-
-    2 = black       
-    3 = red         
-    4 = green       
-    5 = yellow      
-    6 = blue        
-    7 = magenta     
-    8 = cyan        
-    9 = white       
-
-The Commodore 64 has 16 colours, numbered 0-15:
-
-    0 = black
-    1 = white
-    2 = red
-    3 = cyan
-    4 = purple
-    5 = green
-    6 = blue
-    7 = yellow
-    8 = orange
-    9 = brown
-    10 = pink
-    11 = dark grey
-    12 = grey
-    13 = light green
-    14 = light blue
-    15 = light grey
-
-When building Ozmoo for the Plus/4, Ozmoo has a list of Plus/4 colours which are approximately equivalent to the 16 colours of the C64. Thus, you use the same colour numbers as for the C64 when referring to "native" (non Z-code) colours.
-
-The 80-column mode of the C128 has a different and rather limited palette. Ozmoo tries to use colours which are approximately the same as the C64 colours.
-
-## Examples
-
-Use cyan text on black background with a yellow statusbar (Please note that specifying the colour of the statusbar only works for z2/z2/z3 games!):
-
-```
-make.rb -dc:2:8 -sc:5 game.z3
-```
-
-Change so Z-code color 7 is dark grey instead of magenta and Z-code color 8 is light grey instead of cyan, and use these as default colors:
-
-```
-make.rb -rc:7=11,8=15 -dc:7:8 game.z5
-```
-
-Setting up the default palette (even though this isn't useful) is equivalent to using:
-
-```
-make.rb -rc:2=0,3=2,4=5,5=7,6=6,7=4,8=3,9=1 game.z5
-```
 
 # Fonts
 

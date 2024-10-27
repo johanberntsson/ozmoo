@@ -194,6 +194,98 @@ $varicella_releases = {
 	]
 }
 
+$colour_names = {
+	'black' => 2,
+	'blk' => 2,
+	'red' => 3,
+	'green' => 4,
+	'grn' => 4,
+	'yellow' => 5,
+	'yel' => 5,
+	'blue' => 6,
+	'blu' => 6,
+	'purple' => 7,
+	'pur' => 7,
+	'violet' => 7,
+	'magenta' => 7,
+	'cyan' => 8,
+	'cyn' => 8,
+	'azure' => 8,
+	'turquoise' => 8,
+	'white' => 9,
+	'wht' => 9,
+	'orange' => 16,
+	'orng' => 16,
+	'brown' => 17,
+	'brn' => 17,
+	'lightred' => 18,
+	'lred' => 18,
+	'lgtred' => 18,
+	'ltred' => 18,
+	'darkgrey' => 19,
+	'dgry' => 19,
+	'drkgrey' => 19,
+	'dkgrey' => 19,
+	'dgrey' => 19,
+	'grey1' => 19,
+	'darkgray' => 19,
+	'drkgray' => 19,
+	'dkgray' => 19,
+	'dgray' => 19,
+	'gray1' => 19,
+	'mediumgrey' => 20,
+	'mgry' => 20,
+	'medgrey' => 20,
+	'midgrey' => 20,
+	'mdmgrey' => 20,
+	'mdgrey' => 20,
+	'mgrey' => 20,
+	'grey2' => 20,
+	'grey' => 20,
+	'mediumgray' => 20,
+	'medgray' => 20,
+	'midgray' => 20,
+	'mdmgray' => 20,
+	'mdgray' => 20,
+	'mgray' => 20,
+	'gray2' => 20,
+	'gray' => 20,
+	'lightgreen' => 21,
+	'lgrn' => 21,
+	'lgtgreen' => 21,
+	'ltgreen' => 21,
+	'lgreen' => 21,
+	'lightblue' => 22,
+	'lblu' => 22,
+	'lgtblue' => 22,
+	'ltblue' => 22,
+	'lblue' => 22,
+	'lightgrey' => 23,
+	'lgry' => 23,
+	'lgtgrey' => 23,
+	'ltgrey' => 23,
+	'lgrey' => 23,
+	'grey3' => 23,
+	'lightgray' => 23,
+	'lgtgray' => 23,
+	'ltgray' => 23,
+	'lgray' => 23,
+	'gray3' => 23,
+}
+
+$bgcol_names = [
+	'background', 'bg', 
+	'backgroundcol', 'bgcol', 
+	'backgroundcolour', 'bgcolour',
+	'backgroundcolor', 'bgcolor',
+]
+
+$fgcol_names = [
+	'foreground', 'fg', 
+	'foregroundcol', 'fgcol', 
+	'foregroundcolour', 'fgcolour',
+	'foregroundcolor', 'fgcolor',
+]
 
 $d81interleave = [
 	# 0:No interleave
@@ -1126,9 +1218,13 @@ def build_interpreter()
 
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
-	colourflags = $colour_replacement_clause
-	unless $default_colours.empty? # or $zcode_version >= 5
-		colourflags += " -DBGCOL=#{$default_colours[0]} -DFGCOL=#{$default_colours[1]}"
+	colourflags = '' #$colour_replacement_clause
+	
+	if $bg_colour
+		colourflags += " -DBGCOL=#{$bg_colour}"
+	end
+	if $fg_colour
+		colourflags += " -DFGCOL=#{$fg_colour}"
 	end
 	if $border_colour
 		colourflags += " -DBORDERCOL=#{$border_colour}"
@@ -1140,8 +1236,11 @@ def build_interpreter()
 		colourflags += " -DINPUTCOL=#{$input_colour}"
 	end
 	unless $GENERALFLAGS.include?('NODARKMODE')
-		unless $default_colours_dm.empty? # or $zcode_version >= 5
-			colourflags += " -DBGCOLDM=#{$default_colours_dm[0]} -DFGCOLDM=#{$default_colours_dm[1]}"
+		if $bg_colour_dm
+			colourflags += " -DBGCOLDM=#{$bg_colour_dm}"
+		end
+		if $fg_colour_dm
+			colourflags += " -DFGCOLDM=#{$fg_colour_dm}"
 		end
 		if $border_colour_dm
 			colourflags += " -DBORDERCOLDM=#{$border_colour_dm}"
@@ -2193,10 +2292,12 @@ def print_usage
 	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-um[:0|1]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
-	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
-	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
+	puts "         [-fgcol:<colourname>] [-bgcol:<colourname>] [-bordercol:<colourname>]"
+	puts "         [-statuscol:<colourname>] [-inputcol:<colourname>] [-cursorcol:<colourname>]"
+	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
+	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
-	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
+	puts "         [-cb:[n]] [-cs:[b|u|l]] "
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
 	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
@@ -2223,16 +2324,17 @@ def print_usage
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
 	puts "  -rb: Enable the REU Boost feature"
 	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
-	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
-	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
-	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
-	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
+	puts "  -fgcol/dmfgcol: Use the specified foreground colour. See docs for details."
+	puts "  -bgcol/dmbgcol: Use the specified background colour. See docs for details."
+	puts "  -bordercol/dmbordercol: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
+	puts "  -statuscol/dmstatuscol Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  -inputcol/dminputcol: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
+	puts "  -cursorcol/dmcursorcol: Use the specified cursor colour. (1=same as fg (default)). See docs for details."
 	puts "  -dm: Enable the ability to switch to dark mode"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
-	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  -dt: Set the disk title to the specified text."
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
@@ -2242,6 +2344,15 @@ def print_usage
 	puts "  -x: Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only."
 	puts "  -df: Delete files after creating zip archive in ZIP mode. 0 is default. f=force."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
+end
+
+def colour_value(argument, in_string, fg_ok, bg_ok)
+	clean_string = in_string.downcase.gsub(/[-_.]/,'')
+	return 0 if bg_ok and $bgcol_names.include? clean_string
+	return 1 if fg_ok and $fgcol_names.include? clean_string
+	return $colour_names[clean_string] if $colour_names.has_key? clean_string
+	puts "ERROR: Unknown colour name for #{argument}."
+	exit 1
 end
 
 splashes = [
@@ -2272,9 +2383,10 @@ $program_end_address = 0x10000
 $memory_end_address = 0x10000
 $normal_ram_end_address = 0xd000
 $unbanked_ram_end_address = 0xd000
-$colour_replacements = []
-$default_colours = []
-$default_colours_dm = []
+$fg_colour = nil;
+$fg_colour_dm = nil;
+$bg_colour = nil;
+$bg_colour_dm = nil;
 $statusline_colour = nil
 $statusline_colour_dm = nil
 $input_colour = nil
@@ -2309,32 +2421,32 @@ reu_boost = nil
 x_for_examine = nil
 
 begin
-	while i < ARGV.length
+	ARGV.each do |arg|
 		if await_preloadfile then
 			await_preloadfile = false
-			preloadfile = ARGV[i]
+			preloadfile = arg
 		elsif await_soundpath then
 			await_soundpath = false
-			$sound_path = ARGV[i]
+			$sound_path = arg
 		elsif await_fontfile then
 			await_fontfile = false
-			$font_filename = ARGV[i]
+			$font_filename = arg
 		elsif await_imagefile then
 			await_imagefile = false
-			$loader_pic_file = ARGV[i]
-		elsif ARGV[i] =~ /^-o$/ then
+			$loader_pic_file = arg
+		elsif arg =~ /^-o$/ then
 			optimize = true
 			$no_sector_preload = true
-		elsif ARGV[i] =~ /^-in:(1?\d)$/ then
+		elsif arg =~ /^-in:(1?\d)$/ then
 			$interpreter_number = $1
-		elsif ARGV[i] =~ /^-s$/ then
+		elsif arg =~ /^-s$/ then
 			auto_play = true
-		elsif ARGV[i] =~ /^-rd$/ then
+		elsif arg =~ /^-rd$/ then
 			reserve_dir_track = true
-		elsif ARGV[i] =~ /^-p:(\d+)$/ then
+		elsif arg =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4|x16)$/ then
+		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    # $start_address = 0x1001
@@ -2356,74 +2468,80 @@ begin
 				$normal_ram_end_address = $memory_end_address
 				$CACHE_PAGES = 4 # Cache is static size on C128
 			end
-		elsif ARGV[i] =~ /^-ZIP$/ then
+		elsif arg =~ /^-ZIP$/ then
 			mode = MODE_ZIP
-		elsif ARGV[i] =~ /^-P$/ then
+		elsif arg =~ /^-P$/ then
 			mode = MODE_P
 			$CACHE_PAGES = 2 # We're not actually using the cache, but there may be a splash screen in it
-		elsif ARGV[i] =~ /^-S1$/ then
+		elsif arg =~ /^-S1$/ then
 			mode = MODE_S1
-		elsif ARGV[i] =~ /^-S2$/ then
+		elsif arg =~ /^-S2$/ then
 			mode = MODE_S2
-		elsif ARGV[i] =~ /^-D2$/ then
+		elsif arg =~ /^-D2$/ then
 			mode = MODE_D2
-		elsif ARGV[i] =~ /^-D3$/ then
+		elsif arg =~ /^-D3$/ then
 			mode = MODE_D3
-		elsif ARGV[i] =~ /^-71$/ then
+		elsif arg =~ /^-71$/ then
 			mode = MODE_71
-		elsif ARGV[i] =~ /^-71D$/ then
+		elsif arg =~ /^-71D$/ then
 			mode = MODE_71D
-		elsif ARGV[i] =~ /^-81$/ then
+		elsif arg =~ /^-81$/ then
 			mode = MODE_81
-		elsif ARGV[i] =~ /^-ch(?::(\d{1,3}))?$/ then
+		elsif arg =~ /^-ch(?::(\d{1,3}))?$/ then
 			if $1 == nil
 				$use_history = 1
 			else
 				$use_history = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-v$/ then
+		elsif arg =~ /^-v$/ then
 			$verbose = true
-		elsif ARGV[i] =~ /^-debug$/ then
+		elsif arg =~ /^-debug$/ then
 			$force_debug = true
-		elsif ARGV[i] =~ /^-b$/ then
+		elsif arg =~ /^-b$/ then
 			$no_sector_preload = true
-		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
-			$colour_replacements = $1.split(/,/)
-		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
-			$default_colours = [$1.to_i,$2.to_i]
-		elsif ARGV[i] =~ /^-dmdc:([2-9]):([2-9])$/ then
-			$default_colours_dm = [$1.to_i,$2.to_i]
-		elsif ARGV[i] =~ /^-bc:([0-9])$/ then
-			$border_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmbc:([0-9])$/ then
-			$border_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-sc:([2-9])$/ then
-			$statusline_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmsc:([2-9])$/ then
-			$statusline_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-ic:([2-9])$/ then
-			$input_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmic:([2-9])$/ then
-			$input_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-sp:(0?[2-9]|[1-5][0-9]|6[0-4])$/ then
+		elsif arg =~ /^-bordercol:(.*)$/
+			$border_colour = colour_value(arg, $1, true, true)
+		elsif arg =~ /^-dmbordercol:(.*)$/
+			$border_colour_dm = colour_value(arg, $1, true, true)
+		elsif arg =~ /^-statuscol:(.*)$/
+			$statusline_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dmstatuscol:(.*)$/
+			$statusline_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-fgcol:(.*)$/
+			$fg_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dmfgcol:(.*)$/
+			$fg_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-bgcol:(.*)$/
+			$bg_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dmbgcol:(.*)$/
+			$bg_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-inputcol:(.*)$/
+			$input_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dminputcol:(.*)$/
+			$input_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-cursorcol:(.*)$/
+			$cursor_colour = colour_value(arg, $1, true, false)
+		elsif arg =~ /^-dmcursorcol:(.*)$/
+			$cursor_colour_dm = colour_value(arg, $1, true, false)
+		elsif arg =~ /^-sp:(0?[2-9]|[1-5][0-9]|6[0-4])$/ then
 			$stack_pages = $1.to_i
-		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
+		elsif arg =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
-		elsif ARGV[i] =~ /^-asa$/ then
+		elsif arg =~ /^-asa$/ then
 			if $sound_format
 				puts "ERROR: Only one sound path can be specified."
 				exit 1
 			end
 			$sound_format = 'aiff'
 			await_soundpath = true
-		elsif ARGV[i] =~ /^-asw$/ then
+		elsif arg =~ /^-asw$/ then
 			if $sound_format
 				puts "ERROR: Only one sound path can be specified."
 				exit 1
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
-		elsif ARGV[i] =~ /^-df(?::([01f]))?$/ then
+		elsif arg =~ /^-df(?::([01f]))?$/ then
 			if $1 == '0'
 				$delete_zip_files = 0
 			elsif $1 == 'f'
@@ -2431,7 +2549,7 @@ begin
 			else
 				$delete_zip_files = 1
 			end
-		elsif ARGV[i] =~ /^-u(?::([01r]))?$/ then
+		elsif arg =~ /^-u(?::([01r]))?$/ then
 			if $1 == nil
 				$undo = 1
 			elsif $1 == 'r'
@@ -2440,90 +2558,83 @@ begin
 			else
 				$undo = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-x(?::([01]))?$/ then
+		elsif arg =~ /^-x(?::([01]))?$/ then
 			if $1 == nil
 				x_for_examine = 1
 			else
 				x_for_examine = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-cf$/ then
+		elsif arg =~ /^-cf$/ then
 			await_preloadfile = true
 			fill_preload = true
-		elsif ARGV[i] =~ /^-c$/ then
+		elsif arg =~ /^-c$/ then
 			await_preloadfile = true
-		elsif ARGV[i] =~ /^-f$/ then
+		elsif arg =~ /^-f$/ then
 			await_fontfile = true
-		elsif ARGV[i] =~ /^-if?$/ then
+		elsif arg =~ /^-if?$/ then
 			await_imagefile = true
-			$loader_flicker = ARGV[i] =~ /f$/
-		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
+			$loader_flicker = arg =~ /f$/
+		elsif arg =~ /^-ss([1-4]):(.*)$/ then
 			splashes[$1.to_i - 1] = $2
-		elsif ARGV[i] =~ /^-dt:(.*)$/ then
+		elsif arg =~ /^-dt:(.*)$/ then
 			$disk_title = $1
-		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
+		elsif arg =~ /^-sw:(\d{1,3})$/ then
 			$splash_wait = $1
-		elsif ARGV[i] =~ /^-cc:([0-9])$/ then
-			$cursor_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmcc:([0-9])$/ then
-			$cursor_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-cs:([b|u|l])$/ then
+		elsif arg =~ /^-cs:([b|u|l])$/ then
 			$cursor_shape = $1
-		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
+		elsif arg =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
-		elsif ARGV[i] =~ /^-re(?::([0-1]))?$/ then
+		elsif arg =~ /^-re(?::([0-1]))?$/ then
 			if $1 == nil
 				check_errors = 1
 			else
 				check_errors = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-um(?::([0-1]))?$/ then
+		elsif arg =~ /^-um(?::([0-1]))?$/ then
 			if $1 == '0'
 				$GENERALFLAGS.push('NO_DEFAULT_UNICODE_MAP') unless $GENERALFLAGS.include?('NO_DEFAULT_UNICODE_MAP') 
 			else
 				$GENERALFLAGS.delete('NO_DEFAULT_UNICODE_MAP') if $GENERALFLAGS.include?('NO_DEFAULT_UNICODE_MAP')
 			end
-		elsif ARGV[i] =~ /^-sl(?::([0-1]))?$/ then
+		elsif arg =~ /^-sl(?::([0-1]))?$/ then
 			if $1 == '0'
 				$GENERALFLAGS.delete('SLOW') if $GENERALFLAGS.include?('SLOW')
 			else
 				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 			end
-		elsif ARGV[i] =~ /^-bm$/ then
+		elsif arg =~ /^-bm$/ then
 			$DEBUGFLAGS.push('BENCHMARK') unless $DEBUGFLAGS.include?('BENCHMARK')
-		elsif ARGV[i] =~ /^-dm(?::([01]))?$/ then
+		elsif arg =~ /^-dm(?::([01]))?$/ then
 			if $1 == nil
 				dark_mode = 1
 			else
 				dark_mode = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-smooth(?::([01]))?$/ then
+		elsif arg =~ /^-smooth(?::([01]))?$/ then
 			if $1 == nil
 				smooth_scroll = 1
 			else
 				smooth_scroll = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
+		elsif arg =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
 			if $1 == nil
 				scrollback = 1
 			else
 				scrollback = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-rb(?::([01]))?$/ then
+		elsif arg =~ /^-rb(?::([01]))?$/ then
 			if $1 == nil
 				reu_boost = 1
 			else
 				reu_boost = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-fn:([a-z0-9\-\[\]\(\)\'\.]+)$/ then
+		elsif arg =~ /^-fn:([a-z0-9\-\[\]\(\)\'\.]+)$/ then
 			custom_file_name = $1
-		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
-			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
-		elsif ARGV[i] =~ /^-/i then
-			raise "Unknown option: " + ARGV[i]
+		elsif arg =~ /^-/i then
+			raise "Unknown or misformatted option: " + arg
 		else 
-			$story_file = ARGV[i]
+			$story_file = arg
 		end
-		i = i + 1
 	end
 	if !$story_file
 		print_usage_and_exit()
@@ -2736,24 +2847,6 @@ $GENERALFLAGS.push('SPANISH_CHARS') if $char_map == 'es'
 $GENERALFLAGS.push('FRENCH_CHARS') if $char_map == 'fr'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
-
-$colour_replacement_clause = ''
-unless $colour_replacements.empty?
-	$colour_replacements.each do |r|
-		r =~ /^(\d\d?)=(\d\d?)$/
-		zcode_colour = $1
-		c64_colour = $2
-		if zcode_colour !~ /^[2-9]$/
-			puts "ERROR: -rc requires a Z-code colour value (2-9) to the left of the = character."
-			exit 1
-		end
-		if c64_colour !~ /^([0-9]|1[0-5])$/
-			puts "ERROR: -rc requires a C64 colour value (0-15) to the right of the = character."
-			exit 1
-		end
-		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
-	end
-end
 
 if $stack_pages < 4 and mode != MODE_P
 	puts "ERROR: Stack pages < 4 is only allowed in build mode P."

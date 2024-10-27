@@ -7,6 +7,8 @@ Optimizations:
 - Changed File.exists to File.exist in make.rb, as the latter is correct, and the former isn't supported in newer Ruby versions.
 - Removed option -scale 2 for xemu (X16 emulator), as this could wreck havoc on some screens.
 - Updated the manual section on dependencies.
+- Changed make.rb options for choosing colours. New options are e.g. -fgcol:black -bgcol:yellow -bordercol:fg -inputcol:lightgrey -cursorcol:lightblue -dmfgcol:blue -dmbgcol:ltgreen. 
+- No more colour replacing, as all 16 colours of the c64 palette are now always available. A game can use the extra colours too (colour 8-15 in the C64 palette are colour 16-23 in the Z-code palette). 
 
 ================================================
 Release 14.40: 28 Sep 2024
