@@ -28,6 +28,7 @@ s_reverse 			  = $b3 ; !byte 0
 
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
+is_buffered_window	  = $c8;  !byte 1
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 reu_filled            = $0255 ; 4 bytes
 vmap_buffer_start     = $0334
@@ -54,7 +55,6 @@ zp_temp               = $3b ; 5 bytes
 ;window_start_row	  = $88; 4 bytes
 window_start_row	  = $2a; 4 bytes
 
-
 num_rows 			  = $b7 ; !byte 0
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
@@ -62,6 +62,8 @@ s_ignore_next_linebreak = $b8 ; 3 bytes
 s_reverse 			  = $bb ; !byte 0
 
 savefile_zp_pointer   = $c1 ; 2 bytes
+is_buffered_window	  = $d0;  !byte 1
+
 ; first_banked_memory_page = $fc ; Normally $fc (meaning $fc00-$ffff needs banking, but that area can't be used anyway) 
 
 fkey_string_lengths = $55f
@@ -108,6 +110,7 @@ s_reverse 			  = $b3 ; !byte 0
 
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
+is_buffered_window	  = $c8;  !byte 1
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
 ;reu_filled            = $0255 ; 4 bytes
 vmap_buffer_start     = $0334
@@ -215,16 +218,13 @@ dynmem_pointer			= $85; 4 bytes
 ;mempointer            = $89 ; 2 bytes + 2 bytes for MEGA65
 mempointer            = $26 ; 2 bytes + 2 bytes for MEGA65
 
-!ifdef TARGET_MEGA65 {
-}
-
 vmem_temp			  = $92 ; 2 bytes
 ; alphabet_table		  = $96 ; 2 bytes
 
 
 current_window		  = $a7 ; !byte 0
 
-is_buffered_window	  = $ab;  !byte 1
+;is_buffered_window	  = $ab;  !byte 1
 
 
 s_stored_x			  = $b4 ; !byte 0
