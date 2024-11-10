@@ -166,3 +166,5 @@ kernal_save           = $ffd8 ; save file
 kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
+
+kernal_entropy_get    = $fecf;
