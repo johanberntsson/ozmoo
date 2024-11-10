@@ -222,7 +222,7 @@ vmem_temp			  = $92 ; 2 bytes
 ; alphabet_table		  = $96 ; 2 bytes
 
 
-current_window		  = $a7 ; !byte 0
+current_window		  = $d8 ; !byte 0
 
 ;is_buffered_window	  = $ab;  !byte 1
 
