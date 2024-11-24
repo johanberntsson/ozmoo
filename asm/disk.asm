@@ -1785,7 +1785,7 @@ do_save
 .save_msg	!pet 13,"Saving...",13,0
 .restore_msg	!pet 13,"Restoring...",13,0
 .restore_filename !pet $5d,"0*" ; 0 will be changed to selected slot
-.erase_cmd !pet "s:!0*" ; 0 will be changed to selected slot
+.erase_cmd !pet "s:]0*" ; 0 will be changed to selected slot
 .swap_pointers_for_save
 	ldx #zp_bytes_to_save - 1
 -	lda zp_save_start,x

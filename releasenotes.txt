@@ -16,6 +16,7 @@ Bugfixes:
 - Zeropage location $ab was used to remember if text output is buffered on C64, MEGA65 and Plus/4, but this address was actually unsafe to use on all of these platforms. Changed it to $c8 on C64/MEGA65 and $d0 on Plus/4.
 - Zeropage location $a7 was used to remember current window on C64/MEGA65 and Plus/4. This was breaking compatibility with fastload module of Action Replay cartridge on C64. Changed to use $d8 on all three platforms.
 - Fixed broken PRNG initialization for X16.
+- Overwriting save files had been broken for many months, but we didn't know. Fixed it now.
 
 ================================================
 Release 14.40: 28 Sep 2024
