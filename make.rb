@@ -2309,21 +2309,20 @@ def print_usage
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
 	puts "  -bm: Build interpreter in Benchmark Mode. There must be a valid walkthrough in benchmarks.json."
-	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."
+	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."	
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
 	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
-	puts "  -s: start game in Vice if build succeeds"
+	puts "  -s: start game in emulator if build succeeds"
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
-	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default."
+	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default. Takes up 83 bytes."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
 	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
-	puts "  -rb: Enable the REU Boost feature"
-	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
+	puts "  -rb: Enable the REU Boost feature. Enabled by default. Takes up 155 bytes."
 	puts "  -fgcol/dmfgcol: Use the specified foreground colour. See docs for details."
 	puts "  -bgcol/dmbgcol: Use the specified background colour. See docs for details."
 	puts "  -bordercol/dmbordercol: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
@@ -2633,6 +2632,10 @@ begin
 		elsif arg =~ /^-/i then
 			raise "Unknown or misformatted option: " + arg
 		else 
+			if $story_file
+				puts "ERROR: Only one story file can be specified."
+				exit 1
+			end
 			$story_file = arg
 		end
 	end

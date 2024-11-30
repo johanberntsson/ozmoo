@@ -280,7 +280,7 @@ Disks used:
 
 - Boot / Story disk
 
-### Modes requiring two 1571 drive for play:
+### Modes requiring two 1571 drives for play:
 
 71D: _Double 1571 drives, two disks_
 
@@ -338,7 +338,7 @@ Ozmoo lets you pick two different colour schemes for your game. We refer to thes
 
 ## A word of caution
 
-The C64 has severe problems showing certain colours next to each other, e.g. brown text on blue background is typically impossible to read. As a rule of thumb, when two colours are to be next to each other on screen, make sure one of them is black or white, and the other has a reasonable high contrast to the first colour. E.g. Blue text on white background is fine, as is black text on light green background. 
+The C64 has severe problems showing certain colours next to each other, e.g. brown text on blue background is typically impossible to read. As a rule of thumb, when two colours are to be next to each other on screen, make sure one of them is black or white, and the other has a reasonably high contrast to the first colour. E.g. Blue text on white background is fine, as is black text on light green background. 
 
 ## Colour switches
 
