@@ -160,7 +160,7 @@ dragontroll = '../examples/dragontroll.z5'
 show_dir = {'*SHOW' => 1}
 
 dir = 'x16_minizork'
-expect_success(minizork, 'x16', '-ZIP -re -fn:hello -bc:0 -dc:2:3 -ic:4 -sc:4 -dmdc:3:2 -dmic:4 -dmsc:4 -df:0 -dt:goodbye -u -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -ch -cb:30 -cs:b -sw:30 -ss1:"123456789 123456789 123456789 123456789" -ss2:"123456789 123456789 123456789 123456789" -ss4:"123456789 123456789 123456789 123456789" -ss3:"123456789 123456789 123456789 123456789"', 
+expect_success(minizork, 'x16', '-ZIP -re -fn:hello -bordercol:bg -bgcol:blk -fgcol:red -inputcol:green -statuscol:green -dmbgcol:red -dmfgcol:black -dminputcol:green -dmstatuscol:green -df:0 -dt:goodbye -u -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -ch -cb:30 -cs:b -sw:30 -ss1:"123456789 123456789 123456789 123456789" -ss2:"123456789 123456789 123456789 123456789" -ss4:"123456789 123456789 123456789 123456789" -ss3:"123456789 123456789 123456789 123456789"', 
 	{"#{dir}.zip" => 1, "#{dir}/HELLO.PRG" => 1, "#{dir}/[ZCODE]" => 1, "#{dir}/[FONT]" => 1, "#{dir}" => 1})
 
 expect_failure(dragontroll, 'c64', '-P -u', 'ERROR: Undo is not supported for build mode P', false, nil)
@@ -174,7 +174,7 @@ expect_success(dragontroll, 'c64', '-81 -p:255 -re -fn:hello -f ../fonts/sv/PXLf
 expect_success(minizork, 'c64', '-81 -p:255 -re -fn:hello -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -if ../examples/eka.kla -ch -sb:12 -rb:1 -smooth -cb:30 -cs:b -dt:"monkey monkey 12" -sw:30 -ss1:"123456789 123456789 123456789 123456789" -ss2:"123456789 123456789 123456789 123456789" -ss4:"123456789 123456789 123456789 123456789" -ss3:"123456789 123456789 123456789 123456789" -u', 
 	{'c64_minizork.d81' => {'loader' => [32,34], 'data' => 200, 'hello' => [137, 145], '*FREE' => [2782, 2790] }})
 
-expect_success(dragontroll, 'c64', '-81 -p:0 -b -sp:4 -re -sl -fn:hello -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -if ../examples/eka.kla -ch:255 -sb:6 -rb -rc:4=5,6=11 -dc:2:4 -bc:5 -dm:1 -smooth -cb:30 -cc:5 -cs:u -dt:"monkey" -rd -sw:30 -ss1:"Good game"', 
+expect_success(dragontroll, 'c64', '-81 -p:0 -b -sp:4 -re -sl -fn:hello -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -if ../examples/eka.kla -ch:255 -sb:6 -rb -bgcol:black -fgcol:green -bordercol:yellow -dm:1 -smooth -cb:30 -cursorcol:yellow -cs:u -dt:"monkey" -rd -sw:30 -ss1:"Good game"', 
 	{'c64_dragontroll.d81' => {'loader' => [32,34], 'data' => 40, 'hello' => [51, 59], '*FREE' => [3028, 3036] }})
 
 expect_success(dragontroll, 'c64', '-P -sp:10 -ss1:"This is the greatest game ever made"', 
@@ -184,13 +184,13 @@ expect_success(dragontroll, 'c64', '-S2 -sp:8 -sl',
 	{'c64_dragontroll_boot.d64' => {'story' => [51, 59], '*FREE' => [603,611]}, 
 	'c64_dragontroll_story.d64' => {'*FREE' => [638,646]}})
 
-expect_success(minizork, 'plus4', '-81 -p:1 -b -sp:4 -re -sl -fn:hello -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -i ../examples/scifi.mbo -ch:255 -sb:6 -rc:4=5,6=11 -dc:2:4 -bc:5 -sc:5 -ic:5 -dm:0 -cb:99 -cc:5 -cs:l -dt:"monkey 2" -rd -sw:30 -ss1:"Good game"', {
+expect_success(minizork, 'plus4', '-81 -p:1 -b -sp:4 -re -sl -fn:hello -f ../fonts/sv/PXLfont-rf-SV.fnt -cm:sv -in:3 -i ../examples/scifi.mbo -ch:255 -sb:6 -bgcol:black -fgcol:green -bordercol:yellow -statuscol:yel -inputcol:yel -dm:0 -cb:99 -cursorcol:yel -cs:l -dt:"monkey 2" -rd -sw:30 -ss1:"Good game"', {
 	'plus4_minizork.d81' => {'loader' => [19,21], 'data' => 200, 'hello' => [62, 70], '*FREE' => [2870, 2878]}})
 
 expect_success(minizork, 'c64', '-P -sw:0 -rb:0', {
 	'c64_minizork.d64' => {'story' => [175, 183], '*FREE' => [481, 489]}})
 
-expect_success(minizork, 'c64', '-D2 -dmdc:2:3 -dmbc:4 -dmsc:5 -dmic:2 -dmcc:4 -sw:0 -sb -u', {
+expect_success(minizork, 'c64', '-D2 -dmbgcol:black -dmfgcol:ltgrey -dmbordercol:grn -dmstatuscol:yel -dminputcol:white -dmcursorcol:green -sw:0 -sb -u', {
 	'c64_minizork_boot_story_1.d64' => {'story' => [176, 184], '*FREE' => [394, 402]}, 
 	'c64_minizork_story_2.d64' => {'*FREE' => [574, 582]}})
 

@@ -134,7 +134,7 @@ setup_sound_mempointer_32
 	jmp .loaded_sounds_success
 
 read_sound_files
-	bit m65_statmem_already_loaded
+	bit m65_x16_statmem_already_loaded
 	bpl +
 
 	jsr setup_sound_mempointer_32

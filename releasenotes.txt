@@ -1,6 +1,12 @@
 RELEASE NOTES
 
 Upcoming release
+================================================
+Release 14.48: 1 Dec 2024
+
+Bugfixes:
+- Fixed bug which stopped sound games from building.
+- Fixed test cases in tests folder which hadn't been updated to new way of specifying colours.
 
 ================================================
 Release 14.47: 1 Dec 2024
