@@ -17,6 +17,11 @@ vmem_cache_bank_index !fill cache_pages + 1, 0
 
 !ifndef SKIP_VMEM_BUFFERS {
 get_free_vmem_buffer
+	; Return page in a, index (typically 0-3) in x
+	; Note: Caller must store which RAM page is cached in this buffer, 
+	; in vmem_cache_page_index,x ( + vmem_cache_bank_index,x on C128)
+	; If none, store 0
+
 	; Protect buffer which z_pc points to
 	lda vmem_cache_cnt
 	tax

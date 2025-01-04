@@ -1056,6 +1056,14 @@ launch_scrollback
 	lda #(>SCREEN_ADDRESS) + 1
 } else {
 	jsr get_free_vmem_buffer
+	; Forget that anything is stored in this vmem buffer
+	pha
+	lda #0
+	sta vmem_cache_page_index,x
+!ifdef TARGET_C128 {
+	sta vmem_cache_bank_index,x
+}
+	pla
 }
 	sta z_operand_value_low_arr + 6
 
@@ -1287,7 +1295,7 @@ launch_scrollback
 	jsr .scroll_up_one_line
 	jmp .adjust_and_show_screen
 
-++	cpy #17
+++	cmp #17
 	bne ++
 	; Scroll down
 	jsr .scroll_down_one_line

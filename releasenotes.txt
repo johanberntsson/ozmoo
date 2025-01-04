@@ -1,6 +1,9 @@
 RELEASE NOTES
 
 Upcoming release
+
+- Fixed bug in scrollback, which could crash game after looking at scrollback buffer on C64 and C128.
+
 ================================================
 Release 14.48: 1 Dec 2024
 
