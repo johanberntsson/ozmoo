@@ -28,3 +28,4 @@ header_terminating_chars_table = $2e
 header_standard_revision_number = $32
 header_alphabet_table = $34
 header_header_extension_table = $36
+header_username = $38

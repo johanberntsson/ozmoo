@@ -2,6 +2,14 @@ RELEASE NOTES
 
 Upcoming release
 
+New/changed features:
+- Added option to write an Ozmoo signature into the game header - target platform (1-5), minor version#, "OZ", at $38-$3b. Can be controlled with -sig[:0|1|noninfocom]. Default is noninfocom, meaning it's written if the serial number starts with 0-7 or 9.
+- Added option -username:"value" to write a username into the game header. E.g. to make the debug verb "flush 33" work in Hollywood Hijinx, you can do -username:TOMAS
+
+================================================
+Release 14.49: 26 Jan 2025
+
+Bugfixes:
 - Fixed bug in scrollback, which could crash game after looking at scrollback buffer on C64 and C128.
 
 ================================================

@@ -71,6 +71,16 @@ unless $settings_file.empty?
 	end
 end
 
+$version = File.read(File.join(__dir__, 'version.txt'))
+$version.gsub!(/[^\d\.]/m,'')
+if $version =~ /^(\d+)\.(\d+)$/
+	$major_version = $1.to_i
+	$minor_version = $2.to_i
+else
+	$major_version = $version.to_i
+	$minor_version = 0
+end
+
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
 
 # Typically none should be enabled.
@@ -1198,6 +1208,8 @@ def build_interpreter()
 		necessarysettings +=  " --cpu 6510"
 	end
 	necessarysettings +=  " --format cbm"
+	necessarysettings +=  " -DMAJOR_VERSION_NO=#{$major_version} -DMINOR_VERSION_NO=#{$minor_version}"
+
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
@@ -2297,8 +2309,9 @@ def print_usage
 	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
 	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
-	puts "         [-cb:[n]] [-cs:[b|u|l]] "
-	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] "
+	puts "         [-cb:[n]] [-cs:[b|u|l]]"
+	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
+	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
 	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
 	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
@@ -2339,6 +2352,8 @@ def print_usage
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
+	puts "  -sig: Write Ozmoo's signature into the header. Default is 'noninfocom', i.e. for all non-Infocom games."
+	puts "  -username: Write a username (1-8 characters) into header (Note: only capitals were used by Infocom)."
 	puts "  -u: Add support for UNDO. Enabled by default for MEGA65. Use -u:r for RAM buffer (C128 only)"
 	puts "  -x: Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only."
 	puts "  -df: Delete files after creating zip archive in ZIP mode. 0 is default. f=force."
@@ -2418,6 +2433,8 @@ smooth_scroll = nil
 scrollback = nil
 reu_boost = nil
 x_for_examine = nil
+write_signature = nil
+username = nil
 
 begin
 	ARGV.each do |arg|
@@ -2627,6 +2644,17 @@ begin
 			else
 				reu_boost = $1.to_i
 			end
+		elsif arg =~ /^-sig(?::([01]|noninfocom))?$/ then
+			if $1 == nil
+				write_signature = 1
+			elsif $1 == 'noninfocom'
+				write_signature = 2
+			else
+				write_signature = $1.to_i
+			end
+		
+		elsif arg =~ /^-username:(.*)$/ then
+			username = $1
 		elsif arg =~ /^-fn:([a-z0-9\-\[\]\(\)\'\.]+)$/ then
 			custom_file_name = $1
 		elsif arg =~ /^-/i then
@@ -2652,6 +2680,28 @@ rescue => e
 end
 
 puts "Using settings file #{$settings_file}" if $verbose and ! $settings_file.empty?
+
+$target_number =
+	case $target
+	when 'c128' then 2
+	when 'plus4' then 3
+	when 'mega65' then 4
+	when 'x16' then 5
+	else 1
+	end
+
+if username
+	if write_signature and write_signature > 0
+		puts "ERROR: Username and signature can't be used together." 
+		exit 1
+	elsif username.length > 8
+		puts "ERROR: Username can't be longer than 8 characters." 
+		exit 1
+	end
+	write_signature = 0 # If signature wasn't set, disable, since they occupy the same bytes in header
+end
+
+write_signature = 2 unless write_signature # Default to non-infocom setting
 
 if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1
@@ -2957,6 +3007,18 @@ end
 
 $vmem_highbyte_mask = ($zcode_version < 4) ? 0x00 : (($zcode_version > 5) ? 0x03 : 0x01)
 
+serial_start = $story_file_data[0x12].ord
+if write_signature == 1 or write_signature == 2 && serial_start.chr =~ /[0-79]/ # Non-Infocom start with 0-7 or 9
+	$story_file_data[0x38 .. 0x3b] = [ $target_number, $minor_version, 0x4f, 0x5a].pack("C*")
+elsif username
+	username_arr = [0,0,0,0,0,0,0,0]
+	username.length.times do |i|
+		username_arr[i] = username[i].ord
+	end
+	$story_file_data[0x38 .. 0x3f] = username_arr.pack("C*")
+end
+
+
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
 	puts "ERROR: Options -sc and -dmsc can only be used with z1-z3 story files."
 	exit 1
@@ -3207,9 +3269,7 @@ end
 # ]
 # splashes[0] = filename_to_title(storyname, 40)
 splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
-version = File.read(File.join(__dir__, 'version.txt'))
-version.gsub!(/[^\d\.]/m,'')
-splash.gsub!("@vs@", version)
+splash.gsub!("@vs@", $version)
 #splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $GENERALFLAGS.include?('NODARKMODE')
 
 4.times do |i|
