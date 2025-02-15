@@ -688,6 +688,9 @@ z_ins_restart
 	; must select memory under $4000 (basic)
 	!pet "sY4e3",13,0
 .restart_code_address = 4000
+} else ifdef TARGET_X16 {
+	!pet "sY1800",13,0
+.restart_code_address = 1800
 } else {
 	!pet "sY3e4",13,0
 .restart_code_address = 30000 ; $7530

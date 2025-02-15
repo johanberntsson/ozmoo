@@ -2830,7 +2830,10 @@ m65_x16_load_dynmem_maybe_statmem
 	ldx m65_x16_statmem_already_loaded
 	beq ++ ; Statmem is not loaded => load entire zcode file
 	ldx nonstored_pages
-	stx m65_x16_reu_load_page_limit
+	cpx #64 ; First 16 K, in low RAM, may be corrupted
+	bcs +++
+	ldx #64
++++	stx m65_x16_reu_load_page_limit
 	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
 	stx m65_x16_reu_enable_load_page_limit
 
