@@ -2,9 +2,15 @@ RELEASE NOTES
 
 Upcoming release
 
+
+================================================
+Release 14.51: 20 Mar 2025
+
 New/changed features:
 - Added option to write an Ozmoo signature into the game header - target platform (1-5), minor version#, "OZ", at $38-$3b. Can be controlled with -sig[:0|1|noninfocom]. Default is noninfocom, meaning it's written if the serial number starts with 0-7 or 9.
 - Added option -username:"value" to write a username into the game header. E.g. to make the debug verb "flush 33" work in Hollywood Hijinx, you can do -username:TOMAS
+
+Bugfixes:
 - Fixed corrupt story file in RAM after restart command or a reset, on X16.
 
 ================================================
