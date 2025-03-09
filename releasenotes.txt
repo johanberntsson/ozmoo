@@ -1,7 +1,7 @@
 RELEASE NOTES
 
 Upcoming release
-
+- Fixed bug in calculation of save slot count for non-VM builds on C64, Plus/4 and MEGA65.
 
 ================================================
 Release 14.51: 20 Feb 2025

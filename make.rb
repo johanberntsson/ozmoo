@@ -1692,7 +1692,9 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1769,7 +1771,9 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Story disk"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1874,7 +1878,9 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1975,7 +1981,9 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -2053,9 +2061,11 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		disk.config_track_map.length] + disk.config_track_map
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
-	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
-	
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
+
 	config_data += vmem_data
 
 	#	puts config_data
@@ -2129,8 +2139,10 @@ def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data,
 		disk2.config_track_map.length] + disk2.config_track_map
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
-	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -2210,8 +2222,10 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		disk.config_track_map.length] + disk.config_track_map
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
-	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -3468,22 +3482,14 @@ end
 
 ############################# End of moved block
 
-limit_vmem_data_preload(vmem_data)
+if $VMEM
+	limit_vmem_data_preload(vmem_data)
+end
 
 if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
 	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
 	preload_max_vmem_blocks = vmem_data[3]
 end
-
-# if $VMEM 
-	# if mode == MODE_P
-		# puts "ERROR: Tried to use build mode -P with VMEM."
-		# exit 1
-	# end
-# elsif mode != MODE_P
-	# puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-	# exit 1
-# end
 
 case mode
 when MODE_P

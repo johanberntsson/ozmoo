@@ -59,16 +59,10 @@ dma_modulo					!word 0		; Ignored, since we're not using the MODULO flag
 }
 
 !ifndef VMEM {
-;	!ifdef TARGET_MEGA65 {
 disk_info
 		!byte 0, 0, 2  ; Interleave, save slots, # of disks
 		!byte 8, 8, 0, 0, 0, 130, 131, 0 
 		!pet 11, 8, 0, 0, 0, 128, "/ ", 129, 131, 0 
-	; } else { 
-; disk_info
-		; !byte 0, 0, 1  ; Interleave, save slots, # of disks
-		; !byte 8, 8, 0, 0, 0, 130, 131, 0 
-	; }
 } else {
 ; VMEM
 

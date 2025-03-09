@@ -2258,7 +2258,7 @@ deletable_init
 	lda zp_temp + 2
 	sbc zp_temp + 1
 	sta zp_temp + 2
-	bmi .no_more_slots
+	bcc .no_more_slots
 	inx
 	cpx #$3a
 	bcs .no_more_slots
