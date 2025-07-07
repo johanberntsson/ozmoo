@@ -26,6 +26,8 @@
 .stack_pushed_bytes_record 	!byte 0,0
 .stack_size_record		!byte 0,0
 .stack_size				!byte 0,0
+.stack_call_depth		!byte 0,0
+.stack_call_depth_record !byte 0,0
 }
 
 
@@ -102,7 +104,7 @@ stack_push_top_value
 	stx .stack_size_record + 1
 	jsr printinteger
 	jsr newline
-.no_size_record	
+.no_size_record
 	ldx zp_temp + 4
 }
 
@@ -144,6 +146,29 @@ stack_call_routine
 	stx zp_temp
 	sty zp_temp + 1
 	sta stack_tmp + 4
+
+!ifdef VIEW_STACK_RECORDS {
+	inc .stack_call_depth + 1
+	bne +
+	inc .stack_call_depth
++
+	lda .stack_call_depth_record + 1
+	cmp .stack_call_depth + 1
+	lda .stack_call_depth_record
+	sbc .stack_call_depth
+	bcs .no_call_depth_record
+
+	jsr print_following_string
+!text 13,"!!! Call depth record: ",0 
+	lda .stack_call_depth
+	sta .stack_call_depth_record
+	ldx .stack_call_depth + 1
+	stx .stack_call_depth_record + 1
+	jsr printinteger
+	jsr newline
+
+.no_call_depth_record
+}
 
 	; TASK: Wrap up current stack frame
 	lda stack_has_top_value
@@ -436,6 +461,15 @@ stack_return_from_routine
 	; Save input values
 +	sta zp_temp
 	stx zp_temp + 1
+
+!ifdef VIEW_STACK_RECORDS {
+	dec .stack_call_depth + 1
+	lda .stack_call_depth
+	cmp #255
+	bne +
+	dec .stack_call_depth
++
+}
 	
 	; Read pc to return to and whether to store return value in this frame
 	ldy z_local_var_count
