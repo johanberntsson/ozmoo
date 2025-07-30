@@ -344,7 +344,7 @@ launch_scrollback
 .get_char
 	jsr kernal_getchar
 	ldx s_screen_height_minus_one
-	stx z_temp + 10 ; Counter for how many lines to scoll for PgUp/PgDown
+	stx z_temp + 10 ; Counter for how many lines to scroll for PgUp/PgDown
 	ldx #0
 	stx z_temp + 11 ; Counter for how many lines were actually scrolled
 
@@ -1266,7 +1266,7 @@ launch_scrollback
 .get_char
 	jsr kernal_getchar
 	ldx s_screen_height_minus_one
-	stx z_temp + 10 ; Counter for how many lines to scoll for PgUp/PgDown
+	stx z_temp + 10 ; Counter for how many lines to scroll for PgUp/PgDown
 	ldx #0
 	stx z_temp + 11 ; Counter for how many lines were actually scrolled
 

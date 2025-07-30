@@ -86,7 +86,7 @@ parse_dictionary
 ;    ldx dict_entries
 ;    lda dict_entries + 1
 ;    jsr set_z_address
-;-   ; show the dictonary word
+;-   ; show the dictionary word
 ;    jsr print_addr
 ;    jsr newline
 ;    ; skip the extra data bytes

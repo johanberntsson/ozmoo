@@ -70,7 +70,7 @@
     ; unknown chunk
 .bad_parse_wav
     ; just returning without setting sample_address_start
-    ; will trigger an error messsage
+    ; will trigger an error message
     rts
 .next_chunk
     ldq sound_file_target
