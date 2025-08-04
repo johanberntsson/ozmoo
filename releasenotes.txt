@@ -4,6 +4,7 @@ Upcoming release
 - Fixed bug in calculation of save slot count for non-VM builds on C64, Plus/4 and MEGA65.
 - Added information on max call depth to VIEW_STACK_RECORDS mode.
 - Fixed so MEGA65 builds with darkmode don't write to some random memory location when the player switches to darkmode on splash screen, due to dynmem_pointer not having been initiated yet - now it's initiated before the splash screen is shown.
+- Added support for showing a loader image on MEGA65 (Type: IFF, in PRG format)
 
 ================================================
 Release 14.51: 20 Feb 2025

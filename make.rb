@@ -958,7 +958,9 @@ class D81_image < Disk_image
 		end
 	end
 
-	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
+#	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
+	def add_file(filename, filecontents, filetype = 'SEQ') # Returns last sector used
+		last_sector = nil
 		sector_count = 0
 		last_sector_used = nil
 		if filecontents == nil or filecontents.length == 0
@@ -997,12 +999,18 @@ class D81_image < Disk_image
 		end
 		
 		# Add file to directory
-		dir_entry = ([0x81] + start_sector).pack("CCC") + 
+		filetype_number = 0x81
+		if filetype =~ /PRG/i
+			filetype_number = 0x82;
+		end
+		dir_entry = ([filetype_number] + start_sector).pack("CCC") + 
 			name_to_c64(filename).ljust(16, 0xa0.chr) +
 			"".ljust(9, 0.chr) + 
 			[sector_count % 256, sector_count / 256].pack("CC")
 		
 		@add_to_dir.push dir_entry
+		
+		puts "Added file #{filename} to disk." if $verbose
 		
 		return last_sector_used
 	end
@@ -2164,6 +2172,8 @@ def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data,
 	nil # Signal success
 end
 
+$d81_img_loader_hex = "01 20 2D 20 0A 00 FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 37 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 4D 20 0F 00 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 6D 20 14 00 FE 43 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 96 20 1E 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 AB 20 2D 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 BD 20 32 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 CE 20 3C 00 8A 22 4C 4F 41 44 45 52 22 2C 55 44 00 00 00"
+
 def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
 				preload_max_vmem_blocks)
 
@@ -2176,6 +2186,19 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	if $target == "mega65" then
 		last_sector = nil
+
+		# Add picture loader for MEGA65
+		if $loader_pic_file
+			m65_imgloader_bin = ""
+			$d81_img_loader_hex.split(/\s+/).each do |hex_string|
+				m65_imgloader_bin += [hex_string.hex].pack("C*")
+			end
+			disk.add_file('autoboot.c65', m65_imgloader_bin, 'PRG')
+
+			file_contents = IO.binread($loader_pic_file)
+			last_sector = disk.add_file('ldrimg.iff', file_contents, 'PRG');
+		end
+
 		$sound_files.each do |file|
 			f = file
 			tf = ')' + f.gsub(/^.*\//,'')
@@ -2198,7 +2221,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	# Build picture loader
 	if $loader_pic_file
-		loader_size = build_loader_file()
+		if $target == 'mega65'
+			loader_size = 254 + File.size($loader_pic_file);
+		else
+			loader_size = build_loader_file()
+		end
 		free_blocks -= (loader_size / 254.0).ceil
 		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
 	end
@@ -2249,11 +2276,12 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			end
 		end
 	end
+
 	
 	disk.save()
 
-	# Add picture loader
-	if $loader_pic_file
+	# Add picture loader for C64/Plus4
+	if $loader_pic_file and $target != 'mega65'
 		if add_loader_file(diskimage_filename) != true
 			puts "ERROR: Failed to write loader to disk."
 			exit 1
@@ -2345,7 +2373,7 @@ def print_usage
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default. Takes up 83 bytes."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
-	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
+	puts "  -i: Add a loader using the specified image (Koala Multicolor for C64, Multibotticelli for Plus/4, IFF for MEGA65)"
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
@@ -2839,11 +2867,11 @@ if mode == MODE_P and $target == 'c128'
 end
 
 if $loader_pic_file
-	if $target != 'c64' and $target != 'plus4'
+	if $target !~ /^(c64|plus4|mega65)$/
 		puts "ERROR: Image loader is not supported on this target platform."
 		exit 1
 	end
-	if $target == 'plus4' and $loader_flicker
+	if $target != 'c64' and $loader_flicker
 		puts "ERROR: Flicker during loading is not supported on this target platform."
 		exit 1
 	end
@@ -2973,14 +3001,21 @@ storyname = File.basename($story_file, extension)
 $disk_title = storyname unless $disk_title
 
 if $target == "mega65"
-	$file_name = 'autoboot.c65'
+	if $loader_pic_file
+		$file_name = 'loader'
+	else
+		$file_name = 'autoboot.c65'
+	end
 end
 if $target == "x16"
 	$file_name = storyname.downcase + '.prg'
 end
 
 if custom_file_name
-	if $target == "x16"
+	if $target == "mega65" and $loader_pic_file
+		puts "ERROR: Using a custom filename is not possible when using a loader image for this platform."
+		exit 1
+	elsif $target == "x16"
 		custom_file_name += '.prg' unless custom_file_name =~ /.prg$/
 	else
 		custom_file_name = $1 if custom_file_name =~ /^(.{16}).+/
