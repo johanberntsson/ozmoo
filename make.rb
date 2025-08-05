@@ -161,6 +161,7 @@ $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
 $config_filename = File.join($TEMPDIR, 'config.tmp')
+$m65_loader_file = File.join($TEMPDIR, 'm65_loader')
 
 $x_for_examine_releases = {
 	"r11-s860509" => "Trinity",
@@ -1463,7 +1464,17 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
+def m65_add_loader_file(diskimage_filename)
+	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$m65_loader_file}\" autoboot.c65"
+	puts c1541_cmd if $verbose
+	system(c1541_cmd)
+end
+
+
+
 def add_loader_file(diskimage_filename)
+	return m65_add_loader_file(diskimage_filename) if $target == 'mega65'
+
 	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
 	puts c1541_cmd if $verbose
 	system(c1541_cmd)
@@ -2172,7 +2183,8 @@ def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data,
 	nil # Signal success
 end
 
-$d81_img_loader_hex = "01 20 2D 20 0A 00 FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 37 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 4D 20 0F 00 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 6D 20 14 00 FE 43 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 96 20 1E 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 AB 20 2D 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 BD 20 32 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 CE 20 3C 00 8A 22 4C 4F 41 44 45 52 22 2C 55 44 00 00 00"
+#$d81_img_loader_hex = "01 20 2D 20 0A 00 FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 37 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 4D 20 0F 00 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 6D 20 14 00 FE 43 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 96 20 1E 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 AB 20 2D 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 BD 20 32 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 CE 20 3C 00 8A 22 4C 4F 41 44 45 52 22 2C 55 44 00 00 00"
+$d81_img_loader_hex = "01 20 2D 20 0A 00 FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 37 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 4D 20 0F 00 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 6D 20 14 00 FE 43 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 96 20 1E 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 AB 20 2D 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 BD 20 32 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 CE 20 3C 00 8A 20 22 53 54 4F 52 59 22 2C 55 44 00 00 00"
 
 def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
 				preload_max_vmem_blocks)
@@ -2193,7 +2205,8 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			$d81_img_loader_hex.split(/\s+/).each do |hex_string|
 				m65_imgloader_bin += [hex_string.hex].pack("C*")
 			end
-			disk.add_file('autoboot.c65', m65_imgloader_bin, 'PRG')
+			IO.binwrite($m65_loader_file, m65_imgloader_bin);
+#			disk.add_file('autoboot.c65', m65_imgloader_bin, 'PRG')
 
 			file_contents = IO.binread($loader_pic_file)
 			last_sector = disk.add_file('ldrimg.iff', file_contents, 'PRG');
@@ -2281,7 +2294,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	disk.save()
 
 	# Add picture loader for C64/Plus4
-	if $loader_pic_file and $target != 'mega65'
+	if $loader_pic_file #and $target != 'mega65'
 		if add_loader_file(diskimage_filename) != true
 			puts "ERROR: Failed to write loader to disk."
 			exit 1
@@ -3002,7 +3015,7 @@ $disk_title = storyname unless $disk_title
 
 if $target == "mega65"
 	if $loader_pic_file
-		$file_name = 'loader'
+		$file_name = 'story'
 	else
 		$file_name = 'autoboot.c65'
 	end
