@@ -2207,7 +2207,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		if $loader_pic_file
 			file_contents = IO.binread($loader_pic_file)
 			$m65_image_colour_planes = file_contents[0x1c].ord
-			$m65_image_colour_planes = 8 if $m65_image_colour_planes < 2 or $m65_image_colour_planes > 8
+			$m65_image_colour_planes = 8 if $m65_image_colour_planes < 1 or $m65_image_colour_planes > 8
 			last_sector = disk.add_file('ldrimg.iff', file_contents, 'PRG');
 		end
 
