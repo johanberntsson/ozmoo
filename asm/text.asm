@@ -822,7 +822,7 @@ find_word_in_dictionary
 	stx .dictionary_address + 1
 	jsr set_z_address
 
-	; show the dictonary word
+	; show the dictionary word
 !ifdef TRACE_SHOW_DICT_ENTRIES {
 	jsr dollar
 	lda .dictionary_address
