@@ -1464,13 +1464,20 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
+
 def m65_add_loader_file(diskimage_filename)
+	d81_img_loader_hex = "01 20 25 20 0A 00 50 B2 37 3A 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 37 20 14 00 FE 02 20 31 32 38 3A E8 3A FE 3C 20 30 00 67 20 1E 00 DE 20 9C 3A FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 50 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 88 20 28 00 FE 43 20 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 B1 20 32 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 C6 20 3C 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 D8 20 46 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 E1 20 50 00 FE 34 20 8C 00 F1 20 5A 00 8A 22 53 54 4F 52 59 22 2C 55 44 00 00 00"
+	m65_imgloader_bin = ""
+	d81_img_loader_hex.split(/\s+/).each do |hex_string|
+		m65_imgloader_bin += [hex_string.hex].pack("C*")
+	end
+	m65_imgloader_bin[8] = ($m65_image_colour_planes + 0x30).chr
+	IO.binwrite($m65_loader_file, m65_imgloader_bin);
+
 	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$m65_loader_file}\" autoboot.c65"
 	puts c1541_cmd if $verbose
 	system(c1541_cmd)
 end
-
-
 
 def add_loader_file(diskimage_filename)
 	return m65_add_loader_file(diskimage_filename) if $target == 'mega65'
@@ -2183,9 +2190,6 @@ def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data,
 	nil # Signal success
 end
 
-#$d81_img_loader_hex = "01 20 2D 20 0A 00 FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 37 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 4D 20 0F 00 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 6D 20 14 00 FE 43 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 96 20 1E 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 AB 20 2D 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 BD 20 32 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 CE 20 3C 00 8A 22 4C 4F 41 44 45 52 22 2C 55 44 00 00 00"
-$d81_img_loader_hex = "01 20 2D 20 0A 00 FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 37 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 4D 20 0F 00 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 6D 20 14 00 FE 43 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 96 20 1E 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 AB 20 2D 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 BD 20 32 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 CE 20 3C 00 8A 20 22 53 54 4F 52 59 22 2C 55 44 00 00 00"
-
 def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
 				preload_max_vmem_blocks)
 
@@ -2199,16 +2203,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	if $target == "mega65" then
 		last_sector = nil
 
-		# Add picture loader for MEGA65
+		# Add picture for MEGA65
 		if $loader_pic_file
-			m65_imgloader_bin = ""
-			$d81_img_loader_hex.split(/\s+/).each do |hex_string|
-				m65_imgloader_bin += [hex_string.hex].pack("C*")
-			end
-			IO.binwrite($m65_loader_file, m65_imgloader_bin);
-#			disk.add_file('autoboot.c65', m65_imgloader_bin, 'PRG')
-
 			file_contents = IO.binread($loader_pic_file)
+			$m65_image_colour_planes = file_contents[0x1c].ord
+			$m65_image_colour_planes = 8 if $m65_image_colour_planes < 2 or $m65_image_colour_planes > 8
 			last_sector = disk.add_file('ldrimg.iff', file_contents, 'PRG');
 		end
 
@@ -2217,13 +2216,10 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			tf = ')' + f.gsub(/^.*\//,'')
 			f = f.gsub(/\//,"\\") if $is_windows
 			file_contents = IO.binread(f)
-#			last_sector = disk.add_file(tf, file_contents, last_sector);
 			 # Don't use the option to add new file just after last file!
 			last_sector = disk.add_file(tf, file_contents);
 		end
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
-#		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
-#		disk.add_file('zcode-stat', $story_file_data[dynbytes .. $story_file_data.length - 1])
 		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
@@ -2234,7 +2230,7 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	# Build picture loader
 	if $loader_pic_file
-		if $target == 'mega65'
+		if $target == 'mega65' # The loader for MEGA65 is built when calling add_loader_file()
 			loader_size = 254 + File.size($loader_pic_file);
 		else
 			loader_size = build_loader_file()
@@ -2269,19 +2265,8 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	config_data += vmem_data
 
-	#	puts config_data
-	# if $target == "mega65" then
-		# config_filehandle = File.open($config_filename, "wb")
-		# config_filehandle.write [$config_load_address % 256, $config_load_address / 256].pack("C*")
-		# config_filehandle.write config_data.pack("C*")
-		# config_filehandle.close
-	# else
 	unless $target == "mega65" then
 		disk.set_config_data(config_data)
-	end
-	
-	
-	unless $target == "mega65" then
 		if $statmem_blocks > 0
 			if disk.create_story_partition() == false
 				puts "ERROR: Could not create partition to protect data on disk."
@@ -2289,12 +2274,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			end
 		end
 	end
-
 	
 	disk.save()
 
-	# Add picture loader for C64/Plus4
-	if $loader_pic_file #and $target != 'mega65'
+	# Add picture loader
+	if $loader_pic_file
 		if add_loader_file(diskimage_filename) != true
 			puts "ERROR: Failed to write loader to disk."
 			exit 1
