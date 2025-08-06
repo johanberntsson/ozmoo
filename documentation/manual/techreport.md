@@ -447,15 +447,14 @@ where
 
 If you want to create a character mapping for say Czech, and you know you will never want to build a game in Swedish, you can just replace the Swedish mapping in streams.asm and use -cm:sv to refer to your Czech mapping.
 
-The definition of ZSCII can be found at
-
-https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight
+The definition of ZSCII can be found at: [https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight](https://www.inform-fiction.org/zmachine/standards/z1point1/sect03.html#eight)
 
 The accented characters which are available by default, and which Ozmoo can
 use, are in a table under 3.8.7.
 
 The definition of PETSCII can be found at:
-http://sta.c64.org/cbm64petkey.html
+[http://sta.c64.org/cbm64petkey.html](http://sta.c64.org/cbm64petkey.html)
+
 Please read the notes below the table as well.
 
 Note that in the mapping from PETSCII to ZSCII, you must also convert any accented characters from uppercase to lowercase, i.e. for Swedish PETSCII Ä is mapped to a ZSCII ä.

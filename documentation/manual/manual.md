@@ -35,7 +35,7 @@ Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game
 
 # Quickstart
 
-The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: http://ozmoo.online
+The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: [http://ozmoo.online](http://ozmoo.online)
 
 The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X. To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. 
 
@@ -53,19 +53,19 @@ You need to install:
 
 #### Windows
 
-Acme can be downloaded from SourceForge: https://sourceforge.net/projects/acme-crossass/
+Acme can be downloaded from SourceForge: [https://sourceforge.net/projects/acme-crossass/](https://sourceforge.net/projects/acme-crossass/)
 
-Exomizer can be downloaded from Bitbucket. The download includes binaries for Windows: https://bitbucket.org/magli143/exomizer/wiki/browse/downloads
+Exomizer can be downloaded from Bitbucket. The download includes binaries for Windows: [https://bitbucket.org/magli143/exomizer/wiki/browse/downloads](https://bitbucket.org/magli143/exomizer/wiki/browse/downloads)
 
-Get WinVice from SourceForge: http://vice-emu.sourceforge.net/windows.html
+Get WinVice from SourceForge: [http://vice-emu.sourceforge.net/windows.html](http://vice-emu.sourceforge.net/windows.html)
 
-You can get Ruby from RubyInstaller: https://rubyinstaller.org/
+You can get Ruby from RubyInstaller: [https://rubyinstaller.org/](https://rubyinstaller.org/)
 
-Download the MEGA65 emulator from https://github.lgb.hu/xemu/, and read the instructions on setting it up at https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart
+Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.lgb.hu/xemu/), and read the instructions on setting it up at [https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart](https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart)
 
-Get 7-Zip from https://www.7-zip.org/
+Get 7-Zip from [https://www.7-zip.org/](https://www.7-zip.org/)
 
-The Commander X16 emulator is available at https://github.com/X16Community/x16-emulator
+The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
 
 ####  Linux
 
@@ -88,11 +88,11 @@ Ruby is available on Debian/Ubuntu with:
 
     > sudo apt install ruby
 
-Download the MEGA65 emulator from https://github.lgb.hu/xemu/, and read the instructions on setting it up at https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart
+Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.lgb.hu/xemu/), and read the instructions on setting it up at [https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart](https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart)
 
 The zip program that ships with Linux is all you need for zipping Ozmoo games for X16.
 
-The Commander X16 emulator is available at https://github.com/X16Community/x16-emulator
+The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
 
 ## Customizing the make script
 
@@ -192,7 +192,7 @@ The Commander X16 version is using the extended RAM fully to preload the story f
 
 ## Other targets
 
-A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at https://github.com/ZornsLemma/ozmoo/tree/acorn. Note that this fork is using a different build script called make-acorn.py.
+A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at [https://github.com/ZornsLemma/ozmoo/tree/acorn](https://github.com/ZornsLemma/ozmoo/tree/acorn). Note that this fork is using a different build script called make-acorn.py.
 
 # Build Modes
 
@@ -484,11 +484,11 @@ Since sound effect 1 and 2 are reserved for beeps, the sample based sound effect
 
 ## Legacy support for Sherlock and The Lurking Horror
 
-Ozmoo includes support for Sherlock and The Lurking Horror from Infocom, with sound effects. While they can't be built with sound support on Ozmoo Online, there is a link there to download them for the MEGA65. Go to https://microheaven.com/ozmooonline/ and search for "sherlock" on the page. 
+Ozmoo includes support for Sherlock and The Lurking Horror from Infocom, with sound effects. While they can't be built with sound support on Ozmoo Online, there is a link there to download them for the MEGA65. Go to [https://microheaven.com/ozmooonline/](https://microheaven.com/ozmooonline/) and search for "sherlock" on the page. 
 
-If you have Ozmoo installed on your own computer, you can download a Blorb archive of AIFF versions of the sound files from: https://ifarchive.org/indexes/if-archive/infocom/media/blorb/
+If you have Ozmoo installed on your own computer, you can download a Blorb archive of AIFF versions of the sound files from: [https://ifarchive.org/indexes/if-archive/infocom/media/blorb/](https://ifarchive.org/indexes/if-archive/infocom/media/blorb/)
 
-The individual sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html
+The individual sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: [https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html](https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html)
 
 The AIFF files should be moved to a folder that is later included with the -asa switch when using the make.rb script to build the game. Make sure that the filenames follow the pattern described above (starting with 003.aiff). 
 
