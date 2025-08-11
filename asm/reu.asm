@@ -76,7 +76,7 @@ x16_load_file_to_reu
 	asl
 	lda .x16_reu_load_address + 1
 	rol
-	sbc #0 ; Carry is already clear, so this substracts 1
+	sbc #0 ; Carry is already clear, so this subtracts 1
 	sta 0
 	lda .x16_reu_load_address
 	and #$1f
@@ -399,7 +399,7 @@ check_reu_size
     ; used registers: 
 
 !ifdef TARGET_X16 {
-    ; TODO: we know that at least 512 KB is available, but thei
+    ; TODO: we know that at least 512 KB is available, but their
     ; emulator wraps around, so we cannot test by writing to $a000
     ; how large the memory actually is. Is there a better method?
     lda #8 ; 8 * 64 = 512 KB

@@ -69,7 +69,7 @@ vera_composite_colour !byte 0
 .vera_temp !byte 0,0
 
 .convert_screenline_y_to_vera_address
-    ; convert screenline,y to addres in VERA
+    ; convert screenline,y to address in VERA
 	tya
 	asl
 	sta VERA_addr_low
@@ -1500,7 +1500,7 @@ toggle_darkmode
 	tay
 	lda plus4_vic_colours,y
 }
-	sta .new_fg ; New foreground colour, tranformed for target platform
+	sta .new_fg ; New foreground colour, transformed for target platform
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
