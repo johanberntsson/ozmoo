@@ -2,6 +2,9 @@ RELEASE NOTES
 
 Upcoming release
 
+Bugfixes:
+- Added missing file to repo: asm/walkthrough.tpl
+
 ================================================
 Release 14.56: 6 Aug 2025
 
