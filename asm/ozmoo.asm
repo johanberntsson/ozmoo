@@ -1866,6 +1866,22 @@ fkey_codes !byte $85,$89,$86,$8a,$87,$8b,$88,$8c
 
 deletable_init_start
 
+; Moved MEGA65 pointer init here
+!ifdef TARGET_MEGA65 {
+	lda #$0
+	sta dynmem_pointer
+	sta dynmem_pointer + 1
+	sta dynmem_pointer + 2
+	sta mempointer
+	sta mempointer + 1
+;	sta mempointer + 2 ; Will be set after reading the header
+	lda #$08
+	sta dynmem_pointer + 3
+	sta mempointer + 3
+;	sta mempointer_4bytes + 3
+	sta z_pc_mempointer + 3
+}
+
 ; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
 !ifdef TARGET_PLUS4_OR_C128 {
 	ldx #8
@@ -1973,22 +1989,8 @@ deletable_init
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu
 }
-!ifdef TARGET_MEGA65 {
-	lda #$0
-	sta dynmem_pointer
-	sta dynmem_pointer + 1
-	sta dynmem_pointer + 2
-	sta mempointer
-	sta mempointer + 1
-;	sta mempointer + 2 ; Will be set after reading the header
-	lda #$08
-	sta dynmem_pointer + 3
-	sta mempointer + 3
-;	sta mempointer_4bytes + 3
-	sta z_pc_mempointer + 3
-}
 
-
+; Moved pointer init for MEGA65 from here
 
 ; Read and parse config from boot disk
 !ifndef TARGET_X16 {
@@ -2003,11 +2005,14 @@ deletable_init
 .store_boot_device
 	sty boot_device ; Boot device# stored
 
-!ifdef TARGET_X16 {
+!ifdef TARGET_MEGA65_OR_X16 {
 	jsr m65_x16_init_reu
 	jsr m65_x16_load_header
 	jsr calc_dynmem_size
-	; Header of game on disk is now loaded, starting at $5f00
+	; Header of game on disk is now loaded, starting at beginning of Attic RAM
+}
+
+!ifdef TARGET_X16 {
 
 !ifdef Z3PLUS {
 	ldy #header_filelength
@@ -2080,10 +2085,6 @@ deletable_init
 	jsr m65_x16_load_dynmem_maybe_statmem
 }
 !ifdef TARGET_MEGA65 {
-	jsr m65_x16_init_reu
-	jsr m65_x16_load_header
-	jsr calc_dynmem_size
-	; Header of game on disk is now loaded, starting at beginning of Attic RAM
 
     ; check stored copy of header data (filelength, checksum)
     ; to see if the game file has already been loaded. This happens if

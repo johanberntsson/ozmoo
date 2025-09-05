@@ -6,7 +6,7 @@ Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and gam
 
 ## Features
 
-Ozmoo for the Commodore 64 supports:
+Ozmoo supports:
 
 - Z-code version 1, 2, 3, 4, 5, 7 and 8. Essentially this covers all games except for the Infocom games with graphics.
 - Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
@@ -22,7 +22,7 @@ Ozmoo for the Commodore 64 supports:
 - Building a Z-code game without virtual memory (C64 and Plus/4 only). This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
 - Building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator. Ozmoo uses the 1581 disk format's partitioning mechanism to protect the game data from being overwritten, which means you can safely use the game disk for game saves as well, thus eliminating the need for disk swapping when saving/restoring.
 - Using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
-- Adding a loader which shows an image while the game loads (C64 and Plus/4 only).
+- Adding a loader which shows an image while the game loads (C64, Plus/4 and MEGA65 only).
 - Undo support (requires an REU on C64. See separate chapter on Undo for details).
 
 ## Limitations
@@ -35,7 +35,7 @@ Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game
 
 # Quickstart
 
-The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: http://ozmoo.online
+The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: [http://ozmoo.online](http://ozmoo.online)
 
 The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X. To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. 
 
@@ -53,19 +53,19 @@ You need to install:
 
 #### Windows
 
-Acme can be downloaded from SourceForge: https://sourceforge.net/projects/acme-crossass/
+Acme can be downloaded from SourceForge: [https://sourceforge.net/projects/acme-crossass/](https://sourceforge.net/projects/acme-crossass/)
 
-Exomizer can be downloaded from Bitbucket. The download includes binaries for Windows: https://bitbucket.org/magli143/exomizer/wiki/browse/downloads
+Exomizer can be downloaded from Bitbucket. The download includes binaries for Windows: [https://bitbucket.org/magli143/exomizer/wiki/browse/downloads](https://bitbucket.org/magli143/exomizer/wiki/browse/downloads)
 
-Get WinVice from SourceForge: http://vice-emu.sourceforge.net/windows.html
+Get WinVice from SourceForge: [http://vice-emu.sourceforge.net/windows.html](http://vice-emu.sourceforge.net/windows.html)
 
-You can get Ruby from RubyInstaller: https://rubyinstaller.org/
+You can get Ruby from RubyInstaller: [https://rubyinstaller.org/](https://rubyinstaller.org/)
 
-Download the MEGA65 emulator from https://github.lgb.hu/xemu/, and read the instructions on setting it up at https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart
+Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.lgb.hu/xemu/), and read the instructions on setting it up at [https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart](https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart)
 
-Get 7-Zip from https://www.7-zip.org/
+Get 7-Zip from [https://www.7-zip.org/](https://www.7-zip.org/)
 
-The Commander X16 emulator is available at https://github.com/X16Community/x16-emulator
+The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
 
 ####  Linux
 
@@ -88,11 +88,11 @@ Ruby is available on Debian/Ubuntu with:
 
     > sudo apt install ruby
 
-Download the MEGA65 emulator from https://github.lgb.hu/xemu/, and read the instructions on setting it up at https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart
+Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.lgb.hu/xemu/), and read the instructions on setting it up at [https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart](https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart)
 
 The zip program that ships with Linux is all you need for zipping Ozmoo games for X16.
 
-The Commander X16 emulator is available at https://github.com/X16Community/x16-emulator
+The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
 
 ## Customizing the make script
 
@@ -170,7 +170,7 @@ Note that not all build options are supported for every platform. If an option i
 
 ## Commodore 64
 
-The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than  about 30 KB may not be advisable. An REU can be used for caching if present.
+The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than  about 30 KB may not be advisable. An REU can be used for caching if present. A loader image can be used, see [Loader image](#loader-image).
 
 ## Commodore 128
 
@@ -180,11 +180,11 @@ The Commodore 128 version does not allow a loader image, and build mode -P is no
 
 ## Commodore Plus/4
 
-The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than about 30 KB may still not be advisable.
+The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than about 30 KB may still not be advisable. A loader image can be used, see [Loader image](#loader-image).
 
 ## MEGA65
 
-The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. A loader image is currently not supported. Undo is enabled by default for games that support it.
+The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. Undo is enabled by default for games that support it. A loader image can be used, see [Loader image](#loader-image).
 
 ## Commander X16
 
@@ -192,7 +192,7 @@ The Commander X16 version is using the extended RAM fully to preload the story f
 
 ## Other targets
 
-A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at https://github.com/ZornsLemma/ozmoo/tree/acorn. Note that this fork is using a different build script called make-acorn.py.
+A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at [https://github.com/ZornsLemma/ozmoo/tree/acorn](https://github.com/ZornsLemma/ozmoo/tree/acorn). Note that this fork is using a different build script called make-acorn.py.
 
 # Build Modes
 
@@ -484,11 +484,11 @@ Since sound effect 1 and 2 are reserved for beeps, the sample based sound effect
 
 ## Legacy support for Sherlock and The Lurking Horror
 
-Ozmoo includes support for Sherlock and The Lurking Horror from Infocom, with sound effects. While they can't be built with sound support on Ozmoo Online, there is a link there to download them for the MEGA65. Go to https://microheaven.com/ozmooonline/ and search for "sherlock" on the page. 
+Ozmoo includes support for Sherlock and The Lurking Horror from Infocom, with sound effects. While they can't be built with sound support on Ozmoo Online, there is a link there to download them for the MEGA65. Go to [https://microheaven.com/ozmooonline/](https://microheaven.com/ozmooonline/) and search for "sherlock" on the page. 
 
-If you have Ozmoo installed on your own computer, you can download a Blorb archive of AIFF versions of the sound files from: https://ifarchive.org/indexes/if-archive/infocom/media/blorb/
+If you have Ozmoo installed on your own computer, you can download a Blorb archive of AIFF versions of the sound files from: [https://ifarchive.org/indexes/if-archive/infocom/media/blorb/](https://ifarchive.org/indexes/if-archive/infocom/media/blorb/)
 
-The individual sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html
+The individual sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: [https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html](https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html)
 
 The AIFF files should be moved to a folder that is later included with the -asa switch when using the make.rb script to build the game. Make sure that the filenames follow the pattern described above (starting with 003.aiff). 
 
@@ -498,11 +498,18 @@ Example: assuming that the sound files are stored in a folder called "lurking_so
 
 # Loader image
 
-When building for the Commodore 64 or Plus/4, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be a Koala paint multicolour image (10003 bytes in size) when building a game for the C64, or a Multi Botticelli multicolour image (10050 bytes in size) when building a game for the Plus/4. Border flicker is not supported for the Plus/4. Example commands:
+When building for the Commodore 64, the Plus/4, or the MEGA65, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be:
+
+- For C64: a Koala Paint multicolour image (10003 bytes in size) 
+- For Plus/4: a Multi Botticelli multicolour image (10050 bytes in size)
+- For MEGA65: an IFF image in 320x200 resolution, with 1-8 bitplanes. One way to convert an image to this format is to use [megascr.sh](https://files.mega65.org?id=85edcc24-c477-4f25-8cf3-f91359586a73).
+
+Border flicker is only supported for the C64. Example commands:
 
 ```
 make.rb -if mountain.kla game.z5
-make.rb -i spaceship.mb -t:plus4 game.z5
+make.rb -i spaceship.mbo -t:plus4 game.z5
+make.rb -i city.iff -t:mega65 game.z5
 ```
 
 # Command line history

@@ -161,6 +161,7 @@ $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
 $config_filename = File.join($TEMPDIR, 'config.tmp')
+$m65_loader_file = File.join($TEMPDIR, 'm65_loader')
 
 $x_for_examine_releases = {
 	"r11-s860509" => "Trinity",
@@ -958,7 +959,9 @@ class D81_image < Disk_image
 		end
 	end
 
-	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
+#	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
+	def add_file(filename, filecontents, filetype = 'SEQ') # Returns last sector used
+		last_sector = nil
 		sector_count = 0
 		last_sector_used = nil
 		if filecontents == nil or filecontents.length == 0
@@ -997,12 +1000,18 @@ class D81_image < Disk_image
 		end
 		
 		# Add file to directory
-		dir_entry = ([0x81] + start_sector).pack("CCC") + 
+		filetype_number = 0x81
+		if filetype =~ /PRG/i
+			filetype_number = 0x82;
+		end
+		dir_entry = ([filetype_number] + start_sector).pack("CCC") + 
 			name_to_c64(filename).ljust(16, 0xa0.chr) +
 			"".ljust(9, 0.chr) + 
 			[sector_count % 256, sector_count / 256].pack("CC")
 		
 		@add_to_dir.push dir_entry
+		
+		puts "Added file #{filename} to disk." if $verbose
 		
 		return last_sector_used
 	end
@@ -1455,7 +1464,24 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
+
+def m65_add_loader_file(diskimage_filename)
+	d81_img_loader_hex = "01 20 25 20 0A 00 50 B2 37 3A 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 37 20 14 00 FE 02 20 31 32 38 3A E8 3A FE 3C 20 30 00 67 20 1E 00 DE 20 9C 3A FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 50 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 88 20 28 00 FE 43 20 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 B1 20 32 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 C6 20 3C 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 D8 20 46 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 E1 20 50 00 FE 34 20 8C 00 F1 20 5A 00 8A 22 53 54 4F 52 59 22 2C 55 44 00 00 00"
+	m65_imgloader_bin = ""
+	d81_img_loader_hex.split(/\s+/).each do |hex_string|
+		m65_imgloader_bin += [hex_string.hex].pack("C*")
+	end
+	m65_imgloader_bin[8] = ($m65_image_colour_planes + 0x30).chr
+	IO.binwrite($m65_loader_file, m65_imgloader_bin);
+
+	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$m65_loader_file}\" autoboot.c65"
+	puts c1541_cmd if $verbose
+	system(c1541_cmd)
+end
+
 def add_loader_file(diskimage_filename)
+	return m65_add_loader_file(diskimage_filename) if $target == 'mega65'
+
 	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
 	puts c1541_cmd if $verbose
 	system(c1541_cmd)
@@ -2176,18 +2202,24 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	if $target == "mega65" then
 		last_sector = nil
+
+		# Add picture for MEGA65
+		if $loader_pic_file
+			file_contents = IO.binread($loader_pic_file)
+			$m65_image_colour_planes = file_contents[0x1c].ord
+			$m65_image_colour_planes = 8 if $m65_image_colour_planes < 1 or $m65_image_colour_planes > 8
+			last_sector = disk.add_file('ldrimg.iff', file_contents, 'PRG');
+		end
+
 		$sound_files.each do |file|
 			f = file
 			tf = ')' + f.gsub(/^.*\//,'')
 			f = f.gsub(/\//,"\\") if $is_windows
 			file_contents = IO.binread(f)
-#			last_sector = disk.add_file(tf, file_contents, last_sector);
 			 # Don't use the option to add new file just after last file!
 			last_sector = disk.add_file(tf, file_contents);
 		end
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
-#		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
-#		disk.add_file('zcode-stat', $story_file_data[dynbytes .. $story_file_data.length - 1])
 		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
 	else
@@ -2198,7 +2230,11 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	# Build picture loader
 	if $loader_pic_file
-		loader_size = build_loader_file()
+		if $target == 'mega65' # The loader for MEGA65 is built when calling add_loader_file()
+			loader_size = 254 + File.size($loader_pic_file);
+		else
+			loader_size = build_loader_file()
+		end
 		free_blocks -= (loader_size / 254.0).ceil
 		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
 	end
@@ -2229,19 +2265,8 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 
 	config_data += vmem_data
 
-	#	puts config_data
-	# if $target == "mega65" then
-		# config_filehandle = File.open($config_filename, "wb")
-		# config_filehandle.write [$config_load_address % 256, $config_load_address / 256].pack("C*")
-		# config_filehandle.write config_data.pack("C*")
-		# config_filehandle.close
-	# else
 	unless $target == "mega65" then
 		disk.set_config_data(config_data)
-	end
-	
-	
-	unless $target == "mega65" then
 		if $statmem_blocks > 0
 			if disk.create_story_partition() == false
 				puts "ERROR: Could not create partition to protect data on disk."
@@ -2345,7 +2370,7 @@ def print_usage
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default. Takes up 83 bytes."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
-	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
+	puts "  -i: Add a loader using the specified image (Koala Multicolor for C64, Multibotticelli for Plus/4, IFF for MEGA65)"
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
@@ -2839,11 +2864,11 @@ if mode == MODE_P and $target == 'c128'
 end
 
 if $loader_pic_file
-	if $target != 'c64' and $target != 'plus4'
+	if $target !~ /^(c64|plus4|mega65)$/
 		puts "ERROR: Image loader is not supported on this target platform."
 		exit 1
 	end
-	if $target == 'plus4' and $loader_flicker
+	if $target != 'c64' and $loader_flicker
 		puts "ERROR: Flicker during loading is not supported on this target platform."
 		exit 1
 	end
@@ -2973,14 +2998,21 @@ storyname = File.basename($story_file, extension)
 $disk_title = storyname unless $disk_title
 
 if $target == "mega65"
-	$file_name = 'autoboot.c65'
+	if $loader_pic_file
+		$file_name = 'story'
+	else
+		$file_name = 'autoboot.c65'
+	end
 end
 if $target == "x16"
 	$file_name = storyname.downcase + '.prg'
 end
 
 if custom_file_name
-	if $target == "x16"
+	if $target == "mega65" and $loader_pic_file
+		puts "ERROR: Using a custom filename is not possible when using a loader image for this platform."
+		exit 1
+	elsif $target == "x16"
 		custom_file_name += '.prg' unless custom_file_name =~ /.prg$/
 	else
 		custom_file_name = $1 if custom_file_name =~ /^(.{16}).+/

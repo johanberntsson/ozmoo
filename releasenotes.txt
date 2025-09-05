@@ -1,8 +1,20 @@
 RELEASE NOTES
 
 Upcoming release
-- Fixed bug in calculation of save slot count for non-VM builds on C64, Plus/4 and MEGA65.
+
+Bugfixes:
+- Added missing file to repo: asm/walkthrough.tpl
+
+================================================
+Release 14.56: 6 Aug 2025
+
+New/changed features:
+- Added support for showing a loader image on MEGA65 (Type: IFF, in PRG format)
 - Added information on max call depth to VIEW_STACK_RECORDS mode.
+
+Bugfixes:
+- Fixed bug in calculation of save slot count for non-VM builds on C64, Plus/4 and MEGA65.
+- Init dynmem_pointer on MEGA65 before splash screen, as it's used if player changes to darkmode while on splash screen, and this would cause the interpreter to break on a MEGA65 with a newer ROM version. 
 
 ================================================
 Release 14.51: 20 Feb 2025
