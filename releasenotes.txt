@@ -3,7 +3,7 @@ RELEASE NOTES
 Upcoming release
 
 New/changed features:
-- Solutions for Calypso (release 8, serial 250827) and PunyInform Advent (release 1-6, serial 241124, 250704, 250809, 251011, 251113, 251126) added to benchmarks.json, allowing Ozmoo to auto-play the games for benchmarking purposes.
+- Solutions for Calypso (release 8, serial 250827), PunyInform Advent (release 1-7, serial 241124, 250704, 250809, 251011, 251113, 251126, 251205), and Inform 6 Advent (release 9, serial 060321) added to benchmarks.json, allowing Ozmoo to auto-play the games for benchmarking purposes.
 
 Bugfixes:
 - Added missing file to repo: asm/walkthrough.tpl
