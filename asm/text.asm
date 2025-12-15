@@ -1223,18 +1223,29 @@ read_char
     ; check if we have a sound callback to run
 !ifdef SOUND {
     ; check if needed to run the @sound_effect routine argument
-    lda trigger_sound_routine
+    ldx sound_routine_queue_count
     beq .no_sound_trigger
-    lda #0
-    sta trigger_sound_routine
+	dec sound_routine_queue_count
     ; run the routine without arguments
     ; the routine address is in sound_arg_routine
     ; we are not interested in the return value
-    lda sound_arg_routine  + 1
+	lda sound_routine_queue_high
     sta z_operand_value_high_arr
-    ldx sound_arg_routine  
-    stx z_operand_value_low_arr
-    lda #z_exe_mode_return_from_read_interrupt
+	lda sound_routine_queue_low
+    sta z_operand_value_low_arr
+	; Rotate queue forward
+	ldx sound_routine_queue_count
+	beq + ; No queue left
+	ldx #0
+-	lda sound_routine_queue_high + 1,x
+	sta sound_routine_queue_high,x
+	lda sound_routine_queue_low + 1,x
+	sta sound_routine_queue_low,x
+	inx
+	cpx sound_routine_queue_count
+	bcc -
+	; Run routine
++   lda #z_exe_mode_return_from_read_interrupt
     ldx #0
     ldy #0
     jsr stack_call_routine

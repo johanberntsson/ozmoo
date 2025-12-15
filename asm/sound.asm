@@ -434,11 +434,11 @@ init_sound
     sta .sound_is_playing
 !ifdef LOOPING_SUPPORTED {
     ; are we looping?
-    lda sound_arg_repeats
+    lda curr_sound_arg_repeats
 	
     cmp #$ff
     beq .sound_callback_restart_sample
-    dec sound_arg_repeats
+    dec curr_sound_arg_repeats
     beq .sound_finished
 .sound_callback_restart_sample
     ; loop!
@@ -448,13 +448,18 @@ init_sound
 .sound_finished
 !ifdef Z5PLUS {
     ; trigger the routine callback, if any
-    lda sound_arg_routine
-    bne +
-    lda sound_arg_routine + 1
+	ldx sound_routine_queue_count
+	cpx #SOUND_ROUTINE_QUEUE_SIZE
+	bcs ++ ; No room in queue
+    lda curr_sound_arg_routine
+    ora curr_sound_arg_routine + 1
     beq ++  ; routine = 0
-+   ; routine isn't 0, trigger the callback
-    lda #1
-    sta trigger_sound_routine
+    ; routine isn't 0, trigger the callback
+    lda curr_sound_arg_routine
+	sta sound_routine_queue_low,x
+    lda curr_sound_arg_routine + 1
+	sta sound_routine_queue_high,x
+	inc sound_routine_queue_count
 ++
 }
 	jsr .play_next_sound
@@ -471,6 +476,10 @@ sound_arg_volume !byte 0
 sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
 
+; This is for sound currently playing
+curr_sound_arg_repeats !byte 0
+curr_sound_arg_routine !byte 0, 0
+
 ; This is for queueing sounds
 ; (Lurking horror is issuing another @sound_effect command
 ; before the first is finished)
@@ -484,7 +493,10 @@ next_sound_arg_routine !byte 0, 0
 sound_tmp !byte 0,0
 
 ; signal for the z-machine to run the routine argument
-trigger_sound_routine !byte 0
+sound_routine_queue_low !byte 0,0,0,0,0,0,0,0
+sound_routine_queue_high !byte 0,0,0,0,0,0,0,0
+sound_routine_queue_count !byte 0
+SOUND_ROUTINE_QUEUE_SIZE = 8;
 
 ; This is set by sound-aiff or sound-wav
 sample_rate_hz !byte 0,0 
@@ -524,8 +536,6 @@ sound_effect
 	sta next_sound_arg_volume
 	lda sound_arg_repeats
 	sta next_sound_arg_repeats
-	lda sound_arg_repeats
-	sta next_sound_arg_repeats
 	lda sound_arg_routine
 	sta next_sound_arg_routine
 	lda sound_arg_routine + 1
@@ -554,6 +564,12 @@ sound_effect
     jsr printx
     jsr newline
 }
+	lda sound_arg_repeats
+	sta curr_sound_arg_repeats
+	lda sound_arg_routine
+	sta curr_sound_arg_routine
+	lda sound_arg_routine + 1
+	sta curr_sound_arg_routine + 1
     cpx .current_effect
     beq +
     ; load sound effect into fastRAM at $40000
