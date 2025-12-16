@@ -2028,7 +2028,7 @@ deletable_init
 	iny
 	cpy #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
 	bcc -
-	; Header values for file length and checksum are indentical
+	; Header values for file length and checksum are identical
 	lda .different_values
 	beq .must_load_statmem ; All four bytes have the same value. Header can't be trusted.
 	dec m65_x16_statmem_already_loaded ; Set it to $ff
@@ -2105,7 +2105,7 @@ deletable_init
 	inx
 	cpz #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
 	bcc -
-	; Header values for file length and checksum are indentical
+	; Header values for file length and checksum are identical
 	lda .different_values
 	beq .must_load_statmem ; All four bytes have the same value. Header can't be trusted.
 	dec m65_x16_statmem_already_loaded ; Set it to $ff

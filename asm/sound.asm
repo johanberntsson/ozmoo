@@ -315,7 +315,7 @@ read_sound_files
 	lda #0
 	sta reu_progress_bar_updates
 
-; Load to adress 1024K and onward in Attic RAM
+; Load to address 1024K and onward in Attic RAM
 	ldx sound_next_page
 	lda sound_next_page + 1
 	ldy .fx_number
@@ -465,7 +465,7 @@ init_sound
 	jsr .play_next_sound
 .sound_callback_done
     ; finish interrupt handling
-    asl $d019 ; acknowlege irq
+    asl $d019 ; acknowledge irq
     jmp $ea31  ; finish irq
 
 

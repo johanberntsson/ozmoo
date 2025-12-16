@@ -416,7 +416,7 @@ x16_prepare_bankmem
 	asl
 	lda mempointer + 1
 	rol
-	sbc #0 ; Carry is already clear, so this substracts 1
+	sbc #0 ; Carry is already clear, so this subtracts 1
 	sta 0
 	lda mempointer
 	and #$1f
@@ -868,7 +868,7 @@ print_following_string
 	bne .return_address
 	inc .return_address + 2
 .return_address
-	lda $0000 ; self-modifying code (aaarg! but oh, so efficent)
+	lda $0000 ; self-modifying code (aaarg! but oh, so efficient)
 	beq +
 	jsr streams_print_output
 	jmp -
@@ -1178,7 +1178,7 @@ divide16
 	rol remainder + 1
 	lda remainder
 	sec
-	sbc divisor	;substract divisor to see if it fits in
+	sbc divisor	;subtract divisor to see if it fits in
 	tay         ;lb result -> Y, for we may need it later
 	lda remainder + 1
 	sbc divisor+1
