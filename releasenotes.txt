@@ -8,6 +8,10 @@ New/changed features:
 Bugfixes:
 - Added missing file to repo: asm/walkthrough.tpl
 - Fixed: Asking to play a new sound while one was playing, caused the repeat and routine arguments of the new sound to be used for the currently playing sound. (Issue #77)
+- Fixed typos in comments in source code (Issue #75)
+- @sound_effect with effect = 4 (finish with) was ignored. It is now correctly treated as effect = 3 (stop).
+- @sound_effect with number = 0 and effect = 3 (stop) or 4 (finish with) produced a beep instead of stopping the current sound. Fixed. (Issue #76)
+- Queueing of @sound_effect commands fired after the same keyboard input, now works properly, as required by Lurking Horror (Issue #78). Each sound is played at least one full repetition.
 
 ================================================
 Release 14.56: 6 Aug 2025

@@ -62,17 +62,11 @@ sound_length_pages !fill sound_table_size,0
 sound_base_value = 1024*1024/256 ; 1 MB into Attic RAM
 sound_next_page !byte <sound_base_value, >sound_base_value
 
-;sound_nums !byte 100,10,1
-;sound_data_base = z_temp + 3
 sound_file_target = z_temp + 3 ; 4 bytes
-;dir_entry_start = sound_data_base +  4 ; 1 byte
 .sound_temp = z_temp + 6 ; 2 bytes
 .fx_number = z_temp + 8
 sound_mempointer_32 = z_operand_value_low_arr
-;sound_index_ptr = z_operand_value_low_arr ; 4 bytes
-;sound_index_base_ptr = z_operand_value_low_arr + 4; 4 bytes
 sound_dir_ptr = z_operand_value_high_arr
-;.sound_repeating !byte 0
 sound_files_read !byte 0
 
 .read_filename_char
@@ -142,7 +136,6 @@ read_sound_files
 	lda [sound_mempointer_32],z
 	cmp #83 ; 's'
 	beq .copy_sound_table_and_return
-;	jmp .loaded_sounds_success
 
 +	lda #>sound_load_msg
 	ldx #<sound_load_msg
@@ -370,8 +363,6 @@ read_sound_files
 	rts
 	
 +	; Copy sound table to Attic RAM, address $08080100
-;	lda #> sound_table
-;	sta .load_from_sound_table + 2
 	jsr setup_sound_mempointer_32
 	lda #1
 	sta sound_mempointer_32 + 1
@@ -420,18 +411,34 @@ init_sound
     cli
     jmp read_sound_files
 
-.sound_is_playing !byte 0
+sound_is_playing !byte 0
 
 .sound_callback
-    lda .sound_is_playing
+    lda sound_is_playing
     beq .sound_callback_done
     ; We issued a sound request. Is it still running?
     lda $d720
     and #$08
+	bne +
+	; The sound is playing, but maybe we should stop it to process
+	; the next command in queue?
+	lda curr_sound_done_repeats
+	beq .sound_callback_done
+	lda sound_command_queue_pointer
     beq .sound_callback_done
-    ; the sound has stopped
+	; There is an command in queue, and we've played this 1+ times
+	jsr stop_sound_effect_sub
+	
++   ; the sound has stopped
     lda #0
-    sta .sound_is_playing
+    sta sound_is_playing
+	inc curr_sound_done_repeats
+	; If there is something in queue, we process the next command
+	lda sound_command_queue_pointer
+	beq +
+	jsr sound_effect
+	jmp .sound_callback_done
++
 !ifdef LOOPING_SUPPORTED {
     ; are we looping?
     lda curr_sound_arg_repeats
@@ -468,6 +475,7 @@ init_sound
     asl $d019 ; acknowledge irq
     jmp $ea31  ; finish irq
 
+sound_start_input_counter !byte 0
 
 ; This is set by z_ins_sound_effect
 sound_arg_number !byte 0
@@ -477,26 +485,22 @@ sound_arg_repeats !byte 0
 sound_arg_routine !byte 0, 0
 
 ; This is for sound currently playing
-curr_sound_arg_repeats !byte 0
-curr_sound_arg_routine !byte 0, 0
-
-; This is for queueing sounds
-; (Lurking horror is issuing another @sound_effect command
-; before the first is finished)
-next_sound_available !byte 0
-next_sound_arg_number !byte 0
-next_sound_arg_effect !byte 0
-next_sound_arg_volume !byte 0
-next_sound_arg_repeats !byte 0
-next_sound_arg_routine !byte 0, 0
+curr_sound_done_repeats !byte 0
+curr_sound_arg_repeats  !byte 0
+curr_sound_arg_routine  !byte 0, 0
 
 sound_tmp !byte 0,0
+
+; Sound command queue
+SOUND_COMMAND_QUEUE_SIZE =  8
+sound_command_queue         !fill SOUND_COMMAND_QUEUE_SIZE*8,0
+sound_command_queue_pointer !byte 0
 
 ; signal for the z-machine to run the routine argument
 sound_routine_queue_low !byte 0,0,0,0,0,0,0,0
 sound_routine_queue_high !byte 0,0,0,0,0,0,0,0
 sound_routine_queue_count !byte 0
-SOUND_ROUTINE_QUEUE_SIZE = 8;
+SOUND_ROUTINE_QUEUE_SIZE = 8
 
 ; This is set by sound-aiff or sound-wav
 sample_rate_hz !byte 0,0 
@@ -509,47 +513,117 @@ sample_stop_address !byte 0,0,0,0 ; 32 bit pointer
 .sample_clock_dummy !byte 0 ; A dummy byte just before sample_clock, needed for the calculations for conversion from sample rate
 .sample_clock !byte 0,0,0
 
+pop_sound_command_queue
+	lda sound_command_queue_pointer
+	cmp #9
+	bcc + ; Queue has 0 or 8 bytes => Set to 0
+	ldy #8
+-	lda sound_command_queue,y
+	sta sound_command_queue - 8,y
+	iny
+	cpy sound_command_queue_pointer
+	bcc -
+	tya
+	sbc #8 ; Carry already set
+	sta sound_command_queue_pointer
+	rts
++	lda #0
+	sta sound_command_queue_pointer
+	rts
+
 sound_effect
-    ; input: x = sound effect (3, 4 ...)
+    ; input: sound_command_queue holds next command
+
+	; sound_command_queue + ...
+	; 0: number LB
+	; 1: number HB
+	; 2: effect LB
+	; 3: effect HB
+	; 4: volume
+	; 5: repeats    (v5 only)
+	; 6: routine LB (v5 only)
+	; 7: routine HB (v5 only)
+
+	lda sound_command_queue ; number
+	sta sound_arg_number
+	lda sound_command_queue + 2 ; effect
+	sta sound_arg_effect
+
+	lda sound_command_queue + 4
+	bne ++
+	; No volume given, set to max...
+	lda #255
+	sta sound_command_queue + 4
+++
+!ifdef Z5PLUS {
+	; ... and set repeats to 1 for z5
+	lda sound_command_queue + 5
+	bne +
+	lda #1
+	sta sound_command_queue + 5
++
+}
+
+	lda sound_command_queue + 4 ; volume
+	cmp #$ff
+	beq +
+	cmp #9 ; Values 9-254 are rounded down to 8
+	bcc ++
+	lda #8
+	sta sound_command_queue + 4 
+++	asl
+	asl
+	asl
+	asl
+	asl
+	sec
+	sbc sound_command_queue + 4
++	; MEGA65's volume is [0,64]. Convert from z-machine [0,255]
+	clc
+	ror
+	clc
+	ror
+	sta sound_arg_volume
+!ifdef Z5PLUS {
+	lda sound_command_queue + 5 ; repeats
+	sta sound_arg_repeats
+	lda sound_command_queue + 6 ; routine LB
+	sta sound_arg_routine
+	lda sound_command_queue + 7 ; routine HB
+	sta sound_arg_routine + 1
+}
+	jsr pop_sound_command_queue
+
 !ifdef LURKING_HORROR {
+	ldx sound_arg_number
 	lda .lh_repeats,x
 	sta sound_arg_repeats
 }
 
-    ; currently we ignore 1 prepare and 4 finish with
+    ; currently we ignore 1 prepare
     lda sound_arg_effect
     cmp #2 ; start
-    bne ++
-	; Queue the effect if already playing
-	lda .sound_is_playing
 	beq .play_sound_effect
-	; is the next sound effect the same that is already playing?
-	cpx sound_arg_number
-	beq .play_sound_effect
-	; new sound, let's remember it and play it later
-	lda #1
-	sta next_sound_available
-	stx next_sound_arg_number
-	lda sound_arg_effect
-	sta next_sound_arg_effect
-	lda sound_arg_volume
-	sta next_sound_arg_volume
-	lda sound_arg_repeats
-	sta next_sound_arg_repeats
-	lda sound_arg_routine
-	sta next_sound_arg_routine
-	lda sound_arg_routine + 1
-	sta next_sound_arg_routine + 1
-	rts
-++  cmp #3 ; stop
+	cmp #3 ; stop
+    beq .stop_sound_effect
+	cmp #4 ; finish with
     beq .stop_sound_effect
 .return
     rts
-    
+
+stop_sound_effect_sub
+    lda #$00
+    sta $d720
+    sta $d740
+    sta sound_is_playing
+	rts
+
 .play_sound_effect
     ; input: x = sound effect (3, 4 ...)
+	lda input_counter
+	sta sound_start_input_counter
     ; convert to zero indexed
-	stx sound_arg_number
+	ldx sound_arg_number ; Sound number ( 3 .. 255)
     dex
     dex
     dex
@@ -566,6 +640,8 @@ sound_effect
 }
 	lda sound_arg_repeats
 	sta curr_sound_arg_repeats
+	lda #0
+	sta curr_sound_done_repeats
 	lda sound_arg_routine
 	sta curr_sound_arg_routine
 	lda sound_arg_routine + 1
@@ -594,29 +670,21 @@ sound_effect
     jmp .play_sample;
 
 .stop_sound_effect
-    lda #$00
-    sta $d720
-    sta $d740
-    sta .sound_is_playing
-    ; continue to .play_next_sound
-    ; rts
+	bit sound_is_playing
+	bpl .play_next_sound
+	ldx sound_arg_number
+	beq .do_stop
+	dex
+	dex
+	dex
+	cpx .current_effect
+	bne .play_next_sound
+.do_stop
+	jsr stop_sound_effect_sub
 
 .play_next_sound
-	lda next_sound_available
+	lda sound_command_queue_pointer
 	beq +
-	lda #0
-	sta next_sound_available
-	lda next_sound_arg_effect
-	sta sound_arg_effect
-	lda next_sound_arg_volume
-	sta sound_arg_volume
-	lda next_sound_arg_repeats
-	sta sound_arg_repeats
-	lda next_sound_arg_routine
-	sta sound_arg_routine
-	lda next_sound_arg_routine + 1
-	sta sound_arg_routine + 1
-	ldx next_sound_arg_number
 	jmp sound_effect
 +   rts
 
@@ -696,7 +764,7 @@ sound_effect
     ; enable audio dma
     lda #$80 ; AUDEN
     sta $d711
-    sta .sound_is_playing ; tell the interrupt that we are running
+    sta sound_is_playing ; tell the interrupt that we are running
     rts
 
 !ifdef SOUND_WAV_ENABLED {
@@ -742,72 +810,78 @@ sound_effect
 } ; ifdef TARGET_MEGA65
 } ; zone sound_support
 } ; ifdef SOUND
+.immediate !byte 0
 
+.ignore_effect
+	rts
 z_ins_sound_effect
 	ldy z_operand_count
 	beq play_beep ; beep if no args (Z-machine standards, p101)
 	ldx z_operand_value_low_arr
 !ifdef SOUND {
-    cpx #$03
+	cpy #2
+	bcc play_beep ; Only one arg => play beep!
+	cpx #0
+	beq ++
++   cpx #$03
     bcc play_beep
-    ; parse rest of the args
+++	ldy #0
+	sty .immediate
 	lda z_operand_value_low_arr + 1 ; effect
-	sta sound_arg_effect
+	cmp #2
+	bcc .ignore_effect
+	cmp #5
+	bcs .ignore_effect
+	
+	; This is 2:play, 3:stop, or 4:finish with
+	bit sound_is_playing
+	bpl .play_immediate
+	ldy sound_start_input_counter
+	cpy input_counter
+	bne .play_immediate ; Not same text input cycle => play now!
 
-;	ldy z_operand_count
-	cpy #3
-	bcs +
-	; No volume given, set to max...
-	lda #255
-	sta z_operand_value_low_arr + 2
-!ifdef Z5PLUS {
-	; ... and set repeats to 1 for z5
-	lda #1
-	sta z_operand_value_high_arr + 2
-}
-+		
-!ifdef Z5PLUS {
-	cpy #4
-	bcs +
-	; No routine given, set to 0
+	; Enqueue sound, if there is room in queue
+	ldy sound_command_queue_pointer
+	cpy #8*SOUND_COMMAND_QUEUE_SIZE
+	bcc .enqueue ; There is room in queue => enqueue! 
+	; No room in queue => play now!
+
+.play_immediate
+	ldy #0
+	sty sound_command_queue_pointer
+	dec .immediate ; Set to 255
+
+.enqueue
+	ldy sound_command_queue_pointer
+	ldx #0
+-	lda z_operand_value_low_arr,x
+	sta sound_command_queue,y
+	iny
+	lda z_operand_value_high_arr,x
+	sta sound_command_queue,y
+	iny
+	inx
+	cpx z_operand_count
+	bcc -
 	lda #0
-	sta z_operand_value_low_arr + 3
-	sta z_operand_value_high_arr + 3
-+
-}
+-	cpx #4
+	bcs .done_copying_to_queue
+	sta sound_command_queue,y
+	iny
+	sta sound_command_queue,y
+	iny
+	inx
+	bne - ; Always branch
+.done_copying_to_queue
+	sty sound_command_queue_pointer
+	
+	bit .immediate
+	bpl +
+	jmp sound_effect
++	rts
 
-	lda z_operand_value_low_arr + 2 ; volume
-	cmp #$ff
-	beq +
-	cmp #9 ; Values 9-254 are rounded down to 8
-	bcc ++
-	lda #8
-	sta z_operand_value_low_arr + 2 
-++	asl
-	asl
-	asl
-	asl
-	asl
-	sec
-	sbc z_operand_value_low_arr + 2
-+	; MEGA65's volume is [0,64]. Convert from z-machine [0,255]
-	clc
-	ror
-	clc
-	ror
-	sta sound_arg_volume
-!ifdef Z5PLUS {
-	lda z_operand_value_high_arr + 2 ; repeats
-	bne +
-	lda #1
-+	sta sound_arg_repeats
-	lda z_operand_value_low_arr + 3 ; routine
-	sta sound_arg_routine
-	lda z_operand_value_high_arr + 3 ; routine
-	sta sound_arg_routine + 1
-}
-    jmp sound_effect
 } ; ifdef SOUND
+
 play_beep
 	lda #$08 ; Frequency for low-pitched beep
     dex
@@ -822,22 +896,6 @@ play_beep
 	sta $d401
 	lda #$21
 	sta $d404
-; !ifdef TARGET_MEGA65 {
-	; ldz #40
-; .outer_loop
-; }
-; !ifdef TARGET_C128 {
-; }
-	; ldy #40
-; --	ldx #0
-; -	dex
-	; bne -
-	; dey
-	; bne --
-; !ifdef TARGET_MEGA65 {
-	; dez
-	; bne .outer_loop
-; }
 	jsr wait_an_interval
 	jsr wait_an_interval
 	lda #$20

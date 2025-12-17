@@ -5,6 +5,7 @@
 ;TRACE_SHOW_DICT_ENTRIES = 1
 ;TRACE_PRINT_ARRAYS = 1
 ;TRACE_HISTORY = 1
+input_counter !byte 0
 .text_tmp	!byte 0
 .current_character !byte 0
 .petscii_char_read = zp_temp
@@ -118,6 +119,7 @@ z_ins_read_char
 	; ignore argument 0 (always 1)
 	; ldy z_operand_value_low_arr
 	; optional time routine arguments
+	inc input_counter
 	jsr printchar_flush
 	; clear [More] counter
 	jsr clear_num_rows
@@ -301,6 +303,7 @@ z_ins_read
 	; z3: sread text parse
 	; z4: sread text parse time routine
 	; z5: aread text parse time routine -> (result)
+	inc input_counter
 	jsr printchar_flush
 
 !ifndef Z5PLUS {
