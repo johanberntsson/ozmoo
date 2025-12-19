@@ -174,9 +174,9 @@ The Commodore 64 version is the default build target, and supports all build opt
 
 ## Commodore 128
 
-The Commodore 128 version automatically detects if it is started from 40 or 80 columns mode, and adjusts to the screen size. When run in 80 column mode, the CPU runs at 2 MHz, making for quite responsive games. It makes use of the additional ram available compared to the Commodore 64 version, and allows for games with up to 44 KB dynamic memory. An REU can be used for caching if present. 
+The Commodore 128 version automatically detects if it is started from 40 or 80 columns mode, and adjusts to the screen size. When run in 80 column mode, the CPU runs at 2 MHz, making for quite responsive games. It makes use of the additional ram available compared to the Commodore 64 version, and allows for games with up to 44 KB dynamic memory. An REU can be used for caching if present. A loader image can be shown on the 40-column screen, see [Loader image](#loader-image).
 
-The Commodore 128 version does not allow a loader image, and build mode -P is not supported. The default build mode for Commodore 128 is -71. For large z8 games, mode -71D is also available (requiring dual 1571 drives).
+The Commodore 128 version does not support build mode -P. The default build mode for Commodore 128 is -71. For large z8 games, mode -71D is also available (requiring dual 1571 drives, or a single 1571 drive and an REU).
 
 ## Commodore Plus/4
 
@@ -498,9 +498,10 @@ Example: assuming that the sound files are stored in a folder called "lurking_so
 
 # Loader image
 
-When building for the Commodore 64, the Plus/4, or the MEGA65, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be:
+When building for the Commodore 64, 128, the Plus/4, or the MEGA65, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be:
 
 - For C64: a Koala Paint multicolour image (10003 bytes in size) 
+- For C128: a Koala Paint multicolour image (10003 bytes in size). This image is shown on the 40-column display. 
 - For Plus/4: a Multi Botticelli multicolour image (10050 bytes in size)
 - For MEGA65: an IFF image in 320x200 resolution, with 1-8 bitplanes. One way to convert an image to this format is to use [megascr.sh](https://files.mega65.org?id=85edcc24-c477-4f25-8cf3-f91359586a73).
 
