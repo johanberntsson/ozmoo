@@ -750,14 +750,7 @@ z_ins_restore
 	ldx #0
 	jsr split_window
 	jmp make_branch_false
-}
-!ifdef Z4 {
-	jsr restore_game
-	beq +
-	inx
-+	jmp z_store_result
-}
-!ifdef Z5PLUS {
+} else {
 	jsr restore_game
 	beq +
 	inx
@@ -770,8 +763,7 @@ z_ins_save
 	beq +
 	jmp make_branch_true
 +	jmp make_branch_false
-}
-!ifdef Z4PLUS {
+} else {
 	jsr save_game
 	jmp z_store_result
 }

@@ -1334,6 +1334,10 @@ def build_loader_file()
 	if $target == 'c64'
 		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
 	end
+	if $target == 'c128'
+		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C128=1 -DSTACK_PAGES=4"
+		exo_target = " -t128"
+	end
 	if $target == 'plus4'
 		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_PLUS4=1"
 		exo_target = " -t4"
@@ -2061,12 +2065,12 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 
-#	# Build picture loader
-#	if $loader_pic_file
-#		loader_size = build_loader_file()
-#		free_blocks -= (loader_size / 254.0).ceil
-#		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
-#	end
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
+	end
 
 	# Build bootfile + terp + preloaded vmem blocks as a file
 #	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
@@ -2098,15 +2102,15 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	disk.set_config_data(config_data)
 	
 	disk.save()
-	
-#	# Add picture loader
-#	if $loader_pic_file
-#		if add_loader_file(diskimage_filename) != true
-#			puts "ERROR: Failed to write loader to disk."
-#			exit 1
-#		end
-#	end
 
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(diskimage_filename) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+	
 	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(diskfilename, diskimage_filename) != true
 		puts "ERROR: Failed to write bootfile/interpreter to disk."
@@ -2143,6 +2147,13 @@ def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data,
 	free_blocks_2 = disk2.add_story_data(max_story_blocks: 9999, add_at_end: false)
 	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}" if $verbose
 
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks_1 -= (loader_size / 254.0).ceil
+		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}" if $verbose
+	end
+
 	# Build bootfile + terp + preloaded vmem blocks as a file
 	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks_1)
 	vmem_data[3] = vmem_preload_blocks
@@ -2176,6 +2187,14 @@ def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data,
 	disk1.set_config_data(config_data)
 	disk1.save()
 	disk2.save()
+
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(d71_filename_1) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
 	
 	# Add bootfile + terp + preloaded vmem blocks file to disk
 	if add_boot_file(outfile1name, d71_filename_1) != true
@@ -2370,7 +2389,7 @@ def print_usage
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default. Takes up 83 bytes."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
-	puts "  -i: Add a loader using the specified image (Koala Multicolor for C64, Multibotticelli for Plus/4, IFF for MEGA65)"
+	puts "  -i: Add a loader using the specified image (Koala Multicolor for C64 and C128, Multibotticelli for Plus/4, IFF for MEGA65)"
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
@@ -2864,11 +2883,11 @@ if mode == MODE_P and $target == 'c128'
 end
 
 if $loader_pic_file
-	if $target !~ /^(c64|plus4|mega65)$/
+	if $target !~ /^(c64|c128|plus4|mega65)$/
 		puts "ERROR: Image loader is not supported on this target platform."
 		exit 1
 	end
-	if $target != 'c64' and $loader_flicker
+	if $target !~ /^(c64)$/ and $loader_flicker
 		puts "ERROR: Flicker during loading is not supported on this target platform."
 		exit 1
 	end

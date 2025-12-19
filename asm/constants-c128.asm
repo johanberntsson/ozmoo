@@ -3,6 +3,7 @@
 ; ZP allocation: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 
 basic_reset           = $4000
+basic_reset_2         = $4003
 
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40 ; default, adjusted if needed in s_init

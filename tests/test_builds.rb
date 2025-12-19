@@ -111,7 +111,7 @@ def finalize_test(build_result, problem, outfiles)
 					File.delete($dirfile)
 				end
 
-				if File.exists?(filename) then
+				if File.exist?(filename) then
 					if File.directory?(filename) then
 						Dir.delete(filename)
 					else

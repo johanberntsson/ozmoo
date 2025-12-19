@@ -9,7 +9,7 @@
 	* = $1001
 	bitmap_source = loader_pic_start + $800
 	bitmap_target = $c000
-	bitmap_end_highbyte = $e0
+	bitmap_end_highbyte = $df
 	screen_source = loader_pic_start
 	screen_target = $0800
 	colour_source = loader_pic_start + $400
@@ -23,6 +23,15 @@
 !ifdef TARGET_C128 {
 	TARGET_ASSIGNED = 1
 	* = $1c01
+	bitmap_source = loader_pic_start
+	bitmap_target = $a000
+	bitmap_end_highbyte = $bf
+	screen_source = loader_pic_start + 8000
+	screen_target = $8000
+	colour_source = loader_pic_start + 9000
+	colour_target = $d800
+	loader_start  = $0d00
+	character_colour = 241
 }
 
 !ifndef TARGET_ASSIGNED {
@@ -34,7 +43,7 @@
 	* = $801
 	bitmap_source = loader_pic_start
 	bitmap_target = $e000
-	bitmap_end_highbyte = $00
+	bitmap_end_highbyte = $ff
 	screen_source = loader_pic_start + 8000
 	screen_target = $cc00
 	colour_source = loader_pic_start + 9000
@@ -57,6 +66,10 @@ interrupt_vector = $314
 ; Basic line: "1 sys2061"
 !byte $0b, $08, $01,$00, $9e, $32, $30, $36, $31, 0, 0, 0
 } 
+!ifdef TARGET_C128 {
+; Basic line: "1 sys7181"
+!byte $0b, $08, $01,$00, $9e, $37, $31, $38, $31, 0, 0, 0
+} 
 !ifdef TARGET_PLUS4 {
 ; Basic line: "1 sys4109"
 !byte $0b, $08, $01,$00, $9e, $34, $31, $30, $39, 0, 0, 0
@@ -66,6 +79,20 @@ interrupt_vector = $314
 
 ; Copy background colour
 !ifdef TARGET_C64 {	
+	ldx loader_pic_start + 10000
+	stx reg_bordercolour
+	stx reg_backgroundcolour
+}
+!ifdef TARGET_C128 {
+	ldx #$ff
+	stx $d8 ; Turn off interrupt code to control display
+
+	sei
+;	lda $ff00
+;	pha
+;	lda #%00111111 ; all RAM0
+	lda #%00001110 ; 48K RAM0 (0-$c000), and I/O visible at $d000
+	sta $ff00
 	ldx loader_pic_start + 10000
 	stx reg_bordercolour
 	stx reg_backgroundcolour
@@ -112,6 +139,13 @@ interrupt_vector = $314
 	lda .copy_bitmap + 5
 	cmp #bitmap_end_highbyte
 	bne .copy_bitmap ; Copies to $e000-$ffff, stops when target address is $0000
+
+; Copy the last 64 bytes separately, so we don't ruin the rest of the target page
+	ldx #$3f
+-	lda bitmap_source + $1f00,x
+	sta bitmap_target + $1f00,x
+	dex
+	bpl -
 	
 ; Copy screen RAM and colour RAM
 
@@ -136,10 +170,10 @@ interrupt_vector = $314
 	cpx #250
 	bcc .copy_screen
 
-
 ; Show image
 
 !ifdef TARGET_C64 {
+	; SHOW IMAGE
 
 	; Set bank
 	lda $dd00
@@ -165,7 +199,58 @@ interrupt_vector = $314
 	ora #%00010000
 	sta $d016
 }
+!ifdef TARGET_C128 {
+	; SHOW IMAGE
+
+;	lda #%00000000 ; default
+;	sta $ff00
+;	cli
+	lda $d011
+	pha
+	lda $d016
+	pha
+	lda $d018
+	pha
+	lda $dd00
+	pha
+	
+
+	; Set bank
+	lda $dd00
+	and #%11111100
+	ora #%00000001
+	sta $dd00
+
+	lda #%00001000
+;	lda $d018
+	; Set bitmap address to $c000
+;	ora #%00001000
+	; Set screen address to $e000
+;	and #%00001111
+;	ora #%00110000
+	sta $d018
+
+; Set graphics mode
+
+	lda $d011
+	and #%10011111
+	ora #%00100000
+	sta $d011
+	lda $d016
+;	and #%11101111
+	ora #%00010000
+	sta $d016
+}
+!ifdef TARGET_C128 {
+	; SET NORMAL ROM/RAM CONFIG, ENABLE INTERUPT
+;	pla
+	lda #%00000000 ; default
+	sta $ff00
+	cli
+}
+
 !ifdef TARGET_PLUS4 {
+	; SHOW IMAGE
 
 ;	sta $ff3f
 
@@ -176,9 +261,9 @@ interrupt_vector = $314
 	lda #$30
 	sta $ff12
 	
-; Set luminance/colour address to $e000/$e400
-;	lda #$e0
-;	sta $ff14
+; Set luminance/colour address to $0800/$0c00
+	lda #$08
+	sta $ff14
 
 ; Set graphics mode
 
@@ -189,11 +274,65 @@ interrupt_vector = $314
 
 }
 
-; Wait for <SPACE>
-; .getchar
-	; jsr kernal_getchar
-	; cmp #32
-	; bne .getchar
+!ifdef TARGET_C128 {
+	; WAIT FOR KEYPRESS OR ~10s
+	lda #0
+	sta $a1
+	ldx #5 ; ~17s
+-	
+	lda $d0 ; Number of chars in kbd buffer
+	bne +
+	cpx $a1
+	bne -
++
+;	lda #0
+;	sta $d0
+
+; TURN OFF IMAGE DISPLAY
+
+	sei
+
+	pla
+	tay
+	pla
+	tax
+	pla
+	sta $d016
+	stx $d018
+	sty $dd00
+	pla
+	sta $d011
+
+	cli
+
+	
+; Set graphics mode
+
+	; lda $d011
+	; and #%10011111
+	; sta $d011
+	; lda $d016
+	; and #%11101111
+	; sta $d016
+
+	; ; Set bank
+	; lda $dd00
+; ;	and #%11111100
+	; ora #%00000011
+	; sta $dd00
+
+	; ; Set screen address to $0400 and charmem to $d000 
+	; lda #%00010100
+	; sta $d018
+
+
+	lda #$00
+	sta $d8 ; Enable interrupt code to control display
+
+	; Clear screen
+	lda #147
+	jsr kernal_printchar
+}
 
 ; Copy loader
 
@@ -203,9 +342,17 @@ interrupt_vector = $314
 	dex
 	bpl -
 
+
 !ifdef FLICKER {
 ; Copy background colour to loader code
 !ifdef TARGET_C64 {
+	lda loader_pic_start + 10000
+	and #15 ; Make sure we don't have any noise in the high nybble
+	tax
+	lda .alt_col,x
+	sta .load_alt_col + 1
+}
+!ifdef TARGET_C128 {
 	lda loader_pic_start + 10000
 	and #15 ; Make sure we don't have any noise in the high nybble
 	tax
@@ -235,6 +382,12 @@ interrupt_vector = $314
 
 .loader
 !pseudopc loader_start {
+!ifdef TARGET_C128 {
+
+	lda #$00
+	tax
+	jsr kernal_setbnk
+}
 	lda #filename_length
 	ldx #<.filename
 	ldy #>.filename
@@ -310,6 +463,19 @@ interrupt_vector = $314
 	lda reg_backgroundcolour
 	sta character_colour
 
+!ifdef TARGET_C128 {
+;.c128_reset_to_basic
+	; this needs to be at the start of the program since
+	; I need to bank back the normal memory and the latter
+	; part of Ozmoo will be under the BASIC ROM.
+	lda #0
+	sta $ff00
+;	lda #$01
+;	sta $2b
+;	lda #$10
+;	sta $2c
+	jmp basic_reset_2
+}
 	rts
 
 !ifdef FLICKER {
@@ -330,7 +496,6 @@ interrupt_vector = $314
 filename_length = * - .filename
 }
 .end_of_loader
-
 .temp !byte 0
 
 !ifdef FLICKER {

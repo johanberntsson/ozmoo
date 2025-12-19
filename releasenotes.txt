@@ -4,6 +4,9 @@ Upcoming release
 
 New/changed features:
 - Solutions for Calypso (release 8, serial 250827), PunyInform Advent (release 1-7, serial 241124, 250704, 250809, 251011, 251113, 251126, 251205), and Inform 6 Advent (release 9, serial 060321) added to benchmarks.json, allowing Ozmoo to auto-play the games for benchmarking purposes.
+- A loader image can now be added for C128 builds as well. The image should be in Koala Multicolor format (same as for C64) and is shown on the 40-column display until the player presses a key or 17 seconds pass - then the game loads.
+- Renamed example game advent.z3 to advent_zil.z3
+- Added example game advent_punyinform.z5
 
 Bugfixes:
 - Added missing file to repo: asm/walkthrough.tpl
@@ -12,6 +15,7 @@ Bugfixes:
 - @sound_effect with effect = 4 (finish with) was ignored. It is now correctly treated as effect = 3 (stop).
 - @sound_effect with number = 0 and effect = 3 (stop) or 4 (finish with) produced a beep instead of stopping the current sound. Fixed. (Issue #76)
 - Queueing of @sound_effect commands fired after the same keyboard input, now works properly, as required by Lurking Horror (Issue #78). Each sound is played at least one full repetition.
+- Fixed old method name in tests/test_builds.rb
 
 ================================================
 Release 14.56: 6 Aug 2025
