@@ -285,8 +285,6 @@ interrupt_vector = $314
 	cpx $a1
 	bne -
 +
-;	lda #0
-;	sta $d0
 
 ; TURN OFF IMAGE DISPLAY
 
@@ -304,7 +302,6 @@ interrupt_vector = $314
 	sta $d011
 
 	cli
-
 	
 ; Set graphics mode
 
@@ -324,7 +321,6 @@ interrupt_vector = $314
 	; ; Set screen address to $0400 and charmem to $d000 
 	; lda #%00010100
 	; sta $d018
-
 
 	lda #$00
 	sta $d8 ; Enable interrupt code to control display
