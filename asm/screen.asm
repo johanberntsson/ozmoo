@@ -922,26 +922,39 @@ printchar_buffered
 	; update index to last break character
 	sty last_break_char_buffer_pos
 .add_char
+	ldx s_screen_width
 	sta print_buffer,y
 	lda s_reverse
 	sta print_buffer2,y
 	iny
 	sty buffer_index
-	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
-	beq +
-	jmp .printchar_done
+;	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
+	cpy s_screen_width ; #SCREEN_WIDTH+1
+	beq ++ 
+	bcs + ; Clear case - always print a line
+
+-	jmp .printchar_done
+
+++	; Print a line *if* we're on last line of screenful of text
+	lda window_start_row
+	clc
+	sbc window_start_row + 1 ; Carry is clear, so we subtract 1 more
+	cmp num_rows
+	bne - ; Not on last line
+	dex
 +
 	; print the line until last space
 	; First calculate max# of characters on line
-	ldx s_screen_width
-	lda window_start_row
-	sec
-	sbc window_start_row + 1
-	sbc #1
-	cmp num_rows
-	bne +
-	dex ; Max 39 chars on last line on screen.
-+	stx max_chars_on_line
+	; ldx s_screen_width
+	; lda window_start_row
+	; sec
+	; sbc window_start_row + 1
+	; sbc #1
+	; cmp num_rows
+	; bne +
+	; dex ; Max 39 chars on last line on screen.
+; +	
+	stx max_chars_on_line
 	; Check if we have a "perfect space" - a space after 40 characters
 	lda print_buffer,x
 	cmp #$20
