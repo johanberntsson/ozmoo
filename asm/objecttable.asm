@@ -168,10 +168,11 @@ z_ins_get_prop_len
 
 .zp_object = zp_mempos
 
-; These won't be used at the same time, so can use same address (2 bytes)
-.zp_parent = z_temp + 8
-.zp_sibling = z_temp + 8
-.zp_dest = z_temp + 8
+; These won't be used at the same time, so can use same address (2 bytes),
+; which must be object_tree_ptr
+.zp_parent = object_tree_ptr
+.zp_sibling = object_tree_ptr
+.zp_dest = object_tree_ptr
 
 ; .object_num !byte 0,0
 .parent_num !byte 0,0
