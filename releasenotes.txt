@@ -3,6 +3,7 @@ RELEASE NOTES
 Upcoming release
 
 - Fixed: If the last line on a screenful of text ended with a character in the rightmost column and then a newline character, the MORE prompt was printed on the next line, thus making the top line scroll off screen when it shouldn't.
+- Reuse object start address in object table, if same object is used twice in a row.
 
 ================================================
 Release 14.60: 20 Dec 2025

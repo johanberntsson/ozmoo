@@ -167,9 +167,12 @@ z_ins_get_prop_len
 	jmp z_store_result
 
 .zp_object = zp_mempos
-.zp_parent = object_tree_ptr  ; won't be used at the same time
-.zp_sibling = object_tree_ptr ; won't be used at the same time
-.zp_dest = object_tree_ptr    ; won't be used at the same time
+
+; These won't be used at the same time, so can use same address (2 bytes)
+.zp_parent = z_temp + 8
+.zp_sibling = z_temp + 8
+.zp_dest = z_temp + 8
+
 ; .object_num !byte 0,0
 .parent_num !byte 0,0
 .child_num !byte 0,0
@@ -1024,6 +1027,10 @@ calculate_object_address
 !ifndef Z4PLUS {
 	; To get address, multiply by 9 (Calculate 8 * obj# + obj#)
 ;	dex ;  (object_start_ptr points 9 bytes before first obj, so no need for dex)
+.calc_cmp_1
+	cpx #0
+	beq .done_calc
+	stx .calc_cmp_1 + 1
 
 	stx object_tree_ptr
 	lda #0
@@ -1057,6 +1064,15 @@ calculate_object_address
 ;	bne +
 ;	sbc #1
 ;+	
+.calc_cmp_1
+	cpx #0
+	bne +
+.calc_cmp_2
+	cmp #0
+	beq .done_calc
++	stx .calc_cmp_1 + 1
+	sta .calc_cmp_2 + 1
+
 	stx object_temp
 	sta object_temp + 1
 	sta object_tree_ptr + 1
@@ -1085,5 +1101,6 @@ calculate_object_address
 	adc objects_start_ptr + 1
 	sta object_tree_ptr + 1
 }
+.done_calc
 	rts
 	
