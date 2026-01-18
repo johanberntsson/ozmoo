@@ -835,17 +835,21 @@ find_first_prop
 	cpx #0
 	bne +
 	rts ; 0,0: no prop block exists, do nothing
-+	jsr read_next_byte ; length of object short name (# of zchars)
++	jsr read_next_byte ; length of object short name (# of string words)
 	; skip short name (2 * bytes, since in words)
+	asl
+	bcc .skip_name_bytes
+	; Object name is super long ( 128+ words)
+	ror
 	pha ; a is destroyed by skip_bytes_z_address
 	jsr skip_bytes_z_address
 	pla
+.skip_name_bytes
 	jmp skip_bytes_z_address
 
 find_prop
 	; call find_first_prop before calling find_prop
 	; output: x,a = address to property block, or 0,0 if not found
-	; (also stored in .find_prop_result)
 	; loop over the properties until the correct one found
 	jsr get_z_address
 	bne .property_loop
@@ -863,16 +867,11 @@ find_prop
 	jmp .property_loop
 .find_prop_not_found
 	ldx #0
-	lda #0
-	stx .find_prop_result
-	sta .find_prop_result + 1
+	txa
 	rts
 .find_prop_found
 	jsr get_z_address
-	stx .find_prop_result
-	sta .find_prop_result + 1
 	rts
-.find_prop_result !byte 0,0 ; x,a
 
 z_ins_get_prop
 	; get_prop object property -> (result)

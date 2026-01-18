@@ -89,7 +89,7 @@ get_z_himem_address
 	; fall through to get_z_address
 get_z_address
 	; input: 
-	; output: a,x
+	; output: a,x + Z says if high byte is zero
 	; side effects: 
 	; used registers: a,x
 	ldx z_address + 2 ; low
