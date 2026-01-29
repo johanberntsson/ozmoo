@@ -3085,12 +3085,12 @@ end
 
 
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
-	puts "ERROR: Options -sc and -dmsc can only be used with z1-z3 story files."
+	puts "ERROR: Setting statusline colour can only be done with z1-z3 story files."
 	exit 1
 end	
 
 if ($input_colour or $input_colour_dm) and $zcode_version > 4
-	puts "ERROR: Options -ic and -dmic can only be used with z1-z4 story files."
+	puts "ERROR: Setting input colour can only be done with z1-z4 story files."
 	exit 1
 end	
 
