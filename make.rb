@@ -93,6 +93,7 @@ $GENERALFLAGS = [
 #	'NO_DEFAULT_UNICODE_MAP' # Disables the default unicode output map, saving 83 bytes
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
+#	'OPTIMIZE_VMEM',
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
 #	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
@@ -103,12 +104,13 @@ $GENERALFLAGS = [
 $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'VIEW_STACK_RECORDS',
-#	'PRINTSPEED'
+#	'PRINTSPEED',
 #	'BENCHMARK', # This can now be enabled with -bm
 #	'VMEM_STRESS', # very slow but gives vmem a workout
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
+#	'PRINT_VMEM_OPT',
 #	'TRACE_FLOPPY_VERBOSE',
 #	'TRACE_PRINT_ARRAYS',
 #	'TRACE_PROP',

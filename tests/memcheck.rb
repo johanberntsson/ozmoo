@@ -36,8 +36,14 @@ elsif $ram_data.length != 65536
 	exit 1
 end
 
+$story_start = $labels['story_start']
+$z_pc = $labels['z_pc']
+$z_pc_mempointer = $labels['z_pc_mempointer']
 $vmap_z_l = $labels['vmap_z_l']
 $vmap_z_h = $labels['vmap_z_h']
+$stack_start = $labels['stack_start']
+$stack_pages = $labels['STACK_PAGES']
+$first_banked_memory_page = $labels['first_banked_memory_page']
 $vmap_first_ram_page = $labels['vmap_first_ram_page']
 $vmap_max_entries = $labels['vmap_max_entries']
 $vmap_used_entries = $labels['vmap_used_entries']
@@ -50,7 +56,28 @@ $vmem_cache_page_index = $labels['vmem_cache_page_index']
 #$vmap_mask = 0x01ff if $zcode_version < 4
 #$vmap_mask = 0x07ff if $zcode_version > 5
 
-puts "Static memory starts at #{$statmem_start}"
+puts "Static memory starts at Z-code address $#{$statmem_start.to_s(16)}"
+print "\n"
+puts "VMEM buffer is at RAM address $#{$vmem_cache_start.to_s(16)}-$#{($vmem_cache_start + 256 * $vmem_cache_count - 1).to_s(16)}"
+puts "Stack is at RAM address $#{$stack_start.to_s(16)}-$#{($stack_start + 256 * $stack_pages - 1).to_s(16)}"
+puts "Dynamic memory starts at RAM address $#{$story_start.to_s(16)}"
+puts "VMEM starts at RAM address $#{(256*$ram_data[$vmap_first_ram_page].ord).to_s(16)}"
+print "\n"
+$z_pc_value = $ram_data[($z_pc - 1) .. ($z_pc + 2)].unpack("N*")[0] % (256*256*256)
+$z_pc_mempointer_value = $ram_data[$z_pc_mempointer .. ($z_pc_mempointer + 1)].unpack("S<*")[0]
+#puts "$z_pc is #{$z_pc}. $z_pc_value is #{$z_pc_value}"
+puts "z_pc points to Z-code address $#{$z_pc_value.to_s(16)}"
+puts "z_pc_mempointer points to RAM address $#{$z_pc_mempointer_value.to_s(16)}"
+if $z_pc_value < $statmem_start
+	puts "Z_PC points to dynamic memory!"
+end
+if $z_pc_mempointer_value > 256 * $first_banked_memory_page or
+	( $z_pc_mempointer_value < $story_start + $statmem_start and
+		($z_pc_mempointer_value < $vmem_cache_start or
+			$z_pc_mempointer_value > $vmem_cache_start + 256 * $vmem_cache_count))
+	puts "Z_PC_MEMPOINTER points to weird memory!"
+end
+
 
 $ram_data[$vmap_used_entries].ord.times do |i|
 	zcode_address = 2 * 256 * 
@@ -59,10 +86,13 @@ $ram_data[$vmap_used_entries].ord.times do |i|
 	zcode_contents = $story_data[zcode_address .. (zcode_address + 511)]
 	ram_address = 256 * ($ram_data[$vmap_first_ram_page].ord + 2 * i)
 	ram_contents = $ram_data[ram_address .. (ram_address + 511)]
-	if ram_contents.length != 512 or
+	if zcode_address >= $story_data.length then
+		puts "VMAP block $#{i.to_s(16)}, RAM address $#{ram_address.to_s(16)}, Z-code address $#{zcode_address.to_s(16)}: Z-code address out of range"
+	elsif zcode_contents == nil or ram_contents == nil or 
+			ram_contents.length != 512 or
 			zcode_contents.length != 512 or
 			ram_contents != zcode_contents then
-		puts "VMAP block #{i}, RAM address #{ram_address}, Z-code address #{zcode_address}: Incorrect contents"
+		puts "VMAP block #{i.to_s(16)}, RAM address $#{ram_address.to_s(16)}, Z-code address $#{zcode_address.to_s(16)}: Incorrect contents"
 	end
 end
 
