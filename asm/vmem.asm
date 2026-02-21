@@ -220,13 +220,19 @@ vmem_swap_count !byte 0,0
 !ifdef OPTIMIZE_VMEM {
 OPT_INTERVAL = 1 ; (*256) Wait this many VMEM lookups between optimization runs, at start
 OPT_INTERVAL_SLOW = 3 ; (*256)  Wait this many VMEM lookups between optimization runs, later
-opt_temp !byte 0,0,0,0,0
 opt_vmem_switches !byte 0
 opt_vmem_counter !word $10000 - (256 * OPT_INTERVAL)
 opt_highest_value !byte 0
 opt_highest_value_index !byte 0
 !ifdef TARGET_C128 {
+OPT_VMEM_FAST_SWAPS = 45 ; Roughly the number of vmem blocks in unbanked RAM
+opt_temp !byte 0,0,0,0,0,0,0
+; Smallest z3 interpreter => story_start = $3a00
+;opt_usage_map !fill (($10000 - $4800) + ($10000 - $1000)) / 512 - 1,0
+opt_usage_map !fill 218,0
 } else {
+OPT_VMEM_FAST_SWAPS = 21 ; Roughly the number of vmem blocks in banked RAM
+opt_temp !byte 0,0,0,0,0
 ; Smallest z3 interpreter => story_start = $3a00
 opt_usage_map !fill ($10000 - $3800) / 512 - 1,0
 }
@@ -319,39 +325,81 @@ opt_optimize_vmem
 	jsr newline
 
 	; lda opt_temp + 1
-	; cmp #$07
+	; cmp #$2e
 	; bne ++
 	; lda opt_highest_value_index
-	; cmp #$31
+	; cmp #$4e
 	; bne ++
-; kak
-	; inc $d020
-	; jmp kak
+; kak1
+	; nop
+	; ; inc $d020
+	; ; jmp kak1
 ; ++
 
 }
 
-!ifdef TARGET_C128 {
-} else {
-; C64
 	lda opt_temp + 1 ; Index which has lowest usage value in unbanked RAM
 	asl
 	adc vmap_first_ram_page
 	sta opt_temp ; Start page of vmem block with lowest value
 
+!ifdef TARGET_C128 {
+	lda opt_highest_value_index
+	ldy #0
+	sty vmem_bank_temp
+	cmp first_vmap_entry_in_bank_1
+	bcc .vmem_opt_in_bank_0
+	sbc first_vmap_entry_in_bank_1 ; Carry is already set
+	asl
+	adc vmap_first_ram_page_in_bank_1 ; Carry is already clear
+	inc vmem_bank_temp
+	bne ++ ; Always branch
+.vmem_opt_in_bank_0
+	asl
+	adc vmap_first_ram_page
+++
+	sta opt_temp + 2
+
+	jsr get_free_vmem_buffer ; Page in A, index in X
+	stx opt_temp + 6
+	sta opt_temp + 5 ; buffer page
+	lda #0
+	sta vmem_cache_page_index,x
+	jsr inc_vmem_cache_cnt
+
+} else {
+; C64
 	lda opt_highest_value_index
 	asl
 	adc vmap_first_ram_page
 	sta opt_temp + 2 ; banked RAM page
-
+}
 
 .copy_one_more_page
-apan
 	jsr get_free_vmem_buffer ; Page in A, index in X
 	stx opt_temp + 4
 	sta opt_temp + 3 ; buffer page
 	jsr inc_vmem_cache_cnt
-	
+
+!ifdef TARGET_C128 {
+	lda opt_temp
+	ldy opt_temp + 3
+	ldx #0
+	jsr copy_page_c128 ; Copy from page a (unbanked) to page y (buffer)	
+	lda opt_temp + 2
+	ldy opt_temp + 5
+	ldx vmem_bank_temp
+	jsr copy_page_c128 ; Copy from page a (banked) to page y (temp buffer)
+	lda opt_temp + 5
+	ldy opt_temp
+	ldx #0
+	jsr copy_page_c128 ; Copy from page a (temp buffer) to page y (unbanked)
+	lda opt_temp + 3
+	ldy opt_temp + 2
+	ldx vmem_bank_temp
+	jsr copy_page_c128 ; Copy from page a (buffer) to page y (banked)
+} else {
+; C64
 	lda opt_temp
 	ldy opt_temp + 3
 	jsr copy_page ; Copy from page a (unbanked) to page y (buffer)
@@ -361,7 +409,7 @@ apan
 	lda opt_temp + 3
 	ldy opt_temp + 2
 	jsr copy_page ; Copy from page a (buffer) to page y (banked)
-	
+}	
 	; Change PC as necessary, if pointing to old unbanked block
 	lda opt_temp
 	cmp z_pc_mempointer + 1
@@ -379,6 +427,11 @@ apan
 	bpl -
 	bmi + ; Always branch
 .match_banked_page
+!ifdef TARGET_C128 {
+	lda vmem_bank_temp
+	cmp vmem_cache_bank_index,x
+	bne -- ; Not a match after all
+}
 	txa
 	clc
 	adc #>vmem_cache_start
@@ -394,14 +447,18 @@ apan
 	lda opt_temp + 2
 	ldx opt_temp + 4
 	sta vmem_cache_page_index,x ; Record that buffer holds the banked page at end
-
+!ifdef TARGET_C128 {
+	lda vmem_bank_temp
+	sta vmem_cache_bank_index,x
+}
 
 	inc opt_temp
 	inc opt_temp + 2
 	lda opt_temp
 	and #vmem_indiv_block_mask
-	bne .copy_one_more_page ; Perform copying code twice, since a vmem block is two pages
-	
+	beq +
+	jmp .copy_one_more_page ; Perform copying code twice, since a vmem block is two pages
++
 	; Swap vmap data
 	ldx opt_temp + 1
 	ldy opt_highest_value_index
@@ -417,11 +474,9 @@ apan
 	sta vmap_z_l,x
 	pla
 	sta vmap_z_h,x
-}
 
 .reset_stats_and_continue
 	; Reset usage stats and counter
-apax
 	ldy vmap_max_entries
 	lda #0
 	sta opt_highest_value
@@ -429,16 +484,25 @@ apax
 	dey
 	bne -
 
-;	ldx #<($10000 - OPT_INTERVAL_SLOW)
 	lda #>($10000 - (256 * OPT_INTERVAL_SLOW))
 	ldy opt_vmem_switches
-	cpy #21
+	cpy #OPT_VMEM_FAST_SWAPS
 	bcs ++
 	inc opt_vmem_switches
-;	ldx #<($10000 - OPT_INTERVAL)
 	lda #>($10000 - (256 * OPT_INTERVAL))
-++	; stx opt_vmem_counter
-	sta opt_vmem_counter + 1
+++	sta opt_vmem_counter + 1
+
+	; lda opt_temp + 1
+	; cmp #$2e
+	; bne ++
+	; lda opt_highest_value_index
+	; cmp #$4e
+	; bne ++
+; kak2
+	; nop
+	; ; inc $d020
+	; ; jmp kak
+; ++
 
 	rts
 }
@@ -624,14 +688,16 @@ load_blocks_from_index_using_cache
 	; initialise block copy function (see below)
 
 !ifdef OPTIMIZE_VMEM {
-!ifdef TARGET_C64 {
-	ldx vmap_index
+!ifdef TARGET_C128 {
+	lda vmem_bank_temp
+	bne ++
+}
 	lda #$ff
 	cpy #first_banked_memory_page
 	bcc +
-	lda #$00
-+	sta opt_usage_map,x
-}
+++	lda #$00
++	ldx vmap_index
+	sta opt_usage_map,x
 }
 	jsr get_free_vmem_buffer
 	sta vmem_temp
@@ -1219,7 +1285,7 @@ read_byte_at_z_address
 	lda vmap_c64_offset_bank
 	cmp vmem_cache_bank_index,x
 	bne .not_a_match
-	beq.cache_updated
+	beq .cache_updated
 .not_a_match
 } else {
 	beq .cache_updated
