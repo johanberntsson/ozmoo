@@ -1,7 +1,19 @@
+# Utility to examine a memory image of Ozmoo running on C64, to see if:
+# * virtual memory holds exactly what the vmem map says
+# * vmem buffer holds what the buffer index says it holds
+# * PC points to static Z-code memory, and a reasonable location in RAM
+#
+# A typical call looks like this:
+# ruby memcheck_c64.rb ..\examples\minizork.z3 ..\temp\acme_labels.txt snapshot.bin
+#
+# To create a memory snapshot, press Ctrl-H in Vice to enter monitor, then type:
+# bank ram
+# s "snapshot.bin" 0 0000 ffff
+
 require 'fileutils'
 
 if ARGV.length != 3
-	puts "Usage: ruby memcheck.rb storyfile labels c64_ram_image"
+	puts "Usage: ruby memcheck_c64.rb storyfile labels c64_ram_image"
 	exit 1
 end
 
@@ -52,10 +64,6 @@ $vmem_cache_start = $labels['vmem_cache_start']
 $vmem_cache_count = $labels['vmem_cache_count']
 $vmem_cache_page_index = $labels['vmem_cache_page_index']
 
-#$vmap_mask = 0x03ff
-#$vmap_mask = 0x01ff if $zcode_version < 4
-#$vmap_mask = 0x07ff if $zcode_version > 5
-
 puts "Static memory starts at Z-code address $#{$statmem_start.to_s(16)}"
 print "\n"
 puts "VMEM buffer is at RAM address $#{$vmem_cache_start.to_s(16)}-$#{($vmem_cache_start + 256 * $vmem_cache_count - 1).to_s(16)}"
@@ -65,12 +73,18 @@ puts "VMEM starts at RAM address $#{(256*$ram_data[$vmap_first_ram_page].ord).to
 print "\n"
 $z_pc_value = $ram_data[($z_pc - 1) .. ($z_pc + 2)].unpack("N*")[0] % (256*256*256)
 $z_pc_mempointer_value = $ram_data[$z_pc_mempointer .. ($z_pc_mempointer + 1)].unpack("S<*")[0]
-#puts "$z_pc is #{$z_pc}. $z_pc_value is #{$z_pc_value}"
+
 puts "z_pc points to Z-code address $#{$z_pc_value.to_s(16)}"
 puts "z_pc_mempointer points to RAM address $#{$z_pc_mempointer_value.to_s(16)}"
+
 if $z_pc_value < $statmem_start
 	puts "Z_PC points to dynamic memory!"
 end
+
+if $z_pc_value >= $story_data.length
+	puts "Z_PC points beyond the end of the Z-code file!"
+end
+
 if $z_pc_mempointer_value > 256 * $first_banked_memory_page or
 	( $z_pc_mempointer_value < $story_start + $statmem_start and
 		($z_pc_mempointer_value < $vmem_cache_start or
@@ -78,8 +92,9 @@ if $z_pc_mempointer_value > 256 * $first_banked_memory_page or
 	puts "Z_PC_MEMPOINTER points to weird memory!"
 end
 
+$vmap_entry_count = $ram_data[$vmap_used_entries].ord
 
-$ram_data[$vmap_used_entries].ord.times do |i|
+$vmap_entry_count.times do |i|
 	zcode_address = 2 * 256 * 
 		(256 * ($ram_data[$vmap_z_h + i].ord & $vmem_highbyte_mask) +
 			$ram_data[$vmap_z_l + i].ord)
@@ -96,7 +111,7 @@ $ram_data[$vmap_used_entries].ord.times do |i|
 	end
 end
 
-puts "\n#{$ram_data[$vmap_used_entries].ord} VMAP blocks checked."
+puts "\n#{$vmap_entry_count} VMAP blocks checked."
 
 print "\n"
 
@@ -110,7 +125,7 @@ $vmem_cache_count.times do |i|
 		if cache_contents.length != 256 or
 				ram_contents.length != 256 or
 				cache_contents != ram_contents then
-			puts "VMEM cache page #{i}, RAM address #{ram_address}, cache address #{cache_page_address}: Incorrect contents"
+			puts "VMEM cache page #{i}, RAM address $#{ram_address.to_s(16)}, cache page address $#{cache_page_address.to_s(16)}: Incorrect contents"
 		end
 	else
 		puts "Cache page #{i} is empty"
