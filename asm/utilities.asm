@@ -145,9 +145,13 @@ plus4_enable_rom = $ff3e
 }
 }
 
-
-
 !ifdef SLOW {
+!ifndef TARGET_C128 {
+	SLOW_PC_READ = 1;
+}
+}
+
+!ifdef SLOW_PC_READ {
 
 !ifdef TARGET_X16 {
 !macro read_next_byte_at_z_pc {
