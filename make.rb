@@ -93,7 +93,7 @@ $GENERALFLAGS = [
 #	'NO_DEFAULT_UNICODE_MAP' # Disables the default unicode output map, saving 83 bytes
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
-#	'OPTIMIZE_VMEM',
+#	'OPTIMIZE_VMEM', # Continuously move the most used vmem blocks to unbanked RAM (C64/C128)
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
 #	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
@@ -110,7 +110,7 @@ $DEBUGFLAGS = [
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
-#	'PRINT_VMEM_OPT',
+#	'PRINT_VMEM_OPT', # Print index of vmem blocks swapped, when OPTIMIZE_VMEM is active
 #	'TRACE_FLOPPY_VERBOSE',
 #	'TRACE_PRINT_ARRAYS',
 #	'TRACE_PROP',
@@ -2361,7 +2361,7 @@ end
 def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
+	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-vo[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-um[:0|1]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-fgcol:<colourname>] [-bgcol:<colourname>] [-bordercol:<colourname>]"
@@ -2384,7 +2384,8 @@ def print_usage
 	puts "  -bm: Build interpreter in Benchmark Mode. There must be a valid walkthrough in benchmarks.json."
 	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."	
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
-	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
+	puts "  -sl: Remove some optimizations for speed. This saves ~100 bytes smaller."
+	puts "  -vo: Continuous virtual memory optimization (C64/C128 only). Enabled by defult. Disabling saves ~500 bytes."
 	puts "  -s: start game in emulator if build succeeds"
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
@@ -2495,6 +2496,7 @@ reu_boost = nil
 x_for_examine = nil
 write_signature = nil
 username = nil
+optimize_vmem = nil
 
 begin
 	ARGV.each do |arg|
@@ -2678,6 +2680,12 @@ begin
 			else
 				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 			end
+		elsif arg =~ /^-vo(?::([0-1]))?$/ then
+			if $1 == nil
+				optimize_vmem = 1
+			else
+				optimize_vmem = $1.to_i
+			end
 		elsif arg =~ /^-bm$/ then
 			$DEBUGFLAGS.push('BENCHMARK') unless $DEBUGFLAGS.include?('BENCHMARK')
 		elsif arg =~ /^-dm(?::([01]))?$/ then
@@ -2770,6 +2778,25 @@ if reu_boost == 1
 	$GENERALFLAGS.push('REUBOOST') unless $GENERALFLAGS.include?('REUBOOST')
 	if $target !~ /^c(64|128)$/
 		puts "ERROR: REU Boost is not supported for this target platform." 
+		exit 1
+	end
+end
+
+if $target =~ /^(c64|c128)$/ and optimize_vmem == nil and mode != MODE_P
+	optimize_vmem = 1
+end
+if optimize_vmem == 1
+	$GENERALFLAGS.push('OPTIMIZE_VMEM') unless $GENERALFLAGS.include?('OPTIMIZE_VMEM') 
+	if $target !~ /^(c64|c128)$/ 
+		puts "ERROR: Continuous virtual memory optimization is not supported for this target platform." 
+		exit 1
+	end
+	if mode == MODE_P
+		puts "ERROR: Continuous virtual memory optimization can't be used with build mode P." 
+		exit 1
+	end
+	if $CACHE_PAGES < 3 
+		puts "ERROR: Continuous virtual memory optimization requires at least 3 pages of vmem cache, please set $CACHE_PAGES to a higher value." 
 		exit 1
 	end
 end
