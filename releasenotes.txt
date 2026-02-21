@@ -2,6 +2,13 @@ RELEASE NOTES
 
 Upcoming release
 
+- Added option for continuous virtual memory optimization on C64 and C128 - switch little used vmem blocks in unbanked RAM for much used vmem blocks in banked RAM, for performance. Enabled by default. Can be disabled with -vo:0. Cost 430 bytes on C64, 640 bytes on C128.
+- Use REU for fast copying even if REU caching not active, if REU is 256+ KB, on C64 and on C128 in 80 column mode.
+- Use a macro instead of a subroutine to read data at PC on C128 (like we already do on C64), for performance.
+- Fixed very old bug: If REU was too small to cache game, Undo was blocked from using REU.
+- Added tests/memcheck_c64.rb and memcheck_c128.rb to check a memory dump for virtual memory corruption. 
+- Changed some old error messages in make.rb, referring to command line options which have been renamed.
+
 ================================================
 Release 14.64: 19 Jan 2026
 

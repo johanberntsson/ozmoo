@@ -6,6 +6,7 @@ reu_translen = $DF07
 reu_irqmask  = $DF09
 reu_control  = $DF0A
 
+reu_bank_for_page_copying !byte $ff ; 0-2 are possible values, $ff means not available
 reu_needs_loading !byte 0 ; Should be 0 from the start
 
 !zone reu {

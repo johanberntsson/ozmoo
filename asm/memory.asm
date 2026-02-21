@@ -271,8 +271,8 @@ copy_page_c128_via_reu
 	sta $d506
 +	
 
-	lda #0
-	tax
+	lda reu_bank_for_page_copying
+	ldx #0
 	clc
 	jsr store_reu_transfer_params
 
@@ -347,9 +347,9 @@ copy_page_c128_src
 ; Skip speed decrease if we can
 	bit COLS_40_80
 !if SUPPORT_REU = 1 {
-	bpl ++
-	bit use_reu
-	bpl +
+	bpl ++ ; In 40 column mode, we don't use REU for copying - too hard!
+	bit reu_bank_for_page_copying
+	bmi +
 	jmp copy_page_c128_via_reu
 ++	
 } else {
@@ -524,8 +524,8 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 
 !if SUPPORT_REU = 1 {
-	bit use_reu
-	bmi .reu_copy
+	ldx reu_bank_for_page_copying
+	bpl .reu_copy
 }
 	sta .copy + 2
 	sty .copy + 5
@@ -545,10 +545,11 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 !if SUPPORT_REU = 1 {
 .reu_copy
+	; X holds REU bank to use (also in reu_bank_for_page_copying)
 	sty .load_dest_page + 1
 	tay
-	lda #0
-	tax
+	txa
+	ldx #0
 	clc
 	jsr store_reu_transfer_params
 	lda #%10100000;  c64 -> REU with delayed execution

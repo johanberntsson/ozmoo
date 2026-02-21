@@ -2672,7 +2672,7 @@ reu_start
 ;	lda #0 ; SKIP REU FOR DEBUGGING PURPOSES
 	sta reu_banks
 	cmp statmem_reu_banks
-	bcc .no_reu_present ; REU is too small to cache this game
+	bcc .dont_cache_to_reu ; REU is too small to cache this game
 
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
@@ -2682,6 +2682,7 @@ reu_start
 	beq .dont_cache_to_reu
 	cmp #89
 	bne -
+	inc reu_bank_for_page_copying ; Change from $ff to $00
 	ldx #$80 ; Use REU, set vmem to reu loading mode
 	stx use_reu
 !ifdef UNDO {
@@ -2707,6 +2708,11 @@ reu_start
 	ldx #0
 	stx reu_bank_for_undo
 }
+	ldx #3
+	cpx reu_banks
+	bcs .no_reu_room_for_copying
+	stx reu_bank_for_page_copying
+.no_reu_room_for_copying
 	lda #78 + 128
 .print_reply_and_return
 	jsr s_printchar
