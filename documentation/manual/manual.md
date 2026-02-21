@@ -592,6 +592,10 @@ The interpreter number is used by a few games to modify the screen output format
 
 -sl or -sl:1 enables slow mode, while -sl:0 disables it. This has an effect on builds for C64 only, and not in -P build mode. Slow mode removes some optimizations for speed, making the interpreter slightly smaller.
 
+## Option -vo[:0|1]
+
+-vo or -vo:1 enables continuous virtual memory optimization, while -vo:0 disables it. This can only be used on C64 and C128, not in -P build mode, and it is enabled by default. While the game is being played, it moves different vmem blocks around in memory, so blocks that are used often are placed in memory that can be accessed quickly. This feature typically makes a substantial difference in terms of performance, when playing without using an REU for caching game data. For games with huge dynamic memory, it may still be preferrable to turn it off. Turning it off also saves ~430 bytes on C64, ~640 bytes on C128.
+
 ## Option -x[:0|1]
 
 Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only.
