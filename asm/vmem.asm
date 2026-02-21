@@ -353,19 +353,25 @@ opt_optimize_vmem
 	asl
 	adc vmap_first_ram_page_in_bank_1 ; Carry is already clear
 	inc vmem_bank_temp
-	bne ++ ; Always branch
-.vmem_opt_in_bank_0
-	asl
-	adc vmap_first_ram_page
-++
+
 	sta opt_temp + 2
 
+	; Allocate a temp buffer, only needed if vmem_bank_temp > 0
 	jsr get_free_vmem_buffer ; Page in A, index in X
 	stx opt_temp + 6
 	sta opt_temp + 5 ; buffer page
 	lda #0
 	sta vmem_cache_page_index,x
 	jsr inc_vmem_cache_cnt
+
+	jmp ++
+
+.vmem_opt_in_bank_0
+	asl
+	adc vmap_first_ram_page
+	sta opt_temp + 2
+
+++
 
 } else {
 ; C64
@@ -386,14 +392,22 @@ opt_optimize_vmem
 	ldy opt_temp + 3
 	ldx #0
 	jsr copy_page_c128 ; Copy from page a (unbanked) to page y (buffer)	
+
 	lda opt_temp + 2
 	ldy opt_temp + 5
 	ldx vmem_bank_temp
-	jsr copy_page_c128 ; Copy from page a (banked) to page y (temp buffer)
+
+	; If bank is 0, we don't need the temporary buffer => 1 less page copy op
+	bne +
+	ldy opt_temp
+	bne ++ ; Always branch
+
++	jsr copy_page_c128 ; Copy from page a (banked) to page y (temp buffer)
 	lda opt_temp + 5
 	ldy opt_temp
 	ldx #0
-	jsr copy_page_c128 ; Copy from page a (temp buffer) to page y (unbanked)
+++	jsr copy_page_c128 ; Copy from page a (temp buffer) to page y (unbanked)
+
 	lda opt_temp + 3
 	ldy opt_temp + 2
 	ldx vmem_bank_temp
