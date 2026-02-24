@@ -1,6 +1,9 @@
 RELEASE NOTES
 
 Upcoming release
+- Fixed bug: On C128, if there was a page in the vmem cache, which belongs to the vmem block we decide to throw out, and the block was below $d000 in bank 1, the page index wasn't updated to reflect that the page became invalid, which could lead to the program crashing.
+- Fixed bug: VMEM pages in bank 1 on C128 were never considered for swapping to unbanked RAM in virtual memory optimization code.
+- Slight optimizations in code for virtual memory optimization.
 
 ================================================
 Release 15: 22 Feb 2026

@@ -1360,6 +1360,13 @@ c128_move_dynmem_and_calc_vmem
 	lda #>story_start
 	sta vmap_first_ram_page
 
+	; Calculate # of pages of unbanked RAM used for vmem
+	lda #first_banked_memory_page
+	sec
+	sbc vmap_first_ram_page
+	lsr
+	sta vmap_unbanked_blocks
+	
 	; Remember above which index in vmem the blocks are in bank 1
 !ifdef SCROLLBACK_RAM_PAGES {
 	lda #SCROLLBACK_RAM_START_PAGE
@@ -2313,11 +2320,27 @@ deletable_init
 ; .store_nonstored_pages
 	; sty nonstored_pages
 	; tya
+
+!ifndef TARGET_C128 {
+
+; On C128, this is calculated in c128_move_dynmem_and_calc_vmem,
+; called a few lines down
+
 	lda nonstored_pages
-	
 	clc
 	adc #>story_start
 	sta vmap_first_ram_page
+
+!ifndef TARGET_PLUS4 {
+	; Calculate # of pages of unbanked RAM used for vmem
+	lda #first_banked_memory_page
+	sec
+	sbc vmap_first_ram_page
+	lsr
+	sta vmap_unbanked_blocks
+}
+}
+
 !ifdef SCROLLBACK_RAM_PAGES {
 	lda #SCROLLBACK_RAM_START_PAGE
 } else {
