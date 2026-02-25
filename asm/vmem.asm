@@ -685,8 +685,7 @@ load_blocks_from_index_using_cache
 	cpx vmap_unbanked_blocks
 	bcc +
 	lda #$00
-+	ldx vmap_index
-	sta opt_usage_map,x
++	sta opt_usage_map,x
 
 }
 	jsr get_free_vmem_buffer
