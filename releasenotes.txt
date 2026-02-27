@@ -3,6 +3,8 @@ RELEASE NOTES
 Upcoming release
 - Fixed bug: On C128, if there was a page in the vmem cache, which belongs to the vmem block we decide to throw out, and the block was below $d000 in bank 1, the page index wasn't updated to reflect that the page became invalid, which could lead to the program crashing.
 - Slight optimizations in code for virtual memory optimization.
+- Changed statusline (z1-z3) to show "99:999" or "12:34 PM" for 32 column screen, nothing for 20-22 column screen, "Sc: 99 Mv:999" for 40 column screen.
+- Optimized statusline (z1-z3) so it doesn't print spaces where score/moves will be printed anyway.
 
 ================================================
 Release 15: 22 Feb 2026

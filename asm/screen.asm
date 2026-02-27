@@ -1,52 +1,5 @@
 ; screen update routines
 
-; sl_score_pos !byte 54
-; sl_moves_pos !byte 67
-; sl_time_pos !byte 64
-
-!ifdef TARGET_X16 {
-!ifndef Z4PLUS {
-update_statusline_params
-	lda s_screen_width
-	cmp #67
-	bcs .width80
-	cmp #37
-	bcs .width40
-	cmp #30
-	bcs .width32
-	; Width 20 or 22
-	lda #$ff
-	tay
-	bne .store_and_rts ; Always branch
-.width32
-	lda s_screen_width
-	sec
-	sbc #8
-	ora #$80 ; No "Score: " or "Time: " string
-	tay
-	dey
-	ldx #0
-	beq .store_and_rts ; Always branch
-.width40
-	lda s_screen_width
-	sec
-	sbc #15
-	tay
-	ldx #0
-	beq .store_and_rts ; Always branch
-.width80
-	lda #54
-	ldx #67
-	ldy #60
-.store_and_rts
-	sta sl_score_pos
-	stx sl_moves_pos
-	sty sl_time_pos
-	rts
-	
-}
-}
-
 !macro init_screen_model {
     lda #147 ; clear screen
     jsr s_printchar
@@ -62,11 +15,6 @@ update_statusline_params
     sty window_start_row
     ldy #0
     sty is_buffered_window
-!ifdef TARGET_X16 {
-!ifndef Z4PLUS {
-	jsr update_statusline_params
-}
-}
     ldx #$ff
     jsr erase_window
 }
@@ -1093,41 +1041,52 @@ get_cursor
 
 !ifndef Z4PLUS {
 
-!ifdef TARGET_X16 {
-sl_score_pos !byte 52
-sl_moves_pos !byte 66
-sl_time_pos !byte 60
-} else ifdef TARGET_MEGA65 {
-sl_score_pos !byte 52
-sl_moves_pos !byte 66
-sl_time_pos !byte 60
-} else {
-sl_score_pos !byte 25
-!ifdef TARGET_C128 {
-sl_moves_pos !byte 0 ; A signal that "Moves:" should not be printed
-}
-sl_time_pos !byte 25
-}
+.statusline_temp = z_operand_value_low_arr + 4
+.num_width_temp = z_operand_value_high_arr + 4;
 
-z_ins_show_status
-	; show_status (hardcoded size)
-;    jmp draw_status_line
-
-draw_status_line
-	lda current_window
+number_print_width
+; a,x = signed number (a is HB)
+; Returns: y = number of characters
+	ldy #1 ; Base length
+;	sty .num_width_temp
+	cmp #$80
+	bcc + ; Positive number
+	iny ; Add 1 for minus
+	eor #$ff
 	pha
-	jsr save_cursor
-	lda #2
-	sta current_window
-	ldx #0
-	ldy #0
-	jsr set_cursor
-	lda #18 ; reverse on
-	jsr s_printchar
-	ldx darkmode
-	ldy statuslinecol,x 
-	lda zcolours,y
-	jsr s_set_text_colour
+	txa
+	eor #$ff
+	adc #0 ; Carry is set, so this adds 1
+	tax
+	pla
+	adc #0
++	sta .num_width_temp + 1
+	cpx #10
+	sbc #0
+	bcc ++ ; Done
+	iny
+	lda .num_width_temp + 1
+	cpx #100
+	sbc #0
+	bcc ++
+	iny
+	lda .num_width_temp + 1
+	cpx #<1000
+	sbc #>1000
+	bcc ++
+	iny
+	lda .num_width_temp + 1
+	cpx #<10000
+	sbc #>10000
+	bcc ++
+	iny
+++	rts
+
+statusline_print_room
+	; Input:
+	; y = columns to the right that don't need emptying
+
+	sty .statusline_temp + 1
 	;
 	; Room name
 	; 
@@ -1149,16 +1108,51 @@ draw_status_line
 	;
 	; fill the rest of the line with spaces
 	;
+	lda s_screen_width
+	sec
+	sbc .statusline_temp + 1
+	sta .statusline_temp + 1
 -   lda zp_screencolumn
-	cmp s_screen_width
+	cmp .statusline_temp + 1
 	bcs +
 	lda #$20
 	jsr s_printchar
 	jmp -
++   rts
+	
+z_ins_show_status
+	; show_status (hardcoded size)
+
+draw_status_line
+	lda current_window
+	pha
+	jsr save_cursor
+	lda #2
+	sta current_window
+	ldx #0
+	ldy #0
+	jsr set_cursor
+	lda #18 ; reverse on
+	jsr s_printchar
+	ldx darkmode
+	ldy statuslinecol,x 
+	lda zcolours,y
+	jsr s_set_text_colour
+
+!ifdef TARGET_X16 {
+	lda s_screen_width
+	cmp #30
+	bcs +
+	ldy #0
+	jsr statusline_print_room
+	jmp .statusline_done
++
+}
+
 	;
 	; score or time game?
 	;
-+   
+
 !ifdef Z3 {
 	ldy #header_flags_1
 	jsr read_header_word
@@ -1176,54 +1170,145 @@ draw_status_line
 	pha
 	lda z_operand_value_high_arr + 1
 	pha
-	ldx #0
-	ldy sl_score_pos
-!ifdef TARGET_X16 {
-	bpl .normal_score
-	cpy #$ff
-	beq .all_done_score_sl ; No score or moves
-	; Don't print "Score: " string
+
+	; If we get here, the screen is 32, 40, 64 or 80 columns
+!ifdef SUPPORT_80COL {
+	lda s_screen_width
+	cmp #60
+	bcc + 
+	jmp .print_score_64 ; 64+ wide statusline 
++
+}
+	lda #17
+	jsr z_get_low_global_variable_value
+	jsr number_print_width
+	sty .statusline_temp
+	lda #18
+	jsr z_get_low_global_variable_value
+	jsr number_print_width
+;	sty .statusline_temp + 1
 	tya
-	and #$7f
+	clc
+	adc .statusline_temp
+	sta .statusline_temp
+
+	ldx #0
+
+!ifdef TARGET_X16 {
+	lda s_screen_width
+	cmp #35
+	bcs +++
+; .print_score_32
+; 12345678901234567890123456789012
+; A Cave                  123:1234
+	ldy .statusline_temp
+	iny
+	iny
+	jsr statusline_print_room
+
+	lda s_screen_width
+	sec
+	sbc .statusline_temp
+	sbc #2
 	tay
 	jsr set_cursor
-	jmp .print_score_number
-.normal_score
-}
-	jsr set_cursor
-	ldy #0
--   lda .score_str,y
-	beq .print_score_number
+	lda #32
 	jsr s_printchar
-	iny
-	bne - ; Always branch
-.print_score_number
 	lda #17
 	jsr print_low_global_variable_value
-!ifdef SUPPORT_80COL {
-	ldy sl_moves_pos
-!ifdef TARGET_X16 {
-	bmi .all_done_score_sl
-}
-	bne +
-	lda #47
+	lda #58
 	jsr s_printchar
-	jmp ++	
-+	ldx #0
+	jmp .print_moves
++++
+}
+	; If we get here, the screen is 40 columns
+
+; 1234567890123456789012345678901234567890
+; A Cave                    Sc:123 Mv:1234
+
+!ifndef TARGET_MEGA65 {
+; .print_score_40
+	lda .statusline_temp
+	clc
+	adc #8
+	tay	
+	jsr statusline_print_room
+
+	lda s_screen_width
+	sec
+	sbc .statusline_temp
+	sbc #8
+	tay
 	jsr set_cursor
-	ldy #0
--   lda .turns_str,y
-	beq ++
-	jsr s_printchar
-	iny
-	bne - ; Always branch
-++
-} else {
-	lda #47
-	jsr s_printchar
+	; Print " Sc:"
+	lda #>.score_short_str
+	ldx #<.score_short_str
+	jsr printstring_raw
+	lda #17
+	jsr print_low_global_variable_value
+	; Print " Mv:"
+	lda #>.turns_short_str
+	ldx #<.turns_short_str
+	jsr printstring_raw
+	jmp .print_moves
 }
+
+!ifdef SUPPORT_80COL {
+.print_score_64
+; 1234567890123456789012345678901234567890123456789012345678901234
+; A Cave                                 Score: 123  Moves: 1234
+
+	ldy #26
+	jsr statusline_print_room
+
+	; Print " Score: "
+	lda s_screen_width
+	sec
+	sbc #26
+	tay
+	jsr set_cursor
+	lda #>.score_str
+	ldx #<.score_str
+	jsr printstring_raw
+	lda #17
+	jsr print_low_global_variable_value
+	jsr get_cursor
+	sty .statusline_temp
+	; Print " Moves: "
+	lda s_screen_width
+	sec
+	sbc #14
+	sbc .statusline_temp
+	tay
+-	lda #32
+	jsr s_printchar
+	dey
+	bne -
+	; ldx #0
+	; jsr set_cursor
+	lda #>.turns_str
+	ldx #<.turns_str
+	jsr printstring_raw
+}
+	
+.print_moves
 	lda #18
 	jsr print_low_global_variable_value
+!ifdef SUPPORT_80COL {
+	lda s_screen_width
+	cmp #60
+	bcc +
+	jsr get_cursor
+	sty .statusline_temp
+	sec
+	sbc .statusline_temp
+	tay
+-	lda #32
+	jsr s_printchar
+	dey
+	bne -
++
+}	
 .all_done_score_sl
 	pla
 	sta z_operand_value_high_arr + 1
@@ -1236,8 +1321,8 @@ draw_status_line
 	jmp .statusline_done
 
 !ifdef Z3 {
-.time_str !pet "Time: ",0
-.ampm_str !pet " AM",0
+.time_str !pet " Time: ",0
+.ampm_str !pet " AM ",0
 
 .print_clock_number
 	sty z_temp + 11
@@ -1263,19 +1348,29 @@ draw_status_line
 .timegame
 	; time game
 	ldx #0
-	ldy sl_time_pos
+	lda s_screen_width
 !ifdef TARGET_X16 {
-	bpl .normal_time
-	cpy #$ff
-	beq .statusline_done ; No score or moves
-	; Don't print "Score: " string
-	tya
-	and #$7f
-	tay
+	cmp #37
+	bcs .normal_time
+
+	; This is a 32 column screen (< 32 don't get to this point)
+	ldy #9
+	jsr statusline_print_room
+	
+	; Don't print " Time: " string
+	ldx #0
+	ldy #23
 	jsr set_cursor
 	jmp .print_time_data
 .normal_time
 }
+	ldy #16
+	jsr statusline_print_room
+
+	lda s_screen_width
+	sec
+	sbc #16
+	tay
 	jsr set_cursor
 	lda #>.time_str
 	ldx #<.time_str
@@ -1325,10 +1420,13 @@ draw_status_line
 	sta current_window
 	jmp restore_cursor
 
-
-.score_str !pet "Score: ",0
+!ifndef TARGET_MEGA65 {
+.score_short_str !pet " Sc:",0
+.turns_short_str !pet " Mv:",0
+}
 !ifdef SUPPORT_80COL {
-.turns_str !pet "Moves: ",0
+.score_str !pet " Score: ",0
+.turns_str !pet " Moves: ",0
 }
 }
 
