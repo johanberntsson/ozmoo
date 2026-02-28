@@ -1071,10 +1071,13 @@ game_id		!byte 0,0,0,0
 	lda #use_2mhz_in_80_col_in_game_value
 	sta use_2mhz_in_80_col
 	sta reg_2mhz	;CPU = 2MHz
-	lda $d011
-	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
-	and #%01101111
-	sta $d011
+
+	; Moved this to deletable_screen_init_1
+	; lda $d011
+	; ; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
+	; and #%01101111
+	; sta $d011
+
 	jmp ++
 +	; 40 columns mode
 !ifndef SMOOTHSCROLL {
@@ -1601,6 +1604,17 @@ font_read_error
 
 deletable_screen_init_1
 	; start text output from bottom of the screen
+
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl +
+	; 80 columns mode
+	lda $d011
+	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
+	and #%01101111
+	sta $d011
++
+}
 
 !ifdef TARGET_X16 {
 !ifdef CUSTOM_FONT {
