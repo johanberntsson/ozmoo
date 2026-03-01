@@ -538,13 +538,13 @@ z_ins_print_unicode
 	jmp streams_print_output
 }
 	
-convert_zchar_to_char
+!macro convert_zchar_to_char {
 	; input: a=zchar
 	; output: a=char
 	; side effects:
 	; used registers: a,y
-	cmp #$20
-	beq +++
+;	cmp #$20
+;	beq +++
 	cmp #6
 	bcc +++
 	sec
@@ -553,7 +553,9 @@ convert_zchar_to_char
 	adc alphabet_offset
 	tay
 	lda z_alphabet_table,y
-+++	rts
++++	
+}
+;	rts
 
 translate_petscii_to_zscii
 	ldx #character_translation_table_in_end - character_translation_table_in - 1
@@ -2134,12 +2136,12 @@ tokenise_text
 .wordend    !byte 0 
 .ignore_unknown_words !byte 0 
 
-get_next_zchar
+!macro get_next_zchar {
 	; returns the next zchar in a
 	; side effects: z_address
 	; used registers: a,x,y
 	ldx zchar_triplet_cnt
-	cpx #2
+;	cpx #2
 	bne .just_read
 	; extract 3 zchars (5 bits each)
 	; stop bit remains in packed_text + 1
@@ -2148,50 +2150,57 @@ get_next_zchar
 	jsr read_next_byte
 	sta packed_text + 1
 	and #$1f
-	sta zchars
+	sta zchars + 2
 	lda packed_text
 	lsr
 	ror packed_text + 1
 	lsr
 	ror packed_text + 1
 	and #$1f
-	sta zchars + 2
+	sta zchars
 	lda packed_text + 1
 	lsr
 	lsr
 	lsr
 	sta zchars + 1	
-	ldx #0
+	ldx #1
 	bit packed_text
 	bpl +
-	inx
-+	stx packed_text + 1	
+	dex
++	stx packed_text + 1	 ; 0 means it's the last byte-pair
 	ldx zchar_triplet_cnt
 .just_read
 	lda zchars,x
-	dex
-	bpl +
+	inx
+	cpx #3
+	bcc +
+	ldx #0
++	stx zchar_triplet_cnt
+}
 
-init_get_zchar
+!macro init_get_zchar {
 	; Setup for reading zchars from packed string
 	; side effects: -
 	; used registers: x
-	ldx #2
-+	stx zchar_triplet_cnt
-	rts
+	ldx #0
+	stx zchar_triplet_cnt
+}
+;	rts
 	
 	
 ; .zchar_triplet_cnt !byte 0
 
-was_last_zchar
+!macro was_last_zchar {
 	; only call after a get_next_zchar
 	; returns a=0 if current zchar is the last zchar, else > 0
 	lda zchar_triplet_cnt ; 0 - 2
-	cmp #2
+;	cmp #2
 	bne +
 	lda packed_text + 1
-	eor #1
-+   rts
+;	eor #1
++
+}
+;   rts
 
 get_abbreviation_offset
 	; abbreviation is 32(abbreviation_command-1)+a
@@ -2227,9 +2236,9 @@ print_addr
 	sta alphabet_offset
 	sta escape_char_counter
 	sta abbreviation_command
-	jsr init_get_zchar
+	+init_get_zchar
 .print_chars_loop
-	jsr get_next_zchar
+	+get_next_zchar
 !ifndef Z1 {
 	ldy abbreviation_command
 	beq .l0
@@ -2331,6 +2340,10 @@ print_addr
 	jsr streams_print_output
 	jmp .next_zchar
 .l0a 
+	; Regardsless of alphabet, code 8+ are always normal
+	cmp #8
+	bcs .l6
+
 	; If alphabet A2, special treatment for code 6 and 7!
 	ldy alphabet_offset
 	cpy #52
@@ -2441,7 +2454,7 @@ print_addr
 	sta abbreviation_command ; 1, 2 or 3
 	jmp .next_zchar
 .l6 ; normal char
-	jsr convert_zchar_to_char
+	+convert_zchar_to_char
 .print_normal_char
 	jsr streams_print_output
 .reset_alphabet
@@ -2454,7 +2467,7 @@ print_addr
 }
 	sta alphabet_offset
 .next_zchar
-	jsr was_last_zchar
+	+was_last_zchar
 	beq +
 	jmp .print_chars_loop
 +   rts

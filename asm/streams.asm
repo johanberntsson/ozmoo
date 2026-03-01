@@ -842,10 +842,10 @@ translate_zscii_to_petscii
 	bpl -
 .no_match
 !ifndef NO_DEFAULT_UNICODE_MAP {
-	cmp #224
-	bcs .no_mapping
 	cmp #155
 	bcc .no_mapping
+	cmp #224
+	bcs .no_mapping
 	tay
 	lda default_unicode_out - 155,y
 	bne .ldy_and_return ; Always branch
