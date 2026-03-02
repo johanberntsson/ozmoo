@@ -851,10 +851,29 @@ translate_zscii_to_petscii
 	bne .ldy_and_return ; Always branch
 .no_mapping
 }
+; .case_conversion
 	ldy .streams_tmp + 1
+	cmp #$61
+	bcc .not_lower_case
+	cmp #$7b
+	bcs .not_lower_or_upper_case
+	; Lower case. $61 -> $41
+	and #$df
+;	clc ; Already clear
+	rts
+.not_lower_case
+	cmp #$41
+	bcc .not_lower_or_upper_case
+	cmp #$5b
+	bcs .not_lower_or_upper_case
+	; Upper case. $41 -> $c1
+	ora #$80
+;	clc ; Already clear
+	rts
+.not_lower_or_upper_case
 	; Check if legal
 	cmp #13
-	beq .case_conversion_done
+	beq .is_legal
 	cmp #$20
 	bcc .not_legal
 	cmp #$7f
@@ -863,22 +882,6 @@ translate_zscii_to_petscii
 	sec
 	rts
 .is_legal
-; .case_conversion
-	cmp #$41
-	bcc .case_conversion_done
-	cmp #$5b
-	bcs .not_upper_case
-	; Upper case. $41 -> $c1
-	ora #$80
-	bcc .case_conversion_done
-.not_upper_case
-	cmp #$61
-	bcc .case_conversion_done
-	cmp #$7b
-	bcs .case_conversion_done
-	; Lower case. $61 -> $41
-	and #$df
-.case_conversion_done
 	clc
 	rts
 .match

@@ -547,12 +547,12 @@ z_ins_print_unicode
 ;	beq +++
 	cmp #6
 	bcc +++
-	sec
-	sbc #6
-	clc
-	adc alphabet_offset
+;	sec
+;	sbc #6
+;	clc
+	adc alphabet_offset ; Carry is set, so this adds 1 too much
 	tay
-	lda z_alphabet_table,y
+	lda z_alphabet_table - 7,y ; Should be - 6, but compensate for addition above
 +++	
 }
 ;	rts
