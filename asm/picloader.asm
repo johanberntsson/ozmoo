@@ -79,6 +79,8 @@ interrupt_vector = $314
 
 ; Copy background colour
 !ifdef TARGET_C64 {	
+	ldx #52
+	stx 788
 	ldx loader_pic_start + 10000
 	stx reg_bordercolour
 	stx reg_backgroundcolour
