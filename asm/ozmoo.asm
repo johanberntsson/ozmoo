@@ -1645,6 +1645,17 @@ deletable_screen_init_2
 	jsr toggle_smoothscroll
 }
 	; clear and unsplit screen, start text output from bottom of the screen (top of screen if z5)
+!ifndef Z5PLUS {
+!ifdef TARGET_PLUS4 {
+!ifdef VMEM {
+	; Statusline is filled with contents of config blocks,
+	; and erase_window below doesn't touch statusline
+	lda #0
+	sta zp_screenrow
+    jsr s_erase_line
+}
+}
+}
 	ldy #1
 	sty is_buffered_window
 	ldx #$ff

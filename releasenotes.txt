@@ -3,6 +3,7 @@ RELEASE NOTES
 Upcoming release
 - Fixed incorrect text in usage screen in make.rb, saying values 0 and 1 mean background and foreground for -bordecol etc, when it's actually values bg and fg now.
 - Disabled run/stop key in image loader program, on C64.
+- Fixed garbage showing on top screen row when enabling darkmode at first MORE prompt in z1-z4 game with initial text longer than a screenful, on Plus/4 build with virtual memory.
 
 ================================================
 Release 15.5: 2 Mar 2026
