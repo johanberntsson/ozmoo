@@ -99,6 +99,10 @@ xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
 ```
 
 - It never exits by itself — there is no cycle limit. Wrap it in `timeout`; the dumps are still written on the way out.
+- Like VICE, a headless run halts at the first **MORE prompt**. There are no tracepoints, but `-uartmon <socket>` gives a monitor that can do it: poll screen RAM (`$0800`, 80x25) for the MORE character `$aa` (reverse `*`), and when it appears poke Return into the kernal keyboard buffer with `s0277 0d` then `s00c6 01`. That reaches `read`, where the game waits harmlessly, so stop there and dump rather than answering the read — the quit path shows a final MORE prompt and then resets, wiping the screen.
+- Monitor commands over the socket: `m<addr>` reads 16 bytes, `M<addr>` reads a block, `s<addr> <bytes>` writes. Addresses are bare hex in the full 28-bit space, so colour RAM is `Mff80000`, not `Md800`.
+- `-dumpscreen` only fires on exit, so it cannot capture an intermediate state; read `$0800` over the monitor instead. Screen codes there, not ASCII.
+- `$e0` in screen RAM is the **cursor** (`CURSORCHAR` in `ozmoo.asm`), not a corrupt cell. It overwrites the character under it, so a dump taken while the cursor is up shows `$e0` where the text character belongs.
 - `-dumpmem` writes memory, and `-uartmon <socket>` opens a monitor, if the screen isn't enough.
 - Non-printable screen codes come out as `{$xx}` in the dump.
 
