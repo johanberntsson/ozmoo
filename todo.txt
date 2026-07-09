@@ -1,5 +1,11 @@
 Known bugs
 ----------
+Z6: Arthur ("make arthur") crashes on startup. It gets through z_init and
+calc_z6_z7_offsets, enters stack_call_routine for the initial main routine,
+and never reaches z_execute - it ends up back in BASIC. Arthur opens with a
+graphical intro screen, and the graphics opcodes are untested dummies, so
+that is the first place to look. Plan: add the graphics opcodes to
+testz6.inf one at a time and test them there first.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
