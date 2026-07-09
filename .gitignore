@@ -8,6 +8,10 @@
 # this must not end in a slash.
 /exomizer
 
+# The Z-machine standard. Kept here while working on v6, but freely available
+# online, so there is no reason to carry it in the repository.
+/z-spec10.pdf
+
 # Build products
 /temp/
 /testz6.z6

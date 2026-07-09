@@ -64,7 +64,7 @@ Eight windows, each with the property array the spec requires (`window_y`, `wind
 
 ## Watch out for
 
-- **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the spec (`z-spec10.pdf`) before assuming an opcode behaves as in v5.
+- **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the Z-machine standard (see References) before assuming an opcode behaves as in v5.
 - Several v6 opcodes are still dummies (graphics, `scroll_window`); see `todo.txt` for what is and isn't safe about them.
 - **v6 is a "large" version, like v7/v8, not like v4/v5.** Story files run to 512 KB, the header file length is divided by 8, and block addresses need two high bits. `make.rb` has always known this (`$zcode_version > 5`); the assembly used to express it as `Z7PLUS`, which excludes v6. Use `Z6PLUS` for anything size-related, and be suspicious of any new `Z4PLUS`/`Z7PLUS` split. See `todo.txt` for the three bugs this caused.
 - No v6 interpreter ever ran on a C64, so v6 code paths have never been exercised against a real game. Expect more latent assumptions — minimum screen size, stack depth, story size — that no other version happens to violate.
@@ -88,7 +88,6 @@ x64sc -default -warp +sound -limitcycles 60000000 -exitscreenshot shot.png c64_t
 
 ## References
 
-- `z-spec10.pdf` — the Z-machine standard. Essential for v6 window and opcode semantics.
+- The Z-machine standard, version 1.0/1.1 — essential for v6 window and opcode semantics, and worth checking rather than trusting memory. Not in the repo; it is easy to find online (`z-spec10.pdf`). Keep a copy in the working directory when doing v6 work: `pdftotext z-spec10.pdf -` makes it greppable.
 - `documentation/techreport_15.pdf` — Ozmoo's internal design.
-- `v6-discussion.txt` — design notes behind the ECM approach.
 - `todo.txt` — known bugs and remaining v6 work.
