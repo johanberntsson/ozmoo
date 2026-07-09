@@ -142,12 +142,40 @@ Screen size, and why 320x200
    - The conversion of the picture files belongs in a separate script, not in
      make.rb, which is large enough already. Arthur's 137 PNGs are in
      z6games/arthur-graphics (not in git; not ours to distribute).
-   - One palette for the whole set. The originals shared a single 16 or 32
-     colour palette; the 622 distinct colours across the PNGs today are an
-     artifact of the conversion to PNG, and no single picture has more than 14.
-     So the script makes two passes: survey every file to settle on one common
-     palette, then force every picture onto it. The palette ships on the d81
-     alongside the FCM files.
+     png2fci.py, by Stephan Kleinert, is in the working directory as reference
+     (not in git, not ours). Worth stealing: pngRowsToM65Rows, whose
+     ((x % 8) + (y * 8)) % 64 byte index is exactly the FCM tile layout; its -r
+     flag, which reserves 16 system palette entries and offsets pixel indices
+     by 16, which is the palette scheme above; and its RLE, as a starting point
+     for the compression deferred below. It does not fit as it stands: it
+     rejects any image whose sides are not multiples of 8, and only 2 of our
+     137 qualify; it is one file in, one file out, with no cross-file palette
+     handling; it needs pypng, which is not installed here, while Pillow is;
+     and it discards the true pixel size, which picture_data has to report -
+     292x196 must not become 296x200.
+     So: a new script, borrowing those pieces. It pads each picture out to a
+     cell boundary while recording the real size, and emits one container for
+     the whole set rather than 137 files - header, then a directory of picture
+     number, true width and height, cell width and height, palette and offset,
+     then the tile data. One file suits the preload-into-attic pattern below,
+     and keeps 137 entries out of the d81 directory.
+   - A palette per picture, not one for the whole set. The idea that the 622
+     distinct colours are a PNG artifact was checked and is wrong: each PNG is
+     indexed with its own palette of at most 14 colours, and there are 110
+     distinct palettes across the 137 files. The colours are real 4 bit per
+     channel Amiga values (491 of the 622 are multiples of 17, another 114 are
+     multiples of 16 - the same 4 bit value under a different scaling), but
+     normalising both conventions back to 4 bits only takes the union from 622
+     to 559. Forcing one palette is lossy: quantised to 240 entries the worst
+     channel error is 76/255 and 28% of pixels move by more than 8; at 32
+     entries the mean error is 26.
+     Instead, use the 256 entry FCM palette as banks. Reserve entries 0-15 for
+     text and system colours, store each picture's own <=16 entry palette next
+     to its tiles, write pixel indices offset by 16, and load the palette into
+     entries 16-31 in draw_picture. Exact, no quantisation, 48 bytes a picture.
+     If Arthur ever wants two pictures with different palettes on screen at
+     once, hand out further 16 entry banks and let the converter assign them -
+     but only if it turns out to do that.
    - The pictures live in attic RAM. Everything from $8300000 up is free, 5 MB
      of it, against 1,125,824 pixels = 1.1 MB for the whole set at 8bpp. So a
      "pics" file preloaded into attic at boot, exactly the way zcode and the
