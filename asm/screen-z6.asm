@@ -426,10 +426,9 @@ erase_window
 	sta window_y_cursor,x
 	lda window_x,x
 	sta window_x_cursor,x
-	cpx #0
-	bne +
-	jsr clear_num_rows
-+	; put the live cursor back where the current window wants it
+	lda #0
+	sta window_linecount,x ; the window is empty again
+	; put the live cursor back where the current window wants it
 	jsr restore_cursor
 	jmp start_buffering
 
@@ -728,9 +727,27 @@ z_ins_set_cursor
 }
 
 clear_num_rows
+	; every window counts its own printed lines (property 15)
 	lda #0
-	sta num_rows
+	ldx current_window
+	sta window_linecount,x
 .do_nothing_2
+	rts
+
+.window_rows_minus_one
+	; a = number of lines in the current window, minus one
+	; y = current window. x is preserved.
+	ldy current_window
+	lda window_y,y
+	clc
+	adc window_y_size,y
+	cmp s_screen_height
+	bcc +
+	lda s_screen_height
++	sec
+	sbc window_y,y
+	sec
+	sbc #1
 	rts
 
 !ifdef TARGET_C128 {
@@ -797,20 +814,22 @@ vera_hide_more
 
 
 increase_num_rows
-	lda current_window
-	bne .increase_num_rows_done ; Upper window is never buffered
-	inc num_rows
+	ldx current_window
+	lda window_attributes,x
+	and #WIN_BUFFERED
+	beq .increase_num_rows_done ; An unbuffered window never shows [More]
+	inc window_linecount,x
 	lda is_buffered_window
 	beq .increase_num_rows_done
-	lda s_screen_height
-	sec
-	sbc window_y
-	sbc #1
-	cmp num_rows
+	jsr .window_rows_minus_one
+	cmp window_linecount,y
 	bcs .increase_num_rows_done
 show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
+!ifndef TARGET_X16 {
+	jsr .set_more_prompt_pos
+}
 
 !ifdef TARGET_C128 {
     bit COLS_40_80
@@ -913,6 +932,70 @@ show_more_prompt
 	rts
 
 .more_text_char !byte 0
+
+!ifndef TARGET_X16 {
+.set_more_prompt_pos
+	; Point the [More] prompt at the bottom right cell of the current
+	; window, by rewriting the addresses in .more_access1-4. In z6 every
+	; window has its own rectangle, so this can't be a fixed address.
+	jsr get_cursor ; x=row, y=column
+	stx .more_saved_row
+	sty .more_saved_column
+	ldx current_window
+	; last column of the window, clamped to the screen
+	lda window_x,x
+	clc
+	adc window_x_size,x
+	cmp s_screen_width
+	bcc +
+	lda s_screen_width
++	sec
+	sbc #1
+	pha
+	; last row of the window, clamped to the screen
+	lda window_y,x
+	clc
+	adc window_y_size,x
+	cmp s_screen_height
+	bcc +
+	lda s_screen_height
++	sec
+	sbc #1
+	tax
+	pla
+	tay
+	clc
+	jsr s_plot ; sets zp_screenline/zp_colourline for that row
+	; the cell's address is the start of the line plus the column
+	lda zp_screenline
+	clc
+	adc zp_screencolumn
+	sta .more_access1 + 1
+	sta .more_access2 + 1
+	sta .more_access4 + 1
+	lda zp_screenline + 1
+	adc #0
+	sta .more_access1 + 2
+	sta .more_access2 + 2
+	sta .more_access4 + 2
+!ifndef BENCHMARK {
+	lda zp_colourline
+	clc
+	adc zp_screencolumn
+	sta .more_access3 + 1
+	lda zp_colourline + 1
+	adc #0
+	sta .more_access3 + 2
+}
+	; put the cursor back where the text is being printed
+	ldx .more_saved_row
+	ldy .more_saved_column
+	clc
+	jmp s_plot
+
+.more_saved_row    !byte 0
+.more_saved_column !byte 0
+}
 
 printchar_flush
 	; flush the printchar buffer into the current window
@@ -1169,11 +1252,9 @@ printchar_buffered
 
 -	jmp .printchar_done
 
-++	; Print a line *if* we're on last line of screenful of text
-	lda s_screen_height
-	clc
-	sbc window_y ; Carry is clear, so we subtract 1 more
-	cmp num_rows
+++	; Print a line *if* we're on last line of a windowful of text
+	jsr .window_rows_minus_one ; x is preserved
+	cmp window_linecount,y
 	bne - ; Not on last line
 	dex
 +

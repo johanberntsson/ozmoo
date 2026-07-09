@@ -771,11 +771,8 @@ s_printchar
 	lda window_attributes,x
 	and #WIN_SCROLLING
 	beq .clamp_to_bottom
-	lda .window_edge
-	cmp s_screen_height
-	bcc .clamp_to_bottom ; window doesn't reach the bottom of the screen: no scrolling (yet)
-	; scroll (.s_scroll* also erases the new bottom line and leaves
-	; zp_screenrow on the last line of the screen)
+	; scroll (.s_scroll* also erases the window's new last line and
+	; leaves zp_screenrow on it)
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi .col80_4
@@ -978,20 +975,15 @@ s_scrolled_lines !byte 0
 }
 
 .s_scroll
-	lda zp_screenrow
-	cmp s_screen_height
-	bpl +
-	rts
-
-+	
+	; Scroll the current window's rectangle up one line and erase the
+	; window's new last line. Leaves zp_screenrow on that last line.
+	jsr .calc_window_rect
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
-	ldy current_window
-	ldx window_y,y ; how many top lines to protect
+	ldx .win_top ; the window's first line is the first line to overwrite
 	inx
 	stx zp_screenrow
-;	inc zp_screenrow
 	jsr .update_screenpos
 	lda zp_screenline
 	sta .scroll_load_screen + 1
@@ -1031,7 +1023,7 @@ s_scrolled_lines !byte 0
 	clc ; Carry is expected to be clear when entering the following loop
 	lda #rasterline_for_scroll
 } else {
-	lda window_y ; how many top lines to protect
+	lda .win_top ; how many top lines to protect
 	asl
 	asl
 	asl ; Multiplied by 8 (There are 8 raster lines per row)
@@ -1067,15 +1059,17 @@ s_scrolled_lines !byte 0
 	jsr colour2k	
 }
 
-	lda s_screen_height_minus_one
+	; number of lines to move up = .win_bottom - .win_top
+	lda .win_bottom
 	sec
-	sbc zp_screenrow
+	sbc .win_top
 	tax
 	beq .done_scrolling
 	clc
 ;	sei
 -
-	ldy s_screen_width_minus_one
+	ldy .win_left
+--
 .scroll_load_screen
 	lda $8000,y ; This address is modified above
 .scroll_store_screen
@@ -1086,8 +1080,10 @@ s_scrolled_lines !byte 0
 .scroll_store_colour
 	sta $8000,y ; This address is modified above
 }
-	dey
-	bpl .scroll_load_screen
+	iny
+	cpy .win_right_excl
+	bcc --
+	clc ; the compare above leaves carry set
 	dex
 	beq .done_scrolling
 	lda .scroll_store_screen + 1
@@ -1147,10 +1143,53 @@ s_scrolled_lines !byte 0
 !ifdef SMOOTHSCROLL {
 	+done_smoothscroll
 }
-	lda s_screen_height_minus_one
+	; erase the window's new last line (only the window's columns)
+	lda .win_bottom
 	sta zp_screenrow
 	lda #$ff
 	sta s_current_screenpos_row ; force recalculation
+	jsr .update_screenpos
+	ldy .win_left
+	sty zp_screencolumn
+-	jsr s_delete_cursor ; writes a space at (zp_screenline),y
+	iny
+	sty zp_screencolumn
+	cpy .win_right_excl
+	bcc -
+	ldy .win_left
+	sty zp_screencolumn
+	rts
+
+.calc_window_rect
+	; work out the current window's rectangle on screen, clamped to it
+	; .win_left/.win_top are inclusive, .win_right_excl is exclusive,
+	; .win_bottom is the window's last line
+	ldx current_window
+	lda window_x,x
+	sta .win_left
+	clc
+	adc window_x_size,x
+	cmp s_screen_width
+	bcc +
+	lda s_screen_width
++	sta .win_right_excl
+	lda window_y,x
+	sta .win_top
+	clc
+	adc window_y_size,x
+	cmp s_screen_height
+	bcc +
+	lda s_screen_height
++	sec
+	sbc #1
+	sta .win_bottom
+	rts
+
+.win_left       !byte 0
+.win_right_excl !byte 0
+.win_top        !byte 0
+.win_bottom     !byte 0
+
 s_erase_line
 	; registers: a,x,y
 	lda zp_screenrow
