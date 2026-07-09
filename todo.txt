@@ -145,13 +145,49 @@ Screen size, and why 320x200
    So the three targets that share .s_scroll agree. Nothing here needs fixing
    before the FCM work starts.
 
-2. Before rewriting the screen layer, prototype one hardcoded picture: blit it
-   with the DMA engine (m65_run_dma and dma_list already exist in disk.asm)
-   into a full colour, 16 bit character mode screen. This is throwaway code.
-   It exists to answer the questions that decide the shape of step 3 - how
-   many unique tiles a picture costs, where the pixel data lives, and whether
-   DMA can do the scrolling too. Freezing a screenkernal around byte copy
-   loops and then discovering it needs a DMA blitter would be the wrong order.
+2. DONE. tools/png2fcm.py and tools/fcm-prototype.asm; the prototype draws
+   Arthur's title screen, and then a smaller picture with a line of text under
+   it, on a 320x200 FCM screen with 16 bit character codes. What it settled:
+
+   - Bank 1 is free and the VIC-IV can fetch from it. Tiles DMA'd from the
+     program's own RAM to $10000 render. Caveat: that was a bare prg with the
+     kernal quiet. Ozmoo's loader and disk routines have not been asked whether
+     they touch $10000-$1ffff.
+   - The register setup that works, all with hot registers off ($d05d bit 7):
+     $d031 = H640 off, V400 off, and ATTR (bit 5) OFF, which is what gives
+     8 bit colour - the opposite of what some of the documentation says.
+     $d054 = CHR16 (bit 0) on, FCLRHI (bit 2) on, FCLRLO (bit 1) OFF.
+     $d05e = 40 chars per row, $d058/9 = 80 bytes per row (two per cell),
+     $d060-3 = screen, $d064/5 = colour RAM offset, $d068-a = charset.
+   - In FCM the 16 bit screen code is not a character number: it is the pixel
+     data address divided by 64. Tiles at $10000 are screen code $0400.
+   - FCLRLO off does what we hoped: codes < 256 are ordinary 8 byte glyphs
+     from CHARPTR, codes >= 256 are 64 byte full colour tiles. Text and
+     picture coexist on one screen. So the text charset costs 2 KB and lives
+     outside the tile store, as the budget in step 3 assumes.
+   - The palette registers want the nybbles swapped. This is easy to get wrong
+     and hard to see: every colour in 1.png is of the form $NN, for which
+     swapping is a no-op. Checked against 40.png, whose palette has values like
+     $F0; unswapped, its (0,0,240) blue renders as (0,0,8). Swapped, the whole
+     picture is exact.
+   - Colour RAM is two bytes per cell. Byte 0 is flags (zero), byte 1 is the
+     colour for pixel value 255, which no picture pixel is. A single DMA fill
+     of zeroes over both is enough.
+   - Pixel 0 is transparent and shows the background, so padding a picture out
+     to a cell boundary costs nothing visually.
+   - Deduplicating cells is worth having and nearly free. Across the 137
+     pictures it saves 13% (1155 KB -> 1002 KB). The worst single picture,
+     84.png, is 925 cells: 57.8 KB raw, 46.9 KB deduped. Either fits bank 1's
+     64 KB, so the step 3 budget holds with room to spare. png2fcm.py always
+     dedupes and emits a cell map, which is what screen RAM wants anyway.
+   - Not tested: whether DMA can do the scrolling. Nothing suggests it cannot -
+     scrolling is a linear copy within screen and colour RAM, and DMA already
+     writes colour RAM here - but it has not been run.
+
+   One trap for anyone reading the prototype: it fills screen RAM for all 25
+   rows from the cell map, so a picture shorter than the screen ran off the end
+   of the map until a row check was added. Arthur's title screen is exactly 25
+   cells tall and hid the bug.
 
 3. Rewrite the MEGA65 z6 screen mode to use FCM (full colour mode, VIC-IV,
    with 16 bit character codes) at 320x200, 40x25 cells, as argued above. It

@@ -103,6 +103,8 @@ xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
 - Monitor commands over the socket: `m<addr>` reads 16 bytes, `M<addr>` reads a block, `s<addr> <bytes>` writes. Addresses are bare hex in the full 28-bit space, so colour RAM is `Mff80000`, not `Md800`.
 - `-dumpscreen` only fires on exit, so it cannot capture an intermediate state; read `$0800` over the monitor instead. Screen codes there, not ASCII.
 - `$e0` in screen RAM is the **cursor** (`CURSORCHAR` in `ozmoo.asm`), not a corrupt cell. It overwrites the character under it, so a dump taken while the cursor is up shows `$e0` where the text character belongs.
+- Monitor addresses are the **linear** 28-bit map, so `$d000` there is RAM, not I/O. Reading `md054` returns zeros; the VIC-IV registers are at `$ffd3xxx` (`mffd3050`). Colour RAM is `$ff80000`.
+- To try something without dragging Ozmoo along, build a bare prg and load it directly: `xemu-xmega65 -headless ... -prg foo.prg -prgmode 64 -screenshot shot.png`. Combined with `-screenshot`, a picture can be compared against its source PNG pixel by pixel. xemu renders the red channel one LSB low (`$bb` shows as 186), so compare within a tolerance of 1, not exactly.
 - `-dumpmem` writes memory, and `-uartmon <socket>` opens a monitor, if the screen isn't enough.
 - Non-printable screen codes come out as `{$xx}` in the dump.
 
