@@ -8,6 +8,11 @@
 # this must not end in a slash.
 /exomizer
 
+# Reference only, kept here while working on v6 graphics: Stephan Kleinert's
+# PNG to MEGA65 FCI converter. Not ours to distribute. See todo.txt for what
+# is worth borrowing from it.
+/png2fci.py
+
 # The Z-machine standard. Kept here while working on v6, but freely available
 # online, so there is no reason to carry it in the repository.
 /z-spec10.pdf
