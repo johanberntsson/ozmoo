@@ -63,35 +63,171 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 
 z_ins_draw_picture
 	; draw_picture picture-number y x
+	; Ozmoo will never draw pictures on these machines. Instead of leaving a
+	; hole in the layout, write a "pic:N" note where the picture would go.
+	; The note is written straight to the screen, so it never reaches the
+	; transcript, and the game's cursor is put back afterwards.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_draw_picture ",0
 	jsr newline
 }
-	rts
+	jsr .pic_place_cursor
+	lda #>.pic_prefix
+	ldx #<.pic_prefix
+	jsr printstring_raw
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr .pic_print_number
+	jmp restore_cursor
+
+.pic_prefix !pet "pic:",0
 
 z_ins_picture_data
 	; picture_data picture-number array ?(label)
+	; No picture is ever valid, so this never branches. Picture 0 asks for
+	; the number of pictures available and the release number of the picture
+	; file instead of a size: both are zero.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_picture_data ",0
 	jsr newline
 }
-	jmp make_branch_false
- 
+	lda z_operand_value_low_arr
+	ora z_operand_value_high_arr
+	bne +
+	ldx z_operand_value_low_arr + 1
+	lda z_operand_value_high_arr + 1
+	jsr set_z_address
+	ldy #4
+-	lda #0
+	jsr write_next_byte
+	dey
+	bne -
++	jmp make_branch_false
+
 z_ins_erase_picture
 	; erase_picture picture-number y x
+	; Paint over the note draw_picture would have written, so that a game
+	; which erases a picture leaves clean screen behind.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_erase_picture ",0
 	jsr newline
 }
+	jsr .pic_place_cursor
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr .pic_number_width
+	clc
+	adc #4 ; the "pic:" prefix
+	tay
+-	lda #$20
+	jsr s_printchar
+	dey
+	bne -
+	jmp restore_cursor
+
+.pic_place_cursor
+	; Put the live cursor where the picture belongs. y and x are 1-based and
+	; relative to the current window; zero, or a missing operand, means "the
+	; cursor's own y or x" (see the draw_picture entry in the spec).
+	jsr printchar_flush ; anything buffered belongs on screen first
+	jsr save_cursor
+	lda #0
+	sta .pic_y
+	sta .pic_x
+	ldx z_operand_count
+	cpx #2
+	bcc +
+	lda z_operand_value_low_arr + 1
+	sta .pic_y
+	cpx #3
+	bcc +
+	lda z_operand_value_low_arr + 2
+	sta .pic_x
++	ldy current_window
+	ldx .pic_y
+	beq +
+	dex ; 1-based to 0-based
+	txa
+	clc
+	adc window_y,y
+	jmp ++
++	lda window_y_cursor,y
+++	sta .pic_y
+	ldx .pic_x
+	beq +
+	dex
+	txa
+	clc
+	adc window_x,y
+	jmp ++
++	lda window_x_cursor,y
+++	tay ; y = column
+	ldx .pic_y ; x = row
+	jmp set_cursor
+
+.pic_print_number
+	; a,x = high,low byte of an unsigned number: print it on the screen
+	jsr .pic_split_number ; y = digit count, .pic_buf holds them backwards
+-	dey
+	lda .pic_buf,y
+	jsr s_printchar
+	cpy #0
+	bne -
 	rts
- 
+
+.pic_number_width
+	; a,x = high,low byte of an unsigned number: return its length in a
+	jmp .pic_split_number
+
+.pic_split_number
+	; a,x = high,low byte of an unsigned number. Store its digits in
+	; .pic_buf, least significant first, and return the count in a and y.
+	sta .pic_num + 1
+	stx .pic_num
+	ldy #0
+-	jsr .pic_div10
+	clc
+	adc #$30 ; '0'
+	sta .pic_buf,y
+	iny
+	lda .pic_num
+	ora .pic_num + 1
+	bne -
+	tya
+	rts
+
+.pic_div10
+	; .pic_num /= 10, remainder returned in a
+	lda #0
+	sta .pic_rem
+	ldx #16
+-	asl .pic_num
+	rol .pic_num + 1
+	rol .pic_rem
+	lda .pic_rem
+	cmp #10
+	bcc +
+	sbc #10
+	sta .pic_rem
+	inc .pic_num ; the quotient's bit 0, just vacated by the shift
++	dex
+	bne -
+	lda .pic_rem
+	rts
+
+.pic_y   !byte 0
+.pic_x   !byte 0
+.pic_num !byte 0,0
+.pic_rem !byte 0
+.pic_buf !byte 0,0,0,0,0 ; at most five digits
+
 z_ins_set_margins
 	; set_margins left right [window]
-	; The margins are remembered (get_wind_prop reads them) but not used
-	; for word wrapping yet.
+	; The margins are in pixels, and a character is one pixel wide here, so
+	; they are simply column counts. Text wraps between them.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_set_margins ",0
@@ -108,8 +244,41 @@ z_ins_set_margins
 	sta window_left_margin,y
 	lda z_operand_value_low_arr + 1
 	sta window_right_margin,y
-	rts
- 
+	; "If the cursor is overtaken and now lies outside the margins
+	; altogether, move it back to the left margin of the current line."
+	sty .sm_window
+	jsr save_cursor ; clobbers y with the current window
+	ldy .sm_window
+	lda window_x,y
+	clc
+	adc window_left_margin,y
+	sta .sm_left
+	lda window_x,y
+	clc
+	adc window_x_size,y
+	sec
+	sbc window_right_margin,y
+	bcs +
+	lda window_x,y ; a margin wider than the window leaves no room at all
++	sta .sm_right
+	lda window_x_cursor,y
+	cmp .sm_left
+	bcc .sm_outside
+	cmp .sm_right
+	bcc .sm_inside
+.sm_outside
+	lda .sm_left
+	sta window_x_cursor,y
+.sm_inside
+	cpy current_window
+	bne +
+	jmp restore_cursor
++	rts
+
+.sm_left   !byte 0
+.sm_right  !byte 0
+.sm_window !byte 0
+
 z_ins_move_window
 	; move_window window y x
 !ifdef TRACE_SCREEN {
@@ -232,13 +401,44 @@ z_ins_get_wind_prop
  
 z_ins_scroll_window
 	; scroll_window window pixels
+	; The header tells the game a character is one unit wide and one high, so
+	; a pixel here is a character cell. A negative count scrolls the window
+	; backwards, that is, down.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_scroll_window ",0
 	jsr newline
 }
-	rts
- 
+	jsr printchar_flush ; buffered text belongs on screen before it moves
+	jsr save_cursor
+	lda z_operand_value_high_arr + 1
+	bmi .swin_backwards
+	; forwards: the count is the operand, clamped to a byte
+	beq +
+	lda #255
+	bne ++ ; always branch
++	lda z_operand_value_low_arr + 1
+++	ldx z_operand_value_low_arr
+	clc ; scroll up
+	jsr s_scroll_window
+	jmp restore_cursor
+.swin_backwards
+	; backwards: the count is the negated operand, clamped to a byte
+	lda #0
+	sec
+	sbc z_operand_value_low_arr + 1
+	tay
+	lda #0
+	sbc z_operand_value_high_arr + 1
+	beq +
+	lda #255
+	bne ++ ; always branch
++	tya
+++	ldx z_operand_value_low_arr
+	sec ; scroll down
+	jsr s_scroll_window
+	jmp restore_cursor
+
 z_ins_pop_stack
 	; pop_stack items [stack]
 	; Throw away the top <items> values of the game stack, or, if a user
@@ -397,13 +597,40 @@ z_ins_put_wind_prop
  
 z_ins_print_form
 	; print_form formatted-table
+	; The table is a sequence of lines, terminated by a zero word. Each line
+	; is a word holding a character count, followed by that many ZSCII bytes.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_print_form ",0
 	jsr newline
 }
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr set_z_address
+.pf_next_line
+	jsr read_next_byte
+	sta .pf_count + 1
+	jsr read_next_byte
+	sta .pf_count
+	ora .pf_count + 1
+	beq .pf_done ; a zero word ends the table
+-	jsr read_next_byte
+	jsr streams_print_output
+	lda .pf_count
+	bne +
+	dec .pf_count + 1
++	dec .pf_count
+	lda .pf_count
+	ora .pf_count + 1
+	bne -
+	lda #13
+	jsr streams_print_output
+	jmp .pf_next_line
+.pf_done
 	rts
- 
+
+.pf_count !byte 0,0
+
 z_ins_make_menu
 	; make_menu number table ?(label)
 !ifdef TRACE_SCREEN {
@@ -539,10 +766,11 @@ erase_window
 	jsr s_printchar
 	ldx current_window
 .home_cursor
-	; move the erased window's cursor to its top left corner
+	; move the erased window's cursor to its top left corner, inside the
+	; left margin (the cursor always lies between the margins, see 8.8.3.2.2.1)
 	lda window_y,x
 	sta window_y_cursor,x
-	lda window_x,x
+	jsr s_window_left_edge
 	sta window_x_cursor,x
 	lda #0
 	sta window_linecount,x ; the window is empty again
@@ -1349,12 +1577,11 @@ printchar_buffered
 	; update the buffer
 .buffered_window
 	; calculate the left edge and right edge (exclusive) of the current
-	; window; buffer positions are absolute screen columns
+	; window's text area; buffer positions are absolute screen columns
 	ldx current_window
-	lda window_x,x
+	jsr s_window_left_edge
 	sta .buffer_left
-	clc
-	adc window_x_size,x
+	jsr s_window_right_edge
 	sta .buffer_edge
 	lda .buffer_char
 	; add this char to the buffer

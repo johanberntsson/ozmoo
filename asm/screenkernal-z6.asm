@@ -677,26 +677,27 @@ s_printchar
 	ldy zp_screencolumn
 	jsr s_delete_cursor
 	dec zp_screencolumn ; move back
-	ldy current_window
-	lda zp_screencolumn
+	ldx current_window
+	jsr s_window_left_edge
+	ldy zp_screencolumn
 	bmi .del_outside    ; went past column 0
-	cmp window_x,y
-	bcs .del_inside     ; still inside the window
+	cmp zp_screencolumn
+	beq .del_inside     ; on the left margin
+	bcc .del_inside     ; still inside the window
 .del_outside
+	ldy current_window
 	lda zp_screenrow
 	cmp window_y,y
 	bcc .del_left_edge  ; above window top (shouldn't happen): stay at left edge
 	beq .del_left_edge  ; on the window's top row: stay at left edge
 	dec zp_screenrow
-	lda window_x,y
-	clc
-	adc window_x_size,y
+	jsr s_window_right_edge
 	sec
-	sbc #1              ; rightmost column of the window
+	sbc #1              ; rightmost column before the right margin
 	sta zp_screencolumn
 	jmp .del_inside
 .del_left_edge
-	lda window_x,y
+	jsr s_window_left_edge
 	sta zp_screencolumn
 .del_inside
 	jsr .update_screenpos
@@ -807,11 +808,8 @@ s_printchar
 	iny
 	sty zp_screencolumn
 	ldx current_window
-	; wrap when the cursor passes the right edge of the current window
-	lda window_x,x
-	clc
-	adc window_x_size,x
-	sta .window_edge
+	; wrap when the cursor passes the right margin of the current window
+	jsr s_window_right_edge
 	cpy .window_edge
 	bcc .printchar_end
 	lda window_attributes,x
@@ -895,10 +893,31 @@ s_printchar
 	dec zp_screenrow
 .wrap_move_to_left_edge
 	ldx current_window
-	lda window_x,x
+	jsr s_window_left_edge
 	sta zp_screencolumn
 	jsr .update_screenpos
 	jmp .printchar_end
+
+s_window_left_edge
+	; x = window. Return its left margin's column in a, and in .window_edge.
+	lda window_x,x
+	clc
+	adc window_left_margin,x
+	sta .window_edge
+	rts
+
+s_window_right_edge
+	; x = window. Return the first column past its right margin in a, and in
+	; .window_edge. A margin wider than the window leaves no room at all.
+	lda window_x,x
+	clc
+	adc window_x_size,x
+	sec
+	sbc window_right_margin,x
+	bcs +
+	lda window_x,x
++	sta .window_edge
+	rts
 
 .window_edge !byte 0
 
@@ -1267,6 +1286,8 @@ s_scrolled_lines !byte 0
 	; .win_left/.win_top are inclusive, .win_right_excl is exclusive,
 	; .win_bottom is the window's last line
 	ldx current_window
+.calc_window_rect_x
+	; same, for the window in x. x is preserved.
 	lda window_x,x
 	sta .win_left
 	clc
@@ -1291,6 +1312,169 @@ s_scrolled_lines !byte 0
 .win_right_excl !byte 0
 .win_top        !byte 0
 .win_bottom     !byte 0
+
+s_scroll_window
+	; Scroll a window's rectangle by whole lines, blanking the lines that are
+	; scrolled into view. This serves the scroll_window opcode, which has
+	; nothing to do with the window's scrolling attribute, nor with the
+	; scrolling that happens when text reaches a window's bottom edge. It is
+	; therefore free of the scroll delay, smooth scrolling and scrollback that
+	; .s_scroll has to care about.
+	; input: x = window, a = number of lines, carry set to scroll down
+	; The C128 80 column and X16 screens are not handled (see todo.txt).
+!ifdef TARGET_X16 {
+	rts
+} else {
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bmi .sw_return ; 80 columns: the VDC screen is not handled yet
+}
+	stx .sw_window
+	sta .sw_count
+	lda #0
+	rol ; the direction was passed in the carry
+	sta .sw_downwards
+	lda .sw_count
+	beq .sw_return
+	jsr .calc_window_rect_x
+	; Scrolling a window by its own height blanks it, and scrolling it by
+	; more than that cannot blank it any further, so clamp the count. That
+	; also keeps the row counters inside the window.
+	lda .win_bottom
+	sec
+	sbc .win_top
+	clc
+	adc #1 ; the window's height in lines
+	cmp .sw_count
+	bcs +
+	sta .sw_count
++
+!ifdef Z6_ECM_MODE {
+	; blank in the scrolled window's background colour, not the current one
+	ldx .sw_window
+	jsr ecm_set_bits_for_window
+}
+-	lda .sw_downwards
+	beq +
+	jsr .sw_down_one
+	jmp ++
++	jsr .sw_up_one
+++	dec .sw_count
+	bne -
+!ifdef Z6_ECM_MODE {
+	jsr ecm_update_bits
+}
+.sw_return
+	rts
+
+.sw_up_one
+	; every line takes the contents of the one below it; the last goes blank
+	lda .win_top
+	sta .sw_dst
+	clc
+	adc #1
+	sta .sw_src
+-	lda .sw_dst
+	cmp .win_bottom
+	beq +
+	jsr .sw_copy_row
+	inc .sw_src
+	inc .sw_dst
+	jmp -
++	lda .win_bottom
+	jmp .sw_blank_row
+
+.sw_down_one
+	; every line takes the contents of the one above it; the first goes blank
+	lda .win_bottom
+	sta .sw_dst
+	sec
+	sbc #1
+	sta .sw_src
+-	lda .sw_dst
+	cmp .win_top
+	beq +
+	jsr .sw_copy_row
+	dec .sw_src
+	dec .sw_dst
+	jmp -
++	lda .win_top
+	jmp .sw_blank_row
+
+.sw_copy_row
+	; copy the window's columns from row .sw_src to row .sw_dst
+	lda .sw_src
+	jsr .sw_point_at_row
+	lda zp_screenline
+	sta .sw_load_screen + 1
+	lda zp_screenline + 1
+	sta .sw_load_screen + 2
+!ifdef COLOURFUL_LOWER_WIN {
+	lda zp_colourline
+	sta .sw_load_colour + 1
+	lda zp_colourline + 1
+	sta .sw_load_colour + 2
+}
+	lda .sw_dst
+	jsr .sw_point_at_row
+	lda zp_screenline
+	sta .sw_store_screen + 1
+	lda zp_screenline + 1
+	sta .sw_store_screen + 2
+!ifdef COLOURFUL_LOWER_WIN {
+	lda zp_colourline
+	sta .sw_store_colour + 1
+	lda zp_colourline + 1
+	sta .sw_store_colour + 2
+}
+!ifdef TARGET_MEGA65 {
+	jsr colour2k
+}
+	ldy .win_left
+-
+.sw_load_screen
+	lda $8000,y ; these addresses are modified above
+.sw_store_screen
+	sta $8000,y
+!ifdef COLOURFUL_LOWER_WIN {
+.sw_load_colour
+	lda $8000,y
+.sw_store_colour
+	sta $8000,y
+}
+	iny
+	cpy .win_right_excl
+	bcc -
+!ifdef TARGET_MEGA65 {
+	jsr colour1k
+}
+	rts
+
+.sw_blank_row
+	; a = row. Blank the window's columns on it.
+	jsr .sw_point_at_row
+	ldy .win_left
+	sty zp_screencolumn
+-	jsr s_delete_cursor ; writes a space at (zp_screenline),y
+	iny
+	sty zp_screencolumn
+	cpy .win_right_excl
+	bcc -
+	rts
+
+.sw_point_at_row
+	; a = row. Point zp_screenline/zp_colourline at it.
+	sta zp_screenrow
+	lda #$ff
+	sta s_current_screenpos_row ; force .update_screenpos to recalculate
+	jmp .update_screenpos
+
+.sw_window    !byte 0
+.sw_count     !byte 0
+.sw_downwards !byte 0
+.sw_src       !byte 0
+.sw_dst       !byte 0
+}
 
 s_erase_line
 	; registers: a,x,y

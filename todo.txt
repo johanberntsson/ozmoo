@@ -23,15 +23,26 @@ The fix was to use Z6PLUS instead of Z7PLUS at every one of these size
 related sites. Z7PLUS is now unused, but is still defined.
 
 Still to do for z6 (not crashes):
-- The graphics opcodes (draw_picture, picture_data, erase_picture,
-  picture_table, print_form, make_menu) are dummies. picture_data and
-  make_menu correctly branch false, the rest correctly do nothing, so games
-  won't lose sync - but nothing is drawn. Add them to testz6.inf one at a
-  time when implementing.
-- scroll_window does nothing.
-- set_margins records the margins (get_wind_prop reads them back) but they
-  are not used for word wrapping.
-- read_mouse always reports the top left corner and no buttons.
+- These machines will never draw pictures. draw_picture writes a "pic:N" note
+  where the picture belongs instead, straight to the screen so that it stays
+  out of the transcript, and without moving the game's cursor. erase_picture
+  paints over a note of the same width. Both trust the game's y,x (or the
+  cursor when either is zero), so a note lands where a picture would have,
+  but nothing knows how large the real picture was.
+- picture_data never branches, since no picture number is ever valid, and
+  reports zero pictures and release 0 for picture 0. picture_table is a
+  caching hint with nothing to cache, and make_menu branches false: both are
+  correct as they stand, not stubs.
+- read_mouse always reports the top left corner and no buttons, and
+  mouse_window does nothing. There is no mouse.
+- scroll_window scrolls whole character cells, because the header tells the
+  game a character is one unit wide and one high. It ignores the scroll delay
+  and smooth scrolling that .s_scroll has to honour.
+- set_margins is now used for word wrapping, and erasing a window puts the
+  cursor on the left margin. The margins do not clip set_cursor, erase_line,
+  erase_window or scroll_window, which all still work on the whole window,
+  as the spec intends.
+- print_form is fully implemented: it is a text opcode, not a graphics one.
 
 Z6 on other targets: deliberately not started
 ---------------------------------------------

@@ -2,6 +2,14 @@ Array buffer->20;
 Array parse->20;
 Array ustack --> 5;
 Array mouse --> 4;
+Array picinfo --> 2;
+
+! A formatted table for print_form: each line is a word holding the character
+! count followed by that many character bytes; a zero word ends the table.
+Array formtable ->
+    0 5 'h' 'e' 'l' 'l' 'o'
+    0 3 'y' 'o' 'u'
+    0 0;
 
 [main w h ww hh dx dy result;
 #iftrue (#version_number == 6);
@@ -66,8 +74,45 @@ Array mouse --> 4;
 
 	@erase_window 1;
 	print "this is another long text that needs to be wrapped^";
+
+	! --- print_form ---
+	print "print_form:^";
+	@print_form formtable;
+
+	! --- picture_data: no pictures, so nothing is valid and 0 reports none ---
+	picinfo-->0 = 99; picinfo-->1 = 99;
+	@picture_data 0 picinfo ?pic0valid;
+	print "pics ", picinfo-->0, " rel ", picinfo-->1, "^";
+	jump picdone;
+.pic0valid;
+	print "ERROR: picture 0 reported valid^";
+.picdone;
+	@picture_data 7 picinfo ?pic7valid;
+	print "pic 7 absent^";
+	jump picdone2;
+.pic7valid;
+	print "ERROR: picture 7 reported valid^";
+.picdone2;
+
 	print "johan^^^";
+
+	! --- scroll_window: backwards, then forwards again ---
+	! The window's bottom line is blank here, so scrolling down and then up
+	! must put every line back exactly where it was: the blank line the first
+	! scroll writes in at the top is carried off again by the second.
+	@scroll_window 1 (-1);
+	@scroll_window 1 1;
+
+	! --- draw_picture / erase_picture: a note, not a picture ---
+	! Last, so that nothing scrolls the notes away. 4 goes to the window's
+	! top left corner, 9 is drawn there and erased again, and 12 lands at
+	! the cursor, which draw_picture must leave where it found it.
+	@draw_picture 4 1 1;
+	@draw_picture 9 2 1;
+	@erase_picture 9 2 1;
+
 	print "> ";
+	@draw_picture 12;
 	buffer->0 = 10;
 	buffer->1 = 0;
 	parse->1 = 0;
