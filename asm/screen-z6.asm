@@ -31,6 +31,9 @@
 	sta window_y_size
 	lda s_screen_width
 	sta window_x_size
+!ifdef Z6_ECM_MODE {
+	jsr ecm_init
+}
     lda #147 ; clear screen
     jsr s_printchar
 }
@@ -417,7 +420,11 @@ erase_window
 	sta window_y_size
 	lda s_screen_width
 	sta window_x_size
-+	lda #147 ; clear screen
++
+!ifdef Z6_ECM_MODE {
+	jsr ecm_update_bits
+}
+	lda #147 ; clear screen
 	jsr s_printchar
 	ldx current_window
 .home_cursor
@@ -436,6 +443,10 @@ erase_window
 	; erase the screen rectangle of window x (fills it with spaces
 	; in the current colours, using s_delete_cursor so all targets work)
 	stx .rect_win
+!ifdef Z6_ECM_MODE {
+	jsr ecm_set_bits_for_window ; fill with this window's background colour
+	ldx .rect_win
+}
 	lda window_y_size,x
 	beq .rect_done
 	sta .rect_rows_left
@@ -463,6 +474,9 @@ erase_window
 	dec .rect_rows_left
 	bne .rect_row_loop
 .rect_done
+!ifdef Z6_ECM_MODE {
+	jmp ecm_update_bits ; back to the current window's background colour
+}
 	rts
 
 .rect_win       !byte 0
@@ -651,6 +665,9 @@ z_ins_set_window
 	lda z_operand_value_low_arr
 	and #7
 	sta current_window
+!ifdef Z6_ECM_MODE {
+	jsr ecm_update_bits ; print in the new window's background colour
+}
 	jsr restore_cursor ; each window keeps its own cursor
 	jmp start_buffering
 
@@ -841,9 +858,15 @@ show_more_prompt
 +
 }
 .more_access1
-	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
+	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
 	sta .more_text_char
+!ifdef Z6_ECM_MODE {
+	; bit 7 selects a background register in ECM, so no reverse video
+	lda #$2a ; screen code for "*"
+	ora ecm_bits
+} else {
 	lda #128 + $2a ; screen code for reversed "*"
+}
 .more_access2
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
@@ -1153,7 +1176,12 @@ print_line_from_buffer
 		bcs ++
 		lda print_buffer,y
 		jsr convert_petscii_to_screencode
+	!ifdef Z6_ECM_MODE {
+		and #$3f ; only 64 characters, and the top bits select the background
+		ora ecm_bits
+	} else {
 		ora print_buffer2,y
+	}
 		sta (zp_screenline),y
 	!ifdef COLOURFUL_LOWER_WIN {
 	!ifdef TARGET_PLUS4 {

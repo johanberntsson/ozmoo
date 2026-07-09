@@ -1,5 +1,14 @@
 Known bugs
 ----------
+Z6: Several v6 opcodes in screen-z6.asm are stubs that just "rts" without
+consuming their operands or storing a result: pop_stack, read_mouse,
+scroll_window, print_form, set_margins, erase_picture, draw_picture,
+picture_table. pop_stack is a real stack operation, not a graphics one, so a
+game that calls it will corrupt its own stack - this is a likely cause (or
+co-cause) of the Arthur crash below. push_stack must push and branch on
+success, read_mouse must write its array. Fix these first, testing each by
+adding it to testz6.inf.
+
 Z6: Arthur ("make arthur") crashes on startup. It gets through z_init and
 calc_z6_z7_offsets, enters stack_call_routine for the initial main routine,
 and never reaches z_execute - it ends up back in BASIC. Arthur opens with a

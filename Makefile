@@ -4,6 +4,12 @@ z6:
 	inform -v6 testz6.inf
 	ruby make.rb -s testz6.z6
 
+# Same as z6, but with Extended Color Mode, giving each window its own
+# background colour (at the price of a 64 character charset)
+ecm:
+	inform -v6 testz6.inf
+	ruby make.rb -s -ecm testz6.z6
+
 frotz:
 	inform -v6 testz6.inf
 	frotz testz6.z6

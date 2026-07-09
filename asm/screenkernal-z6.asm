@@ -417,6 +417,97 @@ s_screen_size !byte 0, 0
 s_x16_screen_mode	!byte 0
 }
 
+!ifdef Z6_ECM_MODE {
+; Extended Color Mode (ECM): the VIC-II takes the top two bits of each screen
+; code as an index into four background colour registers ($d021-$d024), so
+; each z6 window can have its own background colour. The price is that only
+; the first 64 characters of the charset are available: text is lowercase
+; only (uppercase screen codes are masked down to lowercase) and reverse
+; video is lost.
+reg_screenctrl = $d011 ; bit 6 turns Extended Color Mode on
+
+ecm_bits        !byte 0 ; screen code bits for the current window's background
+ecm_bg_colours  !byte 0, 0, 0, 0 ; the colours in $d021-$d024
+ecm_bg_used     !byte 1 ; number of background registers handed out
+window_bg_index !byte 0, 0, 0, 0, 0, 0, 0, 0 ; background register per window
+.ecm_bits_table !byte $00, $40, $80, $c0
+
+ecm_init
+	; Turn on Extended Color Mode. Every window starts out using background
+	; register 0, which holds the background colour the rest of Ozmoo sets.
+	lda reg_screenctrl
+	ora #%01000000
+	sta reg_screenctrl
+	lda #0
+	sta ecm_bits
+	sta ecm_bg_colours
+	ldx #7
+-	sta window_bg_index,x
+	dex
+	bpl -
+	lda #1
+	sta ecm_bg_used
+	rts
+
+ecm_set_bits_for_window
+	; x = window. Preserves nothing.
+	lda window_bg_index,x
+	tax
+	lda .ecm_bits_table,x
+	sta ecm_bits
+	rts
+
+ecm_update_bits
+	ldx current_window
+	jmp ecm_set_bits_for_window
+
+ecm_set_window_bg
+	; a = C64 colour, x = window. Give the window a background register
+	; showing that colour, reusing one that already holds it if possible.
+	stx .ecm_window
+	; Ozmoo writes background register 0 directly (initial colours, dark
+	; mode), so read back what it holds before looking for a match.
+	pha
+	lda reg_backgroundcolour
+	and #$0f
+	sta ecm_bg_colours
+	pla
+	ldy #0
+-	cmp ecm_bg_colours,y
+	beq .ecm_found ; this register already shows the colour
+	iny
+	cpy ecm_bg_used
+	bcc -
+	; the colour isn't on screen yet: use the next free background
+	; register, or, if all four are taken, overwrite the last one
+	cpy #4
+	bcc +
+	ldy #3
++	sta ecm_bg_colours,y
+	; write the colour to $d021 + register number
+	pha
+	tya
+	tax
+	pla
+	sta reg_backgroundcolour,x
+	cpy ecm_bg_used
+	bcc .ecm_found
+	iny
+	sty ecm_bg_used
+	dey
+.ecm_found
+	; remember which register the window uses
+	ldx .ecm_window
+	tya
+	sta window_bg_index,x
+	cpx current_window
+	bne +
+	jmp ecm_update_bits
++	rts
+
+.ecm_window !byte 0
+}
+
 convert_petscii_to_screencode
    ; convert from pet ascii to screen code
 	cmp #$40
@@ -522,6 +613,9 @@ s_delete_cursor
 	jsr colour2k
 }
 	lda #$20 ; blank space
+!ifdef Z6_ECM_MODE {
+	ora ecm_bits ; keep the window's background colour
+}
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bpl +
@@ -607,6 +701,9 @@ s_printchar
 .del_inside
 	jsr .update_screenpos
 	lda #$20
+!ifdef Z6_ECM_MODE {
+	ora ecm_bits ; keep the window's background colour
+}
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
 	bit COLS_40_80
@@ -664,7 +761,12 @@ s_printchar
 	inc s_ignore_next_linebreak,x
 .resume_printing_normal_char
 	jsr convert_petscii_to_screencode
+!ifdef Z6_ECM_MODE {
+	and #$3f ; only 64 characters, and the top bits select the background
+	ora ecm_bits
+} else {
 	ora s_reverse
+}
 	pha
 	jsr .update_screenpos
 	pla
@@ -1309,6 +1411,9 @@ s_erase_line
 	bcs .done_erasing
 	; set character
 	lda #$20
+!ifdef Z6_ECM_MODE {
+	ora ecm_bits ; keep the window's background colour
+}
 !ifdef TARGET_X16 {
     sta VERA_data0
 } else {
@@ -1788,7 +1893,8 @@ toggle_darkmode
 !ifdef Z5PLUS {
 z_ins_set_colour
 	; set_colour foreground background [window]
-	; (window is not used in Ozmoo)
+	; (in ECM mode the background is set per window, otherwise the window
+	; operand is not used in Ozmoo)
 	jsr printchar_flush
 
 ; Load y with bordercol (needed later)
@@ -1805,8 +1911,28 @@ z_ins_set_colour
 	jsr read_header_word
 	ldy zp_temp
 	lda zcolours,x
-+   
++
+!ifdef Z6_ECM_MODE {
+	; give the window its own background register
+	sty zp_temp
+	ldx current_window
+	ldy z_operand_count
+	cpy #3
+	bcc +
+	ldx z_operand_value_low_arr + 2
+	cpx #8
+	bcc +
+	ldx current_window ; window -3/-2/-1 (and anything odd): use the current one
++	jsr ecm_set_window_bg
+	ldy zp_temp
+	; the border follows background register 0 only
+	ldx current_window
+	lda window_bg_index,x
+	bne .current_background
+	lda ecm_bg_colours
+} else {
 	+SetBackgroundColour
+}
 ; Also set bordercolour to same as background colour, if bordercolour is set to the magic value 0
 	cpy #0
 	bne .current_background
