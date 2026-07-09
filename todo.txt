@@ -2,6 +2,16 @@ Known bugs
 ----------
 (none known that stop a v6 game from starting)
 
+Scrollback and extended sound share $40000 on the MEGA65. scrollback.asm:10
+puts the scrollback screen RAM at $00040000 and writes 4000 bytes there, while
+sound.asm DMAs the current sound effect to bank 4 offset 0, up to 64 KB. The
+techreport's memory map lists both, so the map is right and the code is wrong:
+opening scrollback while a sound is playing corrupts the first 4000 bytes of
+the sample. It heals itself, because the next @sound_effect re-copies the
+sample from attic. Not a documentation mistake. Unclear whether it can be
+provoked in a real game; nothing in z6 depends on the answer, but the fast RAM
+budget below does depend on $40000-$4ffff staying spoken for.
+
 Fixed: Arthur used to crash on startup, before a single Z-machine instruction
 was executed. The cause was that v6 was lumped in with v4/v5 rather than with
 v7/v8 in the assembly. make.rb has always treated v6 as a "large" version
@@ -65,6 +75,42 @@ The plan for z6 on the MEGA65
 The C64 and the Plus/4 will never draw pictures, and keep the "pic:N" notes
 whatever happens below.
 
+Screen size, and why 320x200
+  Arthur was an Amiga game at 320x200, and z6games/arthur-graphics is scaled to
+  that: all 137 pictures fit, the largest being 292x196. So the MEGA65 z6 screen
+  is 320x200 in FCM with 16 bit character codes: 8x8 cells, 40x25 of them.
+
+  That is not only the natural fit for the art, it is the only size that fits in
+  memory. An FCM cell needs 64 bytes of character data, so a worst case full
+  screen picture is 1000 x 64 = 62.5 KB of tiles. At 640x400 it would be 80x50 =
+  4000 cells = 250 KB, and there is nowhere to put that. Screen RAM (2000 bytes)
+  and colour RAM (2000 bytes) at 40x25 with two bytes per cell are exactly the
+  sizes the current 80x25 8 bit mode already uses, so neither grows.
+
+  Fast RAM is 384 KB, and the techreport's map spends most of it: $00000-$0ffff
+  interpreter, $20000-$3ffff ROM, $40000-$4ffff sound effect, $50000-$5ffff undo.
+  That leaves bank 1, $10000-$1ffff, 64 KB, unclaimed. 62.5 KB of tiles fit there
+  with 1.5 KB to spare, so sound and undo both survive and nothing has to be
+  sacrificed. It is knife-edge, and it assumes two things that step 2 has to
+  confirm: that C64 mode really leaves bank 1 alone, and that the text charset
+  can live outside those 64 KB, as ordinary 8 byte glyphs for chars 0-255 with
+  full colour only for chars 256 and up (what the VIC-IV's FCLRLO/FCLRHI split is
+  for). There is no room for double buffering. If it does not fit, free
+  $40000-$4ffff by dropping sound before giving up any of the above: z6 games do
+  not use extended sound.
+
+  8 bits per pixel, not the 4 of NCM, even though no picture uses more than 14
+  colours and NCM would halve every figure here. An NCM cell is 16 pixels wide
+  and a pixel is a nybble, so a picture at an odd x needs a nybble shift, which
+  the DMA engine cannot do and which lands us back in CPU side bitmap shifting.
+  At 8bpp a pixel is a byte, any x offset is a byte offset, and m65_run_dma blits
+  it directly. Revisit only if memory forces it, or if step 2 shows Arthur's
+  draw_picture coordinates are always cell aligned.
+
+  Dropping to 40 columns is right for v6 and wrong for everything else, so this
+  is a Z6-conditional fork of the MEGA65 constants, not the new MEGA65 default.
+  constants.asm sets SCREEN_WIDTH = 80 for the target unconditionally today.
+
 1. Check what already works with -t:mega65. A first pass says: a lot. A
    headless xemu run of testz6 (see CLAUDE.md) shows the window model, the
    margins, print_form and picture_data all behaving at 80x25. But the run
@@ -82,7 +128,8 @@ whatever happens below.
    loops and then discovering it needs a DMA blitter would be the wrong order.
 
 3. Rewrite the MEGA65 z6 screen mode to use FCM (full colour mode, VIC-IV,
-   with 16 bit character codes). It is needed either way: it gives every
+   with 16 bit character codes) at 320x200, 40x25 cells, as argued above. It
+   is needed either way: it gives every
    character its own background colour, which retires the ECM approach on this
    target, and 16 bit character codes are the only sane way to get enough
    unique tiles for pictures. Expect it to touch update_screenpos, s_printchar,
@@ -95,8 +142,23 @@ whatever happens below.
    - The conversion of the picture files belongs in a separate script, not in
      make.rb, which is large enough already. Arthur's 137 PNGs are in
      z6games/arthur-graphics (not in git; not ours to distribute).
-   - The pictures need somewhere to live (Attic RAM? another disk?) and a way
-     to page them in.
+   - One palette for the whole set. The originals shared a single 16 or 32
+     colour palette; the 622 distinct colours across the PNGs today are an
+     artifact of the conversion to PNG, and no single picture has more than 14.
+     So the script makes two passes: survey every file to settle on one common
+     palette, then force every picture onto it. The palette ships on the d81
+     alongside the FCM files.
+   - The pictures live in attic RAM. Everything from $8300000 up is free, 5 MB
+     of it, against 1,125,824 pixels = 1.1 MB for the whole set at 8bpp. So a
+     "pics" file preloaded into attic at boot, exactly the way zcode and the
+     WAVs already are, then DMA from attic into the tile store on draw_picture.
+     No disk access during play, and almost no new machinery.
+   - The binding constraint is the d81, not memory. 800 KB per disk, ~802 KB
+     usable, of which Arthur is 263 KB. The full picture set at 8bpp does not
+     fit. Start with a handful of pictures that do, get them on screen, and add
+     simple compression (the art is flat shaded line art; RLE should crush it,
+     and it can decompress into attic at boot) only once it is needed. A second
+     disk is the fallback; arthur-d2 already has the shape for it.
    - picture_data must start reporting real sizes and branching true, and
      z_init must stop clearing the "pictures available" bit in header_flags_2
      (see "and #(255 - 8 - 32) ; pictures and mouse never available"). That
