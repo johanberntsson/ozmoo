@@ -134,7 +134,16 @@ Screen size, and why 320x200
    (ozmoo.asm), and draw_picture is supposed to leave the cursor where it found
    it, which is exactly there. The C64 dump was simply taken before the cursor
    was drawn.
-   Still to check the same way: -t:plus4.
+
+   DONE for the Plus/4 too, the same way, under xplus4 (screen $0c00, colour
+   $0800). Both builds are character for character identical to the C64, in the
+   double scroll and the single scroll variants alike. Its colour RAM holds $63
+   inside window 1, which is TED colour 3 at luminance 6 - the right mapping of
+   the C64's cyan through plus4_vic_colours, not a low nybble that happens to
+   read 3.
+
+   So the three targets that share .s_scroll agree. Nothing here needs fixing
+   before the FCM work starts.
 
 2. Before rewriting the screen layer, prototype one hardcoded picture: blit it
    with the DMA engine (m65_run_dma and dma_list already exist in disk.asm)
