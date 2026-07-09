@@ -200,7 +200,7 @@ vmem_tick 			!byte $e0
 vmem_oldest_age		!byte 0
 vmem_oldest_index	!byte 0
 
-!ifdef Z7PLUS {
+!ifdef Z6PLUS {
 	vmem_tick_increment = 4
 	vmem_highbyte_mask = $03
 } else {

@@ -914,7 +914,7 @@ reu_progress_ticks = parse_array + 1
 reu_last_disk_end_block = string_array ; 2 bytes
 !ifdef REUBOOST {
 !ifdef Z4PLUS {
-	!ifdef Z7PLUS {
+	!ifdef Z6PLUS {
 		reu_boost_hash_pages = 8
 	} else {
 		reu_boost_hash_pages = 4
@@ -1016,7 +1016,7 @@ game_id		!byte 0,0,0,0
 		asl
 		rol z_temp + 1
 	} else {
-		!ifdef Z7PLUS {
+		!ifdef Z6PLUS {
 			ldx #3
 -			asl
 			rol z_temp + 1
@@ -2147,7 +2147,7 @@ deletable_init
 	ldy #header_filelength
 	jsr read_header_word
 !ifdef Z4PLUS {
-	!ifdef Z7PLUS {
+	!ifdef Z6PLUS {
 		ldx #3 ; File size multiplier is 2^3 = 8
 	} else {
 		ldx #2 ; File size multiplier is 2^2 = 4
@@ -2224,7 +2224,7 @@ deletable_init
 	ldz #header_filelength
 	lda [dynmem_pointer],z
 !ifdef Z4PLUS {
-	!ifdef Z7PLUS {
+	!ifdef Z6PLUS {
 		ldx #3 ; File size multiplier is 2^3 = 8
 	} else {
 		ldx #2 ; File size multiplier is 2^2 = 4

@@ -542,7 +542,7 @@ reu_progress_base
 !ifndef Z4PLUS {
 	!byte 16 ; blocks read to REU per tick of progress bar for games < 128 KB
 } else {
-	!ifdef Z7PLUS {
+	!ifdef Z6PLUS {
 		!byte 64 ; blocks read to REU per tick of progress bar for games < 512 KB
 	} else {
 		!byte 32 ; blocks read to REU per tick of progress bar for games < 256 KB
@@ -558,7 +558,7 @@ print_reu_progress_bar
 	lda z_temp + 5
 	sbc reu_last_disk_end_block + 1
 !ifdef Z4PLUS {
-	!ifdef Z7PLUS {
+	!ifdef Z6PLUS {
 		ldx #6 ; One tick is 2^6 = 64 blocks
 	} else {
 		ldx #5 ; One tick is 2^5 = 32 blocks

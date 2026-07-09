@@ -16,7 +16,9 @@ Required: `acme`, `exomizer` (expected at `exomizer/src/exomizer` on Linux — a
 make z6        # compile testz6.inf with inform -v6, build a d64, autostart in VICE
 make ecm       # same, with -ecm (per-window background colours)
 make frotz     # compile testz6.inf and run it in frotz — the reference behaviour
-make arthur    # build the real v6 game Arthur for two drives and run it (currently crashes)
+make arthur    # build the real v6 game Arthur as a d81 and run it
+make arthur-d2 # same, but split over two 1541 drives
+make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
 make c64       # build examples/dejavu.z3 (a z3 game) — the non-z6 regression check
 make mega65    # same, for MEGA65
 make clean
@@ -65,7 +67,8 @@ Eight windows, each with the property array the spec requires (`window_y`, `wind
 
 - **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the spec (`z-spec10.pdf`) before assuming an opcode behaves as in v5.
 - Several v6 opcodes are still dummies (graphics, `scroll_window`); see `todo.txt` for what is and isn't safe about them.
-- `make arthur` crashes before executing a single instruction — its main routine unpacks outside resident memory, so the first `set_z_pc` never returns from `get_page_at_z_pc`. See `todo.txt`.
+- **v6 is a "large" version, like v7/v8, not like v4/v5.** Story files run to 512 KB, the header file length is divided by 8, and block addresses need two high bits. `make.rb` has always known this (`$zcode_version > 5`); the assembly used to express it as `Z7PLUS`, which excludes v6. Use `Z6PLUS` for anything size-related, and be suspicious of any new `Z4PLUS`/`Z7PLUS` split. See `todo.txt` for the three bugs this caused.
+- No v6 interpreter ever ran on a C64, so v6 code paths have never been exercised against a real game. Expect more latent assumptions — minimum screen size, stack depth, story size — that no other version happens to violate.
 - **Get z6 working on the C64 before touching any other target.** The z6 window model is only wired into the scroll path the C64, Plus/4 and MEGA65 share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. These are deliberate, not oversights — don't "fix" them yet.
 
 ## Debugging under VICE (headless)
@@ -77,6 +80,8 @@ x64sc -default -warp +sound -limitcycles 60000000 -exitscreenshot shot.png c64_t
 ```
 
 - Drive commands from a `-moncommands` file. Use **tracepoints** (`trace exec $addr`), not breakpoints — breakpoints halt the emulator and wait for stdin.
+- Tracepoint *hits* are not printed to stdout; only the confirmation of the tracepoint's creation is. Start the moncommands file with `logname "<file>"` and `log on` to capture the hits.
+- Loading a d81 under true drive emulation takes over 100 million cycles before the first Ozmoo instruction runs, so `-limitcycles` needs to be generous (200000000+) or the trace will be empty and look like a crash.
 - Attach an action with `command <n> "<cmd>"`. Several tracepoints may share an address, one command each.
 - To type text: `command 1 "keybuf hello"`. `keybuf` does **not** interpret `\n`, so append Return by poking the kernal keyboard buffer: `command 2 "> 027c 0d"` and `command 3 "> 00c6 06"` (buffer, then length).
 - `-exitscreenshot` can catch a mid-frame redraw and show a character that isn't really there. To see the truth, dump screen RAM: `command N "m 0400 07e7"` and decode the log (screen codes; in ECM the top two bits are the background register).

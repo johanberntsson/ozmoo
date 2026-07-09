@@ -1,15 +1,26 @@
 Known bugs
 ----------
-Z6: Arthur ("make arthur") crashes on startup, before a single Z-machine
-instruction is executed. The initial "main" routine of a v6 game is a packed
-routine address in the header, and Ozmoo calls it with stack_call_routine
-before entering z_execute. For Arthur that routine unpacks to $010c0c, i.e.
-outside the 64 KB that is resident, so set_z_pc falls into
-get_page_at_z_pc to page it in from virtual memory - and never returns; a
-few thousand cycles later the machine is back in BASIC. So this is a virtual
-memory problem at startup, not the graphics opcodes. It should be
-reproducible with any v6 game whose main routine lives beyond the resident
-part of the story file.
+(none known that stop a v6 game from starting)
+
+Fixed: Arthur used to crash on startup, before a single Z-machine instruction
+was executed. The cause was that v6 was lumped in with v4/v5 rather than with
+v7/v8 in the assembly. make.rb has always treated v6 as a "large" version
+(story files up to 512 KB, header file length divided by 8, two high bits of
+the block address), using "$zcode_version > 5"; the assembly used the Z7PLUS
+flag, which only covers v7 and v8. The damage:
+  - disk.asm reserved no space at all for disk_info, so the disk_info the
+    boot loader copied in landed on top of the readblocks/readblock code.
+    Any v6 game that had to page in a block from disk therefore jumped into
+    disk_info as if it were code. Arthur hit this on its very first
+    instruction, because its "main" routine unpacks to $010c0c, outside the
+    resident part of the story file.
+  - vmem.asm gave v6 a vmem_highbyte_mask of $01, not the $03 make.rb had
+    already used when building the vmap, so block addresses above $20000
+    were misread and the age bits overlapped the address bits.
+  - the header file length was multiplied by 4 instead of 8, so Ozmoo thought
+    every v6 game was half its real size.
+The fix was to use Z6PLUS instead of Z7PLUS at every one of these size
+related sites. Z7PLUS is now unused, but is still defined.
 
 Still to do for z6 (not crashes):
 - The graphics opcodes (draw_picture, picture_data, erase_picture,
