@@ -67,7 +67,7 @@
     sta .sample_rate_big_endian + 2
     lda #0
     sta .sample_rate_big_endian
-    ; modfiy with exponent
+    ; modify with exponent
     lda .exponent
     sec
     sbc #7 ; we're shifting one byte

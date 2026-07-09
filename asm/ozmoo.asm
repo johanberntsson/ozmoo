@@ -18,7 +18,25 @@
 }
 }
 
+!ifndef FREE_SAVE_BLOCKS {
+	FREE_SAVE_BLOCKS = 664  ; Default to the free space of an empty 1541 disk
+}
+
+!ifdef TARGET_X16 {
+	TARGET_MEGA65_OR_X16 = 1
+	NO_VMEM_CACHE = 1
+	TARGET_ASSIGNED = 1
+	COMPLEX_MEMORY = 1
+	FAR_DYNMEM = 1
+	SUPPORT_REU = 1
+	SUPPORT_80COL = 1
+	!ifndef SLOW {
+		SLOW = 1
+	}
+;	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
+}
 !ifdef TARGET_MEGA65 {
+	TARGET_MEGA65_OR_X16 = 1
 	TARGET_ASSIGNED = 1
 	FAR_DYNMEM = 1
 	COMPLEX_MEMORY = 1
@@ -28,16 +46,13 @@
 	!ifndef SLOW {
 		SLOW = 1
 	}
-	!ifdef SLOW {
-		!ifndef VMEM {
-			SKIP_BUFFER = 1
-		}
-	}
+	SKIP_BUFFER = 1 ; This is for SLOW mode and non-VMEM mode, which we know we have
 	!ifndef NOSCROLLBACK {
 		SCROLLBACK = 1
 	}
 }
 !ifdef TARGET_PLUS4 {
+	NO_VMEM_CACHE = 1
 	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	COMPLEX_MEMORY = 1
@@ -59,6 +74,7 @@
 	TARGET_ASSIGNED = 1
 }
 !ifdef TARGET_C128 {
+	NO_VMEM_CACHE = 1
 	TARGET_PLUS4_OR_C128 = 1
 	TARGET_ASSIGNED = 1
 	FAR_DYNMEM = 1
@@ -187,32 +203,6 @@
 	stack_size = $0400;
 }
 
-
-!ifndef COL2 {
-	COL2 = 0
-}
-!ifndef COL3 {
-	COL3 = 2
-}
-!ifndef COL4 {
-	COL4 = 5
-}
-!ifndef COL5 {
-	COL5 = 7
-}
-!ifndef COL6 {
-	COL6 = 6
-}
-!ifndef COL7 {
-	COL7 = 4
-}
-!ifndef COL8 {
-	COL8 = 3
-}
-!ifndef COL9 {
-	COL9 = 1
-}
-
 !ifndef BGCOL {
 	BGCOL = 9
 }
@@ -336,14 +326,25 @@
 
 ;  * = $0801 ; This must now be set on command line: --setpc $0801
 
-program_start
+!ifdef TARGET_X16 {
+; Basic: 1 SYS2061
+!byte $0b,$08,$01,$00,$9e,$32,$30,$36,$31,$00,$00,$00
+}
 
+program_start
+!ifdef TARGET_C128 {
+	lda #%00001110 ; 48K RAM0 (0-$c000)
+	sta $ff00
+}
 	jmp .initialize
 
 !ifdef VMEM {
 	RESTART_SUPPORTED = 1
 } else {
 	!ifdef TARGET_MEGA65 {
+		RESTART_SUPPORTED = 1
+	} 
+	!ifdef TARGET_X16 {
 		RESTART_SUPPORTED = 1
 	} 
 }
@@ -546,9 +547,8 @@ z_opcount_ext_jump_high_arr
     !byte >(z_not_implemented - 1)
     !byte >(z_not_implemented - 1)
 }
-
-	!byte >(z_ins_save_restore_undo - 1)
-	!byte >(z_ins_save_restore_undo - 1)
+	!byte >(z_ins_save_undo - 1)
+	!byte >(z_ins_restore_undo - 1)
 	!byte >(z_ins_print_unicode - 1)
 	!byte >(z_ins_check_unicode - 1)
 	!byte >(z_ins_set_true_colour - 1)
@@ -770,8 +770,8 @@ z_opcount_ext_jump_low_arr
 	!byte <(z_not_implemented - 1)
 	!byte <(z_not_implemented - 1)
 }
-	!byte <(z_ins_save_restore_undo - 1)
-	!byte <(z_ins_save_restore_undo - 1)
+	!byte <(z_ins_save_undo - 1)
+	!byte <(z_ins_restore_undo - 1)
 	!byte <(z_ins_print_unicode - 1)
 	!byte <(z_ins_check_unicode - 1)
 	!byte <(z_ins_set_true_colour - 1)
@@ -799,6 +799,44 @@ z_number_of_opcodes_implemented = * - z_jump_low_arr
 
 !ifdef TARGET_C128 {
 !source "constants-c128.asm"
+
+!ifdef CUSTOM_FONT {
+!ifdef UNDO {
+.setup_copy_font
+	ldy #>$1800
+	lda reu_bank_for_undo
+	ldx #$fc
+	clc
+	jsr store_reu_transfer_params
+	lda #8
+    sta reu_translen + 1
+	rts
+
+; Font is actually at $1800, where it can't be copied to bank 1, since dynmem starts at $1600
+; so we copy it to $0800 instead
+c128_copy_font_to_bank_1
+	jsr .setup_copy_font
+	lda #%10110000;  C64 -> REU with immediate execution
+	sta reu_command
+	; Wait until raster is in border
+-	bit $d011
+	bpl -
+	; Make REU see RAM bank 1
+	lda $d506
+	ora #%01000000 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+	jsr .setup_copy_font
+	ldy #>$0800
+	sty reu_c64base + 1
+	lda #%10110001;  REU -> c64 with immediate execution
+	sta reu_command
+	; Restore REU to see RAM bank 0
+	lda $d506
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+	rts	
+}
+}
 
 c128_reset_to_basic
 	; this needs to be at the start of the program since
@@ -863,6 +901,8 @@ c128_border_phase1
 	jmp $ff33	;return from IRQ
 }
 
+} else ifdef TARGET_X16 {
+!source "constants-x16.asm"
 } else {
 !source "constants.asm"
 }
@@ -908,7 +948,9 @@ game_id		!byte 0,0,0,0
 .initialize
 	cld
 	cli
-
+!ifdef TARGET_X16 {
+	jsr x16_backup_basic_zp	
+}
 !ifdef TARGET_C128 {
 	lda #$f0 ; Background colour
 	jsr VDCInit
@@ -919,8 +961,8 @@ game_id		!byte 0,0,0,0
 	sta $ff00
 !if SPLASHWAIT > 0 {
 !ifdef SMOOTHSCROLL {
-	lda COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	lda #<splashline7alt
 	sta splash_index_lb + 7
 	lda #>splashline7alt
@@ -1001,18 +1043,44 @@ game_id		!byte 0,0,0,0
 	; A now holds an upper limit on statmem size in 64 KB blocks
 	sta statmem_reu_banks
 
+!ifdef TARGET_C128 {
+	; Make sure REU uses RAM bank 0
+	lda $d506
+	and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	sta $d506
+}
 	jsr reu_start
 
+!ifdef TARGET_C128 {
+!ifdef CUSTOM_FONT {
+!ifdef UNDO {
+	bit COLS_40_80
+	bmi +
+	lda reu_bank_for_undo
+	cmp #$7f ; $7f = undo in RAM, $80+ = no undo
+	bcs +
+	jsr c128_copy_font_to_bank_1
++
+}
+}
+}
 	!ifdef SCROLLBACK {
 		ldx use_reu
 		beq .store_bank_number
 		ldx statmem_reu_banks
-		cpx scrollback_bank
-		bcs +
+;		cpx scrollback_bank
+;		bcs +
 .store_bank_number
+		!ifdef UNDO {
+			lda reu_bank_for_undo
+			cmp #$7f ; $7f = undo in RAM, $80+ = no undo
+			bcs .no_undo_reu_bank
+			inx
+.no_undo_reu_bank
+		}
 		stx scrollback_bank
-		inx
-		stx scrollback_bank + 1
+		; inx
+		; stx scrollback_bank + 1
 +		jsr init_reu_scrollback
 	}
 	lda #147
@@ -1043,8 +1111,10 @@ game_id		!byte 0,0,0,0
 
 	jsr deletable_screen_init_2
 
+!ifndef TARGET_X16 {
 	lda #0
 	sta keyboard_buff_len
+}
 
 	jsr z_init
 
@@ -1053,17 +1123,20 @@ game_id		!byte 0,0,0,0
 	; this needs to be after the z_init call since 
 	; z_init uses SID to initialize the random number generator
 	; and SID doesn't work in fast mode.
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	; 80 columns mode
 	; switch to 2MHz
 	lda #use_2mhz_in_80_col_in_game_value
 	sta use_2mhz_in_80_col
 	sta reg_2mhz	;CPU = 2MHz
-	lda $d011
-	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
-	and #%01101111
-	sta $d011
+
+	; Moved this to deletable_screen_init_1
+	; lda $d011
+	; ; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
+	; and #%01101111
+	; sta $d011
+
 	jmp ++
 +	; 40 columns mode
 !ifndef SMOOTHSCROLL {
@@ -1100,16 +1173,26 @@ game_id		!byte 0,0,0,0
 }
 	jsr z_execute
 
-!ifdef TARGET_PLUS4_OR_C128 {
 !ifdef TARGET_C128 {
 	jmp c128_reset_to_basic
-} else {
+} else ifdef TARGET_PLUS4 {
 	lda #$01
 	sta $2b
 	lda #$10
 	sta $2c
 	jmp basic_reset
+} else ifdef TARGET_X16 {
+!ifdef TARGET_X16 {
+	!ifdef CUSTOM_FONT {
+		lda #2
+		jsr $ff62
+	}
+    lda #$09 ; Unlock font selection
+    jsr $ffd2
+	jmp x16_restore_basic_zp
 }
+	; stz 1
+	; jmp ($fffc)
 } else {
 	; Back to normal memory banks
 	lda #%00110111
@@ -1136,8 +1219,8 @@ statmem_reu_banks !byte 0
 !source "screenkernal-z6.asm"
 !source "screen-z6.asm"
 } else {
-!source "screenkernal-z6.asm"
-!source "screen-z6.asm"
+!source "screenkernal.asm"
+!source "screen.asm"
 }
 !source "streams.asm" ; Must come before "text.asm"
 ;!ifdef SOUND {
@@ -1160,7 +1243,7 @@ statmem_reu_banks !byte 0
 !source "objecttable.asm"
 
 
-!ifdef TARGET_PLUS4_OR_C128 {
+!ifdef NO_VMEM_CACHE {
 	!if SPLASHWAIT > 0 {
 		!source "splashscreen.asm"
 	}
@@ -1189,23 +1272,66 @@ calc_z6_z7_offsets
 	rts
 }
 
-
-!ifdef TARGET_C128 {
-
 !ifdef Z4PLUS {
+!ifdef TARGET_C128 {
 update_screen_width_in_header
-	lda #SCREEN_WIDTH
+	lda s_screen_width
 	ldy #header_screen_width_chars
-!ifdef Z5PLUS {
 	jsr write_header_byte
+!ifdef Z5PLUS {
 	ldy #header_screen_width_units
 	tax
 	lda #0
-	jmp write_header_word
-} else {
-	jmp write_header_byte
+	jsr write_header_word
 }
+	rts
+} else ifdef TARGET_X16 {
+update_screen_width_in_header
+	lda s_screen_width
+	ldy #header_screen_width_chars
+	jsr write_header_byte
+!ifdef Z5PLUS {
+	ldy #header_screen_width_units
+	tax
+	lda #0
+	jsr write_header_word
 }
+	lda s_screen_height
+	ldy #header_screen_height_lines
+	jsr write_header_byte
+!ifdef Z5PLUS {
+	ldy #header_screen_height_units
+	tax
+	lda #0
+	jsr write_header_word
+}
+	rts
+}
+} ; Z4PLUS
+
+
+!ifdef TARGET_X16 {
+x16_backup_basic_zp
+	ldx #last_basic_zp_address - first_basic_zp_address + 1
+-	lda first_basic_zp_address - 1,x
+	sta basic_zp_backup_area - 1,x
+	dex
+	bne -
+	rts
+
+x16_restore_basic_zp
+	ldx #last_basic_zp_address - first_basic_zp_address + 1
+-	lda basic_zp_backup_area - 1,x
+	sta first_basic_zp_address - 1,x
+	dex
+	bne -
+	rts
+
+basic_zp_backup_area
+!fill last_basic_zp_address - first_basic_zp_address + 1, 0
+}
+
+!ifdef TARGET_C128 {
 
 c128_setup_mmu
 	lda #5 ; 4 KB common RAM at bottom only
@@ -1222,6 +1348,50 @@ c128_setup_mmu
 	dex
 	bne -
 	rts
+
+!ifdef UNDO_RAM {
+; Setup a RAM buffer for Undo
+undo_ram_setup
+	bit reu_bank_for_undo
+	bpl + ; An REU bank has already been assigned
+	; Check if undo fits in bank 1
+	jsr calc_dynmem_size
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcs + ; Dynmem + stack + ZP > 64 KB, so no way to fit in RAM buffer
+	sta object_temp
+	adc nonstored_pages
+	; adc story_start + header_static_mem
+	; bcs +
+	; ldy story_start + header_static_mem + 1
+	; beq +++
+	; clc
+	; adc #1
+	bcs +
++++	adc #>story_start_far_ram
+	bcs +
+	cmp #VMEM_END_PAGE
+	bcs +
+	lda #VMEM_END_PAGE
+	sec
+	sbc object_temp
+	sta ram_undo_page
+	; Decrease vmem size
+	lda object_temp
+	lsr ; Divide by 2 to get # of VMEM blocks
+	bcc ++
+	adc #0 ; Adds one since C=1 (for when undo size is e.g. 20.5 VMEM blocks)
+++	sta vmap_entries_reserved
+	; lda vmap_max_entries
+	; sec
+	; sbc object_temp + 1
+	; sta vmap_max_entries
+	ldy #$7f
+	sty reu_bank_for_undo ; Special value $7f means undo uses RAM buffer
++
+	rts
+}
 
 c128_move_dynmem_and_calc_vmem
 	; Copy dynmem to bank 1
@@ -1267,6 +1437,13 @@ c128_move_dynmem_and_calc_vmem
 	lda #>story_start
 	sta vmap_first_ram_page
 
+	; Calculate # of pages of unbanked RAM used for vmem
+	lda #first_banked_memory_page
+	sec
+	sbc vmap_first_ram_page
+	lsr
+	sta vmap_unbanked_blocks
+	
 	; Remember above which index in vmem the blocks are in bank 1
 !ifdef SCROLLBACK_RAM_PAGES {
 	lda #SCROLLBACK_RAM_START_PAGE
@@ -1288,7 +1465,13 @@ c128_move_dynmem_and_calc_vmem
 	sec
 	sbc vmap_first_ram_page_in_bank_1
 	lsr ; Convert from 256-byte pages to 512-byte vmem blocks
+!ifdef UNDO_RAM {
+	sec
+	sbc vmap_entries_reserved
+	clc
+}
 	; Now A holds the # of vmem blocks we can fit in bank 1
+
 	adc first_vmap_entry_in_bank_1 ; Add the # of vmem blocks in bank 0
 	cmp #vmap_max_size
 	bcc +
@@ -1349,6 +1532,78 @@ load_suggested_pages
 } ; ifndef NOSECTORPRELOAD
 } ; ifdef VMEM
 
+!ifdef UNDO {
+print_no_undo
+	; ldy #header_flags_2 + 1
+	; jsr read_header_word
+	; and #(255 - 16) ; no undo
+	; ldy #header_flags_2 + 1
+	; jsr write_header_byte
+	lda #>.no_undo_msg
+	ldx #<.no_undo_msg
+	jsr printstring_raw
+	jmp wait_a_sec
+.no_undo_msg
+	!pet "Undo not available",13,13,0
+}
+
+NEED_CALC_DYNMEM = 1
+
+
+!ifndef VMEM {
+!ifndef TARGET_MEGA65_OR_X16 {
+SIMPLE_NON_VMEM = 1
+}
+}
+
+; !ifdef TARGET_MEGA65 {
+; NEED_CALC_DYNMEM = 1
+; }
+; !ifdef VMEM {
+; NEED_CALC_DYNMEM = 1
+; }
+
+!ifdef NEED_CALC_DYNMEM {
+calc_dynmem_size
+	; Store the size of dynmem AND (if VMEM is enabled)
+	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
+!ifdef TARGET_C128 {
+	; Special case because we need to read a header word from dynmem before dynmem
+	; has been moved to its final location.
+	lda story_start + header_static_mem
+	ldx story_start + header_static_mem + 1
+} else {
+	; Target is not C128
+	ldy #header_static_mem
+	jsr read_header_word
+}
+	stx dynmem_size
+	sta dynmem_size + 1
+
+!ifndef SIMPLE_NON_VMEM {	
+;!ifdef TARGET_MEGA65 {
+	tay
+	cpx #0
+	beq .maybe_inc_nonstored_pages
+	iny ; Add one page if statmem doesn't start on a new page ($xx00)
+.maybe_inc_nonstored_pages
+	tya
+!ifdef TARGET_MEGA65 {
+	and #%00000001 ; keep index into kB chunk
+} else ifdef TARGET_X16 {
+	and #%00000001 ; keep index into kB chunk
+} else {
+	and #vmem_indiv_block_mask ; keep index into kB chunk
+}
+	beq .store_nonstored_pages
+	iny
+.store_nonstored_pages
+	sty nonstored_pages
+;}
+}
+	rts
+}
+
 	
 program_end
 
@@ -1379,7 +1634,7 @@ vmem_cache_start
 }
 vmem_cache_start_maybe
 
-!ifndef TARGET_PLUS4_OR_C128 {
+!ifndef NO_VMEM_CACHE {
 	!if SPLASHWAIT > 0 {
 		!source "splashscreen.asm"
 	}
@@ -1390,7 +1645,8 @@ end_of_routines_in_vmem_cache
 
 !align 255, 0, 0 ; To make sure stack is page-aligned even if not using vmem.
 
-!ifndef TARGET_C128 {
+;!ifndef TARGET_C128 {
+!ifndef NO_VMEM_CACHE {
 	!fill cache_pages * 256 - (* - vmem_cache_start_maybe),0 ; Typically 4 pages
 } 
 
@@ -1409,31 +1665,71 @@ vmem_cache_count = vmem_cache_size / 256
 
 stack_start
 
+!ifdef TARGET_X16 {
+!ifdef CUSTOM_FONT {
+fontfile_name !pet "[font]"
+fontfile_name_len = * - fontfile_name
+
+font_read_error
+	lda #ERROR_FLOPPY_READ_ERROR
+	jmp fatalerror
+}
+}
+
 deletable_screen_init_1
 	; start text output from bottom of the screen
 
-!ifndef Z4PLUS {
-	!ifdef TARGET_C128 {
-		lda COLS_40_80
-		beq .width40
-		; 80 col
-		lda #54
-		sta sl_score_pos
-		lda #67
-		sta sl_moves_pos
-		lda #64
-		sta sl_time_pos
-.width40
-		; Default values are correct, nothing to do here.
-	}
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl +
+	; 80 columns mode
+	lda $d011
+	; Clear top bit (to not break normal interrupt) and bit 4 to blank screen 
+	and #%01101111
+	sta $d011
++
 }
+
+!ifdef TARGET_X16 {
+!ifdef CUSTOM_FONT {
+	lda #fontfile_name_len
+	ldx #<fontfile_name
+	ldy #>fontfile_name
+	jsr kernal_setnam ; call SETNAM
+	lda #2      ; file number 2
+	ldx #8
+	ldy #2      ; secondary address
+	jsr kernal_setlfs ; call SETLFS
+	lda #3 ; Load into VRAM, bank 1
+	ldx #$00
+	ldy #$f0
+	jsr kernal_load
+	php
+	jsr close_io
+	plp
+	bcs font_read_error
+}
+}
+
 	+init_screen_model
+	rts
 
 deletable_screen_init_2
 !ifdef SMOOTHSCROLL {
 	jsr toggle_smoothscroll
 }
 	; clear and unsplit screen, start text output from bottom of the screen (top of screen if z5)
+!ifndef Z5PLUS {
+!ifdef TARGET_PLUS4 {
+!ifdef VMEM {
+	; Statusline is filled with contents of config blocks,
+	; and erase_window below doesn't touch statusline
+	lda #0
+	sta zp_screenrow
+    jsr s_erase_line
+}
+}
+}
 	ldy #1
 	sty is_buffered_window
 !ifndef Z6 {
@@ -1448,7 +1744,7 @@ z_init
 !ifdef DEBUG {
 !ifdef PREOPT {
 	jsr print_following_string
-	!pet "*** vmem optimization mode ***",13,13,0
+	!text "*** vmem optimization mode ***",13,13,0
 }	
 }
 
@@ -1494,9 +1790,22 @@ z_init
 	and #(255 - 4 - 8) ; bold font, italic font not available
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 	jsr write_header_byte
+
+; check_undo
 	ldy #header_flags_2 + 1
 	jsr read_header_word
+	and #(255 - 8 - 32) ; pictures and mouse never available
+!ifdef UNDO {
+	bit reu_bank_for_undo
+	bpl .undo_is_available
+}
+	; Tell game UNDO isn't supported
+	and #(255 - 16) ; no undo
+.undo_is_available	
+	pha
 !ifdef SOUND {
+	; check if the game wants to play sounds, and if we can support this
+	pla
 	pha
 	and #$80
 	beq + ; Game doesn't want to play sounds
@@ -1504,15 +1813,16 @@ z_init
 	bcc +
 	; No sound files found, so tell game sound isn't supported
 	pla
-	and #(255 - 128) 
-	ldy #header_flags_2 + 1
+	and #(255 - 128)  ; no sound effect
 	pha
-+	pla
-	and #(255 - 8 - 16 - 32) ; pictures, undo and mouse not available
++
+    pla
 	ldy #header_flags_2 + 1
 	jsr write_header_byte
 } else {
-	and #(255 - 8 - 16 - 32 - 128) ; pictures, undo, mouse, sound effect not available
+    pla
+	and #(255 - 128)  ; no sound effect
+	ldy #header_flags_2 + 1
 	jsr write_header_byte
 }
 }
@@ -1521,7 +1831,7 @@ z_init
 	lda #TERPNO ; Interpreter number (8 = C64)
 	ldy #header_interpreter_number 
 	jsr write_header_byte
-	lda #(64 + 12) ; "L" = release 12
+	lda #(64 + MAJOR_VERSION_NO) ; "N" = release 14
 	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
 	jsr write_header_byte
 	lda #25
@@ -1534,6 +1844,8 @@ z_init
 	jsr write_header_word
 }
 !ifdef TARGET_C128 {
+	jsr update_screen_width_in_header
+} else ifdef TARGET_X16 {
 	jsr update_screen_width_in_header
 } else {
 	lda #SCREEN_WIDTH
@@ -1596,7 +1908,7 @@ z_init
 	sta z_pc
 }
 	jsr set_z_pc
-	jsr get_page_at_z_pc
+;	jsr get_page_at_z_pc NOT NEEDED - DONE AT THE END OF set_z_pc
 
 	; Setup globals pointer
 	ldy #header_globals
@@ -1647,6 +1959,22 @@ fkey_codes !byte $85,$89,$86,$8a,$87,$8b,$88,$8c
 
 deletable_init_start
 
+; Moved MEGA65 pointer init here
+!ifdef TARGET_MEGA65 {
+	lda #$0
+	sta dynmem_pointer
+	sta dynmem_pointer + 1
+	sta dynmem_pointer + 2
+	sta mempointer
+	sta mempointer + 1
+;	sta mempointer + 2 ; Will be set after reading the header
+	lda #$08
+	sta dynmem_pointer + 3
+	sta mempointer + 3
+;	sta mempointer_4bytes + 3
+	sta z_pc_mempointer + 3
+}
+
 ; Turn off function key strings, to let F1 work for darkmode and F keys work in BZ 
 !ifdef TARGET_PLUS4_OR_C128 {
 	ldx #8
@@ -1662,7 +1990,12 @@ deletable_init_start
 }
 }
 
-
+!ifdef TARGET_X16 {
+    lda #$0e ; Set font = lower case / upper case
+    jsr $ffd2
+    lda #$08 ; Lock font selection
+    jsr $ffd2
+}
 !ifdef TARGET_PLUS4 {
 	!ifdef CUSTOM_FONT {
 		lda reg_screen_char_mode
@@ -1714,11 +2047,12 @@ deletable_init_start
 	jsr init_mega65
 }
 
+!ifndef TARGET_X16 { ; For X16, this is done by printing a character at the start of deletable_init_start
 	lda #$80
 	sta charset_switchable
+}
 	lda #0
 	sta mempointer
-
 	jmp init_screen_colours ; _invisible
 	
 
@@ -1730,97 +2064,127 @@ deletable_init_start
 ; pcrc: RAM in bank 1, RAM everywhere
 c128_mmu_values !byte $0e,$3f,$7f
 }
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_MEGA65_OR_X16 {
 .first_value = z_temp
 .different_values !byte 0
-m65_statmem_already_loaded !byte 0
-m65_attic_checksum_page = ($08000000 + 512 * 1024) / 256
+m65_x16_statmem_already_loaded !byte 0
 }
-
-calc_dynmem_size
-	; Store the size of dynmem AND (if VMEM is enabled)
-	; check how many z-machine memory blocks (256 bytes each) are not stored in raw disk sectors
-!ifdef TARGET_C128 {
-	; Special case because we need to read a header word from dynmem before dynmem
-	; has been moved to its final location.
-	lda story_start + header_static_mem
-	ldx story_start + header_static_mem + 1
-} else {
-	; Target is not C128
-	ldy #header_static_mem
-	jsr read_header_word
-}
-	stx dynmem_size
-	sta dynmem_size + 1
-	
-!ifdef TARGET_MEGA65 {
-	tay
-	cpx #0
-	beq .maybe_inc_nonstored_pages
-	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_pages
-	tya
-;	and #vmem_indiv_block_mask ; keep index into kB chunk
-	and #%00000001 ; keep index into kB chunk
-	beq .store_nonstored_pages
-	iny
-.store_nonstored_pages
-	sty nonstored_pages
-}
-	rts
 
 deletable_init
 	cld
 
+!ifndef TARGET_X16 {
 	; Set only space, del, cursor to repeat
 	lda #0
 	sta key_repeat
-
+}
 
 !ifdef TARGET_C128 {
 	jsr c128_setup_mmu
 }
-!ifdef TARGET_MEGA65 {
-	lda #$0
-	sta dynmem_pointer
-	sta dynmem_pointer + 1
-	sta dynmem_pointer + 2
-	sta mempointer
-	sta mempointer + 1
-;	sta mempointer + 2 ; Will be set after reading the header
-	lda #$08
-	sta dynmem_pointer + 3
-	sta mempointer + 3
-;	sta mempointer_4bytes + 3
-	sta z_pc_mempointer + 3
-}
 
-
+; Moved pointer init for MEGA65 from here
 
 ; Read and parse config from boot disk
+!ifndef TARGET_X16 {
 	ldy CURRENT_DEVICE
 	cpy #8
 	bcc .pick_default_boot_device
 	cpy #16
 	bcc .store_boot_device
 .pick_default_boot_device
+}
 	ldy #8
 .store_boot_device
 	sty boot_device ; Boot device# stored
 
-!ifdef TARGET_MEGA65 {
-	jsr m65_init_reu
-
-!ifdef Z3PLUS {
-	jsr m65_load_header
+!ifdef TARGET_MEGA65_OR_X16 {
+	jsr m65_x16_init_reu
+	jsr m65_x16_load_header
 	jsr calc_dynmem_size
 	; Header of game on disk is now loaded, starting at beginning of Attic RAM
+}
 
-	lda #<m65_attic_checksum_page
-	sta mempointer + 1
-	lda #>m65_attic_checksum_page
-	sta mempointer + 2
+!ifdef TARGET_X16 {
+
+!ifdef Z3PLUS {
+	ldy #header_filelength
+	lda $5f00,y
+	sta .first_value
+
+-	lda $5f00,y
+	cmp .first_value
+	beq +
+	inc .different_values
++	cmp m65_x16_checksum_quad - header_filelength,y
+	bne .must_load_statmem
+	iny
+	cpy #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
+	bcc -
+	; Header values for file length and checksum are identical
+	lda .different_values
+	beq .must_load_statmem ; All four bytes have the same value. Header can't be trusted.
+	dec m65_x16_statmem_already_loaded ; Set it to $ff
+	jmp ++ 
+.must_load_statmem
+++
+}
+
+!ifdef UNDO {
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcc + ; Dynmem + stack + ZP fits in 64 KB
+	ldy #$ff
+	sty reu_bank_for_undo ; Disable undo
+	jsr print_no_undo
++
+}
+	lda #0
+	sta reu_last_disk_end_block
+	sta reu_last_disk_end_block + 1
+	
+	lda #0
+	sta z_temp + 5
+	ldy #header_filelength
+	jsr read_header_word
+!ifdef Z4PLUS {
+	!ifdef Z7PLUS {
+		ldx #3 ; File size multiplier is 2^3 = 8
+	} else {
+		ldx #2 ; File size multiplier is 2^2 = 4
+	}
+} else {
+	ldx #1 ; File size multiplier is 2^1 = 2
+}
+-	asl
+	rol z_temp + 5
+	dex
+	bne -
+	sta z_temp + 4
+
+	bit m65_x16_statmem_already_loaded
+	bpl +
+
+	; We are only to load dynmem
+	ldy #header_static_mem
+	jsr read_header_word
+	sta z_temp + 4
+	lda #0
+	sta z_temp + 5
+	
++	jsr print_reu_progress_bar
+
+	jsr m65_x16_load_dynmem_maybe_statmem
+}
+!ifdef TARGET_MEGA65 {
+
+    ; check stored copy of header data (filelength, checksum)
+    ; to see if the game file has already been loaded. This happens if
+    ; we restart the game.
+!ifdef Z3PLUS {
 	ldz #header_filelength
+	ldx #0
 	lda [dynmem_pointer],z
 	sta .first_value
 
@@ -1828,17 +2192,29 @@ deletable_init
 	cmp .first_value
 	beq +
 	inc .different_values
-+	cmp [mempointer],z
++	cmp m65_x16_checksum_quad,x
 	bne .must_load_statmem
 	inz
+	inx
 	cpz #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
 	bcc -
-	; Header values for file length and checksum are indentical
+	; Header values for file length and checksum are identical
 	lda .different_values
 	beq .must_load_statmem ; All four bytes have the same value. Header can't be trusted.
-	dec m65_statmem_already_loaded ; Set it to $ff
+	dec m65_x16_statmem_already_loaded ; Set it to $ff
 
 .must_load_statmem
+}
+
+!ifdef UNDO {
+	clc
+	lda #(>stack_size) + 1
+	adc nonstored_pages
+	bcc + ; Dynmem + stack + ZP fits in 64 KB
+	ldy #$ff
+	sty reu_bank_for_undo ; Disable undo
+	jsr print_no_undo
++
 }
 
 	lda #0
@@ -1864,8 +2240,8 @@ deletable_init
 	bne -
 	sta z_temp + 4
 	
-	bit m65_statmem_already_loaded
-	beq +
+	bit m65_x16_statmem_already_loaded
+	bpl +
 
 	; We are only to load dynmem
 	ldz #header_static_mem
@@ -1876,7 +2252,7 @@ deletable_init
 	
 +	jsr print_reu_progress_bar
 
-	jsr m65_load_dynmem_maybe_statmem
+	jsr m65_x16_load_dynmem_maybe_statmem
 }
 
 
@@ -1931,7 +2307,7 @@ deletable_init
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_MEGA65_OR_X16 {
 	ldy boot_device ; Boot device# stored
 	sty disk_info + 4 ; Device# for save disk
 	sty disk_info + 4 + 8 ; Device# for boot/story disk
@@ -1942,29 +2318,48 @@ deletable_init
 	lda #$ff ; Use REU
 	sta use_reu
 }
+
+!ifdef TARGET_X16 {
+	ldx #$3a
+} else {
 	ldy #header_static_mem
 	jsr read_header_word ; Note: This does not work on C128, but we don't support non-vmem on C128!
-	ldx #$30 ; First unavailable slot
 	clc
-	adc #(>stack_size) + 4
+	adc #(>stack_size) + 1 ; For PC etc
 	sta zp_temp
-	lda #>664
+	sta zp_temp + 2
+	lda #0
+	adc #0
+	tay
+;	sta zp_temp + 1
+	; Add overhead due to blocks holding 254 bytes of data, not 256
+	asl zp_temp + 2
+	rol
+	adc zp_temp ; Carry already clear
+	sta zp_temp
+;	lda zp_temp + 1
+	tya
+	adc #0
 	sta zp_temp + 1
-	lda #<664
+	lda #>FREE_SAVE_BLOCKS
+	sta zp_temp + 2
+	lda #<FREE_SAVE_BLOCKS
+	ldx #$30 ; First unavailable slot
 .one_more_slot
 	sec
 	sbc zp_temp
 	tay
-	lda zp_temp + 1
-	sbc #0
-	sta zp_temp + 1
-	bmi .no_more_slots
+	lda zp_temp + 2
+	sbc zp_temp + 1
+	sta zp_temp + 2
+	bcc .no_more_slots
 	inx
 	cpx #$3a
 	bcs .no_more_slots
 	tya
 	bcc .one_more_slot ; Always branch
 .no_more_slots
+}
 	stx first_unavailable_save_slot_charcode
 	txa
 	and #$0f
@@ -1976,13 +2371,14 @@ deletable_init
 
 ; parse_header section
 
+!ifdef NEED_CALC_DYNMEM {
 	jsr calc_dynmem_size
+}
 
 !ifdef TARGET_MEGA65 {
-	bit m65_statmem_already_loaded
+	bit m65_x16_statmem_already_loaded
 	bmi + 
 ;	jsr m65_load_statmem
-	jsr init_screen_colours
 !ifdef SOUND {
 	; When we had to load statmem, we will also need to load sound effects, if any
 	jsr setup_sound_mempointer_32
@@ -1991,24 +2387,46 @@ deletable_init
 	sta [sound_mempointer_32],z
 }	
 +
+	jsr init_screen_colours
+}
+!ifdef TARGET_X16 {
+	jsr init_screen_colours
 }
 	
 !ifdef VMEM {
-	tay
-	cpx #0
-	beq .maybe_inc_nonstored_pages
-	iny ; Add one page if statmem doesn't start on a new page ($xx00)
-.maybe_inc_nonstored_pages
-	tya
-	and #vmem_indiv_block_mask ; keep index into kB chunk
-	beq .store_nonstored_pages
-	iny
-.store_nonstored_pages
-	sty nonstored_pages
-	tya
+	; tay
+	; cpx #0
+	; beq .maybe_inc_nonstored_pages
+	; iny ; Add one page if statmem doesn't start on a new page ($xx00)
+; .maybe_inc_nonstored_pages
+	; tya
+	; and #vmem_indiv_block_mask ; keep index into kB chunk
+	; beq .store_nonstored_pages
+	; iny
+; .store_nonstored_pages
+	; sty nonstored_pages
+	; tya
+
+!ifndef TARGET_C128 {
+
+; On C128, this is calculated in c128_move_dynmem_and_calc_vmem,
+; called a few lines down
+
+	lda nonstored_pages
 	clc
 	adc #>story_start
 	sta vmap_first_ram_page
+
+!ifndef TARGET_PLUS4 {
+	; Calculate # of pages of unbanked RAM used for vmem
+	lda #first_banked_memory_page
+	sec
+	sbc vmap_first_ram_page
+	lsr
+	sta vmap_unbanked_blocks
+}
+}
+
 !ifdef SCROLLBACK_RAM_PAGES {
 	lda #SCROLLBACK_RAM_START_PAGE
 } else {
@@ -2021,6 +2439,7 @@ deletable_init
 	bcc ++
 	lda #vmap_max_size
 ++
+
 !ifdef VMEM_STRESS {
 	lda #2 ; one block for PC, one block for data
 }
@@ -2028,6 +2447,7 @@ deletable_init
 
 !ifdef TARGET_C128 {
 	jsr c128_move_dynmem_and_calc_vmem
+	jsr init_screen_colours
 }
 
 	jsr prepare_static_high_memory
@@ -2060,24 +2480,33 @@ deletable_init
 
 
 !ifdef TARGET_MEGA65 {
-
 !ifdef Z3PLUS {
-	; Store header values for file length and checksum in Attic RAM to say the game has been loaded
+	; Store header values for file length and checksum to say the game has been loaded
 
 	; dynmem_pointer may have been altered by read_word_from_far_dynmem
 	lda #$0
 	sta dynmem_pointer
 	sta dynmem_pointer + 1
 
-	lda #<m65_attic_checksum_page
-	sta mempointer + 1
-	lda #>m65_attic_checksum_page
-	sta mempointer + 2
 	ldz #header_filelength
+	ldx #0
 -	lda [dynmem_pointer],z
-	sta [mempointer],z
+	sta m65_x16_checksum_quad,x
 	inz
+	inx
 	cpz #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
+	bcc -	
+}
+}
+!ifdef TARGET_X16 {
+!ifdef Z3PLUS {
+	; Store header values for file length and checksum to say the game has been loaded
+
+	ldy #header_filelength
+-	lda $5f00,y
+	sta m65_x16_checksum_quad - header_filelength,y
+	iny
+	cpy #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
 	bcc -	
 }
 }
@@ -2352,40 +2781,68 @@ reu_start
 ;	lda #0 ; SKIP REU FOR DEBUGGING PURPOSES
 	sta reu_banks
 	cmp statmem_reu_banks
-	bcc .no_reu_present ; REU is too small to cache this game
+	bcc .dont_cache_to_reu ; REU is too small to cache this game
 
 	lda #>.use_reu_question
 	ldx #<.use_reu_question
 	jsr printstring_raw
 -	jsr kernal_getchar
 	cmp #78
-	beq .no_reu
+	beq .dont_cache_to_reu
 	cmp #89
 	bne -
+	inc reu_bank_for_page_copying ; Change from $ff to $00
 	ldx #$80 ; Use REU, set vmem to reu loading mode
 	stx use_reu
-!ifdef TARGET_C128 {
-	; Make sure REU uses RAM bank 0
-	pha
-	lda $d506
-	and #%00111111
-	sta $d506
-	pla
+!ifdef UNDO {
+	ldx statmem_reu_banks
+	cpx reu_banks
+	beq .no_reu_room_for_undo
+	stx reu_bank_for_undo
+.no_reu_room_for_undo
 }
+; !ifdef TARGET_C128 {
+	; ; Make sure REU uses RAM bank 0
+	; pha
+	; lda $d506
+	; and #%00111111 ; Bit 6: 0 means bank 0, bit 7 is unused
+	; sta $d506
+	; pla
+; }
 	ora #$80
 	bne .print_reply_and_return ; Always branch
 
-.no_reu
+.dont_cache_to_reu
+!ifdef UNDO {
+	ldx #0
+	stx reu_bank_for_undo
+}
+	ldx #3
+	cpx reu_banks
+	bcs .no_reu_room_for_copying
+	stx reu_bank_for_page_copying
+.no_reu_room_for_copying
 	lda #78 + 128
 .print_reply_and_return
 	jsr s_printchar
 	lda #13
-	jmp s_printchar
-.no_reu_present	
+	jsr s_printchar
+	lda #13
+	jsr s_printchar
+.no_reu_present
+!ifdef UNDO {
+!ifdef UNDO_RAM {
+	jsr undo_ram_setup
+}
+	bit reu_bank_for_undo
+	bpl +
+	jmp print_no_undo
++
+}
 	rts
 
 .use_reu_question
-	!pet 13,"Use REU for faster play? (Y/N)",0
+	!pet 13,"Use REU for faster play? (Y/N) ",0
 
 
 } ; if SUPPORT_REU = 1
@@ -2471,68 +2928,50 @@ prepare_static_high_memory
 
 } ; End of VMEM
 
-!ifdef TARGET_MEGA65 {
-m65_init_reu
+!ifdef TARGET_MEGA65_OR_X16 {
+m65_x16_init_reu
 	jsr check_reu_size
 	sta reu_banks
 	rts
-}
 
-
-!ifdef TARGET_MEGA65 {
-m65_load_header
+m65_x16_load_header
 	ldx #$00
 	stx reu_progress_bar_updates
 	inx
-	stx m65_reu_load_page_limit
-	stx m65_reu_enable_load_page_limit
+	stx m65_x16_reu_load_page_limit        ; read only one page (the header)
+	stx m65_x16_reu_enable_load_page_limit
 	bne ++ ; Always branch
 
-m65_load_dynmem_maybe_statmem
-	ldx m65_statmem_already_loaded
+m65_x16_load_dynmem_maybe_statmem
+	ldx m65_x16_statmem_already_loaded
 	beq ++ ; Statmem is not loaded => load entire zcode file
 	ldx nonstored_pages
-	stx m65_reu_load_page_limit
+	cpx #64 ; First 16 K, in low RAM, may be corrupted
+	bcs +++
+	ldx #64
++++	stx m65_x16_reu_load_page_limit
 	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
-	stx m65_reu_enable_load_page_limit
+	stx m65_x16_reu_enable_load_page_limit
 
 ++	lda #.zcodefilenamelen
 	ldx #<.zcodefilename
 	ldy #>.zcodefilename
 	jsr kernal_setnam ; call SETNAM
-
-	ldx #0 ; Start on page 0 (page 0 isn't needed for copy ops on MEGA65)
+	ldx #0 ; Start on page 0 
 	txa
 	
+!ifdef TARGET_X16 {
+	jmp x16_load_file_to_reu ; in reu.asm
+.zcodefilename
+	!pet "[zcode],s,r"
+} else {
 	jmp m65_load_file_to_reu ; in reu.asm
-
 .zcodefilename
 	!pet "zcode,s,r"
+}
 .zcodefilenamelen = * - .zcodefilename
 
-; .dynmemfilename
-	; !pet "zcode-dyn,s,r"
-; .dynmemfilenamelen = * - .dynmemfilename
-; +	
-
-; m65_load_statmem
-	; lda #.statmemfilenamelen
-	; ldx #<.statmemfilename
-	; ldy #>.statmemfilename
-	; jsr kernal_setnam ; call SETNAM
-
-	; ldx nonstored_pages
-	; lda #0
-	
-	; jsr m65_load_file_to_reu ; in reu.asm
-
-	; rts
-
-; .statmemfilename
-	; !pet "zcode-stat,s,r"
-; .statmemfilenamelen = * - .statmemfilename
 }
-
 
 !ifdef HAS_SID {
 init_sid
@@ -2562,8 +3001,8 @@ init_sid
 
 end_of_routines_in_stack_space
 
-	!fill stack_size - (* - stack_start),0 ; 4 pages
-
+	!fill stack_size - (* - stack_start) - 1,0 ; 4 pages - 1 byte
+	!byte >stack_start
 story_start
 
 !ifdef vmem_cache_size {

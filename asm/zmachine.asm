@@ -25,6 +25,12 @@ z_test_mode_print = 1
 z_test_mode_print_and_store = 2
 }
 
+!ifndef Z5PLUS {
+!ifdef UNDO {
+z_pc_before_instruction !byte 0,0,0
+}
+}
+
 ; opcount0 = 0
 ; opcount1 = 16
 ; opcount2 = 32
@@ -98,11 +104,14 @@ z_execute
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
 	lda #0
-	sta ti_variable
-	sta ti_variable + 1
-	sta ti_variable + 2
 	sta printspeed_counter
 	sta printspeed_counter + 1
+	tax
+	tay
+	jsr kernal_settime
+	; sta ti_variable
+	; sta ti_variable + 1
+	; sta ti_variable + 2
 }
 }
 
@@ -115,19 +124,25 @@ jmp_main_loop
 read_and_execute_an_instruction
 ; Timing
 !ifdef TIMING {
-	lda ti_variable + 1
-	ldx ti_variable + 2
+	jsr kernal_readtime
+	stx z_temp + 11
+	tax
+	lda z_temp + 11	
+	; lda ti_variable + 1
+	; ldx ti_variable + 2
 	ldy #header_high_mem
 	jsr write_header_word
 }
 
 !ifdef DEBUG {
 !ifdef PRINTSPEED {
-	lda ti_variable + 2
+	jsr kernal_readtime
+;	lda ti_variable + 2
 	cmp #30
 	bcc ++
 	bne +
-	lda ti_variable + 1
+;	lda ti_variable + 1
+	cpx #0
 	bne +
 	lda printspeed_counter + 1
 	asl printspeed_counter
@@ -136,12 +151,20 @@ read_and_execute_an_instruction
 	jsr printinteger
 	jsr comma
 	
-+	lda #0
-	sta ti_variable
-	sta ti_variable + 1
-	sta ti_variable + 2
++	
+	lda #0
 	sta printspeed_counter
 	sta printspeed_counter + 1
+	tax
+	tay
+	jsr kernal_settime
+
+	; lda #0
+	; sta ti_variable
+	; sta ti_variable + 1
+	; sta ti_variable + 2
+	; sta printspeed_counter
+	; sta printspeed_counter + 1
 
 ++	inc printspeed_counter
 	bne +
@@ -209,6 +232,16 @@ dumptovice
 +
 }
 
+!ifndef Z5PLUS {
+!ifdef UNDO {
+	ldx #2
+-	lda z_pc,x
+	sta z_pc_before_instruction,x
+	dex
+	bpl -
+}
+}
+
 !ifdef TRACE {
 	; Store z_pc to trace page 
 	ldx #0
@@ -232,7 +265,32 @@ dumptovice
 	sta z_trace_page,y
 	inc z_trace_index
 }
+
+	; ldy z_pc + 2
+	; cpy #$f5
+	; bne +
+	; ldy z_pc + 1
+	; cpy #$3a
+	; bne +
+	; ldy z_pc
+	; cpy #$00
+	; bne +
 	
+; dummy
+	; ldy #0
+; +
+	; ldy z_pc + 2
+	; cpy #$f8
+	; bne +
+	; ldy z_pc + 1
+	; cpy #$3a
+	; bne +
+	; ldy z_pc
+	; cpy #$00
+	; bne +
+; dummy2
+	; ldy #0
+; +	
 !ifdef DEBUG {	
 	;jsr print_following_string
 	;!pet "opcode: ",0
@@ -357,6 +415,18 @@ dumptovice
 	lda #0
 	sta z_temp + 5 ; Signal to NOT read up to four more operands
 	+read_next_byte_at_z_pc
+	cmp #30
+	bcc +
+; 	User-defined EXT code, treat like NOP
+	ldx #4
+	stx z_opcode
+	stx z_opcode_number
+	lda z_opcount_0op_jump_high_arr,x
+	pha
+	lda z_opcount_0op_jump_low_arr,x
+	pha
+	bcs ++ ; Always branch
++
 !ifdef CHECK_ERRORS {
 	cmp #z_number_of_ext_opcodes_implemented
 	bcs z_not_implemented
@@ -369,6 +439,7 @@ dumptovice
 	pha
 	lda z_opcount_ext_jump_low_arr,x
 	pha
+++
 ;	jmp .get_4_op_types
 }
 
@@ -426,11 +497,11 @@ z_not_implemented
 !ifdef CHECK_ERRORS {
 !ifdef DEBUG {
 	jsr print_following_string
-	!pet "opcode: ",0
+	!text "opcode: ",0
 	ldx z_opcode
 	jsr printx
 	jsr print_following_string
-	!pet " @ ",0
+	!text " @ ",0
 	ldx z_pc + 2
 	lda z_pc + 1
 	jsr printinteger
@@ -494,12 +565,7 @@ read_operand
 .store_operand
 	ldy z_operand_count
 	sta z_operand_value_high_arr,y
-!ifdef TARGET_C128 {
-	txa
-	sta z_operand_value_low_arr,y
-} else {
 	stx z_operand_value_low_arr,y
-}
 	inc z_operand_count
 	rts
 
@@ -564,7 +630,10 @@ z_set_variable_reference_to_value
 	; input: Value in a,x.
 	;        (zp_temp) must point to variable, possibly using zp_temp + 2 to store bank
 	; affects registers: a,x,y,p
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	ldy zp_temp + 2
+	sty 0
+} else ifdef FAR_DYNMEM {
 	bit zp_temp + 2
 	bpl .set_in_bank_0
 	ldy #zp_temp
@@ -588,8 +657,10 @@ z_get_variable_reference_and_value
 	;         Value in a,x
 	; affects registers: p
 !ifdef FAR_DYNMEM {
+!ifndef TARGET_X16 {
 	ldx #0
 	stx zp_temp + 2 ; 0 for bank 0, $ff for far memory
+}
 }
 	cpy #0
 	bne +
@@ -602,8 +673,8 @@ z_get_variable_reference_and_value
 	cmp #16
 	bcs .find_global_var
 	; Local variable
-	dey
 !ifdef CHECK_ERRORS {
+	dey
 	cpy z_local_var_count
 	bcs .nonexistent_local
 }
@@ -615,7 +686,10 @@ z_get_variable_reference_and_value
 	sta zp_temp + 1
 
 z_get_referenced_value
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	lda zp_temp + 2
+	sta 0
+} else ifdef FAR_DYNMEM {
 	bit zp_temp + 2
 	bpl .in_bank_0
 	lda #zp_temp
@@ -636,7 +710,9 @@ z_get_referenced_value
 	ldx #0
 	stx zp_temp + 1
 !ifdef FAR_DYNMEM {
+!ifndef TARGET_X16 {
 	dec zp_temp + 2 ; Set to $ff, meaning referenced value is in far memory
+}
 }
 	asl
 	rol zp_temp + 1
@@ -644,6 +720,27 @@ z_get_referenced_value
 	sta zp_temp
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
+!ifdef TARGET_X16 {
+	cmp #64
+	bcs +
+; Normal RAM
+	adc #$5f ; Story starts on $5f00
+	bne ++ ; Always branch
+; High RAM
++	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	tay
+	dey
+	sty zp_temp + 2
+	pla
+	and #%00011111
+	ora #$a0
+++
+}
 	sta zp_temp + 1
 	jmp z_get_referenced_value
 
@@ -843,14 +940,18 @@ calc_address_in_byte_array
 !zone rnd {
 z_rnd_init_random
 	; in: Nothing
-!ifdef TARGET_PLUS4 {
+!ifdef TARGET_X16 {
+	jsr kernal_entropy_get
+} else ifdef TARGET_PLUS4 {
+	jsr kernal_readtime
+	pha
 	lda $ff1d
 	eor z_rnd_a
 	tay
 	lda $ff1e
 	eor z_rnd_b
 	tax
-	lda ti_variable + 2
+	pla
 	eor $ff00
 	eor z_rnd_c	
 } else {
@@ -873,7 +974,9 @@ z_rnd_init
 	sty z_rnd_c
 	eor #$ff
 	sta z_rnd_x
-z_rnd_number
+z_rnd_number 
+; Returns an 8-bit random number in a
+; Source: https://www.electro-tech-online.com/threads/ultra-fast-pseudorandom-number-generator-for-8-bit.124249
 	inc z_rnd_x
 	lda z_rnd_x
 	eor z_rnd_c
@@ -911,32 +1014,56 @@ z_ins_rfalse
 ; z_ins_catch (moved to stack.asm)
 
 z_ins_quit
-!ifdef TARGET_MEGA65 {
-	; call hyppo_d81detach to unmount d81 and prevent
-	; autoboot.c65 from running
-	; !ifdef CUSTOM_FONT {
-		; lda #$0
-		; sta $d02f
-		; lda #$26 ; screen/font: $0800 $1800 (character ROM)
-		; sta reg_screen_char_mode
-		; lda #$0
-		; sta $d02f
-	; }
-	; lda #$42
-	; sta $d640
-	; clv
-}
 	; some games (e.g. Hollywood Hijinx) show a final text,
 	; so use the more prompt to pause before the reset
 	; (otherwise we wouldn't be able to read it).
 	jsr printchar_flush
+	lda anything_printed
+	beq + ; Nothing has been printed since last read, don't show MORE prompt
 	jsr show_more_prompt
-
++
 !ifdef TARGET_MEGA65 {
+	; call hyppo_d81detach to unmount d81 and prevent
+	; autoboot.c65 from running
+	jsr mega65io
 	lda #$42
-	sta $d6cf
+	sta $d640
+	clv
+	; !ifdef CUSTOM_FONT {
+		; lda #$0
+		; sta $d02f
+		; sta $d02f
+		; lda #$26 ; screen/font: $0800 $1800 (character ROM)
+		; sta reg_screen_char_mode
+	; }
+
+	; enable VIC-II/VIC-III hot registers
+	lda $d05d
+	ora #$80
+	sta $d05d
 }
+!ifdef TARGET_X16 {
+	; ; Old method - Hardware reset
+	; ldx #$42  ; System Management Controller
+	; ldy #$02  ; magic location for system reset
+	; lda #$00  ; magic value for system power controller
+	; Jmp $fec9 ; power off or reset the system
+	
+; New method - put NEW and clearscreen in kbd buffer, then have Ozmoo restore Basic ZP area and return
+	ldx #0
+-	lda .quit_keys,x
+	beq +
+	jsr x16_kernal_kbdbuf_put
+	inx
+	bne - ; Always branch
++
+	lda #z_exe_mode_exit
+	jmp set_z_exe_mode
+.quit_keys
+	!pet 147,$1f,"new",$05,13,0
+} else {
 	jmp kernal_reset
+}
 
 ; z_ins_restart (moved to disk.asm)
 	
@@ -1284,72 +1411,157 @@ z_ins_sub
 	sbc z_operand_value_high_arr + 1
 	jmp z_store_result
 
-.mul_product = memory_buffer ; 5 bytes (4 for product + 1 for last bit)
-.mul_inv_multiplicand = memory_buffer + 5 ; 2 bytes
-
 z_ins_mul
-	lda #0
-	ldy #16
-	sta .mul_product
-	sta .mul_product + 1
-	sta .mul_product + 4
-	lda z_operand_value_high_arr
-	sta .mul_product + 2
+
+!ifdef TARGET_MEGA65 {
+	jsr mega65io
 	lda z_operand_value_low_arr
-	sta .mul_product + 3
+	sta $d770
+	lda z_operand_value_high_arr
+	sta $d771
 	lda z_operand_value_low_arr + 1
-	eor #$ff
-	clc
-	adc #1
-	sta .mul_inv_multiplicand + 1
+	sta $d774
 	lda z_operand_value_high_arr + 1
-	eor #$ff
-	adc #0
-	sta .mul_inv_multiplicand
-	; Perform multiplication
-.mul_next_iteration
-	lda .mul_product + 3
-	and #1
-	beq .mul_bottom_is_0
-	; Bottom bit is 1
-	bit .mul_product + 4
-	bmi .mul_do_nothing
-	; Subtract
-	lda .mul_product + 1
-	clc
-	adc .mul_inv_multiplicand + 1
-	sta .mul_product + 1
-	lda .mul_product
-	adc .mul_inv_multiplicand
-	sta .mul_product
-	jmp .mul_do_nothing
-.mul_bottom_is_0
-	; Bottom bit is 0
-	bit .mul_product + 4
-	bpl .mul_do_nothing
-	; Add
-	lda .mul_product + 1
-	clc
-	adc z_operand_value_low_arr + 1
-	sta .mul_product + 1
-	lda .mul_product
-	adc z_operand_value_high_arr + 1
-	sta .mul_product
-.mul_do_nothing
-	clc
-	bit .mul_product
-	bpl +
-	sec
-+	ror .mul_product
-	ror .mul_product + 1
-	ror .mul_product + 2
-	ror .mul_product + 3
-	ror .mul_product + 4
-	dey
-	bne .mul_next_iteration
-	lda .mul_product + 2
-	ldx .mul_product + 3
+	sta $d775
+	lda #0
+	sta $d772
+	sta $d773
+	sta $d776
+	sta $d777
+	; 16-bit signed results are now in $d778-$d779
+	ldx $d778
+	lda $d779
 	jmp z_store_result
+} else {
+; smult9.a
+; based on Dr Jefyll, http://forum.6502.org/viewtopic.php?f=9&t=689&start=0#p19958
+; with modifications by TobyLobster:
+; - adjusted to use fixed zero page addresses
+; - removed 'decrement to avoid clc' as this is slower on average
+; - rearranged memory use to remove final memory copy and give LSB first order to result
+; - X counter counts up from $fe to avoid cpx
+; - ie. mult60, then converted to signed multiply
+;
+;
+; multiplicand
+; +------+------+
+; |  +1  |  +0  |
+; +------+------+
+;       ||
+;      _||_  add
+;      \  /
+;       \/         initially set to
+; result           multiplier
+; +------+------+  +------+------+
+; |  +3  |  +2  |  |  +1  |  +0  |
+; +------+------+  +------+------+
+;
+; (1) first 8 times around loop, shift right: result+3 into +2 into +0:
+;
+; --------> shift         >
+;                \_______/
+;
+; (2) final 8 times around loop, shift right: result+3 into +2 into +1:
+;
+; --------> shift ->
+;
+
+
+; 16 bit x 16 bit signed multiply, 32 bit result
+; Average cycles: 570
+; 81 bytes
+
+.multiplicand = z_temp
+.multiplier = z_temp + 2
+.mul_product = z_temp + 4
+
+; 16 bit x 16 bit unsigned multiply, 32 bit result
+;
+; On Entry:
+;   multiplier:     two byte value
+;   multiplicand:   two byte value
+; On Exit:
+;   .mul_product:         four byte product (note: '.mul_product' shares memory with '.multiplier')
+
+    ; Step 1: unsigned multiply
+    ; copy .multiplier into .mul_product (.multiplier preserved for sign calculation later)
+	lda z_operand_value_low_arr + 1
+	sta .multiplicand
+	lda z_operand_value_high_arr + 1
+	sta .multiplicand + 1
+
+	lda z_operand_value_low_arr
+    sta .multiplier
+	eor #$ff
+    sta .mul_product
+	lda z_operand_value_high_arr
+    sta .multiplier+1
+	eor #$ff
+    sta .mul_product+1
+
+    lda #0              ;
+    sta .mul_product+2        ; 16 bits of zero in A, .mul_product+2
+                        ; (think of A as a local cache of .mul_product+3)
+                        ;  Note:    First 8 shifts are  A -> .mul_product+2 -> .mul_product
+                        ;           Final 8 shifts are  A -> .mul_product+2 -> .mul_product+1
+    ldx #$fe            ; count for outer loop. Loops twice.
+
+    ; outer loop (2 times)
+outer_loop
+    ldy #8              ; count for inner loop
+    lsr .mul_product+2,x      ; think ".mul_product" then later ".mul_product+1"
+
+    ; inner loop (8 times)
+inner_loop
+    bcs +
+    sta .mul_product+3        ; remember A
+    lda .mul_product+2
+;    clc
+    adc .multiplicand
+    sta .mul_product+2
+    lda .mul_product+3        ; recall A
+    adc .multiplicand+1
+
++
+    ror                 ; shift
+    ror .mul_product+2
+    ror .mul_product+2,x      ; think ".mul_product" then later ".mul_product+1"
+    dey
+    bne inner_loop      ; go back for 1 more shift?
+
+    inx
+    bne outer_loop      ; go back for 8 more shifts?
+
+;    sta .mul_product+3        ; ms byte of hi-word of .mul_product - We don't use the top byte of the result
+
+    ; ; Step 2: apply sign (See C=Hacking16 for details).
+
+	; ONLY needed to get a 32-bit result, not for a 16-bit result!
+
+    ; bit .multiplier+1
+    ; bpl +               ; skip if .multiplier is positive
+    ; sec
+    ; lda .mul_product+2
+    ; sbc .multiplicand
+    ; sta .mul_product+2
+    ; lda .mul_product+3
+    ; sbc .multiplicand+1
+    ; sta .mul_product+3
+; +
+    ; bit .multiplicand+1
+    ; bpl +               ; skip if .multiplicand is positive
+    ; sec
+    ; lda .mul_product+2
+    ; sbc .multiplier
+    ; sta .mul_product+2
+    ; lda .mul_product+3
+    ; sbc .multiplier+1
+    ; sta .mul_product+3
+; +
+	lda .mul_product + 1
+	ldx .mul_product + 0
+	jmp z_store_result
+}
 
 z_ins_div
 	ldy #$ff
@@ -1420,6 +1632,13 @@ z_ins_call_xs
 ; z_ins_read (moved to text.asm)
 
 ; z_ins_print_char (moved to text.asm)
+
+!ifndef Z4PLUS {
+print_low_global_variable_value
+	jsr z_get_low_global_variable_value
+	stx z_operand_value_low_arr
+	sta z_operand_value_high_arr
+}
 
 z_ins_print_num
 	lda z_operand_value_high_arr
@@ -1578,7 +1797,7 @@ z_ins_random
 	ldy z_test
 	beq +
 	jsr print_following_string
-	!pet "seed 0!",13,0
+	!text "seed 0!",13,0
 +	
 }
 	jsr z_rnd_init_random
@@ -1593,7 +1812,7 @@ z_ins_random
 	beq +
 	tax
 	jsr print_following_string
-	!pet "seed -1!",13,0
+	!text "seed -1!",13,0
 	txa
 +
 }	
@@ -1939,11 +2158,7 @@ z_ins_set_font
 	ldx z_font,y ; a is already 0
 	jmp z_store_result
 
-z_ins_save_restore_undo
-	; Return -1 to indicate that this is not supported
-	ldx #$ff
-	txa
-	jmp z_store_result
+; z_ins_save_restore_undo moved to disk.asm
 }
 
 ; z_ins_set_true_colour placed at end of VAR z_ins_print_num

@@ -1,30 +1,84 @@
 # specialised make for Ozmoo
 
 require 'fileutils'
+require 'date'
+require 'json'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
+$executables = nil
+
 if $is_windows then
-	# Paths on Windows
-    $X64 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x64sc.exe -autostart-warp" # -autostart-delay-random"
-    $X128 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\x128.exe -80 -autostart-delay-random"
-    $XPLUS4 = "C:\\ProgramsWoInstall\\GTK3VICE-3.6.1-win64\\bin\\xplus4.exe -autostart-delay-random"
-	$MEGA65 = "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon" # -syscon is a workaround for a serious xemu bug
-    $C1541 = "C:\\ProgramsWoInstall\\WinVICE-3.1-x64\\c1541.exe"
-    $EXOMIZER = "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe"
-    $ACME = "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe"
+	# Paths on Windows. Comment out X16 and/or MEGA65 if you don't have them installed.
+	$executables = {
+		'X16' => "C:\\ProgramsWoInstall\\x16emu\\x16emu",
+		'X64' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp", # -autostart-delay-random"
+		'X128' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random",
+		'XPLUS4' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random",
+		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
+		'C1541' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe",
+		'EXOMIZER' => "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
+		'ACME' => "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe",
+		'ZIP' => "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0",
+	}
 	$commandline_quotemark = "\""
 else
-	# Paths on Linux
-    $X64 = "x64 -autostart-delay-random"
-    $X128 = "x128 -autostart-delay-random"
-    #$X128 = "x128 -80col -autostart-delay-random"
-    $XPLUS4 = "xplus4 -autostart-delay-random"
-    $MEGA65 = "xemu-xmega65 -besure"
-    $C1541 = "c1541"
-    $EXOMIZER = "exomizer/src/exomizer"
-    $ACME = "acme"
+	# Paths on Linux. Comment out X16 and/or MEGA65 if you don't have them installed.
+	$executables = {
+		'X16' => "../x16-emulator/x16emu",
+		'X64' => "x64 -autostart-delay-random",
+		'X128' => "x128 -autostart-delay-random",
+		'XPLUS4' => "xplus4 -autostart-delay-random",
+		'MEGA65' => "xemu-xmega65 -besure",
+		'C1541' => "c1541",
+		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
+		'ACME' => "acme",
+		'ZIP' => "zip -r",
+	}
 	$commandline_quotemark = "'"
+end
+
+# Use .ozmoorc file to override executables, contents could be e.g.
+# (without the # characters):
+#
+# X16 = C:\myemu\x16emu
+# ACME = C:\myacme\acme -v1
+#
+# make.rb will search for .ozmoorc in this order
+# - folder in OZMOO_HOME, if defined
+# - current working directory (cwd)
+# - home directory ($HOME)
+
+$settings_file = ""
+if ENV.has_key?('OZMOO_HOME') then
+    $settings_file = ENV['OZMOO_HOME'] + '/.ozmoorc'
+end
+if $settings_file.empty? && File.exist?('.ozmoorc') then
+    $settings_file = '.ozmoorc'
+end
+if $settings_file.empty? && File.exist?(Dir.home + '/.ozmoorc') then
+    $settings_file = Dir.home + '/.ozmoorc'
+end
+unless $settings_file.empty?
+	File.foreach $settings_file do |line|
+		if line =~ /^\s*'?(\w+)'?\s*=>?(.*)/ then
+			name = $1.upcase
+			val = $2.chomp.strip
+			if name =~ /^(X16|X64|X128|XPLUS4|MEGA65|C1541|EXOMIZER|ACME|ZIP)$/ then
+				$executables[name] = val
+			end
+		end
+	end
+end
+
+$version = File.read(File.join(__dir__, 'version.txt'))
+$version.gsub!(/[^\d\.]/m,'')
+if $version =~ /^(\d+)\.(\d+)$/
+	$major_version = $1.to_i
+	$minor_version = $2.to_i
+else
+	$major_version = $version.to_i
+	$minor_version = 0
 end
 
 $PRINT_DISK_MAP = false # Set to true to print which blocks are allocated
@@ -36,23 +90,27 @@ $GENERALFLAGS = [
 #	'NODARKMODE', # Disables darkmode support. This makes the terp ~100 bytes smaller.
 #	'NOSCROLLBACK', # Disables scrollback support (MEGA65, C64, C128). This makes the terp ~1 KB smaller.
 #	'REUBOOST', # Enables REU Boost (MEGA65, C64, C128). This makes the terp ~160 bytes larger.
+#	'NO_DEFAULT_UNICODE_MAP' # Disables the default unicode output map, saving 83 bytes
 #	'VICE_TRACE', # Send the last instructions executed to Vice, to aid in debugging
 #	'TRACE', # Save a trace of the last instructions executed, to aid in debugging
+#	'OPTIMIZE_VMEM', # Continuously move the most used vmem blocks to unbanked RAM (C64/C128)
 #	'COUNT_SWAPS', # Keep track of how many vmem block reads have been done.
-#   'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
+#	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
+#	'X_FOR_EXAMINE', # Automatically change "x" (in a verb position) to "examine" in player input
 ]
 
 # For a production build, none of these flags should be enabled.
 $DEBUGFLAGS = [
 #	'DEBUG', # This gives some debug capabilities, like informative error messages. It is automatically included if any other debug flags are used.
 #	'VIEW_STACK_RECORDS',
-#	'PRINTSPEED'
-#	'BENCHMARK',
+#	'PRINTSPEED',
+#	'BENCHMARK', # This can now be enabled with -bm
 #	'VMEM_STRESS', # very slow but gives vmem a workout
 #	'TRACE_FLOPPY',
 #	'TRACE_VM',
 #	'PRINT_SWAPS',
+#	'PRINT_VMEM_OPT', # Print index of vmem blocks swapped, when OPTIMIZE_VMEM is active
 #	'TRACE_FLOPPY_VERBOSE',
 #	'TRACE_PRINT_ARRAYS',
 #	'TRACE_PROP',
@@ -72,7 +130,9 @@ MODE_S2 = 3
 MODE_D2 = 4
 MODE_D3 = 5
 MODE_71 = 6
-MODE_81 = 7
+MODE_71D = 7
+MODE_81 = 8
+MODE_ZIP = 9
 
 DISKNAME_BOOT = 128
 DISKNAME_STORY = 129
@@ -103,6 +163,16 @@ $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
 $config_filename = File.join($TEMPDIR, 'config.tmp')
+$m65_loader_file = File.join($TEMPDIR, 'm65_loader')
+
+$x_for_examine_releases = {
+	"r11-s860509" => "Trinity",
+	"r12-s860926" => "Trinity",
+	"r15-s870628" => "Trinity",
+	"r77-s850814" => "AMFV",
+	"r79-s851122" => "AMFV",
+	"r52-s871125" => "Zork 1 SG"		
+}
 
 $trinity_releases = {
 	"r11-s860509" => "fddd 2058 01",
@@ -123,6 +193,112 @@ $beyondzork_releases = {
     "r57-s871221" => "f384 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1",
     "r60-s880610" => "f2dc 14c2 00 a6 0b 64 23 57 62 97 80 84 a0 02 ca b2 13 44 d4 a5 8c 00 09 b2 11 24 50 9c 92 65 e5 7f 5d b1 b1 b1 b1 b1 b1 b1 b1 b1 b1 b1"
 }
+
+$varicella_releases = {
+	"r1-s990831" => [
+		"11b48 0102 09 02", 
+		"13577 0102 09 02",
+		"26a85 0102 09 02",
+		"27284 0102 09 02",
+		"27381 0102 09 02",
+		"268c3 0404 04 02",
+		"273bc 0404 04 02",
+		"268cc 0204 04 00"
+	]
+}
+
+$colour_names = {
+	'black' => 2,
+	'blk' => 2,
+	'red' => 3,
+	'green' => 4,
+	'grn' => 4,
+	'yellow' => 5,
+	'yel' => 5,
+	'blue' => 6,
+	'blu' => 6,
+	'purple' => 7,
+	'pur' => 7,
+	'violet' => 7,
+	'magenta' => 7,
+	'cyan' => 8,
+	'cyn' => 8,
+	'azure' => 8,
+	'turquoise' => 8,
+	'white' => 9,
+	'wht' => 9,
+	'orange' => 16,
+	'orng' => 16,
+	'brown' => 17,
+	'brn' => 17,
+	'lightred' => 18,
+	'lred' => 18,
+	'lgtred' => 18,
+	'ltred' => 18,
+	'darkgrey' => 19,
+	'dgry' => 19,
+	'drkgrey' => 19,
+	'dkgrey' => 19,
+	'dgrey' => 19,
+	'grey1' => 19,
+	'darkgray' => 19,
+	'drkgray' => 19,
+	'dkgray' => 19,
+	'dgray' => 19,
+	'gray1' => 19,
+	'mediumgrey' => 20,
+	'mgry' => 20,
+	'medgrey' => 20,
+	'midgrey' => 20,
+	'mdmgrey' => 20,
+	'mdgrey' => 20,
+	'mgrey' => 20,
+	'grey2' => 20,
+	'grey' => 20,
+	'mediumgray' => 20,
+	'medgray' => 20,
+	'midgray' => 20,
+	'mdmgray' => 20,
+	'mdgray' => 20,
+	'mgray' => 20,
+	'gray2' => 20,
+	'gray' => 20,
+	'lightgreen' => 21,
+	'lgrn' => 21,
+	'lgtgreen' => 21,
+	'ltgreen' => 21,
+	'lgreen' => 21,
+	'lightblue' => 22,
+	'lblu' => 22,
+	'lgtblue' => 22,
+	'ltblue' => 22,
+	'lblue' => 22,
+	'lightgrey' => 23,
+	'lgry' => 23,
+	'lgtgrey' => 23,
+	'ltgrey' => 23,
+	'lgrey' => 23,
+	'grey3' => 23,
+	'lightgray' => 23,
+	'lgtgray' => 23,
+	'ltgray' => 23,
+	'lgray' => 23,
+	'gray3' => 23,
+}
+
+$bgcol_names = [
+	'background', 'bg', 
+	'backgroundcol', 'bgcol', 
+	'backgroundcolour', 'bgcolour',
+	'backgroundcolor', 'bgcolor',
+]
+
+$fgcol_names = [
+	'foreground', 'fg', 
+	'foregroundcol', 'fgcol', 
+	'foregroundcolour', 'fgcolour',
+	'foregroundcolor', 'fgcolor',
+]
 
 $d81interleave = [
 	# 0:No interleave
@@ -785,7 +961,9 @@ class D81_image < Disk_image
 		end
 	end
 
-	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
+#	def add_file(filename, filecontents, last_sector = nil) # Returns last sector used
+	def add_file(filename, filecontents, filetype = 'SEQ') # Returns last sector used
+		last_sector = nil
 		sector_count = 0
 		last_sector_used = nil
 		if filecontents == nil or filecontents.length == 0
@@ -824,12 +1002,18 @@ class D81_image < Disk_image
 		end
 		
 		# Add file to directory
-		dir_entry = ([0x81] + start_sector).pack("CCC") + 
+		filetype_number = 0x81
+		if filetype =~ /PRG/i
+			filetype_number = 0x82;
+		end
+		dir_entry = ([filetype_number] + start_sector).pack("CCC") + 
 			name_to_c64(filename).ljust(16, 0xa0.chr) +
 			"".ljust(9, 0.chr) + 
 			[sector_count % 256, sector_count / 256].pack("CC")
 		
 		@add_to_dir.push dir_entry
+		
+		puts "Added file #{filename} to disk." if $verbose
 		
 		return last_sector_used
 	end
@@ -1027,17 +1211,22 @@ end
 def build_interpreter()
 	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1"
 	necessarysettings +=  " -DCONF_TRK=#{$CONFIG_TRACK}" if $CONFIG_TRACK
-	if $target == 'mega65' then
+	if $target == 'x16' then
+		necessarysettings +=  " --cpu 65c02"
+	elsif $target == 'mega65' then
 		necessarysettings +=  " --cpu m65"
 	else
 		necessarysettings +=  " --cpu 6510"
 	end
 	necessarysettings +=  " --format cbm"
+	necessarysettings +=  " -DMAJOR_VERSION_NO=#{$major_version} -DMINOR_VERSION_NO=#{$minor_version}"
+
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
 	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
 	optionalsettings += " -DSCROLLBACK_RAM_PAGES=#{$scrollback_ram_pages}" if $scrollback_ram_pages
+	optionalsettings += " -DFREE_SAVE_BLOCKS=#{$free_blocks_for_saves}" if $free_blocks_for_saves
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 	end
@@ -1052,9 +1241,13 @@ def build_interpreter()
 
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
-	colourflags = $colour_replacement_clause
-	unless $default_colours.empty? # or $zcode_version >= 5
-		colourflags += " -DBGCOL=#{$default_colours[0]} -DFGCOL=#{$default_colours[1]}"
+	colourflags = '' #$colour_replacement_clause
+	
+	if $bg_colour
+		colourflags += " -DBGCOL=#{$bg_colour}"
+	end
+	if $fg_colour
+		colourflags += " -DFGCOL=#{$fg_colour}"
 	end
 	if $border_colour
 		colourflags += " -DBORDERCOL=#{$border_colour}"
@@ -1066,8 +1259,11 @@ def build_interpreter()
 		colourflags += " -DINPUTCOL=#{$input_colour}"
 	end
 	unless $GENERALFLAGS.include?('NODARKMODE')
-		unless $default_colours_dm.empty? # or $zcode_version >= 5
-			colourflags += " -DBGCOLDM=#{$default_colours_dm[0]} -DFGCOLDM=#{$default_colours_dm[1]}"
+		if $bg_colour_dm
+			colourflags += " -DBGCOLDM=#{$bg_colour_dm}"
+		end
+		if $fg_colour_dm
+			colourflags += " -DFGCOLDM=#{$fg_colour_dm}"
 		end
 		if $border_colour_dm
 			colourflags += " -DBORDERCOLDM=#{$border_colour_dm}"
@@ -1101,7 +1297,7 @@ def build_interpreter()
 	compressionflags = ''
 
 	if $target == "mega65" then
-		cmd = "#{$ACME} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" c65toc64wrapper.asm"
+		cmd = "#{$executables['ACME']} --setpc 0x2001 --cpu m65 --format cbm -l \"#{$wrapper_labels_file}\" --outfile \"#{$wrapper_file}\" c65toc64wrapper.asm"
 		puts cmd if $verbose
 		Dir.chdir $SRCDIR
 		ret = system(cmd)
@@ -1109,7 +1305,7 @@ def build_interpreter()
 		exit 0 unless ret
 	end
     
-	cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
+	cmd = "#{$executables['ACME']}#{necessarysettings}#{optionalsettings}#{fontflag}#{colourflags}#{generalflags}" +
 		"#{debugflags}#{compressionflags} -l \"#{$labels_file}\" --outfile \"#{$ozmoo_file}\" ozmoo.asm"
 	puts cmd if $verbose
 	Dir.chdir $SRCDIR
@@ -1127,6 +1323,7 @@ end
 def read_labels(label_file_name)
 	File.open(label_file_name).each do |line|
 		$storystart = $1.to_i(16) if line =~ /\tstory_start\t=\s*\$(\w{3,4})\b/;
+		$stackstart = $1.to_i(16) if line =~ /\tstack_start\t=\s*\$(\w{3,4})\b/;
 		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
 		$loader_pic_start = $1.to_i(16) if line =~ /\tloader_pic_start\t=\s*\$(\w{3,4})\b/;
 		$config_load_address = $1.to_i(16) if line =~ /\tconfig_load_address\t=\s*\$(\w{3,4})\b/;
@@ -1139,6 +1336,10 @@ def build_loader_file()
 	if $target == 'c64'
 		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C64=1"
 	end
+	if $target == 'c128'
+		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_C128=1 -DSTACK_PAGES=4"
+		exo_target = " -t128"
+	end
 	if $target == 'plus4'
 		necessarysettings =  " --cpu 6510 --format cbm -DTARGET_PLUS4=1"
 		exo_target = " -t4"
@@ -1147,7 +1348,7 @@ def build_loader_file()
 	optionalsettings = ""
 	optionalsettings += " -DFLICKER=1" if $loader_flicker
 	
-    cmd = "#{$ACME}#{necessarysettings}#{optionalsettings}" +
+    cmd = "#{$executables['ACME']}#{necessarysettings}#{optionalsettings}" +
 		" -l \"#{$loader_labels_file}\" --outfile \"#{$loader_file}\" picloader.asm"
 	puts cmd if $verbose
 	Dir.chdir $SRCDIR
@@ -1161,7 +1362,7 @@ def build_loader_file()
 	puts "Loader pic address: #{$loader_pic_start}"
 
 	imagefile_clause = " \"#{$loader_pic_file}\"@#{$loader_pic_start},2"
-	exomizer_cmd = "#{$EXOMIZER} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
+	exomizer_cmd = "#{$executables['EXOMIZER']} sfx basic -B#{exo_target} \"#{$loader_file}\"#{imagefile_clause} -o \"#{$loader_zip_file}\""
 
 	puts exomizer_cmd if $verbose
 	ret = system(exomizer_cmd)
@@ -1181,7 +1382,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 	font_clause = ""
 	asm_clause = ""
 	decrunch_effect = ""
-	if $font_filename
+	if $font_filename and $target != 'x16'
 		font_clause = " \"#{$font_filename}\"@#{$font_address}"
 	end
 	exo_target = ""
@@ -1200,7 +1401,7 @@ def build_specific_boot_file(vmem_preload_blocks, vmem_contents)
 #	exomizer_cmd = "#{$EXOMIZER} sfx basic -B -X \'LDA $D012 STA $D020 STA $D418\' ozmoo #{$compmem_filename},#{$storystart} -o ozmoo_zip"
 #	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address} -B -M256 -C -x1 #{font_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
  #  -Di_irq_during=0 -Di_irq_exit=0
-	exomizer_cmd = "#{$EXOMIZER} sfx #{$start_address}#{exo_target} -B -M256 -C #{decrunch_effect}#{font_clause}#{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
+	exomizer_cmd = "#{$executables['EXOMIZER']} sfx #{$start_address}#{exo_target} -B -M256 -C #{decrunch_effect}#{font_clause}#{asm_clause} \"#{$ozmoo_file}\"#{compmem_clause} -o \"#{$zip_file}\""
 
 	puts exomizer_cmd if $verbose
 	ret = system(exomizer_cmd)
@@ -1269,8 +1470,25 @@ def build_boot_file(vmem_preload_blocks, vmem_contents, free_blocks)
 	actual_blocks
 end
 
+
+def m65_add_loader_file(diskimage_filename)
+	d81_img_loader_hex = "01 20 25 20 0A 00 50 B2 37 3A 44 B2 C2 28 31 38 36 29 3A 8B 20 44 B3 38 20 B0 20 44 B1 31 35 20 A7 20 44 B2 38 00 37 20 14 00 FE 02 20 31 32 38 3A E8 3A FE 3C 20 30 00 67 20 1E 00 DE 20 9C 3A FE 2E 20 30 2C 33 32 30 2C 32 30 30 2C 50 3A FE 2E 20 31 2C 33 32 30 2C 32 30 30 2C 31 3A FE 2E 20 FE 2D 20 30 2C 31 00 88 20 28 00 FE 43 20 22 4C 44 52 49 4D 47 2E 49 46 46 22 2C 55 44 3A FE 2E 20 FE 2D 20 30 2C 30 00 B1 20 32 00 EB 3A A1 20 41 24 3A 4E B2 4E AA 31 3A FE 0B 20 2E 31 3A EC 20 FD 20 41 24 B2 22 22 20 AF 20 4E B3 31 30 30 00 C6 20 3C 00 EB 3A A1 20 41 24 3A EC 20 FC 20 41 24 B2 22 22 00 D8 20 46 00 FE 2E 20 A0 20 30 3A FE 2E 20 A0 20 31 00 E1 20 50 00 FE 34 20 8C 00 F1 20 5A 00 8A 22 53 54 4F 52 59 22 2C 55 44 00 00 00"
+	m65_imgloader_bin = ""
+	d81_img_loader_hex.split(/\s+/).each do |hex_string|
+		m65_imgloader_bin += [hex_string.hex].pack("C*")
+	end
+	m65_imgloader_bin[8] = ($m65_image_colour_planes + 0x30).chr
+	IO.binwrite($m65_loader_file, m65_imgloader_bin);
+
+	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$m65_loader_file}\" autoboot.c65"
+	puts c1541_cmd if $verbose
+	system(c1541_cmd)
+end
+
 def add_loader_file(diskimage_filename)
-	c1541_cmd = "#{$C1541} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
+	return m65_add_loader_file(diskimage_filename) if $target == 'mega65'
+
+	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -write \"#{$loader_zip_file}\" loader"
 	puts c1541_cmd if $verbose
 	system(c1541_cmd)
 end
@@ -1287,9 +1505,9 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	opt = ""
 #	opt = "-silent " unless $verbose # Doesn't work on older Vice versions
 	
-	c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
+	c1541_cmd = "#{$executables['C1541']} #{opt}-attach \"#{finaldiskname}\" -write \"#{$good_zip_file}\" #{$file_name}"
 	if $target == "mega65" then	
-		c1541_cmd = "#{$C1541} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" #{$file_name}"
+		c1541_cmd = "#{$executables['C1541']} #{opt}-attach \"#{finaldiskname}\" -write \"#{$universal_file}\" #{$file_name}"
 #		c1541_cmd += " -write \"#{$story_file}\" \"zcode,s\""
 #		c1541_cmd += " -write \"#{$config_filename}\" \"ozmoo.cfg,p\"" # No longer needed
 		# $sound_files.each do |file|
@@ -1308,20 +1526,31 @@ def add_boot_file(finaldiskname, diskimage_filename)
 	end
 end
 
-def play(filename)
-	if $target == "mega65" then
-		if defined? $MEGA65 then
-			command = "#{$MEGA65} -8 \"#{filename}\""
+def play(filename, storyname)
+	if $target == "x16" then
+		if $executables.has_key?('X16') then
+			command = "cd #{filename} && #{$executables['X16']} -prg #{storyname.upcase}"
+			command += " -run"
+			command += " -dump RV" # Ctrl-S from the emulator to dump memory
+			command += " -debug"
+			command += " -zeroram"
 		else
-			puts "Location of MEGA65 emulator unknown. Please set $MEGA65 at start of make.rb"
+			puts "Location of Commander X16 emulator unknown. Please set X16 executable location at start of make.rb"
+			exit 0
+		end
+	elsif $target == "mega65" then
+		if $executables.has_key?('MEGA65') then
+			command = "#{$executables['MEGA65']} -8 \"#{filename}\""
+		else
+			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
 			exit 0
 		end
 	elsif $target == "plus4" then
-	    command = "#{$XPLUS4} \"#{filename}\""
+	    command = "#{$executables['XPLUS4']} \"#{filename}\""
 	elsif $target == "c128" then
-	    command = "#{$X128} \"#{filename}\""
+	    command = "#{$executables['X128']} \"#{filename}\""
 	else
-	    command = "#{$X64} \"#{filename}\""
+	    command = "#{$executables['X64']} \"#{filename}\""
 	end
 	puts command if $verbose
     system(command)
@@ -1495,7 +1724,9 @@ def build_S1(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1572,7 +1803,9 @@ def build_S2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Story disk"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1677,7 +1910,9 @@ def build_D2(storyname, d64_filename_1, d64_filename_2, config_data, vmem_data, 
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1778,7 +2013,9 @@ def build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, config_d
 	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
 	config_data[4] += disk_info_size
 	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
@@ -1830,93 +2067,6 @@ def build_71(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 
-#	# Build picture loader
-#	if $loader_pic_file
-#		loader_size = build_loader_file()
-#		free_blocks -= (loader_size / 254.0).ceil
-#		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
-#	end
-
-	# Build bootfile + terp + preloaded vmem blocks as a file
-#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
-	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
-#	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
-	if vmem_preload_blocks < 0
-		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
-		exit 1
-	end
-	vmem_data[3] = vmem_preload_blocks
-
-	# Add config data about boot / story disk
-	disk_info_size = 11 + disk.config_track_map.length
-	last_block_plus_1 = 0
-	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
-# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
-	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
-		disk.config_track_map.length] + disk.config_track_map
-	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
-	config_data[4] += disk_info_size
-	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
-	
-	config_data += vmem_data
-
-	#	puts config_data
-	disk.set_config_data(config_data)
-	
-	disk.save()
-	
-#	# Add picture loader
-#	if $loader_pic_file
-#		if add_loader_file(diskimage_filename) != true
-#			puts "ERROR: Failed to write loader to disk."
-#			exit 1
-#		end
-#	end
-
-	# Add bootfile + terp + preloaded vmem blocks file to disk
-	if add_boot_file(diskfilename, diskimage_filename) != true
-		puts "ERROR: Failed to write bootfile/interpreter to disk."
-		exit 1
-	end
-
-	$bootdiskname = "#{diskfilename}"
-	puts "Successfully built game as #{$bootdiskname}"
-	nil # Signal success
-end
-
-def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
-				preload_max_vmem_blocks)
-
-	diskfilename = "#{$target}_#{storyname}.d81"
-	
-	disk = D81_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename)
-	if $i81
-		disk.interleave_scheme = $i81
-	end
-
-	if $target == "mega65" then
-		last_sector = nil
-		$sound_files.each do |file|
-			f = file
-			tf = ')' + f.gsub(/^.*\//,'')
-			f = f.gsub(/\//,"\\") if $is_windows
-			file_contents = IO.binread(f)
-#			last_sector = disk.add_file(tf, file_contents, last_sector);
-			 # Don't use the option to add new file just after last file!
-			last_sector = disk.add_file(tf, file_contents);
-		end
-		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
-#		disk.add_file('zcode-dyn', $story_file_data[0 .. dynbytes - 1])
-#		disk.add_file('zcode-stat', $story_file_data[dynbytes .. $story_file_data.length - 1])
-		disk.add_file('zcode', $story_file_data)
-		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
-	else
-		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
-	end
-	free_blocks = disk.free_blocks()
-	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
-
 	# Build picture loader
 	if $loader_pic_file
 		loader_size = build_loader_file()
@@ -1943,24 +2093,201 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 		disk.config_track_map.length] + disk.config_track_map
 	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
 	config_data[4] += disk_info_size
-	
-	limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
 
 	config_data += vmem_data
 
 	#	puts config_data
-	# if $target == "mega65" then
-		# config_filehandle = File.open($config_filename, "wb")
-		# config_filehandle.write [$config_load_address % 256, $config_load_address / 256].pack("C*")
-		# config_filehandle.write config_data.pack("C*")
-		# config_filehandle.close
-	# else
-	unless $target == "mega65" then
-		disk.set_config_data(config_data)
+	disk.set_config_data(config_data)
+	
+	disk.save()
+
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(diskimage_filename) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
 	end
 	
+	# Add bootfile + terp + preloaded vmem blocks file to disk
+	if add_boot_file(diskfilename, diskimage_filename) != true
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
+		exit 1
+	end
+
+	$bootdiskname = "#{diskfilename}"
+	puts "Successfully built game as #{$bootdiskname}"
+	nil # Signal success
+end
+
+def build_71D(storyname, d71_filename_1, d71_filename_2, config_data, vmem_data, vmem_contents,
+				preload_max_vmem_blocks, reserve_dir_track)
+
+	config_data[7] = 3 # 3 disks used in total
+	outfile1name = "#{$target}_#{storyname}_boot_story_1.d71"
+	outfile2name = "#{$target}_#{storyname}_story_2.d71"
+	disk1title = $disk_title + ($disk_title.length < 13 ? ' 1/2' : '')
+	disk2title = $disk_title + ($disk_title.length < 13 ? ' 2/2' : '')
+	disk1 = D71_image.new(disk_title: disk1title, diskimage_filename: d71_filename_1, 
+		is_boot_disk: true, reserve_dir_track: reserve_dir_track)
+	disk2 = D71_image.new(disk_title: disk2title, diskimage_filename: d71_filename_2, 
+		is_boot_disk: false, reserve_dir_track: nil)
+
+	# Figure out how to put story blocks on the disks in optimal way.
+	# Rule 1: Spread story data as evenly as possible, so heads will move less.
+	max_story_blocks = 9999
+	total_raw_story_blocks = ($story_size - $story_file_cursor) / 256
+	# Spread story data evenly over the two disks
+	max_story_blocks = total_raw_story_blocks / 2
 	
+	free_blocks_1 = disk1.add_story_data(max_story_blocks: max_story_blocks, add_at_end: false)
+	puts "Free disk blocks on disk #1 after story data has been written: #{free_blocks_1}" if $verbose
+	free_blocks_2 = disk2.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	puts "Free disk blocks on disk #2 after story data has been written: #{free_blocks_2}" if $verbose
+
+	# Build picture loader
+	if $loader_pic_file
+		loader_size = build_loader_file()
+		free_blocks_1 -= (loader_size / 254.0).ceil
+		puts "Free disk blocks on disk #1 after loader has been written: #{free_blocks_1}" if $verbose
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks_1)
+	vmem_data[3] = vmem_preload_blocks
+	
+	# Add config data about boot disk / story disk 1
+	disk_info_size = 13 + disk1.config_track_map.length
+	last_block_plus_1 = 0
+	disk1.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk1.config_track_map.length] + disk1.config_track_map
+	config_data += [DISKNAME_BOOT, DISKNAME_DISK, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, "1".ord, 0]  # Name: "Boot disk / Story disk 1"
+	config_data[4] += disk_info_size
+	
+	# Add config data about story disk 2
+	disk_info_size = 9 + disk2.config_track_map.length
+	disk2.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk2.config_track_map.length] + disk2.config_track_map
+	config_data += [DISKNAME_STORY, DISKNAME_DISK, "2".ord, 0]  # Name: "Story disk 2"
+	config_data[4] += disk_info_size
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
+
+	config_data += vmem_data
+
+	#	puts config_data
+	disk1.set_config_data(config_data)
+	disk1.save()
+	disk2.save()
+
+	# Add picture loader
+	if $loader_pic_file
+		if add_loader_file(d71_filename_1) != true
+			puts "ERROR: Failed to write loader to disk."
+			exit 1
+		end
+	end
+	
+	# Add bootfile + terp + preloaded vmem blocks file to disk
+	if add_boot_file(outfile1name, d71_filename_1) != true
+		puts "ERROR: Failed to write bootfile/interpreter to disk."
+		exit 1
+	end
+	File.delete(outfile2name) if File.exist?(outfile2name)
+	File.rename(d71_filename_2, "./#{outfile2name}")
+	
+	$bootdiskname = "#{outfile1name}"
+	puts "Successfully built game as #{$bootdiskname} + #{outfile2name}"
+	nil # Signal success
+end
+
+def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_contents, 
+				preload_max_vmem_blocks)
+
+	diskfilename = "#{$target}_#{storyname}.d81"
+	
+	disk = D81_image.new(disk_title: $disk_title, diskimage_filename: diskimage_filename)
+	if $i81
+		disk.interleave_scheme = $i81
+	end
+
+	if $target == "mega65" then
+		last_sector = nil
+
+		# Add picture for MEGA65
+		if $loader_pic_file
+			file_contents = IO.binread($loader_pic_file)
+			$m65_image_colour_planes = file_contents[0x1c].ord
+			$m65_image_colour_planes = 8 if $m65_image_colour_planes < 1 or $m65_image_colour_planes > 8
+			last_sector = disk.add_file('ldrimg.iff', file_contents, 'PRG');
+		end
+
+		$sound_files.each do |file|
+			f = file
+			tf = ')' + f.gsub(/^.*\//,'')
+			f = f.gsub(/\//,"\\") if $is_windows
+			file_contents = IO.binread(f)
+			 # Don't use the option to add new file just after last file!
+			last_sector = disk.add_file(tf, file_contents);
+		end
+		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
+		disk.add_file('zcode', $story_file_data)
+		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
+	else
+		disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	end
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
+
+	# Build picture loader
+	if $loader_pic_file
+		if $target == 'mega65' # The loader for MEGA65 is built when calling add_loader_file()
+			loader_size = 254 + File.size($loader_pic_file);
+		else
+			loader_size = build_loader_file()
+		end
+		free_blocks -= (loader_size / 254.0).ceil
+		puts "Free disk blocks after loader has been written: #{free_blocks}" if $verbose
+	end
+
+	# Build bootfile + terp + preloaded vmem blocks as a file
+#	puts "build_boot_file(#{preload_max_vmem_blocks}, #{vmem_contents.length}, #{free_blocks})"
+	vmem_preload_blocks = build_boot_file(preload_max_vmem_blocks, vmem_contents, free_blocks)
+#	puts "vmem_preload_blocks(#{vmem_preload_blocks} < $dynmem_blocks#{$dynmem_blocks}"
+	if vmem_preload_blocks < 0
+		puts "ERROR: The story fits on the disk, but not the bootfile/interpreter. Please try another build mode."
+		exit 1
+	end
+	vmem_data[3] = vmem_preload_blocks
+
+	# Add config data about boot / story disk
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+# Data for disk: bytes used, device# = 0 (auto), Last story data sector + 1 (word), tracks used for story data, name = "Boot / Story disk"
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256, 
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]  # Name: "Boot / Story disk"
+	config_data[4] += disk_info_size
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
+
+	config_data += vmem_data
+
 	unless $target == "mega65" then
+		disk.set_config_data(config_data)
 		if $statmem_blocks > 0
 			if disk.create_story_partition() == false
 				puts "ERROR: Could not create partition to protect data on disk."
@@ -1990,60 +2317,117 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
+def build_zip(storyname, diskimage_filename, config_data, vmem_data, 
+              vmem_contents, preload_max_vmem_blocks)
+    # create folder if needed, and clear old contents, if any
+    foldername = "#{$target}_#{storyname}"
+    FileUtils.rm_rf(foldername)
+    FileUtils.rm_rf(foldername+".zip")
+    FileUtils.mkdir_p(foldername)
+
+    # Add terp and story file
+    FileUtils.cp($ozmoo_file, foldername+"/"+$file_name.upcase)
+	IO.binwrite(foldername+"/[ZCODE]", $story_file_data);
+    # Add font, if any
+    FileUtils.cp($font_filename, foldername+"/[FONT]") if $font_filename
+
+    # Create the zip file
+    command = "#{$executables['ZIP']} #{foldername}.zip #{foldername}"
+	puts command if $verbose
+    result = system(command)
+	if result
+		if $delete_zip_files > 0
+			FileUtils.rm_rf(foldername)
+		end
+		puts "Successfully built game as #{foldername}.zip"
+	else
+		msg = "The files are in the folder #{foldername}"
+		if $delete_zip_files > 1
+			FileUtils.rm_rf(foldername)
+			msg = "The files have been deleted."
+		end
+		puts "ERROR: There was a problem creating a zip archive. #{msg}"
+	end
+
+	$bootdiskname = foldername
+    nil # Signal success
+end
+
 def print_usage_and_exit
 	print_usage
 	exit 1
 end
 
 def print_usage
-	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-81|-P] -v"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-s] " 
-	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-in:[n]]"
+	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-vo[:0|1]] [-s] " 
+	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-um[:0|1]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
-	puts "         [-rc:[n]=[c],[n]=[c]...] [-dc:[n]:[n]] [-bc:[n]] [-sc:[n]] [-ic:[n]]"
-	puts "         [-dm[:0|1]] [-dmdc:[n]:[n]] [-dmbc:[n]] [-dmsc:[n]] [-dmic:[n]]"
+	puts "         [-fgcol:<colourname>] [-bgcol:<colourname>] [-bordercol:<colourname>]"
+	puts "         [-statuscol:<colourname>] [-inputcol:<colourname>] [-cursorcol:<colourname>]"
+	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
+	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]]"
-	puts "         [-cb:[n]] [-cc:[n]] [-dmcc:[n]] [-cs:[b|u|l]] "
-	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>] <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4 and mega65."
-	puts "  -S1|-S2|-D2|-D3|-71|-81|-P: build mode. Defaults to S1 (71 for C128, 81 for MEGA65). See docs."
+	puts "         [-cb:[n]] [-cs:[b|u|l]]"
+	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
+	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
+	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
+	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
+	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
-	puts "  -p: preload a a maximum of n virtual memory blocks to make game faster at start."
+	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
 	puts "  -o: build interpreter in PREOPT (preload optimization) mode. See docs for details."
 	puts "  -c: read preload config from preloadfile, previously created with -o"
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
-	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."
+	puts "  -bm: Build interpreter in Benchmark Mode. There must be a valid walkthrough in benchmarks.json."
+	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."	
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
-	puts "  -sl: Remove some optimizations for speed. This makes the terp ~100 bytes smaller."
-	puts "  -s: start game in Vice if build succeeds"
+	puts "  -sl: Remove some optimizations for speed. This saves ~100 bytes smaller."
+	puts "  -vo: Continuous virtual memory optimization (C64/C128 only). Enabled by defult. Disabling saves ~500 bytes."
+	puts "  -s: start game in emulator if build succeeds"
 	puts "  -fn: boot file name (default: story)"
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
+	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default. Takes up 83 bytes."
 	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
-	puts "  -i: Add a loader using the specified Koala Painter multicolour image (filesize: 10003 bytes)."
+	puts "  -i: Add a loader using the specified image (Koala Multicolor for C64 and C128, Multibotticelli for Plus/4, IFF for MEGA65)"
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
-	puts "  -rb: Enable the REU Boost feature"
-	puts "  -rc: Replace the specified Z-code colours with the specified C64 colours. See docs for details."
-	puts "  -dc/dmdc: Use the specified background and foreground colours. See docs for details."
-	puts "  -bc/dmbc: Use the specified border colour. 0=same as bg, 1=same as fg. See docs for details."
-	puts "  -sc/dmsc: Use the specified status line colour. Only valid for Z3 games. See docs for details."
-	puts "  -ic/dmic: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
+	puts "  -rb: Enable the REU Boost feature. Enabled by default. Takes up 155 bytes."
+	puts "  -fgcol/dmfgcol: Use the specified foreground colour. See docs for details."
+	puts "  -bgcol/dmbgcol: Use the specified background colour. See docs for details."
+	puts "  -bordercol/dmbordercol: Use the specified border colour. bg=same as bg, fg=same as fg. See docs for details."
+	puts "  -statuscol/dmstatuscol Use the specified status line colour. Only valid for Z3 games. See docs for details."
+	puts "  -inputcol/dminputcol: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
+	puts "  -cursorcol/dmcursorcol: Use the specified cursor colour. (fg=same as fg (default)). See docs for details."
 	puts "  -dm: Enable the ability to switch to dark mode"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
-	puts "  -cc/dmcc: Use the specified cursor colour.  Defaults to foreground colour."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  -dt: Set the disk title to the specified text."
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
+	puts "  -sig: Write Ozmoo's signature into the header. Default is 'noninfocom', i.e. for all non-Infocom games."
+	puts "  -username: Write a username (1-8 characters) into header (Note: only capitals were used by Infocom)."
+	puts "  -u: Add support for UNDO. Enabled by default for MEGA65. Use -u:r for RAM buffer (C128 only)"
+	puts "  -x: Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only."
+	puts "  -df: Delete files after creating zip archive in ZIP mode. 0 is default. f=force."
 	puts "  storyfile: path optional (e.g. infocom/zork1.z3)"
+end
+
+def colour_value(argument, in_string, fg_ok, bg_ok)
+	clean_string = in_string.downcase.gsub(/[-_.]/,'')
+	return 0 if bg_ok and $bgcol_names.include? clean_string
+	return 1 if fg_ok and $fgcol_names.include? clean_string
+	return $colour_names[clean_string] if $colour_names.has_key? clean_string
+	puts "ERROR: Unknown colour name for #{argument}."
+	exit 1
 end
 
 splashes = [
@@ -2074,9 +2458,10 @@ $program_end_address = 0x10000
 $memory_end_address = 0x10000
 $normal_ram_end_address = 0xd000
 $unbanked_ram_end_address = 0xd000
-$colour_replacements = []
-$default_colours = []
-$default_colours_dm = []
+$fg_colour = nil;
+$fg_colour_dm = nil;
+$bg_colour = nil;
+$bg_colour_dm = nil;
 $statusline_colour = nil
 $statusline_colour_dm = nil
 $input_colour = nil
@@ -2096,46 +2481,59 @@ $use_history = nil
 $no_sector_preload = nil
 $file_name = 'story'
 custom_file_name = nil
+$undo = nil
+$undo_ram = nil
 $sound_format = nil
 $disk_title = nil
 $scrollback_ram_pages = nil
+$delete_zip_files = nil
 reserve_dir_track = nil
 check_errors = nil
 dark_mode = nil
 smooth_scroll = nil
 scrollback = nil
 reu_boost = nil
+x_for_examine = nil
+write_signature = nil
+username = nil
+optimize_vmem = nil
 
 begin
-	while i < ARGV.length
+	ARGV.each do |arg|
 		if await_preloadfile then
 			await_preloadfile = false
-			preloadfile = ARGV[i]
+			preloadfile = arg
 		elsif await_soundpath then
 			await_soundpath = false
-			$sound_path = ARGV[i]
+			$sound_path = arg
 		elsif await_fontfile then
 			await_fontfile = false
-			$font_filename = ARGV[i]
+			$font_filename = arg
 		elsif await_imagefile then
 			await_imagefile = false
-			$loader_pic_file = ARGV[i]
-		elsif ARGV[i] =~ /^-o$/ then
+			$loader_pic_file = arg
+		elsif arg =~ /^-o$/ then
 			optimize = true
 			$no_sector_preload = true
-		elsif ARGV[i] =~ /^-in:(1?\d)$/ then
+		elsif arg =~ /^-in:(1?\d)$/ then
 			$interpreter_number = $1
-		elsif ARGV[i] =~ /^-s$/ then
+		elsif arg =~ /^-s$/ then
 			auto_play = true
-		elsif ARGV[i] =~ /^-rd$/ then
+		elsif arg =~ /^-rd$/ then
 			reserve_dir_track = true
-		elsif ARGV[i] =~ /^-p:(\d+)$/ then
+		elsif arg =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif ARGV[i] =~ /^-t:(c64|c128|mega65|plus4)$/ then
+		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16)$/ then
 			$target = $1
 			if $target == "mega65" then
-			    $start_address = 0x1001
+			    # $start_address = 0x1001
+				$start_address = 0x1800
+			elsif $target == "x16" then
+			    $start_address = 0x0801
+				$memory_end_address = 0xa000
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
 			elsif $target == "plus4" then
 			    $start_address = 0x1001
 				$memory_end_address = 0xfc00
@@ -2148,139 +2546,194 @@ begin
 				$normal_ram_end_address = $memory_end_address
 				$CACHE_PAGES = 4 # Cache is static size on C128
 			end
-		elsif ARGV[i] =~ /^-P$/ then
+		elsif arg =~ /^-ZIP$/ then
+			mode = MODE_ZIP
+		elsif arg =~ /^-P$/ then
 			mode = MODE_P
 			$CACHE_PAGES = 2 # We're not actually using the cache, but there may be a splash screen in it
-		elsif ARGV[i] =~ /^-S1$/ then
+		elsif arg =~ /^-S1$/ then
 			mode = MODE_S1
-		elsif ARGV[i] =~ /^-S2$/ then
+		elsif arg =~ /^-S2$/ then
 			mode = MODE_S2
-		elsif ARGV[i] =~ /^-D2$/ then
+		elsif arg =~ /^-D2$/ then
 			mode = MODE_D2
-		elsif ARGV[i] =~ /^-D3$/ then
+		elsif arg =~ /^-D3$/ then
 			mode = MODE_D3
-		elsif ARGV[i] =~ /^-71$/ then
+		elsif arg =~ /^-71$/ then
 			mode = MODE_71
-		elsif ARGV[i] =~ /^-81$/ then
+		elsif arg =~ /^-71D$/ then
+			mode = MODE_71D
+		elsif arg =~ /^-81$/ then
 			mode = MODE_81
-		elsif ARGV[i] =~ /^-ch(?::(\d{1,3}))?$/ then
+		elsif arg =~ /^-ch(?::(\d{1,3}))?$/ then
 			if $1 == nil
 				$use_history = 1
 			else
 				$use_history = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-v$/ then
+		elsif arg =~ /^-v$/ then
 			$verbose = true
-		elsif ARGV[i] =~ /^-debug$/ then
+		elsif arg =~ /^-debug$/ then
 			$force_debug = true
-		elsif ARGV[i] =~ /^-b$/ then
+		elsif arg =~ /^-b$/ then
 			$no_sector_preload = true
-		elsif ARGV[i] =~ /^-rc:((?:\d\d?=\d\d?)(?:,\d=\d\d?)*)$/ then
-			$colour_replacements = $1.split(/,/)
-		elsif ARGV[i] =~ /^-dc:([2-9]):([2-9])$/ then
-			$default_colours = [$1.to_i,$2.to_i]
-		elsif ARGV[i] =~ /^-dmdc:([2-9]):([2-9])$/ then
-			$default_colours_dm = [$1.to_i,$2.to_i]
-		elsif ARGV[i] =~ /^-bc:([0-9])$/ then
-			$border_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmbc:([0-9])$/ then
-			$border_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-sc:([2-9])$/ then
-			$statusline_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmsc:([2-9])$/ then
-			$statusline_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-ic:([2-9])$/ then
-			$input_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmic:([2-9])$/ then
-			$input_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-sp:(0?[2-9]|[1-5][0-9]|6[0-4])$/ then
+		elsif arg =~ /^-bordercol:(.*)$/
+			$border_colour = colour_value(arg, $1, true, true)
+		elsif arg =~ /^-dmbordercol:(.*)$/
+			$border_colour_dm = colour_value(arg, $1, true, true)
+		elsif arg =~ /^-statuscol:(.*)$/
+			$statusline_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dmstatuscol:(.*)$/
+			$statusline_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-fgcol:(.*)$/
+			$fg_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dmfgcol:(.*)$/
+			$fg_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-bgcol:(.*)$/
+			$bg_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dmbgcol:(.*)$/
+			$bg_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-inputcol:(.*)$/
+			$input_colour = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-dminputcol:(.*)$/
+			$input_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-cursorcol:(.*)$/
+			$cursor_colour = colour_value(arg, $1, true, false)
+		elsif arg =~ /^-dmcursorcol:(.*)$/
+			$cursor_colour_dm = colour_value(arg, $1, true, false)
+		elsif arg =~ /^-sp:(0?[2-9]|[1-5][0-9]|6[0-4])$/ then
 			$stack_pages = $1.to_i
-		elsif ARGV[i] =~ /^-cm:(sv|da|de|it|es|fr)$/ then
+		elsif arg =~ /^-cm:(sv|da|de|it|es|fr)$/ then
 			$char_map = $1
-		elsif ARGV[i] =~ /^-asa$/ then
+		elsif arg =~ /^-asa$/ then
 			if $sound_format
 				puts "ERROR: Only one sound path can be specified."
 				exit 1
 			end
 			$sound_format = 'aiff'
 			await_soundpath = true
-		elsif ARGV[i] =~ /^-asw$/ then
+		elsif arg =~ /^-asw$/ then
 			if $sound_format
 				puts "ERROR: Only one sound path can be specified."
 				exit 1
 			end
 			$sound_format = 'wav'
 			await_soundpath = true
-		elsif ARGV[i] =~ /^-cf$/ then
+		elsif arg =~ /^-df(?::([01f]))?$/ then
+			if $1 == '0'
+				$delete_zip_files = 0
+			elsif $1 == 'f'
+				$delete_zip_files = 2
+			else
+				$delete_zip_files = 1
+			end
+		elsif arg =~ /^-u(?::([01r]))?$/ then
+			if $1 == nil
+				$undo = 1
+			elsif $1 == 'r'
+				$undo = 1
+				$undo_ram = 1
+			else
+				$undo = $1.to_i
+			end
+		elsif arg =~ /^-x(?::([01]))?$/ then
+			if $1 == nil
+				x_for_examine = 1
+			else
+				x_for_examine = $1.to_i
+			end
+		elsif arg =~ /^-cf$/ then
 			await_preloadfile = true
 			fill_preload = true
-		elsif ARGV[i] =~ /^-c$/ then
+		elsif arg =~ /^-c$/ then
 			await_preloadfile = true
-		elsif ARGV[i] =~ /^-f$/ then
+		elsif arg =~ /^-f$/ then
 			await_fontfile = true
-		elsif ARGV[i] =~ /^-if?$/ then
+		elsif arg =~ /^-if?$/ then
 			await_imagefile = true
-			$loader_flicker = ARGV[i] =~ /f$/
-		elsif ARGV[i] =~ /^-ss([1-4]):(.*)$/ then
+			$loader_flicker = arg =~ /f$/
+		elsif arg =~ /^-ss([1-4]):(.*)$/ then
 			splashes[$1.to_i - 1] = $2
-		elsif ARGV[i] =~ /^-dt:(.*)$/ then
+		elsif arg =~ /^-dt:(.*)$/ then
 			$disk_title = $1
-		elsif ARGV[i] =~ /^-sw:(\d{1,3})$/ then
+		elsif arg =~ /^-sw:(\d{1,3})$/ then
 			$splash_wait = $1
-		elsif ARGV[i] =~ /^-cc:([0-9])$/ then
-			$cursor_colour = $1.to_i
-		elsif ARGV[i] =~ /^-dmcc:([0-9])$/ then
-			$cursor_colour_dm = $1.to_i
-		elsif ARGV[i] =~ /^-cs:([b|u|l])$/ then
+		elsif arg =~ /^-cs:([b|u|l])$/ then
 			$cursor_shape = $1
-		elsif ARGV[i] =~ /^-cb:([1-9]|[1-9][0-9])$/ then
+		elsif arg =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
-		elsif ARGV[i] =~ /^-re(?::([0-1]))?$/ then
+		elsif arg =~ /^-re(?::([0-1]))?$/ then
 			if $1 == nil
 				check_errors = 1
 			else
 				check_errors = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-sl(?::([0-1]))?$/ then
+		elsif arg =~ /^-um(?::([0-1]))?$/ then
+			if $1 == '0'
+				$GENERALFLAGS.push('NO_DEFAULT_UNICODE_MAP') unless $GENERALFLAGS.include?('NO_DEFAULT_UNICODE_MAP') 
+			else
+				$GENERALFLAGS.delete('NO_DEFAULT_UNICODE_MAP') if $GENERALFLAGS.include?('NO_DEFAULT_UNICODE_MAP')
+			end
+		elsif arg =~ /^-sl(?::([0-1]))?$/ then
 			if $1 == '0'
 				$GENERALFLAGS.delete('SLOW') if $GENERALFLAGS.include?('SLOW')
 			else
 				$GENERALFLAGS.push('SLOW') unless $GENERALFLAGS.include?('SLOW') 
 			end
-		elsif ARGV[i] =~ /^-dm(?::([01]))?$/ then
+		elsif arg =~ /^-vo(?::([0-1]))?$/ then
+			if $1 == nil
+				optimize_vmem = 1
+			else
+				optimize_vmem = $1.to_i
+			end
+		elsif arg =~ /^-bm$/ then
+			$DEBUGFLAGS.push('BENCHMARK') unless $DEBUGFLAGS.include?('BENCHMARK')
+		elsif arg =~ /^-dm(?::([01]))?$/ then
 			if $1 == nil
 				dark_mode = 1
 			else
 				dark_mode = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-smooth(?::([01]))?$/ then
+		elsif arg =~ /^-smooth(?::([01]))?$/ then
 			if $1 == nil
 				smooth_scroll = 1
 			else
 				smooth_scroll = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
+		elsif arg =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
 			if $1 == nil
 				scrollback = 1
 			else
 				scrollback = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-rb(?::([01]))?$/ then
+		elsif arg =~ /^-rb(?::([01]))?$/ then
 			if $1 == nil
 				reu_boost = 1
 			else
 				reu_boost = $1.to_i
 			end
-		elsif ARGV[i] =~ /^-fn:([a-z0-9]+)$/ then
+		elsif arg =~ /^-sig(?::([01]|noninfocom))?$/ then
+			if $1 == nil
+				write_signature = 1
+			elsif $1 == 'noninfocom'
+				write_signature = 2
+			else
+				write_signature = $1.to_i
+			end
+		
+		elsif arg =~ /^-username:(.*)$/ then
+			username = $1
+		elsif arg =~ /^-fn:([a-z0-9\-\[\]\(\)\'\.]+)$/ then
 			custom_file_name = $1
-		elsif ARGV[i] =~ /^-(bc|ic|sc|dc|cc|dmbc|dmsc|dmic|dmdc|dmcc):/ then
-			raise "Color index for -#{$1} is out of range, please be sure to use the Z-code palette with index 2-9."
-		elsif ARGV[i] =~ /^-/i then
-			raise "Unknown option: " + ARGV[i]
+		elsif arg =~ /^-/i then
+			raise "Unknown or misformatted option: " + arg
 		else 
-			$story_file = ARGV[i]
+			if $story_file
+				puts "ERROR: Only one story file can be specified."
+				exit 1
+			end
+			$story_file = arg
 		end
-		i = i + 1
 	end
 	if !$story_file
 		print_usage_and_exit()
@@ -2294,13 +2747,29 @@ rescue => e
 	exit 1
 end
 
-if $target == "mega65"
-	$file_name = 'autoboot.c65'
+puts "Using settings file #{$settings_file}" if $verbose and ! $settings_file.empty?
+
+$target_number =
+	case $target
+	when 'c128' then 2
+	when 'plus4' then 3
+	when 'mega65' then 4
+	when 'x16' then 5
+	else 1
+	end
+
+if username
+	if write_signature and write_signature > 0
+		puts "ERROR: Username and signature can't be used together." 
+		exit 1
+	elsif username.length > 8
+		puts "ERROR: Username can't be longer than 8 characters." 
+		exit 1
+	end
+	write_signature = 0 # If signature wasn't set, disable, since they occupy the same bytes in header
 end
 
-if custom_file_name
-	$file_name = custom_file_name
-end
+write_signature = 2 unless write_signature # Default to non-infocom setting
 
 if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1
@@ -2308,27 +2777,50 @@ end
 if reu_boost == 1
 	$GENERALFLAGS.push('REUBOOST') unless $GENERALFLAGS.include?('REUBOOST')
 	if $target !~ /^c(64|128)$/
-		puts "ERROR: REU Boost is not available for this platform." 
+		puts "ERROR: REU Boost is not supported for this target platform." 
 		exit 1
 	end
+end
+
+if $target =~ /^(c64|c128)$/ and optimize_vmem == nil and mode != MODE_P
+	optimize_vmem = 1
+end
+if optimize_vmem == 1
+	$GENERALFLAGS.push('OPTIMIZE_VMEM') unless $GENERALFLAGS.include?('OPTIMIZE_VMEM') 
+	if $target !~ /^(c64|c128)$/ 
+		puts "ERROR: Continuous virtual memory optimization is not supported for this target platform." 
+		exit 1
+	end
+	if mode == MODE_P
+		puts "ERROR: Continuous virtual memory optimization can't be used with build mode P." 
+		exit 1
+	end
+	if $CACHE_PAGES < 3 
+		puts "ERROR: Continuous virtual memory optimization requires at least 3 pages of vmem cache, please set $CACHE_PAGES to a higher value." 
+		exit 1
+	end
+end
+
+if $delete_zip_files == nil
+	$delete_zip_files = 0
 end
 
 if smooth_scroll == nil
 	smooth_scroll = 0
 end
 if $target !~ /^(c64|c128)$/ and smooth_scroll == 1
-	puts "ERROR: Smooth scroll is not available for this platform." 
+	puts "ERROR: Smooth scroll is not supported for this target platform." 
 	exit 1
 end
 
-if $target == "mega65" and $use_history == nil
+if $target =~ /^(mega65|x16)$/ and $use_history == nil
 	$use_history = 1 # Default size, set in next step
 end
 if $use_history and $use_history > 0
 	# set default history size
 	if $use_history == 1 then
-		if $target == "mega65" then
-			# MEGA65 has lots of space, default to the max (255)
+		if $target =~ /^(mega65|x16)$/  then
+			# MEGA65/X16 have lots of space, default to the max (255)
 			$use_history = 255
 		elsif $target == "c128" then
 			# c128 doesn't adjust the buffer to .align so we need
@@ -2376,6 +2868,8 @@ print_usage_and_exit() if await_soundpath or await_preloadfile or await_fontfile
 unless mode
 	if $target == 'c128'
 		mode = MODE_71
+	elsif $target == 'x16'
+		mode = MODE_ZIP
 	elsif $target == 'mega65'
 		mode = MODE_81
 	else 
@@ -2391,7 +2885,7 @@ if mode == MODE_P
 	else
 		len = 0
 		splashes.each { |s| len += s.length }
-		if len <= 100
+		if len == 0
 			$CACHE_PAGES = 1 # With this little text, we can go down from 2 pages to 1
 		end
 	end
@@ -2402,10 +2896,15 @@ if mode != MODE_81 and $target == 'mega65'
 	exit 1
 end
 
-# if mode == MODE_71 and $target != 'c128'
-	# puts "ERROR: Build mode 71 is not supported on this target platform."
-	# exit 1
-# end
+if mode != MODE_ZIP and $target == 'x16'
+	puts "ERROR: Only build mode ZIP is supported on this target platform."
+	exit 1
+end
+
+if mode == MODE_ZIP and $target != 'x16'
+	puts "ERROR: Build mode ZIP is not supported on this target platform."
+	exit 1
+end
 
 if mode == MODE_P and $target == 'c128'
 	puts "ERROR: Build mode P is not supported on this target platform."
@@ -2413,11 +2912,11 @@ if mode == MODE_P and $target == 'c128'
 end
 
 if $loader_pic_file
-	if $target != 'c64' and $target != 'plus4'
+	if $target !~ /^(c64|c128|plus4|mega65)$/
 		puts "ERROR: Image loader is not supported on this target platform."
 		exit 1
 	end
-	if $target == 'plus4' and $loader_flicker
+	if $target !~ /^(c64)$/ and $loader_flicker
 		puts "ERROR: Flicker during loading is not supported on this target platform."
 		exit 1
 	end
@@ -2442,6 +2941,9 @@ if $font_filename
 	elsif $target == 'plus4'
 		$font_address = 0x1000
 		$start_address = 0x1800
+	elsif $target == 'x16'
+		$font_address = 0xf000
+#		$start_address = 0x1800
 	else
 		puts "ERROR: Custom fonts are currently not supported for this target platform."
 		exit 1
@@ -2475,7 +2977,7 @@ if $sound_path
 #	puts $sound_files
 end
 
-$VMEM = (mode != MODE_P && $target != 'mega65')
+$VMEM = (mode != MODE_P && $target != 'mega65' && $target != 'x16')
 
 $GENERALFLAGS.push('DANISH_CHARS') if $char_map == 'da'
 $GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'
@@ -2486,24 +2988,6 @@ $GENERALFLAGS.push('FRENCH_CHARS') if $char_map == 'fr'
 
 $GENERALFLAGS.push('VMEM') if $VMEM
 
-$colour_replacement_clause = ''
-unless $colour_replacements.empty?
-	$colour_replacements.each do |r|
-		r =~ /^(\d\d?)=(\d\d?)$/
-		zcode_colour = $1
-		c64_colour = $2
-		if zcode_colour !~ /^[2-9]$/
-			puts "ERROR: -rc requires a Z-code colour value (2-9) to the left of the = character."
-			exit 1
-		end
-		if c64_colour !~ /^([0-9]|1[0-5])$/
-			puts "ERROR: -rc requires a C64 colour value (0-15) to the right of the = character."
-			exit 1
-		end
-		$colour_replacement_clause += " -DCOL#{zcode_colour}=#{c64_colour}" unless $colour_replacement_clause.include? "-DCOL#{zcode_colour}=" 
-	end
-end
-
 if $stack_pages < 4 and mode != MODE_P
 	puts "ERROR: Stack pages < 4 is only allowed in build mode P."
 	exit 1
@@ -2511,6 +2995,11 @@ end
 
 if optimize and mode == MODE_P
 	puts "ERROR: Option -o can't be used with this build mode."
+	exit 1
+end
+
+if optimize and $target =~ /^(mega65|x16)$/
+	puts "ERROR: Option -o can't be used for this target platform."
 	exit 1
 end
 
@@ -2532,7 +3021,6 @@ if optimize then
 	$DEBUGFLAGS.push('PREOPT')
 end
 
-$DEBUGFLAGS.push('DEBUG') if $force_debug
 $DEBUGFLAGS.push('DEBUG') unless $DEBUGFLAGS.empty? or $DEBUGFLAGS.include?('DEBUG')
 
 
@@ -2557,6 +3045,30 @@ filename = File.basename($story_file)
 storyname = File.basename($story_file, extension)
 $disk_title = storyname unless $disk_title
 
+if $target == "mega65"
+	if $loader_pic_file
+		$file_name = 'story'
+	else
+		$file_name = 'autoboot.c65'
+	end
+end
+if $target == "x16"
+	$file_name = storyname.downcase + '.prg'
+end
+
+if custom_file_name
+	if $target == "mega65" and $loader_pic_file
+		puts "ERROR: Using a custom filename is not possible when using a loader image for this platform."
+		exit 1
+	elsif $target == "x16"
+		custom_file_name += '.prg' unless custom_file_name =~ /.prg$/
+	else
+		custom_file_name = $1 if custom_file_name =~ /^(.{16}).+/
+	end
+	$file_name = custom_file_name.downcase
+end
+
+
 begin
 	puts "Reading file #{$story_file}..." if $verbose
 	$story_file_data = IO.binread($story_file)
@@ -2567,6 +3079,11 @@ end
 
 $zcode_version = $story_file_data[0].ord
 $ztype = "Z#{$zcode_version}"
+
+unless [1,2,3,4,5,6,7,8].include? $zcode_version
+	puts "Unsupported Z-code version: #{$zcode_version}"
+	exit 1
+end
 
 $zmachine_memory_size = $story_file_data[0x1a .. 0x1b].unpack("n")[0]
 if $zcode_version < 4
@@ -2584,17 +3101,28 @@ end
 
 $vmem_highbyte_mask = ($zcode_version < 4) ? 0x00 : (($zcode_version > 5) ? 0x03 : 0x01)
 
+serial_start = $story_file_data[0x12].ord
+if write_signature == 1 or write_signature == 2 && serial_start.chr =~ /[0-79]/ # Non-Infocom start with 0-7 or 9
+	$story_file_data[0x38 .. 0x3b] = [ $target_number, $minor_version, 0x4f, 0x5a].pack("C*")
+elsif username
+	username_arr = [0,0,0,0,0,0,0,0]
+	username.length.times do |i|
+		username_arr[i] = username[i].ord
+	end
+	$story_file_data[0x38 .. 0x3f] = username_arr.pack("C*")
+end
+
+
 if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
-	puts "ERROR: Options -sc and -dmsc can only be used with z1-z3 story files."
+	puts "ERROR: Setting statusline colour can only be done with z1-z3 story files."
 	exit 1
 end	
 
 if ($input_colour or $input_colour_dm) and $zcode_version > 4
-	puts "ERROR: Options -ic and -dmic can only be used with z1-z4 story files."
+	puts "ERROR: Setting input colour can only be done with z1-z4 story files."
 	exit 1
 end	
 
-puts $zcode_version
 if scrollback == nil
 	if $target == "mega65" and $zcode_version != 6
 		scrollback = 1
@@ -2605,8 +3133,11 @@ end
 if scrollback == 1 and $target == "plus4"
 	puts "ERROR: Scrollback buffer in REU is not supported on this target platform. Try e.g. -sb:6 to enable scrollback in RAM."
 	exit 1
+elsif scrollback > 0 and $target == "x16"
+	puts "ERROR: Scrollback buffer is not supported on this target platform."
+	exit 1
 elsif scrollback > 0 and $zcode_version == 6
-	puts "ERROR: Scrollback buffer not supported in version 6 games"
+	puts "ERROR: Scrollback buffer is not supported in version 6 games"
 	exit 1
 elsif scrollback == 0
 	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') 
@@ -2634,9 +3165,52 @@ $static_mem_start = $story_file_data[14 .. 15].unpack("n")[0]
 release = $story_file_data[2 .. 3].unpack("n")[0]
 serial = $story_file_data[18 .. 23]
 storyfile_key = "r%d-s%s" % [ release, serial ]
+is_varicella = $zcode_version == 8 && $varicella_releases.has_key?(storyfile_key)
 is_trinity = $zcode_version == 4 && $trinity_releases.has_key?(storyfile_key)
 is_beyondzork = $zcode_version == 5 && $beyondzork_releases.has_key?(storyfile_key)
 $is_lurkinghorror = $zcode_version == 3 && $lurkinghorror_releases.has_key?(storyfile_key)
+
+$walkthrough_string = nil
+if $DEBUGFLAGS.include?('BENCHMARK')
+	benchmarks_json = JSON.parse(File.read(File.join(__dir__, 'benchmarks.json')))
+	benchmarks_json.each { |walkthrough_hash|
+		if walkthrough_hash['keys'].include?(storyfile_key)
+			walk = walkthrough_hash['walkthrough']
+			$walkthrough_string = (walk.is_a? String) ? walk : walk.join(':')
+		end
+	}
+	if $walkthrough_string
+		walkthrough_src = File.read(File.join($SRCDIR, 'walkthrough.tpl'))
+		walkthrough_src.sub!("@fn@", $walkthrough_string)
+		File.write(File.join($TEMPDIR, 'walkthrough.asm'), walkthrough_src)
+	else
+		puts "Benchmark mode enabled, but no valid walkthrough could be found for this game. Check benchmarks.json."
+		exit 1
+	end
+end
+#puts $walkthrough_string if $walkthrough_string
+
+
+if x_for_examine == nil
+	if $zcode_version < 4
+		serial_as_date = DateTime.strptime(serial, '%y%m%d') rescue DateTime.strptime('800101', '%y%m%d')
+		if serial_as_date.year >= 1980 and serial_as_date.year < 1990
+			puts "Zcode version < 4, serial is in 1980-1989 or not a date => enabling X FOR EXAMINE" if $verbose
+			x_for_examine = 1
+		else
+			x_for_examine = 0
+		end
+	elsif [4,5].include?($zcode_version) and $x_for_examine_releases.has_key?(storyfile_key)
+		puts "Zcode version is 4 or 5, serial & release match game that doesn't recognize X => enabling X FOR EXAMINE" if $verbose
+		x_for_examine = 1
+	else
+		x_for_examine = 0
+	end
+end
+
+if x_for_examine == 1
+	$GENERALFLAGS.push('X_FOR_EXAMINE') unless $GENERALFLAGS.include?('X_FOR_EXAMINE')
+end	
 
 if dark_mode == 0
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
@@ -2651,7 +3225,7 @@ if is_beyondzork
 	# Turn off features that don't work properly in BZ anyway
 	$use_history = nil 
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE') or dark_mode == 1 
-	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') or scrollback == 1
+	$GENERALFLAGS.push('NOSCROLLBACK') unless $GENERALFLAGS.include?('NOSCROLLBACK') or scrollback > 0
 	patch_data_string = $beyondzork_releases[storyfile_key]
 	patch_data_arr = patch_data_string.split(/ /)
 	patch_address = patch_data_arr.shift.to_i(16)
@@ -2665,7 +3239,7 @@ if is_beyondzork
 			patch_data_arr.pack("C*")
 		puts "Successfully patched Beyond Zork story file."
 	else
-		puts "### WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
+		puts "WARNING: Story file matches serial + version# for Beyond Zork, but contents differ. Failed to patch."
 	end
 end
 
@@ -2679,13 +3253,36 @@ if is_trinity
 		patch_data_arr[i] = patch_data_arr[i].to_i(16)
 	end
 	if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
-		puts patch_data_arr.length
 		$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
 			patch_data_arr.pack("C*")
 		puts "Successfully patched Trinity story file."
 	else
-		puts "### WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
+		puts "WARNING: Story file matches serial + version# for Trinity, but contents differ. Failed to patch."
 	end
+end
+
+if is_varicella
+	patch_success = true
+	patch_data_arr = $varicella_releases[storyfile_key]
+	patch_data_arr.each { |patch_data_string|
+#	patch_data_string = $varicella_releases[storyfile_key]	
+		patch_data_arr = patch_data_string.split(/ /)
+		patch_address = patch_data_arr.shift.to_i(16)
+		patch_check = patch_data_arr.shift.to_i(16)
+		# Change all hex strings to 8-bit unsigned ints instead, due to bug in Ruby's array.pack("H")
+		patch_data_arr.length.times do |i|
+			patch_data_arr[i] = patch_data_arr[i].to_i(16)
+		end
+		if $story_file_data[patch_address .. (patch_address + 1)].unpack("n")[0] == patch_check
+			$story_file_data[patch_address .. (patch_address + patch_data_arr.length - 1)] =
+				patch_data_arr.pack("C*")
+		else
+			patch_success = false
+			puts "WARNING: Story file matches serial + version# for Trinity, but contents differ (patch data string \"#{patch_data_string}\"). Failed to patch."
+			break
+		end
+	}
+	puts "Successfully patched Varicella story file." if patch_success
 end
 
 if $target == 'c128' and $interpreter_number == nil
@@ -2712,6 +3309,50 @@ if $verbose then
 	puts "$story_size = #{$story_size}"
 end
 
+$undo = 2 if ($undo == nil and $target == 'mega65') # undo is enabled by default on MEGA65
+$undo = 0 if $undo == nil
+
+undo_size = $dynmem_blocks * $VMEM_BLOCKSIZE + ($stack_pages + 1) * 256
+max_dynmem_for_ram_undo = 18 # 18 KB dynmem is a good limit to keep a decent speed and vmem size. Up to 28 KB is possible.
+max_ram_undo_size = (max_dynmem_for_ram_undo + 1) * 1024 + 256 # dynmem + stack + 256 bytes for ZP-vars 
+
+if $undo > 0
+	if mode == MODE_P
+		puts "ERROR: Undo is not supported for build mode P."
+		exit 1
+	end
+	if $target !~ /^(c64|c128|mega65|x16)$/
+		puts "ERROR: Undo is only supported for the MEGA65, Commander X16, C64 and C128 target platforms."
+		exit 1
+	end
+	if $undo_ram == 1
+		$GENERALFLAGS.push('UNDO_RAM')
+		if $target !~ /^c128$/ 
+			puts "ERROR: Undo RAM buffer is only supported for the C128 target platform."
+			exit 1
+		elsif undo_size > max_ram_undo_size
+			puts "ERROR: Undo size (dynmem + stack + 1 page) too big for Undo RAM buffer. Undo size is #{undo_size} bytes" +
+				", while maximum allowed size is #{max_ram_undo_size} bytes."
+			exit 1
+		end
+	end
+	if undo_size > 64*1024 - 256
+		if $undo == 1
+			puts "ERROR: Dynmem + stack too large to support UNDO."
+			exit 1
+		else
+			$undo = 0
+		end
+	end
+	if $undo == 1 and $zcode_version > 4 and $story_file_data[0x11].ord & 16 == 0 then
+		puts "WARNING: Games using Z-code version 5-8 need to implement undo functionality in the game, or undo won't work. This game says it doesn't do this, so you could just as well build Ozmoo without undo support, making the interpreter a little smaller."
+	end
+	if $undo > 0
+		$GENERALFLAGS.push('UNDO')
+		$undo = 1
+	end
+end
+
 
 
 
@@ -2722,9 +3363,7 @@ end
 # ]
 # splashes[0] = filename_to_title(storyname, 40)
 splash = File.read(File.join($SRCDIR, 'splashlines.tpl'))
-version = File.read(File.join(__dir__, 'version.txt'))
-version.gsub!(/[^\d\.]/m,'')
-splash.gsub!("@vs@", version)
+splash.gsub!("@vs@", $version)
 #splash.sub!(/"(.*)\(F1 = darkmode\)/,'"          \1') if $GENERALFLAGS.include?('NODARKMODE')
 
 4.times do |i|
@@ -2743,13 +3382,13 @@ splash.gsub!("@vs@", version)
 	splash.sub!("@#{i}s@", text)
 	splash.sub!("@#{i}c@", indent.to_s)
 end
-File.write(File.join($SRCDIR, 'splashlines.asm'), splash)
+File.write(File.join($TEMPDIR, 'splashlines.asm'), splash)
 
 # Boot file name handling
 
 file_name = File.read(File.join($SRCDIR, 'file-name.tpl'))
 file_name.sub!("@fn@", $file_name)
-File.write(File.join($SRCDIR, 'file-name.asm'), file_name)
+File.write(File.join($TEMPDIR, 'file-name.asm'), file_name)
 
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128' and limit_preload_vmem_blocks == false
@@ -2760,13 +3399,22 @@ if $target != 'c128' and limit_preload_vmem_blocks == false
 	case mode
 	when MODE_S1
 		$no_sector_preload = true if 170 - used_kb > 3
-	when MODE_S2, MODE_D3, MODE_81
+	when MODE_S2, MODE_D3, MODE_71D, MODE_81
 		$no_sector_preload = true
 	when MODE_D2, MODE_71
 		$no_sector_preload = true if 340 - used_kb > 3
 	end
 end
 
+$free_blocks_for_saves = 664
+if $target == 'x16'
+	$free_blocks_for_saves = 9999 # No real limit
+elsif $target == 'mega65'
+	$free_blocks_for_saves = 3160 - ($story_size / 254) - 1 - 60 # Overestimate boot file size
+end
+save_slots = [255, $free_blocks_for_saves / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
+puts "Blocks per save: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}" if $verbose
+puts "Save slots: #{save_slots}" if $verbose
 
 build_interpreter()
 
@@ -2782,7 +3430,12 @@ if $target == 'c128'
 	end
 end
 
-if $target != 'mega65' and 
+if $target =~ /^(x16)$/ and $stackstart + 256 * $stack_pages > 0x5f00 then
+	puts "ERROR: Stack is too big. Maximum stack size is #{(0x5f00 - $stackstart) / 256} pages." 
+	exit 1
+end
+
+if $target !~ /^(mega65|x16)$/ and 
 		$storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
 	exit 1
@@ -2798,26 +3451,19 @@ if $target == 'c128' then
 	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
 	$unbanked_vmem_blocks += $dynmem_blocks
 end
-if $target != 'mega65'
+if $target !~ /^(mega65|x16)$/
 	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose
 	puts "Unbanked VMEM blocks in RAM is #{$unbanked_vmem_blocks}" if $verbose 
-	if	$unbanked_vmem_blocks < 1 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
-		puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be no unbanked RAM for VMEM." 
-		exit 1
-	end
+	# if $unbanked_vmem_blocks < 1 and $story_size != $dynmem_blocks * $VMEM_BLOCKSIZE then
+		# puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), there would be no unbanked RAM for VMEM." 
+		# exit 1
+	# end
 end
 
 if reu_boost == 1 and $target == 'c64' and $unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 256 < 12
 	puts "ERROR: REU Boost requires at least 3 KB of unbanked RAM. Dynamic memory is #{$dynmem_blocks * $VMEM_BLOCKSIZE / 1024} KB, leaving only #{$unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 1024} KB of unbanked RAM for REU Boost." 
 	exit 1		
 end
-
-############################# End of moved block
-
-save_slots = [255, 664 / (($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i].min
-#puts "Static mem start: #{$static_mem_start}"
-#puts "Save blocks: #{(($static_mem_start.to_f + 256 * $stack_pages + 20) / 254).ceil.to_i}"
-#puts "Save slots: #{save_slots}"
 
 config_data = 
 [$BUILD_ID].pack("I>").unpack("CCCC") + 
@@ -2902,7 +3548,7 @@ else # No preload data available
 	vmem_data += lowbytes;
 end
 
-if $target == 'mega65'
+if $target =~ /^(mega65|x16)$/
 	vmem_contents = '';
 else
 	vmem_contents = $story_file_data[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
@@ -2916,25 +3562,21 @@ end
 
 ############################# End of moved block
 
-limit_vmem_data_preload(vmem_data)
+if $VMEM
+	limit_vmem_data_preload(vmem_data)
+end
 
 if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
 	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
 	preload_max_vmem_blocks = vmem_data[3]
 end
 
-# if $VMEM 
-	# if mode == MODE_P
-		# puts "ERROR: Tried to use build mode -P with VMEM."
-		# exit 1
-	# end
-# elsif mode != MODE_P
-	# puts "ERROR: Tried to use build mode other than -P with VMEM disabled."
-	# exit 1
-# end
-
 case mode
 when MODE_P
+	sizediff = $story_size - $zmachine_memory_size
+	if sizediff >= 256 and sizediff < 512 then
+		$story_size -= 256;
+	end
 	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
 	error = build_P(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
 when MODE_S1
@@ -2957,16 +3599,24 @@ when MODE_D3
 when MODE_71
 	diskimage_filename = File.join($TEMPDIR, "temp1.d71")
 	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, reserve_dir_track)
+when MODE_71D
+	d71_filename_1 = File.join($TEMPDIR, "temp1.d71")
+	d71_filename_2 = File.join($TEMPDIR, "temp2.d71")
+	error = build_71D(storyname, d71_filename_1, d71_filename_2, config_data.dup, vmem_data.dup, vmem_contents, 
+		preload_max_vmem_blocks, nil)
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
 	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
+when MODE_ZIP
+	diskimage_filename = File.join($TEMPDIR, "temp1.zip")
+	error = build_zip(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
 else
 	puts "Unsupported build mode."
 	exit 1
 end
 
 if !error and auto_play then 
-	play("#{$bootdiskname}")
+	play("#{$bootdiskname}", $file_name)
 end
 
 

@@ -4,12 +4,16 @@
 
 A Z-machine interpreter for the Commodore 64 and similar computers
 
-Written by Johan Berntsson and Fredrik Ramsberg in 2018-2022
+Written by Johan Berntsson and Fredrik Ramsberg in 2018-2024
 
 ![Mini-Zork I running on Ozmoo](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/minizork.png)
 
 
 ## Status
+
+Update 2024-Mar-27: Release 14 with Commander X16 support.
+
+Update 2023-Jul-18: Release 13 with support for undo on C64 with REU, C128 and MEGA65.
 
 Update 2022-Dec-20: Release 12 with support for smooth scrolling on C64 and C128 in 40 column mode, player-selectable scroll speed and tear-free scrolling, plus optional scrollback buffer in RAM for all platforms.
 
@@ -23,7 +27,7 @@ Update 2021-Oct-03: Release 8 with MEGA65 speedups, plus optimizations and bugfi
 
 Update 2021-May-04: Release 7 with new MEGA65 target, improved z3 statusline on 80 column displays.
 
-Update 2021-Mar-19: Release 6 with input history, input colours, a new font and bug fixes.
+Update 2021-Mar-19: Release 6 with command history, input colours, a new font and bug fixes.
 
 Update 2021-Mar-02: There is now an official port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmoo.html).
 
@@ -79,11 +83,11 @@ Ozmoo supports:
 * Custom character mappings, allowing for games using accented characters. Comes with predefined mappings for Swedish, Danish, German, Italian, Spanish and French.
 * Custom colour schemes.
 * A fully configurable secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
-* A scrollback buffer, letting the player reread the text that has scrolled off the screen. Requires a MEGA65, a C64 with an REU or a C128 with an REU.
+* Undo, for all Z-code versions, i.e. the player can undo their last move. Requires a C64 with REU, a C128 or a MEGA65.
+* A scrollback buffer, letting the player reread the text that has scrolled off the screen. Can use an REU, or a smaller buffer in RAM.
 * A configurable splash screen which is shown just before the game starts.
-* Up to ten save slots on a save disk (and most games will get the full ten slots).
-* Writing a name for each saves position.
-* Building a Z-code game without virtual memory (C64 and Plus/4 only). This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
+* Named saved game states, with up to ten save slots on a save disk.
+* Building a Z-code game without virtual memory (C64 and Plus/4 only). This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. Save/restore does require a diskdrive. Also, a game built in this mode doesn't support RESTART.
 * Building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator. Ozmoo uses the 1581 disk format's partitioning mechanism to protect the game data from being overwritten, which means you can safely use the game disk for game saves as well, thus eliminating the need for disk swapping when saving/restoring.
 * Using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
 
@@ -97,7 +101,7 @@ There is a port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmo
 
 ## Building and running
 
-The simplest option is to use [Ozmoo Online](http://microheaven.com/ozmooonline/), a web page we have setup where you can build games with Ozmoo without installing anything on your computer. It supports all of the most important features. If you want to be able to use all the features and have full control of the build process, this is not the option for you.
+The simplest option is to use [Ozmoo Online](http://ozmoo.online), a web page we have setup where you can build games with Ozmoo without installing anything on your computer. It supports all of the most important features. If you want to be able to use all the features and have full control of the build process, this is not the option for you.
 
 The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X.
 

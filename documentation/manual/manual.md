@@ -2,13 +2,11 @@
 
 # Overview
 
-Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64 and similar computers.  While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters on the C64 can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
-
-Ozmoo was originally only developed for the Commodore 64, but it is structured so that it is fairly easy to retarget Ozmoo to computers with similar architecture. Apart from Commodore 64, Ozmoo can currently target the Commodore 128, the Commodore Plus/4 and the MEGA65 computers. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants).
+Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and games written in Inform, ZIL or Dialog. Ozmoo can be used for new interactive fiction works on the Commodore 64, Commodore 128, Commodore Plus/4, Commander X16 and MEGA65. There is also a fork of Ozmoo for the Acorn computers (BBC Micro and other variants). While the old Infocom interpreters are still available, the license situation is not clear so it is risky to use in new work, especially commercial. Furthermore, some of the newer Inform-based games use features which the old Infocom interpreters can't handle. Ozmoo is written to provide a free alternative that doesn't have these risks and limitations.
 
 ## Features
 
-Ozmoo for the Commodore 64 supports:
+Ozmoo supports:
 
 - Z-code version 1, 2, 3, 4, 5, 7 and 8. Essentially this covers all games except for the Infocom games with graphics.
 - Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
@@ -18,12 +16,14 @@ Ozmoo for the Commodore 64 supports:
 - Custom colour schemes.
 - A fully configurable secondary colour scheme (darkmode) which the player can toggle by pressing the F1 key.
 - A configurable splash screen which is shown just before the game starts.
-- Up to ten save slots on a save disk (and most games will get the full ten slots).
+- Up to ten save slots on a save disk.
 - Writing a name for each saves position.
-- Building a Z-code game without virtual memory. This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
+- Building a game for play on systems with dual 1541 or 1571 drives, which allows for larger games. Even games that could be played on a single drive can benefit, as using two drives means the read heads need to move less.
+- Building a Z-code game without virtual memory (C64 and Plus/4 only). This means the whole game must fit in RAM at once, imposing a size restriction of about 50-52 KB. A game built this way can then be played on a C64 without a diskdrive. This far, save/restore does require a diskdrive, but there may be a version with save/restore to tape in the future. Also, a game built in this mode doesn't support RESTART.
 - Building a game as a d81 disk image. This means there is room for any size of game on a single disk. A d81 disk image can be used to create a disk for a 1581 drive or it can be used with an SD2IEC device or, of course, an emulator. Ozmoo uses the 1581 disk format's partitioning mechanism to protect the game data from being overwritten, which means you can safely use the game disk for game saves as well, thus eliminating the need for disk swapping when saving/restoring.
 - Using an REU (Ram Expansion Unit) for caching. The REU can also be used to play a game built for a dual disk drive system with just one drive.
-- Adding a loader which shows an image while the game loads.
+- Adding a loader which shows an image while the game loads (C64, Plus/4 and MEGA65 only).
+- Undo support (requires an REU on C64. See separate chapter on Undo for details).
 
 ## Limitations
 
@@ -35,7 +35,7 @@ Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game
 
 # Quickstart
 
-The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: http://microheaven.com/ozmooonline/
+The simplest option is to use Ozmoo Online, a web page where you can build games with Ozmoo without installing anything on your computer. It supports most of the options Ozmoo has. Ozmoo online is located at: [http://ozmoo.online](http://ozmoo.online)
 
 The other option is to install Ozmoo on your computer. This can be done on Windows, Linux and Mac OS X. To build a game, you run something like "ruby make.rb game.z5" Add -s to make the game start in Vice when it has been built. 
 
@@ -45,19 +45,27 @@ You need to install:
 
 - Acme cross-assembler
 - Exomizer file compression program (tested with 3.0.0, 3.0.1 and 3.0.2)
-- Ruby (Tested with 2.4.2, but any 2.4 version should work fine)
+- Ruby (Tested with 2.4.2 and 3.3.5, but any version in between should work fine)
 - The Vice emulator to test C64, C128 and Plus/4 builds on virtual hardware
 - The xemu-xmega65 emulator if you want to test MEGA65 builds on virtual hardware
+- A zip program if you want to build games for X16
+- The Commander X16 emulator if you want to test X16 builds on virtual hardware
 
 #### Windows
 
-Acme can be downloaded from SourceForge: https://sourceforge.net/projects/acme-crossass/
+Acme can be downloaded from SourceForge: [https://sourceforge.net/projects/acme-crossass/](https://sourceforge.net/projects/acme-crossass/)
 
-Exomizer can be downloaded from Bitbucket. The download includes binaries for Windows: https://bitbucket.org/magli143/exomizer/wiki/browse/downloads
+Exomizer can be downloaded from Bitbucket. The download includes binaries for Windows: [https://bitbucket.org/magli143/exomizer/wiki/browse/downloads](https://bitbucket.org/magli143/exomizer/wiki/browse/downloads)
 
-Get WinVice from SourceForge: http://vice-emu.sourceforge.net/windows.html
+Get WinVice from SourceForge: [http://vice-emu.sourceforge.net/windows.html](http://vice-emu.sourceforge.net/windows.html)
 
-You can get Ruby from RubyInstaller: https://rubyinstaller.org/
+You can get Ruby from RubyInstaller: [https://rubyinstaller.org/](https://rubyinstaller.org/)
+
+Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.lgb.hu/xemu/), and read the instructions on setting it up at [https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart](https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart)
+
+Get 7-Zip from [https://www.7-zip.org/](https://www.7-zip.org/)
+
+The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
 
 ####  Linux
 
@@ -80,9 +88,29 @@ Ruby is available on Debian/Ubuntu with:
 
     > sudo apt install ruby
 
+Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.lgb.hu/xemu/), and read the instructions on setting it up at [https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart](https://github-wiki-see.page/m/lgblgblgb/xemu/wiki/MEGA65-quickstart)
+
+The zip program that ships with Linux is all you need for zipping Ozmoo games for X16.
+
+The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
+
 ## Customizing the make script
 
-Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, Exomizer, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.  If you are using Windows, you can ignore the section on Linux and vice versa.
+Edit the file make.rb. At the top of the file, you need to specify paths to the Acme assembler, Exomizer, the Vice C64 emulator, and the program "c1541" which is also included in the Vice distribution.  If you are using Windows, you can ignore the section on Linux and vice versa. Another option is to create a .ozmoorc file, see the following section.
+
+## Creating a .ozmoorc File
+
+If you sometimes update Ozmoo to a new version, you may grow tired of updating the paths to different programs in make.rb. What you can do instead is create a file called ".ozmoorc" where you specify the paths you'd otherwise need to edit. make.rb will look for such a file in three locations, in this order: 
+* the folder specified by the environment variable OZMOO_HOME, if any
+* current working directory (cwd)
+* HOME directory (on Windows, this is typically something like "C:\\Users\\MyName"). 
+
+The first file found is the only one used.
+
+The file can contain any number of lines. Each line consists of a path identifier, equal character + greater than character ("=>"), and the path value. E.g. to set a path to your local copy of X16emu, you look at the beginning of make.rb and find that the identifier for this path is "X16", and so you might put this in the ".ozmoorc" file:
+```
+  X16  =>  C:\MyEmulators\x16emu\x16emu.exe
+``` 
 
 ## View all commandline options for make.rb
 
@@ -116,6 +144,15 @@ Use these steps:
 
 Repeat step 5 for all platforms you want to build the game for.
 
+## Build a game in Benchmark Mode
+
+`ruby make.rb -bm hollywood_hijinx.z3`
+
+In this mode, Ozmoo loads a walkthrough for the game from the file benchmarks.json. When launched, the interpreter will play through the game automatically. The pseudo-random-number-generator gets seeded so the same walkthrough will work on every playthrough. On the first and last move, the interpreter prints the number of jiffies (1/60th seconds) elapsed since the computer was powered on, according to the system clock.
+
+This functionality can be used to measure performance gains when tweaking the interpreter code, or to just check that some select games can still be played through from start to finish.
+
+Open the file benchmarks.json in a text editor to see the title, release and serial numbers for the games that the walkthroughs are for. If the serial and release for the current walkthrough don't match one of the walkthroughs in the json file, an error message is printed when using -bm to build Ozmoo. 
 
 # Targets
 
@@ -127,30 +164,35 @@ Ozmoo was originally written for the Commodore 64, but has been adapted for some
 | -t:c128 | Build Ozmoo for the Commodore 128 |
 | -t:plus4 | Build Ozmoo for the Commodore Plus/4 |
 | -t:mega65 | Build Ozmoo for the MEGA65 |
+| -t:x16 | Build Ozmoo for the Commander X16 |
 
 Note that not all build options are supported for every platform. If an option isn't supported, the make.rb script will stop with an appropriate error message, and no Ozmoo files will be produced.
 
 ## Commodore 64
 
-The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than  about 30 KB may not be advisable. An REU can be used for caching if present.
+The Commodore 64 version is the default build target, and supports all build options. A game can have about 35 KB of dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than  about 30 KB may not be advisable. An REU can be used for caching if present. A loader image can be used, see [Loader image](#loader-image).
 
 ## Commodore 128
 
-The Commodore 128 version automatically detects if it is started from 40 or 80 columns mode, and adjusts to the screen size. When run in 80 column mode, the CPU runs at 2 MHz, making for quite responsive games. It makes use of the additional ram available compared to the Commodore 64 version, and allows for games with up to 44 KB dynamic memory. An REU can be used for caching if present. 
+The Commodore 128 version automatically detects if it is started from 40 or 80 columns mode, and adjusts to the screen size. When run in 80 column mode, the CPU runs at 2 MHz, making for quite responsive games. It makes use of the additional ram available compared to the Commodore 64 version, and allows for games with up to 44 KB dynamic memory. An REU can be used for caching if present. A loader image can be shown on the 40-column screen, see [Loader image](#loader-image).
 
-The Commodore 128 version does not allow a loader image, and build mode -P is not supported. Commodore 128 is the only target which can use build mode -71.
+The Commodore 128 version does not support build mode -P. The default build mode for Commodore 128 is -71. For large z8 games, mode -71D is also available (requiring dual 1571 drives, or a single 1571 drive and an REU).
 
 ## Commodore Plus/4
 
-The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than about 30 KB may still not be advisable.
+The Commodore Plus/4 version makes use of the simplified memory map compared to the Commodore 64 version, allowing for games with up to 46 KB dynamic memory. Games will need to do more disk access the more dynamic memory they have, so more than about 30 KB may still not be advisable. A loader image can be used, see [Loader image](#loader-image).
 
 ## MEGA65
 
-The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. A loader image is currently not supported.
+The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. Undo is enabled by default for games that support it. A loader image can be used, see [Loader image](#loader-image).
+
+## Commander X16
+
+The Commander X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game. Undo is supported. Unlike the other platforms, scrollback buffer is currently not supported on the X16. The only supported build mode is ZIP.
 
 ## Other targets
 
-A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at https://github.com/ZornsLemma/ozmoo/tree/acorn. Note that this fork is using a different build script called make-acorn.py.
+A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at [https://github.com/ZornsLemma/ozmoo/tree/acorn](https://github.com/ZornsLemma/ozmoo/tree/acorn). Note that this fork is using a different build script called make-acorn.py.
 
 # Build Modes
 
@@ -238,6 +280,17 @@ Disks used:
 
 - Boot / Story disk
 
+### Modes requiring two 1571 drives for play:
+
+71D: _Double 1571 drives, two disks_
+
+Any story size: Full preloading. Full amount of RAM available for virtual memory system.
+
+Disks used:
+
+- Boot disk / Story disk 1
+- Story disk 2
+
 ### Modes requiring a 1581 drive for play:
 
 81: _Single 1581 drive, one disk_
@@ -250,9 +303,13 @@ Disks used:
 
 - Boot / Story disk
 
-### Modes requiring an SD2IEC:
+### Archive Modes
 
-To be added at a later date. An SD2IEC mode could enable full 512 KB story sizes.
+ZIP: _Compressed archive with game and story data_
+
+Any story size: Full preloading. Full amount of RAM available for virtual memory system.
+
+Creates a ZIP archive containing a folder with two files, the game executable and the zcode story file. This is currently only used for X16 targets.
 
 # Splash Screen
 
@@ -277,9 +334,11 @@ ruby make.rb supermm.z5 -ss1:"Super Mario Murders" -ss2:"A coin-op mystery" \
 
 # Colours
 
-
 Ozmoo lets you pick two different colour schemes for your game. We refer to these two colour schemes as normal mode and darkmode. The idea is that you may want lighter text on a dark background when playing at night, while dark text on a light background has proven to be easier to read, in well-lit conditions. Ozmoo will always start in normal mode, and the player can switch between normal mode and darkmode using the F1 key. When switching modes, Ozmoo will change the colour of all onscreen text which has the default foreground colour *or* which has the same colour as the background colour in the mode it's switching to and thus would otherwise become invisible.
 
+## A word of caution
+
+The C64 has severe problems showing certain colours next to each other, e.g. brown text on blue background is typically impossible to read. As a rule of thumb, when two colours are to be next to each other on screen, make sure one of them is black or white, and the other has a reasonably high contrast to the first colour. E.g. Blue text on white background is fine, as is black text on light green background. 
 
 ## Colour switches
 
@@ -288,37 +347,79 @@ make.rb has the following switches to control colours:
     -dm:0
 Disables darkmode. (-dm or -dm:1 can be used to enable it, but it's already enabled by default unless the game is Beyond Zork)
 
-    -rc:(Z-code colour)=(C64 colour), ...
-Replace colours: Replaces one or more colours in the Z-code palette with the specified colours in the C64 palette.
+	-fgcol:<colourname>
+Foreground colour: This picks the colour to use as default foreground colour. (Games in z5+ format can change this colour at will)
 
-    -dc:(Default background colour):(Default foreground colour)
-Default colours: This picks the Z-code colours to use as default background and foreground colours.
+	-bgcol:<colourname>
+Background colour: This picks the colour to use as default background colour. (Games in z5+ format can change this colour at will)
 
-    -sc:(Statusline colour)
-Statusline colour: This picks the Z-code colour to use as statusline colour. This is only possible with version 1, 2 and 3 story files (z1/z2/z3).
+    -bordercol:<colourname>
+Border colour. This picks the colour to use as border colour. 
+Special colournames: bg = same as background colour (default), fg = same as foreground colour. If the game itself changes the screen colours, as games in z5+ format may do, values bg and fg mean the border changes too.
 
-    -ic:(Input colour)
-Input colour: This picks the Z-code colour to use for player input text. This is only possible with version 1, 2, 3 and 4 story files (z1/z2/z3/z4).
+    -statuscol:<colourname>
+Statusline colour: This picks the colour to use as statusline colour. This is only possible with version 1, 2 and 3 story files (z1/z2/z3).
 
-    -bc:(Border colour)
-Border colour. This picks the Z-code colour to use as border colour. 
-Special values: 0 = same as background colour (default), 1 = same as foreground colour. If the game itself changes the screen colours, as it may do in Z5+ games, values 0 and 1 mean the border changes too.
+    -inputcol:<colourname>
+Input colour: This picks the colour to use for player input text. This is only possible with version 1, 2, 3 and 4 story files (z1/z2/z3/z4).
 
-    -cc:(Cursor color)
-Cursor colour: This picks the Z-code colour for the cursor shown when waiting for player input. 1 = same as foreground colour (default). If the game itself changes the screen colours, as it may do in Z5+ games, value 1 mean the cursor changes too.
+    -cursorcol:<colourname>
+Cursor colour: This picks the colour for the cursor shown when waiting for player input. fg = same as foreground colour (default). If the game itself changes the foreground colour, as games in z5+ format may do, value fg mean the cursor changes too.
 
 
-    -dmdc: (same as -dc but for darkmode)
+    -dmfgcol: (same as -fgcol but for darkmode)
 
-    -dmsc: (same as -sc but for darkmode)
+    -dmbgcol: (same as -bgcol but for darkmode)
 
-    -dmic: (same as -ic but for darkmode)
+    -dmbordercol: (same as -bordercol but for darkmode)
 
-    -dmbc: (same as -bc but for darkmode)
+    -dmstatuscol: (same as -statuscol but for darkmode)
 
-    -dmcc: (same as -dc but for darkmode)
+    -dminputcol: (same as -inputcol but for darkmode)
 
-## Cursor switches
+    -dmcursorcol: (same as -cursorcol but for darkmode)
+
+## Palette
+
+Z-code normally has a palette of eight colours, numbered 2-9:
+
+```
+    2 = black        (blk, black)           
+    3 = red          (red)
+    4 = green        (grn, green)
+    5 = yellow       (yel, yellow)
+    6 = blue         (blu, blue)
+    7 = magenta      (magenta, pur, purple)
+    8 = cyan         (cyn, cyan)
+    9 = white        (wht, white)
+```
+
+Additionally, Ozmoo provides eight more colours in the palette:
+
+```
+    16 = orange      (orng, orange)
+    17 = brown       (brn, brown)
+    18 = light red   (lred, lightred)   
+    19 = dark grey   (dgry, darkgrey, dgrey, darkgray, dgray) 
+    20 = medium grey (mgry, mediumgrey, mgrey, grey, mediumgray, mgray, gray)       
+    21 = light green (lightgreen, lgreen)   
+    22 = light blue  (lblu, lightblue, lblue)     
+    23 = light grey  (lgry, lightgrey, lgrey, lightgray, lgray)
+```
+
+The names in parenthesis are some of the synonyms you can use to refer to the colours on the command line. The short forms of the colours (e.g. blk and mgry) are the names printed on the key caps of the C64 and MEGA65.
+
+These sixteen colours are the colours that are provided by the C64. On other platforms, the same sixteen colours or approximations of these colours are used.
+
+## An example of setting colours
+Use cyan text on black background, have the border be the same colour as the text, and make the statusbar light grey (Please note that specifying the colour of the statusbar only works for z2/z2/z3 games!):
+
+```
+make.rb -fgcol:cyan -bgcol:black -bordercol:fg -statuscol:lightgrey game.z3
+```
+
+
+# Cursor switches
 
 The shape and the blinking of the cursor can also be customized:
 
@@ -327,62 +428,6 @@ Cursor blinking frequency. delay is 1 to 99, where 1 is fastest.
 
     -cs:(Cursor shape)
 Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore shape and l=line shape.
-
-## Palette
-
-Z-code has a palette of 8 colours, numbered 2-9:
-
-    2 = black       
-    3 = red         
-    4 = green       
-    5 = yellow      
-    6 = blue        
-    7 = magenta     
-    8 = cyan        
-    9 = white       
-
-The Commodore 64 has 16 colours, numbered 0-15:
-
-    0 = black
-    1 = white
-    2 = red
-    3 = cyan
-    4 = purple
-    5 = green
-    6 = blue
-    7 = yellow
-    8 = orange
-    9 = brown
-    10 = pink
-    11 = dark grey
-    12 = grey
-    13 = light green
-    14 = light blue
-    15 = light grey
-
-When building Ozmoo for the Plus/4, Ozmoo has a list of Plus/4 colours which are approximately equivalent to the 16 colours of the C64. Thus, you use the same colour numbers as for the C64 when referring to "native" (non Z-code) colours.
-
-The 80-column mode of the C128 has a different and rather limited palette. Ozmoo tries to use colours which are approximately the same as the C64 colours.
-
-## Examples
-
-Use cyan text on black background with a yellow statusbar (Please note that specifying the colour of the statusbar only works for z2/z2/z3 games!):
-
-```
-make.rb -dc:2:8 -sc:5 game.z3
-```
-
-Change so Z-code color 7 is dark grey instead of magenta and Z-code color 8 is light grey instead of cyan, and use these as default colors:
-
-```
-make.rb -rc:7=11,8=15 -dc:7:8 game.z5
-```
-
-Setting up the default palette (even though this isn't useful) is equivalent to using:
-
-```
-make.rb -rc:2=0,3=2,4=5,5=7,6=6,7=4,8=3,9=1 game.z5
-```
 
 # Fonts
 
@@ -439,11 +484,11 @@ Since sound effect 1 and 2 are reserved for beeps, the sample based sound effect
 
 ## Legacy support for Sherlock and The Lurking Horror
 
-Ozmoo includes support for Sherlock and The Lurking Horror from Infocom, with sound effects. While they can't be built with sound support on Ozmoo Online, there is a link there to download them for the MEGA65. Go to https://microheaven.com/ozmooonline/ and search for "sherlock" on the page. 
+Ozmoo includes support for Sherlock and The Lurking Horror from Infocom, with sound effects. While they can't be built with sound support on Ozmoo Online, there is a link there to download them for the MEGA65. Go to [https://microheaven.com/ozmooonline/](https://microheaven.com/ozmooonline/) and search for "sherlock" on the page. 
 
-If you have Ozmoo installed on your own computer, you can download a Blorb archive of AIFF versions of the sound files from: https://ifarchive.org/indexes/if-archive/infocom/media/blorb/
+If you have Ozmoo installed on your own computer, you can download a Blorb archive of AIFF versions of the sound files from: [https://ifarchive.org/indexes/if-archive/infocom/media/blorb/](https://ifarchive.org/indexes/if-archive/infocom/media/blorb/)
 
-The individial sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html
+The individual sound files must be extracted from the archive. For blorb files there are various tools, such as rezrov, available: [https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html](https://ifarchive.org/indexes/if-archiveXprogrammingXblorb.html)
 
 The AIFF files should be moved to a folder that is later included with the -asa switch when using the make.rb script to build the game. Make sure that the filenames follow the pattern described above (starting with 003.aiff). 
 
@@ -453,11 +498,19 @@ Example: assuming that the sound files are stored in a folder called "lurking_so
 
 # Loader image
 
-When building for the Commodore 64 or Plus/4, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be a Koala paint multicolour image (10003 bytes in size) when building a game for the C64, or a Multi Botticelli multicolour image (10050 bytes in size) when building a game for the Plus/4. Border flicker is not supported for the Plus/4. Example commands:
+When building for the Commodore 64, 128, the Plus/4, or the MEGA65, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be:
+
+- For C64: a Koala Paint multicolour image (10003 bytes in size) 
+- For C128: a Koala Paint multicolour image (10003 bytes in size). This image is shown on the 40-column display. 
+- For Plus/4: a Multi Botticelli multicolour image (10050 bytes in size)
+- For MEGA65: an IFF image in 320x200 resolution, with 1-8 bitplanes. One way to convert an image to this format is to use [megascr.sh](https://files.mega65.org?id=85edcc24-c477-4f25-8cf3-f91359586a73).
+
+Border flicker is only supported for the C64. Example commands:
 
 ```
 make.rb -if mountain.kla game.z5
-make.rb -i spaceship.mb -t:plus4 game.z5
+make.rb -i spaceship.mbo -t:plus4 game.z5
+make.rb -i city.iff -t:mega65 game.z5
 ```
 
 # Command line history
@@ -471,6 +524,14 @@ enable it use -ch or -ch:1. This will allocate a history buffer large enough to 
 
 Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. This feature uses an REU if available on C64 or C128, and AtticRAM on MEGA65. Optionally, it can use a smaller portion of RAM on Plus/4 as well as C64 or C128 without REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0. Add a RAM buffer on Plus/4, C64 or C128 with -sb:6|8|10|12.
 
+# Undo
+
+This feature allows the game state to be saved to memory each turn, so the player can undo the last turn. It is enabled by default on the MEGA65. It's also available for Commander X16, and C64 and C128 computers that use a RAM Expansion Unit. For C128 only, there is also an option to use undo without requiring an REU, by allocating some of the RAM as an undo buffer, for games with a moderately large dynamic memory.
+
+In addition to the standard undo support for z5+ games (enabling the UNDO command which many games have), Ozmoo adds a keyboard shortcut (Ctrl-U) to enable undo for z1-z4 games.
+
+To build a game with undo support, use option -u or -u:1. To disabled undo support, use -u:0 (for MEGA65, where it's otherwise enabled by default). Use -u:r to enable undo using REU *and* allocate a RAM buffer to use if no REU is detected (C128 only). 
+
 # Smooth scrolling
 
 This feature adds smooth scrolling support. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience.
@@ -481,6 +542,10 @@ Smooth scrolling is automatically activated at program startup if the support wa
 
 # Miscellaneous options
 
+## Option -df:n
+
+-df:n provides additional control to the ZIP build mode. ZIP mode creates a folder, adding the game binary and the zcode story file to it, and then compressing the folder into the final zip archive. -df controls what will happen with this temporary folder. The accepted values are 0 (create zip archive and keep the folder), 1 (delete the folder if zip archive created successfully) and f ('force'/always delete the folder). The default is 0.
+
 ## Option -sp:n
 
 -sp:n is used to set the size of the Z-machine stack, in pages (1 page = 256 bytes). The default value is 4. Many games, especially ones from Infocom, can be run with just two pages of stack. The main reason for reducing this to two pages would be to squeeze in a slightly bigger game in build mode P, or to build a game where dynamic memory is slightly too big with the standard settings.
@@ -490,6 +555,10 @@ To run an Inform 7 game (which may be feasible on the MEGA65), you want to set t
 ## Option -cm:[xx]
 
 Ozmoo has some support for using accented characters in games. This is documented in detail in the tech report, but assuming that suitable fonts and character maps have been prepared, the -cm option is used to enable this character map. By default, Ozmoo has support for these character maps: sv, da, de, it, es and fr, for Swedish, Danish, German, Italian, Spanish and French, respectivily.
+
+## Option -um:[:0|1]
+
+This enables or disables the default unicode table mapping. I.e. if a game tries to print one of the 69 characters that are in the default Z-code unicode table, and the character has not been remapped to a special character using -cm, Ozmoo maps it to the closest single-character approximation, and prints that instead. E.g. "ä" is printed as "a". This feature is enabled by default. Disabling it saves 83 bytes.
 
 ## Option -in:[n]
 
@@ -522,3 +591,11 @@ The interpreter number is used by a few games to modify the screen output format
 ## Option -sl[:0|1]
 
 -sl or -sl:1 enables slow mode, while -sl:0 disables it. This has an effect on builds for C64 only, and not in -P build mode. Slow mode removes some optimizations for speed, making the interpreter slightly smaller.
+
+## Option -vo[:0|1]
+
+-vo or -vo:1 enables continuous virtual memory optimization, while -vo:0 disables it. This can only be used on C64 and C128, not in -P build mode, and it is enabled by default. While the game is being played, it moves different vmem blocks around in memory, so blocks that are used often are placed in memory that can be accessed quickly. This feature typically makes a substantial difference in terms of performance, when playing without using an REU for caching game data. For games with huge dynamic memory, it may still be preferrable to turn it off. Turning it off also saves ~430 bytes on C64, ~640 bytes on C128.
+
+## Option -x[:0|1]
+
+Auto-replace X with EXAMINE. Default is to enable this for Infocom games that need it only.

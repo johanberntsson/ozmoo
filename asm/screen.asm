@@ -11,12 +11,12 @@
 }
     sty window_start_row + 2
     sty window_start_row + 1
-    ldy #SCREEN_HEIGHT
+    ldy s_screen_height
     sty window_start_row
     ldy #0
     sty is_buffered_window
     ldx #$ff
-    jmp erase_window
+    jsr erase_window
 }
 
 ;init_screen_colours_invisible
@@ -27,6 +27,7 @@ init_screen_colours
 	; calculate the position for the more prompt
 	; (self modifying code since we don't want to
 	; ZP space is limited)
+!ifndef TARGET_X16 {
 	lda s_screen_size + 1
 	clc
 	adc #>SCREEN_ADDRESS
@@ -48,7 +49,9 @@ init_screen_colours
 	sta .more_access3 + 1
 }
 	sta .more_access4 + 1
+}
 	; colours
+!ifdef NODARKMODE {
 	lda zcolours + FGCOL
 !if BORDERCOL_FINAL = 1 {
 	+SetBorderColour
@@ -79,16 +82,22 @@ init_screen_colours
 	ldy #header_default_fg_colour
 	jsr write_header_byte
 }
-	lda #147 ; clear screen
-	jsr s_printchar
-!ifndef NODARKMODE {
+} else { ; Darkmode is available
 	lda darkmode
-	beq +
-	dec darkmode
-	jmp toggle_darkmode
-+	
+	eor #1
+	sta darkmode
+	jsr toggle_darkmode
 }
-	rts	
+	lda #147 ; clear screen
+	jmp s_printchar
+; !ifndef NODARKMODE {
+	; lda darkmode
+	; beq +
+	; dec darkmode
+	; jmp toggle_darkmode
+; +	
+; }
+;	rts	
 
 !ifdef Z4PLUS {
 z_ins_erase_window
@@ -130,13 +139,14 @@ erase_window
 	lda window_start_row + 1
 .clear_from_a
 	sta zp_screenrow
--   jsr s_erase_line
+-	lda zp_screenrow
+	cmp s_screen_height
+	bcs +
+	jsr s_erase_line
 	inc zp_screenrow
-	lda zp_screenrow
-	cmp #25
-	bcc -
+	bne - ; Always branch
 	jsr clear_num_rows
-	; set cursor to top left (or, if Z4, bottom left)
++	; set cursor to top left (or, if Z4, bottom left)
 	pla
 	ldx #0
 	stx cursor_column + 1
@@ -146,7 +156,7 @@ erase_window
 !ifdef Z5PLUS {
 	lda window_start_row + 1
 } else {
-	lda #24
+	lda s_screen_height_minus_one
 }
 	stx cursor_row + 1
 	pha
@@ -302,12 +312,6 @@ start_buffering
 	sty last_break_char_buffer_pos
 	rts
 
-!ifndef Z4PLUS {
-.max_lines = 24
-} else {
-.max_lines = 25
-}
-
 z_ins_split_window
 	; split_window lines
 	ldx z_operand_value_low_arr
@@ -325,9 +329,15 @@ split_window
 	stx window_start_row + 1
 	rts
 .split_window
-	cpx #.max_lines
+!ifndef Z4PLUS {
+	cpx s_screen_height_minus_one
 	bcc +
-	ldx #.max_lines
+	ldx s_screen_height_minus_one
+} else {
+	cpx s_screen_height
+	bcc +
+	ldx s_screen_height
+}
 +	txa
 	clc
 	adc window_start_row + 2
@@ -423,8 +433,9 @@ z_ins_set_cursor
 	ldy current_window
 	beq .do_nothing_2
 	ldx z_operand_value_low_arr ; line 1..
+	beq + ; If line is 0, it's a mistake - they mean line 1.
 	dex ; line 0..
-	ldy z_operand_value_low_arr + 1 ; column
++	ldy z_operand_value_low_arr + 1 ; column
 	dey
 	jmp set_cursor
 }
@@ -470,6 +481,34 @@ vdc_hide_more
 	jmp VDCWriteReg
 }
 
+!ifdef TARGET_X16 {
+
+.vera_more_temp !byte 0
+vera_show_more
+	sty .vera_more_temp
+	lda s_screen_height_minus_one
+	sta zp_screenline + 1
+	lda #$2a + 128
+	bne .vera_common_more ; Always branch
+
+vera_hide_more
+	sty .vera_more_temp
+	lda s_screen_height_minus_one
+	sta zp_screenline + 1
+	lda #32
+.vera_common_more
+	ldy s_screen_width_minus_one
+	jsr VERAPrintChar
+	; lda s_colour
+	; jsr VERAPrintColourAfterChar
+	lda zp_screenrow
+	sta zp_screenline + 1
+	ldy .vera_more_temp
+	rts
+}
+
+
+
 increase_num_rows
 	lda current_window
 	bne .increase_num_rows_done ; Upper window is never buffered
@@ -487,8 +526,8 @@ show_more_prompt
 	jsr clear_num_rows
 
 !ifdef TARGET_C128 {
-    ldx COLS_40_80
-    beq +
+    bit COLS_40_80
+    bpl +
     ; 80 columns
 	jsr vdc_show_more
 	jmp .alternate_colours
@@ -500,7 +539,11 @@ show_more_prompt
 	sta .more_text_char
 	lda #128 + $2a ; screen code for reversed "*"
 .more_access2
-	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1) 
+!ifndef TARGET_X16 {
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+} else {
+	lda $8000
+}
 
 	; wait for ENTER
 .alternate_colours
@@ -514,26 +557,46 @@ show_more_prompt
 	tya
 	and #1
 	beq +
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl +++
+	; 80 columns
+	jsr vdc_hide_more
+	jmp ++
+	; 40 columns
++++	ldx reg_backgroundcolour
+} else ifdef TARGET_X16 {
+	jsr vera_hide_more
+	jmp ++
+} else {
 	ldx reg_backgroundcolour
+}
 +
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl ++
+	; 80 columns
+	jsr vdc_show_more
+} else ifdef TARGET_X16 {
+	jsr vera_show_more
+}
+++
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
-!ifdef TARGET_C128 {
-    lda COLS_40_80
-    bne .check_for_keypress
-    ; Only show more prompt in C128 VIC-II screen
-}
 .more_access3
+!ifndef TARGET_X16 {
 	stx COLOUR_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+} else {
+	ldx $8000
+}
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
 }
 .check_for_keypress
 	ldx #40
----	lda ti_variable + 2 ; $a2
--	cmp ti_variable + 2 ; $a2
-	beq -
+---
+	jsr wait_a_jiffy
 	jsr getchar_and_maybe_toggle_darkmode
 	cmp #0
 	bne +
@@ -543,8 +606,8 @@ show_more_prompt
 +
 }
 !ifdef TARGET_C128 {
-    ldx COLS_40_80
-    beq +
+    bit COLS_40_80
+    bpl +
     ; 80 columns
 	jsr vdc_hide_more
 	jmp .increase_num_rows_done
@@ -553,7 +616,12 @@ show_more_prompt
 }
 	lda .more_text_char
 .more_access4
+!ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
+} else {
+	lda $8000
+	jsr vera_hide_more
+}
 .increase_num_rows_done
 	rts
 
@@ -576,12 +644,14 @@ printchar_flush
 	stx last_break_char_buffer_pos
 	jsr print_line_from_buffer
 	
+	bcs + ; The line couldn't be printed
 	ldx buffer_index
 	dex
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
++
 
 	; ldx first_buffered_column
 ; -   cpx buffer_index
@@ -606,9 +676,15 @@ printchar_flush
 
 print_line_from_buffer
 	; Prints the text from first_buffered_column to last_break_char_buffer_pos
+	ldx window_start_row + 1
+	cpx s_screen_height
+	bcc +
+	; There is no free line to print on, return with carry set
+	rts
++
 !ifdef TARGET_C128 {
-	lda COLS_40_80
-	bne +
+	bit COLS_40_80
+	bmi +
 	jmp .printline40
 
 +	lda zp_screenline + 1
@@ -626,7 +702,7 @@ print_line_from_buffer
 
 	ldx first_buffered_column
 -   cpx last_break_char_buffer_pos
-	beq .done_print_80
+	bcs .done_print_80
 	lda print_buffer,x
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,x
@@ -669,50 +745,75 @@ print_line_from_buffer
 	jsr VDCWriteReg
 	ldx #VDC_COUNT
 	pla
-	pha
 	sec
 	sbc #1
 	jsr VDCWriteReg
-	pla
 	
 .dont_colour_80	
 }
-	clc
-	adc zp_screencolumn
-	sta zp_screencolumn
-
-	jmp +++ ; Always branch
+	jmp .done_print_line_from_buffer
 	
 .printline40
 }
 
-!ifdef TARGET_MEGA65 {
-	jsr colour2k	
-}
+!ifdef TARGET_X16 {
 	ldy first_buffered_column
+	cpy last_break_char_buffer_pos
+	bcs ++
+	lda print_buffer2,y
+	sta s_reverse
+	lda print_buffer,y
+	jsr s_printchar
+	iny
+	dec zp_screencolumn ; I have no idea why we need to do this, but we do...
+
+	; Keep colour + background in x
+	ldx vera_composite_colour
+	; lda s_colour
+	; ora vera_background
+	; tax
+	
 -   cpy last_break_char_buffer_pos
-	beq ++
+	bcs ++
 	lda print_buffer,y
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,y
-	sta (zp_screenline),y
-!ifdef COLOURFUL_LOWER_WIN {
-!ifdef TARGET_PLUS4 {
-	ldx s_colour
-	lda plus4_vic_colours,x
-} else {
-	lda s_colour
-}
-	sta (zp_colourline),y
-}
+	sta VERA_data0
+	stx VERA_data0
 	iny
 	bne - ; Always branch
+++
+	
+} else {
+	!ifdef TARGET_MEGA65 {
+		jsr colour2k	
+	}
+		ldy first_buffered_column
+-		cpy last_break_char_buffer_pos
+		bcs ++
+		lda print_buffer,y
+		jsr convert_petscii_to_screencode
+		ora print_buffer2,y
+		sta (zp_screenline),y
+	!ifdef COLOURFUL_LOWER_WIN {
+	!ifdef TARGET_PLUS4 {
+		ldx s_colour
+		lda plus4_vic_colours,x
+	} else {
+		lda s_colour
+	}
+		sta (zp_colourline),y
+	}
+		iny
+		bne - ; Always branch
 
 ++	
-
-!ifdef TARGET_MEGA65 {
-	jsr colour1k
+	!ifdef TARGET_MEGA65 {
+		jsr colour1k
+	}
 }
+
+.done_print_line_from_buffer
 	lda last_break_char_buffer_pos
 	sec
 	sbc first_buffered_column
@@ -720,12 +821,16 @@ print_line_from_buffer
 	adc zp_screencolumn
 	sta zp_screencolumn
 
-+++
+	clc
 	rts
 
 printchar_buffered
 	; a is PETSCII character to print
 	sta .buffer_char
+	cmp #13
+	beq +
+	sta anything_printed
++	
 	; need to save x,y
 	txa
 	pha
@@ -765,27 +870,39 @@ printchar_buffered
 	; update index to last break character
 	sty last_break_char_buffer_pos
 .add_char
-;	ldy buffer_index ; TODO: REMOVE!
+	ldx s_screen_width
 	sta print_buffer,y
 	lda s_reverse
 	sta print_buffer2,y
 	iny
 	sty buffer_index
-	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
-	beq +
-	jmp .printchar_done
+;	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
+	cpy s_screen_width ; #SCREEN_WIDTH+1
+	beq ++ 
+	bcs + ; Clear case - always print a line
+
+-	jmp .printchar_done
+
+++	; Print a line *if* we're on last line of screenful of text
+	lda window_start_row
+	clc
+	sbc window_start_row + 1 ; Carry is clear, so we subtract 1 more
+	cmp num_rows
+	bne - ; Not on last line
+	dex
 +
 	; print the line until last space
 	; First calculate max# of characters on line
-	ldx s_screen_width
-	lda window_start_row
-	sec
-	sbc window_start_row + 1
-	sbc #2
-	cmp num_rows
-	bcs +
-	dex ; Max 39 chars on last line on screen.
-+	stx max_chars_on_line
+	; ldx s_screen_width
+	; lda window_start_row
+	; sec
+	; sbc window_start_row + 1
+	; sbc #1
+	; cmp num_rows
+	; bne +
+	; dex ; Max 39 chars on last line on screen.
+; +	
+	stx max_chars_on_line
 	; Check if we have a "perfect space" - a space after 40 characters
 	lda print_buffer,x
 	cmp #$20
@@ -819,11 +936,13 @@ printchar_buffered
 	ldx last_break_char_buffer_pos
 	inc last_break_char_buffer_pos ; Restore old value, since we decreased it by one before
 
+	bcs + ; The line couldn't be printed
 	; Print last character
 	lda print_buffer2,x
 	sta s_reverse
 	lda print_buffer,x
 	jsr s_printchar
++
 	inx
 
 	pla
@@ -867,6 +986,7 @@ printchar_buffered
 	pla
 	tax
 	rts
+anything_printed       !byte 0
 .buffer_char       !byte 0
 ; print_buffer            !fill 41, 0
 .save_x			   !byte 0
@@ -921,21 +1041,87 @@ get_cursor
 
 !ifndef Z4PLUS {
 
-!ifdef TARGET_MEGA65 {
-sl_score_pos !byte 54
-sl_moves_pos !byte 67
-sl_time_pos !byte 64
-} else {
-sl_score_pos !byte 25
-!ifdef TARGET_C128 {
-sl_moves_pos !byte 0 ; A signal that "Moves:" should not be printed
-}
-sl_time_pos !byte 25
-}
+.statusline_temp = z_operand_value_low_arr + 4
+.num_width_temp = z_operand_value_high_arr + 4;
 
+number_print_width
+; a,x = signed number (a is HB)
+; Returns: y = number of characters
+	ldy #1 ; Base length
+;	sty .num_width_temp
+	cmp #$80
+	bcc + ; Positive number
+	iny ; Add 1 for minus
+	eor #$ff
+	pha
+	txa
+	eor #$ff
+	adc #0 ; Carry is set, so this adds 1
+	tax
+	pla
+	adc #0
++	sta .num_width_temp + 1
+	cpx #10
+	sbc #0
+	bcc ++ ; Done
+	iny
+	lda .num_width_temp + 1
+	cpx #100
+	sbc #0
+	bcc ++
+	iny
+	lda .num_width_temp + 1
+	cpx #<1000
+	sbc #>1000
+	bcc ++
+	iny
+	lda .num_width_temp + 1
+	cpx #<10000
+	sbc #>10000
+	bcc ++
+	iny
+++	rts
+
+statusline_print_room
+	; Input:
+	; y = columns to the right that don't need emptying
+
+	sty .statusline_temp + 1
+	;
+	; Room name
+	; 
+	; name of the object whose number is in the first global variable
+	lda #16
+	jsr z_get_low_global_variable_value
+	jsr print_obj
+
+	; Make sure cursor is on top row
+	sec
+	jsr s_plot
+	cpx #0
+	beq +
+	; Cursor was moved down (object name probably contains a newline character). Put cursor on top row again.
+	ldx #0
+	clc
+	jsr s_plot
++
+	;
+	; fill the rest of the line with spaces
+	;
+	lda s_screen_width
+	sec
+	sbc .statusline_temp + 1
+	sta .statusline_temp + 1
+-   lda zp_screencolumn
+	cmp .statusline_temp + 1
+	bcs +
+	lda #$20
+	jsr s_printchar
+	jmp -
++   rts
+	
 z_ins_show_status
 	; show_status (hardcoded size)
-;    jmp draw_status_line
 
 draw_status_line
 	lda current_window
@@ -952,26 +1138,21 @@ draw_status_line
 	ldy statuslinecol,x 
 	lda zcolours,y
 	jsr s_set_text_colour
-	;
-	; Room name
-	; 
-	; name of the object whose number is in the first global variable
-	lda #16
-	jsr z_get_low_global_variable_value
-	jsr print_obj
-	;
-	; fill the rest of the line with spaces
-	;
--   lda zp_screencolumn
-	cmp s_screen_width
+
+!ifdef TARGET_X16 {
+	lda s_screen_width
+	cmp #30
 	bcs +
-	lda #$20
-	jsr s_printchar
-	jmp -
+	ldy #0
+	jsr statusline_print_room
+	jmp .statusline_done
++
+}
+
 	;
 	; score or time game?
 	;
-+   
+
 !ifdef Z3 {
 	ldy #header_flags_1
 	jsr read_header_word
@@ -989,44 +1170,146 @@ draw_status_line
 	pha
 	lda z_operand_value_high_arr + 1
 	pha
-	ldx #0
-	ldy sl_score_pos
-	jsr set_cursor
-	ldy #0
--   lda .score_str,y
-	beq +
-	jsr s_printchar
-	iny
-	bne -
-+   lda #17
-	jsr z_get_low_global_variable_value
-	stx z_operand_value_low_arr
-	sta z_operand_value_high_arr
-	jsr z_ins_print_num
+
+	; If we get here, the screen is 32, 40, 64 or 80 columns
 !ifdef SUPPORT_80COL {
-	ldy sl_moves_pos
-	bne +
-	lda #47
-	jsr s_printchar
-	jmp ++	
-+	ldx #0
-	jsr set_cursor
-	ldy #0
--   lda .turns_str,y
-	beq ++
-	jsr s_printchar
-	iny
-	bne - ; Always branch
-++
-} else {
-	lda #47
-	jsr s_printchar
+	lda s_screen_width
+	cmp #60
+	bcc + 
+	jmp .print_score_64 ; 64+ wide statusline 
++
 }
+	lda #17
+	jsr z_get_low_global_variable_value
+	jsr number_print_width
+	sty .statusline_temp
 	lda #18
 	jsr z_get_low_global_variable_value
-	stx z_operand_value_low_arr
-	sta z_operand_value_high_arr
-	jsr z_ins_print_num
+	jsr number_print_width
+;	sty .statusline_temp + 1
+	tya
+	clc
+	adc .statusline_temp
+	sta .statusline_temp
+
+	ldx #0
+
+!ifdef TARGET_X16 {
+	lda s_screen_width
+	cmp #35
+	bcs +++
+; .print_score_32
+; 12345678901234567890123456789012
+; A Cave                  123:1234
+	ldy .statusline_temp
+	iny
+	iny
+	jsr statusline_print_room
+
+	lda s_screen_width
+	sec
+	sbc .statusline_temp
+	sbc #2
+	tay
+	jsr set_cursor
+	lda #32
+	jsr s_printchar
+	lda #17
+	jsr print_low_global_variable_value
+	lda #58
+	jsr s_printchar
+	jmp .print_moves
++++
+}
+	; If we get here, the screen is 40 columns
+
+; 1234567890123456789012345678901234567890
+; A Cave                    Sc:123 Mv:1234
+
+!ifndef TARGET_MEGA65 {
+; .print_score_40
+	lda .statusline_temp
+	clc
+	adc #8
+	tay	
+	jsr statusline_print_room
+
+	lda s_screen_width
+	sec
+	sbc .statusline_temp
+	sbc #8
+	tay
+	jsr set_cursor
+	; Print " Sc:"
+	lda #>.score_short_str
+	ldx #<.score_short_str
+	jsr printstring_raw
+	lda #17
+	jsr print_low_global_variable_value
+	; Print " Mv:"
+	lda #>.turns_short_str
+	ldx #<.turns_short_str
+	jsr printstring_raw
+	jmp .print_moves
+}
+
+!ifdef SUPPORT_80COL {
+.print_score_64
+; 1234567890123456789012345678901234567890123456789012345678901234
+; A Cave                                 Score: 123  Moves: 1234
+
+	ldy #26
+	jsr statusline_print_room
+
+	; Print " Score: "
+	lda s_screen_width
+	sec
+	sbc #26
+	tay
+	jsr set_cursor
+	lda #>.score_str
+	ldx #<.score_str
+	jsr printstring_raw
+	lda #17
+	jsr print_low_global_variable_value
+	jsr get_cursor
+	sty .statusline_temp
+	; Print " Moves: "
+	lda s_screen_width
+	sec
+	sbc #14
+	sbc .statusline_temp
+	tay
+-	lda #32
+	jsr s_printchar
+	dey
+	bne -
+	; ldx #0
+	; jsr set_cursor
+	lda #>.turns_str
+	ldx #<.turns_str
+	jsr printstring_raw
+}
+	
+.print_moves
+	lda #18
+	jsr print_low_global_variable_value
+!ifdef SUPPORT_80COL {
+	lda s_screen_width
+	cmp #60
+	bcc +
+	jsr get_cursor
+	sty .statusline_temp
+	sec
+	sbc .statusline_temp
+	tay
+-	lda #32
+	jsr s_printchar
+	dey
+	bne -
++
+}	
+.all_done_score_sl
 	pla
 	sta z_operand_value_high_arr + 1
 	pla
@@ -1038,8 +1321,8 @@ draw_status_line
 	jmp .statusline_done
 
 !ifdef Z3 {
-.time_str !pet "Time: ",0
-.ampm_str !pet " AM",0
+.time_str !pet " Time: ",0
+.ampm_str !pet " AM ",0
 
 .print_clock_number
 	sty z_temp + 11
@@ -1065,11 +1348,34 @@ draw_status_line
 .timegame
 	; time game
 	ldx #0
-	ldy sl_time_pos
+	lda s_screen_width
+!ifdef TARGET_X16 {
+	cmp #37
+	bcs .normal_time
+
+	; This is a 32 column screen (< 32 don't get to this point)
+	ldy #9
+	jsr statusline_print_room
+	
+	; Don't print " Time: " string
+	ldx #0
+	ldy #23
+	jsr set_cursor
+	jmp .print_time_data
+.normal_time
+}
+	ldy #16
+	jsr statusline_print_room
+
+	lda s_screen_width
+	sec
+	sbc #16
+	tay
 	jsr set_cursor
 	lda #>.time_str
 	ldx #<.time_str
 	jsr printstring_raw
+.print_time_data
 ; Print hours
 	lda #65 + 32
 	sta .ampm_str + 1
@@ -1114,10 +1420,13 @@ draw_status_line
 	sta current_window
 	jmp restore_cursor
 
-
-.score_str !pet "Score: ",0
+!ifndef TARGET_MEGA65 {
+.score_short_str !pet " Sc:",0
+.turns_short_str !pet " Mv:",0
+}
 !ifdef SUPPORT_80COL {
-.turns_str !pet "Moves: ",0
+.score_str !pet " Score: ",0
+.turns_str !pet " Moves: ",0
 }
 }
 

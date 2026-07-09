@@ -6,6 +6,7 @@ reu_translen = $DF07
 reu_irqmask  = $DF09
 reu_control  = $DF0A
 
+reu_bank_for_page_copying !byte $ff ; 0-2 are possible values, $ff means not available
 reu_needs_loading !byte 0 ; Should be 0 from the start
 
 !zone reu {
@@ -23,11 +24,126 @@ reu_error
 .reu_error_msg
 	!pet 13,"REU error, disabled. [SPACE]",0
 
+!ifdef TARGET_MEGA65_OR_X16 {
+m65_x16_reu_load_page_limit = z_temp + 10  ; max page # to read
+m65_x16_reu_enable_load_page_limit !byte 0 ; respect page # limit or not
+}
+
+!ifdef TARGET_X16 {
+
+.x16_reu_load_address = object_temp
+.x16_reu_page_count = z_temp + 11
+;.x16_bank !byte 0 ; current bank (8 KB, $a000-$bfff)
+
+x16_load_file_to_reu
+	; In: a,x: REU load page (0-63 are in normal RAM, at $6000-$9fff, 64- are in high RAM, bank 1 and up)
+	; Returns: a: Number of pages loaded.
+	; Call SETNAM before calling this
+	; Opens file as #2. Closes file at end.
+
+	; Prepare for copying data to REU
+	stz z_temp
+
+    ; find out which bank
+	cmp #0
+	bne .in_high_ram
+	cpx #64
+	bcs .in_high_ram
+	
+	; In normal RAM
+	; Set bank to -1 or 0
+	stz 0
+	cpx #$21
+	bcs +
+	dec 0
+	cpx #0
+	bne +
+	dec 0
++	txa
+	clc
+	adc #$5f 	; Start at $5f00
+	sta z_temp + 1
+	bne .done_bank_calc ; Always branch
+
+.in_high_ram
+	
+	stx .x16_reu_load_address ; Lowbyte of current page in REU memory
+	sta .x16_reu_load_address + 1 ; Highbyte of current page in REU memory
+	txa
+	asl
+	rol .x16_reu_load_address + 1
+	asl
+	rol .x16_reu_load_address + 1
+	asl
+	lda .x16_reu_load_address + 1
+	rol
+	sbc #0 ; Carry is already clear, so this subtracts 1
+	sta 0
+	lda .x16_reu_load_address
+	and #$1f
+	ora #$a0
+	sta z_temp + 1
+
+.done_bank_calc
+
+	lda #2      ; file number 2
+	tay
+	ldx boot_device
+	jsr kernal_setlfs ; call SETLFS
+
+	jsr kernal_open     ; call OPEN
+	bcc +
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++
+	ldx #2      ; filenumber 2
+	jsr kernal_chkin ; call CHKIN (file 2 now used as input)
+
+	ldy #0
+-	jsr kernal_readst
+	bne .file_copying_done
+	jsr kernal_readchar
+    sta (z_temp),y
+	iny
+	bne -
+
+    jsr .update_progress_bar
+	inc .x16_reu_page_count
+
+	lda m65_x16_reu_enable_load_page_limit
+	beq +
+	dec m65_x16_reu_load_page_limit
+	beq .file_copying_done
+
+	; Go to next page
++
+--	inc z_temp + 1
+    lda z_temp + 1
+	cmp #$9f ; Skip $9f00, since it holds I/O registers
+	beq --
+	and #$1f
+	bne - ; No bank change
+	inc 0
+    lda z_temp + 1
+    cmp #$c0
+    bne -
+	lda #$a0
+	sta z_temp + 1
+	bne - ; Always jump
+
+.file_copying_done
+	ldx #$00
+	stx m65_x16_reu_enable_load_page_limit
+	jsr kernal_chkin  ; restore input to keyboard
+	lda #$02      ; filenumber 2
+	jsr kernal_close ; call CLOSE
+	jsr kernal_clrchn
+	lda .x16_reu_page_count
+	rts
+}
 
 !ifdef TARGET_MEGA65 {
 
-m65_reu_load_page_limit = z_temp + 10
-m65_reu_enable_load_page_limit !byte 0
 .m65_reu_load_address = object_temp
 .m65_reu_memory_buffer = zp_temp + 2
 .m65_reu_page_count = z_temp + 11
@@ -83,9 +199,9 @@ m65_load_file_to_reu
 
 	inc .m65_reu_page_count
 
-	lda m65_reu_enable_load_page_limit
+	lda m65_x16_reu_enable_load_page_limit
 	beq +
-	dec m65_reu_load_page_limit
+	dec m65_x16_reu_load_page_limit
 	beq .file_copying_done
 
 +
@@ -98,7 +214,7 @@ m65_load_file_to_reu
 	
 .file_copying_done
 	lda #$00     
-	sta m65_reu_enable_load_page_limit
+	sta m65_x16_reu_enable_load_page_limit
 	jsr kernal_chkin  ; restore input to keyboard
 	lda #$02      ; filenumber 2
 	jsr kernal_close ; call CLOSE
@@ -231,8 +347,8 @@ copy_page_from_reu
 restore_2mhz
 	lda #1
 	sta allow_2mhz_in_40_col
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	lda use_2mhz_in_80_col
 	sta reg_2mhz	;CPU = 2MHz
 +
@@ -271,14 +387,27 @@ store_reu_transfer_params
 .temp = vmem_cache_start + 2
 
 
-.reu_banks_to_check = 48 ; Can be up to 128, but make sure .reu_tmp has room 
+.reu_banks_to_check = 16 ; Can be up to 128, but make sure .reu_tmp has room 
 .reu_tmp = streams_stack; 60 bytes, we use less (see line just before this)
 
 reu_banks !byte 0
 
 check_reu_size
+    ; return REU size in multiples of 64 KB
+    ; input: -
+    ; output: a=number of 64 KB banks of REU memory
+    ; side effects: 
+    ; used registers: 
 
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_X16 {
+    ; TODO: we know that at least 512 KB is available, but their
+    ; emulator wraps around, so we cannot test by writing to $a000
+    ; how large the memory actually is. Is there a better method?
+    lda #8 ; 8 * 64 = 512 KB
+    rts
+
+;TODO TODO
+} else ifdef TARGET_MEGA65 {
 	; Start checking at address $08 00 00 00
 	ldz #0
 	ldy #0
@@ -332,102 +461,40 @@ check_reu_size
 	rts
 } else {
 	; Target not MEGA65
-;	lda #8 ; Guess 512 KB
-;	rts
-;}
 
-; Robin Harbron version
-	; lda #0
-	; sta $df04
-	; sta $df05
-	; sta $df08
-	; sta $df0a
-	; lda #1
-	; sta $df07
-
-	; lda #<.temp
-	; sta $df02
-	; lda #>.temp
-	; sta $df03
-
-	; ldx #0
-; .loop1
-	; stx $df06
-	; stx .temp
-	; lda #178
-	; sta $df01
-	; lda .temp
-	; sta .temp+1,x
-	; inx
-	; bne .loop1
-
-	; ldy #177
-	; ldx #0
-	; stx .old
-; .loop2
-	; stx $df06
-	; sty $df01
-	; lda .temp
-	; cmp .old
-	; bcc .next
-	; sta .old
-	; inx
-	; bne .loop2
-; .next
-	; stx .size
-	; ldy #176
-	; ldx #255
-; .loop3
-	; stx $df06
-	; lda .temp+1,x
-	; sta .temp
-	; sty $df01
-	; dex
-	; cpx #255
-	; bne .loop3
-	; lda .size
-;	rts
-
-
-
-; My verison
 	ldx #0
-	stx object_temp
-	; %%%
-	; Backup the first value in each 64 KB block in REU, to C64 memory
+	stx object_temp ; Bank currently being checked
+
+	; Backup the first value in this 64 KB bank in REU, to C64 memory
 -	lda object_temp
 	jsr .reu_check_read
 	ldx object_temp
 	sta .reu_tmp,x
 
-	; Write the number of the 64KB block to the first byte in the block
+	; Write the number of the 64KB bank to the first byte in the bank
 	lda object_temp
 	sta $100
 	jsr .reu_check_write
 
-; NEW PART	
-	; Check if the number in the first byte in the block is correct
+	; Check if the first byte of this and all previous 64 KB banks are correct
 	lda object_temp
+	sta object_temp + 1
+--	lda object_temp + 1
 	jsr .reu_check_read
-	cmp object_temp
+	cmp object_temp + 1
 	bne +
+	dec object_temp + 1
+	bpl --
 	
-	; Read the number in the first byte of the first 64 KB block to see if it's untouched
-	lda #0
-	jsr .reu_check_read
-	cmp #0
-	bne +
 	inc object_temp
 	lda object_temp
 	cmp #.reu_banks_to_check
 	bcc -
-+		
-	; Restore the original contents in all blocks
-	ldx object_temp ; This now holds the # of 64 KB blocks available in REU
++
+	; Restore the original contents in all banks, in reverse order
+	ldx object_temp ; This now holds the # of 64 KB banks available in REU
 	dex
 	stx object_temp + 1
-	
-	; Write the original content of the first byte of each 64KB block to the REU
 -	ldx object_temp + 1
 	lda .reu_tmp,x
 	sta $100
@@ -435,7 +502,14 @@ check_reu_size
 	jsr .reu_check_write
 	dec object_temp + 1
 	bpl -
-	lda object_temp
+
+	; Round the # of 64 KB banks down to 2^n
+	lda #$80
+-	bit object_temp
+	bne .done
+	lsr
+	bcc -
+.done
 	rts
 
 .reu_check_store	

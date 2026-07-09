@@ -15,7 +15,11 @@ smoothcritical !byte 0
 .filler = SCREEN_ADDRESS & $c000 | $3fff
 
 ; how many top lines to protect (address containing the status area size)
+!ifdef Z6 {
 .reserve = window_y + 1
+} else {
+.reserve = window_start_row + 1
+}
 
 ;--------------------
 ; key raster positions

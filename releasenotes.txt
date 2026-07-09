@@ -1,15 +1,287 @@
 RELEASE NOTES
 
 Upcoming release
+- Fixed incorrect text in usage screen in make.rb, saying values 0 and 1 mean background and foreground for -bordecol etc, when it's actually values bg and fg now.
+- Disabled run/stop key in image loader program, on C64.
+- Fixed garbage showing on top screen row when enabling darkmode at first MORE prompt in z1-z4 game with initial text longer than a screenful, on Plus/4 build with virtual memory.
+
+================================================
+Release 15.5: 2 Mar 2026
+
+- Fixed bug: On C128, if there was a page in the vmem cache, which belongs to the vmem block we decide to throw out, and the block was below $d000 in bank 1, the page index wasn't updated to reflect that the page became invalid, which could lead to the program crashing.
+- Slight optimizations in code for virtual memory optimization.
+- Changed statusline (z1-z3) to show "99:999" or "12:34 PM" for 32 column screen, nothing for 20-22 column screen, "Sc: 99 Mv:999" for 40 column screen.
+- Optimized statusline (z1-z3) so it doesn't print spaces where score/moves will be printed anyway.
+- 40 column screen was showing streaks of garbage during initial loading of game data, when launching game in 80 column mode on C128, if not caching to REU.
+- Turned subroutines into macros for performance in text.asm: convert_zchar_to_char, get_next_zchar, init_get_zchar, was_last_zchar.
+- Reversed numbering of chars in a zchar triplet when decoding strings, so first char is #2 and last char is #0, as this makes for shorter, faster code.
+- Optimized convert_zchar_to_char and translate_zscii_to_petscii.
+
+================================================
+Release 15: 22 Feb 2026
+	
+- Added option for continuous virtual memory optimization on C64 and C128 - switch little used vmem blocks in unbanked RAM for much used vmem blocks in banked RAM, for performance. Enabled by default. Can be disabled with -vo:0. Cost 430 bytes on C64, 640 bytes on C128.
+- Use REU for fast copying even if REU caching not active, if REU is 256+ KB, on C64 and on C128 in 80 column mode.
+- Use a macro instead of a subroutine to read data at PC on C128 (like we already do on C64), for performance.
+- Fixed very old bug: If REU was too small to cache game, Undo was blocked from using REU.
+- Added tests/memcheck_c64.rb and memcheck_c128.rb to check a memory dump for virtual memory corruption. 
+- Changed some old error messages in make.rb, referring to command line options which have been renamed.
+- Updated tech report (and to a lesser extent, the manual).
+
+================================================
+Release 14.64: 19 Jan 2026
+
+Optimizations:
+- Reuse object start address in object table, if same object is used twice in a row.
+- Minor optimization affecting all opcodes that read or write property values.
+
+Bugfixes:
+- Fixed: If the last line on a screenful of text ended with a character in the rightmost column and then a newline character, the MORE prompt was printed on the next line, thus making the top line scroll off screen when it shouldn't.
+
+================================================
+Release 14.60: 20 Dec 2025
+
+New/changed features:
+- A loader image can now be added for C128 builds as well. The image should be in Koala Multicolor format (same as for C64) and is shown on the 40-column display until the player presses a key or 17 seconds pass - then the game loads.
+- Solutions for Calypso (release 8, serial 250827), PunyInform Advent (release 1-7, serial 241124, 250704, 250809, 251011, 251113, 251126, 251205), and Inform 6 Advent (release 9, serial 060321) added to benchmarks.json, allowing Ozmoo to auto-play the games for benchmarking purposes.
+- Renamed example game advent.z3 to advent_zil.z3
+- Added example game advent_punyinform.z5
+
+Bugfixes:
+- Added missing file to repo: asm/walkthrough.tpl
+- Queueing of @sound_effect commands fired after the same keyboard input, now works properly, as required by Lurking Horror (Issue #78). Each sound is played at least one full repetition.
+- Fixed: Asking to play a new sound while one was playing, caused the repeat and routine arguments of the new sound to be used for the currently playing sound. (Issue #77)
+- @sound_effect with effect = 4 (finish with) was ignored. It is now correctly treated as effect = 3 (stop).
+- @sound_effect with number = 0 and effect = 3 (stop) or 4 (finish with) produced a beep instead of stopping the current sound. Fixed. (Issue #76)
+- Fixed old method name in tests/test_builds.rb
+- Fixed typos in comments in source code (Issue #75)
+
+================================================
+Release 14.56: 6 Aug 2025
+
+New/changed features:
+- Added support for showing a loader image on MEGA65 (Type: IFF, in PRG format)
+- Added information on max call depth to VIEW_STACK_RECORDS mode.
+
+Bugfixes:
+- Fixed bug in calculation of save slot count for non-VM builds on C64, Plus/4 and MEGA65.
+- Init dynmem_pointer on MEGA65 before splash screen, as it's used if player changes to darkmode while on splash screen, and this would cause the interpreter to break on a MEGA65 with a newer ROM version. 
+
+================================================
+Release 14.51: 20 Feb 2025
+
+New/changed features:
+- Added option to write an Ozmoo signature into the game header - target platform (1-5), minor version#, "OZ", at $38-$3b. Can be controlled with -sig[:0|1|noninfocom]. Default is noninfocom, meaning it's written if the serial number starts with 0-7 or 9.
+- Added option -username:"value" to write a username into the game header. E.g. to make the debug verb "flush 33" work in Hollywood Hijinx, you can do -username:TOMAS
+
+Bugfixes:
+- Fixed corrupt story file in RAM after restart command or a reset, on X16.
+
+================================================
+Release 14.49: 26 Jan 2025
+
+Bugfixes:
+- Fixed bug in scrollback, which could crash game after looking at scrollback buffer on C64 and C128.
+
+================================================
+Release 14.48: 1 Dec 2024
+
+Bugfixes:
+- Fixed bug which stopped sound games from building.
+- Fixed test cases in tests folder which hadn't been updated to new way of specifying colours.
+
+================================================
+Release 14.47: 1 Dec 2024
+
+New/changed features:
+- Updated the manual section on dependencies.
+- Changed make.rb options for choosing colours. New options are e.g. -fgcol:black -bgcol:yellow -bordercol:fg -inputcol:lightgrey -cursorcol:lightblue -dmfgcol:blue -dmbgcol:ltgreen. 
+- No more colour replacing, as all 16 colours of the c64 palette are now always available. A game can use the extra colours too (colour 8-15 in the C64 palette are colour 16-23 in the Z-code palette). 
+- Specified the cost in bytes for some features in the instructions printed by make.rb when invoked without parameters.
+
+Optimizations:
+- Commented out a few lines of code meant for debug in zmachine.asm
+
+Bugfixes:
+- Changed File.exists to File.exist in make.rb, as the latter is correct, and the former isn't supported in newer Ruby versions.
+- Removed option -scale 2 for xemu (X16 emulator), as this could wreck havoc on some screens.
+- Zeropage location $ab was used to remember if text output is buffered on C64, MEGA65 and Plus/4, but this address was actually unsafe to use on all of these platforms. Changed it to $c8 on C64/MEGA65 and $d0 on Plus/4.
+- Zeropage location $a7 was used to remember current window on C64/MEGA65 and Plus/4. This was breaking compatibility with fastload module of Action Replay cartridge on C64. Changed to use $d8 on all three platforms.
+- Fixed broken PRNG initialization for X16.
+- Overwriting save files had been broken for many months, but we didn't know. Fixed it now.
+- make.rb will now stop user from accidentally specifying two different story files.
+
+================================================
+Release 14.40: 28 Sep 2024
+
+New/changed features:
+- Made Quit not show a MORE prompt if no text has been printed since the last read or read_char instruction.
+- Moved all generated source files to temp folder, so asm folder can be read-only.
+- A new default unicode output map makes the unicode characters available in Z-code by default print as normal characters, unless they have a specific mapping for the language used. E.g. this makes Ä print as A. Enabled by default. Turn off with -um:0 to save 83 bytes.
+
+Optimizations:
+- Changed reading a byte at PC on X16 from a subroutine to a macro, making Hollywood Hijinx about 3% faster.
+
+================================================
+Release 14.36: 6 July 2024
+
+New/changed features:
+- Undo is now supported on Commander X16.
+- Documented the usage of a .ozmoorc file in the manual.
+- Builds with 0 blocks of virtual memory RAM in unbanked RAM on C64 and C128 are now allowed (1 block of VMEM in unbanked RAM was a requirement up to now). This makes it possible to build Trinity for C64.
+- Added commandline switch -bm to build in Benchmark Mode (automatically play through a game, using one of the walkthroughs supplied in benchmarks.json)
+- Calculation of the number of save slots that fit on a disk has been changed. For MEGA65, it's now assumed that saves are placed on the game disk. For X16, there's always room for ten saves. For all other platforms, the save disk is assumed to be an initially empty 1541 disk. A slightly less consevative estimation of save file size means there will now be one more available save slot in some games.
+
+Optimizations:
+- Z-code multiplication now uses hardware multiplication on MEGA65, and a faster algorithm than before on all other platforms (Thanks to TobyLobster et al for new algorithm).
+- Saved seven bytes in z1-z3 statusline routine by moving a duplicated code segment.
+- Microoptimizations in memory access for X16.
+
+Bugfixes:
+- If virtual memory RAM started at exactly $d000 on C64 (maybe on C128 as well?), translation between Z-machine address and RAM address would fail, leading to (a) loading the game into REU became impossible, and (b) running without REU would break down when code or data in the first 512 byte block of static memory was accessed.
+- Fixed a broken test in tests/test_builds.rb
+- Disabled tear-free scrolling in benchmark mode.
+- EXT opcodes #30-255 are now treated as NOP, like the standard says.
+- Save file size calculation failed spectacularly for games where stack size + dynmem size + 256 > 64 KB. This was most likely to become a problem for Inform 7 games.
+
+================================================
+Release 14.29: 17 June 2024
+
+Optimizations:
+- Removed num_default_properties, a byte value which was set but never read.
+
+Bugfixes:
+- Cursor could be updated even when not on screen, potentially crashing the interpreter.
+- make.rb didn't complain if story file had an unsupported Z-code version (or wasn't a Z-code file at all).
+- make.rb would not report an error for X16 builds with a stack that's too big (~9+ KB), typically crashing the game at some point.
+- Restart didn't work on X16 if the Z-code file had any capital letters.
+- Call to @set_cursor with line = 0 are illegal (Z-machine screen starts at line 1), but happen. Ozmoo was placing the cursor on the bottom line of the screen, but now the cursor is placed on the top line (line 1) instead. 
+- X16 builds now perform NEW before loading game from disk again when restarting, to make debugging easier if file isn't found.
+
+================================================
+Release 14.24: 17 May 2024
+
+New/changed features:
+- Appended ".prg" to boot file on X16, so it's easily recognizable as an executable file
+- Allow more characters in custom file names, now it's a-z, 0-9 and ".-()[]'"
+- Added option -x to automatically change verb "x" to "examine" in player input. Enabled by default for Infocom games that don't recognize x as a synonym for examine.
+
+Optimizations:
+- Truncated long custom file names to 16 characters for all but X16, so we don't store more characters than necessary
+
+Bugfixes:
+- A z1-z3 game would hang when entering a room where the room object has a newline character in the name
+- Beep on MEGA65 played 40 times too long (~3 s)
+- The pause when doing save or restore on MEGA65 was 40s instead of 1s.
+
+================================================
+Release 14.17: 17 April 2024
+
+Bugfixes:
+- Fixed screen colour initialization issues
+- Replaced ti_variable to fix frozen more prompt on X16
+- More prompt blinking frequency adjusted on MEGA65
+- More prompt now blinks in both 40 and 80 col mode on C128
+- Fixed cursor blinking on X16
+
+================================================
+Release 14.14: 10 April 2024
+
+New/changed features:
+- Made a 255 byte command history buffer the default on X16, just like on MEGA65
+- Set border colour on X16
+- Changed savefile prefix (all platforms), Zcode filename and font filename (X16 only), to make sure boot file is listed first on X16
+- User can create a .ozmoorc file to set paths to executables, e.g. X16 = C:\emu\x16emu.exe. .ozmoorc can be located in $OZMOO_HOME, cwd, or $HOME
+
+Optimizations:
+- Made scrolling 3.5 times faster on X16
+- Made printing a character faster on X16
+- Unified some MEGA65 + X16 code for loading story file into memory, for ease of maintenance
+
+Bugfixes:
+- Listing save files didn't work correctly if scrollback buffer was enabled
+- Restart loaded entire story file on MEGA65, if a custom font was used
+- A conditional jump in the code could break because it had to jump too far, if you had smooth scroll, scrollback buffer and undo enabled.
+- A scrollback buffer in regular RAM made Beyond Zork builds break
+- Border colour was sometimes set incorrectly on X16
+- Using a custom font on X16 made the font stay after QUIT
+
+================================================
+Release 14.7: 2 April 2024
+
+New/changed features:
+- Made Quit work reliably on X16, and without resetting the computer.
+- Made restart fast on X16 (only reload dynamic part of gamefile after restart)
+- Enabled scroll speed control and tear-free scrolling on X16
+- Made Z-machine beeps work on X16
+- Added support for custom fonts on X16
+
+Optimizations:
+- Moved print_buffer, print_buffer2, memory_buffer and directory_buffer to leave more continuous space for future use.
+- Made printing of a buffered line much faster on X16
+- Made clearing a line, a window or the entire screen much faster on X16, and a bit faster on MEGA65
+
+Bugfixes:
+- Routine to cause delay on X16 was incorrect, could crash game when saving game.
+- Removed C64 keyboard handling references from X16 code.
+
+================================================
+Release 14: 27 March 2024
+
+New/changed features:
+- Added target platform Commander X16 (use switch -t:x16)
+- Added build mode -ZIP, for X16 targets.
+- Added option -df:n (delete files), to decide what to do with files and folder created for the zip archive for build mode -ZIP. 0: Don't delete (default), 1: delete, f: force - always delete, even if zip operation failed.
+- Added build mode -71D, for dual 1571 drives.
+- Varicella is now automatically patched to (a) fix a bug in colour handling in the game, and (b) adapt the game to Ozmoo's limitations in colour handling. 
+- Made game saves generic between MEGA65 and X16, and between builds using different versions and features of Ozmoo. Players should now be able to copy old save games to a build using a new version of Ozmoo, or with other features enabled, or from MEGA65 to X16 or the other way around.
+
+Optimizations:
+- The code for listing save files is now faster *and* shorter.
+
+Bugfixes:
+- "erase_window 0" would crash the interpreter if window 0 had height 0.
+- Default screen colours weren't written into the header after a restart on MEGA65.
+- Build mode -P was broken, because dynmem size wasn't calculated. May have affected saves.
+- Made QUIT work correctly on MEGA65 games with and without a custom font.
+- Screen wasn't cleared after save/restore if REU caching was used.
+- Fixed bugs that made Ozmoo crash when printing to lower window when it's 0 lines high, or when scrolling the window when it's 1 line high.
+- Fixed debug messages and error messages that were stored with the wrong encoding. Some interpreter messages that used to be in upper case will now be in lower case.
+
+================================================
+Release 13.6: 17 November 2023
+
+Bugfixes:
+- make.rb prints a warning if undo support was requested but game is z5-z8 and doesn't support undo.
+- Build using -P didn't work, probably since v13.0. Fixed.
+- make.rb didn't protest when asked to build with Undo in mode P, though it's not possible. Now it halts with an error.
+- make.rb would sometimes reserve too small a buffer for splash screen in mode P.
+- make.rb couldn't build a mode P game using the full memory if the story file had an odd number of pages, e.g. a game of 51.25 KB couldn't be built even if a 51 KB game left an empty memory page at the end.
+
+================================================
+Release 13.1: 19 July 2023
+
+Bugfixes:
+
+- Fixed bug in text printing that could crash game, when printing a word longer than a line, or when text buffering was started in the middle of a screen line.
+
+================================================
+Release 13: 18 July 2023
+
+New/changed features:
+
+- Single step undo is supported for z5+ (using UNDO command) and for z1-z4 (using Ctrl-U key) on C64/C128 with REU, C128 without REU (slower, and with limited dynmem size), and on MEGA65.
 
 Bugfixes:
 
 - Picture loader gave build error.
 - Fix buggy printing when erase_window was called while buffered printing was active.
+- Don't recognize F5 key if there's no REU or RAM available for scrollback.
+- Ozmoo on C128 would boot into 80 column mode when game restarted in 40 column mode.
 
 Refactoring:
-- Moved cursor code from text.asm to screenkernal.asm
-- Moved screen model specific code from ozmoo.asm
+- Moved cursor code from text.asm to screenkernal.asm.
+- Moved screen model specific code from ozmoo.asm.
 
 ================================================
 Release 12.2: 26 December 2022

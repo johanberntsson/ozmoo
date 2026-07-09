@@ -22,7 +22,21 @@ inc_z_pc_page
 	bcc get_page_at_z_pc_did_pha
 } else {
 ; No vmem
-	!ifdef TARGET_MEGA65 {
+	!ifdef TARGET_X16 {
+		bne +
+		inc z_pc
+		inc z_pc_mempointer + 2
++
+		lda z_pc
+		bne ++
+		lda z_pc + 1
+		cmp #$40
+		bcc + ; We're in the first 16 KB, i.e. normal RAM
+++		lda z_pc + 1
+		and #%00011111
+		beq get_page_at_z_pc_did_pha ; Branch if we just hit a new bank
++
+	} else ifdef TARGET_MEGA65 {
 		bne +
 		inc z_pc
 		inc z_pc_mempointer + 2
@@ -47,8 +61,8 @@ set_z_pc
 ; Parameters: New value of z_pc in a,x,y
 !zone {
 	sty z_pc + 2
-
-!ifndef TARGET_MEGA65 {	
+!ifdef TARGET_X16 {
+} else ifndef TARGET_MEGA65 {	
 	!ifdef VMEM {
 		cmp z_pc
 		bne .unsafe_1
@@ -159,6 +173,10 @@ get_page_at_z_pc_did_pha
 	ldx z_pc + 1
 	ldy z_pc + 2
 	jsr read_byte_at_z_address
+!ifdef TARGET_X16 {
+	ldy 0
+	sty x16_z_pc_bank
+}
 	ldy mempointer + 1
 	sty z_pc_mempointer + 1
 !ifdef TARGET_MEGA65 {
@@ -172,6 +190,68 @@ get_page_at_z_pc_did_pha
 }
 
 !zone {
+
+!ifdef TARGET_X16 {
+.countdown = mem_temp + 1
+.temp !byte 0,0,0
+
+read_word_from_far_dynmem
+; a = zp vector pointing to base address
+; y = offset from address in zp vector
+; Returns word in a,x (byte 1, byte 2)
+; y retains its value
+	sty .temp
+	tax
+	lda 0,x
+	clc
+	adc .temp
+	sta mem_temp
+	lda 1,x
+	adc #0
+	ldx mem_temp
+	jsr set_z_address
+	jsr read_next_byte
+	sta .temp + 1
+	jsr read_next_byte
+	tax
+	lda .temp + 1
+	ldy .temp
+	rts
+	
+write_word_to_far_dynmem
+; zp vector pointing to base address must be stored in
+;   write_word_far_dynmem_zp_1 and write_word_far_dynmem_zp_2 before call 
+; a,x = value (byte 1, byte 2)
+; y = offset from address in zp vector
+; y is increased by 1
+	sty .temp
+	sta .temp + 1
+	stx .temp + 2
+	ldx #0
+.write_word
+	lda $ff,x
+	clc
+	adc .temp
+	sta mem_temp
+	inx
+.write_word_2
+	lda $ff,x
+	adc #0
+	ldx mem_temp
+	jsr set_z_address
+	lda .temp + 1
+	jsr write_next_byte
+	lda .temp + 2
+	jsr write_next_byte
+	ldy .temp
+	iny 
+	rts
+
+write_word_far_dynmem_zp_1 = .write_word + 1
+write_word_far_dynmem_zp_2 = .write_word_2 + 1
+
+} else {
+
 !ifdef TARGET_C128 {
 copy_page_c128_via_reu
 
@@ -191,8 +271,8 @@ copy_page_c128_via_reu
 	sta $d506
 +	
 
-	lda #0
-	tax
+	lda reu_bank_for_page_copying
+	ldx #0
 	clc
 	jsr store_reu_transfer_params
 
@@ -267,9 +347,9 @@ copy_page_c128_src
 ; Skip speed decrease if we can
 	bit COLS_40_80
 !if SUPPORT_REU = 1 {
-	bpl ++
-	bit use_reu
-	bpl +
+	bpl ++ ; In 40 column mode, we don't use REU for copying - too hard!
+	bit reu_bank_for_page_copying
+	bmi +
 	jmp copy_page_c128_via_reu
 ++	
 } else {
@@ -444,8 +524,8 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 
 !if SUPPORT_REU = 1 {
-	bit use_reu
-	bmi .reu_copy
+	ldx reu_bank_for_page_copying
+	bpl .reu_copy
 }
 	sta .copy + 2
 	sty .copy + 5
@@ -465,10 +545,11 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 
 !if SUPPORT_REU = 1 {
 .reu_copy
+	; X holds REU bank to use (also in reu_bank_for_page_copying)
 	sty .load_dest_page + 1
 	tay
-	lda #0
-	tax
+	txa
+	ldx #0
 	clc
 	jsr store_reu_transfer_params
 	lda #%10100000;  c64 -> REU with delayed execution
@@ -503,6 +584,7 @@ write_word_far_dynmem_zp_2 = .write_word_2 + 1
 } ; end zone
 
 } ; not TARGET_C128
+} ; not TARGET_X16
 }
 
 
@@ -511,15 +593,18 @@ read_header_word
 ; y contains the address in the header
 ; Returns: Value in a,x
 ; y retains its original value
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	lda $5f01,y
+	tax
+	lda $5f00,y
+	rts
+} else ifdef FAR_DYNMEM {
 	jsr setup_to_write_to_header_far_ram
 	txa
 	jmp read_word_from_far_dynmem
 } else {
-	iny
-	lda story_start,y
+	lda story_start + 1,y
 	tax
-	dey
 	lda story_start,y
 	rts
 ; }
@@ -529,7 +614,12 @@ write_header_word
 ; y contains the address in the header
 ; a,x contains word value
 ; a,x,y are destroyed
-!ifdef FAR_DYNMEM {
+!ifdef TARGET_X16 {
+	sta $5f00,y
+	txa
+	sta $5f01,y
+	rts
+} else  ifdef FAR_DYNMEM {
 	stx .tmp
 	jsr setup_to_write_to_header_far_ram
 	stx write_word_far_dynmem_zp_1
@@ -538,9 +628,8 @@ write_header_word
 	jmp write_word_to_far_dynmem
 } else {
 	sta story_start,y
-	iny
 	txa
-	sta story_start,y
+	sta story_start + 1,y
 	rts
 ; }
 }
@@ -565,6 +654,9 @@ write_header_byte
 	ldz #0
 	stz dynmem_pointer + 1
 	sta [dynmem_pointer],z
+	rts
+} else ifdef TARGET_X16 {
+	sta $5f00,y
 	rts
 } else {
 	sta story_start,y

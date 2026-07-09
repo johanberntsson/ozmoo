@@ -20,7 +20,7 @@ reserve_pages_for_backup = 8
 } else {
 scrollback_page_offset = 0
 scrollback_total_buffer_size = $10000;
-reserve_pages_for_backup = 0
+reserve_pages_for_backup = 8
 }
 scrollback_supported !byte 0
 !ifdef TARGET_C128 {
@@ -344,7 +344,7 @@ launch_scrollback
 .get_char
 	jsr kernal_getchar
 	ldx s_screen_height_minus_one
-	stx z_temp + 10 ; Counter for how many lines to scoll for PgUp/PgDown
+	stx z_temp + 10 ; Counter for how many lines to scroll for PgUp/PgDown
 	ldx #0
 	stx z_temp + 11 ; Counter for how many lines were actually scrolled
 
@@ -429,32 +429,21 @@ launch_scrollback
 +	rts
 } else { ; =================================================================================
 ; Not MEGA65, so this is REU version
-scrollback_bank
-!ifndef Z4PLUS {
-	!byte 2,3 ; Bank to store text, bank to backup screen + colour RAM
-} else {
-	!ifdef Z7PLUS {
-		!byte 8,9
-	} else {
-		!byte 4,5
-	}
-}
-
-
+scrollback_bank !byte 0; Bank to store text, backup screen + colour RAM (calculated at boot)
 !ifdef TARGET_PLUS4 {
 scrollback_screen_backup_page !byte VMEM_END_PAGE - 8,0
 scrollback_colour_backup_page !byte VMEM_END_PAGE - 4,0
 } else {
-scrollback_screen_backup_page !byte 0,0
-scrollback_colour_backup_page !byte $08,0
+scrollback_screen_backup_page !byte $f8,0
+scrollback_colour_backup_page !byte $fc,0
 }
 .space !byte 32
 
 init_reu_scrollback
 !ifndef TARGET_PLUS4 {
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	bne .is_80_col
+	bit COLS_40_80
+	bmi .is_80_col
 	; 40 column -> Set new values for some constants
 	lda #4
 	sta scrollback_prebuffer_pages_final
@@ -472,15 +461,7 @@ init_reu_scrollback
 	sta scrollback_prebuffer_copy_from + 1
 .is_80_col
 }
-
-	lda scrollback_bank + 1
-	!ifdef TARGET_C128 {
-		ldx COLS_40_80
-		beq +
-		; In 80 column mode we don't need the second bank (used for VIC screen data backup)
-		lda scrollback_bank
-+
-	}
+	lda scrollback_bank
 	cmp reu_banks
 	bcs .no_reu_space_for_scrollback
 	dec scrollback_supported ; Set to $ff = supported
@@ -488,7 +469,7 @@ init_reu_scrollback
 ; Init values
 	sta scrollback_screen_backup_page + 1
 	sta scrollback_colour_backup_page + 1
-	lda scrollback_bank
+	; lda scrollback_bank
 	sta scrollback_prebuffer_start + 2 ; Bank value
 	sta scrollback_start_minus_25_lines + 2
 	sta scrollback_start + 2
@@ -509,7 +490,7 @@ init_reu_scrollback
 	; lda #147
 	; jmp s_printchar
 
-.msg_not_available !pet 13,"Scrollback not available.", 13, 13, 0
+.msg_not_available !pet "Scrollback not available.", 13, 13, 0
 
 }
 
@@ -542,8 +523,8 @@ init_scrollback_ram_buffer
 }
 
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq .ram_buf_40_col
+	bit COLS_40_80
+	bpl .ram_buf_40_col
 	lda #<(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80)
 	sta scrollback_max_line_count
 	lda #>(((SCROLLBACK_RAM_PAGES - scrollback_prebuffer_pages) * 256) / 80)
@@ -860,8 +841,8 @@ copy_line_to_scrollback
 ;	sta allow_2mhz_in_40_col
 ;	sta reg_2mhz	;CPU = 1MHz
 
-	ldx COLS_40_80
-	beq .copy_40_col
+	bit COLS_40_80
+	bpl .copy_40_col
 	; 80 column -> Get characters from VDC
 	ldy #79
 -	
@@ -935,8 +916,8 @@ launch_scrollback
 ;	sta allow_2mhz_in_40_col
 ;	sta reg_2mhz	;CPU = 1MHz
 
-	ldx COLS_40_80
-	beq .bak_copy_40_col
+	bit COLS_40_80
+	bpl .bak_copy_40_col
 	; 80 column -> Get characters from VDC
 	; colours
 	ldx #VDC_COLORS
@@ -1075,6 +1056,14 @@ launch_scrollback
 	lda #(>SCREEN_ADDRESS) + 1
 } else {
 	jsr get_free_vmem_buffer
+	; Forget that anything is stored in this vmem buffer
+	pha
+	lda #0
+	sta vmem_cache_page_index,x
+!ifdef TARGET_C128 {
+	sta vmem_cache_bank_index,x
+}
+	pla
 }
 	sta z_operand_value_low_arr + 6
 
@@ -1188,8 +1177,8 @@ launch_scrollback
 	pla
 	ldy #3
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq +
+	bit COLS_40_80
+	bpl +
 	iny
 +
 }
@@ -1209,8 +1198,8 @@ launch_scrollback
 	; ; Copy 24 lines of text to screen ($1050 in VDC or SCREEN_ADDRESS + 40 for VIC)
 	
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq .copy_screenful_40
+	bit COLS_40_80
+	bpl .copy_screenful_40
 
 	; Copy 24 * 80 (= 8 * 240) characters from REU to VDC
 
@@ -1277,7 +1266,7 @@ launch_scrollback
 .get_char
 	jsr kernal_getchar
 	ldx s_screen_height_minus_one
-	stx z_temp + 10 ; Counter for how many lines to scoll for PgUp/PgDown
+	stx z_temp + 10 ; Counter for how many lines to scroll for PgUp/PgDown
 	ldx #0
 	stx z_temp + 11 ; Counter for how many lines were actually scrolled
 
@@ -1306,7 +1295,7 @@ launch_scrollback
 	jsr .scroll_up_one_line
 	jmp .adjust_and_show_screen
 
-++	cpy #17
+++	cmp #17
 	bne ++
 	; Scroll down
 	jsr .scroll_down_one_line
@@ -1322,8 +1311,8 @@ launch_scrollback
 .done
 	; ; Restore screen and color RAM pointers from safe place
 !ifdef TARGET_C128 {
-	ldx COLS_40_80
-	beq .restore_copy_40_col
+	bit COLS_40_80
+	bpl .restore_copy_40_col
 	; 80 column -> Change pointers in VDC
 	lda z_operand_value_low_arr + 5 ; Background colour
 	jsr VDCInit

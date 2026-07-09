@@ -3,6 +3,7 @@
 ; ZP allocation: http://cbm.ko2000.nu/manuals/anthology/p124.jpg
 
 basic_reset           = $4000
+basic_reset_2         = $4003
 
 SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40 ; default, adjusted if needed in s_init
@@ -14,6 +15,7 @@ COLS_40_80            = $d7
 keyboard_buff_len     = $d0
 keyboard_buff         = $34a
 key_repeat            = $0a22
+directory_buffer      = $700 ; 140 bytes, must be near end of screen RAM
 
 ; --- ZERO PAGE -- ; available zero page variables (pseudo registers)
 mempointer_y          = $08 ; !byte 0 ### OK C128
@@ -60,7 +62,7 @@ s_stored_y               = $40 ; ### OK C128
 parse_array           = $41 ; 2 bytes ### OK C128
 string_array          = $43 ; 2 bytes ### OK C128
 
-ti_variable           = $a0; 3 bytes ### OK C128
+;ti_variable           = $a0; 3 bytes ### OK C128
 
 object_tree_ptr       = $45 ; 2 bytes ### OK C128
 object_num			  = $47 ; 2 bytes ### OK C128
@@ -122,7 +124,7 @@ cursor_row            = $9b ; 2 bytes ### OK C128
 cursor_column         = $a6 ; 2 bytes ### OK C128
 
 
-;TODO window_start_row      = $a8 ; 4 bytes ### OK C128
+window_start_row      = $a8 ; 4 bytes ### OK C128
 
 num_rows              = $b0 ; ### OK C128
 current_window 	      = $b1 ; ### OK C128
@@ -210,8 +212,9 @@ c128_mmu_load_pcrc    = $ff03
 c128_mmu_load_pcrd    = $ff04
 
 ; --- Kernel routines ---
-kernal_delay_1ms      = $eeb3 ; delay 1 ms
+;kernal_delay_1ms      = $eeb3 ; delay 1 ms
 kernal_reset          = $ff3d ; cold reset of the C128
+kernal_jswapper       = $ff5f ; set bank for I/O
 kernal_setbnk         = $ff68 ; set bank for I/O
 kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters
@@ -226,6 +229,7 @@ kernal_readchar       = $ffcf ; read byte from default input into a
 kernal_printchar      = $ffd2 ; write char in a
 kernal_load           = $ffd5 ; load file
 kernal_save           = $ffd8 ; save file
+kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
 

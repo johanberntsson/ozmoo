@@ -13,6 +13,21 @@ set_z_address
 	sta z_address + 1
 	lda #$0
 	sta z_address
+
+!ifdef TARGET_X16 {
+x16_bank_z_address
+	lda z_address + 1
+	sta mempointer
+	lda z_address
+	sta mempointer + 1
+	jsr x16_prepare_bankmem
+	lda 0
+	sta x16_z_address_bank
+	lda mempointer
+	sta x16_z_adress_pointer
+	lda mempointer + 1
+	sta x16_z_adress_pointer + 1
+}
 	rts
 
 dec_z_address
@@ -20,31 +35,44 @@ dec_z_address
 	dec z_address + 2
 	lda z_address + 2
 	cmp #$ff
-	bne +
+	bne +++ ; No re-banking necessary
 	dec z_address + 1
 	lda z_address + 1
 	cmp #$ff
 	bne +
 	dec z_address
-+   pla
++
+!ifdef TARGET_X16 {
+	jsr x16_bank_z_address
+}
++++
+	pla
 	rts
 
 set_z_himem_address
 	stx z_address + 2
 	sta z_address + 1
 	sty z_address
+!ifdef TARGET_X16 {
+	jmp x16_bank_z_address
+} else {
 	rts
+}
 
 skip_bytes_z_address
 	; skip <a> bytes
 	clc
 	adc z_address + 2
 	sta z_address + 2
-	bcc +
+	bcc +++ ; No re-banking necessary
 	inc z_address + 1
 	bne +
 	inc z_address
-+   rts
++
+!ifdef TARGET_X16 {
+	jmp x16_bank_z_address
+}
++++ rts
 
 !ifdef DEBUG {
 print_z_address
@@ -61,7 +89,7 @@ get_z_himem_address
 	; fall through to get_z_address
 get_z_address
 	; input: 
-	; output: a,x
+	; output: a,x + Z says if high byte is zero
 	; side effects: 
 	; used registers: a,x
 	ldx z_address + 2 ; low
@@ -74,17 +102,33 @@ read_next_byte
 	; side effects: z_address
 	; used registers: a,x
 	sty z_address_temp
+
+!ifdef TARGET_X16 {
+	lda x16_z_address_bank
+	sta 0
+	ldy z_address + 2
+	lda (x16_z_adress_pointer),y
+} else {
 	lda z_address
 	ldx z_address + 1
 	ldy z_address + 2
-
 	jsr read_byte_at_z_address
+}
 	inc z_address + 2
-	bne +
+	bne +++
 	inc z_address + 1
 	bne +
 	inc z_address
-+   ldy z_address_temp
++
+!ifdef TARGET_X16 {
+	pha
+;	lda z_address + 1
+;	and #%00011111
+;	bne +
+	jsr x16_bank_z_address
++	pla
+}
++++	ldy z_address_temp
 	rts
 
 set_z_paddress
@@ -124,7 +168,11 @@ set_z_paddress
 	adc string_offset
 	sta z_address
 }	
+!ifdef TARGET_X16 {
+	jmp x16_bank_z_address
+} else {
 	rts
+}
 
 write_next_byte
 ; input: value in a 
@@ -140,7 +188,24 @@ write_next_byte
 	bcs .write_outside_dynmem
 }
 
-!ifdef TARGET_C128 {
+!ifdef TARGET_X16 {
+	txa
+	pha
+	tya
+	pha
+
+	lda x16_z_address_bank
+	sta 0
+	lda z_address_temp
+	ldy z_address + 2
+	sta (x16_z_adress_pointer),y
+
+	pla
+	tay
+	pla
+	tax
+	lda z_address_temp
+} else ifdef TARGET_C128 {
 	txa
 	pha
 	tya
@@ -159,8 +224,7 @@ write_next_byte
 	pla
 	tax
 	lda z_address_temp
-} else {
-!ifdef TARGET_MEGA65 {
+} else ifdef TARGET_MEGA65 {
 	lda z_address + 2
 	sta dynmem_pointer
 	lda z_address + 1
@@ -168,8 +232,8 @@ write_next_byte
 	ldz #0
 	lda z_address_temp
 	sta [dynmem_pointer],z
-} else { 
-	; not TARGET_C128 or MEGA65
+} else {
+	; not TARGET_X16, TARGET_C128 or MEGA65
 	lda z_address + 2
 	sta .write_byte + 1
 	lda z_address + 1
@@ -180,14 +244,22 @@ write_next_byte
 .write_byte
 	sta $8000 ; This address is modified above
 }
-}
 
 	inc z_address + 2
-	bne +
+	bne +++
 	inc z_address + 1
 	bne +
 	inc z_address
-+	rts
++
+!ifdef TARGET_X16 {
+	pha
+	; lda z_address + 1
+	; and #%00011111
+	; bne +
+	jsr x16_bank_z_address
++	pla
+}
++++	rts
 
 !ifdef CHECK_ERRORS {
 .write_outside_dynmem
