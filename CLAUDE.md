@@ -50,7 +50,6 @@ So "does this code run?" always depends on which `!ifdef` blocks are active for 
 - `vmem.asm`, `memory.asm` — virtual memory: the story beyond dynamic memory is demand-paged from disk in 512-byte blocks. `set_z_pc` / `get_page_at_z_pc` page in the code being executed.
 - `screenkernal.asm` / `screen.asm` — the non-z6 screen layer. `screenkernal.asm` replaces the C64 kernal screen routines (`s_printchar` instead of `$ffd2`); `screen.asm` implements the Z-machine screen model on top.
 - `screenkernal-z6.asm` / `screen-z6.asm` — the **z6-only** equivalents, sourced instead of the above under `!ifdef Z6`. Keep them as close to their non-z6 counterparts as possible; when master changes the originals, re-fork rather than hand-patch.
-- `screenmodel-z6.asm` — dead code, not sourced anywhere. Superseded by `screen-z6.asm`.
 - `streams.asm`, `text.asm`, `dictionary.asm` — I/O streams (must precede text.asm), zchar decoding, tokenizing, `read_text`.
 - `disk.asm`, `reu.asm`, `constants*.asm` — disk access, REU, per-target memory maps.
 
