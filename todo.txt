@@ -44,18 +44,66 @@ Still to do for z6 (not crashes):
   as the spec intends.
 - print_form is fully implemented: it is a text opcode, not a graphics one.
 
-Z6 on other targets: deliberately not started
----------------------------------------------
-Get z6 working on the C64 first. Nothing is to be done about the other
-targets until then, so the following are known and accepted, not oversights:
+Z6 on other targets
+-------------------
+The C64 came first and it works. The MEGA65 is next. The C128 and the X16 are
+still deliberately untouched, so the following are known and accepted, not
+oversights:
 - The window-local scrolling in screenkernal-z6.asm only covers the code path
-  the C64, Plus/4 and MEGA65 share (.s_scroll). The C128 80 column routine
-  (.s_scroll_vdc) and the X16 routine (.s_scroll_vera) still scroll the whole
-  screen, so a z6 window there will smear the rest of the display.
+  the C64, Plus/4 and MEGA65 share (.s_scroll, and the new s_scroll_window).
+  The C128 80 column routine (.s_scroll_vdc) and the X16 routine
+  (.s_scroll_vera) still scroll the whole screen, so a z6 window there will
+  smear the rest of the display.
 - ECM (-ecm) is C64 only, and make.rb rejects it elsewhere. The MEGA65 and X16
   don't need it: their video chips give every character its own background
   colour, so those targets should set the window's background directly rather
   than borrowing the ECM approach.
+
+
+The plan for z6 on the MEGA65
+-----------------------------
+The C64 and the Plus/4 will never draw pictures, and keep the "pic:N" notes
+whatever happens below.
+
+1. Check what already works with -t:mega65. A first pass says: a lot. A
+   headless xemu run of testz6 (see CLAUDE.md) shows the window model, the
+   margins, print_form and picture_data all behaving at 80x25. But the run
+   stopped at a MORE prompt, so draw_picture and scroll_window were never
+   reached, and scroll_window is the one new routine with MEGA65-specific
+   colour2k/colour1k banking that has never actually run. Cover those two
+   first. Check -t:plus4 the same way while there.
+
+2. Before rewriting the screen layer, prototype one hardcoded picture: blit it
+   with the DMA engine (m65_run_dma and dma_list already exist in disk.asm)
+   into a full colour, 16 bit character mode screen. This is throwaway code.
+   It exists to answer the questions that decide the shape of step 3 - how
+   many unique tiles a picture costs, where the pixel data lives, and whether
+   DMA can do the scrolling too. Freezing a screenkernal around byte copy
+   loops and then discovering it needs a DMA blitter would be the wrong order.
+
+3. Rewrite the MEGA65 z6 screen mode to use FCM (full colour mode, VIC-IV,
+   with 16 bit character codes). It is needed either way: it gives every
+   character its own background colour, which retires the ECM approach on this
+   target, and 16 bit character codes are the only sane way to get enough
+   unique tiles for pictures. Expect it to touch update_screenpos, s_printchar,
+   s_delete_cursor, erase_line, the cursor, and both scroll paths, since a cell
+   becomes two bytes. If that turns into a mass of !ifdefs inside
+   screenkernal-z6.asm, split it out into screenkernal-mega65-z6.asm, the way
+   constants-c128.asm is split out. Decide once the size of the change is known.
+
+4. Graphics. The drawing is not the hard part.
+   - The conversion of the picture files belongs in a separate script, not in
+     make.rb, which is large enough already. Arthur's 137 PNGs are in
+     z6games/arthur-graphics (not in git; not ours to distribute).
+   - The pictures need somewhere to live (Attic RAM? another disk?) and a way
+     to page them in.
+   - picture_data must start reporting real sizes and branching true, and
+     z_init must stop clearing the "pictures available" bit in header_flags_2
+     (see "and #(255 - 8 - 32) ; pictures and mouse never available"). That
+     flips Arthur onto code paths no interpreter of ours has ever run. Expect a
+     second round of the sort of bug the Z7PLUS/Z6PLUS mix-up caused: the C64
+     and the MEGA65 will no longer be playing the same game.
+
 
 When the MEGA65 work does start, this is the VIC-IV setup from the old
 screenmodel-z6.asm skeleton (deleted; see git history, a7e3b56). It was never

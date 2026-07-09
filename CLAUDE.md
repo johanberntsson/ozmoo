@@ -65,10 +65,11 @@ Eight windows, each with the property array the spec requires (`window_y`, `wind
 ## Watch out for
 
 - **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the Z-machine standard (see References) before assuming an opcode behaves as in v5.
-- Several v6 opcodes are still dummies (graphics, `scroll_window`); see `todo.txt` for what is and isn't safe about them.
+- Of the v6 opcodes, only the three genuinely graphical ones are unimplemented. `draw_picture` writes a `pic:N` note where a picture belongs, `erase_picture` paints the note out, and `picture_data` reports that no picture exists. `print_form` and `scroll_window` turned out to be text opcodes and are done. See `todo.txt`.
 - **v6 is a "large" version, like v7/v8, not like v4/v5.** Story files run to 512 KB, the header file length is divided by 8, and block addresses need two high bits. `make.rb` has always known this (`$zcode_version > 5`); the assembly used to express it as `Z7PLUS`, which excludes v6. Use `Z6PLUS` for anything size-related, and be suspicious of any new `Z4PLUS`/`Z7PLUS` split. See `todo.txt` for the three bugs this caused.
 - No v6 interpreter ever ran on a C64, so v6 code paths have never been exercised against a real game. Expect more latent assumptions — minimum screen size, stack depth, story size — that no other version happens to violate.
-- **Get z6 working on the C64 before touching any other target.** The z6 window model is only wired into the scroll path the C64, Plus/4 and MEGA65 share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. These are deliberate, not oversights — don't "fix" them yet.
+- **The C64 came first, and it works. The MEGA65 is next; the C128 and X16 are still deliberately untouched.** The z6 window model is only wired into the scroll path the C64, Plus/4 and MEGA65 share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. Those two remain known and accepted, not oversights — don't "fix" them yet.
+- Whatever is done for MEGA65 graphics, the C64 and Plus/4 will never draw pictures. The `pic:N` notes have to stay for them.
 
 ## Debugging under VICE (headless)
 
@@ -85,6 +86,21 @@ x64sc -default -warp +sound -limitcycles 60000000 -exitscreenshot shot.png c64_t
 - To type text: `command 1 "keybuf hello"`. `keybuf` does **not** interpret `\n`, so append Return by poking the kernal keyboard buffer: `command 2 "> 027c 0d"` and `command 3 "> 00c6 06"` (buffer, then length).
 - `-exitscreenshot` can catch a mid-frame redraw and show a character that isn't really there. To see the truth, dump screen RAM: `command N "m 0400 07e7"` and decode the log (screen codes; in ECM the top two bits are the background register).
 - VICE randomizes the autostart delay, so cycle counts are **not** reproducible between runs.
+- A headless run stops at the first **MORE prompt** and at `read`, so it never reaches the end of a test game. Put a tracepoint on `show_more_prompt` with `command <n> "keybuf n"` to answer them.
+- Don't hang a memory dump on `read_char`: it is a polling loop, so the dump repeats for as long as the game waits (44 million lines in one run here). `read_text` is hit once. Either way, take the *first* dump from the log.
+
+## Debugging the MEGA65 under xemu (headless)
+
+`xemu-xmega65` is better instrumented for this than VICE: it dumps the screen as plain **ASCII**, so there is nothing to decode and no mid-redraw artifact.
+
+```sh
+xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
+    -8 mega65_testz6.d81 -autoload -dumpscreen screen.txt -screenshot shot.png
+```
+
+- It never exits by itself — there is no cycle limit. Wrap it in `timeout`; the dumps are still written on the way out.
+- `-dumpmem` writes memory, and `-uartmon <socket>` opens a monitor, if the screen isn't enough.
+- Non-printable screen codes come out as `{$xx}` in the dump.
 
 ## References
 
