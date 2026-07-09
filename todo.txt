@@ -173,9 +173,11 @@ Screen size, and why 320x200
      text and system colours, store each picture's own <=16 entry palette next
      to its tiles, write pixel indices offset by 16, and load the palette into
      entries 16-31 in draw_picture. Exact, no quantisation, 48 bytes a picture.
-     If Arthur ever wants two pictures with different palettes on screen at
-     once, hand out further 16 entry banks and let the converter assign them -
-     but only if it turns out to do that.
+     Only a few pictures are ever on screen at once, so where two of them are
+     co-resident they simply take different 16 entry banks out of the 240 above
+     the text colours - up to 15 of them. The converter assigns the banks and
+     bakes the offset into the pixel indices, so draw_picture only ever loads a
+     picture's palette into the bank the converter chose for it.
    - The pictures live in attic RAM. Everything from $8300000 up is free, 5 MB
      of it, against 1,125,824 pixels = 1.1 MB for the whole set at 8bpp. So a
      "pics" file preloaded into attic at boot, exactly the way zcode and the
@@ -184,9 +186,15 @@ Screen size, and why 320x200
    - The binding constraint is the d81, not memory. 800 KB per disk, ~802 KB
      usable, of which Arthur is 263 KB. The full picture set at 8bpp does not
      fit. Start with a handful of pictures that do, get them on screen, and add
-     simple compression (the art is flat shaded line art; RLE should crush it,
-     and it can decompress into attic at boot) only once it is needed. A second
-     disk is the fallback; arthur-d2 already has the shape for it.
+     compression only once it is needed. A second disk is the fallback;
+     arthur-d2 already has the shape for it.
+     When it is needed, keep png2fci.py's RLE: a byte on its own is a literal,
+     a byte repeated twice is followed by a count. It suits the tile order
+     rather than fighting it, because a cell of flat colour serialises to 64
+     identical bytes and collapses to three, and this art is mostly flat
+     colour. Decompression happens once, into attic at boot, so it costs
+     nothing during play. Its run scan stops one byte early, which loses the
+     odd run but never corrupts one; fix it or leave it, but know it is there.
    - picture_data must start reporting real sizes and branching true, and
      z_init must stop clearing the "pictures available" bit in header_flags_2
      (see "and #(255 - 8 - 32) ; pictures and mouse never available"). That
