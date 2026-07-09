@@ -10,38 +10,34 @@
 
 !macro init_screen_model {
     ; default values (see z-spec 8.8.3.3)
+    ; all coordinates are stored 0-based internally; the opcodes
+    ; convert from/to the 1-based coordinates the z-machine uses
 	lda #0
 	sta current_window
-	ldx #40
-	lda #1
+	ldx #(16 * 8) - 1 ; clear all 16 window property arrays
 -   sta window_y,x
 	dex
-	bne -
-	ldx #80
-	lda #0
--   sta window_y_size,x
-	dex
-	bne -
+	bpl -
 	ldx #6
-	lda #8
+	lda #WIN_BUFFERED ; windows 1-7 start with buffering only
 -   sta window_attributes + 1,x
 	dex
 	bpl -
-	; special values for window 0 and 1
+	; window 0 fills the whole screen; wrapping, scrolling,
+	; transcripting and buffering all on
 	lda #15
 	sta window_attributes
 	lda s_screen_height
 	sta window_y_size
 	lda s_screen_width
 	sta window_x_size
-	sta window_x_size + 1
     lda #147 ; clear screen
     jsr s_printchar
 }
 
 WIN_WRAPPING = 1
 WIN_SCROLLING = 2
-WIN_TRANSCRIPT = 3
+WIN_TRANSCRIPT = 4
 WIN_BUFFERED = 8
 
 ; the props must be defined as for put/get_wind_prop to work (8.8.3.2)
@@ -106,13 +102,22 @@ z_ins_move_window
 	jsr newline
 }
 	ldy z_operand_value_low_arr
-	lda z_operand_value_low_arr + 1
+	ldx z_operand_value_low_arr + 1
+	beq +
+	dex ; z-machine uses 1-based coordinates, we use 0-based
++	txa
 	sta window_y,y
 	sta window_y_cursor,y
-	lda z_operand_value_low_arr + 2
+	ldx z_operand_value_low_arr + 2
+	beq +
+	dex
++	txa
 	sta window_x,y
 	sta window_x_cursor,y
-	rts
+	cpy current_window
+	bne +
+	jsr restore_cursor ; the current window moved: update the live cursor
++	rts
  
 z_ins_window_size
 	; window_size window y x
@@ -150,8 +155,9 @@ z_ins_window_style
 +   cpx #2
 	bne +
 	; clear the bits supplied
-	lda window_attributes,y
-	and z_operand_value_low_arr + 1
+	lda z_operand_value_low_arr + 1
+	eor #$ff
+	and window_attributes,y
 	jmp ++
 +   ; reverse the bits supplied (xor)
 	lda window_attributes,y
@@ -170,15 +176,41 @@ z_ins_get_wind_prop
 	jsr printa
 	jsr newline
 }
-	; return value at window_y + property-number * 8 (or 2) + window
+	; return value at window_y + property-number * 8 + window
 	lda z_operand_value_low_arr + 1
-	asl ; * 8 for
+	asl
 	asl
 	asl
 	clc
 	adc z_operand_value_low_arr
 	tay
 	ldx window_y,y
+	; convert 0-based internal values to what the z-machine expects
+	ldy z_operand_value_low_arr
+	lda z_operand_value_low_arr + 1
+	cmp #2
+	bcs +
+	inx ; property 0/1 (y/x position): 1-based
+	bne .gwp_store ; Always branch
++	cmp #4
+	beq .gwp_cursor_y
+	cmp #5
+	bne .gwp_store
+	; property 5 (x cursor): stored absolute, return window-relative 1-based
+	txa
+	sec
+	sbc window_x,y
+	tax
+	inx
+	bne .gwp_store ; Always branch
+.gwp_cursor_y
+	; property 4 (y cursor): stored absolute, return window-relative 1-based
+	txa
+	sec
+	sbc window_y,y
+	tax
+	inx
+.gwp_store
 	lda #0
 	jmp z_store_result
  
@@ -358,89 +390,85 @@ init_screen_colours
 
 !ifdef Z4PLUS {
 z_ins_erase_window
-	; erase_window window
+	; erase_window window (0-7, -1 = unsplit + clear screen, -2 = clear screen)
 	jsr printchar_flush
+	jsr save_cursor
 	ldx z_operand_value_low_arr
 ;    jmp erase_window ; Not needed, since erase_window follows
 }
-	
+
 erase_window
-	; x = 0: clear lower window
-	;     1: clear upper window
-	;    -1: clear screen and unsplit
-	;    -2: clear screen and keep split
-;	stx save_x
-	lda zp_screenrow
-	pha
-;    lda z_operand_value_low_arr
-	cpx #0
-	beq .window_0
-	cpx #1
-	beq .window_1
+	; x = window number, $ff (-1) or $fe (-2)
+	cpx #$fe
+	bcs .erase_whole_screen
+	; erase a single window (0-7)
+	jsr .erase_window_rect
+	ldx .rect_win
+	jmp .home_cursor
+.erase_whole_screen
+	cpx #$ff
+	bne +
+	; -1: unsplit - window 0 fills the screen and is selected
 	lda #0
 	sta current_window
-	cpx #$ff ; clear screen, then; -1 unsplit, -2 keep as is
-	bne .keep_split
+	sta window_y
+	sta window_x
+	lda s_screen_height
+	sta window_y_size
+	lda s_screen_width
+	sta window_x_size
++	lda #147 ; clear screen
+	jsr s_printchar
+	ldx current_window
+.home_cursor
+	; move the erased window's cursor to its top left corner
+	lda window_y,x
+	sta window_y_cursor,x
+	lda window_x,x
+	sta window_x_cursor,x
+	cpx #0
+	bne +
 	jsr clear_num_rows
-	ldx #0 ; unsplit
-	jsr split_window
-.keep_split
-!ifndef Z4PLUS {
-	lda #1
-	bne .clear_from_a ; Always branch
-} else {
-	lda #0
-	beq .clear_from_a ; Always branch
-}
-.window_0
-	lda window_y
-.clear_from_a
++	; put the live cursor back where the current window wants it
+	jsr restore_cursor
+	jmp start_buffering
+
+.erase_window_rect
+	; erase the screen rectangle of window x (fills it with spaces
+	; in the current colours, using s_delete_cursor so all targets work)
+	stx .rect_win
+	lda window_y_size,x
+	beq .rect_done
+	sta .rect_rows_left
+	lda window_y,x
 	sta zp_screenrow
--	lda zp_screenrow
-	cmp s_screen_height
-	bcs +
-	jsr s_erase_line
-	inc zp_screenrow
-	bne - ; Always branch
-	jsr clear_num_rows
-+	; set cursor to top left (or, if Z4, bottom left)
-	pla
-	ldx #0
-	stx cursor_column + 1
-!ifndef Z4PLUS {
-	inx
-}
-!ifdef Z5PLUS {
-	lda window_y
-} else {
-	lda s_screen_height_minus_one
-}
-	stx cursor_row + 1
-	pha
-	tax
-	ldy #0
-	clc
-	jsr s_plot ; Update screen and colour pointers
-	lda is_buffered_window
-	beq .end_erase
-	jsr start_buffering
-	jmp .end_erase
-.window_1
-	lda window_y
-	cmp window_y + 1
-	beq .end_erase
-	lda window_y + 1
-	sta zp_screenrow
--   jsr s_erase_line
-	inc zp_screenrow
+.rect_row_loop
 	lda zp_screenrow
-	cmp window_y
-	bne -
-.end_erase
-	pla
-	sta zp_screenrow
-.return	
+	cmp s_screen_height
+	bcs .rect_done
+	ldx .rect_win
+	lda window_x_size,x
+	beq .rect_done
+	sta .rect_cols_left
+	ldy window_x,x
+	ldx zp_screenrow
+	clc
+	jsr s_plot ; set row/column and update screen pointers
+.rect_col_loop
+	ldy zp_screencolumn
+	jsr s_delete_cursor ; writes a space at the cursor position
+	inc zp_screencolumn
+	dec .rect_cols_left
+	bne .rect_col_loop
+	inc zp_screenrow
+	dec .rect_rows_left
+	bne .rect_row_loop
+.rect_done
 	rts
+
+.rect_win       !byte 0
+.rect_rows_left !byte 0
+.rect_cols_left !byte 0
 
 !ifdef Z4PLUS {
 z_ins_erase_line
@@ -450,6 +478,8 @@ z_ins_erase_line
 	cmp #1
 	bne .return
 	jmp s_erase_line_from_cursor
+.return
+	rts
 
 !ifdef Z5PLUS {
 .pt_cursor = z_temp;  !byte 0,0
@@ -558,12 +588,10 @@ z_ins_buffer_mode
 }
 
 start_buffering
-	lda current_window
-	beq + ; If lower window (0) is selected, we will get cursor pos
-	ldy cursor_column
-	jmp ++
-+	jsr get_cursor
-++	sty first_buffered_column
+	; the buffer always belongs to the current window, and buffer
+	; positions are absolute screen columns
+	jsr get_cursor ; y = column
+	sty first_buffered_column
 	sty buffer_index
 	ldy #0
 	sty last_break_char_buffer_pos
@@ -578,37 +606,35 @@ split_window
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
-	; split if <x> > 0, unsplit if <x> = 0
-	cpx #0
-	bne .split_window
-	; unsplit
-	ldx window_y + 1
-	stx window_y
-	rts
-.split_window
-!ifndef Z4PLUS {
-	cpx s_screen_height_minus_one
-	bcc +
-	ldx s_screen_height_minus_one
-} else {
+	; x = number of lines for window 1 at the top; 0 = unsplit
+	; both windows become full width (v6 behaviour of this opcode)
 	cpx s_screen_height
 	bcc +
 	ldx s_screen_height
-}
-+	txa
-	clc
-	adc window_y + 1
-	sta window_y
-!ifndef Z4PLUS {
-	ldx #1
-	jsr erase_window
-}	
++	stx window_y_size + 1
+	stx window_y
+	lda #0
+	sta window_y + 1
+	sta window_x
+	sta window_x + 1
+	lda s_screen_width
+	sta window_x_size
+	sta window_x_size + 1
+	lda s_screen_height
+	sec
+	sbc window_y
+	sta window_y_size
 	lda current_window
 	beq .ensure_cursor_in_window
-	; Window 1 was already selected => Reset cursor if outside window
+	cmp #1
+	bne .do_nothing
+	; Window 1 was selected => Reset cursor if outside window
 	jsr get_cursor
-	cpx window_y
-	bcs .reset_cursor
+	cpx window_y ; window 0's top row = bottom edge of window 1
+	bcc .do_nothing
+	ldx #0
+	ldy #0
+	jmp set_cursor
 .do_nothing
 	rts
 .ensure_cursor_in_window
@@ -616,38 +642,18 @@ split_window
 	cpx window_y
 	bcs .do_nothing
 	ldx window_y
+	ldy #0
 	jmp set_cursor
 
 z_ins_set_window
 	;  set_window window
+	jsr printchar_flush ; the print buffer belongs to the old window
+	jsr save_cursor
 	lda z_operand_value_low_arr
-	bne select_upper_window
-	; Selecting lower window
-select_lower_window
-	ldx current_window
-	beq .do_nothing
-	jsr save_cursor
-	lda #0
+	and #7
 	sta current_window
-	; this is the main text screen, restore cursor position
-	jmp restore_cursor
-select_upper_window
-	; this is the status line window
-	; store cursor position so it can be restored later
-	; when set_window 0 is called
-	ldx current_window
-	bne .reset_cursor ; Upper window was already selected
-	jsr save_cursor
-	ldx #1
-	stx current_window
-.reset_cursor
-!ifndef Z4PLUS { ; Since Z3 has a separate statusline 
-	ldx #1
-} else {
-	ldx #0
-}
-	ldy #0
-	jmp set_cursor
+	jsr restore_cursor ; each window keeps its own cursor
+	jmp start_buffering
 
 !ifdef Z4PLUS {
 z_ins_set_text_style
@@ -663,15 +669,25 @@ z_ins_set_text_style
 
 z_ins_get_cursor
 	; get_cursor array
+	; returns the cursor position of the current window,
+	; window-relative and 1-based
 	ldx z_operand_value_low_arr
-	; stx string_array
 	lda z_operand_value_high_arr
 	jsr set_z_address
+	jsr get_cursor ; x=row, y=column (absolute, 0-based)
+	txa
 	ldx current_window
-	beq + ; We are in lower window, jump to read last cursor pos in upper window
-	jsr get_cursor ; x=row, y=column	
--	inx ; In Z-machine, cursor has position 1+
+	sec
+	sbc window_y,x
+	pha
+	tya
+	sec
+	sbc window_x,x
+	tay
 	iny ; In Z-machine, cursor has position 1+
+	pla
+	tax
+	inx ; In Z-machine, cursor has position 1+
 	lda #0
 	jsr write_next_byte
 	txa
@@ -680,21 +696,35 @@ z_ins_get_cursor
 	jsr write_next_byte
 	tya
 	jmp write_next_byte
-+	ldx cursor_row + 1
-	ldy cursor_column + 1
-	jmp -	
-
 
 z_ins_set_cursor
-	; set_cursor line column
+	; set_cursor line column [window]
+	; coordinates are 1-based and relative to the window
 	ldy current_window
-	beq .do_nothing_2
+	lda z_operand_count
+	cmp #3
+	bcc +
+	lda z_operand_value_low_arr + 2
+	and #7
+	tay
++	; y = window to move the cursor in
 	ldx z_operand_value_low_arr ; line 1..
 	beq + ; If line is 0, it's a mistake - they mean line 1.
 	dex ; line 0..
-+	ldy z_operand_value_low_arr + 1 ; column
-	dey
-	jmp set_cursor
++	txa
+	clc
+	adc window_y,y
+	sta window_y_cursor,y
+	ldx z_operand_value_low_arr + 1 ; column 1..
+	beq +
+	dex
++	txa
+	clc
+	adc window_x,y
+	sta window_x_cursor,y
+	cpy current_window
+	bne .do_nothing_2
+	jmp restore_cursor ; make the move visible immediately
 }
 
 clear_num_rows
@@ -885,10 +915,7 @@ show_more_prompt
 .more_text_char !byte 0
 
 printchar_flush
-	; flush the printchar buffer
-	ldx current_window
-	stx z_temp + 11
-	jsr select_lower_window
+	; flush the printchar buffer into the current window
 	lda s_reverse
 	pha
 
@@ -922,14 +949,7 @@ printchar_flush
 
 +	pla
 	sta s_reverse
-	jsr start_buffering
-	ldx z_temp + 11
-	beq .increase_num_rows_done
-	jsr save_cursor
-	lda #1
-	sta current_window
-	; We have re-selected the upper window, restore cursor position
-	jmp restore_cursor
+	jmp start_buffering
 
 print_line_from_buffer
 	; Prints the text from first_buffered_column to last_break_char_buffer_pos
@@ -1094,9 +1114,11 @@ printchar_buffered
 	tya
 	pha
 	; is this a buffered window?
-	lda current_window
-	bne .is_not_buffered
-	lda is_buffered_window
+	ldx current_window
+	lda window_attributes,x
+	and #WIN_BUFFERED
+	beq .is_not_buffered
+	lda is_buffered_window ; global flag, set by the buffer_mode opcode
 	bne .buffered_window
 .is_not_buffered
 	lda .buffer_char
@@ -1104,6 +1126,14 @@ printchar_buffered
 	jmp .printchar_done
 	; update the buffer
 .buffered_window
+	; calculate the left edge and right edge (exclusive) of the current
+	; window; buffer positions are absolute screen columns
+	ldx current_window
+	lda window_x,x
+	sta .buffer_left
+	clc
+	adc window_x_size,x
+	sta .buffer_edge
 	lda .buffer_char
 	; add this char to the buffer
 	cmp #$0d
@@ -1117,7 +1147,7 @@ printchar_buffered
 	jmp .printchar_done
 .check_break_char
 	ldy buffer_index
-	cpy s_screen_width
+	cpy .buffer_edge
 	bcs .add_char ; Don't register break chars on last position of buffer.
 	cmp #$20 ; Space
 	beq .break_char
@@ -1127,14 +1157,13 @@ printchar_buffered
 	; update index to last break character
 	sty last_break_char_buffer_pos
 .add_char
-	ldx s_screen_width
+	ldx .buffer_edge
 	sta print_buffer,y
 	lda s_reverse
 	sta print_buffer2,y
 	iny
 	sty buffer_index
-;	cpy s_screen_width_plus_one ; #SCREEN_WIDTH+1
-	cpy s_screen_width ; #SCREEN_WIDTH+1
+	cpy .buffer_edge ; right edge of the current window
 	beq ++ 
 	bcs + ; Clear case - always print a line
 
@@ -1174,8 +1203,9 @@ printchar_buffered
 	iny
 	bne .store_break_pos ; Always branch
 .print_40
-	; If we can't find a place to break, and buffered output started in column > 0, print a line break and move the text in the buffer to the next line.
+	; If we can't find a place to break, and buffered output started after the window's left edge, print a line break and move the text in the buffer to the next line.
 	ldx first_buffered_column
+	cpx .buffer_left
 	beq .print_40_2
 	jmp .move_remaining_chars_to_buffer_start
 .print_40_2	
@@ -1206,8 +1236,8 @@ printchar_buffered
 	sta s_reverse
 
 .move_remaining_chars_to_buffer_start
-	; Skip initial spaces, move the rest of the line back to the beginning and update indices
-	ldy #0
+	; Skip initial spaces, move the rest of the line back to the window's left edge and update indices
+	ldy .buffer_left
 	cpx buffer_index
 	beq .after_copy_loop
 	lda print_buffer,x
@@ -1226,12 +1256,12 @@ printchar_buffered
 	bne .copy_loop ; Always branch
 .after_copy_loop
 	sty buffer_index
-	lda #0
+	lda .buffer_left
 	sta first_buffered_column
 	; more on the same line
 	jsr increase_num_rows
 	lda last_break_char_buffer_pos
-	cmp s_screen_width
+	cmp .buffer_edge
 	bcs +
 	lda #$0d
 	jsr s_printchar
@@ -1245,6 +1275,8 @@ printchar_buffered
 	rts
 anything_printed       !byte 0
 .buffer_char       !byte 0
+.buffer_left       !byte 0
+.buffer_edge       !byte 0
 ; print_buffer            !fill 41, 0
 .save_x			   !byte 0
 .save_y			   !byte 0
@@ -1270,17 +1302,21 @@ printstring_raw
 	
 
 save_cursor
+	; remember the live cursor position in the current window's
+	; cursor properties (absolute screen coordinates)
 	jsr get_cursor
 	tya
 	ldy current_window
-	stx cursor_row,y
-	sta cursor_column,y
+	sta window_x_cursor,y
+	txa
+	sta window_y_cursor,y
 	rts
 
 restore_cursor
+	; move the live cursor to the current window's stored position
 	ldy current_window
-	ldx cursor_row,y
-	lda cursor_column,y
+	ldx window_y_cursor,y
+	lda window_x_cursor,y
 	tay
 ;	jmp set_cursor
 

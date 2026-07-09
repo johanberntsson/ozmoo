@@ -1732,10 +1732,8 @@ deletable_screen_init_2
 }
 	ldy #1
 	sty is_buffered_window
-!ifndef Z6 {
 	ldx #$ff
 	jsr erase_window
-}
 	jmp start_buffering
 
 z_init

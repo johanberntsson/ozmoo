@@ -583,16 +583,29 @@ s_printchar
 	ldy zp_screencolumn
 	jsr s_delete_cursor
 	dec zp_screencolumn ; move back
-	bpl ++
-	inc zp_screencolumn ; Go back to 0 if < 0
-	lda zp_screenrow
 	ldy current_window
+	lda zp_screencolumn
+	bmi .del_outside    ; went past column 0
+	cmp window_x,y
+	bcs .del_inside     ; still inside the window
+.del_outside
+	lda zp_screenrow
 	cmp window_y,y
-	bcc ++
+	bcc .del_left_edge  ; above window top (shouldn't happen): stay at left edge
+	beq .del_left_edge  ; on the window's top row: stay at left edge
 	dec zp_screenrow
-	lda s_screen_width_minus_one ; #SCREEN_WIDTH-1
+	lda window_x,y
+	clc
+	adc window_x_size,y
+	sec
+	sbc #1              ; rightmost column of the window
 	sta zp_screencolumn
-++  jsr .update_screenpos
+	jmp .del_inside
+.del_left_edge
+	lda window_x,y
+	sta zp_screencolumn
+.del_inside
+	jsr .update_screenpos
 	lda #$20
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
@@ -692,36 +705,29 @@ s_printchar
 	iny
 	sty zp_screencolumn
 	ldx current_window
-	bne .printchar_end ; For upper window and statusline (in z3), don't advance to next line.
-	cpy s_screen_width ; #SCREEN_WIDTH
+	; wrap when the cursor passes the right edge of the current window
+	lda window_x,x
+	clc
+	adc window_x_size,x
+	sta .window_edge
+	cpy .window_edge
 	bcc .printchar_end
-	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
-!ifdef SCROLLBACK {
-	jsr copy_line_to_scrollback
-}
-	lda #0
-	sta zp_screencolumn
-	inc zp_screenrow
-	lda zp_screenrow
-	cmp s_screen_height
-	bcs +
-	jsr .update_screenpos
+	lda window_attributes,x
+	and #WIN_WRAPPING
+	bne +
+	; wrapping disabled: park the cursor on the window's last column
+	ldy .window_edge
+	dey
+	sty zp_screencolumn
 	jmp .printchar_end
++	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff
+!ifdef SCROLLBACK {
+	cpx #0
+	bne +
+	jsr copy_line_to_scrollback
 +
-!ifdef TARGET_C128 {
-	bit COLS_40_80
-	bmi .col80_3
-	; 40 columns, use VIC-II screen
-	jsr .s_scroll
-	jmp .col80_3_end
-.col80_3
-	jsr .s_scroll_vdc
-.col80_3_end
-} else ifdef TARGET_X16 {
-	jsr .s_scroll_vera
-} else {
-	jsr .s_scroll
 }
+	jmp .wrap_to_next_line
 .printchar_end
 	ldx s_stored_x
 	ldy s_stored_y
@@ -743,25 +749,59 @@ s_printchar
 	jsr copy_line_to_scrollback
 +
 }
-	lda #0
-	sta zp_screencolumn
+	; fall through into .wrap_to_next_line
+
+.wrap_to_next_line
+	; Move the cursor to the start of the next line in the current window,
+	; scrolling or clamping at the window's bottom edge
 	inc zp_screenrow
+	ldx current_window
+	; bottom edge (exclusive) = min(window_y + window_y_size, s_screen_height)
+	lda window_y,x
+	clc
+	adc window_y_size,x
+	cmp s_screen_height
+	bcc +
+	lda s_screen_height
++	sta .window_edge
+	lda zp_screenrow
+	cmp .window_edge
+	bcc .wrap_move_to_left_edge ; still inside the window
+	; the cursor has passed the bottom edge of the window
+	lda window_attributes,x
+	and #WIN_SCROLLING
+	beq .clamp_to_bottom
+	lda .window_edge
+	cmp s_screen_height
+	bcc .clamp_to_bottom ; window doesn't reach the bottom of the screen: no scrolling (yet)
+	; scroll (.s_scroll* also erases the new bottom line and leaves
+	; zp_screenrow on the last line of the screen)
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi .col80_4
 	; 40 columns, use VIC-II screen
 	jsr .s_scroll
-	jmp .col80_4_end
+	jmp .wrap_move_to_left_edge
 .col80_4
 	jsr .s_scroll_vdc
-.col80_4_end
+	jmp .wrap_move_to_left_edge
 } else ifdef TARGET_X16 {
 	jsr .s_scroll_vera
+	jmp .wrap_move_to_left_edge
 } else {
 	jsr .s_scroll
+	jmp .wrap_move_to_left_edge
 }
+.clamp_to_bottom
+	dec zp_screenrow
+.wrap_move_to_left_edge
+	ldx current_window
+	lda window_x,x
+	sta zp_screencolumn
 	jsr .update_screenpos
 	jmp .printchar_end
+
+.window_edge !byte 0
 
 s_erase_window
 	lda #0
