@@ -66,6 +66,7 @@ Eight windows, each with the property array the spec requires (`window_y`, `wind
 - **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the spec (`z-spec10.pdf`) before assuming an opcode behaves as in v5.
 - Several v6 opcodes are still dummies (graphics, `scroll_window`); see `todo.txt` for what is and isn't safe about them.
 - `make arthur` crashes before executing a single instruction — its main routine unpacks outside resident memory, so the first `set_z_pc` never returns from `get_page_at_z_pc`. See `todo.txt`.
+- **Get z6 working on the C64 before touching any other target.** The z6 window model is only wired into the scroll path the C64, Plus/4 and MEGA65 share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. These are deliberate, not oversights — don't "fix" them yet.
 
 ## Debugging under VICE (headless)
 

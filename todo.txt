@@ -22,6 +22,19 @@ Still to do for z6 (not crashes):
   are not used for word wrapping.
 - read_mouse always reports the top left corner and no buttons.
 
+Z6 on other targets: deliberately not started
+---------------------------------------------
+Get z6 working on the C64 first. Nothing is to be done about the other
+targets until then, so the following are known and accepted, not oversights:
+- The window-local scrolling in screenkernal-z6.asm only covers the code path
+  the C64, Plus/4 and MEGA65 share (.s_scroll). The C128 80 column routine
+  (.s_scroll_vdc) and the X16 routine (.s_scroll_vera) still scroll the whole
+  screen, so a z6 window there will smear the rest of the display.
+- ECM (-ecm) is C64 only, and make.rb rejects it elsewhere. The MEGA65 and X16
+  don't need it: their video chips give every character its own background
+  colour, so those targets should set the window's background directly rather
+  than borrowing the ECM approach.
+
 Ideas for tasks / subprojects to do next
 ----------------------------------------
 Handle case where REU is present but not large enough to hold entire game.
