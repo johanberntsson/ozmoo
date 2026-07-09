@@ -89,12 +89,25 @@ z_ins_erase_picture
 	rts
  
 z_ins_set_margins
-	; set_margins left right window
+	; set_margins left right [window]
+	; The margins are remembered (get_wind_prop reads them) but not used
+	; for word wrapping yet.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_set_margins ",0
 	jsr newline
 }
+	ldy current_window
+	lda z_operand_count
+	cmp #3
+	bcc +
+	lda z_operand_value_low_arr + 2
+	and #7
+	tay
++	lda z_operand_value_low_arr
+	sta window_left_margin,y
+	lda z_operand_value_low_arr + 1
+	sta window_right_margin,y
 	rts
  
 z_ins_move_window
@@ -227,22 +240,129 @@ z_ins_scroll_window
 	rts
  
 z_ins_pop_stack
-	; pop_stack items stack
+	; pop_stack items [stack]
+	; Throw away the top <items> values of the game stack, or, if a user
+	; stack is given, just give its slots back.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_pop_stack ",0
 	jsr newline
 }
+	lda z_operand_count
+	cmp #2
+	bcs .pop_user_stack
+	ldx z_operand_value_low_arr
+	beq .pop_stack_done
+-	txa
+	pha
+	jsr stack_pull
+	pla
+	tax
+	dex
+	bne -
+.pop_stack_done
 	rts
- 
+.pop_user_stack
+	; the first word of a user stack is the number of free slots
+	jsr .read_user_stack_count
+	lda .user_stack_lo
+	clc
+	adc z_operand_value_low_arr
+	tay
+	lda .user_stack_hi
+	adc z_operand_value_high_arr
+	sty .user_stack_lo
+	sta .user_stack_hi
+	jmp .write_user_stack_count
+
+z_ins_push_stack
+	; push_stack value stack ?(label)
+	; Push value onto the user stack, branching if there was room.
+!ifdef TRACE_SCREEN {
+	jsr print_following_string
+	!pet "z_ins_push_stack ",0
+	jsr newline
+}
+	jsr .read_user_stack_count
+	lda .user_stack_lo
+	ora .user_stack_hi
+	beq .user_stack_full
+	; the value goes in the word at stack + 2 * free slots
+	lda .user_stack_lo
+	asl
+	tay
+	lda .user_stack_hi
+	rol
+	; add that to the address of the user stack
+	pha
+	tya
+	clc
+	adc z_operand_value_low_arr + 1
+	tax
+	pla
+	adc z_operand_value_high_arr + 1
+	jsr set_z_address
+	lda z_operand_value_high_arr
+	jsr write_next_byte
+	lda z_operand_value_low_arr
+	jsr write_next_byte
+	; one slot fewer is free
+	lda .user_stack_lo
+	bne +
+	dec .user_stack_hi
++	dec .user_stack_lo
+	jsr .write_user_stack_count
+	jmp make_branch_true
+.user_stack_full
+	jmp make_branch_false
+
+.read_user_stack_count
+	; read the free slot count from the user stack in operand 2
+	ldx z_operand_value_low_arr + 1
+	lda z_operand_value_high_arr + 1
+	jsr set_z_address
+	jsr read_next_byte
+	sta .user_stack_hi
+	jsr read_next_byte
+	sta .user_stack_lo
+	rts
+
+.write_user_stack_count
+	ldx z_operand_value_low_arr + 1
+	lda z_operand_value_high_arr + 1
+	jsr set_z_address
+	lda .user_stack_hi
+	jsr write_next_byte
+	lda .user_stack_lo
+	jmp write_next_byte
+
+.user_stack_hi !byte 0
+.user_stack_lo !byte 0
+
 z_ins_read_mouse
 	; read_mouse array
+	; Ozmoo has no mouse: report the top left corner, no buttons pressed
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_read_mouse ",0
 	jsr newline
 }
-	rts
+	ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	jsr set_z_address
+	lda #0
+	jsr write_next_byte
+	lda #1
+	jsr write_next_byte ; y coordinate
+	lda #0
+	jsr write_next_byte
+	lda #1
+	jsr write_next_byte ; x coordinate
+	lda #0
+	jsr write_next_byte
+	jsr write_next_byte ; buttons
+	jsr write_next_byte
+	jmp write_next_byte ; menu word
  
 z_ins_mouse_window
 	; mouse_window window
@@ -252,15 +372,6 @@ z_ins_mouse_window
 	jsr newline
 }
 	rts
- 
-z_ins_push_stack
-	; push_stack value stack ?(label)
-!ifdef TRACE_SCREEN {
-	jsr print_following_string
-	!pet "z_ins_push_stack ",0
-	jsr newline
-}
-	jmp make_branch_false
  
 z_ins_put_wind_prop
 	; put_wind_prop window property-number value

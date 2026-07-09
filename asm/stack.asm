@@ -679,6 +679,60 @@ z_ins_push
 	ldx z_operand_value_low_arr
 	jmp stack_push
 
+!ifdef Z6 {
+z_ins_pull
+	; In Z6, pull takes an optional user stack and stores its result,
+	; instead of naming the variable to store into.
+	lda z_operand_count
+	beq .pull_from_game_stack
+	; Give a slot back to the user stack, then read the value in it
+	jsr .set_address_to_user_stack
+	jsr read_next_byte
+	sta .pull_count_hi
+	jsr read_next_byte
+	sta .pull_count_lo
+	inc .pull_count_lo
+	bne +
+	inc .pull_count_hi
++	jsr .set_address_to_user_stack
+	lda .pull_count_hi
+	jsr write_next_byte
+	lda .pull_count_lo
+	jsr write_next_byte
+	; the value is in the word at user stack + 2 * free slots
+	lda .pull_count_lo
+	asl
+	tay
+	lda .pull_count_hi
+	rol
+	pha
+	tya
+	clc
+	adc z_operand_value_low_arr
+	tax
+	pla
+	adc z_operand_value_high_arr
+	jsr set_z_address
+	jsr read_next_byte
+	sta .pull_count_hi
+	jsr read_next_byte
+	tax
+	lda .pull_count_hi
+	jmp z_store_result
+
+.pull_from_game_stack
+	jsr stack_pull
+	jmp z_store_result
+
+.set_address_to_user_stack
+	ldx z_operand_value_low_arr
+	lda z_operand_value_high_arr
+	jmp set_z_address
+
+.pull_count_hi !byte 0
+.pull_count_lo !byte 0
+
+} else {
 z_ins_pull
 	jsr stack_pull
 	pha
@@ -690,5 +744,6 @@ z_ins_pull
 	tax
 	pla
 	jmp z_set_variable_reference_to_value
-	
+}
+
 }

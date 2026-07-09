@@ -1,0 +1,82 @@
+Array buffer->20;
+Array parse->20;
+Array ustack --> 5;
+Array mouse --> 4;
+
+[main w h ww hh dx dy result;
+#iftrue (#version_number == 6);
+	! --- user stack: push_stack / pop_stack ---
+	ustack-->0 = 4; ! four free slots
+	@push_stack 111 ustack ?push1ok;
+	print "push_stack 1 failed^"; jump pushdone;
+.push1ok;
+	@push_stack 222 ustack ?push2ok;
+	print "push_stack 2 failed^"; jump pushdone;
+.push2ok;
+	print "pushed, free=", ustack-->0, " top=", ustack-->4, "^";
+	@pop_stack 1 ustack;
+	print "popped, free=", ustack-->0, "^";
+.pushdone;
+	ustack-->0 = 0; ! no free slots: the push must fail
+	@push_stack 333 ustack ?pushbad;
+	print "full stack rejected^"; jump fulldone;
+.pushbad;
+	print "ERROR: pushed onto a full stack^";
+.fulldone;
+
+	! --- game stack: pop_stack without a user stack ---
+	@push 42; @push 43; @push 44;
+	@pop_stack 2;
+	@pull w;
+	print "game stack pop -> ", w, " (expect 42)^";
+
+	! --- read_mouse ---
+	@read_mouse mouse;
+	print "mouse ", mouse-->0, ",", mouse-->1, " buttons ", mouse-->2, "^";
+
+	! --- set_margins / get_wind_prop ---
+	@set_margins 2 3 0;
+	@get_wind_prop 0 6 -> w; ! prop 6 is left margin
+	@get_wind_prop 0 7 -> h; ! prop 7 is right margin
+	print "margins ", w, ",", h, "^";
+
+	@erase_window (-1);
+
+	w = $22-->0;
+	h = $24-->0;
+	ww = w / 3;
+	hh = h / 3;
+	@set_colour 11 4 0;
+	@window_size 0 hh ww;
+	dx = w / 10;
+	dy = h / 10;
+	@move_window 0 dy dx;
+	@set_window 0;
+	@erase_window 0;
+	print "size (chars) ", $21->0, "  x ", $20->0, "^";
+	print "size (units) ", w, " x ", h, "^";
+	print "this is a long text that needs to be wrapped^";
+	@window_style 1 3 1; ! set buffering
+	@set_colour 8 7 1;
+	@window_size 1 hh ww;
+	@move_window 1 hh ww;
+	@set_window 1;
+	@get_wind_prop 1 3 -> h; ! prop 3 is x_size
+	print ": ",h, "^";
+
+	@erase_window 1;
+	print "this is another long text that needs to be wrapped^";
+	print "johan^^^";
+	print "> ";
+	buffer->0 = 10;
+	buffer->1 = 0;
+	parse->1 = 0;
+#IfV5;
+	@aread buffer parse -> result;
+#IfNot;
+	@sread buffer parse;
+#EndIf;
+#endif;
+	print "done!^";
+];
+
