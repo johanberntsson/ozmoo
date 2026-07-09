@@ -20,18 +20,19 @@ amfv:
 	ruby make.rb -81 $(AMFV).z4
 	x64 -drive8type 1581 c64_$(AMFV).d81
 
-# Arthur is a real z6 game. It doesn't fit on one disk, so it's built for a
-# two drive system: boot + story 1 in drive 8, story 2 in drive 9.
-# It currently crashes on startup, most likely in the graphics opcodes (which
-# are untested dummies) used by its intro screen.
+# Arthur is a real z6 game. It boots and plays; the places where it would show
+# a picture get a "pic:N" note instead. Its story file is too big for a 1541,
+# so it is built either for a 1581, or for a two drive system with boot +
+# story 1 in drive 8 and story 2 in drive 9.
+Z6GAMES = z6games
 ARTHUR = arthur-r74-s890714
 
 arthur:
-	ruby make.rb -81 $(ARTHUR).z6
+	ruby make.rb -81 $(Z6GAMES)/$(ARTHUR).z6
 	x64 -drive8type 1581 c64_$(ARTHUR).d81
 
 arthur-d2:
-	ruby make.rb -D2 $(ARTHUR).z6
+	ruby make.rb -D2 $(Z6GAMES)/$(ARTHUR).z6
 	x64 -drive8type 1541 -9 c64_$(ARTHUR)_story_2.d64 c64_$(ARTHUR)_boot_story_1.d64
 
 c64:

@@ -1,0 +1,22 @@
+# Commercial story files and their resources. Never commit these: the story
+# files and graphics of Infocom's games are not ours to distribute. The freely
+# distributable test games in examples/ and test/ are tracked as usual.
+/z6games/
+/amfvUnprotected.z4
+
+# Local checkout of a build tool, not part of Ozmoo. It may be a symlink, so
+# this must not end in a slash.
+/exomizer
+
+# Build products
+/temp/
+/testz6.z6
+/c64_*.d64
+/c64_*.d81
+/c128_*.d64
+/c128_*.d71
+/c128_*.d81
+/mega65_*.d64
+/mega65_*.d81
+/plus4_*.d64
+/plus4_*.d81
