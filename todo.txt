@@ -150,9 +150,15 @@ Screen size, and why 320x200
    it, on a 320x200 FCM screen with 16 bit character codes. What it settled:
 
    - Bank 1 is free and the VIC-IV can fetch from it. Tiles DMA'd from the
-     program's own RAM to $10000 render. Caveat: that was a bare prg with the
-     kernal quiet. Ozmoo's loader and disk routines have not been asked whether
-     they touch $10000-$1ffff.
+     program's own RAM to $10000 render.
+     Confirmed inside Ozmoo since: stamping 64 signatures across $10000-$1ffff
+     at testz6's read prompt and then letting the game finish the read, print,
+     scroll its window and quit leaves every one of them intact. Statically,
+     every far write in the MEGA65 build goes somewhere else - dynmem and the
+     story to attic (dynmem_pointer + 3 = $08, ozmoo.asm), the current sound
+     effect to bank 4 (sound.asm), undo to bank 5 (disk.asm, lda #$05),
+     scrollback to attic and colour RAM. Nothing addresses bank 1. Not
+     exercised at runtime: save, restore, undo, sound, scrollback.
    - The register setup that works, all with hot registers off ($d05d bit 7):
      $d031 = H640 off, V400 off, and ATTR (bit 5) OFF, which is what gives
      8 bit colour - the opposite of what some of the documentation says.
@@ -191,14 +197,33 @@ Screen size, and why 320x200
 
 3. Rewrite the MEGA65 z6 screen mode to use FCM (full colour mode, VIC-IV,
    with 16 bit character codes) at 320x200, 40x25 cells, as argued above. It
-   is needed either way: it gives every
-   character its own background colour, which retires the ECM approach on this
-   target, and 16 bit character codes are the only sane way to get enough
-   unique tiles for pictures. Expect it to touch update_screenpos, s_printchar,
-   s_delete_cursor, erase_line, the cursor, and both scroll paths, since a cell
-   becomes two bytes. If that turns into a mass of !ifdefs inside
-   screenkernal-z6.asm, split it out into screenkernal-mega65-z6.asm, the way
-   constants-c128.asm is split out. Decide once the size of the change is known.
+   is needed either way: it gives every character its own background colour,
+   which retires the ECM approach on this target, and 16 bit character codes
+   are the only sane way to get enough unique tiles for pictures.
+
+   The size of the change is now known. screenkernal-z6.asm has 66 uses of
+   zp_screenline / zp_colourline, and nearly all of them are "y holds the
+   column, sta (zp_screenline),y writes the cell". Under CHR16 a cell is two
+   bytes, so every one of those is affected. Two seams make it tractable:
+   - update_screenpos already computes the row address on the MEGA65 with the
+     hardware multiplier from s_screen_width, so it only needs to multiply by
+     80 instead of 40.
+   - if zp_screencolumn holds the byte offset (column * 2) rather than the
+     column, the store sites stop caring. What then has to change is the
+     comparisons against the screen width, the increments (+2, not +1), and
+     the few places that convert to and from a real column: s_plot,
+     cursor_column, s_window_left_edge / s_window_right_edge.
+   Do it behind a build flag so the existing MEGA65 build keeps working while
+   this lands, and keep it in screenkernal-z6.asm unless the !ifdefs get out of
+   hand; on this evidence a whole forked file would be mostly duplication.
+
+   The charset goes at $10000, the bottom 2 KB of bank 1, with the tile store
+   from $10800 up. FCLRLO is off, so codes below 256 fetch 8 byte glyphs from
+   CHARPTR, and CHARPTR has to point at RAM the VIC-IV can read. Bank 1 is that
+   RAM, we own it, and 2 KB out of 64 leaves 62 KB, which still holds the worst
+   deduped picture (46.9 KB) with room. The prototype copies the charset out of
+   the C64 character ROM, which appears at $d000 while CHAREN (bit 2 of $01) is
+   clear; the real build should do the same, or honour CUSTOM_FONT.
 
 4. Graphics. The drawing is not the hard part.
    - The conversion of the picture files belongs in a separate script, not in
