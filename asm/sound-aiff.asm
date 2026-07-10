@@ -8,7 +8,7 @@
 .sample_rate_big_endian !byte 0, 0, 0 ; two first bytes are value in Hz
 
 .parse_aiff
-    ; parses AIFF at $4000
+    ; parses the AIFF at the foot of the sound effect's bank of fast RAM
     ;
     ; simplifying assumptions:
     ; - only one SSND chunk
@@ -148,7 +148,7 @@
 	sta sound_file_target
 	sta sound_file_target + 1
 	sta sound_file_target + 3
-	lda #$04
+	lda #SOUND_FASTRAM_BANK
 	sta sound_file_target + 2
 	rts
 

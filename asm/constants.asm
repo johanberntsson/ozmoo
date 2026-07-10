@@ -93,17 +93,47 @@ CELL_BYTES            = 2
 ; lowercase/uppercase second, as on the C64. Ozmoo prints mixed case, so it
 ; needs the second 2 KB half.
 FCM_CHARSET           = $2d800
-; Picture tiles live in bank 1, which nothing else uses. In FCM a screen code
-; is the cell's data address divided by 64, so the tile store's base code is
-; $10000/64 = $0400: a tile's index is the code's low byte, and the high byte
-; is always 4.
+; In FCM a screen code is the cell's data address divided by 64, so the tile
+; store's base code is its address / 64. Both bases below are multiples of
+; $4000, so that code's low byte is zero and a tile's index simply adds in.
+!ifdef Z6_PICTURES {
+; Arthur draws its bordered interface as pictures, and the border, the scene
+; and the status panel are all on screen at once: over a thousand tiles. Bank 1
+; alone holds 1024, so the store spans banks 4 and 5, and sound and undo move
+; out of the way (see SOUND_FASTRAM_BANK and UNDO_BANK below). Banks 2 and 3
+; are the ROM, where FCM_CHARSET lives, so they can never be used for this.
+FCM_TILE_STORE        = $40000
+FCM_TILE_CODE_HI      = $10		; $40000 / 64 = $1000
+PIC_MAX_TILES         = 2048	; 128 KB of banks 4 and 5, at 64 bytes a tile
+} else {
+; Bank 1 is untouched in a build without pictures, so the store can live there
+; and leave the sound and undo buffers where every other target has them.
 FCM_TILE_STORE        = $10000
-FCM_TILE_CODE_HI      = 4
+FCM_TILE_CODE_HI      = 4		; $10000 / 64 = $0400
+PIC_MAX_TILES         = 1024
+}
 } else {
 SCREEN_WIDTH          = 80
 CELL_BYTES            = 1
 }
 SCREEN_ROW_BYTES      = SCREEN_WIDTH * CELL_BYTES
+
+; Where the sound effect being played and the undo state live. A sound effect
+; is played by the audio DMA, whose stop address is only 16 bits wide, so it
+; has to sit at the foot of a bank of chip RAM; undo is reached by DMA and can
+; go anywhere. When the tile store takes banks 4 and 5 they both move: sound
+; into bank 1, which the tile store has vacated, and undo into attic RAM, well
+; clear of the pictures decompressed at $8300000.
+!ifdef Z6_PICTURES {
+SOUND_FASTRAM_BANK    = $01
+UNDO_BANK             = $00
+UNDO_ADDRESS_TOP      = $86		; attic RAM, 6 MB in
+} else {
+SOUND_FASTRAM_BANK    = $04
+UNDO_BANK             = $05
+UNDO_ADDRESS_TOP      = $00
+}
+
 !ifdef CUSTOM_FONT {
 SCREEN_ADDRESS        = $1000
 } else {

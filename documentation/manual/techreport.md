@@ -168,25 +168,38 @@ A version 6 game built with Z6_PICTURES also has one file per picture on the dis
 | **Address range** | **KB** |  **Usage** |
 | -- |  - | ---- |
 | \$0000-\$ffff | 64 | System RAM, screen RAM, interpreter |
-| \$10000-\$1ffff | 64 | Picture tile store (version 6, Z6_FCM_MODE) |
+| \$10000-\$1ffff | 64 | Picture tile store (version 6, Z6_FCM_MODE without pictures); current sound effect (Z6_PICTURES) |
 | \$40000-\$40fff | 4 | Screen RAM for scrollback mode |
-| \$40000-\$4ffff | 64 | Current sound effect |
-| \$50000-\$5ffff | 64 | Undo buffer |
+| \$40000-\$4ffff | 64 | Current sound effect; picture tile store (Z6_PICTURES) |
+| \$50000-\$5ffff | 64 | Undo buffer; picture tile store (Z6_PICTURES) |
 | \$08000000-\$0807ffff | 512| Story file |
 | \$08080000-\$080800ff | 0.25 | Signature of last game that was loaded (to make restart faster) |
 | \$08100000-\$081fffff | 1024 | Sound data |
 | \$08200000-\$082fffff | 1024 | Scrollback buffer |
 | \$08300000- | | Pictures, decompressed (version 6, Z6_PICTURES) |
+| \$08600000- | | Undo buffer (Z6_PICTURES) |
 | \$0ff80000-\$0ff807ff | 2 | Colour RAM |
 | \$0ff80800-\$0ff817ff | 4 | Colour RAM for scrollback mode|
 
 Bank 1, \$10000-\$1ffff, is untouched in an ordinary build: nothing in Ozmoo
 addresses it, and the C64 mode kernal leaves it alone. A version 6 build in Full
-Colour Mode uses it as the tile store, which holds 1024 tiles of 64 bytes. It is
-the only part of fast RAM the VIC-IV can be pointed at that is not already spoken
-for: \$20000-\$3ffff is the ROM, \$40000-\$4ffff the current sound effect and
-\$50000-\$5ffff the undo buffer. A picture may therefore have at most 1024 unique
-tiles, which is enough for a full 40x25 screen in which no two cells are alike.
+Colour Mode uses it as the tile store, which holds 1024 tiles of 64 bytes.
+
+That is enough for a full 40x25 screen in which no two cells are alike, but not
+for a game that keeps several pictures on the screen at once. Arthur draws its
+interface as pictures — a border, a scene and a status panel are all live
+together, over a thousand tiles — so a build with Z6_PICTURES moves the store to
+\$40000-\$5ffff, giving 2048 tiles, and moves the two things that lived there out
+of the way. The current sound effect goes down into bank 1, which the tile store
+has vacated; it has to stay in fast RAM because the audio DMA's stop address is
+only 16 bits wide, so a sample must sit at the foot of a bank. The undo buffer
+goes to Attic RAM at \$08600000, well clear of the decompressed pictures, because
+it is only ever reached by DMA and so can live anywhere. Banks 2 and 3,
+\$20000-\$3ffff, are the ROM and can never be used for any of this: the C64 font
+the Full Colour Mode text is drawn with is read from \$2d800.
+
+A single picture still has at most 1024 unique tiles, since it covers at most the
+1000 cells of the screen.
 
 In Full Colour Mode a cell is two bytes in both screen RAM and colour RAM, so the
 40x25 screen uses the same 2000 bytes as the 80x25 text screen, and the map above
@@ -195,7 +208,8 @@ does not change.
 Note that the scrollback buffer's screen RAM and the current sound effect both
 begin at \$40000. Opening the scrollback while a sound is playing therefore
 corrupts the first 4000 bytes of the sample. It repairs itself, because the next
-@sound_effect copies the sample from Attic RAM again.
+@sound_effect copies the sample from Attic RAM again. Version 6 games never have
+a scrollback buffer, so this does not collide with the tile store.
 
 ## Save and Restore
 

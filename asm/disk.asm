@@ -2080,12 +2080,13 @@ do_save_undo
     ldx #<(stack_size + zp_bytes_to_save)
     stx dma_count
     sta dma_count + 1
-    ; destination address ($50000)
+    ; destination address (the undo buffer)
     lda #0
     sta dma_dest_address
     sta dma_dest_address + 1
+    lda #UNDO_ADDRESS_TOP
     sta dma_dest_address_top
-    lda #$05
+    lda #UNDO_BANK
     sta dma_dest_bank_and_flags
     jsr m65_run_dma
 	jsr .swap_pointers_for_save
@@ -2103,13 +2104,14 @@ do_save_undo
     jsr read_header_word
     stx dma_count
     sta dma_count + 1
-    ; destination address
+    ; destination address (the undo buffer, past the stack and zp)
     lda #0
     sta dma_dest_address
+    lda #UNDO_ADDRESS_TOP
     sta dma_dest_address_top
     lda #(>(stack_size + zp_bytes_to_save)) + 1
     sta dma_dest_address + 1
-    lda #$05
+    lda #UNDO_BANK
     sta dma_dest_bank_and_flags
     jsr m65_run_dma
     ldx #1
@@ -2118,13 +2120,14 @@ do_save_undo
 
 do_restore_undo
 	; restore zp variables + stack
-    ; source address ($50000)
+    ; source address (the undo buffer)
 	jsr .swap_pointers_for_save
     lda #0
     sta dma_source_address
     sta dma_source_address + 1
+    lda #UNDO_ADDRESS_TOP
     sta dma_source_address_top
-    lda #$05
+    lda #UNDO_BANK
     sta dma_source_bank_and_flags
     ; number of bytes
     lda #>(stack_size + zp_bytes_to_save)
@@ -2145,13 +2148,14 @@ do_restore_undo
 	jsr get_page_at_z_pc
 
     ; restore dynmem
-    ; source address
+    ; source address (the undo buffer, past the stack and zp)
     lda #0
     sta dma_source_address
+    lda #UNDO_ADDRESS_TOP
     sta dma_source_address_top
     lda #(>(stack_size + zp_bytes_to_save)) + 1
     sta dma_source_address + 1
-    lda #$05
+    lda #UNDO_BANK
     sta dma_source_bank_and_flags
     ; number of bytes
     ldy #header_static_mem

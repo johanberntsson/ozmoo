@@ -648,7 +648,7 @@ stop_sound_effect_sub
 	sta curr_sound_arg_routine + 1
     cpx .current_effect
     beq +
-    ; load sound effect into fastRAM at $40000
+    ; load sound effect into its bank of fastRAM
     stx .current_effect ; store as zero indexed index instead
     jsr .copy_effect_to_fastram
 +   ; parse sound effect data
@@ -798,12 +798,12 @@ stop_sound_effect_sub
     sta dma_count
 	lda sound_length_pages,x
 	sta dma_count + 1
-    ; copy to $40000
+    ; copy to the foot of SOUND_FASTRAM_BANK
     lda #$00
     sta dma_dest_address
     sta dma_dest_address + 1
     sta dma_dest_address_top
-    lda #$04
+    lda #SOUND_FASTRAM_BANK
     sta dma_dest_bank_and_flags
     ; copy
     jmp m65_run_dma

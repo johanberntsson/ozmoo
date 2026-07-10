@@ -20,10 +20,10 @@
 .chunk_header_size !byte 8,0,0,0 ; the ID and size are 4 bytes each
 
 .parse_wav
-    ; parses WAV at $4000
+    ; parses the WAV at the foot of the sound effect's bank of fast RAM
     lda #0
     tax
-    ldy #4
+    ldy #SOUND_FASTRAM_BANK
     taz
     stq sound_file_target
 !ifdef VERIFY_WAV_CHUNK_ID {

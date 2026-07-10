@@ -76,19 +76,20 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 !source "../temp/pictures.asm"
 
 ; The pictures are files on the disk, preloaded into attic RAM at boot the same
-; way the sound effects are. Drawing one copies its tiles down into bank 1,
-; shifting every pixel index into the drawing window's palette bank, loads its
-; palette, and fills its cells in screen RAM.
+; way the sound effects are. Drawing one copies its tiles down into the tile
+; store, shifting every pixel index into the drawing window's palette bank,
+; loads its palette, and fills its cells in screen RAM.
 ;
 ; A window holds at most one picture, so each window owns a run of the tile
 ; store and a bank of 16 palette entries above the 16 text colours.
 
 PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
-PIC_MAX_TILES  = 1024		; 64 KB of bank 1, at 64 bytes a tile
+; PIC_MAX_TILES, FCM_TILE_STORE and FCM_TILE_CODE_HI are in constants.asm:
+; where the store can live depends on what else is in the target's fast RAM.
 
 .pic_ptr = z_temp			; 2 bytes, the screen row being written
 .pic_att = z_temp + 2		; 4 bytes, a 32 bit pointer into attic RAM
-.pic_dst = z_temp + 6		; 4 bytes, a 32 bit pointer into bank 1
+.pic_dst = z_temp + 6		; 4 bytes, a 32 bit pointer into the tile store
 
 .pic_index   !byte 0
 .pic_w       !byte 0		; cells across
@@ -424,16 +425,22 @@ pic_load_all
 	sta .pic_dst
 	lda .pic_slot + 1
 	sta .pic_dst + 1
+	lda #0					; slot * 64 needs 24 bits: a store of 2048 tiles
+	sta .pic_dst + 2		; runs to $1ffc0, past what two bytes can hold
 	ldx #6
 -	asl .pic_dst
 	rol .pic_dst + 1
+	rol .pic_dst + 2
 	dex
 	bne -
-	lda #((FCM_TILE_STORE >> 16) & $0f)
+	lda .pic_dst + 2		; the store's low 16 bits are zero, so the base
+	clc						; only ever lands in the third byte
+	adc #((FCM_TILE_STORE >> 16) & $0f)
 	sta .pic_dst + 2
 	lda #0
 	sta .pic_dst + 3
-	; source bytes = ntiles * 32, which cannot overflow: ntiles <= 1024
+	; source bytes = ntiles * 32, which cannot overflow: one picture covers at
+	; most the 1000 cells of the screen, so it has at most 1000 tiles
 	lda .pic_ntiles
 	sta .pic_count
 	lda .pic_ntiles + 1
@@ -536,8 +543,8 @@ pic_load_all
 	pha
 	jsr .pic_att_next		; index, high byte
 	adc .pic_slot + 1
-	adc #>1024				; the tile store's base screen code
-	sta .pic_count			; carry is clear: the sum is under 2048
+	adc #FCM_TILE_CODE_HI	; the tile store's base screen code
+	sta .pic_count			; carry is clear: a tile index never reaches $4000
 	pla
 	ldy .pic_col2
 	sta (.pic_ptr),y
@@ -693,9 +700,17 @@ z_ins_draw_picture
 
 z_ins_picture_data
 	; picture_data picture-number array ?(label)
-	; No picture is ever valid, so this never branches. Picture 0 asks for
+	; Where we have the picture, report its size and branch. Picture 0 asks for
 	; the number of pictures available and the release number of the picture
-	; file instead of a size: both are zero.
+	; file instead of a size.
+	;
+	; The spec calls the two words a height and a width "in pixels", but a
+	; pixel here is whatever unit the rest of the screen model counts in, and
+	; Ozmoo counts characters: the header reports a 40x25 screen and
+	; get_wind_prop answers 1x1 for the font size. A game divides one by the
+	; other, so the size must come back in cells too. Arthur centres a picture
+	; with (get_wind_prop 3 - width) / 2, straight against the window's column
+	; count, and would put it off screen eightfold otherwise.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_picture_data ",0
@@ -703,16 +718,51 @@ z_ins_picture_data
 }
 	lda z_operand_value_low_arr
 	ora z_operand_value_high_arr
-	bne +
+	bne .pd_picture
+	; picture 0: the number of pictures, then the picture file's release number
+	jsr .pd_set_array
+	lda #0
+	jsr write_next_byte
+!ifdef Z6_PICTURES {
+	lda #picture_count
+} else {
+	lda #0
+}
+	jsr write_next_byte
+	lda #0
+	jsr write_next_byte
+	jsr write_next_byte
+	jmp make_branch_false ; picture 0 never branches
+.pd_picture
+!ifdef Z6_PICTURES {
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr .pic_find
+	bcc +
+	jsr .pic_open
+	jsr .pic_att_next ; cells across
+	sta .pic_w
+	jsr .pic_att_next ; cells down
+	sta .pic_h
+	jsr .pd_set_array
+	lda #0
+	jsr write_next_byte
+	lda .pic_h ; the height is word 0
+	jsr write_next_byte
+	lda #0
+	jsr write_next_byte
+	lda .pic_w ; and the width word 1
+	jsr write_next_byte
+	jmp make_branch_true
++
+}
+	jmp make_branch_false
+
+.pd_set_array
+	; Point the write cursor at the array in operand 1.
 	ldx z_operand_value_low_arr + 1
 	lda z_operand_value_high_arr + 1
-	jsr set_z_address
-	ldy #4
--	lda #0
-	jsr write_next_byte
-	dey
-	bne -
-+	jmp make_branch_false
+	jmp set_z_address
 
 z_ins_erase_picture
 	; erase_picture picture-number y x
@@ -844,6 +894,26 @@ z_ins_erase_picture
 .pic_rem !byte 0
 .pic_buf !byte 0,0,0,0,0 ; at most five digits
 
+window_from_operand
+	; x = which operand holds a window number. Returns that window in a and y.
+	; The z-machine writes the current window as -3 (z-spec 8.8.3), and Arthur
+	; does so constantly: 22 of its get_wind_prop calls and 5 of its
+	; window_style calls name the window that way. Anything else is masked to
+	; the eight windows that exist.
+	lda z_operand_value_high_arr,x
+	cmp #$ff
+	bne +
+	lda z_operand_value_low_arr,x
+	cmp #$fd
+	bne +
+	lda current_window
+	tay
+	rts
++	lda z_operand_value_low_arr,x
+	and #7
+	tay
+	rts
+
 z_ins_set_margins
 	; set_margins left right [window]
 	; The margins are in pixels, and a character is one pixel wide here, so
@@ -857,9 +927,8 @@ z_ins_set_margins
 	lda z_operand_count
 	cmp #3
 	bcc +
-	lda z_operand_value_low_arr + 2
-	and #7
-	tay
+	ldx #2
+	jsr window_from_operand
 +	lda z_operand_value_low_arr
 	sta window_left_margin,y
 	lda z_operand_value_low_arr + 1
@@ -906,7 +975,8 @@ z_ins_move_window
 	!pet "z_ins_move_window ",0
 	jsr newline
 }
-	ldy z_operand_value_low_arr
+	ldx #0
+	jsr window_from_operand
 	ldx z_operand_value_low_arr + 1
 	beq +
 	dex ; z-machine uses 1-based coordinates, we use 0-based
@@ -931,7 +1001,8 @@ z_ins_window_size
 	!pet "z_ins_window_size ",0
 	jsr newline
 }
-	ldy z_operand_value_low_arr
+	ldx #0
+	jsr window_from_operand
 	lda z_operand_value_low_arr + 1
 	sta window_y_size,y
 	lda z_operand_value_low_arr + 2
@@ -945,7 +1016,8 @@ z_ins_window_style
 	!pet "z_ins_window_style ",0
 	jsr newline
 }
-	ldy z_operand_value_low_arr
+	ldx #0
+	jsr window_from_operand
 	ldx z_operand_value_low_arr + 2
 	bne +
 	; set to these settings
@@ -994,16 +1066,19 @@ z_ins_get_wind_prop
 	jmp z_store_result
 +
 	; return value at window_y + property-number * 8 + window
+	ldx #0
+	jsr window_from_operand
+	sta .gwp_window
 	lda z_operand_value_low_arr + 1
 	asl
 	asl
 	asl
 	clc
-	adc z_operand_value_low_arr
+	adc .gwp_window
 	tay
 	ldx window_y,y
 	; convert 0-based internal values to what the z-machine expects
-	ldy z_operand_value_low_arr
+	ldy .gwp_window
 	lda z_operand_value_low_arr + 1
 	cmp #2
 	bcs +
@@ -1030,7 +1105,9 @@ z_ins_get_wind_prop
 .gwp_store
 	lda #0
 	jmp z_store_result
- 
+
+.gwp_window !byte 0
+
 z_ins_scroll_window
 	; scroll_window window pixels
 	; The header tells the game a character is one unit wide and one high, so
@@ -1043,6 +1120,9 @@ z_ins_scroll_window
 }
 	jsr printchar_flush ; buffered text belongs on screen before it moves
 	jsr save_cursor
+	ldx #0
+	jsr window_from_operand
+	sta .swin_window
 	lda z_operand_value_high_arr + 1
 	bmi .swin_backwards
 	; forwards: the count is the operand, clamped to a byte
@@ -1050,7 +1130,7 @@ z_ins_scroll_window
 	lda #255
 	bne ++ ; always branch
 +	lda z_operand_value_low_arr + 1
-++	ldx z_operand_value_low_arr
+++	ldx .swin_window
 	clc ; scroll up
 	jsr s_scroll_window
 	jmp restore_cursor
@@ -1066,10 +1146,12 @@ z_ins_scroll_window
 	lda #255
 	bne ++ ; always branch
 +	tya
-++	ldx z_operand_value_low_arr
+++	ldx .swin_window
 	sec ; scroll down
 	jsr s_scroll_window
 	jmp restore_cursor
+
+.swin_window !byte 0
 
 z_ins_pop_stack
 	; pop_stack items [stack]
@@ -1216,16 +1298,21 @@ z_ins_put_wind_prop
 	!pet "z_ins_put_wind_prop ",0
 	jsr newline
 }
+	ldx #0
+	jsr window_from_operand
+	sta .pwp_window
 	lda z_operand_value_low_arr + 1
 	asl ; * 8
 	asl
 	asl
 	clc
-	adc z_operand_value_low_arr
+	adc .pwp_window
 	tay
 	lda z_operand_value_low_arr + 2
 	sta window_y,y
 	rts
+
+.pwp_window !byte 0
  
 z_ins_print_form
 	; print_form formatted-table
