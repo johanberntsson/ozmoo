@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ozmoo is a Z-machine interpreter for the Commodore 64, C128, Plus/4 and MEGA65 (plus an X16 target), written in 6502 assembly (ACME cross-assembler syntax) and driven by a Ruby build script. It runs Infocom/Inform story files.
 
-**This checkout is the `z6` branch**, whose purpose is adding Z-machine **version 6** support: the window model works, graphics do not. `master` tracks upstream Ozmoo and must keep working — every change here has to be checked against both. This is Johan's personal project: make local commits, but never push without explicit permission.
+**This checkout is the `z6` branch**, whose purpose is adding Z-machine **version 6** support. The window model works on every target; graphics work on the MEGA65, where Arthur now draws its pictures. `master` tracks upstream Ozmoo and must keep working — every change here has to be checked against both. This is Johan's personal project: make local commits, but never push without explicit permission.
 
 ## Build and run
 
@@ -16,21 +16,31 @@ Required: `acme`, `exomizer` (expected at `exomizer/src/exomizer` on Linux — a
 make z6        # compile testz6.inf with inform -v6, build a d64, autostart in VICE
 make ecm       # same, with -ecm (per-window background colours)
 make frotz     # compile testz6.inf and run it in frotz — the reference behaviour
+make z6-mega65 # testz6 on the MEGA65, 80-column text
+make z6-fcm    # testz6 on the MEGA65 full colour screen; should match `make z6`
 make arthur    # build the real v6 game Arthur as a d81 and run it
 make arthur-d2 # same, but split over two 1541 drives
+make arthur-mega65 # Arthur on the MEGA65, 80-column text
+make arthur-fcm    # Arthur on the MEGA65 full colour screen
 make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
 make c64       # build examples/dejavu.z3 (a z3 game) — the non-z6 regression check
 make mega65    # same, for MEGA65
 make clean
 
 ruby make.rb [options] <storyfile>   # run with no args for the full option list
+
+# Arthur with its pictures. Needs z6games/arthur-graphics (not in git).
+ruby make.rb -t:mega65 -fcm -pics z6games/arthur-graphics z6games/arthur-r74-s890714.z6
 ```
+
+`-pics <dir>` runs `tools/pics2asm.py` over a directory of numbered PNGs, puts one
+compressed file per picture on the d81, and sets `Z6_PICTURES`. It needs `-fcm`.
 
 `dfrotz -h 25 -w 40 testz6.z6` gives reference output with the same screen size as a C64, which makes line-for-line comparison possible.
 
 There is no automated test suite. `test/` holds standard conformance games (czech, praxix, strictz, oztest, etude) that are built and played manually. `testz6.inf` is the v6 test game — grow it opcode by opcode and compare against frotz rather than debugging a commercial game blind.
 
-Before committing anything that touches shared code, rebuild the matrix: `testz6.z6`, `-ecm testz6.z6`, `examples/dejavu.z3`, `test/praxix.z5`, and `-t:c128` / `-t:mega65` / `-t:plus4` / `-smooth:1` variants.
+Before committing anything that touches shared code, rebuild the matrix: `testz6.z6`, `-ecm testz6.z6`, `examples/dejavu.z3`, `test/praxix.z5`, and `-t:c128` / `-t:mega65` / `-t:mega65 -fcm` / `-t:plus4` / `-smooth:1` variants. Building is not enough for the screen layer: run `testz6` on the C64 and on `-t:mega65 -fcm` and compare, since both are 40 columns and should agree line for line.
 
 ## Conditional assembly is the architecture
 
@@ -56,6 +66,11 @@ So "does this code run?" always depends on which `!ifdef` blocks are active for 
 - `streams.asm`, `text.asm`, `dictionary.asm` — I/O streams (must precede text.asm), zchar decoding, tokenizing, `read_text`.
 - `disk.asm`, `reu.asm`, `constants*.asm` — disk access, REU, per-target memory maps.
 
+`tools/` holds the picture pipeline: `pics2asm.py` (PNGs → the files on the disk),
+`gen_testpics.py` (the pictures `testz6` draws, ours, in `tools/testpics`),
+`png2fcm.py` (the reference for the tile format) and `fcm-prototype.asm` (a
+standalone prg, the only place the working VIC-IV register setup is written out).
+
 ## The z6 screen model
 
 Eight windows, each with the property array the spec requires (`window_y`, `window_x`, `window_y_size`, …, `window_attributes`, `window_linecount`), laid out contiguously so `get_wind_prop`/`put_wind_prop` can index them as `window_y + 8 * property + window`.
@@ -63,16 +78,38 @@ Eight windows, each with the property array the spec requires (`window_y`, `wind
 - Coordinates are stored **0-based internally**; the opcodes convert to/from the z-machine's 1-based coordinates.
 - Printing, wrapping, scrolling, the cursor, the MORE prompt and erasing are all **per window**: text wraps at the window's right edge, scrolls its own rectangle, and the MORE prompt appears at the current window's bottom-right cell. Each window keeps its own cursor and line count.
 - Ozmoo always shows a MORE prompt when a game quits, so the last message can be read. A lone `*` in a corner after quit is that, not a bug.
+- Property 13 (font size) is the only window property that is a real word (height in the high byte, width in the low). It cannot live in the byte-per-window arrays, so `get_wind_prop` answers it directly with 1,1. It must never be zero: Arthur divides by it. `window_font_size_slot` exists only to keep properties 14 and 15 where the spec puts them.
 - `-ecm` (`Z6_ECM_MODE`, C64 + v6 only) turns on VIC-II Extended Color Mode: the top two bits of each screen code pick one of four background registers (`$d021`-`$d024`), giving each window its own background. The cost is a 64-character charset, so screen codes are masked to 6 bits (uppercase renders as lowercase) and reverse video is unavailable.
+- `-fcm` (`Z6_FCM_MODE`, MEGA65 + v6 only) puts the VIC-IV into Full Colour Mode with 16-bit character codes: 320x200, 40x25 cells. Codes below 256 stay ordinary glyphs (`FCLRLO` clear), codes from 256 up are 64-byte tiles. It should render text identically to the C64. Per-window background colours are **not** implemented yet, which is the remaining half of the FCM work.
+
+### The FCM cell is two bytes, and that keeps biting
+
+Under `-fcm` a screen cell and a colour cell are two bytes each. Ozmoo writes the character into the **even** byte of a screen cell and the colour into the **odd** byte of a colour cell; the other two must be zero and stay zero.
+
+- `zp_screencolumn` still holds a *column*. Only the sites that index the screen double it, which leaves the window edges, margins and every comparison alone.
+- `zp_colourline` is biased by **+1**, so one doubled index writes both character and colour. A row starts at a multiple of 80, so the bias never carries.
+- Every character store must also zero the cell's high byte — the `clear_cell_high_byte` macro. Miss one and text printed over a picture leaves the cell pointing at a tile.
+- **Most text does not go through `s_printchar`.** It goes through `print_line_from_buffer` in `screen-z6.asm`, which writes the screen directly. Four separate bugs have come from forgetting one of these sites; audit them all with `grep -n 'sta (zp_screenline),y'`.
+
+### Pictures (MEGA65, `-fcm -pics`)
+
+`tools/pics2asm.py` writes one compressed file per picture; `make.rb` puts them on the d81; `pic_load_all` decompresses them into attic RAM at `$08300000` at boot, next to where `sound.asm` preloads the WAVs. Only an index of picture numbers is assembled in.
+
+- Tiles live in bank 1 (`$10000`), which nothing else uses. A cell's screen code is its tile's address / 64, so it is `$0400 + tile index`.
+- The palette bank belongs to the **window**, not the picture: `16 + 16 * window`. A window holds at most one picture, so eight banks above the 16 text colours suffice for any number of pictures. Pixel indices are stored relative to entry 16 and the tile copy adds the window's offset, which is why that copy is a CPU loop and not a DMA.
+- Four bits a pixel on disk and in attic, one byte in the tile store. Index 0 is transparent and 255 comes from colour RAM, so a picture has at most **15** colours.
+- `make.rb` upper-cases the names it puts in the disk directory, so the interpreter asks for `P004`. A wrong name fails **silently**: OPEN reports success and one page of the copy buffer lands in attic.
 
 ## Watch out for
 
 - **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the Z-machine standard (see References) before assuming an opcode behaves as in v5.
-- Of the v6 opcodes, only the three genuinely graphical ones are unimplemented. `draw_picture` writes a `pic:N` note where a picture belongs, `erase_picture` paints the note out, and `picture_data` reports that no picture exists. `print_form` and `scroll_window` turned out to be text opcodes and are done. See `todo.txt`.
+- `draw_picture` and `erase_picture` draw for real on the MEGA65 under `-fcm -pics`, and write a `pic:N` note everywhere else. `picture_data` still reports that no picture exists, and `z_init` still clears the "pictures available" bit in `header_flags_2`. Those two must change together, and doing so flips Arthur onto code paths nothing has run. `print_form` and `scroll_window` turned out to be text opcodes and are done. See `todo.txt`.
 - **v6 is a "large" version, like v7/v8, not like v4/v5.** Story files run to 512 KB, the header file length is divided by 8, and block addresses need two high bits. `make.rb` has always known this (`$zcode_version > 5`); the assembly used to express it as `Z7PLUS`, which excludes v6. Use `Z6PLUS` for anything size-related, and be suspicious of any new `Z4PLUS`/`Z7PLUS` split. See `todo.txt` for the three bugs this caused.
 - No v6 interpreter ever ran on a C64, so v6 code paths have never been exercised against a real game. Expect more latent assumptions — minimum screen size, stack depth, story size — that no other version happens to violate.
-- **The C64 came first, and it works. The MEGA65 is next; the C128 and X16 are still deliberately untouched.** The z6 window model is only wired into the scroll path the C64, Plus/4 and MEGA65 share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. Those two remain known and accepted, not oversights — don't "fix" them yet.
-- Whatever is done for MEGA65 graphics, the C64 and Plus/4 will never draw pictures. The `pic:N` notes have to stay for them.
+- **An error only the MEGA65 reports is usually a real bug everyone else lives with.** `CHECK_ERRORS` is compiled into MEGA65 builds and out of the others. Arthur's `FATAL ERROR: 17` turned out to be a modulo by zero the C64 executed too, caused by `get_wind_prop` returning 0 for the font size. Reaching for `-re:0` would have hidden a genuine defect.
+- **The C64, Plus/4 and MEGA65 work. The C128 and X16 are still deliberately untouched.** The z6 window model is only wired into the scroll path the first three share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. Those two remain known and accepted, not oversights — don't "fix" them yet.
+- The C64 and Plus/4 will never draw pictures. The `pic:N` notes have to stay for them.
+- **Open bug:** under `-fcm`, Arthur drops or changes the odd character in body text, differently on each run. It happens with and without `-pics`, never with `testz6`, and the 80-column build is clean. Something timed — the cursor, or the MORE prompt saving and restoring the character under it. See `todo.txt`.
 
 ## Debugging under VICE (headless)
 
@@ -102,9 +139,9 @@ xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
 ```
 
 - It never exits by itself — there is no cycle limit. Wrap it in `timeout`; the dumps are still written on the way out.
-- Like VICE, a headless run halts at the first **MORE prompt**. There are no tracepoints, but `-uartmon <socket>` gives a monitor that can do it: poll screen RAM (`$0800`, 80x25) for the MORE character `$aa` (reverse `*`), and when it appears poke Return into the kernal keyboard buffer with `s0277 0d` then `s00c6 01`. That reaches `read`, where the game waits harmlessly, so stop there and dump rather than answering the read — the quit path shows a final MORE prompt and then resets, wiping the screen.
+- Like VICE, a headless run halts at the first **MORE prompt**. There are no tracepoints, but `-uartmon <socket>` gives a monitor that can do it: poll screen RAM (`$0800`; 80x25 one byte a cell, or 40x25 **two** bytes a cell under `-fcm`) for the MORE character `$aa` (reverse `*`), and when it appears poke Return into the kernal keyboard buffer with `s0277 0d` then `s00c6 01`. That reaches `read`, where the game waits harmlessly, so stop there and dump rather than answering the read — the quit path shows a final MORE prompt and then resets, wiping the screen.
 - Monitor commands over the socket: `m<addr>` reads 16 bytes, `M<addr>` reads a block, `s<addr> <bytes>` writes. Addresses are bare hex in the full 28-bit space, so colour RAM is `Mff80000`, not `Md800`.
-- `-dumpscreen` only fires on exit, so it cannot capture an intermediate state; read `$0800` over the monitor instead. Screen codes there, not ASCII.
+- `-dumpscreen` only fires on exit, so it cannot capture an intermediate state; read `$0800` over the monitor instead. Screen codes there, not ASCII. Under `-fcm` take every second byte for the characters; a non-zero odd byte means the cell is a picture tile, not text.
 - `$e0` in screen RAM is the **cursor** (`CURSORCHAR` in `ozmoo.asm`), not a corrupt cell. It overwrites the character under it, so a dump taken while the cursor is up shows `$e0` where the text character belongs.
 - Monitor addresses are the **linear** 28-bit map, so `$d000` there is RAM, not I/O. Reading `md054` returns zeros; the VIC-IV registers are at `$ffd3xxx` (`mffd3050`). Colour RAM is `$ff80000`.
 - To try something without dragging Ozmoo along, build a bare prg and load it directly: `xemu-xmega65 -headless ... -prg foo.prg -prgmode 64 -screenshot shot.png`. Combined with `-screenshot`, a picture can be compared against its source PNG pixel by pixel. xemu renders the red channel one LSB low (`$bb` shows as 186), so compare within a tolerance of 1, not exactly.
