@@ -63,7 +63,11 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | screen.asm | printing routines |
 |  |  |
+| screen-z6.asm | printing routines for version 6, with its window model and graphics |
+|  |  |
 | screenkernal.asm | low-level display routines |
+|  |  |
+| screenkernal-z6.asm | low-level display routines for version 6 |
 |  |  |
 | sound.asm | routines to support playing sound effects|
 |  |  |
@@ -158,10 +162,13 @@ The extended memory is mapped into \$a000-\$bfff, so the memory is accessible in
 
 On the MEGA65, the boot file doesn't hold any story data. The entire Z-code file is held in a SEQ file called "zcode" and is loaded into Attic RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place, this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a MEGA65 game can be copied from one disk to another using a regular file copier.
 
+A version 6 game built with Z6_PICTURES also has one file per picture on the disk, named p001 to p255, which are decompressed into Attic RAM at boot. See "Version 6".
+
 ### MEGA65 Memory map
 | **Address range** | **KB** |  **Usage** |
 | -- |  - | ---- |
 | \$0000-\$ffff | 64 | System RAM, screen RAM, interpreter |
+| \$10000-\$1ffff | 64 | Picture tile store (version 6, Z6_FCM_MODE) |
 | \$40000-\$40fff | 4 | Screen RAM for scrollback mode |
 | \$40000-\$4ffff | 64 | Current sound effect |
 | \$50000-\$5ffff | 64 | Undo buffer |
@@ -169,8 +176,26 @@ On the MEGA65, the boot file doesn't hold any story data. The entire Z-code file
 | \$08080000-\$080800ff | 0.25 | Signature of last game that was loaded (to make restart faster) |
 | \$08100000-\$081fffff | 1024 | Sound data |
 | \$08200000-\$082fffff | 1024 | Scrollback buffer |
+| \$08300000- | | Pictures, decompressed (version 6, Z6_PICTURES) |
 | \$0ff80000-\$0ff807ff | 2 | Colour RAM |
 | \$0ff80800-\$0ff817ff | 4 | Colour RAM for scrollback mode|
+
+Bank 1, \$10000-\$1ffff, is untouched in an ordinary build: nothing in Ozmoo
+addresses it, and the C64 mode kernal leaves it alone. A version 6 build in Full
+Colour Mode uses it as the tile store, which holds 1024 tiles of 64 bytes. It is
+the only part of fast RAM the VIC-IV can be pointed at that is not already spoken
+for: \$20000-\$3ffff is the ROM, \$40000-\$4ffff the current sound effect and
+\$50000-\$5ffff the undo buffer. A picture may therefore have at most 1024 unique
+tiles, which is enough for a full 40x25 screen in which no two cells are alike.
+
+In Full Colour Mode a cell is two bytes in both screen RAM and colour RAM, so the
+40x25 screen uses the same 2000 bytes as the 80x25 text screen, and the map above
+does not change.
+
+Note that the scrollback buffer's screen RAM and the current sound effect both
+begin at \$40000. Opening the scrollback while a sound is playing therefore
+corrupts the first 4000 bytes of the sample. It repairs itself, because the next
+@sound_effect copies the sample from Attic RAM again.
 
 ## Save and Restore
 
@@ -205,6 +230,139 @@ For the Commodore 64 version the characters are stored directly in the video mem
 The X16 is using a separate chip called VERA for text output, similar to VDC for the C128. The file vera.asm defines the interface to the VERA chip used for putting characters on the screen.
 
 The Plus/4 and Commodore 128 in 80 column mode doesn't use the same palette as the Commodore 64. Mapping tables (plus4_vic_colours and vdc_vic_colours) are used to assign C64 colours to their closest equivalents on these platforms.
+
+# Version 6
+
+Version 6 of the Z-machine replaces the two windows of versions 3 to 5 with
+eight, each with its own rectangle on the screen, its own cursor and its own
+colours, and it expects the interpreter to draw pictures. Ozmoo implements the
+window model on every target and the pictures on the MEGA65.
+
+Because so much of the screen layer changes, version 6 gets its own copies of the
+two screen files: screen-z6.asm and screenkernal-z6.asm, sourced instead of
+screen.asm and screenkernal.asm when the Z6 flag is set. They are meant to stay
+close to the files they were forked from; when the originals change, it is better
+to fork them again than to patch the copies by hand.
+
+## The window model
+
+The eight windows are held in the property arrays the standard describes
+(window_y, window_x, window_y_size, window_x_size, and so on), laid out one
+after another so that get_wind_prop and put_wind_prop can find a property with
+`window_y + 8 * property + window`. Coordinates are stored 0-based; the opcodes
+convert to and from the 1-based coordinates the Z-machine uses.
+
+Property 13, the font size, is the only property that is a real 16-bit word:
+the height in the high byte and the width in the low one. It cannot live in the
+byte-per-window arrays with the others, so get_wind_prop answers it directly,
+with 1 and 1, because the header tells the game that a character is one unit wide
+and one unit high. A game may divide by it, so it must never be zero.
+
+Printing, wrapping, scrolling, the cursor, the MORE prompt and erasing are all
+per window: text wraps at the window's right margin, a window scrolls its own
+rectangle, and the MORE prompt appears in the window's bottom right cell rather
+than the screen's. Each window keeps its own cursor and its own line count.
+
+The window-local scrolling only covers the code path the C64, Plus/4 and MEGA65
+share (.s_scroll, and s_scroll_window for the scroll_window opcode). The C128's
+80 column routine and the X16's still scroll the whole screen, so a window on
+those targets will smear the rest of the display.
+
+## Extended Color Mode on the C64
+
+The C64 has one background colour, which is no use to a game that wants eight
+windows in eight colours. Z6_ECM_MODE, selected with make.rb's -ecm switch, turns
+on the VIC-II's Extended Color Mode: the top two bits of a screen code choose one
+of four background registers, \$d021 to \$d024, so each window can have its own
+background. The price is that only 64 characters remain, so screen codes are
+masked to six bits, uppercase renders as lowercase, and reverse video is not
+available. ECM is C64 only; make.rb rejects it on other targets.
+
+## Full Colour Mode on the MEGA65
+
+The MEGA65 does not need the ECM compromise. Z6_FCM_MODE, selected with -fcm,
+puts the VIC-IV into Full Colour Mode with 16-bit character codes: a 320x200
+screen of 40x25 cells, which is the resolution the Amiga versions of the version 6
+games were drawn for.
+
+The registers are set up in init_mega65, with the hot registers turned off so the
+values stick. The important ones are \$d031, where H640 and V400 are cleared and,
+less obviously, ATTR must also be cleared, because that is what selects 8-bit
+colour; and \$d054, where CHR16 and FCLRHI are set while FCLRLO is left clear.
+FCLRLO clear is the whole trick: screen codes below 256 are still ordinary 8-byte
+glyphs fetched from CHARPTR, so all the text renders as before, while codes from
+256 up are 64-byte full colour tiles. CHARPTR points at \$2d000, the C64 font in
+the MEGA65's ROM, whose codes 128 to 255 are the reversed glyphs, so reverse video
+keeps working.
+
+A cell is two bytes in both screen RAM and colour RAM, so a row of 40 cells is the
+same 80 bytes as the 80 column text screen it replaces, and neither buffer grows.
+Ozmoo writes the character into the even byte of a screen cell and the colour into
+the odd byte of a colour cell. The other two bytes, the screen cell's high byte and
+the colour cell's flags, must be zero and stay zero: init_mega65 clears them once.
+
+The code that reaches every cell would otherwise have to change everywhere, so:
+
+- zp_screencolumn still holds a column, and only the sites that index the screen
+  double it. That leaves the window edges, the margins and every comparison alone.
+- zp_colourline is biased by one, so the same doubled index writes both the
+  character and the colour. A row starts at a multiple of 80, so the bias never
+  carries.
+- Every place that writes a character also writes zero to the cell's high byte,
+  with the clear_cell_high_byte macro. Without it, a character printed over a
+  picture would leave the cell pointing at a tile.
+
+Note that most text does not pass through s_printchar at all: it goes through
+print_line_from_buffer in screen-z6.asm, which writes the screen directly.
+
+## Pictures
+
+Pictures are drawn only on the MEGA65, and only with Z6_FCM_MODE. On the C64 and
+the Plus/4, draw_picture writes a "pic:N" note where the picture belongs, straight
+to the screen so that it never reaches the transcript, and erase_picture paints
+the note out.
+
+The pictures are converted from PNG by tools/pics2asm.py, which writes one
+p&lt;nnn&gt;.bin per picture. make.rb's -pics switch runs it, puts the files on the
+d81 next to zcode, and sets Z6_PICTURES. Only an index of picture numbers is
+assembled into the interpreter, so a set of a hundred and forty pictures costs it
+nothing. At boot, pic_load_all reads each file and decompresses it into Attic RAM,
+in the same spirit as read_sound_files, though it opens and reads the files itself
+rather than calling m65_load_file_to_reu, because it has to decompress on the way.
+
+A picture file holds the cell dimensions, the number of unique tiles, a 48-byte
+palette, a cell map of two bytes a cell, and then the tiles. Identical cells are
+stored once. It is RLE compressed, PackBits style: a token of 0 to 127 is followed
+by that many plus one literal bytes, and a token of 129 to 255 is followed by one
+byte repeated 257 minus token times. Decoding needs no lookahead.
+
+Two things about the pixels:
+
+- A tile is 8x8 pixels and a pixel is four bits, so two pixels share a byte on
+  disk and in Attic RAM. In the tile store a pixel is a whole byte. Storing four
+  bits a pixel halves the picture set before it is compressed, and Arthur's does
+  not otherwise fit on a d81.
+- A colour index of 0 is transparent, and 255 is taken from colour RAM, so
+  neither may be a real colour. A picture therefore has at most 15 colours.
+
+Drawing a picture reads its header and palette straight out of Attic RAM, gives
+the window a run of the tile store, copies the tiles down into it, and fills the
+window's cells. In Full Colour Mode a cell's screen code is its tile's address
+divided by 64, and the tile store begins at \$10000, so a code is simply \$0400
+plus the tile's index.
+
+The palette bank belongs to the window, not to the picture. A window holds at most
+one picture, so the eight banks of 16 entries above the 16 text colours are enough
+for any number of pictures, and a window's bank is `16 + 16 * window`. A picture's
+pixel indices are stored relative to entry 16, so the tile copy adds the window's
+offset to each pixel as it goes, leaving a pixel of 0 alone because it is
+transparent in every bank. The DMA engine can neither expand a nybble nor add, so
+that copy is done by the CPU; at 40 MHz even a full screen picture is a blink.
+
+Each window keeps the run of the tile store it was given, and reuses it when the
+next picture fits. When the store runs out the allocator starts again at the
+bottom, which can only spoil a picture in another window.
+
 
 # The stack
 
@@ -672,10 +830,28 @@ by the player.
     Z3
     Z4
     Z5
+    Z6
     Z7
     Z8
 
-Build the interpreter to run Z-machine version 1, 2, 3, 4, 5, 7 or 8.
+Build the interpreter to run Z-machine version 1, 2, 3, 4, 5, 6, 7 or 8.
+
+    Z6_ECM_MODE
+
+C64 and version 6 only. Use the VIC-II's Extended Color Mode, so that each of the
+eight windows can have its own background colour. Set by make.rb's -ecm switch.
+See "Version 6".
+
+    Z6_FCM_MODE
+
+MEGA65 and version 6 only. Use the VIC-IV's Full Colour Mode, with 16-bit
+character codes, giving a 320x200 screen of 40x25 cells. Set by make.rb's -fcm
+switch. See "Version 6".
+
+    Z6_PICTURES
+
+MEGA65 and version 6 only, and requires Z6_FCM_MODE. The game's pictures are on
+the disk and are drawn. Set by make.rb's -pics switch. See "Version 6".
 
     DANISH_CHARS
 	FRENCH_CHARS
