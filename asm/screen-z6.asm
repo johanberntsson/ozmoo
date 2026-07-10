@@ -62,7 +62,13 @@ window_newline_countd  !byte 0,0,0,0,0,0,0,0
 window_style           !byte 0,0,0,0,0,0,0,0
 window_colour          !byte 0,0,0,0,0,0,0,0
 window_font            !byte 0,0,0,0,0,0,0,0
-window_font_size       !byte 0,0,0,0,0,0,0,0
+; Property 13 is the font size, and it is the only property that is a real
+; word: height in the high byte, width in the low one. It cannot be held in a
+; byte per window like the rest, so get_wind_prop answers it directly (1,1, one
+; unit each way, as the header promises) and nothing reads these bytes. They
+; stay because the properties are indexed as window_y + 8 * property + window,
+; so removing them would move window_attributes and window_linecount.
+window_font_size_slot  !byte 0,0,0,0,0,0,0,0
 window_attributes      !byte 0,0,0,0,0,0,0,0
 window_linecount       !byte 0,0,0,0,0,0,0,0
 
