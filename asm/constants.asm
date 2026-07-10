@@ -89,7 +89,10 @@ SCREEN_HEIGHT         = 25
 ; RAM, so a row is the same 80 bytes as the 80 column text screen it replaces.
 SCREEN_WIDTH          = 40
 CELL_BYTES            = 2
-FCM_CHARSET           = $2d000  ; the C64 font, in the MEGA65 ROM
+; The C64 font sits at $2d000 in the MEGA65 ROM, uppercase/graphics first and
+; lowercase/uppercase second, as on the C64. Ozmoo prints mixed case, so it
+; needs the second 2 KB half.
+FCM_CHARSET           = $2d800
 ; Picture tiles live in bank 1, which nothing else uses. In FCM a screen code
 ; is the cell's data address divided by 64, so the tile store's base code is
 ; $10000/64 = $0400: a tile's index is the code's low byte, and the high byte
