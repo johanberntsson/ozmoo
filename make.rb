@@ -3295,8 +3295,8 @@ if picture_dir
 		puts "ERROR: -pics needs -fcm: pictures are drawn on the full colour screen."
 		exit 1
 	end
-	unless File.directory?(picture_dir)
-		puts "ERROR: -pics: no such directory: #{picture_dir}"
+	unless File.directory?(picture_dir) || File.file?(picture_dir)
+		puts "ERROR: -pics: no such directory or blorb file: #{picture_dir}"
 		exit 1
 	end
 	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),

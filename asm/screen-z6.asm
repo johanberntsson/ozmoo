@@ -720,10 +720,15 @@ z_ins_draw_picture
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jsr .pic_find
-	bcc +
+	bcc .dp_not_image
 	jsr .pic_place_cursor
 	jsr .pic_draw
 	jmp restore_cursor
+.dp_not_image
+	ldx z_operand_value_low_arr
+	jsr .rect_find		; a Rect placeholder is invisible: nothing to draw
+	bcc +
+	rts
 +
 }
 	jsr .pic_place_cursor
@@ -777,12 +782,23 @@ z_ins_picture_data
 	lda z_operand_value_high_arr
 	ldx z_operand_value_low_arr
 	jsr .pic_find
-	bcc +
+	bcc .pd_try_rect
 	jsr .pic_open
 	jsr .pic_att_next ; cells across
 	sta .pic_w
 	jsr .pic_att_next ; cells down
 	sta .pic_h
+	jmp .pd_report
+.pd_try_rect
+	; Not a real picture. A Rect placeholder has no image, only a size, which
+	; the game reads to lay real pictures out; Arthur's frame is built this way.
+	jsr .rect_find
+	bcc +
+	lda rect_width,y
+	sta .pic_w
+	lda rect_height,y
+	sta .pic_h
+.pd_report
 	jsr .pd_set_array
 	lda #0
 	jsr write_next_byte
@@ -796,6 +812,29 @@ z_ins_picture_data
 +
 }
 	jmp make_branch_false
+
+!ifdef Z6_PICTURES {
+.rect_find
+	; Picture number in x (low byte); rects never need a high byte. Return its
+	; index in y with carry set, or carry clear if it is not a rect.
+!if rect_count > 0 {
+	lda z_operand_value_high_arr
+	bne +
+	ldy #0
+-	txa
+	cmp rect_number,y
+	beq ++
+	iny
+	cpy #rect_count
+	bne -
+}
++	clc
+	rts
+!if rect_count > 0 {
+++	sec
+	rts
+}
+}
 
 .pd_set_array
 	; Point the write cursor at the array in operand 1.

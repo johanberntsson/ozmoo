@@ -61,12 +61,14 @@ arthur-fcm:
 	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ARTHUR).z6
 
 # The whole game: Arthur on the full colour screen, drawing its own pictures.
-# Needs $(ARTHUR_GRAPHICS), which is not in git and is not ours to distribute.
-# The pictures are compressed to fit: this leaves 28 blocks free on the d81.
-ARTHUR_GRAPHICS = $(Z6GAMES)/arthur-graphics
+# Needs $(ARTHUR_BLORB), which is not in git and is not ours to distribute.
+# -pics reads the blorb directly: the PNG pictures are compressed onto the d81,
+# and the Rect placeholders (which have no image, only a size the game reads to
+# lay pictures out) become an index picture_data answers from.
+ARTHUR_BLORB = $(Z6GAMES)/$(ARTHUR).blb
 
 arthur-pics:
-	ruby make.rb -s -t:mega65 -fcm -pics $(ARTHUR_GRAPHICS) $(Z6GAMES)/$(ARTHUR).z6
+	ruby make.rb -s -t:mega65 -fcm -pics $(ARTHUR_BLORB) $(Z6GAMES)/$(ARTHUR).z6
 
 c64:
 	ruby make.rb -s examples/dejavu.z3
