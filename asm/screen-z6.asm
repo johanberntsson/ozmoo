@@ -547,6 +547,15 @@ pic_load_all
 	lda #0
 	sta .pic_row
 .pfc_row
+	; Clip to the screen. A picture placed low or far right (draw_picture may be
+	; told to use the cursor's own position, which drifts with the text) would
+	; otherwise run its row loop past the last screen row and scribble over the
+	; interpreter, or spill a row's tail into the next row. Both must be fenced.
+	lda .pic_row
+	clc
+	adc .pic_y
+	cmp #SCREEN_HEIGHT		; this row past the bottom edge? the rest are too
+	bcs .pfc_done
 	lda .pic_x
 	asl
 	sta .pic_col2
@@ -559,12 +568,18 @@ pic_load_all
 	adc .pic_slot + 1
 	adc #FCM_TILE_CODE_HI	; the tile store's base screen code
 	sta .pic_count			; carry is clear: a tile index never reaches $4000
-	pla
 	ldy .pic_col2
+	cpy #SCREEN_ROW_BYTES	; column past the right edge? drop the write, but
+	bcs .pfc_clipped		; keep consuming the map so the next row stays aligned
+	pla
 	sta (.pic_ptr),y
 	iny
 	lda .pic_count
 	sta (.pic_ptr),y
+	jmp .pfc_next
+.pfc_clipped
+	pla						; discard the code we are not storing
+.pfc_next
 	lda .pic_col2
 	clc
 	adc #2
@@ -582,6 +597,7 @@ pic_load_all
 	lda .pic_h
 	cmp .pic_row
 	bne .pfc_row
+.pfc_done
 	rts
 
 .pic_draw
@@ -649,16 +665,24 @@ pic_load_all
 	lda #0
 	sta .pic_row
 .pic_erase_row
+	lda .pic_row			; clip to the screen, exactly as .pic_fill_cells does
+	clc
+	adc .pic_y
+	cmp #SCREEN_HEIGHT
+	bcs .pic_erase_done
 	lda .pic_x
 	asl
 	sta .pic_col2
 .pic_erase_cell
 	ldy .pic_col2
+	cpy #SCREEN_ROW_BYTES
+	bcs .pic_erase_next
 	lda #$20				; a space, which is a text character, not a tile
 	sta (.pic_ptr),y
 	iny
 	lda #0					; and so its high byte must go back to zero
 	sta (.pic_ptr),y
+.pic_erase_next
 	lda .pic_col2
 	clc
 	adc #2
@@ -676,6 +700,7 @@ pic_load_all
 	lda .pic_h
 	cmp .pic_row
 	bne .pic_erase_row
+.pic_erase_done
 	rts
 }
 
