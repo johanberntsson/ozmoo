@@ -1,14 +1,43 @@
 Known bugs
 ----------
 Arthur dies on the MEGA65 with "FATAL ERROR: 17" as soon as the restore
-question is answered. 17 is ERROR_DIVISION_BY_ZERO (utilities.asm), raised in
-the div/mod path in zmachine.asm when the divisor operand is zero. It happens
-in the plain 80 column build and under -fcm alike, so it is not caused by the
-full colour screen; it is a MEGA65 bug that has simply never been seen, because
-Arthur had never been run on the MEGA65. The C64 build answers the same
-question and goes straight into the game. testz6 passes on the MEGA65 both
-ways, so whatever Arthur does to reach a zero divisor, testz6 does not.
-Reproduce with `make arthur-mega65` or `make arthur-fcm` and answer N.
+question is answered. Reproduce with `make arthur-mega65` or `make arthur-fcm`
+and answer N. What is established:
+
+- 17 is ERROR_DIVISION_BY_ZERO (utilities.asm). The failing instruction is at
+  story address $9d54: "78 01 97 00", long form 2OP:24, i.e.
+  div local1, global $97 -> stack. At the trap, local1 = 32 and global $97 = 0.
+  z_pc reads $009d57, z_opcode $78.
+- It is not the full colour screen. The plain 80 column build fails the same
+  way. -fcm only changes the screen.
+- It is not anything the game can see. With -u:0 -ch:0 -sb:0 the MEGA65's
+  runtime header is byte for byte identical to the C64's, and it still fails.
+  (Undo is the only header difference otherwise: flags2 bit 4, $11 = $50 on
+  MEGA65 against $40 on the C64, because the C64 has no REU.)
+- The story is not corrupt. Attic RAM matches the file byte for byte at $100,
+  $9d50, $20000, $3fff0, $40000 and $41bf0 - including past $40000, which only
+  Arthur reaches.
+- The C64 never divides at all. A tracepoint on z_ins_div through the whole
+  intro records zero hits, so the C64 never executes $9d54. The MEGA65's
+  program counter has therefore already diverged when it traps. Note that
+  CHECK_ERRORS is on for the MEGA65 build and off for the C64's, so the C64
+  would not report a division by zero even if it made one - but it makes none.
+- Both machines reach the restore question at the same place: z_pc $011a14.
+  (The C64 hits an earlier timed read_char at $010c36, for the title screen.)
+  So the divergence happens after the question is answered.
+- It is not a general MEGA65 memory bug. AMFV, a 256 KB z4 game, plays fine on
+  the MEGA65: `ruby make.rb -t:mega65 amfvUnprotected.z4`. So attic RAM, far
+  dynmem, big stories and the object table are all sound for z4.
+
+So it is the intersection: v6 and MEGA65. v6 works on the C64, and a large
+story works on the MEGA65, but v6 on the MEGA65 goes wrong somewhere Arthur
+reaches and testz6 does not. Arthur is also the only story that crosses
+$40000, which AMFV ($3ff94) does not.
+
+Next: grow testz6 towards what Arthur uses, on the MEGA65, until something
+breaks - objects and properties, storew/loadw, output_stream 3 (which writes
+dynmem through write_next_byte), globals above 128, and a routine or string
+above $40000. That is the same method that found the Z7PLUS/Z6PLUS bugs.
 
 Scrollback and extended sound share $40000 on the MEGA65. scrollback.asm:10
 puts the scrollback screen RAM at $00040000 and writes 4000 bytes there, while
