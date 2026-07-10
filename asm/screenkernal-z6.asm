@@ -368,14 +368,23 @@ init_mega65
 	; set 40MHz CPU
 	lda #65
 	sta 0
+!ifdef Z6_FCM_MODE {
+	; 320x200: H640 off, V400 off, and ATTR (bit 5) off, which is what selects
+	; 8 bit colour. Bit 6 (fast CPU) stays on.
+	lda #$40
+	sta $d031
+	lda #$c8
+	sta $D016
+} else {
 	; set 80-column mode
 	lda #$c0
 	sta $d031
 	lda #$c8 + 1 ; +1 loses one pixel on the left, +2 loses one pixel on the right. Leftmost pixel usually empty.
 	sta $D016
+}
 	; Set colour RAM offset to 0
 	lda #0
-	sta $d064 
+	sta $d064
 	sta $d065
 	; set screen at $0800
 	;lda #$26
@@ -384,6 +393,60 @@ init_mega65
 	lda $d05d
 	and #$7f
 	sta $d05d
+!ifdef Z6_FCM_MODE {
+	; 16 bit character codes (CHR16), and full colour for codes >= 256
+	; (FCLRHI). FCLRLO stays off, so codes < 256 are ordinary 8 byte glyphs
+	; fetched from CHARPTR, which is what all the text uses.
+	lda $d054
+	and #%11111010
+	ora #%00000101
+	sta $d054
+	lda #SCREEN_WIDTH
+	sta $d05e ; CHRCOUNT: cells per row
+	lda #<SCREEN_ROW_BYTES
+	sta $d058 ; LINESTEP: two bytes per cell
+	lda #>SCREEN_ROW_BYTES
+	sta $d059
+	lda #<SCREEN_ADDRESS
+	sta $d060 ; SCNPTR
+	lda #>SCREEN_ADDRESS
+	sta $d061
+	lda #0
+	sta $d062
+	sta $d063
+	lda #<FCM_CHARSET
+	sta $d068 ; CHARPTR
+	lda #>FCM_CHARSET
+	sta $d069
+	lda #^FCM_CHARSET
+	sta $d06a
+
+	; Every cell is two bytes. Ozmoo only ever writes the character (the even
+	; byte of a screen cell) and the colour (the odd byte of a colour cell), so
+	; the other two must start at zero and stay there.
+	jsr colour2k
+	ldx #0
+	txa
+-	sta SCREEN_ADDRESS,x
+	sta SCREEN_ADDRESS + $100,x
+	sta SCREEN_ADDRESS + $200,x
+	sta SCREEN_ADDRESS + $300,x
+	sta SCREEN_ADDRESS + $400,x
+	sta SCREEN_ADDRESS + $500,x
+	sta SCREEN_ADDRESS + $600,x
+	sta SCREEN_ADDRESS + $700,x
+	sta COLOUR_ADDRESS,x
+	sta COLOUR_ADDRESS + $100,x
+	sta COLOUR_ADDRESS + $200,x
+	sta COLOUR_ADDRESS + $300,x
+	sta COLOUR_ADDRESS + $400,x
+	sta COLOUR_ADDRESS + $500,x
+	sta COLOUR_ADDRESS + $600,x
+	sta COLOUR_ADDRESS + $700,x
+	inx
+	bne -
+	jsr colour1k
+}
 	rts
 	
 colour2k
@@ -612,6 +675,11 @@ s_delete_cursor
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
+!ifdef Z6_FCM_MODE {
+	lda zp_screencolumn ; a cell is two bytes wide
+	asl
+	tay
+}
 	lda #$20 ; blank space
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
@@ -625,7 +693,9 @@ s_delete_cursor
 !ifdef TARGET_X16 {
 	jmp VERAPrintChar
 } else {
+!ifndef Z6_FCM_MODE {
 	ldy zp_screencolumn
+}
 	sta (zp_screenline),y
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
@@ -701,11 +771,17 @@ s_printchar
 	sta zp_screencolumn
 .del_inside
 	jsr .update_screenpos
+!ifdef Z6_FCM_MODE {
+	lda zp_screencolumn ; a cell is two bytes wide
+	asl
+	tay
+} else {
+	ldy zp_screencolumn
+}
 	lda #$20
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
 }
-	ldy zp_screencolumn
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi .col80_1
@@ -770,8 +846,15 @@ s_printchar
 }
 	pha
 	jsr .update_screenpos
+!ifdef Z6_FCM_MODE {
+	lda zp_screencolumn ; a cell is two bytes wide
+	asl
+	tay
+	pla
+} else {
 	pla
 	ldy zp_screencolumn
+}
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi .col80_2
@@ -805,8 +888,9 @@ s_printchar
 		jsr colour1k
 	}
 }
-	iny
-	sty zp_screencolumn
+	; y is a byte offset under FCM, so step the column itself and reload
+	inc zp_screencolumn
+	ldy zp_screencolumn
 	ldx current_window
 	; wrap when the cursor passes the right margin of the current window
 	jsr s_window_right_edge
@@ -949,7 +1033,7 @@ s_erase_window
 	sta zp_screenline
 	sta zp_colourline
 } else ifdef TARGET_MEGA65 {
-	; calculate zp_screenline = zp_current_screenpos_row * 40
+	; calculate zp_screenline = zp_current_screenpos_row * SCREEN_ROW_BYTES
 	; Use MEGA65's hardware multiplier
 	jsr mega65io
 	stx $d770
@@ -960,7 +1044,7 @@ s_erase_window
 	sta $d775
 	sta $d776
 	sta $d777
-	lda s_screen_width ; #SCREEN_WIDTH
+	lda #SCREEN_ROW_BYTES ; 80, whether that is 80 cells or 40 two-byte cells
 	sta $d774
 	;
 	; add screen offsets
@@ -976,6 +1060,12 @@ s_erase_window
 	clc
 	adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
 	sta zp_colourline+1
+!ifdef Z6_FCM_MODE {
+	; The colour of a cell is its odd byte, the character its even one. Biasing
+	; the colour pointer by one lets both be written with the same index.
+	; A row starts at a multiple of 80, so the low byte never carries.
+	inc zp_colourline
+}
 } else {
 	; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
 	stx product + 1
@@ -1189,7 +1279,13 @@ s_scrolled_lines !byte 0
 	clc
 ;	sei
 -
+!ifdef Z6_FCM_MODE {
+	lda .win_left ; two bytes per cell
+	asl
+	tay
+} else {
 	ldy .win_left
+}
 --
 .scroll_load_screen
 	lda $8000,y ; This address is modified above
@@ -1202,14 +1298,22 @@ s_scrolled_lines !byte 0
 	sta $8000,y ; This address is modified above
 }
 	iny
+!ifdef Z6_FCM_MODE {
+	cpy .win_right_excl_bytes
+} else {
 	cpy .win_right_excl
+}
 	bcc --
 	clc ; the compare above leaves carry set
 	dex
 	beq .done_scrolling
 	lda .scroll_store_screen + 1
 ;	clc
+!ifdef Z6_FCM_MODE {
+	adc #SCREEN_ROW_BYTES ; a row is 40 cells of two bytes
+} else {
 	adc s_screen_width
+}
 	sta .scroll_store_screen + 1
 !ifdef COLOURFUL_LOWER_WIN {
 	sta .scroll_store_colour + 1
@@ -1231,7 +1335,11 @@ s_scrolled_lines !byte 0
 ; +	
 ; }
 	lda .scroll_load_screen + 1
+!ifdef Z6_FCM_MODE {
+	adc #SCREEN_ROW_BYTES ; a row is 40 cells of two bytes
+} else {
 	adc s_screen_width
+}
 	sta .scroll_load_screen + 1
 !ifdef COLOURFUL_LOWER_WIN {
 	sta .scroll_load_colour + 1
@@ -1272,9 +1380,10 @@ s_scrolled_lines !byte 0
 	jsr .update_screenpos
 	ldy .win_left
 	sty zp_screencolumn
--	jsr s_delete_cursor ; writes a space at (zp_screenline),y
-	iny
-	sty zp_screencolumn
+	; s_delete_cursor clobbers y, and under FCM it leaves a byte offset in it
+-	jsr s_delete_cursor ; writes a space at the current column
+	inc zp_screencolumn
+	ldy zp_screencolumn
 	cpy .win_right_excl
 	bcc -
 	ldy .win_left
@@ -1296,6 +1405,10 @@ s_scrolled_lines !byte 0
 	bcc +
 	lda s_screen_width
 +	sta .win_right_excl
+!ifdef Z6_FCM_MODE {
+	asl
+	sta .win_right_excl_bytes ; two bytes per cell
+}
 	lda window_y,x
 	sta .win_top
 	clc
@@ -1310,6 +1423,9 @@ s_scrolled_lines !byte 0
 
 .win_left       !byte 0
 .win_right_excl !byte 0
+!ifdef Z6_FCM_MODE {
+.win_right_excl_bytes !byte 0
+}
 .win_top        !byte 0
 .win_bottom     !byte 0
 
@@ -1430,7 +1546,16 @@ s_scroll_window
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
+!ifdef Z6_FCM_MODE {
+	; two bytes per cell, so copy the window's columns byte by byte. The colour
+	; pointer is biased by one, so its last byte is the flags byte of the first
+	; cell past the window, which is zero and is copied onto itself.
+	lda .win_left
+	asl
+	tay
+} else {
 	ldy .win_left
+}
 -
 .sw_load_screen
 	lda $8000,y ; these addresses are modified above
@@ -1443,7 +1568,11 @@ s_scroll_window
 	sta $8000,y
 }
 	iny
+!ifdef Z6_FCM_MODE {
+	cpy .win_right_excl_bytes
+} else {
 	cpy .win_right_excl
+}
 	bcc -
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
@@ -1455,9 +1584,10 @@ s_scroll_window
 	jsr .sw_point_at_row
 	ldy .win_left
 	sty zp_screencolumn
--	jsr s_delete_cursor ; writes a space at (zp_screenline),y
-	iny
-	sty zp_screencolumn
+	; s_delete_cursor clobbers y, and under FCM it leaves a byte offset in it
+-	jsr s_delete_cursor ; writes a space at the current column
+	inc zp_screencolumn
+	ldy zp_screencolumn
 	cpy .win_right_excl
 	bcc -
 	rts
@@ -1591,7 +1721,16 @@ s_erase_line
 !ifdef TARGET_X16 {
 	jsr .convert_screenline_y_to_vera_address
 }
+!ifdef Z6_FCM_MODE {
+	; y arrives as a column; erase from there to the end of the row, two bytes
+	; a cell. The colour pointer is biased by one, so the same index does both.
+	tya
+	asl
+	tay
+-	cpy #SCREEN_ROW_BYTES
+} else {
 -	cpy s_screen_width
+}
 	bcs .done_erasing
 	; set character
 	lda #$20
@@ -1616,6 +1755,9 @@ s_erase_line
 	sta (zp_colourline),y
 }
 	iny
+!ifdef Z6_FCM_MODE {
+	iny ; two bytes per cell
+}
 	bne -
 }
 .done_erasing	
@@ -1685,6 +1827,11 @@ update_cursor
 	; jsr VERAPrintColourAfterChar
 }
 !ifndef TARGET_X16 {
+!ifdef Z6_FCM_MODE {
+    lda zp_screencolumn ; a cell is two bytes wide
+    asl
+    tay
+}
     lda cursor_character
     sta (zp_screenline),y
     lda current_cursor_colour

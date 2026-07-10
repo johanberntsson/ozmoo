@@ -1329,9 +1329,17 @@ show_more_prompt
 	clc
 	jsr s_plot ; sets zp_screenline/zp_colourline for that row
 	; the cell's address is the start of the line plus the column
+!ifdef Z6_FCM_MODE {
+	lda zp_screencolumn ; a cell is two bytes wide
+	asl
+	sta .more_cell_offset
+} else {
+	lda zp_screencolumn
+	sta .more_cell_offset
+}
 	lda zp_screenline
 	clc
-	adc zp_screencolumn
+	adc .more_cell_offset
 	sta .more_access1 + 1
 	sta .more_access2 + 1
 	sta .more_access4 + 1
@@ -1343,7 +1351,7 @@ show_more_prompt
 !ifndef BENCHMARK {
 	lda zp_colourline
 	clc
-	adc zp_screencolumn
+	adc .more_cell_offset
 	sta .more_access3 + 1
 	lda zp_colourline + 1
 	adc #0
@@ -1357,6 +1365,7 @@ show_more_prompt
 
 .more_saved_row    !byte 0
 .more_saved_column !byte 0
+.more_cell_offset  !byte 0
 }
 
 printchar_flush
@@ -1506,6 +1515,31 @@ print_line_from_buffer
 	bne - ; Always branch
 ++
 	
+} else ifdef Z6_FCM_MODE {
+		jsr colour2k
+		; y indexes the print buffer by column, but a screen cell is two
+		; bytes, so double it for the store and halve it again afterwards.
+		ldy first_buffered_column
+-		cpy last_break_char_buffer_pos
+		bcs ++
+		lda print_buffer,y
+		jsr convert_petscii_to_screencode
+		ora print_buffer2,y
+		pha
+		tya
+		asl
+		tay
+		pla
+		sta (zp_screenline),y
+		lda s_colour
+		sta (zp_colourline),y ; the colour pointer is biased by one
+		tya
+		lsr
+		tay
+		iny
+		bne - ; Always branch
+++
+		jsr colour1k
 } else {
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k	

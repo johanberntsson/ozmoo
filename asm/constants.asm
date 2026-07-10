@@ -84,7 +84,17 @@ ted_volume            = $ff11
 story_start_far_ram = 0 ; NOTE: This is in Attic RAM
 basic_reset           = $a000 ; the mega65 version is always run in C64 mode
 SCREEN_HEIGHT         = 25
+!ifdef Z6_FCM_MODE {
+; Full Colour Mode: 320x200, and a cell is two bytes in both screen and colour
+; RAM, so a row is the same 80 bytes as the 80 column text screen it replaces.
+SCREEN_WIDTH          = 40
+CELL_BYTES            = 2
+FCM_CHARSET           = $2d000  ; the C64 font, in the MEGA65 ROM
+} else {
 SCREEN_WIDTH          = 80
+CELL_BYTES            = 1
+}
+SCREEN_ROW_BYTES      = SCREEN_WIDTH * CELL_BYTES
 !ifdef CUSTOM_FONT {
 SCREEN_ADDRESS        = $1000
 } else {

@@ -217,6 +217,45 @@ Screen size, and why 320x200
    this lands, and keep it in screenkernal-z6.asm unless the !ifdefs get out of
    hand; on this evidence a whole forked file would be mostly duplication.
 
+   3a. DONE: text at 40x25. -fcm, mirroring -ecm, sets Z6_FCM_MODE. It is
+   rejected on any target but the MEGA65, on any version but 6, and alongside
+   -ecm. testz6 under -fcm is now character for character identical to the C64
+   at 40 columns, and the colour rectangle matches too. The C64, C64 -ecm,
+   Plus/4 and plain 80 column MEGA65 builds are unchanged.
+
+   What the design turned out to be:
+   - zp_screencolumn stays a column. Only the sites that index the screen
+     double it. That leaves the window edges, the margins and every comparison
+     alone, and it never escapes screenkernal-z6.asm.
+   - zp_colourline is biased by one, so the same doubled index writes the
+     character (the even byte of a screen cell) and the colour (the odd byte of
+     a colour cell). A row starts at a multiple of 80, so the bias never
+     carries.
+   - The other two bytes of every cell, the screen's high byte and the colour's
+     flags, must be zero and stay zero. init_mega65 clears both once.
+   - Reverse video still works: the C64 charset's codes 128-255 are the
+     reversed glyphs, so ora #$80 does the right thing when CHARPTR points at
+     it. No need for the ECM compromise.
+   - CHARPTR points at $2d000, the C64 font in the MEGA65's ROM. Bank 1 is
+     therefore entirely free for tiles after all, and the 2 KB reservation the
+     plan above assumed is not needed. Revisit for CUSTOM_FONT.
+
+   Three traps, all of which produced a screen that looked nearly right:
+   - Most text does not go through s_printchar. It goes through
+     print_line_from_buffer in screen-z6.asm, which writes the screen directly.
+     Miss that and the text lands one byte per cell.
+   - The MORE prompt's cell address is computed from zp_screencolumn as a byte
+     offset (.set_more_prompt_pos, and the SCREEN_WIDTH*SCREEN_HEIGHT-1 in the
+     .more_access defaults).
+   - .s_scroll advances a row with "adc s_screen_width", which is the row's
+     byte count on every other target but half of it here.
+
+   Still to do for the screen layer: erase_window and scroll_window were only
+   exercised through testz6; the cursor, delete and s_erase_line_from_cursor
+   paths are converted but barely tested. Nothing sets a per window background
+   colour yet, which is the whole point of FCM for text, and is what retires
+   ECM on this target.
+
    The charset goes at $10000, the bottom 2 KB of bank 1, with the tile store
    from $10800 up. FCLRLO is off, so codes below 256 fetch 8 byte glyphs from
    CHARPTR, and CHARPTR has to point at RAM the VIC-IV can read. Bank 1 is that

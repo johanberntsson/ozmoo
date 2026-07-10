@@ -2368,7 +2368,7 @@ def print_usage
 	puts "         [-statuscol:<colourname>] [-inputcol:<colourname>] [-cursorcol:<colourname>]"
 	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
 	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
-	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]]"
+	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]] [-fcm[:0|1]]"
 	puts "         [-cb:[n]] [-cs:[b|u|l]]"
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
@@ -2408,6 +2408,7 @@ def print_usage
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -ecm: Use Extended Color Mode, giving each z6 window its own background"
+	puts "  -fcm: MEGA65 only. Use Full Colour Mode: a 320x200, 40x25 z6 screen"
 	puts "        colour (C64, z6 only). Only the first 64 characters of the charset"
 	puts "        can be used, so text is lowercase only and reverse video is lost."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
@@ -2495,6 +2496,7 @@ check_errors = nil
 dark_mode = nil
 smooth_scroll = nil
 ecm_mode = nil
+fcm_mode = nil
 scrollback = nil
 reu_boost = nil
 x_for_examine = nil
@@ -2710,6 +2712,12 @@ begin
 			else
 				ecm_mode = $1.to_i
 			end
+		elsif arg =~ /^-fcm(?::([01]))?$/ then
+			if $1 == nil
+				fcm_mode = 1
+			else
+				fcm_mode = $1.to_i
+			end
 		elsif arg =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
 			if $1 == nil
 				scrollback = 1
@@ -2828,6 +2836,18 @@ if ecm_mode == nil
 end
 if ecm_mode == 1 and $target != "c64"
 	puts "ERROR: Extended Color Mode is only supported on the C64."
+	exit 1
+end
+
+if fcm_mode == nil
+	fcm_mode = 0
+end
+if fcm_mode == 1 and $target != "mega65"
+	puts "ERROR: Full Colour Mode is only supported on the MEGA65."
+	exit 1
+end
+if fcm_mode == 1 and ecm_mode == 1
+	puts "ERROR: Extended Color Mode and Full Colour Mode are mutually exclusive."
 	exit 1
 end
 
@@ -3244,6 +3264,14 @@ if ecm_mode == 1
 		exit 1
 	end
 	$GENERALFLAGS.push('Z6_ECM_MODE') unless $GENERALFLAGS.include?('Z6_ECM_MODE')
+end
+
+if fcm_mode == 1
+	if $zcode_version != 6
+		puts "ERROR: Full Colour Mode is only supported for version 6 games."
+		exit 1
+	end
+	$GENERALFLAGS.push('Z6_FCM_MODE') unless $GENERALFLAGS.include?('Z6_FCM_MODE')
 end
 
 if is_beyondzork
