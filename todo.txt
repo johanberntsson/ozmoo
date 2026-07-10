@@ -1,69 +1,53 @@
 Known bugs
 ----------
-SOLVED: Arthur's "FATAL ERROR: 17" on the MEGA65 was never a MEGA65 bug.
+FIXED: Arthur's "FATAL ERROR: 17" on the MEGA65 was a missing window property.
 
-Arthur really does execute a modulo by zero. Ozmoo's TRACE flag prints the last
-ten opcodes on a fatal error, and they end:
+get_wind_prop's property 13 is the font size: height in the high byte of the
+word, width in the low one. window_font_size was declared in screen-z6.asm and
+never written, so it read back as 0. txd shows what Arthur does with it:
 
-    ... $009D28,$BE   @picture_data 100 $4279 ?found   (EXT:6)
-        $009D50,$57   div
-        $009D54,$78   mod          <- divisor 0
+    11168:  GET_WIND_PROP   #00,#0d -> -(SP)      ; window 0, font size
+    1116e:  LOG_SHIFT       (SP)+,#fff8 -> -(SP)  ; >> 8, the height
+    11175:  AND             (SP)+,#ff -> G87
+    11179:  GET_WIND_PROP   #00,#0d -> -(SP)
+    1117f:  AND             (SP)+,#ff -> G18      ; the width
 
-picture_data branches false, because we report that no pictures exist, and
-leaves the array untouched. Arthur reads it anyway and divides by what it finds.
-The C64 executes the very same instruction - a tracepoint on z_ins_mod shows it
-at z_pc $009d57 with operand1 = 0 - and survives only because CHECK_ERRORS is
-compiled out of the C64 build. make.rb turns CHECK_ERRORS on for every MEGA65
-build (`if $target == "mega65"`), so there the same instruction aborts.
+and then, at $9d54, "MOD L00,G87" - a modulo by zero.
 
-`ruby make.rb -t:mega65 -re:0 z6games/arthur...z6` plays. The Makefile's
-arthur-mega65 and arthur-fcm targets pass -re:0 for that reason.
+The fix: get_wind_prop answers 1,1 for property 13, because the header tells the
+game a character is one unit each way, and window_font is initialised to 1, the
+normal font. Property 13 is the only window property that is a real word, so it
+cannot live in the byte-per-window arrays with the others.
 
-The real fix is step 4: once picture_data reports real sizes and branches true,
-Arthur stops dividing by zero. Until then, do not read anything into this.
+This was never a MEGA65 bug. The C64 executed the same modulo by zero and did
+not notice, because make.rb compiles CHECK_ERRORS into MEGA65 builds only
+(`if $target == "mega65"`). Both targets were also computing Arthur's whole
+layout from a zero font width; with the fix, the status line and the body text
+land where they should, on both.
 
-Note in passing: fatalerror's non-DEBUG path does
-`stx SCREEN_ADDRESS + 79`, a cell offset used as a byte offset. Under -fcm that
-writes the high byte of cell 39 instead of the character of cell 79. Harmless -
-it is the error code, printed on a screen that is about to reset - but it is the
-same class of bug as the three the FCM work already turned up.
+How it was found: DEBUG + TRACE make fatalerror print the last ten opcodes with
+their z_pc, which named the instruction; ztools' txd then named the property.
+Both are worth reaching for early - see CLAUDE.md.
 
-Two dead ends worth not repeating, both now disproved:
-- It is not a large memory problem. A generated v6 story of 276 KB
-  (tools-generated, 1700 filler routines, `inform -v6 -B`) calls a routine,
-  passes arguments to it, prints a string and reads globals all from above
-  $40000, and the MEGA65 gets every answer right. Z-machine byte addresses are
-  16 bit, so loadb/loadw cannot reach above 64 KB anyway; only code and strings
-  live up there, and those work.
+Two dead ends worth not repeating, both disproved along the way:
+- It is not a large memory problem. A generated v6 story of 276 KB (1700 filler
+  routines, `inform -v6 -B`) calls a routine, passes arguments to it, prints a
+  string and reads globals all from above $40000, and the MEGA65 gets every
+  answer right. Z-machine byte addresses are 16 bit, so loadb/loadw cannot reach
+  above 64 KB anyway; only code and strings live up there, and those work.
 - It is not the timed-input interrupt, which had never been tested for z6 on any
   target. A v6 test doing `@read_char 1 10 Ticker` and `@aread buf par 10 Ticker`
-  gives "read_char -> 0 ticks 3" and "aread -> 0 ticks 3" on the C64 and on the
+  gives "read_char -> 0 ticks 3" and "aread -> 0 ticks 3" on the C64 and the
   MEGA65 alike, which is correct.
+- 2OP:23 is div and 2OP:24 is mod, and z_divide serves both. Tracing z_ins_div,
+  finding no hits, and concluding the MEGA65's PC had diverged cost an
+  afternoon. It had not: z_ins_mod fires on the C64 at the same z_pc, $009d57.
 
-What was established while chasing it (all still true):
-
-- 17 is ERROR_DIVISION_BY_ZERO (utilities.asm), raised by z_divide, which serves
-  both div and mod. The failing instruction is at story address $9d54:
-  "78 01 97 00", long form 2OP:24, i.e. mod local1, global $97 -> stack. At the
-  trap local1 = 32 and global $97 = 0. (2OP:23 is div, 2OP:24 is mod. Tracing
-  z_ins_div on the C64 and finding nothing sent this chase off for an afternoon:
-  it was mod all along, and z_ins_mod does fire, at the same z_pc.)
-- It is not the full colour screen. The plain 80 column build fails the same
-  way. -fcm only changes the screen.
-- It is not anything the game can see. With -u:0 -ch:0 -sb:0 the MEGA65's
-  runtime header is byte for byte identical to the C64's, and it still fails.
-  (Undo is the only header difference otherwise: flags2 bit 4, $11 = $50 on
-  MEGA65 against $40 on the C64, because the C64 has no REU.)
-- The story is not corrupt. Attic RAM matches the file byte for byte at $100,
-  $9d50, $20000, $3fff0, $40000 and $41bf0 - including past $40000, which only
-  Arthur reaches.
-- The two machines never diverge. Both reach the restore question at z_pc
-  $011a14, and a tracepoint on z_ins_mod shows the C64 reaching $009d57 with a
-  zero divisor exactly as the MEGA65 does. The C64 simply has no CHECK_ERRORS
-  to complain.
-- It is not a general MEGA65 memory bug. AMFV, a 256 KB z4 game, plays fine on
-  the MEGA65: `ruby make.rb -t:mega65 amfvUnprotected.z4`. So attic RAM, far
-  dynmem, big stories and the object table are all sound for z4.
+Note in passing: fatalerror's non-DEBUG path does `stx SCREEN_ADDRESS + 79`, a
+cell offset used as a byte offset. Under -fcm that writes the high byte of cell
+39 instead of the character of cell 79. Harmless - it is the error code, on a
+screen that is about to reset - but it is the same class of bug as the three the
+FCM work turned up.
 
 Still to do for z6 (not crashes):
 - These machines will never draw pictures. draw_picture writes a "pic:N" note

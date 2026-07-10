@@ -8,6 +8,11 @@
 # this must not end in a slash.
 /exomizer
 
+# Mark Howell's ztools, kept here for debugging. txd disassembles a story file
+# (`ztools-master/txd -n game.z6`) and infodump dumps its header, objects and
+# dictionary. Not ours to distribute.
+/ztools-master/
+
 # Reference only, kept here while working on v6 graphics: Stephan Kleinert's
 # PNG to MEGA65 FCI converter. Not ours to distribute. See todo.txt for what
 # is worth borrowing from it.

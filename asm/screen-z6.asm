@@ -23,6 +23,11 @@
 -   sta window_attributes + 1,x
 	dex
 	bpl -
+	ldx #7
+	lda #1 ; every window uses font 1, the normal font
+-   sta window_font,x
+	dex
+	bpl -
 	; window 0 fills the whole screen; wrapping, scrolling,
 	; transcripting and buffering all on
 	lda #15
@@ -361,6 +366,18 @@ z_ins_get_wind_prop
 	jsr printa
 	jsr newline
 }
+	lda z_operand_value_low_arr + 1
+	cmp #13
+	bne +
+	; Property 13 is the font size: height in the high byte, width in the low
+	; one. It is the only property that is a real word, so it cannot live in
+	; the byte-per-window arrays below. The header tells the game a character
+	; is one unit wide and one unit high, so the answer is always 1,1.
+	; Arthur takes the height from here and divides by it, so a zero is fatal.
+	lda #1
+	ldx #1
+	jmp z_store_result
++
 	; return value at window_y + property-number * 8 + window
 	lda z_operand_value_low_arr + 1
 	asl
