@@ -75,132 +75,107 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 !ifdef Z6_PICTURES {
 !source "../temp/pictures.asm"
 
-.pic_index !byte 0
-.pic_row   !byte 0
-.pic_col2  !byte 0		; byte offset along the screen row: two per cell
-.pic_ptr  = z_temp		; 2 bytes, the start of the screen row being written
-.pic_src  = z_temp + 2	; 2 bytes, the low bytes of a picture's screen codes
-.pic_srch = z_temp + 4	; 2 bytes, their high bytes
-.pic_dst  = z_temp + 6	; 4 bytes, a 32 bit pointer into bank 1
+; The pictures are files on the disk, preloaded into attic RAM at boot the same
+; way the sound effects are. Drawing one copies its tiles down into bank 1,
+; shifting every pixel index into the drawing window's palette bank, loads its
+; palette, and fills its cells in screen RAM.
+;
+; A window holds at most one picture, so each window owns a run of the tile
+; store and a bank of 16 palette entries above the 16 text colours.
 
-.pic_pal_off !byte 0	; 16 * the window being drawn into
+PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
+PIC_MAX_TILES  = 1024		; 64 KB of bank 1, at 64 bytes a tile
 
-.pic_set_bank
-	; A window holds at most one picture, so each of the eight windows gets its
-	; own bank of 16 palette entries above the 16 text colours.
-	lda current_window
-	asl
-	asl
-	asl
-	asl
-	sta .pic_pal_off
-	rts
+.pic_ptr = z_temp			; 2 bytes, the screen row being written
+.pic_att = z_temp + 2		; 4 bytes, a 32 bit pointer into attic RAM
+.pic_dst = z_temp + 6		; 4 bytes, a 32 bit pointer into bank 1
 
-.pic_bank_start
-	; .pic_col2 = the first palette entry of this window's bank. y is the
-	; source byte being copied, and has to survive.
-	lda #16
-	clc
-	adc .pic_pal_off
-	sta .pic_col2
-	rts
+.pic_index   !byte 0
+.pic_w       !byte 0		; cells across
+.pic_h       !byte 0		; cells down
+.pic_ntiles  !byte 0,0
+.pic_slot    !byte 0,0		; the picture's first tile in the store
+.pic_pal_off !byte 0		; 16 * the window being drawn into
+.pic_row     !byte 0
+.pic_col2    !byte 0
+.pic_map     !byte 0,0,0	; where the cell map starts in attic RAM
+.pic_count   !byte 0,0		; a general 16 bit counter
 
-.pic_load_palette
-	; The picture's 16 colours go into this window's bank. The values are
-	; already nybble swapped, as the palette registers want.
-	ldy .pic_index
-	lda pic_pal_lo,y
-	sta .pic_src
-	lda pic_pal_hi,y
-	sta .pic_src + 1
-	jsr mega65io
-	ldy #0
-	jsr .pic_bank_start
--	ldx .pic_col2
-	lda (.pic_src),y
-	sta $d100,x			; 16 reds
-	inc .pic_col2
-	iny
-	cpy #16
-	bne -
-	jsr .pic_bank_start
--	ldx .pic_col2
-	lda (.pic_src),y
-	sta $d200,x			; 16 greens
-	inc .pic_col2
-	iny
-	cpy #32
-	bne -
-	jsr .pic_bank_start
--	ldx .pic_col2
-	lda (.pic_src),y
-	sta $d300,x			; 16 blues
-	inc .pic_col2
-	iny
-	cpy #48
-	bne -
-	rts
+pic_next_tile  !byte 0,0
+pic_win_base   !fill 16, 0	; two bytes a window
+pic_win_count  !fill 16, 0
 
-.pic_load_tiles
-	; Copy the picture's tiles into its own run of the tile store in bank 1,
-	; shifting every pixel index into this window's palette bank on the way.
-	; A pixel of 0 is transparent and stays 0. The DMA engine cannot add, so
-	; this is a plain copy; at 40 MHz even a full screen picture is a blink.
-	ldy .pic_index
-	lda pic_data_lo,y
-	sta .pic_src
-	lda pic_data_hi,y
-	sta .pic_src + 1
-	lda pic_tiles,y
-	sta .pic_row			; tiles left to copy
-	; destination = FCM_TILE_STORE + tile_base * 64
-	lda pic_tile_base,y
-	lsr
-	lsr
-	sta .pic_dst + 1		; four tiles to the page
-	lda pic_tile_base,y
-	and #3					; the tile's offset within its page, times 64
-	asl
-	asl
-	asl
-	asl
-	asl
-	asl
-	sta .pic_dst
-	lda #((FCM_TILE_STORE >> 16) & $0f)
-	sta .pic_dst + 2
+; ---------------------------------------------------------------------------
+pic_file_name !text "P000" ; make.rb upper-cases the names it puts on the disk
+PIC_FILE_NAME_LEN = 4
+
+.pic_next_page !byte 0,0
+
+pic_load_all
+	; Preload every picture into attic RAM. Called at boot, next to the sound
+	; effects, and for the same reason: the files are far too big to assemble
+	; into the interpreter.
+	lda #<PIC_ATTIC_PAGE
+	sta .pic_next_page
+	lda #>PIC_ATTIC_PAGE
+	sta .pic_next_page + 1
 	lda #0
-	sta .pic_dst + 3
-.pic_tile_loop
-	ldy #0
-.pic_byte_loop
-	lda (.pic_src),y
-	beq +					; 0 is transparent, in every bank
+	sta .pic_index
+.pla_loop
+	ldy .pic_index
+	lda pic_number,y
+	jsr .pic_set_filename
+	lda #PIC_FILE_NAME_LEN
+	ldx #<pic_file_name
+	ldy #>pic_file_name
+	jsr kernal_setnam
+	lda #0
+	sta reu_progress_bar_updates
+	ldy .pic_index
+	lda .pic_next_page
+	sta pic_page_lo,y
+	lda .pic_next_page + 1
+	sta pic_page_hi,y
+	ldx .pic_next_page
+	lda .pic_next_page + 1
+	jsr m65_load_file_to_reu	; a = pages loaded
 	clc
-	adc .pic_pal_off
-+	ldz #0
-	sta [.pic_dst],z
-	inc .pic_dst
-	bne +
-	inc .pic_dst + 1
-+	iny
-	cpy #64
-	bne .pic_byte_loop
-	lda .pic_src
-	clc
-	adc #64
-	sta .pic_src
+	adc .pic_next_page
+	sta .pic_next_page
 	bcc +
-	inc .pic_src + 1
-+	dec .pic_row
-	bne .pic_tile_loop
+	inc .pic_next_page + 1
++	inc .pic_index
+	lda .pic_index
+	cmp #picture_count
+	bne .pla_loop
 	rts
 
+.pic_set_filename
+	; a = picture number. Write it into pic_file_name as three digits.
+	ldx #$2f					; '0' - 1
+-	inx
+	sec
+	sbc #100
+	bcs -
+	adc #100
+	stx pic_file_name + 1
+	ldx #$2f
+-	inx
+	sec
+	sbc #10
+	bcs -
+	adc #10
+	stx pic_file_name + 2
+	ora #$30
+	sta pic_file_name + 3
+	rts
+
+; ---------------------------------------------------------------------------
 .pic_find
 	; Find the picture whose number is in a,x (high, low). Returns its index in
 	; .pic_index with carry set, or carry clear if this build does not have it.
 	cmp #0
-	bne .pic_not_found	; no picture number we hold needs a high byte
+	bne .pic_not_found		; no picture number we hold needs a high byte
 	ldy #picture_count - 1
 -	txa
 	cmp pic_number,y
@@ -212,6 +187,189 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 	rts
 +	sty .pic_index
 	sec
+	rts
+
+.pic_att_next
+	; Read the byte at .pic_att and step the pointer on.
+	ldz #0
+	lda [.pic_att],z
+	inc .pic_att
+	bne +
+	inc .pic_att + 1
+	bne +
+	inc .pic_att + 2
++	rts
+
+.pic_open
+	; Point .pic_att at the start of the picture's file in attic RAM.
+	ldy .pic_index
+	lda #0
+	sta .pic_att			; the file starts on a page boundary
+	lda pic_page_lo,y
+	sta .pic_att + 1
+	lda pic_page_hi,y
+	sta .pic_att + 2
+	lda #$08				; attic RAM starts at $08000000
+	sta .pic_att + 3
+	rts
+
+.pic_bank_start
+	; .pic_col2 = the first palette entry of this window's bank
+	lda #16
+	clc
+	adc .pic_pal_off
+	sta .pic_col2
+	rts
+
+.pic_read_palette
+	; The 48 bytes after the header, into this window's bank. They are already
+	; nybble swapped, as the palette registers want.
+	jsr mega65io
+	jsr .pic_bank_start
+	ldy #0
+-	jsr .pic_att_next
+	ldx .pic_col2
+	sta $d100,x
+	inc .pic_col2
+	iny
+	cpy #16
+	bne -
+	jsr .pic_bank_start
+	ldy #0
+-	jsr .pic_att_next
+	ldx .pic_col2
+	sta $d200,x
+	inc .pic_col2
+	iny
+	cpy #16
+	bne -
+	jsr .pic_bank_start
+	ldy #0
+-	jsr .pic_att_next
+	ldx .pic_col2
+	sta $d300,x
+	inc .pic_col2
+	iny
+	cpy #16
+	bne -
+	rts
+
+.pic_cells
+	; a,x = the picture's cell count, w * h
+	jsr mega65io
+	lda .pic_w
+	sta $d770
+	lda #0
+	sta $d771
+	sta $d772
+	sta $d773
+	sta $d775
+	sta $d776
+	sta $d777
+	lda .pic_h
+	sta $d774
+	ldx $d778
+	lda $d779
+	rts
+
+.pic_alloc
+	; Give this window a run of the tile store big enough for the picture. A
+	; window holds at most one picture, so its old run can simply be reused
+	; when the new picture fits in it. When the store runs out we start again
+	; at the bottom, which can only spoil a picture in another window.
+	lda current_window
+	asl
+	tax
+	lda pic_win_count,x		; does the window's own run already fit?
+	cmp .pic_ntiles
+	lda pic_win_count + 1,x
+	sbc .pic_ntiles + 1
+	bcc .pa_fresh
+	lda pic_win_base,x
+	sta .pic_slot
+	lda pic_win_base + 1,x
+	sta .pic_slot + 1
+	rts
+.pa_fresh
+	lda pic_next_tile		; would it run off the end of the store?
+	clc
+	adc .pic_ntiles
+	tay
+	lda pic_next_tile + 1
+	adc .pic_ntiles + 1
+	cmp #>PIC_MAX_TILES
+	bcc +
+	bne .pa_reset
+	cpy #<PIC_MAX_TILES
+	bcc +
+.pa_reset
+	lda #0
+	sta pic_next_tile
+	sta pic_next_tile + 1
++	lda pic_next_tile
+	sta .pic_slot
+	sta pic_win_base,x
+	lda pic_next_tile + 1
+	sta .pic_slot + 1
+	sta pic_win_base + 1,x
+	lda .pic_ntiles
+	sta pic_win_count,x
+	clc
+	adc pic_next_tile
+	sta pic_next_tile
+	lda .pic_ntiles + 1
+	sta pic_win_count + 1,x
+	adc pic_next_tile + 1
+	sta pic_next_tile + 1
+	rts
+
+.pic_copy_tiles
+	; Copy .pic_ntiles * 64 bytes from attic RAM into the picture's run of the
+	; tile store, adding this window's palette offset to every pixel that is
+	; not transparent. The DMA engine cannot add, so the CPU does it; at 40 MHz
+	; even a full screen picture is a blink.
+	lda .pic_slot			; destination = FCM_TILE_STORE + slot * 64
+	ldx .pic_slot + 1		; slot * 64 = slot << 6, in 16 bits
+	stx .pic_dst + 1
+	sta .pic_dst
+	ldx #6
+-	asl .pic_dst
+	rol .pic_dst + 1
+	dex
+	bne -
+	lda #((FCM_TILE_STORE >> 16) & $0f)
+	sta .pic_dst + 2
+	lda #0
+	sta .pic_dst + 3
+	; count = ntiles * 64, which never overflows: ntiles <= 1024
+	lda .pic_ntiles
+	sta .pic_count
+	lda .pic_ntiles + 1
+	sta .pic_count + 1
+	ldx #6
+-	asl .pic_count
+	rol .pic_count + 1
+	dex
+	bne -
+.pct_loop
+	jsr .pic_att_next
+	beq +					; 0 is transparent, in every bank
+	clc
+	adc .pic_pal_off
++	ldz #0
+	sta [.pic_dst],z
+	inc .pic_dst
+	bne +
+	inc .pic_dst + 1
+	bne +
+	inc .pic_dst + 2
++	lda .pic_count
+	bne +
+	dec .pic_count + 1
++	dec .pic_count
+	lda .pic_count
+	ora .pic_count + 1
+	bne .pct_loop
 	rts
 
 .pic_point_at_row
@@ -238,73 +396,54 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 
 .pic_row_width
 	; a = the byte offset just past the picture's last cell on a screen row
-	ldy .pic_index
-	lda pic_cells_w,y
+	lda .pic_w
 	asl
 	clc
 	adc .pic_x
 	adc .pic_x
 	rts
 
-.pic_draw
-	; Draw the picture in .pic_index with its top left cell at .pic_y, .pic_x.
-	jsr .pic_set_bank
-	jsr .pic_load_palette
-	jsr .pic_load_tiles
-	; Its cell map holds finished 16 bit screen codes: the low bytes first, the
-	; high bytes after. Only screen RAM is touched, because a cell's colour
-	; bytes hold flags (zero) and the colour for pixel value 255, which no
-	; picture pixel ever is.
-	ldy .pic_index
-	lda pic_map_lo,y
-	sta .pic_src
-	sta .pic_srch
-	lda pic_map_hi,y
-	sta .pic_src + 1
-	sta .pic_srch + 1
-	; the high bytes start one cell-count further on
-	lda pic_cells_w,y
-	sta .pic_col2
-	lda pic_cells_h,y
-	tax
-	lda #0
--	clc
-	adc .pic_col2
-	dex
-	bne -
-	clc
-	adc .pic_srch
-	sta .pic_srch
-	bcc +
-	inc .pic_srch + 1
-+
+.pic_fill_cells
+	; Read the cell map back out of attic RAM and write the screen codes. A
+	; cell's code is its tile's address divided by 64, so it is
+	; $0400 + slot + index, and the map holds the index.
+	lda .pic_map
+	sta .pic_att
+	lda .pic_map + 1
+	sta .pic_att + 1
+	lda .pic_map + 2
+	sta .pic_att + 2
+	lda #$08
+	sta .pic_att + 3
 	jsr .pic_point_at_row
-	ldx #0				; index into the cell map
-	stx .pic_row
-.pic_row_loop
+	lda #0
+	sta .pic_row
+.pfc_row
 	lda .pic_x
-	asl					; two bytes per cell
+	asl
 	sta .pic_col2
-.pic_cell_loop
-	txa
-	tay
-	lda (.pic_src),y	; low byte of the screen code
+.pfc_cell
+	jsr .pic_att_next		; index, low byte
+	clc
+	adc .pic_slot
+	pha
+	jsr .pic_att_next		; index, high byte
+	adc .pic_slot + 1
+	adc #>1024				; the tile store's base screen code
+	sta .pic_count			; carry is clear: the sum is under 2048
+	pla
 	ldy .pic_col2
 	sta (.pic_ptr),y
-	txa
-	tay
-	lda (.pic_srch),y	; high byte
-	ldy .pic_col2
 	iny
+	lda .pic_count
 	sta (.pic_ptr),y
-	inx
 	lda .pic_col2
 	clc
 	adc #2
 	sta .pic_col2
 	jsr .pic_row_width
 	cmp .pic_col2
-	bne .pic_cell_loop
+	bne .pfc_cell
 	lda .pic_ptr
 	clc
 	adc #SCREEN_ROW_BYTES
@@ -312,16 +451,69 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 	bcc +
 	inc .pic_ptr + 1
 +	inc .pic_row
-	ldy .pic_index
-	lda pic_cells_h,y
+	lda .pic_h
 	cmp .pic_row
-	bne .pic_row_loop
+	bne .pfc_row
 	rts
+
+.pic_draw
+	; Draw the picture in .pic_index with its top left cell at .pic_y, .pic_x.
+	; Only screen RAM is touched: a cell's colour bytes hold flags (zero) and
+	; the colour for pixel value 255, which no picture pixel ever is.
+	lda current_window		; a window holds one picture, and owns a palette
+	asl						; bank of 16 above the 16 text colours
+	asl
+	asl
+	asl
+	sta .pic_pal_off
+
+	jsr .pic_open
+	jsr .pic_att_next
+	sta .pic_w
+	jsr .pic_att_next
+	sta .pic_h
+	jsr .pic_att_next
+	sta .pic_ntiles
+	jsr .pic_att_next
+	sta .pic_ntiles + 1
+
+	jsr .pic_read_palette
+	jsr .pic_alloc
+
+	; .pic_att now points at the cell map. Remember it, then skip over it.
+	lda .pic_att
+	sta .pic_map
+	lda .pic_att + 1
+	sta .pic_map + 1
+	lda .pic_att + 2
+	sta .pic_map + 2
+	jsr .pic_cells			; a,x = w * h
+	sta .pic_count + 1
+	stx .pic_count
+	asl .pic_count			; two bytes a cell
+	rol .pic_count + 1
+	lda .pic_att
+	clc
+	adc .pic_count
+	sta .pic_att
+	lda .pic_att + 1
+	adc .pic_count + 1
+	sta .pic_att + 1
+	bcc +
+	inc .pic_att + 2
++
+	jsr .pic_copy_tiles
+	jmp .pic_fill_cells
 
 .pic_erase
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y, .pic_x,
 	; by putting a space in every cell it covered. s_printchar would do it, but
 	; it would also wrap, scroll and move the cursor.
+	jsr .pic_open
+	jsr .pic_att_next
+	sta .pic_w
+	jsr .pic_att_next
+	sta .pic_h
 	jsr .pic_point_at_row
 	lda #0
 	sta .pic_row
@@ -331,10 +523,10 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 	sta .pic_col2
 .pic_erase_cell
 	ldy .pic_col2
-	lda #$20			; a space, which is a text character, not a tile
+	lda #$20				; a space, which is a text character, not a tile
 	sta (.pic_ptr),y
 	iny
-	lda #0				; and so its high byte must go back to zero
+	lda #0					; and so its high byte must go back to zero
 	sta (.pic_ptr),y
 	lda .pic_col2
 	clc
@@ -350,8 +542,7 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 	bcc +
 	inc .pic_ptr + 1
 +	inc .pic_row
-	ldy .pic_index
-	lda pic_cells_h,y
+	lda .pic_h
 	cmp .pic_row
 	bne .pic_erase_row
 	rts

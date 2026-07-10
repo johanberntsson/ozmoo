@@ -1934,6 +1934,9 @@ z_init
 !ifdef HAS_SID {
 	jsr init_sid
 }
+!ifdef Z6_PICTURES {
+	jsr pic_load_all ; preload the pictures into attic RAM, as sound.asm does
+}
 !ifdef TARGET_PLUS4 {
 	lda #0
 	sta ted_volume

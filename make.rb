@@ -2240,6 +2240,13 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			 # Don't use the option to add new file just after last file!
 			last_sector = disk.add_file(tf, file_contents);
 		end
+
+		$picture_files.each do |file|
+			# p004.bin on disk is "p004": Ozmoo builds the name from the
+			# picture number and preloads the file into attic RAM at boot.
+			tf = File.basename(file, '.bin')
+			last_sector = disk.add_file(tf, IO.binread(file));
+		end
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
 		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
@@ -2450,6 +2457,7 @@ await_picturedir = false
 preloadfile = nil
 $sound_path = nil
 $sound_files = []
+$picture_files = []
 $font_filename = nil
 $font_address = nil
 $loader_pic_file = nil
@@ -3291,12 +3299,13 @@ if picture_dir
 		puts "ERROR: -pics: no such directory: #{picture_dir}"
 		exit 1
 	end
-	pictures_asm = File.join($TEMPDIR, 'pictures.asm')
 	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
-	              pictures_asm, picture_dir)
+	              $TEMPDIR, picture_dir)
 		puts "ERROR: -pics: tools/pics2asm.py failed."
 		exit 1
 	end
+	# One file per picture, preloaded into attic RAM at boot like the sounds.
+	$picture_files = Dir.glob(File.join($TEMPDIR, 'p[0-9][0-9][0-9].bin')).sort
 	$GENERALFLAGS.push('Z6_PICTURES') unless $GENERALFLAGS.include?('Z6_PICTURES')
 end
 

@@ -28,17 +28,19 @@ more than 14.
 `gen_testpics.py` writes the small pictures in `tools/testpics` that testz6
 draws. They are ours, so they live in the repository.
 
-`pics2asm.py` converts a directory of numbered PNGs into `temp/pictures.asm`,
-which Ozmoo assembles in when `make.rb` is given `-pics`:
+`pics2asm.py` converts a directory of numbered PNGs into one `p<nnn>.bin` per
+picture plus a small `pictures.asm` index, which `make.rb` uses when given
+`-pics`:
 
 ```sh
 ruby make.rb -t:mega65 -fcm -pics tools/testpics testz6.z6
 ```
 
-Each `<n>.png` becomes picture number n. The data is embedded in the
-interpreter, which only suits a handful of small pictures; Arthur's set goes to
-attic RAM instead. The tile format is the same either way, so `png2fcm.py`
-stays the reference for it.
+The `.bin` files go on the d81 next to `zcode`, and Ozmoo preloads them into
+attic RAM at boot, the way it already preloads the sound effects. Only the
+index is assembled into the interpreter, so a set the size of Arthur's is no
+harder than a set of three. The file format is documented at the top of the
+script; `png2fcm.py` remains the reference for the tile format itself.
 
 ## fcm-prototype.asm
 

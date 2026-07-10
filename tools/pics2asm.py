@@ -1,22 +1,32 @@
 #!/usr/bin/python3
-"""Convert a directory of numbered PNGs into an ACME source file that Ozmoo
-assembles into the interpreter.
+"""Convert a directory of numbered PNGs into MEGA65 picture files.
 
-    python3 tools/pics2asm.py temp/pictures.asm tools/testpics
+    python3 tools/pics2asm.py temp tools/testpics
 
-Each <n>.png becomes picture number n. This is the first, small-scale form of
-the picture pipeline: the data is embedded in the binary. Arthur's set is far
-too large for that and will be preloaded into attic RAM instead, but the tile
-format, the cell map and the palette layout are the same either way.
+Writes, into <outdir>:
+    pictures.asm    the index Ozmoo assembles in: how many pictures there are
+                    and what they are numbered. Nothing else is embedded.
+    p<nnn>.bin      one file per picture, which make.rb puts on the d81 and
+                    Ozmoo preloads into attic RAM at boot, the way it already
+                    preloads the sound effects.
 
-See tools/png2fcm.py for the format's reasoning. In short: FCM cells are 8x8
-pixels, one byte per pixel, 64 bytes per cell; pixel 0 is transparent and 255
-comes from colour RAM, so a picture's colours live in palette entries 16..31 and
-its pixel indices are offset to match. draw_picture shifts them again, by 16 per
-window, so each of the eight windows has its own bank. Identical cells are
-stored once.
+A picture file is:
+    0       cells wide
+    1       cells high
+    2..3    number of unique tiles, little endian
+    4..51   palette: 16 red, then 16 green, then 16 blue, nybble swapped as the
+            VIC-IV palette registers want
+    52..    the cell map: two bytes a cell, row major, a little endian index
+            into the tiles below
+    then    the tiles: 64 bytes each, one byte a pixel
+
+FCM cells are 8x8 pixels and a cell's screen code is its data address divided by
+64. Pixel 0 is transparent and 255 comes from colour RAM, so a picture's colours
+are written relative to palette entry 16, and draw_picture shifts them again by
+16 per window: a window holds at most one picture, so the eight banks above the
+16 text colours are enough for any number of pictures.
 """
-import os, sys, glob
+import os, sys, glob, struct
 from PIL import Image
 
 BASE = 16
@@ -24,7 +34,7 @@ BASE = 16
 def nybswap(v):
     return ((v & 0x0F) << 4) | (v >> 4)
 
-def convert(path, palette_base=BASE):
+def convert(path):
     im = Image.open(path)
     if im.mode != "P":
         sys.exit(f"{path}: not an indexed PNG")
@@ -33,10 +43,12 @@ def convert(path, palette_base=BASE):
     used = sorted({i for _, i in im.getcolors()})
     if len(used) > 16:
         sys.exit(f"{path}: {len(used)} colours, more than one palette bank holds")
-    remap = {old: palette_base + n for n, old in enumerate(used)}
+    remap = {old: BASE + n for n, old in enumerate(used)}
     colours = [tuple(pal[o*3:o*3+3]) for o in used]
 
     cw, ch = (w + 7) // 8, (h + 7) // 8
+    if cw > 40 or ch > 25:
+        sys.exit(f"{path}: {cw}x{ch} cells, larger than the 40x25 screen")
     px = im.load()
     tiles, index_of, cellmap = bytearray(), {}, []
     for cy in range(ch):
@@ -48,93 +60,64 @@ def convert(path, palette_base=BASE):
                 index_of[cell] = len(index_of)
                 tiles += cell
             cellmap.append(index_of[cell])
-    if len(index_of) > 256:
-        sys.exit(f"{path}: {len(index_of)} unique tiles; the cell map here is "
-                 f"one byte per cell. Arthur's pictures need the 16 bit map "
-                 f"that png2fcm.py emits, and attic RAM to hold the tiles.")
+
+    ntiles = len(index_of)
+    if ntiles > 1024:
+        sys.exit(f"{path}: {ntiles} unique tiles; the store in bank 1 holds 1024")
 
     palette = bytearray(48)
     for chan in range(3):
         for n in range(16):
             v = colours[n][chan] if n < len(colours) else 0
             palette[chan*16 + n] = nybswap(v)
-    return dict(w=w, h=h, cw=cw, ch=ch, tiles=bytes(tiles),
-                ntiles=len(index_of), map=cellmap, pal=bytes(palette))
 
-def bytes_asm(name, data, per=16):
-    out = [f"{name}"]
-    for i in range(0, len(data), per):
-        out.append("\t!byte " + ",".join(f"${b:02x}" for b in data[i:i+per]))
-    return "\n".join(out)
+    blob = bytearray()
+    blob += bytes((cw, ch))
+    blob += struct.pack("<H", ntiles)
+    blob += palette
+    for i in cellmap:
+        blob += struct.pack("<H", i)
+    blob += tiles
+    if len(blob) > 255 * 256:
+        sys.exit(f"{path}: {len(blob)} bytes; a file preloaded into attic may be "
+                 f"at most 255 pages, because m65_load_file_to_reu counts pages "
+                 f"in one byte")
+    return dict(w=w, h=h, cw=cw, ch=ch, ntiles=ntiles,
+                colours=len(used), blob=bytes(blob))
 
 def main():
     if len(sys.argv) != 3:
-        sys.exit(f"usage: {sys.argv[0]} <out.asm> <png-dir>")
-    out, pngdir = sys.argv[1], sys.argv[2]
+        sys.exit(f"usage: {sys.argv[0]} <outdir> <png-dir>")
+    outdir, pngdir = sys.argv[1], sys.argv[2]
 
     files = sorted(glob.glob(os.path.join(pngdir, "*.png")),
                    key=lambda s: int(os.path.basename(s)[:-4]))
     if not files:
         sys.exit(f"no numbered PNGs in {pngdir}")
-    pics = []
-    tile_base = 0
-    for n, path in enumerate(files):
+
+    os.makedirs(outdir, exist_ok=True)
+    nums, total = [], 0
+    for path in files:
         num = int(os.path.basename(path)[:-4])
+        if not 0 < num < 256:
+            sys.exit(f"{path}: picture numbers must be 1..255")
         p = convert(path)
-        p['tile_base'] = tile_base
-        tile_base += p['ntiles']
-        pics.append((num, p))
-    if tile_base > 1024:
-        sys.exit(f"{tile_base} tiles = {tile_base*64//1024} KB: bank 1 holds 1024 "
-                 f"tiles (64 KB). Arthur's set needs attic RAM and one picture "
-                 f"resident at a time.")
+        open(os.path.join(outdir, f"p{num:03d}.bin"), "wb").write(p['blob'])
+        nums.append(num)
+        total += len(p['blob'])
+        print(f"  picture {num:3d}: {p['w']}x{p['h']} px, {p['cw']}x{p['ch']} cells, "
+              f"{p['ntiles']} tiles, {p['colours']} colours, {len(p['blob'])} bytes")
 
-    L = []
-    L.append("; Generated by tools/pics2asm.py - do not edit")
-    L.append(f"; from {pngdir}: " + ", ".join(str(n) for n, _ in pics))
-    L.append(";")
-    L.append("; Every picture has its own run of tiles in the store. Pixel indices are")
-    L.append("; relative to palette entry 16; draw_picture shifts them into the")
-    L.append("; drawing window's own bank of 16, because a window holds at most")
-    L.append("; one picture, so eight banks above the text colours are enough.")
-    L.append("")
-    L.append(f"picture_count = {len(pics)}")
-    L.append(f"picture_total_tiles = {tile_base}")
-    L.append("")
-    L.append("pic_number\t!byte " + ",".join(str(n) for n, _ in pics))
-    L.append("pic_cells_w\t!byte " + ",".join(str(p['cw']) for _, p in pics))
-    L.append("pic_cells_h\t!byte " + ",".join(str(p['ch']) for _, p in pics))
-    L.append("pic_map_lo\t!byte " + ",".join(f"<pic{n}_map" for n, _ in pics))
-    L.append("pic_map_hi\t!byte " + ",".join(f">pic{n}_map" for n, _ in pics))
-    L.append("pic_data_lo\t!byte " + ",".join(f"<pic{n}_data" for n, _ in pics))
-    L.append("pic_data_hi\t!byte " + ",".join(f">pic{n}_data" for n, _ in pics))
-    L.append("pic_pal_lo\t!byte " + ",".join(f"<pic{n}_pal" for n, _ in pics))
-    L.append("pic_pal_hi\t!byte " + ",".join(f">pic{n}_pal" for n, _ in pics))
-    L.append("pic_tiles\t!byte " + ",".join(str(p['ntiles']) for _, p in pics))
-    L.append("; where each picture's tiles sit in the store")
-    L.append("pic_tile_base\t!byte " + ",".join(str(p['tile_base']) for _, p in pics))
-    L.append("")
-    for n, p in pics:
-        L.append(f"; picture {n}: {p['w']}x{p['h']} px, {p['cw']}x{p['ch']} cells,"
-                 f" {p['ntiles']} tiles from {p['tile_base']},"
-                 f" palette {BASE + 16*[i for i,(m,_) in enumerate(pics) if m==n][0]}")
-    L.append("")
-    # the cell maps hold the full 16-bit screen code: tile address / 64
-    for n, p in pics:
-        codes = [1024 + p['tile_base'] + i for i in p['map']]
-        L.append(bytes_asm(f"pic{n}_map", bytes([c & 0xff for c in codes]
-                                                + [c >> 8 for c in codes])))
-    L.append("")
-    for n, p in pics:
-        L.append(bytes_asm(f"pic{n}_pal", p['pal']))
-    L.append("")
-    for n, p in pics:
-        L.append(bytes_asm(f"pic{n}_data", p['tiles']))
-    L.append("")
+    with open(os.path.join(outdir, "pictures.asm"), "w") as f:
+        f.write("; Generated by tools/pics2asm.py - do not edit\n")
+        f.write(f"; from {pngdir}\n;\n")
+        f.write("; Only the index is assembled in. Each picture is a file on the\n")
+        f.write("; disk, preloaded into attic RAM at boot.\n\n")
+        f.write(f"picture_count = {len(nums)}\n\n")
+        f.write("pic_number\t!byte " + ",".join(str(n) for n in nums) + "\n")
+        f.write("pic_page_lo\t!fill picture_count, 0\n")
+        f.write("pic_page_hi\t!fill picture_count, 0\n")
 
-    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    open(out, "w").write("\n".join(L) + "\n")
-    print(f"{out}: {len(pics)} pictures, {tile_base} tiles "
-          f"({tile_base*64} bytes), {len(pics)*48} bytes of palette")
+    print(f"{len(nums)} pictures, {total} bytes on disk")
 
 main()
