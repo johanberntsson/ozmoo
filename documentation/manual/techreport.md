@@ -225,6 +225,8 @@ When undo support is active then the current game state (the stack, dynamic memo
 
 The main functions for undo are do_save_undo and do_restore_undo in disk.asm. As in Frotz, a hotkey (Ctrl-U) has been added to enable undo support for z3 games, even if official undo support is only available for z5 and upwards. The hotkey handling code is found in text.asm.
 
+On the MEGA65 the undo state is moved by DMA, so the buffer can live anywhere. Its address is the pair of constants UNDO_BANK and UNDO_ADDRESS_TOP: bank 5 of fast RAM normally, and Attic RAM at \$08600000 in a version 6 build with pictures, where the tile store takes bank 5 over.
+
 # Screenkernal 
 
 Screenkernal, implemented in screenkernal.asm, is a replacement for the
@@ -305,9 +307,13 @@ less obviously, ATTR must also be cleared, because that is what selects 8-bit
 colour; and \$d054, where CHR16 and FCLRHI are set while FCLRLO is left clear.
 FCLRLO clear is the whole trick: screen codes below 256 are still ordinary 8-byte
 glyphs fetched from CHARPTR, so all the text renders as before, while codes from
-256 up are 64-byte full colour tiles. CHARPTR points at \$2d000, the C64 font in
+256 up are 64-byte full colour tiles. CHARPTR points at \$2d800, the C64 font in
 the MEGA65's ROM, whose codes 128 to 255 are the reversed glyphs, so reverse video
-keeps working.
+keeps working. The font is the usual 4 KB in two halves, uppercase and graphics
+first and mixed case second, exactly as on a C64; \$2d800 is the second half.
+Pointing it at \$2d000 instead renders lowercase as capitals and capitals as
+graphics, which is invisible in an all-lowercase test game and obvious the moment
+a real one prints a sentence.
 
 A cell is two bytes in both screen RAM and colour RAM, so a row of 40 cells is the
 same 80 bytes as the 80 column text screen it replaces, and neither buffer grows.
@@ -333,8 +339,8 @@ print_line_from_buffer in screen-z6.asm, which writes the screen directly.
 
 Pictures are drawn only on the MEGA65, and only with Z6_FCM_MODE. On the C64 and
 the Plus/4, draw_picture writes a "pic:N" note where the picture belongs, straight
-to the screen so that it never reaches the transcript, and erase_picture paints
-the note out.
+to the screen so that it never reaches the transcript, erase_picture paints the
+note out, and picture_data reports that no picture exists.
 
 The pictures are converted from PNG by tools/pics2asm.py, which writes one
 p&lt;nnn&gt;.bin per picture. make.rb's -pics switch runs it, puts the files on the
@@ -362,8 +368,19 @@ Two things about the pixels:
 Drawing a picture reads its header and palette straight out of Attic RAM, gives
 the window a run of the tile store, copies the tiles down into it, and fills the
 window's cells. In Full Colour Mode a cell's screen code is its tile's address
-divided by 64, and the tile store begins at \$10000, so a code is simply \$0400
-plus the tile's index.
+divided by 64, so a code is FCM_TILE_CODE_HI's worth of high byte plus the tile's
+index: the store's base is a multiple of \$4000 either way, so nothing carries.
+
+A cell holds exactly one tile, so a picture drawn over another replaces those
+cells outright, and a transparent pixel then shows the background rather than the
+picture underneath. Games composite by covering: Arthur draws its ornate frame,
+then draws a smaller, opaque picture over the middle of it, and what survives is
+the frame's border. picture_data is what makes that land in the right place. It
+reports a picture's height and width, which the game halves against the window's
+size to centre it. The standard calls those two words pixels, but a pixel here is
+whatever unit the rest of the screen model counts in, and Ozmoo counts characters:
+the header advertises a 40x25 screen and get_wind_prop answers 1x1 for the font
+size, so the size must come back in cells.
 
 The palette bank belongs to the window, not to the picture. A window holds at most
 one picture, so the eight banks of 16 entries above the 16 text colours are enough
@@ -375,7 +392,11 @@ that copy is done by the CPU; at 40 MHz even a full screen picture is a blink.
 
 Each window keeps the run of the tile store it was given, and reuses it when the
 next picture fits. When the store runs out the allocator starts again at the
-bottom, which can only spoil a picture in another window.
+bottom, which can only spoil a picture in another window. The store holds 2048
+tiles in a Z6_PICTURES build, which is what Arthur's interface needs: it keeps a
+border, a scene and a status panel on the screen together, and they came to 1063
+tiles the first time all three were live. With the old store of 1024 the allocator
+wrapped and the border's tiles landed on the scene's.
 
 
 # The stack
@@ -607,6 +628,8 @@ If extended sound is to be used, then make.rb must be called with the `-asw path
 For legacy reason AIFF is also supported, using sound-aiff.asm, and the `-asa path` switch. Code has also been added to detect and handle sound effects in `The Lurking Horror` game from Infocom, which isn't standard compliant.
 
 When compiled with extended sound support, Ozmoo will preload all sound files during startup into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
+
+The effect being played must live in fast RAM, at the foot of a bank: the audio DMA's stop address is only 16 bits wide, so a sample cannot straddle a bank boundary and cannot be played from Attic RAM at all. Which bank that is depends on the build, and is the constant SOUND_FASTRAM_BANK. It is bank 4 everywhere except a version 6 build with pictures, where the tile store needs banks 4 and 5 and the sound effect moves down into bank 1.
 
 # Smooth Scrolling
 This feature adds smooth scrolling support for the c64 target. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience. The user can toggle whether smooth scrolling is active using the F2 key during the game. 
