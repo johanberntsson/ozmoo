@@ -10,6 +10,17 @@ ecm:
 	inform -v6 testz6.inf
 	ruby make.rb -s -ecm testz6.z6
 
+# testz6 on the MEGA65: the 80-column text screen, and the 320x200 full colour
+# screen that -fcm selects. The FCM one should match `make z6` line for line,
+# since both are 40 columns.
+z6-mega65:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:mega65 testz6.z6
+
+z6-fcm:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:mega65 -fcm testz6.z6
+
 frotz:
 	inform -v6 testz6.inf
 	frotz testz6.z6
@@ -34,6 +45,16 @@ arthur:
 arthur-d2:
 	ruby make.rb -D2 $(Z6GAMES)/$(ARTHUR).z6
 	x64 -drive8type 1541 -9 c64_$(ARTHUR)_story_2.d64 c64_$(ARTHUR)_boot_story_1.d64
+
+# Arthur on the MEGA65, as 80-column text and on the full colour screen.
+# Neither draws pictures: draw_picture still writes its "pic:N" note. Both
+# currently die with FATAL ERROR: 17 once you answer the restore question.
+# That is a MEGA65 bug that predates -fcm; the C64 build plays. See todo.txt.
+arthur-mega65:
+	ruby make.rb -s -t:mega65 $(Z6GAMES)/$(ARTHUR).z6
+
+arthur-fcm:
+	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ARTHUR).z6
 
 c64:
 	ruby make.rb -s examples/dejavu.z3

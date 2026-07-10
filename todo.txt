@@ -1,6 +1,14 @@
 Known bugs
 ----------
-(none known that stop a v6 game from starting)
+Arthur dies on the MEGA65 with "FATAL ERROR: 17" as soon as the restore
+question is answered. 17 is ERROR_DIVISION_BY_ZERO (utilities.asm), raised in
+the div/mod path in zmachine.asm when the divisor operand is zero. It happens
+in the plain 80 column build and under -fcm alike, so it is not caused by the
+full colour screen; it is a MEGA65 bug that has simply never been seen, because
+Arthur had never been run on the MEGA65. The C64 build answers the same
+question and goes straight into the game. testz6 passes on the MEGA65 both
+ways, so whatever Arthur does to reach a zero divisor, testz6 does not.
+Reproduce with `make arthur-mega65` or `make arthur-fcm` and answer N.
 
 Scrollback and extended sound share $40000 on the MEGA65. scrollback.asm:10
 puts the scrollback screen RAM at $00040000 and writes 4000 bytes there, while
