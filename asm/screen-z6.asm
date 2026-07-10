@@ -106,6 +106,10 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
 pic_win_count  !fill 16, 0
+pic_win_number !fill 8, $ff	; the picture index resident in each window's run,
+							; $ff = none. A window's run may only be reused for
+							; the same picture; a different one must not overwrite
+							; tiles the resident picture's still-visible cells use.
 
 ; ---------------------------------------------------------------------------
 pic_file_name !text "P000" ; make.rb upper-cases the names it puts on the disk
@@ -365,14 +369,21 @@ pic_load_all
 	rts
 
 .pic_alloc
-	; Give this window a run of the tile store big enough for the picture. A
-	; window holds at most one picture, so its old run can simply be reused
-	; when the new picture fits in it. When the store runs out we start again
-	; at the bottom, which can only spoil a picture in another window.
+	; Give this window a run of the tile store big enough for the picture. The
+	; window's old run can be reused only when the SAME picture is being redrawn
+	; into it: a game composites (Arthur draws a small scene centred inside a
+	; larger frame, both in the picture window), so a different picture must get
+	; its own run or it would overwrite tiles the frame's still-visible cells
+	; point at. When the store runs out we start again at the bottom, which can
+	; only spoil a picture that is no longer the newest in its window.
 	lda current_window
+	tay
 	asl
 	tax
-	lda pic_win_count,x		; does the window's own run already fit?
+	lda .pic_index			; same picture as this window last held?
+	cmp pic_win_number,y
+	bne .pa_fresh
+	lda pic_win_count,x		; and does the window's own run still fit it?
 	cmp .pic_ntiles
 	lda pic_win_count + 1,x
 	sbc .pic_ntiles + 1
@@ -413,6 +424,9 @@ pic_load_all
 	sta pic_win_count + 1,x
 	adc pic_next_tile + 1
 	sta pic_next_tile + 1
+	ldy current_window		; remember which picture now owns this run
+	lda .pic_index
+	sta pic_win_number,y
 	rts
 
 .pic_copy_tiles
