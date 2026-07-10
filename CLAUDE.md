@@ -39,6 +39,8 @@ Everything is one assembly program (`asm/ozmoo.asm` `!source`s all other files) 
 - **Z-version**: `make.rb` reads the story file's version byte and passes `-DZ6=1` etc. `ozmoo.asm` derives cumulative flags: `Z3PLUS`, `Z4PLUS`, `Z5PLUS`, `Z6PLUS`, `Z7PLUS`, plus `Z6_Z7` (those two versions use packed-address offsets).
 - **Target**: `-DTARGET_C128=1`, `-DTARGET_MEGA65=1`, etc. (no define for C64, the default).
 - **Feature/debug flags**: edit `$GENERALFLAGS` / `$DEBUGFLAGS` at the top of `make.rb` to enable e.g. `DEBUG`, `TRACE`, `VICE_TRACE`, `CHECK_ERRORS`. `TRACE_SCREEN` (in `screen-z6.asm`) traces the v6 opcodes.
+  - `DEBUG` + `TRACE` together are the fastest way to place a crash: `fatalerror` names the error and prints the **last ten opcodes with their `z_pc`**, which usually identifies the guilty instruction outright. Decode them against the story file. (`ztools`' `txd` disassembler would do it properly, but is not installed here.)
+  - `CHECK_ERRORS` is forced on for `-t:mega65` (`make.rb`) and off elsewhere, so a MEGA65 build can stop dead on something every other target runs straight through. `-re:0` turns it off.
 
 So "does this code run?" always depends on which `!ifdef` blocks are active for the given version/target.
 

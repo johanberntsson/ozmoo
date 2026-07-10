@@ -1,13 +1,53 @@
 Known bugs
 ----------
-Arthur dies on the MEGA65 with "FATAL ERROR: 17" as soon as the restore
-question is answered. Reproduce with `make arthur-mega65` or `make arthur-fcm`
-and answer N. What is established:
+SOLVED: Arthur's "FATAL ERROR: 17" on the MEGA65 was never a MEGA65 bug.
 
-- 17 is ERROR_DIVISION_BY_ZERO (utilities.asm). The failing instruction is at
-  story address $9d54: "78 01 97 00", long form 2OP:24, i.e.
-  div local1, global $97 -> stack. At the trap, local1 = 32 and global $97 = 0.
-  z_pc reads $009d57, z_opcode $78.
+Arthur really does execute a modulo by zero. Ozmoo's TRACE flag prints the last
+ten opcodes on a fatal error, and they end:
+
+    ... $009D28,$BE   @picture_data 100 $4279 ?found   (EXT:6)
+        $009D50,$57   div
+        $009D54,$78   mod          <- divisor 0
+
+picture_data branches false, because we report that no pictures exist, and
+leaves the array untouched. Arthur reads it anyway and divides by what it finds.
+The C64 executes the very same instruction - a tracepoint on z_ins_mod shows it
+at z_pc $009d57 with operand1 = 0 - and survives only because CHECK_ERRORS is
+compiled out of the C64 build. make.rb turns CHECK_ERRORS on for every MEGA65
+build (`if $target == "mega65"`), so there the same instruction aborts.
+
+`ruby make.rb -t:mega65 -re:0 z6games/arthur...z6` plays. The Makefile's
+arthur-mega65 and arthur-fcm targets pass -re:0 for that reason.
+
+The real fix is step 4: once picture_data reports real sizes and branches true,
+Arthur stops dividing by zero. Until then, do not read anything into this.
+
+Note in passing: fatalerror's non-DEBUG path does
+`stx SCREEN_ADDRESS + 79`, a cell offset used as a byte offset. Under -fcm that
+writes the high byte of cell 39 instead of the character of cell 79. Harmless -
+it is the error code, printed on a screen that is about to reset - but it is the
+same class of bug as the three the FCM work already turned up.
+
+Two dead ends worth not repeating, both now disproved:
+- It is not a large memory problem. A generated v6 story of 276 KB
+  (tools-generated, 1700 filler routines, `inform -v6 -B`) calls a routine,
+  passes arguments to it, prints a string and reads globals all from above
+  $40000, and the MEGA65 gets every answer right. Z-machine byte addresses are
+  16 bit, so loadb/loadw cannot reach above 64 KB anyway; only code and strings
+  live up there, and those work.
+- It is not the timed-input interrupt, which had never been tested for z6 on any
+  target. A v6 test doing `@read_char 1 10 Ticker` and `@aread buf par 10 Ticker`
+  gives "read_char -> 0 ticks 3" and "aread -> 0 ticks 3" on the C64 and on the
+  MEGA65 alike, which is correct.
+
+What was established while chasing it (all still true):
+
+- 17 is ERROR_DIVISION_BY_ZERO (utilities.asm), raised by z_divide, which serves
+  both div and mod. The failing instruction is at story address $9d54:
+  "78 01 97 00", long form 2OP:24, i.e. mod local1, global $97 -> stack. At the
+  trap local1 = 32 and global $97 = 0. (2OP:23 is div, 2OP:24 is mod. Tracing
+  z_ins_div on the C64 and finding nothing sent this chase off for an afternoon:
+  it was mod all along, and z_ins_mod does fire, at the same z_pc.)
 - It is not the full colour screen. The plain 80 column build fails the same
   way. -fcm only changes the screen.
 - It is not anything the game can see. With -u:0 -ch:0 -sb:0 the MEGA65's
@@ -17,57 +57,13 @@ and answer N. What is established:
 - The story is not corrupt. Attic RAM matches the file byte for byte at $100,
   $9d50, $20000, $3fff0, $40000 and $41bf0 - including past $40000, which only
   Arthur reaches.
-- The C64 never divides at all. A tracepoint on z_ins_div through the whole
-  intro records zero hits, so the C64 never executes $9d54. The MEGA65's
-  program counter has therefore already diverged when it traps. Note that
-  CHECK_ERRORS is on for the MEGA65 build and off for the C64's, so the C64
-  would not report a division by zero even if it made one - but it makes none.
-- Both machines reach the restore question at the same place: z_pc $011a14.
-  (The C64 hits an earlier timed read_char at $010c36, for the title screen.)
-  So the divergence happens after the question is answered.
+- The two machines never diverge. Both reach the restore question at z_pc
+  $011a14, and a tracepoint on z_ins_mod shows the C64 reaching $009d57 with a
+  zero divisor exactly as the MEGA65 does. The C64 simply has no CHECK_ERRORS
+  to complain.
 - It is not a general MEGA65 memory bug. AMFV, a 256 KB z4 game, plays fine on
   the MEGA65: `ruby make.rb -t:mega65 amfvUnprotected.z4`. So attic RAM, far
   dynmem, big stories and the object table are all sound for z4.
-
-So it is the intersection: v6 and MEGA65. v6 works on the C64, and a large
-story works on the MEGA65, but v6 on the MEGA65 goes wrong somewhere Arthur
-reaches and testz6 does not. Arthur is also the only story that crosses
-$40000, which AMFV ($3ff94) does not.
-
-Next: grow testz6 towards what Arthur uses, on the MEGA65, until something
-breaks - objects and properties, storew/loadw, output_stream 3 (which writes
-dynmem through write_next_byte), globals above 128, and a routine or string
-above $40000. That is the same method that found the Z7PLUS/Z6PLUS bugs.
-
-Scrollback and extended sound share $40000 on the MEGA65. scrollback.asm:10
-puts the scrollback screen RAM at $00040000 and writes 4000 bytes there, while
-sound.asm DMAs the current sound effect to bank 4 offset 0, up to 64 KB. The
-techreport's memory map lists both, so the map is right and the code is wrong:
-opening scrollback while a sound is playing corrupts the first 4000 bytes of
-the sample. It heals itself, because the next @sound_effect re-copies the
-sample from attic. Not a documentation mistake. Unclear whether it can be
-provoked in a real game; nothing in z6 depends on the answer, but the fast RAM
-budget below does depend on $40000-$4ffff staying spoken for.
-
-Fixed: Arthur used to crash on startup, before a single Z-machine instruction
-was executed. The cause was that v6 was lumped in with v4/v5 rather than with
-v7/v8 in the assembly. make.rb has always treated v6 as a "large" version
-(story files up to 512 KB, header file length divided by 8, two high bits of
-the block address), using "$zcode_version > 5"; the assembly used the Z7PLUS
-flag, which only covers v7 and v8. The damage:
-  - disk.asm reserved no space at all for disk_info, so the disk_info the
-    boot loader copied in landed on top of the readblocks/readblock code.
-    Any v6 game that had to page in a block from disk therefore jumped into
-    disk_info as if it were code. Arthur hit this on its very first
-    instruction, because its "main" routine unpacks to $010c0c, outside the
-    resident part of the story file.
-  - vmem.asm gave v6 a vmem_highbyte_mask of $01, not the $03 make.rb had
-    already used when building the vmap, so block addresses above $20000
-    were misread and the age bits overlapped the address bits.
-  - the header file length was multiplied by 4 instead of 8, so Ozmoo thought
-    every v6 game was half its real size.
-The fix was to use Z6PLUS instead of Z7PLUS at every one of these size
-related sites. Z7PLUS is now unused, but is still defined.
 
 Still to do for z6 (not crashes):
 - These machines will never draw pictures. draw_picture writes a "pic:N" note

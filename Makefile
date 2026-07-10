@@ -47,14 +47,18 @@ arthur-d2:
 	x64 -drive8type 1541 -9 c64_$(ARTHUR)_story_2.d64 c64_$(ARTHUR)_boot_story_1.d64
 
 # Arthur on the MEGA65, as 80-column text and on the full colour screen.
-# Neither draws pictures: draw_picture still writes its "pic:N" note. Both
-# currently die with FATAL ERROR: 17 once you answer the restore question.
-# That is a MEGA65 bug that predates -fcm; the C64 build plays. See todo.txt.
+# Neither draws pictures: draw_picture still writes its "pic:N" note.
+#
+# -re:0 turns off CHECK_ERRORS, which make.rb otherwise forces on for MEGA65.
+# Arthur does a modulo by zero after picture_data tells it there are no
+# pictures, so with the check on it stops with FATAL ERROR: 17. The C64 build
+# runs the same instruction and does not notice. See todo.txt; step 4 removes
+# the need for this.
 arthur-mega65:
-	ruby make.rb -s -t:mega65 $(Z6GAMES)/$(ARTHUR).z6
+	ruby make.rb -s -t:mega65 -re:0 $(Z6GAMES)/$(ARTHUR).z6
 
 arthur-fcm:
-	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ARTHUR).z6
+	ruby make.rb -s -t:mega65 -re:0 -fcm $(Z6GAMES)/$(ARTHUR).z6
 
 c64:
 	ruby make.rb -s examples/dejavu.z3
