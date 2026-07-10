@@ -1,3 +1,7 @@
+# The major version the built PDFs are named after. Keep it in step with
+# $major_version in make.rb, which is what the interpreter reports.
+VERSION = 15
+
 all:
 	sed 's/^# /\\newpage\n# /g' manual.md  > manual2.md
 	sed 's/^# /\\newpage\n# /g' techreport.md  > techreport2.md
@@ -7,6 +11,6 @@ all:
 	pandoc --metadata-file=custom-player.yaml --from=markdown+multiline_tables -H custom.tex player_manual.md -o player_manual.pdf
 	rm manual2.md
 	rm techreport2.md
-	mv manual.pdf ../ozmoo_14.pdf
-	mv techreport.pdf ../techreport_14.pdf
-	mv player_manual.pdf ../player_manual_14.pdf
+	mv manual.pdf ../ozmoo_$(VERSION).pdf
+	mv techreport.pdf ../techreport_$(VERSION).pdf
+	mv player_manual.pdf ../player_manual_$(VERSION).pdf
