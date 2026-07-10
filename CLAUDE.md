@@ -18,23 +18,23 @@ make ecm       # same, with -ecm (per-window background colours)
 make frotz     # compile testz6.inf and run it in frotz — the reference behaviour
 make z6-mega65 # testz6 on the MEGA65, 80-column text
 make z6-fcm    # testz6 on the MEGA65 full colour screen; should match `make z6`
+make z6-pics   # same, drawing the test pictures in tools/testpics
 make arthur    # build the real v6 game Arthur as a d81 and run it
 make arthur-d2 # same, but split over two 1541 drives
 make arthur-mega65 # Arthur on the MEGA65, 80-column text
 make arthur-fcm    # Arthur on the MEGA65 full colour screen
+make arthur-pics   # ...and drawing its own pictures. The whole thing.
 make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
 make c64       # build examples/dejavu.z3 (a z3 game) — the non-z6 regression check
 make mega65    # same, for MEGA65
 make clean
 
 ruby make.rb [options] <storyfile>   # run with no args for the full option list
-
-# Arthur with its pictures. Needs z6games/arthur-graphics (not in git).
-ruby make.rb -t:mega65 -fcm -pics z6games/arthur-graphics z6games/arthur-r74-s890714.z6
 ```
 
-`-pics <dir>` runs `tools/pics2asm.py` over a directory of numbered PNGs, puts one
-compressed file per picture on the d81, and sets `Z6_PICTURES`. It needs `-fcm`.
+`make arthur-pics` needs `z6games/arthur-graphics`, which is not in git. `-pics <dir>`
+runs `tools/pics2asm.py` over a directory of numbered PNGs, puts one compressed file
+per picture on the d81, and sets `Z6_PICTURES`. It needs `-fcm`.
 
 `dfrotz -h 25 -w 40 testz6.z6` gives reference output with the same screen size as a C64, which makes line-for-line comparison possible.
 

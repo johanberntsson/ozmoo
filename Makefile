@@ -21,6 +21,12 @@ z6-fcm:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:mega65 -fcm testz6.z6
 
+# The same, drawing the test pictures in tools/testpics rather than "pic:N"
+# notes. Those pictures are ours; tools/gen_testpics.py regenerates them.
+z6-pics:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:mega65 -fcm -pics tools/testpics testz6.z6
+
 frotz:
 	inform -v6 testz6.inf
 	frotz testz6.z6
@@ -53,6 +59,14 @@ arthur-mega65:
 
 arthur-fcm:
 	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ARTHUR).z6
+
+# The whole game: Arthur on the full colour screen, drawing its own pictures.
+# Needs $(ARTHUR_GRAPHICS), which is not in git and is not ours to distribute.
+# The pictures are compressed to fit: this leaves 28 blocks free on the d81.
+ARTHUR_GRAPHICS = $(Z6GAMES)/arthur-graphics
+
+arthur-pics:
+	ruby make.rb -s -t:mega65 -fcm -pics $(ARTHUR_GRAPHICS) $(Z6GAMES)/$(ARTHUR).z6
 
 c64:
 	ruby make.rb -s examples/dejavu.z3

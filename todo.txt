@@ -333,9 +333,9 @@ Screen size, and why 320x200
      bank. It now draws picture 4 in window 0.
 
    4c. DONE: Arthur's pictures fit on a d81, and Arthur draws them.
-   `ruby make.rb -t:mega65 -fcm -pics z6games/arthur-graphics
-    z6games/arthur-r74-s890714.z6` leaves 28 blocks free, and the churchyard
-   picture appears above the text.
+   `make arthur-pics` leaves 28 blocks free, and the churchyard picture appears
+   above the text. `make z6-pics` does the same for testz6 and the pictures in
+   tools/testpics, which are ours.
 
    Two things were needed, and RLE alone was not enough:
    - Four bits a pixel. A picture has at most 15 colours (index 0 is
