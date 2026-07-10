@@ -1,5 +1,13 @@
 Known bugs
 ----------
+Under -fcm, Arthur drops or changes the odd character in the body text: one run
+gives "Anne's Day, Compline hurchyard" and "sudtenly", the next gives
+"-AY" and "suddtnly". It happens with and without -pics, so the pictures are
+not the cause, and it happens only with Arthur, never with testz6. That it
+varies between runs points at something timed - the cursor, or the MORE prompt
+saving and restoring the character under it, both of which now have to handle a
+two byte cell. The 80 column build is clean.
+
 FIXED: Arthur's "FATAL ERROR: 17" on the MEGA65 was a missing window property.
 
 get_wind_prop's property 13 is the font size: height in the high byte of the
@@ -324,19 +332,29 @@ Screen size, and why 320x200
      one-picture-per-window rule and left only the last picture's palette in the
      bank. It now draws picture 4 in window 0.
 
-   4b. Still to do:
-   - Arthur. Its pictures are 1 MB, and a d81 holds about 800 KB with 263 KB of
-     that already the story, so they do not fit: compress them, or use a second
-     disk (arthur-d2 already has the shape for it). Nothing else about the set
-     is special - the largest picture is 925 cells and 58 KB of tiles, inside
-     the 255 page limit of a preloaded file and inside the 1024 tile store.
-     For compression, keep png2fci.py's RLE: a byte on its own is a literal, a
-     byte repeated twice is followed by a count. It suits the tile order rather
-     than fighting it, because a cell of flat colour serialises to 64 identical
-     bytes and collapses to three, and this art is mostly flat colour.
-     Decompression happens once, into attic at boot, so it costs nothing during
-     play. Its run scan stops one byte early, which loses the odd run but never
-     corrupts one; fix it or leave it, but know it is there.
+   4c. DONE: Arthur's pictures fit on a d81, and Arthur draws them.
+   `ruby make.rb -t:mega65 -fcm -pics z6games/arthur-graphics
+    z6games/arthur-r74-s890714.z6` leaves 28 blocks free, and the churchyard
+   picture appears above the text.
+
+   Two things were needed, and RLE alone was not enough:
+   - Four bits a pixel. A picture has at most 15 colours (index 0 is
+     transparent), so attic and the disk hold two pixels a byte and the tile
+     copy expands them, which it can do for nothing because it already walks
+     every byte to add the window's palette offset. This halves the set before
+     it is compressed: 1046 KB of tiles becomes 545 KB.
+   - PackBits RLE, not png2fci's scheme. A token of 0..127 means that many plus
+     one literal bytes follow; 129..255 means the next byte repeats 257-token
+     times. It needs no lookahead, which keeps the 6502 decoder to about thirty
+     lines, and it is decompressed straight into attic as the file is read.
+   Together: 545 KB -> 484 KB, and 484 + 263 KB of story = 747 KB against the
+   d81's 802 KB. RLE alone on 8 bit pixels gives 746 KB of pictures, which does
+   not fit; four bit pixels alone give 544 KB, which also does not fit.
+
+   One trap: .pic_find counted its table down with `ldy #picture_count - 1` and
+   `bpl`. With 137 pictures that starts at $88, which is already negative, so
+   the loop compared one entry and gave up. It worked perfectly for the three
+   test pictures. Count up.
    - The palette is per picture, not per set, and each picture carries its own
      16 colours. The measurements that settled that are in the git history: the
      137 PNGs hold 110 distinct palettes of at most 14 colours, and forcing them

@@ -95,7 +95,8 @@ PIC_MAX_TILES  = 1024		; 64 KB of bank 1, at 64 bytes a tile
 .pic_h       !byte 0		; cells down
 .pic_ntiles  !byte 0,0
 .pic_slot    !byte 0,0		; the picture's first tile in the store
-.pic_pal_off !byte 0		; 16 * the window being drawn into
+.pic_pal_off   !byte 0		; 16 * the window being drawn into
+.pic_pixel_base !byte 0		; 16 + .pic_pal_off: what a colour index of 1 becomes
 .pic_row     !byte 0
 .pic_col2    !byte 0
 .pic_map     !byte 0,0,0	; where the cell map starts in attic RAM
@@ -114,7 +115,8 @@ PIC_FILE_NAME_LEN = 4
 pic_load_all
 	; Preload every picture into attic RAM. Called at boot, next to the sound
 	; effects, and for the same reason: the files are far too big to assemble
-	; into the interpreter.
+	; into the interpreter. They are RLE compressed, and are expanded on the way
+	; in, so attic holds them ready to draw.
 	lda #<PIC_ATTIC_PAGE
 	sta .pic_next_page
 	lda #>PIC_ATTIC_PAGE
@@ -129,25 +131,113 @@ pic_load_all
 	ldx #<pic_file_name
 	ldy #>pic_file_name
 	jsr kernal_setnam
-	lda #0
-	sta reu_progress_bar_updates
-	ldy .pic_index
+	lda #2					; logical file 2
+	tay						; secondary 2: a SEQ file, opened for reading
+	ldx boot_device
+	jsr kernal_setlfs
+	jsr kernal_open
+	bcc +
+	lda #ERROR_FLOPPY_READ_ERROR
+	jsr fatalerror
++	ldx #2
+	jsr kernal_chkin
+
+	ldy .pic_index			; the picture starts on the next free page
 	lda .pic_next_page
 	sta pic_page_lo,y
+	sta .pic_att + 1
 	lda .pic_next_page + 1
 	sta pic_page_hi,y
-	ldx .pic_next_page
-	lda .pic_next_page + 1
-	jsr m65_load_file_to_reu	; a = pages loaded
-	clc
-	adc .pic_next_page
+	sta .pic_att + 2
+	lda #0
+	sta .pic_att
+	lda #$08				; attic RAM starts at $08000000
+	sta .pic_att + 3
+
+	jsr .pic_unrle
+
+	lda #2
+	jsr kernal_close
+	jsr kernal_clrchn
+
+	lda .pic_att			; round the write pointer up to the next page
+	beq +
+	inc .pic_att + 1
+	bne +
+	inc .pic_att + 2
++	lda .pic_att + 1
 	sta .pic_next_page
-	bcc +
-	inc .pic_next_page + 1
-+	inc .pic_index
+	lda .pic_att + 2
+	sta .pic_next_page + 1
+
+	inc .pic_index
 	lda .pic_index
 	cmp #picture_count
 	bne .pla_loop
+	rts
+
+.rle_eof   !byte 0
+.rle_byte  !byte 0
+.rle_count !byte 0
+.rle_value !byte 0
+
+.rle_getc
+	; Read the next byte of the open file. Sets .rle_eof when it was the last.
+	jsr kernal_readchar		; clobbers x and y, so counts live in memory
+	sta .rle_byte
+	jsr kernal_readst
+	sta .rle_eof
+	lda .rle_byte
+	rts
+
+.pic_store
+	; Write a to attic RAM and step .pic_att on.
+	ldz #0
+	sta [.pic_att],z
+	inc .pic_att
+	bne +
+	inc .pic_att + 1
+	bne +
+	inc .pic_att + 2
++	rts
+
+.pic_unrle
+	; PackBits: a token of 0..127 is followed by token+1 literal bytes; a token
+	; of 129..255 is followed by one byte, repeated 257-token times; 128 is
+	; unused. No lookahead, which is what keeps this short.
+.unrle_next
+	jsr .rle_getc
+	ldx .rle_eof
+	bne .unrle_done
+	cmp #$80
+	beq .unrle_next			; 128: nothing to do
+	bcs .unrle_run
+	clc						; literal run of a+1 bytes
+	adc #1
+	sta .rle_count
+.unrle_lit
+	jsr .rle_getc
+	jsr .pic_store
+	lda .rle_eof
+	bne .unrle_done
+	dec .rle_count
+	bne .unrle_lit
+	beq .unrle_next			; always
+.unrle_run
+	eor #$ff				; 257 - a, which is 2..128
+	clc
+	adc #2
+	sta .rle_count
+	jsr .rle_getc
+	sta .rle_value
+.unrle_rep
+	lda .rle_value
+	jsr .pic_store
+	dec .rle_count
+	bne .unrle_rep
+	lda .rle_eof
+	beq .unrle_next
+.unrle_done
 	rts
 
 .pic_set_filename
@@ -176,12 +266,13 @@ pic_load_all
 	; .pic_index with carry set, or carry clear if this build does not have it.
 	cmp #0
 	bne .pic_not_found		; no picture number we hold needs a high byte
-	ldy #picture_count - 1
--	txa
+	ldy #0					; count up: a game may have more than 128 pictures,
+-	txa						; and then a countdown's bpl would never be taken
 	cmp pic_number,y
 	beq +
-	dey
-	bpl -
+	iny
+	cpy #picture_count
+	bne -
 .pic_not_found
 	clc
 	rts
@@ -324,14 +415,15 @@ pic_load_all
 	rts
 
 .pic_copy_tiles
-	; Copy .pic_ntiles * 64 bytes from attic RAM into the picture's run of the
-	; tile store, adding this window's palette offset to every pixel that is
-	; not transparent. The DMA engine cannot add, so the CPU does it; at 40 MHz
-	; even a full screen picture is a blink.
+	; Copy the picture's tiles from attic RAM into its run of the tile store.
+	; Attic holds two pixels a byte; the store holds one. A pixel of 0 stays 0,
+	; which is transparent in every bank; anything else is shifted into this
+	; window's bank. The DMA engine can neither expand nor add, so the CPU does
+	; it; at 40 MHz even a full screen picture is a blink.
 	lda .pic_slot			; destination = FCM_TILE_STORE + slot * 64
-	ldx .pic_slot + 1		; slot * 64 = slot << 6, in 16 bits
-	stx .pic_dst + 1
 	sta .pic_dst
+	lda .pic_slot + 1
+	sta .pic_dst + 1
 	ldx #6
 -	asl .pic_dst
 	rol .pic_dst + 1
@@ -341,29 +433,28 @@ pic_load_all
 	sta .pic_dst + 2
 	lda #0
 	sta .pic_dst + 3
-	; count = ntiles * 64, which never overflows: ntiles <= 1024
+	; source bytes = ntiles * 32, which cannot overflow: ntiles <= 1024
 	lda .pic_ntiles
 	sta .pic_count
 	lda .pic_ntiles + 1
 	sta .pic_count + 1
-	ldx #6
+	ldx #5
 -	asl .pic_count
 	rol .pic_count + 1
 	dex
 	bne -
 .pct_loop
 	jsr .pic_att_next
-	beq +					; 0 is transparent, in every bank
-	clc
-	adc .pic_pal_off
-+	ldz #0
-	sta [.pic_dst],z
-	inc .pic_dst
-	bne +
-	inc .pic_dst + 1
-	bne +
-	inc .pic_dst + 2
-+	lda .pic_count
+	pha
+	lsr						; the high nybble is the left pixel
+	lsr
+	lsr
+	lsr
+	jsr .pic_put_pixel
+	pla
+	and #$0f
+	jsr .pic_put_pixel
+	lda .pic_count
 	bne +
 	dec .pic_count + 1
 +	dec .pic_count
@@ -371,6 +462,22 @@ pic_load_all
 	ora .pic_count + 1
 	bne .pct_loop
 	rts
+
+.pic_put_pixel
+	; a = a colour index of 0..15. Store it in the tile store, in this window's
+	; palette bank, and step the destination on.
+	cmp #0
+	beq +
+	clc
+	adc .pic_pixel_base
++	ldz #0
+	sta [.pic_dst],z
+	inc .pic_dst
+	bne +
+	inc .pic_dst + 1
+	bne +
+	inc .pic_dst + 2
++	rts
 
 .pic_point_at_row
 	; .pic_ptr = SCREEN_ADDRESS + .pic_y * SCREEN_ROW_BYTES
@@ -466,6 +573,9 @@ pic_load_all
 	asl
 	asl
 	sta .pic_pal_off
+	clc
+	adc #16
+	sta .pic_pixel_base
 
 	jsr .pic_open
 	jsr .pic_att_next
