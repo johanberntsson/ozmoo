@@ -23,6 +23,23 @@ boundary stays 0, so it is transparent.
 Requires Pillow. Rejects a PNG with more than 16 colours; none of Arthur's have
 more than 14.
 
+## gen_testpics.py and pics2asm.py
+
+`gen_testpics.py` writes the small pictures in `tools/testpics` that testz6
+draws. They are ours, so they live in the repository.
+
+`pics2asm.py` converts a directory of numbered PNGs into `temp/pictures.asm`,
+which Ozmoo assembles in when `make.rb` is given `-pics`:
+
+```sh
+ruby make.rb -t:mega65 -fcm -pics tools/testpics testz6.z6
+```
+
+Each `<n>.png` becomes picture number n. The data is embedded in the
+interpreter, which only suits a handful of small pictures; Arthur's set goes to
+attic RAM instead. The tile format is the same either way, so `png2fcm.py`
+stays the reference for it.
+
 ## fcm-prototype.asm
 
 The throwaway prototype from step 2 of the MEGA65 plan in `todo.txt`. It sets

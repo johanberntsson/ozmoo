@@ -72,16 +72,312 @@ window_font_size_slot  !byte 0,0,0,0,0,0,0,0
 window_attributes      !byte 0,0,0,0,0,0,0,0
 window_linecount       !byte 0,0,0,0,0,0,0,0
 
+!ifdef Z6_PICTURES {
+!source "../temp/pictures.asm"
+
+.pic_index !byte 0
+.pic_row   !byte 0
+.pic_col2  !byte 0		; byte offset along the screen row: two per cell
+.pic_ptr  = z_temp		; 2 bytes, the start of the screen row being written
+.pic_src  = z_temp + 2	; 2 bytes, the low bytes of a picture's screen codes
+.pic_srch = z_temp + 4	; 2 bytes, their high bytes
+.pic_dst  = z_temp + 6	; 4 bytes, a 32 bit pointer into bank 1
+
+.pic_pal_off !byte 0	; 16 * the window being drawn into
+
+.pic_set_bank
+	; A window holds at most one picture, so each of the eight windows gets its
+	; own bank of 16 palette entries above the 16 text colours.
+	lda current_window
+	asl
+	asl
+	asl
+	asl
+	sta .pic_pal_off
+	rts
+
+.pic_bank_start
+	; .pic_col2 = the first palette entry of this window's bank. y is the
+	; source byte being copied, and has to survive.
+	lda #16
+	clc
+	adc .pic_pal_off
+	sta .pic_col2
+	rts
+
+.pic_load_palette
+	; The picture's 16 colours go into this window's bank. The values are
+	; already nybble swapped, as the palette registers want.
+	ldy .pic_index
+	lda pic_pal_lo,y
+	sta .pic_src
+	lda pic_pal_hi,y
+	sta .pic_src + 1
+	jsr mega65io
+	ldy #0
+	jsr .pic_bank_start
+-	ldx .pic_col2
+	lda (.pic_src),y
+	sta $d100,x			; 16 reds
+	inc .pic_col2
+	iny
+	cpy #16
+	bne -
+	jsr .pic_bank_start
+-	ldx .pic_col2
+	lda (.pic_src),y
+	sta $d200,x			; 16 greens
+	inc .pic_col2
+	iny
+	cpy #32
+	bne -
+	jsr .pic_bank_start
+-	ldx .pic_col2
+	lda (.pic_src),y
+	sta $d300,x			; 16 blues
+	inc .pic_col2
+	iny
+	cpy #48
+	bne -
+	rts
+
+.pic_load_tiles
+	; Copy the picture's tiles into its own run of the tile store in bank 1,
+	; shifting every pixel index into this window's palette bank on the way.
+	; A pixel of 0 is transparent and stays 0. The DMA engine cannot add, so
+	; this is a plain copy; at 40 MHz even a full screen picture is a blink.
+	ldy .pic_index
+	lda pic_data_lo,y
+	sta .pic_src
+	lda pic_data_hi,y
+	sta .pic_src + 1
+	lda pic_tiles,y
+	sta .pic_row			; tiles left to copy
+	; destination = FCM_TILE_STORE + tile_base * 64
+	lda pic_tile_base,y
+	lsr
+	lsr
+	sta .pic_dst + 1		; four tiles to the page
+	lda pic_tile_base,y
+	and #3					; the tile's offset within its page, times 64
+	asl
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta .pic_dst
+	lda #((FCM_TILE_STORE >> 16) & $0f)
+	sta .pic_dst + 2
+	lda #0
+	sta .pic_dst + 3
+.pic_tile_loop
+	ldy #0
+.pic_byte_loop
+	lda (.pic_src),y
+	beq +					; 0 is transparent, in every bank
+	clc
+	adc .pic_pal_off
++	ldz #0
+	sta [.pic_dst],z
+	inc .pic_dst
+	bne +
+	inc .pic_dst + 1
++	iny
+	cpy #64
+	bne .pic_byte_loop
+	lda .pic_src
+	clc
+	adc #64
+	sta .pic_src
+	bcc +
+	inc .pic_src + 1
++	dec .pic_row
+	bne .pic_tile_loop
+	rts
+
+.pic_find
+	; Find the picture whose number is in a,x (high, low). Returns its index in
+	; .pic_index with carry set, or carry clear if this build does not have it.
+	cmp #0
+	bne .pic_not_found	; no picture number we hold needs a high byte
+	ldy #picture_count - 1
+-	txa
+	cmp pic_number,y
+	beq +
+	dey
+	bpl -
+.pic_not_found
+	clc
+	rts
++	sty .pic_index
+	sec
+	rts
+
+.pic_point_at_row
+	; .pic_ptr = SCREEN_ADDRESS + .pic_y * SCREEN_ROW_BYTES
+	jsr mega65io
+	lda .pic_y
+	sta $d770
+	lda #0
+	sta $d771
+	sta $d772
+	sta $d773
+	sta $d775
+	sta $d776
+	sta $d777
+	lda #SCREEN_ROW_BYTES
+	sta $d774
+	lda $d778
+	sta .pic_ptr
+	lda $d779
+	clc
+	adc #>SCREEN_ADDRESS
+	sta .pic_ptr + 1
+	rts
+
+.pic_row_width
+	; a = the byte offset just past the picture's last cell on a screen row
+	ldy .pic_index
+	lda pic_cells_w,y
+	asl
+	clc
+	adc .pic_x
+	adc .pic_x
+	rts
+
+.pic_draw
+	; Draw the picture in .pic_index with its top left cell at .pic_y, .pic_x.
+	jsr .pic_set_bank
+	jsr .pic_load_palette
+	jsr .pic_load_tiles
+	; Its cell map holds finished 16 bit screen codes: the low bytes first, the
+	; high bytes after. Only screen RAM is touched, because a cell's colour
+	; bytes hold flags (zero) and the colour for pixel value 255, which no
+	; picture pixel ever is.
+	ldy .pic_index
+	lda pic_map_lo,y
+	sta .pic_src
+	sta .pic_srch
+	lda pic_map_hi,y
+	sta .pic_src + 1
+	sta .pic_srch + 1
+	; the high bytes start one cell-count further on
+	lda pic_cells_w,y
+	sta .pic_col2
+	lda pic_cells_h,y
+	tax
+	lda #0
+-	clc
+	adc .pic_col2
+	dex
+	bne -
+	clc
+	adc .pic_srch
+	sta .pic_srch
+	bcc +
+	inc .pic_srch + 1
++
+	jsr .pic_point_at_row
+	ldx #0				; index into the cell map
+	stx .pic_row
+.pic_row_loop
+	lda .pic_x
+	asl					; two bytes per cell
+	sta .pic_col2
+.pic_cell_loop
+	txa
+	tay
+	lda (.pic_src),y	; low byte of the screen code
+	ldy .pic_col2
+	sta (.pic_ptr),y
+	txa
+	tay
+	lda (.pic_srch),y	; high byte
+	ldy .pic_col2
+	iny
+	sta (.pic_ptr),y
+	inx
+	lda .pic_col2
+	clc
+	adc #2
+	sta .pic_col2
+	jsr .pic_row_width
+	cmp .pic_col2
+	bne .pic_cell_loop
+	lda .pic_ptr
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta .pic_ptr
+	bcc +
+	inc .pic_ptr + 1
++	inc .pic_row
+	ldy .pic_index
+	lda pic_cells_h,y
+	cmp .pic_row
+	bne .pic_row_loop
+	rts
+
+.pic_erase
+	; Blank the rectangle the picture in .pic_index occupies at .pic_y, .pic_x,
+	; by putting a space in every cell it covered. s_printchar would do it, but
+	; it would also wrap, scroll and move the cursor.
+	jsr .pic_point_at_row
+	lda #0
+	sta .pic_row
+.pic_erase_row
+	lda .pic_x
+	asl
+	sta .pic_col2
+.pic_erase_cell
+	ldy .pic_col2
+	lda #$20			; a space, which is a text character, not a tile
+	sta (.pic_ptr),y
+	iny
+	lda #0				; and so its high byte must go back to zero
+	sta (.pic_ptr),y
+	lda .pic_col2
+	clc
+	adc #2
+	sta .pic_col2
+	jsr .pic_row_width
+	cmp .pic_col2
+	bne .pic_erase_cell
+	lda .pic_ptr
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta .pic_ptr
+	bcc +
+	inc .pic_ptr + 1
++	inc .pic_row
+	ldy .pic_index
+	lda pic_cells_h,y
+	cmp .pic_row
+	bne .pic_erase_row
+	rts
+}
+
 z_ins_draw_picture
 	; draw_picture picture-number y x
-	; Ozmoo will never draw pictures on these machines. Instead of leaving a
-	; hole in the layout, write a "pic:N" note where the picture would go.
-	; The note is written straight to the screen, so it never reaches the
-	; transcript, and the game's cursor is put back afterwards.
+	; Where we have the picture (MEGA65, -fcm, -pics) it is blitted from bank
+	; 1. Otherwise Ozmoo will never draw pictures on this machine, so instead
+	; of leaving a hole in the layout it writes a "pic:N" note where the
+	; picture belongs. The note goes straight to the screen, so it never
+	; reaches the transcript, and the game's cursor is put back afterwards.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_draw_picture ",0
 	jsr newline
+}
+!ifdef Z6_PICTURES {
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr .pic_find
+	bcc +
+	jsr .pic_place_cursor
+	jsr .pic_draw
+	jmp restore_cursor
++
 }
 	jsr .pic_place_cursor
 	lda #>.pic_prefix
@@ -119,12 +415,23 @@ z_ins_picture_data
 
 z_ins_erase_picture
 	; erase_picture picture-number y x
-	; Paint over the note draw_picture would have written, so that a game
-	; which erases a picture leaves clean screen behind.
+	; Where we drew a real picture, blank its rectangle. Otherwise paint over
+	; the note draw_picture wrote, so that a game which erases a picture leaves
+	; clean screen behind either way.
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_erase_picture ",0
 	jsr newline
+}
+!ifdef Z6_PICTURES {
+	lda z_operand_value_high_arr
+	ldx z_operand_value_low_arr
+	jsr .pic_find
+	bcc +
+	jsr .pic_place_cursor
+	jsr .pic_erase
+	jmp restore_cursor
++
 }
 	jsr .pic_place_cursor
 	lda z_operand_value_high_arr
@@ -175,7 +482,8 @@ z_ins_erase_picture
 	adc window_x,y
 	jmp ++
 +	lda window_x_cursor,y
-++	tay ; y = column
+++	sta .pic_x ; keep the absolute column: the picture blitter needs it too
+	tay ; y = column
 	ldx .pic_y ; x = row
 	jmp set_cursor
 
@@ -1554,6 +1862,7 @@ print_line_from_buffer
 		tay
 		pla
 		sta (zp_screenline),y
+		+clear_cell_high_byte
 		lda s_colour
 		sta (zp_colourline),y ; the colour pointer is biased by one
 		tya
@@ -1579,6 +1888,7 @@ print_line_from_buffer
 		ora print_buffer2,y
 	}
 		sta (zp_screenline),y
+		+clear_cell_high_byte
 	!ifdef COLOURFUL_LOWER_WIN {
 	!ifdef TARGET_PLUS4 {
 		ldx s_colour

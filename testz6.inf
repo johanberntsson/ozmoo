@@ -107,9 +107,13 @@ Array formtable ->
 	! Last, so that nothing scrolls the notes away. 4 goes to the window's
 	! top left corner, 9 is drawn there and erased again, and 12 lands at
 	! the cursor, which draw_picture must leave where it found it.
-	@draw_picture 4 1 1;
 	@draw_picture 9 2 1;
 	@erase_picture 9 2 1;
+	! picture 4 goes in window 0: a window holds at most one picture, and its
+	! palette bank is the window's, so two pictures in one window share colours
+	@set_window 0;
+	@draw_picture 4 1 1;
+	@set_window 1;
 
 	print "> ";
 	@draw_picture 12;

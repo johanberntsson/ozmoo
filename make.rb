@@ -2409,6 +2409,7 @@ def print_usage
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -ecm: Use Extended Color Mode, giving each z6 window its own background"
 	puts "  -fcm: MEGA65 only. Use Full Colour Mode: a 320x200, 40x25 z6 screen"
+	puts "  -pics: draw the numbered PNGs in the given directory. Needs -fcm."
 	puts "        colour (C64, z6 only). Only the first 64 characters of the charset"
 	puts "        can be used, so text is lowercase only and reverse video is lost."
 	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
@@ -2445,6 +2446,7 @@ await_soundpath = false
 await_preloadfile = false
 await_fontfile = false
 await_imagefile = false
+await_picturedir = false
 preloadfile = nil
 $sound_path = nil
 $sound_files = []
@@ -2497,6 +2499,7 @@ dark_mode = nil
 smooth_scroll = nil
 ecm_mode = nil
 fcm_mode = nil
+picture_dir = nil
 scrollback = nil
 reu_boost = nil
 x_for_examine = nil
@@ -2518,6 +2521,9 @@ begin
 		elsif await_imagefile then
 			await_imagefile = false
 			$loader_pic_file = arg
+		elsif await_picturedir then
+			await_picturedir = false
+			picture_dir = arg
 		elsif arg =~ /^-o$/ then
 			optimize = true
 			$no_sector_preload = true
@@ -2718,6 +2724,8 @@ begin
 			else
 				fcm_mode = $1.to_i
 			end
+		elsif arg =~ /^-pics$/ then
+			await_picturedir = true
 		elsif arg =~ /^-sb(?::(0|1|6|8|10|12))?$/ then
 			if $1 == nil
 				scrollback = 1
@@ -3272,6 +3280,24 @@ if fcm_mode == 1
 		exit 1
 	end
 	$GENERALFLAGS.push('Z6_FCM_MODE') unless $GENERALFLAGS.include?('Z6_FCM_MODE')
+end
+
+if picture_dir
+	if fcm_mode != 1
+		puts "ERROR: -pics needs -fcm: pictures are drawn on the full colour screen."
+		exit 1
+	end
+	unless File.directory?(picture_dir)
+		puts "ERROR: -pics: no such directory: #{picture_dir}"
+		exit 1
+	end
+	pictures_asm = File.join($TEMPDIR, 'pictures.asm')
+	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
+	              pictures_asm, picture_dir)
+		puts "ERROR: -pics: tools/pics2asm.py failed."
+		exit 1
+	end
+	$GENERALFLAGS.push('Z6_PICTURES') unless $GENERALFLAGS.include?('Z6_PICTURES')
 end
 
 if is_beyondzork

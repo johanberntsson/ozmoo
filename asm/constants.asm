@@ -90,6 +90,12 @@ SCREEN_HEIGHT         = 25
 SCREEN_WIDTH          = 40
 CELL_BYTES            = 2
 FCM_CHARSET           = $2d000  ; the C64 font, in the MEGA65 ROM
+; Picture tiles live in bank 1, which nothing else uses. In FCM a screen code
+; is the cell's data address divided by 64, so the tile store's base code is
+; $10000/64 = $0400: a tile's index is the code's low byte, and the high byte
+; is always 4.
+FCM_TILE_STORE        = $10000
+FCM_TILE_CODE_HI      = 4
 } else {
 SCREEN_WIDTH          = 80
 CELL_BYTES            = 1

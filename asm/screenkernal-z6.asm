@@ -1,4 +1,20 @@
 ; Z6 version of screenkernal.asm (used when the Z6 window model is active).
+
+; A screen cell is two bytes under FCM. Ozmoo writes the character into the
+; even one; the odd one selects a full colour tile when it is non-zero, so
+; every character written over a picture has to put it back to zero.
+!ifdef Z6_FCM_MODE {
+!macro clear_cell_high_byte {
+	iny
+	lda #0
+	sta (zp_screenline),y
+	dey
+}
+} else {
+!macro clear_cell_high_byte {
+}
+}
+
 ; Kept as close to screenkernal.asm as possible; differences:
 ; - window_start_row replaced by the window_y array (window_y,w = top row of window w)
 ; - no bounds/overflow checks in .normal_char, and no auto-expansion of window 1
@@ -697,6 +713,7 @@ s_delete_cursor
 	ldy zp_screencolumn
 }
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
 	lda plus4_vic_colours,x
@@ -787,6 +804,7 @@ s_printchar
 	bmi .col80_1
 	; 40 columns, use VIC-II screen
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 	lda s_colour
 	sta (zp_colourline),y
 	jmp .col80_1_end
@@ -797,6 +815,7 @@ s_printchar
     jsr VERAPrintChar
 } else {
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -860,6 +879,7 @@ s_printchar
 	bmi .col80_2
 	; 40 columns, use VIC-II screen
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 	lda s_colour
 	sta (zp_colourline),y
 	jmp .col80_2_end
@@ -874,6 +894,7 @@ s_printchar
 	; jsr VERAPrintColourAfterChar
 } else {
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -1625,6 +1646,7 @@ s_erase_line
 	bcs .done_erasing
 	lda #$20
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 	lda s_colour
 	sta (zp_colourline),y
 	iny
@@ -1741,6 +1763,7 @@ s_erase_line
     sta VERA_data0
 } else {
 	sta (zp_screenline),y
+	+clear_cell_high_byte
 }
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
@@ -1834,6 +1857,7 @@ update_cursor
 }
     lda cursor_character
     sta (zp_screenline),y
+    +clear_cell_high_byte
     lda current_cursor_colour
 !ifdef TARGET_PLUS4 {
     stx object_temp + 1
