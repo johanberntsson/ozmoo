@@ -342,13 +342,24 @@ the Plus/4, draw_picture writes a "pic:N" note where the picture belongs, straig
 to the screen so that it never reaches the transcript, erase_picture paints the
 note out, and picture_data reports that no picture exists.
 
-The pictures are converted from PNG by tools/pics2asm.py, which writes one
-p&lt;nnn&gt;.bin per picture. make.rb's -pics switch runs it, puts the files on the
-d81 next to zcode, and sets Z6_PICTURES. Only an index of picture numbers is
-assembled into the interpreter, so a set of a hundred and forty pictures costs it
-nothing. At boot, pic_load_all reads each file and decompresses it into Attic RAM,
-in the same spirit as read_sound_files, though it opens and reads the files itself
-rather than calling m65_load_file_to_reu, because it has to decompress on the way.
+The pictures come from the game's blorb, converted by tools/pics2asm.py, which
+writes one p&lt;nnn&gt;.bin per PNG picture. make.rb's -pics switch takes a blorb
+file (or, for the test pictures, a directory of numbered PNGs), runs the script,
+puts the files on the d81 next to zcode, and sets Z6_PICTURES. Only an index is
+assembled into the interpreter — the picture numbers, the Rect placeholder sizes
+and the adaptive-palette flags, all described below — so a set of a hundred and
+forty pictures costs it almost nothing. At boot, pic_load_all reads each file and
+decompresses it into Attic RAM, in the same spirit as read_sound_files, though it
+opens and reads the files itself rather than calling m65_load_file_to_reu, because
+it has to decompress on the way.
+
+A blorb holds more than PNGs. Its Rect resources are placeholders with no image,
+only a width and height; a game reads those sizes with picture_data to lay real
+pictures out, and Arthur's whole room frame is built that way, so pics2asm.py
+emits a table of them (in cells, ceil(pixels/8)) that picture_data answers from
+and draw_picture treats as invisible. Its APal chunk lists the adaptive-palette
+pictures (see below). Reading the blorb directly rather than a hand-extracted PNG
+directory is what makes both of these available.
 
 A picture file holds the cell dimensions, the number of unique tiles, a 48-byte
 palette, a cell map of two bytes a cell, and then the tiles. Identical cells are
@@ -363,7 +374,11 @@ Two things about the pixels:
   bits a pixel halves the picture set before it is compressed, and Arthur's does
   not otherwise fit on a d81.
 - A colour index of 0 is transparent, and 255 is taken from colour RAM, so
-  neither may be a real colour. A picture therefore has at most 15 colours.
+  neither may be a real colour. A picture therefore has at most 15 colours. The
+  indices are the PNG's own, not compacted: a pixel is its palette index
+  straight, and the 48-byte palette is stored in that same index order. Keeping
+  the indices is what lets an adaptive picture borrow another's palette (below).
+  Arthur's pictures put transparency at index 0 and never colour index 0.
 
 Drawing a picture reads its header and palette straight out of Attic RAM, gives
 the window a run of the tile store, copies the tiles down into it, and fills the
@@ -372,31 +387,54 @@ divided by 64, so a code is FCM_TILE_CODE_HI's worth of high byte plus the tile'
 index: the store's base is a multiple of \$4000 either way, so nothing carries.
 
 A cell holds exactly one tile, so a picture drawn over another replaces those
-cells outright, and a transparent pixel then shows the background rather than the
-picture underneath. Games composite by covering: Arthur draws its ornate frame,
-then draws a smaller, opaque picture over the middle of it, and what survives is
-the frame's border. picture_data is what makes that land in the right place. It
-reports a picture's height and width, which the game halves against the window's
-size to centre it. The standard calls those two words pixels, but a pixel here is
-whatever unit the rest of the screen model counts in, and Ozmoo counts characters:
-the header advertises a 40x25 screen and get_wind_prop answers 1x1 for the font
-size, so the size must come back in cells.
+cells outright. A cell that is transparent through and through is the exception:
+pics2asm.py writes it into the cell map as \$ffff, and pic_fill_cells leaves such
+a cell untouched, so a frame with a hole drawn over a scene shows the scene
+through the hole. That is how Arthur composites — it draws the scene, then draws
+the frame, whose middle is a transparent window onto the scene behind. A partly
+transparent cell is still one opaque tile, and its transparent pixels show the
+screen background rather than the picture behind. Drawing is clipped to the
+screen: pic_fill_cells and pic_erase stop at the last row and column, so a picture
+placed partly, or from a bad coordinate wholly, off screen cannot scribble past
+screen RAM into the interpreter.
 
-The palette bank belongs to the window, not to the picture. A window holds at most
-one picture, so the eight banks of 16 entries above the 16 text colours are enough
-for any number of pictures, and a window's bank is `16 + 16 * window`. A picture's
-pixel indices are stored relative to entry 16, so the tile copy adds the window's
-offset to each pixel as it goes, leaving a pixel of 0 alone because it is
-transparent in every bank. The DMA engine can neither expand a nybble nor add, so
-that copy is done by the CPU; at 40 MHz even a full screen picture is a blink.
+picture_data is what makes a picture land in the right place. It reports a
+picture's height and width, which the game halves against the window's size to
+centre it. The standard calls those two words pixels, but a pixel here is whatever
+unit the rest of the screen model counts in, and Ozmoo counts characters: the
+header advertises a 40x25 screen and get_wind_prop answers 1x1 for the font size,
+so the size must come back in cells.
 
-Each window keeps the run of the tile store it was given, and reuses it when the
-next picture fits. When the store runs out the allocator starts again at the
-bottom, which can only spoil a picture in another window. The store holds 2048
+Each drawn picture gets its own run of the tile store and its own palette bank,
+allocated together and reused together. The bank is `16 * bank`, bank running
+1 to 14 (bank 15 is skipped, because its top colour would be pixel value 255,
+which Full Colour Mode takes from colour RAM). A per-picture bank, rather than
+the one-bank-per-window arrangement it replaced, is needed because a window holds
+several pictures at once — Arthur's frame and two side bars all live in window 7
+— and a shared bank had them overwrite each other's colours. A picture's pixels
+are its palette indices straight, so the tile copy adds the bank's base to each
+non-zero pixel as it goes, leaving a 0 alone because it is transparent. The DMA
+engine can neither add nor expand a nybble, so that copy is done by the CPU; at
+40 MHz even a full screen picture is a blink.
+
+The bank travels with the tile run: the allocator reuses a window's run, and its
+bank, only when the same picture is redrawn into it; a different picture takes a
+fresh run and bank, bumped from where the last one ended. When either wraps it can
+only spoil a picture that is no longer the newest on screen. The store holds 2048
 tiles in a Z6_PICTURES build, which is what Arthur's interface needs: it keeps a
 border, a scene and a status panel on the screen together, and they came to 1063
 tiles the first time all three were live. With the old store of 1024 the allocator
 wrapped and the border's tiles landed on the scene's.
+
+Some pictures do not carry their own colours. The blorb's APal chunk lists the
+"adaptive" pictures — Arthur's frame and side bars — which are drawn in the
+palette of the last direct (non-adaptive) picture instead of their own. That is
+how one UI element recolours to match whichever scene it borders; in the blorb the
+frame's own palette is a placeholder of plain primaries. The interpreter remembers
+the last direct picture's bank (pic_direct_base), and for an adaptive picture it
+skips loading a palette and bakes the tiles into that bank. Because the indices are
+never compacted, the frame's index 5 means the same colour as the scene's index 5,
+and the borrowed palette lands right.
 
 
 # The stack

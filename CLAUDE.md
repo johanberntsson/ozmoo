@@ -32,9 +32,12 @@ make clean
 ruby make.rb [options] <storyfile>   # run with no args for the full option list
 ```
 
-`make arthur-pics` needs `z6games/arthur-graphics`, which is not in git. `-pics <dir>`
-runs `tools/pics2asm.py` over a directory of numbered PNGs, puts one compressed file
-per picture on the d81, and sets `Z6_PICTURES`. It needs `-fcm`.
+`make arthur-pics` needs `z6games/arthur-r74-s890714.blb`, the game's blorb,
+which is not in git. `-pics <blorb-or-dir>` runs `tools/pics2asm.py`, which puts
+one compressed file per PNG picture on the d81 and sets `Z6_PICTURES`; it needs
+`-fcm`. Given a blorb it also reads the game's `Rect` placeholders and `APal`
+adaptive-palette list (see the Pictures section); given a plain directory of
+numbered PNGs (`tools/testpics`) it just tiles those.
 
 `dfrotz -h 25 -w 40 testz6.z6` gives reference output with the same screen size as a C64, which makes line-for-line comparison possible.
 
@@ -93,18 +96,20 @@ Under `-fcm` a screen cell and a colour cell are two bytes each. Ozmoo writes th
 
 ### Pictures (MEGA65, `-fcm -pics`)
 
-`tools/pics2asm.py` writes one compressed file per picture; `make.rb` puts them on the d81; `pic_load_all` decompresses them into attic RAM at `$08300000` at boot, next to where `sound.asm` preloads the WAVs. Only an index of picture numbers is assembled in.
+`tools/pics2asm.py` reads the blorb (or a PNG directory) and writes one compressed file per picture; `make.rb` puts them on the d81; `pic_load_all` decompresses them into attic RAM at `$08300000` at boot, next to where `sound.asm` preloads the WAVs. Only an index is assembled in: picture numbers, the `Rect` placeholder sizes, and the `pic_adaptive` flags.
 
 - The tile store is `$40000-$5ffff` — 2048 tiles — because Arthur keeps a border, a scene and a status panel on screen at once. Sound moves down to bank 1 and undo out to attic to make room; see the memory map in the techreport. Without `-pics` the store stays in bank 1. A cell's screen code is its tile's address / 64, so `FCM_TILE_CODE_HI + tile index`.
-- The palette bank belongs to the **window**, not the picture: `16 + 16 * window`. A window holds at most one picture, so eight banks above the 16 text colours suffice for any number of pictures. Pixel indices are stored relative to entry 16 and the tile copy adds the window's offset, which is why that copy is a CPU loop and not a DMA.
-- A cell holds one tile, so a picture drawn over another **replaces** those cells; a transparent pixel then shows the background, not the picture underneath. Arthur's composites work because the smaller picture is opaque and simply covers the middle of the larger one.
-- Four bits a pixel on disk and in attic, one byte in the tile store. Index 0 is transparent and 255 comes from colour RAM, so a picture has at most **15** colours.
+- **Each drawn picture gets its own tile run and its own palette bank**, bumped together and reused together (`pic_win_base`/`pic_win_number`/`pic_win_bank`, keyed by window; only the *same* picture redrawn into a window reuses its run). This is because a window holds several pictures at once — Arthur composites a scene inside a frame — so a per-window bank (the old `16 + 16 * window`) had them fighting over one palette. Banks are `16 * bank`, `bank` running 1..14; bank 15 is skipped because its top colour would be pixel value 255, which FCM takes from colour RAM. When either allocator wraps it can only spoil a picture that is no longer the newest on screen.
+- **A picture keeps its PNG palette indices; they are not compacted.** A pixel is its own index (0 transparent, 1..15 straight into the bank), and the bank is loaded in index order. This is what lets an **adaptive** picture line up with the palette it borrows (below). Four bits a pixel on disk and in attic, one byte in the store; 255 comes from colour RAM, so a picture has at most 15 colours. Arthur's pictures put transparency at index 0 and never colour index 0.
+- **Compositing works through transparent cells.** `pics2asm.py` writes `$ffff` for a cell that is transparent through and through, and `pic_fill_cells` leaves such a cell untouched — so a frame with a hole (like Arthur's) drawn over a scene shows the scene through the hole. A partly transparent cell is still one opaque tile; its transparent pixels show the screen background, not the picture behind.
+- **Adaptive-palette pictures (blorb `APal`, `pic_adaptive`)** — Arthur's frame and side bars — ignore their own (placeholder) palette and are drawn in the palette of the last *direct* picture (`pic_direct_base`), so the UI recolours to match the scene. `pic_read_palette` is skipped for them and their tiles are baked into the current direct bank.
+- Drawing is clipped to the screen: `pic_fill_cells` and `pic_erase` stop at the last row/column, so a picture placed partly (or, from a bad coordinate, wholly) off screen cannot scribble past screen RAM into the interpreter.
 - `make.rb` upper-cases the names it puts in the disk directory, so the interpreter asks for `P004`. A wrong name fails **silently**: OPEN reports success and one page of the copy buffer lands in attic.
 
 ## Watch out for
 
 - **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the Z-machine standard (see References) before assuming an opcode behaves as in v5.
-- `draw_picture`, `erase_picture` and `picture_data` are all implemented under `-fcm -pics`; elsewhere `draw_picture` writes a `pic:N` note and `picture_data` reports no picture. Implementing `picture_data` flipped Arthur onto its real graphics interface, as predicted: it now draws a bordered layout out of pictures. `z_init` still clears the "pictures available" bit in `header_flags_2`, which now disagrees with `picture_data` — reconcile them and expect yet more unrun code paths. `print_form` and `scroll_window` turned out to be text opcodes and are done. See `todo.txt`.
+- `draw_picture`, `erase_picture` and `picture_data` are all implemented under `-fcm -pics`, including `Rect` placeholders, adaptive palettes and transparent-cell compositing (see the Pictures section); elsewhere `draw_picture` writes a `pic:N` note and `picture_data` reports no picture. Arthur's first room — a scene composited inside a recolouring frame — now renders like the reference interpreter. `z_init` still clears the "pictures available" bit in `header_flags_2` even under `-fcm -pics`, which disagrees with `picture_data`; Arthur tolerates it (it draws pictures regardless), but the bit ought to be set when `Z6_PICTURES`. `print_form` and `scroll_window` turned out to be text opcodes and are done. See `todo.txt`.
 - **The z-machine writes "the current window" as `-3`** (z-spec 8.8.3), and Arthur does so 27 times. Every opcode taking a window number must go through `window_from_operand`; taking the operand's low byte raw indexes the property arrays at `$fd`. This produced coordinates like y=244 and hung `.pic_draw`'s row loop, whose counter is one byte.
 - **v6 is a "large" version, like v7/v8, not like v4/v5.** Story files run to 512 KB, the header file length is divided by 8, and block addresses need two high bits. `make.rb` has always known this (`$zcode_version > 5`); the assembly used to express it as `Z7PLUS`, which excludes v6. Use `Z6PLUS` for anything size-related, and be suspicious of any new `Z4PLUS`/`Z7PLUS` split. See `todo.txt` for the three bugs this caused.
 - No v6 interpreter ever ran on a C64, so v6 code paths have never been exercised against a real game. Expect more latent assumptions — minimum screen size, stack depth, story size — that no other version happens to violate.
