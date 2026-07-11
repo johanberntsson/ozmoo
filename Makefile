@@ -85,6 +85,20 @@ zork0:
 zork0-pics:
 	ruby make.rb -s -t:mega65 -fcm -pics $(ZORK0_BLORB) $(Z6GAMES)/$(ZORK0).z6
 
+# Shogun on the full colour screen, with its pictures.
+SHOGUN = shogun-r322-s890706
+SHOGUN_BLORB = $(Z6GAMES)/$(SHOGUN).blb
+shogun-pics:
+	ruby make.rb -s -t:mega65 -fcm -pics $(SHOGUN_BLORB) $(Z6GAMES)/$(SHOGUN).z6
+
+# Journey on the full colour screen, with its pictures. It is the largest of the
+# v6 games, so it is the next size up from Zork Zero for the multi-disk picture
+# store.
+JOURNEY = journey-r83-s890706
+JOURNEY_BLORB = $(Z6GAMES)/$(JOURNEY).blb
+journey-pics:
+	ruby make.rb -s -t:mega65 -fcm -pics $(JOURNEY_BLORB) $(Z6GAMES)/$(JOURNEY).z6
+
 c64:
 	ruby make.rb -s examples/dejavu.z3
 
