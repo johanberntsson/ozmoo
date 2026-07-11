@@ -8,6 +8,39 @@ varies between runs points at something timed - the cursor, or the MORE prompt
 saving and restoring the character under it, both of which now have to handle a
 two byte cell. The 80 column build is clean.
 
+Shogun and Journey now have -pics targets (make shogun-pics, make journey-pics)
+and both start. Shogun's pictures fit on one disk, Journey's on two (it is the
+largest v6 game). Both have rendering issues still to work through - next
+session's job. This is the second round of "no interpreter of ours ever ran
+these code paths": expect more of the sort of latent assumption Arthur turned
+up.
+
+FIXED: after the 16-bit picture index work, Arthur's churchyard scene stopped
+appearing (the frame drew, its middle stayed blank background). picture_data's
+rect path (.pd_try_rect) called .rect_find with the picture number expected in
+x, but the new 16-bit .pic_find clobbers x (it uses it as a table-address high
+byte for .pic_addr, where the old one-byte version kept the number in x the
+whole loop). So picture_data on a Rect placeholder searched for a garbage
+number and returned the wrong size; Arthur laid the scene out from that and
+drew it at y=253, off the bottom of the screen, where pic_fill_cells clips
+every row. The fix is one line: reload x from z_operand_value_low_arr before
+.rect_find, as draw_picture's own .dp_not_image path already did. Found with a
+ring buffer logging every draw_picture's index and computed y - it showed pic 4
+at y=252 while everything else was on screen.
+
+DONE: per-pixel compositing. A small picture drawn over a scene - Arthur's
+stone over the churchyard - used to sit in a white rectangle, because under
+-fcm a pixel value of 0 is transparent and shows the screen background, not the
+picture behind. Only fully transparent cells ($ffff) were revealing what was
+underneath. pic_fill_cells now, before writing an opaque cell, reads what is
+there, and if a full colour tile is under it bakes a fresh tile (.pcf_make_tile)
+taking the overlay's pixel where opaque and the underlying tile's pixel where
+transparent - which the store's absolute palette indices (all banks loaded at
+once) make legal. Matches the reference. The composite tiles come off
+pic_next_tile; a game that redraws full-screen pictures over each other without
+clearing would churn the store, so if Zork Zero or Journey corrupt tiles, skip
+compositing for fully-opaque overlays.
+
 FIXED: Arthur's "FATAL ERROR: 17" on the MEGA65 was a missing window property.
 
 get_wind_prop's property 13 is the font size: height in the high byte of the
