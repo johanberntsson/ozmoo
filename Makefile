@@ -71,13 +71,19 @@ arthur-pics:
 	ruby make.rb -s -t:mega65 -fcm -pics $(ARTHUR_BLORB) $(Z6GAMES)/$(ARTHUR).z6
 
 # Zork Zero on the full colour screen, to try the mouse: click the compass rose
-# and other controls in the top window. Its 396 pictures overflow both the
-# byte-sized picture numbers and a single d81's directory, so it runs without
-# -pics for now; drawing them waits on a larger picture store (a multi-disk one
-# is coming for big games like Journey). The mouse needs none of that.
+# and other controls in the top window. The mouse needs no pictures, so this
+# builds without them.
 ZORK0 = zork0-r393-s890714
+ZORK0_BLORB = $(Z6GAMES)/$(ZORK0).blb
 zork0:
 	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ZORK0).z6
+
+# ...and with its graphics. Zork Zero has 396 pictures numbered up to 504, so it
+# exercises both the 16-bit picture numbers and the multi-disk picture store:
+# the set spreads over several _pics_N.d81 disks (only the first is auto-mounted
+# in drive 9, so the rest still prompt for a swap).
+zork0-pics:
+	ruby make.rb -s -t:mega65 -fcm -pics $(ZORK0_BLORB) $(Z6GAMES)/$(ZORK0).z6
 
 c64:
 	ruby make.rb -s examples/dejavu.z3

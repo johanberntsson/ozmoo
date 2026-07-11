@@ -192,10 +192,10 @@ def load_blorb(filepath):
     return images, rects, adaptive
 
 # A picture may be numbered up to 999 (three digits, the P### filename width).
-# The per-build picture *count* is still an 8-bit loop index in the interpreter,
-# so a build may hold at most 255 distinct pictures for now; see MAX_PICTURES.
+# The interpreter's picture index is 16-bit, so the count is bounded only by the
+# numbering: at most 999 distinct pictures, and in practice by attic RAM.
 MAX_PIC_NUMBER = 999
-MAX_PICTURES   = 255
+MAX_PICTURES   = 999
 
 
 def pack_disks(sizes, disk_blocks, disk_files):

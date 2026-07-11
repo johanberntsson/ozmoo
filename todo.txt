@@ -114,17 +114,20 @@ blocks) loads with no prompt. Verified headless: Arthur reaches its restore
 prompt from -8 boot / -9 pics with no swap. Picture numbers now run to 999
 (pic_number_lo/hi, rect_number_lo/hi, three-digit P### names).
 
-OPEN: the per-build picture *count* is still an 8-bit load/search index, so a
-build holds at most 255 distinct pictures (pics2asm.py errors above that) and
-make zork0 still runs without pictures - Zork Zero has 396, Journey more.
-Lifting it means a 16-bit sequential index over the five parallel pic_* tables
-(pic_number_lo/hi, pic_disk, pic_page_lo/hi, pic_adaptive), which the ,y
-addressing in pic_load_all and .pic_find caps at 256 entries today. Deferred
-because it can't be runtime-tested here until a >255-picture game is built with
--pics, and shipping untested 16-bit indexing into the boot path isn't worth it
-before then. The swap-prompt path (more picture disks than drives) also still
-needs a real-hardware or manual check; only the no-swap two-drive path is
-verified headless.
+DONE: the per-build picture count is now 16-bit, so a build can hold up to 999
+pictures (pics2asm.py's cap). .pic_index is a word, the parallel pic_* tables
+(pic_number_lo/hi, pic_disk, pic_page_lo/hi, pic_adaptive) are indexed through
+.pic_addr - which forms base + word index in .pi_ptr (z_temp + 10) and reads
+(.pi_ptr),y - instead of the old ,y that capped at 256, and pic_win_number is a
+word per window so two pictures 256 apart no longer alias a window's tile run.
+make zork0-pics builds Zork Zero's 396 pictures (numbered to 504) over two
+picture disks. Verified headless: it loads all 290 pictures of disk 1 from
+drive 9 (indices past 255) and then correctly prompts for disk 2.
+
+OPEN, but only checkable on real hardware or with a manual disk swap: loading
+past the first picture disk (xemu can't swap, so only the disk-2 prompt is
+seen, not the load that would follow it) and the game actually drawing the
+pictures once loaded. Journey is the next size up to try (more pictures still).
 
 
 The plan for z6 on the MEGA65

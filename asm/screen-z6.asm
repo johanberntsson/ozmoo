@@ -90,8 +90,9 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .pic_ptr = z_temp			; 2 bytes, the screen row being written
 .pic_att = z_temp + 2		; 4 bytes, a 32 bit pointer into attic RAM
 .pic_dst = z_temp + 6		; 4 bytes, a 32 bit pointer into the tile store
+.pi_ptr  = z_temp + 10		; 2 bytes, indexes the pic_* tables by .pic_index
 
-.pic_index   !byte 0
+.pic_index   !byte 0,0		; word: a game may have more than 255 pictures
 .pic_w       !byte 0		; cells across
 .pic_h       !byte 0		; cells down
 .pic_ntiles  !byte 0,0
@@ -107,10 +108,11 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
 pic_win_count  !fill 16, 0
-pic_win_number !fill 8, $ff	; the picture index resident in each window's run,
-							; $ff = none. A window's run may only be reused for
-							; the same picture; a different one must not overwrite
-							; tiles the resident picture's still-visible cells use.
+pic_win_number !fill 16, $ff ; the picture index (a word, so two bytes a window)
+							; resident in each window's run; $ffff = none. A
+							; window's run may only be reused for the same picture;
+							; a different one must not overwrite tiles the resident
+							; picture's still-visible cells use.
 ; Each drawn picture gets its own palette bank of 16 entries, so pictures that
 ; coexist in one window (Arthur keeps a frame and two side bars in window 7)
 ; keep their own colours. Banks 1..PIC_PAL_BANKS sit above the 16 text colours;
@@ -137,6 +139,18 @@ PIC_FILE_NAME_LEN = 4
 .err_digit     !byte 0		; first digit read back from a drive's error channel
 .pic_next_page !byte 0,0
 
+.pic_addr
+	; .pi_ptr = table base (a,x = lo,hi) + .pic_index, so a game with more than
+	; 255 pictures can index the parallel pic_* tables past a single page. The
+	; caller then reads or writes (.pi_ptr),y with y = 0.
+	clc
+	adc .pic_index
+	sta .pi_ptr
+	txa
+	adc .pic_index + 1
+	sta .pi_ptr + 1
+	rts
+
 pic_load_all
 	; Preload every picture into attic RAM. Called at boot, next to the sound
 	; effects, and for the same reason: the files are far too big to assemble
@@ -153,17 +167,28 @@ pic_load_all
 	sta .pic_next_page + 1
 	lda #0
 	sta .pic_index
+	sta .pic_index + 1
 	sta .cur_disk			; no picture disk located yet
 .pla_loop
-	ldy .pic_index
-	lda pic_number_lo,y		; build this picture's filename from its number
+	lda #<pic_number_lo		; build this picture's filename from its number
+	ldx #>pic_number_lo
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	sta .pic_num
-	lda pic_number_hi,y
+	lda #<pic_number_hi
+	ldx #>pic_number_hi
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	sta .pic_num + 1
 	jsr .pic_set_filename
 
-	ldy .pic_index
-	lda pic_disk,y			; still on the located disk, or find the next one?
+	lda #<pic_disk			; still on the located disk, or find the next one?
+	ldx #>pic_disk
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	cmp .cur_disk
 	beq +
 	sta .cur_disk
@@ -171,12 +196,19 @@ pic_load_all
 +
 	jsr .pic_open_current	; open the file on .pic_dev, ready to read
 
-	ldy .pic_index			; the picture starts on the next free page
+	lda #<pic_page_lo		; the picture starts on the next free page
+	ldx #>pic_page_lo
+	jsr .pic_addr
+	ldy #0
 	lda .pic_next_page
-	sta pic_page_lo,y
+	sta (.pi_ptr),y
 	sta .pic_att + 1
+	lda #<pic_page_hi
+	ldx #>pic_page_hi
+	jsr .pic_addr
+	ldy #0
 	lda .pic_next_page + 1
-	sta pic_page_hi,y
+	sta (.pi_ptr),y
 	sta .pic_att + 2
 	lda #0
 	sta .pic_att
@@ -200,10 +232,15 @@ pic_load_all
 	sta .pic_next_page + 1
 
 	inc .pic_index
-	lda .pic_index
-	cmp #picture_count
-	bne .pla_loop
-	rts
+	bne +
+	inc .pic_index + 1
++	lda .pic_index			; loop while .pic_index < picture_count (16 bit)
+	cmp #<picture_count
+	lda .pic_index + 1
+	sbc #>picture_count
+	bcs +					; the loop body is too long for a direct branch back
+	jmp .pla_loop
++	rts
 
 .pic_open_current
 	; Open pic_file_name as logical file 2 on .pic_dev for reading. The disk is
@@ -419,22 +456,40 @@ pic_load_all
 .pic_find
 	; Find the picture whose number is in a,x (high, low). Returns its index in
 	; .pic_index with carry set, or carry clear if this build does not have it.
-	; Numbers run to 999, so they are two byte-per-entry tables, compared both.
+	; Numbers run to 999 and there may be more than 255 pictures, so both the
+	; entries and the index are 16 bit.
 	sta .pic_num + 1
 	stx .pic_num
-	ldy #0					; count up: a game may have more than 128 pictures,
--	lda pic_number_lo,y		; and then a countdown's bpl would never be taken
+	lda #0
+	sta .pic_index
+	sta .pic_index + 1
+.pf_loop
+	lda #<pic_number_lo
+	ldx #>pic_number_lo
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	cmp .pic_num
-	bne +
-	lda pic_number_hi,y
+	bne .pf_next
+	lda #<pic_number_hi
+	ldx #>pic_number_hi
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	cmp .pic_num + 1
-	beq ++
-+	iny
-	cpy #picture_count
-	bne -
+	beq .pf_found
+.pf_next
+	inc .pic_index
+	bne +
+	inc .pic_index + 1
++	lda .pic_index
+	cmp #<picture_count
+	lda .pic_index + 1
+	sbc #>picture_count
+	bcc .pf_loop
 	clc
 	rts
-++	sty .pic_index
+.pf_found						; .pic_index already holds the matching index
 	sec
 	rts
 
@@ -451,12 +506,19 @@ pic_load_all
 
 .pic_open
 	; Point .pic_att at the start of the picture's file in attic RAM.
-	ldy .pic_index
 	lda #0
 	sta .pic_att			; the file starts on a page boundary
-	lda pic_page_lo,y
+	lda #<pic_page_lo
+	ldx #>pic_page_lo
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	sta .pic_att + 1
-	lda pic_page_hi,y
+	lda #<pic_page_hi
+	ldx #>pic_page_hi
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	sta .pic_att + 2
 	lda #$08				; attic RAM starts at $08000000
 	sta .pic_att + 3
@@ -530,11 +592,14 @@ pic_load_all
 	; point at. When the store runs out we start again at the bottom, which can
 	; only spoil a picture that is no longer the newest in its window.
 	lda current_window
-	tay
+	tay						; y = window (pic_win_bank is one byte a window)
 	asl
-	tax
+	tax						; x = window * 2 (the word-per-window tables)
 	lda .pic_index			; same picture as this window last held?
-	cmp pic_win_number,y
+	cmp pic_win_number,x
+	bne .pa_fresh
+	lda .pic_index + 1
+	cmp pic_win_number + 1,x
 	bne .pa_fresh
 	lda pic_win_count,x		; and does the window's own run still fit it?
 	cmp .pic_ntiles
@@ -578,9 +643,11 @@ pic_load_all
 	sta pic_win_count + 1,x
 	adc pic_next_tile + 1
 	sta pic_next_tile + 1
-	ldy current_window		; remember which picture now owns this run
-	lda .pic_index
-	sta pic_win_number,y
+	ldy current_window		; remember which picture now owns this run (y for
+	lda .pic_index			; the bank store below; x is still window * 2)
+	sta pic_win_number,x
+	lda .pic_index + 1
+	sta pic_win_number + 1,x
 	; give it the next palette bank, wrapping after the last one, which can only
 	; spoil the colours of a picture that is no longer the newest on screen
 	ldx pic_next_bank
@@ -794,8 +861,11 @@ pic_load_all
 	jsr .pic_alloc			; picks the tile run and the palette bank to bake for
 	; An adaptive picture is baked into, and shown in, the last direct picture's
 	; palette; a direct one uses its own bank and makes it the current palette.
-	ldy .pic_index
-	lda pic_adaptive,y
+	lda #<pic_adaptive
+	ldx #>pic_adaptive
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
 	beq .pd_direct
 	lda pic_direct_off
 	sta .pic_pal_off
@@ -956,12 +1026,16 @@ z_ins_picture_data
 	lda z_operand_value_low_arr
 	ora z_operand_value_high_arr
 	bne .pd_picture
-	; picture 0: the number of pictures, then the picture file's release number
+	; picture 0: the number of pictures (a word), then the file's release number
 	jsr .pd_set_array
+!ifdef Z6_PICTURES {
+	lda #>picture_count
+} else {
 	lda #0
+}
 	jsr write_next_byte
 !ifdef Z6_PICTURES {
-	lda #picture_count
+	lda #<picture_count
 } else {
 	lda #0
 }
