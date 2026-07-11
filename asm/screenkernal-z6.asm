@@ -384,20 +384,14 @@ init_mega65
 	; set 40MHz CPU
 	lda #65
 	sta 0
-!ifdef Z6_FCM_MODE {
-	; 320x200: H640 off, V400 off, and ATTR (bit 5) off, which is what selects
-	; 8 bit colour. Bit 6 (fast CPU) stays on.
-	lda #$40
-	sta $d031
-	lda #$c8
-	sta $D016
-} else {
-	; set 80-column mode
+	; Start in 80-column mode. A Z6_FCM_MODE build stays here through the splash
+	; screen, which is laid out for 80 columns and would render wrong on the 40
+	; column, two-bytes-a-cell full colour screen; enable_fcm switches over once
+	; the splash has closed.
 	lda #$c0
 	sta $d031
 	lda #$c8 + 1 ; +1 loses one pixel on the left, +2 loses one pixel on the right. Leftmost pixel usually empty.
 	sta $D016
-}
 	; Set colour RAM offset to 0
 	lda #0
 	sta $d064
@@ -409,7 +403,20 @@ init_mega65
 	lda $d05d
 	and #$7f
 	sta $d05d
+	rts
+
 !ifdef Z6_FCM_MODE {
+enable_fcm
+	; Leave the 80-column splash behind and switch to Full Colour Mode: 320x200,
+	; 40x25 cells, two bytes each. Called from the boot sequence once the splash
+	; screen has closed, so nothing before this point runs on the FCM screen.
+	jsr mega65io
+	; 320x200: H640 off, V400 off, and ATTR (bit 5) off, which is what selects
+	; 8 bit colour. Bit 6 (fast CPU) stays on.
+	lda #$40
+	sta $d031
+	lda #$c8
+	sta $D016
 	; 16 bit character codes (CHR16), and full colour for codes >= 256
 	; (FCLRHI). FCLRLO stays off, so codes < 256 are ordinary 8 byte glyphs
 	; fetched from CHARPTR, which is what all the text uses.
@@ -462,8 +469,8 @@ init_mega65
 	inx
 	bne -
 	jsr colour1k
-}
 	rts
+}
 	
 colour2k
 	; start mapping 2nd KB of colour RAM to $DC00-$DFFF
