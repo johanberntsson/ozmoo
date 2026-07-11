@@ -120,6 +120,11 @@ pic_win_number !fill 8, $ff	; the picture index resident in each window's run,
 PIC_PAL_BANKS = 14
 pic_next_bank  !byte 1
 pic_win_bank   !fill 8, 0
+; The palette an adaptive picture (Blorb APal) draws in: the pixel base and
+; matching pal offset of the last direct picture drawn. Seeded with bank 1 in
+; case an adaptive picture is somehow drawn before any direct one.
+pic_direct_base !byte 16
+pic_direct_off  !byte 0
 
 ; ---------------------------------------------------------------------------
 pic_file_name !text "P000" ; make.rb upper-cases the names it puts on the disk
@@ -649,7 +654,33 @@ pic_load_all
 	sta .pic_ntiles + 1
 
 	jsr .pic_alloc			; picks the tile run and the palette bank to bake for
-	jsr .pic_read_palette	; the picture's palette, into that bank
+	; An adaptive picture is baked into, and shown in, the last direct picture's
+	; palette; a direct one uses its own bank and makes it the current palette.
+	ldy .pic_index
+	lda pic_adaptive,y
+	beq .pd_direct
+	lda pic_direct_off
+	sta .pic_pal_off
+	lda pic_direct_base
+	sta .pic_pixel_base
+	clc						; step over our own 48 palette bytes unread: we keep
+	lda .pic_att			; the current picture's palette loaded instead
+	adc #48
+	sta .pic_att
+	lda .pic_att + 1
+	adc #0
+	sta .pic_att + 1
+	lda .pic_att + 2
+	adc #0
+	sta .pic_att + 2
+	jmp +
+.pd_direct
+	lda .pic_pal_off
+	sta pic_direct_off
+	lda .pic_pixel_base
+	sta pic_direct_base
+	jsr .pic_read_palette	; the picture's palette, into its bank
++
 
 	; .pic_att now points at the cell map. Remember it, then skip over it.
 	lda .pic_att

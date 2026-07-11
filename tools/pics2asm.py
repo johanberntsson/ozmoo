@@ -78,9 +78,14 @@ def convert(path):
         sys.exit(f"{path}: not an indexed PNG")
     w, h = im.size
     pal = im.getpalette()
-    # The PNG's transparent palette entries (from a tRNS chunk) become Ozmoo's
-    # transparent pixel value 0; a pixel of 0 shows whatever is on the screen
-    # already, which is how a frame with a hole lets the picture behind show.
+    pal = pal + [0] * (48 - len(pal))    # a short palette still fills 16 entries
+    # Keep the PNG's own palette indices rather than compacting them. Pixel
+    # value 0 is transparent -- it shows whatever is already on screen, which is
+    # how a frame with a hole lets the picture behind show -- and Arthur's
+    # pictures put their transparent colour at index 0, or leave 0 unused.
+    # Indices 1..15 point straight into a 16-entry palette bank. Not compacting
+    # is what lets an adaptive picture line up with the palette it borrows: its
+    # index 5 then means the same colour as the direct picture's index 5.
     trns = im.info.get("transparency")
     if isinstance(trns, (bytes, bytearray)):
         transparent = {i for i, a in enumerate(trns) if a == 0}
@@ -88,14 +93,12 @@ def convert(path):
         transparent = {trns}
     else:
         transparent = set()
-    used = sorted({i for _, i in im.getcolors()} - transparent)
-    if len(used) > 15:
-        sys.exit(f"{path}: {len(used)} colours. A bank holds 16 and index 0 is "
-                 f"transparent, so a picture may have 15.")
-    # transparent indices map to 0, the picture's own colours to 1..15
-    remap = {t: 0 for t in transparent}
-    remap.update({old: 1 + n for n, old in enumerate(used)})
-    colours = [tuple(pal[o*3:o*3+3]) for o in used]
+    if transparent and transparent != {0}:
+        sys.exit(f"{path}: transparent at index {sorted(transparent)}, not 0")
+    opaque = {i for _, i in im.getcolors()} - transparent
+    if opaque and (min(opaque) < 1 or max(opaque) > 15):
+        sys.exit(f"{path}: colours at indices {sorted(opaque)}; a bank holds "
+                 f"1..15, with 0 transparent")
 
     cw, ch = (w + 7) // 8, (h + 7) // 8
     if cw > 40 or ch > 25:
@@ -105,7 +108,7 @@ def convert(path):
     tiles, index_of, cellmap = bytearray(), {}, []
     for cy in range(ch):
         for cx in range(cw):
-            cell = bytes(remap[px[cx*8+c, cy*8+r]]
+            cell = bytes(px[cx*8+c, cy*8+r]
                          if cx*8+c < w and cy*8+r < h else 0
                          for r in range(8) for c in range(8))
             if cell == empty:
@@ -122,12 +125,11 @@ def convert(path):
     if ntiles > 1024:
         sys.exit(f"{path}: {ntiles} unique tiles; the store in bank 1 holds 1024")
 
+    # The bank in the picture file's own index order: entry n is palette index n.
     palette = bytearray(48)
     for chan in range(3):
         for n in range(16):
-            # entry 0 of the bank is the transparent one
-            v = colours[n - 1][chan] if 0 < n <= len(colours) else 0
-            palette[chan*16 + n] = nybswap(v)
+            palette[chan*16 + n] = nybswap(pal[n*3 + chan])
 
     packed = bytearray()          # two pixels a byte, high nybble first
     for i in range(0, len(tiles), 2):
@@ -143,17 +145,19 @@ def convert(path):
     if len(blob) > 0xffff:
         sys.exit(f"{path}: {len(blob)} bytes uncompressed; more than 64 KB")
     return dict(w=w, h=h, cw=cw, ch=ch, ntiles=ntiles,
-                colours=len(used), blob=rle(bytes(blob)), raw=len(blob))
+                colours=len(opaque), blob=rle(bytes(blob)), raw=len(blob))
 
 def load_blorb(filepath):
-    """Return (images, rects) from a Blorb: images is a list of (num, PIL Image)
-    for the PNG resources; rects is a list of (num, w_px, h_px) for the Rect
-    placeholders. Rects carry no pixels, only a size a game reads with
-    picture_data; Arthur uses them to lay real pictures out."""
+    """Return (images, rects, adaptive) from a Blorb: images is a list of
+    (num, PIL Image) for the PNG resources; rects is a list of (num, w_px, h_px)
+    for the Rect placeholders (which carry only a size a game reads with
+    picture_data, to lay real pictures out); adaptive is the set of picture
+    numbers in the APal chunk, which are drawn using the last direct picture's
+    palette instead of their own."""
     blorb = open(filepath, "rb").read()
     if blorb[:4] != b"FORM" or blorb[8:12] != b"IFRS":
         sys.exit(f"{filepath}: not a Blorb (FORM..IFRS) file")
-    chunks, ridx, pos = {}, None, 12
+    chunks, ridx, apal, pos = {}, None, b"", 12
     while pos < len(blorb):
         ctype = blorb[pos:pos+4]
         clen = struct.unpack(">I", blorb[pos+4:pos+8])[0]
@@ -161,9 +165,12 @@ def load_blorb(filepath):
         chunks[pos] = (ctype, data)
         if ctype == b"RIdx":
             ridx = data
+        elif ctype == b"APal":
+            apal = data
         pos += 8 + clen + (clen & 1)
     if ridx is None:
         sys.exit(f"{filepath}: no resource index (RIdx) chunk")
+    adaptive = {struct.unpack(">I", apal[i:i+4])[0] for i in range(0, len(apal), 4)}
     from PIL import Image
     import io
     images, rects = [], []
@@ -179,14 +186,14 @@ def load_blorb(filepath):
         elif ctype == b"Rect":
             w, h = struct.unpack(">II", data[:8])
             rects.append((num, w, h))
-    return images, rects
+    return images, rects, adaptive
 
 def main():
     if len(sys.argv) != 3:
         sys.exit(f"usage: {sys.argv[0]} <outdir> <png-dir-or-blorb>")
     outdir, source = sys.argv[1], sys.argv[2]
 
-    rects = []
+    rects, adaptive = [], set()
     if os.path.isdir(source):
         images = [(int(os.path.basename(p)[:-4]), p)
                   for p in sorted(glob.glob(os.path.join(source, "*.png")),
@@ -195,7 +202,7 @@ def main():
         if not images:
             sys.exit(f"no numbered PNGs in {source}")
     else:
-        imgs, rects = load_blorb(source)
+        imgs, rects, adaptive = load_blorb(source)
         # convert() takes either a path or an (image, name) tuple
         images = [(num, (im, f"picture {num}")) for num, im in imgs]
 
@@ -229,7 +236,12 @@ def main():
         f.write(f"picture_count = {len(nums)}\n\n")
         f.write("pic_number\t!byte " + ",".join(str(n) for n in nums) + "\n")
         f.write("pic_page_lo\t!fill picture_count, 0\n")
-        f.write("pic_page_hi\t!fill picture_count, 0\n\n")
+        f.write("pic_page_hi\t!fill picture_count, 0\n")
+        # 1 where a picture is adaptive (Blorb APal): it is drawn in the last
+        # direct picture's palette, not its own, so a game's UI can recolour to
+        # match the scene. Parallel to pic_number.
+        f.write("pic_adaptive\t!byte " +
+                ",".join("1" if n in adaptive else "0" for n in nums) + "\n\n")
         # Always define the arrays, even with no rects, so the interpreter's
         # rect lookup assembles; rect_count gates whether it is ever scanned.
         f.write(f"rect_count = {len(rects)}\n")
