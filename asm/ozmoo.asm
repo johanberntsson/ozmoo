@@ -984,11 +984,6 @@ game_id		!byte 0,0,0,0
 !if SPLASHWAIT > 0 {
 	jsr splash_screen
 }
-!ifdef Z6_FCM_MODE {
-	; The splash screen (if any) ran in 80 columns; now switch to the 40-column
-	; full colour screen for the game itself.
-	jsr enable_fcm
-}
 
 !ifdef VMEM {
 !ifdef TARGET_C64 {
