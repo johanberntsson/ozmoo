@@ -68,8 +68,11 @@ Still to do for z6 (not crashes):
   reports zero pictures and release 0 for picture 0. picture_table is a
   caching hint with nothing to cache, and make_menu branches false: both are
   correct as they stand, not stubs.
-- read_mouse always reports the top left corner and no buttons, and
-  mouse_window does nothing. There is no mouse.
+- read_mouse and mouse_window now work: the MEGA65 full colour screen has a
+  mouse (asm/mouse.asm), sprite 0 is the pointer, a click is input code 254 with
+  its position in the header extension table, and read_mouse reports the live
+  pointer. Port 1 is assumed; the physical button still wants testing on real
+  hardware. Text-only z6 has no pointer.
 - scroll_window scrolls whole character cells, because the header tells the
   game a character is one unit wide and one high. It ignores the scroll delay
   and smooth scrolling that .s_scroll has to honour.

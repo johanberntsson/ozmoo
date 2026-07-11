@@ -436,6 +436,49 @@ skips loading a palette and bakes the tiles into that bank. Because the indices 
 never compacted, the frame's index 5 means the same colour as the scene's index 5,
 and the borrowed palette lands right.
 
+## Mouse
+
+The mouse (z-spec 10.3) is drawn only on the MEGA65's full colour screen, in
+asm/mouse.asm, guarded by Z6_FCM_MODE; text-only version 6 has no pointer. A
+game asks for a mouse by setting bit 5 of Flags 2, and the interpreter leaves
+that bit set only where it can honour it. z_init reads the bit and, if the game
+wants a mouse, calls mouse_enable, which shows the pointer and sets mouse_active;
+a game that does not ask (like testz6) gets no pointer and its clicks are
+ignored.
+
+The pointer is the 1351 or Amiga mouse on control port 1. The MEGA65 exposes its
+paddle lines directly at \$d620 and \$d621, with no SID or CIA multiplexing to
+arrange, and the button is the port 1 fire line, \$dc01 bit 4. The paddle value
+is a six bit counter that wraps, so mouse_poll cannot read an absolute position;
+it remembers the previous reading, folds the difference into a signed step of
+-32 to 31, and accumulates a pixel position clamped to the 320x200 screen.
+
+The pointer is sprite 0. Its bitmap is a small arrow, and it is addressed through
+the VIC-IV's 16-bit sprite pointer (\$d06c to \$d06e, with the SPRPTR16 bit set),
+because the sprite pointer list normally sits at the top of screen RAM, which on
+the full colour screen is picture and text data. There is no hardware that makes
+a sprite follow the mouse; the MEGA65 KERNAL moves it in an interrupt and so does
+Ozmoo, from mouse_poll.
+
+mouse_poll is called from getchar, the routine every input path waits on, so the
+pointer follows the mouse through read, read_char and the [MORE] prompt, and a
+button press is delivered as input character 254 the moment it happens. On a
+click the cell the pointer is over is written into words 1 and 2 of the header
+extension table, as the standard requires; read_mouse reports the same position
+and the button, and mouse_window confines later clicks to one window. A click
+ends a line only if 254 is a terminating character, which the game arranges
+through the terminating characters table -- see below.
+
+The terminating characters table (header \$2e, z-spec 10.5.2.1) is a list of the
+function key codes that end an input line, in addition to Return. The valid codes
+are 129 to 154 and 252 to 254, and the special value 255 means "any of them".
+parse_terminating_characters had rejected everything above 140 and, for the 255
+wildcard, activated only the ordinary function keys, never the mouse clicks 252
+to 254 -- so a click could not end a line, whichever way a game asked. It now
+accepts the whole valid range, and the default set it turns on for the wildcard
+includes the mouse clicks on the full colour screen, so both a game that lists
+the clicks (Arthur) and one that says "any function key" (Zork Zero) work.
+
 
 # The stack
 

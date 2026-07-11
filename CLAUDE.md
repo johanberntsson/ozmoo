@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ozmoo is a Z-machine interpreter for the Commodore 64, C128, Plus/4 and MEGA65 (plus an X16 target), written in 6502 assembly (ACME cross-assembler syntax) and driven by a Ruby build script. It runs Infocom/Inform story files.
 
-**This checkout is the `z6` branch**, whose purpose is adding Z-machine **version 6** support. The window model works on every target; graphics work on the MEGA65, where Arthur now draws its pictures. `master` tracks upstream Ozmoo and must keep working — every change here has to be checked against both. This is Johan's personal project: make local commits, but never push without explicit permission.
+**This checkout is the `z6` branch**, whose purpose is adding Z-machine **version 6** support. The window model works on every target; graphics work on the MEGA65 full colour screen, where Arthur draws its pictures, and the mouse works there too (Zork Zero's clickable controls, Arthur's click-to-dismiss-`[MORE]`). `master` tracks upstream Ozmoo and must keep working — every change here has to be checked against both. This is Johan's personal project: make local commits, but never push without explicit permission.
 
 ## Build and run
 
@@ -24,6 +24,7 @@ make arthur-d2 # same, but split over two 1541 drives
 make arthur-mega65 # Arthur on the MEGA65, 80-column text
 make arthur-fcm    # Arthur on the MEGA65 full colour screen
 make arthur-pics   # ...and drawing its own pictures. The whole thing.
+make zork0     # Zork Zero on the full colour screen, to try the mouse (no pictures yet)
 make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
 make c64       # build examples/dejavu.z3 (a z3 game) — the non-z6 regression check
 make mega65    # same, for MEGA65
@@ -106,6 +107,16 @@ Under `-fcm` a screen cell and a colour cell are two bytes each. Ozmoo writes th
 - Drawing is clipped to the screen: `pic_fill_cells` and `pic_erase` stop at the last row/column, so a picture placed partly (or, from a bad coordinate, wholly) off screen cannot scribble past screen RAM into the interpreter.
 - `make.rb` upper-cases the names it puts in the disk directory, so the interpreter asks for `P004`. A wrong name fails **silently**: OPEN reports success and one page of the copy buffer lands in attic.
 
+### Mouse (MEGA65, `-fcm`)
+
+`asm/mouse.asm` (sourced under `Z6`, gated on `Z6_FCM_MODE`) implements the z-spec 10.3 mouse. It is FCM-only: text-only z6 has no pointer.
+
+- The 1351/Amiga mouse on **control port 1** is read from the MEGA65's direct pot registers `$d620`/`$d621` (no SID/CIA multiplexing) and its button from `$dc01` bit 4. The pot is a wrapping 6-bit counter, so `mouse_poll` tracks the signed change between reads and accumulates a pixel position, clamped to 320x200. **Port 1 is assumed** — a mouse in port 2 would need `$d622`/`$d623` and `$dc00`.
+- The pointer is **sprite 0**, addressed through the VIC-IV 16-bit sprite pointer (`$d06c`-`$d06e`, SPRPTR16), because the classic pointer slot (screen + `$3f8`) lands inside the FCM screen RAM. `mouse_poll` moves it; there is no hardware "sprite follows mouse", the MEGA65 KERNAL just does the same in an interrupt.
+- `mouse_poll` runs from `getchar_and_maybe_toggle_darkmode` on every input wait (so the pointer follows the mouse through `read`, `read_char` and the `[MORE]` prompt). A press becomes input code **254**; the click cell goes into the header extension table (`mouse_write_header_coords`), and `read_mouse`/`z_ins_mouse_window` report the live pointer and confine it to a window.
+- `z_init` keeps Flags 2 bit 5 and calls `mouse_enable` (which sets `mouse_active` and shows the sprite) **only if the game asked for the mouse** — so Arthur and Zork Zero get a pointer, `testz6` does not. Clicks are ignored unless `mouse_active`.
+- The pointer is a plain white arrow, so it disappears over white areas (the status line). Verifying the actual click needs a real mouse: headless xemu cannot move or press one, though the sprite, `mouse_active`, and the terminator table can all be read back.
+
 ## Watch out for
 
 - **v6 changes opcode shapes.** `pull` is the classic trap: in v1-v5 it names the variable to store into; in v6 it takes an optional user-stack operand and *stores* its result. Getting this wrong desyncs the PC and produces garbage, not a clean error. Check the Z-machine standard (see References) before assuming an opcode behaves as in v5.
@@ -116,6 +127,8 @@ Under `-fcm` a screen cell and a colour cell are two bytes each. Ozmoo writes th
 - **An error only the MEGA65 reports is usually a real bug everyone else lives with.** `CHECK_ERRORS` is compiled into MEGA65 builds and out of the others. Arthur's `FATAL ERROR: 17` turned out to be a modulo by zero the C64 executed too, caused by `get_wind_prop` returning 0 for the font size. Reaching for `-re:0` would have hidden a genuine defect.
 - **The C64, Plus/4 and MEGA65 work. The C128 and X16 are still deliberately untouched.** The z6 window model is only wired into the scroll path the first three share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. Those two remain known and accepted, not oversights — don't "fix" them yet.
 - The C64 and Plus/4 will never draw pictures. The `pic:N` notes have to stay for them.
+- **Terminating characters were a general bug** (all targets, not just mouse). z-spec 10.5.2.1: the table (`$2e`) holds function key codes 129-154 and 252-254, and 255 means "any of them". Ozmoo rejected everything above 140 and its 255 wildcard omitted the mouse clicks, so a click never ended a line. `parse_terminating_characters` now accepts the whole valid range, and the pre-filled default set the wildcard activates includes 252-254 on the full colour screen. If you touch that array, keep it in step with `NUM_DEFAULT_TERMINATORS`.
+- **A big picture set has no home yet.** The `-pics` pipeline gives every picture its own numbered file, preloaded whole into attic; it assumes picture numbers fit a byte and the files fit one d81's directory. Zork Zero has 396 pictures (numbered past 255), Journey more, so `make zork0` runs `-fcm` **without** pictures for now. A larger, eventually multi-disk, picture store is the real fix and is deliberately deferred — don't bolt a half-measure onto the single-d81 loader.
 - **Open bug:** under `-fcm`, Arthur drops or changes the odd character in body text, differently on each run. It happens with and without `-pics`, never with `testz6`, and the 80-column build is clean. Something timed — the cursor, or the MORE prompt saving and restoring the character under it. See `todo.txt`.
 
 ## Debugging under VICE (headless)
