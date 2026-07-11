@@ -56,7 +56,7 @@ mouse_init
 	sta SPRPTRADR + 1
 	lda #$80				; pointer list is in bank 0; bit 7 = 16-bit pointers
 	sta SPRPTRADR + 2
-	lda #1					; white
+	lda #2					; red
 	sta SPRITE0_COLOUR
 	; seed the pot history so the first poll reports no movement
 	lda MOUSE_POTX

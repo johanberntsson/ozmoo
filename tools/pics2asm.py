@@ -4,11 +4,14 @@
     python3 tools/pics2asm.py temp tools/testpics
 
 Writes, into <outdir>:
-    pictures.asm    the index Ozmoo assembles in: how many pictures there are
-                    and what they are numbered. Nothing else is embedded.
-    p<nnn>.bin      one file per picture, which make.rb puts on the d81 and
-                    Ozmoo preloads into attic RAM at boot, the way it already
-                    preloads the sound effects.
+    pictures.asm    the index Ozmoo assembles in: how many pictures there are,
+                    what they are numbered, and which picture disk each is on.
+    p<nnn>.bin      one file per picture, which make.rb puts on a picture disk
+                    and Ozmoo preloads into attic RAM at boot, the way it
+                    already preloads the sound effects.
+    picdisks.txt    which picture disk (1-based) each p<nnn>.bin belongs on, so
+                    make.rb can build one d81 per disk. When more pictures are
+                    given than fit one d81, they are spread over several.
 
 The file is RLE compressed, PackBits style, and decompressed into attic RAM as
 it is read. Uncompressed it is:
@@ -188,10 +191,41 @@ def load_blorb(filepath):
             rects.append((num, w, h))
     return images, rects, adaptive
 
+# A picture may be numbered up to 999 (three digits, the P### filename width).
+# The per-build picture *count* is still an 8-bit loop index in the interpreter,
+# so a build may hold at most 255 distinct pictures for now; see MAX_PICTURES.
+MAX_PIC_NUMBER = 999
+MAX_PICTURES   = 255
+
+
+def pack_disks(sizes, disk_blocks, disk_files):
+    """Assign each picture (given its compressed size, in pic_number order) to a
+    picture disk, filling one before starting the next. A disk is capped by both
+    its data blocks and its directory's file count. Returns (disks, count)."""
+    disks, cur_disk, cur_blocks, cur_files = [], 1, 0, 0
+    for s in sizes:
+        blocks = (s + 253) // 254
+        if cur_files and (cur_files >= disk_files or cur_blocks + blocks > disk_blocks):
+            cur_disk += 1
+            cur_blocks = cur_files = 0
+        if blocks > disk_blocks:
+            sys.exit(f"a single picture needs {blocks} blocks, more than a "
+                     f"picture disk holds ({disk_blocks})")
+        disks.append(cur_disk)
+        cur_blocks += blocks
+        cur_files += 1
+    return disks, cur_disk
+
+
 def main():
-    if len(sys.argv) != 3:
-        sys.exit(f"usage: {sys.argv[0]} <outdir> <png-dir-or-blorb>")
+    if not 3 <= len(sys.argv) <= 5:
+        sys.exit(f"usage: {sys.argv[0]} <outdir> <png-dir-or-blorb> "
+                 f"[disk-blocks disk-files]")
     outdir, source = sys.argv[1], sys.argv[2]
+    # make.rb passes the picture-disk budget; without it everything goes on one
+    # disk (the standalone / directory-of-PNGs case).
+    disk_blocks = int(sys.argv[3]) if len(sys.argv) > 3 else 1 << 30
+    disk_files  = int(sys.argv[4]) if len(sys.argv) > 4 else 1 << 30
 
     rects, adaptive = [], set()
     if os.path.isdir(source):
@@ -206,35 +240,59 @@ def main():
         # convert() takes either a path or an (image, name) tuple
         images = [(num, (im, f"picture {num}")) for num, im in imgs]
 
+    if len(images) > MAX_PICTURES:
+        sys.exit(f"{len(images)} pictures: a build may hold at most "
+                 f"{MAX_PICTURES} for now (the interpreter's picture index is "
+                 f"still 8-bit; see todo.txt).")
+
     os.makedirs(outdir, exist_ok=True)
-    nums, total, raw_total = [], 0, 0
+    nums, sizes, total, raw_total = [], [], 0, 0
     for num, src in images:
-        if not 0 < num < 256:
-            sys.exit(f"picture {num}: numbers must be 1..255")
+        if not 0 < num <= MAX_PIC_NUMBER:
+            sys.exit(f"picture {num}: numbers must be 1..{MAX_PIC_NUMBER}")
         p = convert(src)
         if len(p['blob']) > 255 * 256:
             sys.exit(f"picture {num}: {len(p['blob'])} bytes compressed; a picture "
                      f"file may be at most 255 pages")
         open(os.path.join(outdir, f"p{num:03d}.bin"), "wb").write(p['blob'])
         nums.append(num)
+        sizes.append(len(p['blob']))
         total += len(p['blob'])
         raw_total += p['raw']
         print(f"  picture {num:3d}: {p['w']}x{p['h']} px, {p['cw']}x{p['ch']} cells, "
               f"{p['ntiles']} tiles, {p['colours']} colours, "
               f"{p['raw']} -> {len(p['blob'])} bytes")
 
+    # Spread the picture files over as many picture disks as they need, parallel
+    # to nums. make.rb reads the manifest below to build one d81 per disk.
+    disk_of, disk_count = pack_disks(sizes, disk_blocks, disk_files)
+    with open(os.path.join(outdir, "picdisks.txt"), "w") as f:
+        for num, d in zip(nums, disk_of):
+            f.write(f"p{num:03d}.bin {d}\n")
+
     # A Rect is an invisible placeholder: no image, just a size in cells that
     # picture_data reports. Cells are ceil(pixels / 8), as for a real picture.
     rects = sorted((n, (w + 7) // 8, (h + 7) // 8) for n, w, h in rects)
 
+    def lo(v): return v & 0xff
+    def hi(v): return (v >> 8) & 0xff
+
     with open(os.path.join(outdir, "pictures.asm"), "w") as f:
         f.write("; Generated by tools/pics2asm.py - do not edit\n")
         f.write(f"; from {source}\n;\n")
-        f.write("; Only the index is assembled in. Each picture is a file on the\n")
-        f.write("; disk, preloaded into attic RAM at boot. Rect pictures carry no\n")
-        f.write("; image, only a size picture_data reports.\n\n")
-        f.write(f"picture_count = {len(nums)}\n\n")
-        f.write("pic_number\t!byte " + ",".join(str(n) for n in nums) + "\n")
+        f.write("; Only the index is assembled in. Each picture is a file on a\n")
+        f.write("; picture disk, preloaded into attic RAM at boot. Rect pictures\n")
+        f.write("; carry no image, only a size picture_data reports.\n\n")
+        f.write(f"picture_count = {len(nums)}\n")
+        # How many picture disks the interpreter must sweep at boot; >1 makes
+        # pic_load_all prompt for each in turn.
+        f.write(f"picture_disk_count = {disk_count}\n\n")
+        # Picture numbers run up to 999, so they are two byte-per-entry tables,
+        # like pic_page_lo/hi, rather than one word table.
+        f.write("pic_number_lo\t!byte " + ",".join(str(lo(n)) for n in nums) + "\n")
+        f.write("pic_number_hi\t!byte " + ",".join(str(hi(n)) for n in nums) + "\n")
+        # Which picture disk (1-based) each picture's file lives on.
+        f.write("pic_disk\t!byte " + ",".join(str(d) for d in disk_of) + "\n")
         f.write("pic_page_lo\t!fill picture_count, 0\n")
         f.write("pic_page_hi\t!fill picture_count, 0\n")
         # 1 where a picture is adaptive (Blorb APal): it is drawn in the last
@@ -245,12 +303,16 @@ def main():
         # Always define the arrays, even with no rects, so the interpreter's
         # rect lookup assembles; rect_count gates whether it is ever scanned.
         f.write(f"rect_count = {len(rects)}\n")
-        f.write("rect_number\t!byte " + ",".join(str(n) for n, _, _ in rects or [(0, 0, 0)]) + "\n")
-        f.write("rect_width\t!byte " + ",".join(str(w) for _, w, _ in rects or [(0, 0, 0)]) + "\n")
-        f.write("rect_height\t!byte " + ",".join(str(h) for _, _, h in rects or [(0, 0, 0)]) + "\n")
+        rr = rects or [(0, 0, 0)]
+        f.write("rect_number_lo\t!byte " + ",".join(str(lo(n)) for n, _, _ in rr) + "\n")
+        f.write("rect_number_hi\t!byte " + ",".join(str(hi(n)) for n, _, _ in rr) + "\n")
+        f.write("rect_width\t!byte " + ",".join(str(w) for _, w, _ in rr) + "\n")
+        f.write("rect_height\t!byte " + ",".join(str(h) for _, _, h in rr) + "\n")
 
+    disk_note = (f" over {disk_count} picture disks" if disk_count > 1
+                 else " on one picture disk")
     print(f"{len(nums)} pictures, {raw_total} bytes packed to {total} on disk "
-          f"({100*total/raw_total:.0f}%), {raw_total} bytes in attic RAM"
+          f"({100*total/raw_total:.0f}%){disk_note}, {raw_total} bytes in attic RAM"
           + (f"; {len(rects)} rect placeholders" if rects else ""))
 
 main()

@@ -1541,6 +1541,13 @@ def play(filename, storyname)
 	elsif $target == "mega65" then
 		if $executables.has_key?('MEGA65') then
 			command = "#{$executables['MEGA65']} -8 \"#{filename}\""
+			# Put the first picture disk in drive 9 so pic_load_all finds it
+			# there without asking for a swap. (xemu has two drives; a game with
+			# more than one picture disk still needs swapping for the rest.) The
+			# picture disks are the boot disk name with _pics_N before .d81.
+			if $picture_disks and not $picture_disks.empty?
+				command += " -9 \"#{filename.sub(/\.d81$/, '_pics_1.d81')}\""
+			end
 		else
 			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
 			exit 0
@@ -2241,12 +2248,9 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			last_sector = disk.add_file(tf, file_contents);
 		end
 
-		$picture_files.each do |file|
-			# p004.bin on disk is "p004": Ozmoo builds the name from the
-			# picture number and preloads the file into attic RAM at boot.
-			tf = File.basename(file, '.bin')
-			last_sector = disk.add_file(tf, IO.binread(file));
-		end
+		# Pictures no longer go on the boot disk; they get their own picture
+		# disk(s), built after this one (build_picture_disks). The boot disk
+		# holds only the interpreter, the story and the sound.
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
 		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
@@ -2320,11 +2324,35 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	end
 
 	$bootdiskname = "#{diskfilename}"
+	build_picture_disks(storyname)
 	puts "Successfully built game as #{$bootdiskname}"
 	nil # Signal success
 end
 
-def build_zip(storyname, diskimage_filename, config_data, vmem_data, 
+# Build one d81 per picture disk, each holding the picture files pics2asm.py
+# assigned to it (picdisks.txt). These are pure file disks: no boot file, no
+# config, no story - the interpreter opens the files by name on whichever disk
+# is inserted. add_story_data with no story blocks just flushes the directory.
+def build_picture_disks(storyname)
+	return unless $picture_disks and not $picture_disks.empty?
+	$picture_disks.keys.sort.each do |disknum|
+		diskfilename = "#{$target}_#{storyname}_pics_#{disknum}.d81"
+		imagefilename = File.join($TEMPDIR, "pics#{disknum}.d81")
+		disk = D81_image.new(disk_title: "pics #{disknum}", diskimage_filename: imagefilename)
+		disk.interleave_scheme = $i81 if $i81
+		$picture_disks[disknum].each do |file|
+			# p004.bin on disk is "p004": the interpreter builds the name from
+			# the picture number and preloads the file into attic RAM at boot.
+			disk.add_file(File.basename(file, '.bin'), IO.binread(file))
+		end
+		disk.add_story_data(max_story_blocks: 0, add_at_end: false) # flush directory
+		disk.save()
+		FileUtils.cp(imagefilename, diskfilename)
+		puts "Successfully built picture disk #{disknum} as #{diskfilename}"
+	end
+end
+
+def build_zip(storyname, diskimage_filename, config_data, vmem_data,
               vmem_contents, preload_max_vmem_blocks)
     # create folder if needed, and clear old contents, if any
     foldername = "#{$target}_#{storyname}"
@@ -2457,7 +2485,7 @@ await_picturedir = false
 preloadfile = nil
 $sound_path = nil
 $sound_files = []
-$picture_files = []
+$picture_disks = nil # set by -pics: {disk number => [picture file paths]}
 $font_filename = nil
 $font_address = nil
 $loader_pic_file = nil
@@ -3299,13 +3327,25 @@ if picture_dir
 		puts "ERROR: -pics: no such directory or blorb file: #{picture_dir}"
 		exit 1
 	end
+	# A picture disk is a plain d81 of picture files: 79 data tracks (track 40 is
+	# the directory) minus the reserved config track, kept comfortably clear of
+	# both the block and the directory-entry ceiling so add_file never overflows.
+	pic_disk_blocks = 3100
+	pic_disk_files = 290
 	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
-	              $TEMPDIR, picture_dir)
+	              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
 		puts "ERROR: -pics: tools/pics2asm.py failed."
 		exit 1
 	end
-	# One file per picture, preloaded into attic RAM at boot like the sounds.
-	$picture_files = Dir.glob(File.join($TEMPDIR, 'p[0-9][0-9][0-9].bin')).sort
+	# One file per picture, preloaded into attic RAM at boot like the sounds, but
+	# spread over one or more separate picture disks (the boot disk has room only
+	# for the interpreter, story and sound). picdisks.txt says which disk each is
+	# on; the interpreter's pic_load_all sweeps the disks in turn.
+	$picture_disks = Hash.new { |h, k| h[k] = [] }
+	File.foreach(File.join($TEMPDIR, 'picdisks.txt')) do |line|
+		name, disknum = line.split
+		$picture_disks[disknum.to_i] << File.join($TEMPDIR, name)
+	end
 	$GENERALFLAGS.push('Z6_PICTURES') unless $GENERALFLAGS.include?('Z6_PICTURES')
 end
 

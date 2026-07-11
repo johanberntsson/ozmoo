@@ -130,6 +130,11 @@ pic_direct_off  !byte 0
 pic_file_name !text "P000" ; make.rb upper-cases the names it puts on the disk
 PIC_FILE_NAME_LEN = 4
 
+; .pic_num (a 2-byte scratch defined with the number-printing helper below) is
+; reused here to turn a picture number into a filename and to search pic_number.
+.pic_dev       !byte 0		; device holding the picture disk being read
+.cur_disk      !byte 0		; which picture disk .pic_dev holds (0 = none yet)
+.err_digit     !byte 0		; first digit read back from a drive's error channel
 .pic_next_page !byte 0,0
 
 pic_load_all
@@ -137,30 +142,34 @@ pic_load_all
 	; effects, and for the same reason: the files are far too big to assemble
 	; into the interpreter. They are RLE compressed, and are expanded on the way
 	; in, so attic holds them ready to draw.
+	;
+	; The pictures are spread over one or more picture disks (pic_disk), packed
+	; to fill one d81 before the next. With two drives the second disk can sit
+	; in the second drive, so each disk is looked for there and in the boot
+	; drive before the player is ever asked to swap.
 	lda #<PIC_ATTIC_PAGE
 	sta .pic_next_page
 	lda #>PIC_ATTIC_PAGE
 	sta .pic_next_page + 1
 	lda #0
 	sta .pic_index
+	sta .cur_disk			; no picture disk located yet
 .pla_loop
 	ldy .pic_index
-	lda pic_number,y
+	lda pic_number_lo,y		; build this picture's filename from its number
+	sta .pic_num
+	lda pic_number_hi,y
+	sta .pic_num + 1
 	jsr .pic_set_filename
-	lda #PIC_FILE_NAME_LEN
-	ldx #<pic_file_name
-	ldy #>pic_file_name
-	jsr kernal_setnam
-	lda #2					; logical file 2
-	tay						; secondary 2: a SEQ file, opened for reading
-	ldx boot_device
-	jsr kernal_setlfs
-	jsr kernal_open
-	bcc +
-	lda #ERROR_FLOPPY_READ_ERROR
-	jsr fatalerror
-+	ldx #2
-	jsr kernal_chkin
+
+	ldy .pic_index
+	lda pic_disk,y			; still on the located disk, or find the next one?
+	cmp .cur_disk
+	beq +
+	sta .cur_disk
+	jsr .pic_locate_disk	; sets .pic_dev to the drive holding this disk
++
+	jsr .pic_open_current	; open the file on .pic_dev, ready to read
 
 	ldy .pic_index			; the picture starts on the next free page
 	lda .pic_next_page
@@ -195,6 +204,118 @@ pic_load_all
 	cmp #picture_count
 	bne .pla_loop
 	rts
+
+.pic_open_current
+	; Open pic_file_name as logical file 2 on .pic_dev for reading. The disk is
+	; known to hold it (.pic_locate_disk just checked), so a failure is fatal.
+	lda #PIC_FILE_NAME_LEN
+	ldx #<pic_file_name
+	ldy #>pic_file_name
+	jsr kernal_setnam
+	lda #2					; logical file 2
+	ldx .pic_dev
+	ldy #2					; secondary 2: a SEQ file, opened for reading
+	jsr kernal_setlfs
+	jsr kernal_open
+	bcs +
+	ldx #2
+	jmp kernal_chkin
++	lda #ERROR_FLOPPY_READ_ERROR
+	jmp fatalerror
+
+.pic_locate_disk
+	; Find the picture disk .cur_disk. Try the second drive, then the boot
+	; drive; if neither holds it, ask the player to insert it and try both
+	; again - the disk may have been put in either drive. pic_file_name already
+	; names one of this disk's files, and is the probe.
+.pld_try
+	lda boot_device
+	clc
+	adc #1					; the second drive (e.g. 9 when booting from 8)
+	sta .pic_dev
+	jsr .pic_probe
+	bcs .pld_found
+	lda boot_device
+	sta .pic_dev
+	jsr .pic_probe
+	bcs .pld_found
+	jsr .pic_prompt_swap
+	jmp .pld_try
+.pld_found
+	rts
+
+.pic_probe
+	; Is pic_file_name present on .pic_dev? A missing file OPENs "successfully"
+	; but leaves error 62 on the drive, and reading it hands back a stale buffer
+	; page rather than a clean EOF - so the status byte can't be trusted and the
+	; drive error channel must be read. Carry set = the file is really there.
+	lda #PIC_FILE_NAME_LEN
+	ldx #<pic_file_name
+	ldy #>pic_file_name
+	jsr kernal_setnam
+	lda #2
+	ldx .pic_dev
+	ldy #2
+	jsr kernal_setlfs
+	jsr kernal_open
+	bcs .probe_absent		; device not present, or open failed outright
+	jsr .pic_read_errchan	; .err_digit = first digit of the error code
+	lda #2
+	jsr kernal_close
+	jsr kernal_clrchn
+	lda .err_digit
+	cmp #'0'				; "00, OK" -> present; "62,FILE NOT FOUND" -> absent
+	bne +
+	sec
+	rts
++	clc
+	rts
+.probe_absent
+	lda #2
+	jsr kernal_close
+	jsr kernal_clrchn
+	clc
+	rts
+
+.pic_read_errchan
+	; Open the command channel on .pic_dev, read the error code's first digit
+	; into .err_digit, drain the rest of the line, close the channel.
+	lda #0
+	jsr kernal_setnam		; empty name
+	lda #15
+	ldx .pic_dev
+	ldy #15
+	jsr kernal_setlfs
+	jsr kernal_open
+	ldx #15
+	jsr kernal_chkin
+	jsr kernal_readchar
+	sta .err_digit
+-	jsr kernal_readst
+	bne +					; end of the error line
+	jsr kernal_readchar
+	jmp -
++	lda #15
+	jsr kernal_close
+	jmp kernal_clrchn
+
+.pic_prompt_swap
+	; Ask the player to insert picture disk .cur_disk, then wait for a key.
+	lda #>.swap_msg
+	ldx #<.swap_msg
+	jsr printstring_raw
+	lda .cur_disk
+	clc
+	adc #'0'				; a handful of picture disks at most
+	jsr s_printchar
+	lda #>.swap_msg2
+	ldx #<.swap_msg2
+	jsr printstring_raw
+-	jsr kernal_getchar
+	beq -
+	rts
+.swap_msg  !pet 13,"insert picture disk ",0
+.swap_msg2 !pet " and press a key ",0
 
 .rle_eof   !byte 0
 .rle_byte  !byte 0
@@ -261,15 +382,29 @@ pic_load_all
 	rts
 
 .pic_set_filename
-	; a = picture number. Write it into pic_file_name as three digits.
-	ldx #$2f					; '0' - 1
--	inx
+	; .pic_num = picture number (up to 999). Write it into pic_file_name as
+	; three digits. Numbers run past 255, so the hundreds are counted off a
+	; 16-bit value; this consumes .pic_num, which the caller reloads each time.
+	ldx #0						; hundreds
+-	lda .pic_num + 1
+	bne +						; >= 256, so certainly >= 100
+	lda .pic_num
+	cmp #100
+	bcc ++						; < 100, hundreds done
++	lda .pic_num				; .pic_num -= 100
 	sec
 	sbc #100
-	bcs -
-	adc #100
-	stx pic_file_name + 1
-	ldx #$2f
+	sta .pic_num
+	lda .pic_num + 1
+	sbc #0
+	sta .pic_num + 1
+	inx
+	bne -						; always (x stays < 10)
+++	txa
+	ora #$30
+	sta pic_file_name + 1
+	lda .pic_num				; now < 100, low byte only: tens then units
+	ldx #$2f					; '0' - 1
 -	inx
 	sec
 	sbc #10
@@ -284,19 +419,22 @@ pic_load_all
 .pic_find
 	; Find the picture whose number is in a,x (high, low). Returns its index in
 	; .pic_index with carry set, or carry clear if this build does not have it.
-	cmp #0
-	bne .pic_not_found		; no picture number we hold needs a high byte
+	; Numbers run to 999, so they are two byte-per-entry tables, compared both.
+	sta .pic_num + 1
+	stx .pic_num
 	ldy #0					; count up: a game may have more than 128 pictures,
--	txa						; and then a countdown's bpl would never be taken
-	cmp pic_number,y
-	beq +
-	iny
+-	lda pic_number_lo,y		; and then a countdown's bpl would never be taken
+	cmp .pic_num
+	bne +
+	lda pic_number_hi,y
+	cmp .pic_num + 1
+	beq ++
++	iny
 	cpy #picture_count
 	bne -
-.pic_not_found
 	clc
 	rts
-+	sty .pic_index
+++	sty .pic_index
 	sec
 	rts
 
@@ -870,20 +1008,21 @@ z_ins_picture_data
 
 !ifdef Z6_PICTURES {
 .rect_find
-	; Picture number in x (low byte); rects never need a high byte. Return its
-	; index in y with carry set, or carry clear if it is not a rect.
+	; Picture number in x (low byte) and z_operand_value_high_arr (high). Return
+	; its index in y with carry set, or carry clear if it is not a rect.
 !if rect_count > 0 {
-	lda z_operand_value_high_arr
-	bne +
 	ldy #0
 -	txa
-	cmp rect_number,y
+	cmp rect_number_lo,y
+	bne +
+	lda z_operand_value_high_arr
+	cmp rect_number_hi,y
 	beq ++
-	iny
++	iny
 	cpy #rect_count
 	bne -
 }
-+	clc
+	clc
 	rts
 !if rect_count > 0 {
 ++	sec

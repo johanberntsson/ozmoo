@@ -98,6 +98,35 @@ oversights:
   than borrowing the ECM approach.
 
 
+Picture store: multi-disk (done) and the 255-picture cap (open)
+--------------------------------------------------------------
+DONE: pictures no longer share the boot disk. pics2asm.py packs the numbered
+picture files across as many mega65_<game>_pics_N.d81 disks as they need (one
+d81 each, filled in turn; picdisks.txt records the assignment and pic_disk is
+the assembled-in table), make.rb's build_picture_disks builds them, and
+pic_load_all sweeps the disks at boot. For each disk it tries the second drive
+(boot_device + 1) then the boot drive, reading the drive error channel to tell
+a present file from a missing one (a missing file OPENs "successfully" and
+hands back a stale buffer page, so the status byte lies), and only asks for a
+swap if neither drive holds it. make.rb auto-mounts -9 with the first picture
+disk when it launches xemu, so a one-disk set (Arthur, 137 pictures, ~1950
+blocks) loads with no prompt. Verified headless: Arthur reaches its restore
+prompt from -8 boot / -9 pics with no swap. Picture numbers now run to 999
+(pic_number_lo/hi, rect_number_lo/hi, three-digit P### names).
+
+OPEN: the per-build picture *count* is still an 8-bit load/search index, so a
+build holds at most 255 distinct pictures (pics2asm.py errors above that) and
+make zork0 still runs without pictures - Zork Zero has 396, Journey more.
+Lifting it means a 16-bit sequential index over the five parallel pic_* tables
+(pic_number_lo/hi, pic_disk, pic_page_lo/hi, pic_adaptive), which the ,y
+addressing in pic_load_all and .pic_find caps at 256 entries today. Deferred
+because it can't be runtime-tested here until a >255-picture game is built with
+-pics, and shipping untested 16-bit indexing into the boot path isn't worth it
+before then. The swap-prompt path (more picture disks than drives) also still
+needs a real-hardware or manual check; only the no-swap two-drive path is
+verified headless.
+
+
 The plan for z6 on the MEGA65
 -----------------------------
 The C64 and the Plus/4 will never draw pictures, and keep the "pic:N" notes
