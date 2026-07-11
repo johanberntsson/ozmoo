@@ -1081,6 +1081,9 @@ z_ins_picture_data
 .pd_try_rect
 	; Not a real picture. A Rect placeholder has no image, only a size, which
 	; the game reads to lay real pictures out; Arthur's frame is built this way.
+	; .pic_find clobbered x, so reload the picture number before the rect search
+	; (as draw_picture's .dp_not_image does); .rect_find takes it in x.
+	ldx z_operand_value_low_arr
 	jsr .rect_find
 	bcc +
 	lda rect_width,y
