@@ -7,16 +7,19 @@
 ; 0, moved in software: the MEGA65 has no hardware that ties a sprite to the
 ; mouse, its KERNAL does it in an interrupt, and so do we — once per input poll.
 ;
-; The 1351/Amiga mouse on control port 1 is read straight from the MEGA65's own
+; The 1351/Amiga mouse on control port 2 is read straight from the MEGA65's own
 ; pot registers ($d620/$d621), which need no SID/CIA multiplexing, and its
-; button from the port 1 fire line. The pot is a 6-bit counter that wraps, so we
-; track the signed change between polls and accumulate a pixel position.
+; button from the port 2 fire line ($dc00 bit 4). Port 2 is the clean joystick
+; port; port 1's lines are shared with the keyboard matrix, so its fire bit
+; ($dc01 bit 4) reads keyboard row 4 too and can't tell a click from a keypress.
+; The pot is a 6-bit counter that wraps, so we track the signed change between
+; polls and accumulate a pixel position.
 
 !ifdef Z6_FCM_MODE {
 
-MOUSE_POTX      = $d620		; port 1 pot X / Y, MEGA65 direct-read registers
+MOUSE_POTX      = $d620		; port 2 pot X / Y, MEGA65 direct-read registers
 MOUSE_POTY      = $d621
-MOUSE_BUTTON    = $dc01		; port 1: bit 4 clear = left button down
+MOUSE_BUTTON    = $dc00		; port 2: bit 4 clear = left button down
 SPRITE_ENABLE   = $d015
 SPRITE0_X       = $d000
 SPRITE0_Y       = $d001

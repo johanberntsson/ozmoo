@@ -446,10 +446,13 @@ wants a mouse, calls mouse_enable, which shows the pointer and sets mouse_active
 a game that does not ask (like testz6) gets no pointer and its clicks are
 ignored.
 
-The pointer is the 1351 or Amiga mouse on control port 1. The MEGA65 exposes its
+The pointer is the 1351 or Amiga mouse on control port 2. The MEGA65 exposes its
 paddle lines directly at \$d620 and \$d621, with no SID or CIA multiplexing to
-arrange, and the button is the port 1 fire line, \$dc01 bit 4. The paddle value
-is a six bit counter that wraps, so mouse_poll cannot read an absolute position;
+arrange, and the button is the port 2 fire line, \$dc00 bit 4. Port 2 is the
+clean joystick port; port 1 shares its lines with the keyboard matrix, so its
+fire bit \$dc01 bit 4 reads keyboard row 4 as well and cannot tell a click from
+a SPACE. The paddle value is a six bit counter that wraps, so mouse_poll cannot
+read an absolute position;
 it remembers the previous reading, folds the difference into a signed step of
 -32 to 31, and accumulates a pixel position clamped to the 320x200 screen.
 
