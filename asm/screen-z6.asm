@@ -104,6 +104,12 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .pic_map     !byte 0,0,0	; where the cell map starts in attic RAM
 .pic_count   !byte 0,0		; a general 16 bit counter
 .pfc_lo      !byte 0		; a cell's tile index low byte while drawing
+.pfc_hi      !byte 0		; and high byte
+.pcf_under_lo !byte 0		; the screen code already in the cell (what's behind)
+.pcf_under_hi !byte 0
+.pcf_newcode_lo !byte 0		; the composited tile's screen code
+.pcf_newcode_hi !byte 0
+.pcf_buf     !fill 64, 0	; one tile being composited, a byte a pixel
 
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
@@ -822,28 +828,48 @@ pic_load_all
 	clc
 	adc .pic_y
 	cmp #SCREEN_HEIGHT		; this row past the bottom edge? the rest are too
-	bcs .pfc_done
-	lda .pic_x
+	bcc +
+	jmp .pfc_done
++	lda .pic_x
 	asl
 	sta .pic_col2
 .pfc_cell
 	jsr .pic_att_next		; index, low byte
 	sta .pfc_lo
 	jsr .pic_att_next		; index, high byte
+	sta .pfc_hi
 	cmp #$ff				; $ffff marks a fully transparent cell: leave what
 	beq .pfc_advance		; is under it, so a picture behind shows through
 	ldy .pic_col2
 	cpy #SCREEN_ROW_BYTES	; column past the right edge? drop the write, but
 	bcs .pfc_advance		; keep consuming the map so the next row stays aligned
-	pha						; the high byte, while we build the low one
+	lda (.pic_ptr),y		; what is already in this cell (the picture behind)?
+	sta .pcf_under_lo
+	iny
+	lda (.pic_ptr),y
+	sta .pcf_under_hi
+	bne .pfc_composite		; a non-zero high byte means a full colour tile is
+							; here: composite over it so our transparent pixels
+							; show it through, not the screen background
+	; nothing (or text) behind: draw our tile as is, its 0 pixels transparent
+	ldy .pic_col2
 	lda .pfc_lo
 	clc
 	adc .pic_slot
 	sta (.pic_ptr),y		; screen code low byte = index low + slot low
 	iny
-	pla
+	lda .pfc_hi
 	adc .pic_slot + 1
 	adc #FCM_TILE_CODE_HI	; screen code high; carry clear, never reaches $4000
+	sta (.pic_ptr),y
+	jmp .pfc_advance
+.pfc_composite
+	jsr .pcf_make_tile		; bake a fresh tile of us over what was behind
+	ldy .pic_col2
+	lda .pcf_newcode_lo
+	sta (.pic_ptr),y
+	iny
+	lda .pcf_newcode_hi
 	sta (.pic_ptr),y
 .pfc_advance
 	lda .pic_col2
@@ -852,8 +878,9 @@ pic_load_all
 	sta .pic_col2
 	jsr .pic_row_width
 	cmp .pic_col2
-	bne .pfc_cell
-	lda .pic_ptr
+	beq +
+	jmp .pfc_cell			; body is too long now for a direct branch back
++	lda .pic_ptr
 	clc
 	adc #SCREEN_ROW_BYTES
 	sta .pic_ptr
@@ -862,8 +889,95 @@ pic_load_all
 +	inc .pic_row
 	lda .pic_h
 	cmp .pic_row
-	bne .pfc_row
+	beq .pfc_done
+	jmp .pfc_row
 .pfc_done
+	rts
+
+.pcf_code_addr
+	; a,x = a cell's screen code (low, high). Set .pic_dst to the tile it points
+	; at in the store: the tile's address is its screen code times 64.
+	sta .pic_dst
+	stx .pic_dst + 1
+	lda #0
+	sta .pic_dst + 2
+	sta .pic_dst + 3
+	ldx #6
+-	asl .pic_dst
+	rol .pic_dst + 1
+	rol .pic_dst + 2
+	dex
+	bne -
+	rts
+
+.pcf_make_tile
+	; Composite our cell's tile (index .pfc_lo/.pfc_hi in our run) over the tile
+	; already in the cell (.pcf_under_lo/hi): our opaque pixels win, our
+	; transparent (0) pixels keep what was behind. A fresh tile is allocated for
+	; the result and its screen code returned in .pcf_newcode_lo/hi. This is what
+	; lets a small picture drawn over a scene show the scene through its
+	; transparent pixels, not the screen background.
+	lda .pfc_lo				; our source tile: (slot + index) is its screen code
+	clc
+	adc .pic_slot
+	pha
+	lda .pfc_hi
+	adc .pic_slot + 1
+	adc #FCM_TILE_CODE_HI
+	tax
+	pla
+	jsr .pcf_code_addr		; .pic_dst -> our tile in the store
+	ldy #0					; copy its 64 pixels into the work buffer
+	ldz #0
+-	lda [.pic_dst],z
+	sta .pcf_buf,y
+	inz
+	iny
+	cpy #64
+	bne -
+	lda .pcf_under_lo		; the tile that was behind us
+	ldx .pcf_under_hi
+	jsr .pcf_code_addr		; .pic_dst -> it in the store
+	ldy #0					; where we are transparent, take its pixel instead
+	ldz #0
+-	lda .pcf_buf,y
+	bne +
+	lda [.pic_dst],z
+	sta .pcf_buf,y
++	inz
+	iny
+	cpy #64
+	bne -
+	lda pic_next_tile		; allocate a fresh tile for the composite
+	sta .pcf_newcode_lo
+	lda pic_next_tile + 1
+	clc
+	adc #FCM_TILE_CODE_HI	; its screen code
+	sta .pcf_newcode_hi
+	inc pic_next_tile
+	bne +
+	inc pic_next_tile + 1
++	lda pic_next_tile + 1	; wrap at the end of the store, as .pic_alloc does
+	cmp #>PIC_MAX_TILES
+	bcc +
+	bne ++
+	lda pic_next_tile
+	cmp #<PIC_MAX_TILES
+	bcc +
+++	lda #0
+	sta pic_next_tile
+	sta pic_next_tile + 1
++	lda .pcf_newcode_lo		; write the buffer out to the fresh tile
+	ldx .pcf_newcode_hi
+	jsr .pcf_code_addr
+	ldy #0
+	ldz #0
+-	lda .pcf_buf,y
+	sta [.pic_dst],z
+	inz
+	iny
+	cpy #64
+	bne -
 	rts
 
 .pic_draw
