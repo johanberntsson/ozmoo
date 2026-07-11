@@ -78,24 +78,41 @@ def convert(path):
         sys.exit(f"{path}: not an indexed PNG")
     w, h = im.size
     pal = im.getpalette()
-    used = sorted({i for _, i in im.getcolors()})
+    # The PNG's transparent palette entries (from a tRNS chunk) become Ozmoo's
+    # transparent pixel value 0; a pixel of 0 shows whatever is on the screen
+    # already, which is how a frame with a hole lets the picture behind show.
+    trns = im.info.get("transparency")
+    if isinstance(trns, (bytes, bytearray)):
+        transparent = {i for i, a in enumerate(trns) if a == 0}
+    elif isinstance(trns, int):
+        transparent = {trns}
+    else:
+        transparent = set()
+    used = sorted({i for _, i in im.getcolors()} - transparent)
     if len(used) > 15:
         sys.exit(f"{path}: {len(used)} colours. A bank holds 16 and index 0 is "
                  f"transparent, so a picture may have 15.")
-    # index 0 is transparent, so the picture's colours start at 1
-    remap = {old: 1 + n for n, old in enumerate(used)}
+    # transparent indices map to 0, the picture's own colours to 1..15
+    remap = {t: 0 for t in transparent}
+    remap.update({old: 1 + n for n, old in enumerate(used)})
     colours = [tuple(pal[o*3:o*3+3]) for o in used]
 
     cw, ch = (w + 7) // 8, (h + 7) // 8
     if cw > 40 or ch > 25:
         sys.exit(f"{path}: {cw}x{ch} cells, larger than the 40x25 screen")
     px = im.load()
+    empty = bytes(64)             # a cell that is transparent through and through
     tiles, index_of, cellmap = bytearray(), {}, []
     for cy in range(ch):
         for cx in range(cw):
             cell = bytes(remap[px[cx*8+c, cy*8+r]]
                          if cx*8+c < w and cy*8+r < h else 0
                          for r in range(8) for c in range(8))
+            if cell == empty:
+                # nothing to draw: $ffff tells the interpreter to leave the cell
+                # alone, so a picture drawn over another shows through here
+                cellmap.append(0xffff)
+                continue
             if cell not in index_of:
                 index_of[cell] = len(index_of)
                 tiles += cell

@@ -102,6 +102,7 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .pic_col2    !byte 0
 .pic_map     !byte 0,0,0	; where the cell map starts in attic RAM
 .pic_count   !byte 0,0		; a general 16 bit counter
+.pfc_lo      !byte 0		; a cell's tile index low byte while drawing
 
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
@@ -110,6 +111,15 @@ pic_win_number !fill 8, $ff	; the picture index resident in each window's run,
 							; $ff = none. A window's run may only be reused for
 							; the same picture; a different one must not overwrite
 							; tiles the resident picture's still-visible cells use.
+; Each drawn picture gets its own palette bank of 16 entries, so pictures that
+; coexist in one window (Arthur keeps a frame and two side bars in window 7)
+; keep their own colours. Banks 1..PIC_PAL_BANKS sit above the 16 text colours;
+; a picture's tiles are baked to point into its bank, so the bank travels with
+; the tile run and is reused or freshly bumped alongside it. Bank 15 is left
+; out: its top colour would be pixel value 255, which FCM takes from colour RAM.
+PIC_PAL_BANKS = 14
+pic_next_bank  !byte 1
+pic_win_bank   !fill 8, 0
 
 ; ---------------------------------------------------------------------------
 pic_file_name !text "P000" ; make.rb upper-cases the names it puts on the disk
@@ -392,7 +402,8 @@ pic_load_all
 	sta .pic_slot
 	lda pic_win_base + 1,x
 	sta .pic_slot + 1
-	rts
+	lda pic_win_bank,y		; reuse the bank this picture's tiles are baked for
+	jmp .pa_set_bank
 .pa_fresh
 	lda pic_next_tile		; would it run off the end of the store?
 	clc
@@ -427,6 +438,30 @@ pic_load_all
 	ldy current_window		; remember which picture now owns this run
 	lda .pic_index
 	sta pic_win_number,y
+	; give it the next palette bank, wrapping after the last one, which can only
+	; spoil the colours of a picture that is no longer the newest on screen
+	ldx pic_next_bank
+	inc pic_next_bank
+	lda pic_next_bank
+	cmp #PIC_PAL_BANKS + 1
+	bcc +
+	lda #1
+	sta pic_next_bank
++	txa
+	sta pic_win_bank,y
+	; fall through to .pa_set_bank
+
+.pa_set_bank
+	; a = palette bank 1..PIC_PAL_BANKS. Its 16 entries start at 16 * bank, and a
+	; colour index of 1..15 in the tiles becomes that entry plus the index.
+	asl
+	asl
+	asl
+	asl
+	sta .pic_pixel_base
+	sec
+	sbc #16
+	sta .pic_pal_off
 	rts
 
 .pic_copy_tiles
@@ -561,25 +596,24 @@ pic_load_all
 	sta .pic_col2
 .pfc_cell
 	jsr .pic_att_next		; index, low byte
-	clc
-	adc .pic_slot
-	pha
+	sta .pfc_lo
 	jsr .pic_att_next		; index, high byte
-	adc .pic_slot + 1
-	adc #FCM_TILE_CODE_HI	; the tile store's base screen code
-	sta .pic_count			; carry is clear: a tile index never reaches $4000
+	cmp #$ff				; $ffff marks a fully transparent cell: leave what
+	beq .pfc_advance		; is under it, so a picture behind shows through
 	ldy .pic_col2
 	cpy #SCREEN_ROW_BYTES	; column past the right edge? drop the write, but
-	bcs .pfc_clipped		; keep consuming the map so the next row stays aligned
-	pla
-	sta (.pic_ptr),y
+	bcs .pfc_advance		; keep consuming the map so the next row stays aligned
+	pha						; the high byte, while we build the low one
+	lda .pfc_lo
+	clc
+	adc .pic_slot
+	sta (.pic_ptr),y		; screen code low byte = index low + slot low
 	iny
-	lda .pic_count
+	pla
+	adc .pic_slot + 1
+	adc #FCM_TILE_CODE_HI	; screen code high; carry clear, never reaches $4000
 	sta (.pic_ptr),y
-	jmp .pfc_next
-.pfc_clipped
-	pla						; discard the code we are not storing
-.pfc_next
+.pfc_advance
 	lda .pic_col2
 	clc
 	adc #2
@@ -604,16 +638,6 @@ pic_load_all
 	; Draw the picture in .pic_index with its top left cell at .pic_y, .pic_x.
 	; Only screen RAM is touched: a cell's colour bytes hold flags (zero) and
 	; the colour for pixel value 255, which no picture pixel ever is.
-	lda current_window		; a window holds one picture, and owns a palette
-	asl						; bank of 16 above the 16 text colours
-	asl
-	asl
-	asl
-	sta .pic_pal_off
-	clc
-	adc #16
-	sta .pic_pixel_base
-
 	jsr .pic_open
 	jsr .pic_att_next
 	sta .pic_w
@@ -624,8 +648,8 @@ pic_load_all
 	jsr .pic_att_next
 	sta .pic_ntiles + 1
 
-	jsr .pic_read_palette
-	jsr .pic_alloc
+	jsr .pic_alloc			; picks the tile run and the palette bank to bake for
+	jsr .pic_read_palette	; the picture's palette, into that bank
 
 	; .pic_att now points at the cell map. Remember it, then skip over it.
 	lda .pic_att
