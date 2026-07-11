@@ -1387,8 +1387,7 @@ z_ins_push_stack
 .user_stack_lo !byte 0
 
 z_ins_read_mouse
-	; read_mouse array
-	; Ozmoo has no mouse: report the top left corner, no buttons pressed
+	; read_mouse array: word 0 y, word 1 x, word 2 buttons, word 3 menu word
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_read_mouse ",0
@@ -1399,6 +1398,18 @@ z_ins_read_mouse
 	jsr set_z_address
 	lda #0
 	jsr write_next_byte
+!ifdef Z6_FCM_MODE {
+	lda mouse_cell_y
+	jsr write_next_byte ; y coordinate
+	lda #0
+	jsr write_next_byte
+	lda mouse_cell_x
+	jsr write_next_byte ; x coordinate
+	lda #0
+	jsr write_next_byte
+	lda mouse_button	; bit 0 = button one held
+	jsr write_next_byte ; buttons
+} else {
 	lda #1
 	jsr write_next_byte ; y coordinate
 	lda #0
@@ -1408,15 +1419,28 @@ z_ins_read_mouse
 	lda #0
 	jsr write_next_byte
 	jsr write_next_byte ; buttons
+}
+	lda #0
 	jsr write_next_byte
 	jmp write_next_byte ; menu word
- 
+
 z_ins_mouse_window
-	; mouse_window window
+	; mouse_window window: -1 (free) or a window number the mouse is confined to
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
 	!pet "z_ins_mouse_window ",0
 	jsr newline
+}
+!ifdef Z6_FCM_MODE {
+	lda z_operand_value_high_arr
+	cmp #$ff			; -1 means free
+	beq +
+	lda z_operand_value_low_arr
+	and #7
+	sta mouse_window
+	rts
++	lda #$ff
+	sta mouse_window
 }
 	rts
  

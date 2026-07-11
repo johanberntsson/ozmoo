@@ -21,45 +21,62 @@ undo_msg        !pet "(Turn undone)",13,13,">",0
 }
 }
 
-; only ENTER + cursor + F1-F8 possible on a C64
 num_terminating_characters !byte 1
-terminating_characters !byte $0d
-!ifdef Z5PLUS {	
-	!byte $81,$82,$83,$84,$85,$86,$87,$88,$89,$8a,$8b,$8c
+terminating_characters !byte $0d ; index 0: ENTER always terminates
+!ifdef Z5PLUS {
+	; The rest of the array is pre-filled with the function keys this
+	; interpreter can actually produce, so the "255 = any function key" table
+	; can activate them all just by setting the count. On the MEGA65's full
+	; colour screen that includes the mouse clicks 252-254.
+	!byte $81,$82,$83,$84,$85,$86,$87,$88,$89,$8a,$8b,$8c ; cursor, F1-F8
+!ifdef Z6_FCM_MODE {
+	!byte $fc,$fd,$fe ; menu / double / single mouse click
+NUM_DEFAULT_TERMINATORS = 16
+} else {
+NUM_DEFAULT_TERMINATORS = 13
+}
+	!fill 32 - NUM_DEFAULT_TERMINATORS, 0 ; room for a game's own explicit list
 
 parse_terminating_characters
-	; read terminating characters list ($2e)
-	; must be one of function keys 129-154, 252-254.
-	; 129-132: cursor u/d/l/r
-	; 133-144: F1-F12 (only F1-F8 on C64)
-	; 145-154: keypad 0-9 (not on C64 of course)
-	; 252 menu click (V6) (not C64)
-	; 253 double click (V6) (not C64)
-	; 254 single click (not C64)
-	; 255 means any function key
+	; Read the game's terminating characters table ($2e). Per z-spec 10.5.2.1 it
+	; is a zero-terminated list of function key codes (129-154, 252-254); 255
+	; means "any function key code terminates".
 	ldy #header_terminating_chars_table
 	jsr read_header_word
 	cpx #0
 	bne +
 	cmp #0
 	bne +
-	rts
+	rts ; no table: only ENTER terminates (num stays 1)
 +   jsr set_z_address
-	; read terminator
-	ldy #1
--   jsr read_next_byte
+	ldy #1 ; keep ENTER at index 0, append the game's codes after it
+.pt_loop
+	jsr read_next_byte
+	cmp #$00
+	beq .pt_done
 	cmp #$ff
-	bne +
-	; all function keys (already the default)
-	lda #$0d ; 13 keys in total (enter+cursor+F1-F8)
+	bne .pt_not_wildcard
+	; any function key: activate the whole pre-filled default set
+	lda #NUM_DEFAULT_TERMINATORS
 	sta num_terminating_characters
 	rts
-+   cmp #$8d ; F8=8c. Any higher values are not accepted in C64 mode
-	bpl +
+.pt_not_wildcard
+	; accept only genuine function key codes: 129-154, or 252-254
+	cmp #129
+	bcc .pt_loop
+	cmp #155
+	bcc .pt_store
+	cmp #252
+	bcc .pt_loop
+	cmp #255
+	bcs .pt_loop
+.pt_store
+	cpy #32
+	bcs .pt_loop ; array full: ignore any further codes
 	sta terminating_characters,y
-	iny 
-+   cmp #$00
-	bne -
+	iny
+	bne .pt_loop ; always (y < 32)
+.pt_done
 	sty num_terminating_characters
 	rts
 }
@@ -1071,6 +1088,18 @@ getchar_and_maybe_toggle_darkmode
 	jsr kernal_getchar
 	cmp #0
 	bne +
+!ifdef Z6_FCM_MODE {
+	; no key was waiting: move the pointer, and turn a click into input code 254
+	lda mouse_active
+	beq ++
+	jsr mouse_poll
+	beq ++
+	jsr mouse_write_header_coords
+	lda #254 ; single mouse click (z-spec 3.8.6.1)
+	ldx .getchar_save_x
+	rts
+++
+}
 	jmp .did_nothing
 +
 !ifndef NODARKMODE {

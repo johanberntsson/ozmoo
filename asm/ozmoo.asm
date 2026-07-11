@@ -1218,6 +1218,7 @@ statmem_reu_banks !byte 0
 !ifdef Z6 {
 !source "screenkernal-z6.asm"
 !source "screen-z6.asm"
+!source "mouse.asm"
 } else {
 !source "screenkernal.asm"
 !source "screen.asm"
@@ -1792,7 +1793,11 @@ z_init
 ; check_undo
 	ldy #header_flags_2 + 1
 	jsr read_header_word
+!ifdef Z6_FCM_MODE {
+	and #(255 - 8) ; no pictures bit, but the full colour screen has a mouse
+} else {
 	and #(255 - 8 - 32) ; pictures and mouse never available
+}
 !ifdef UNDO {
 	bit reu_bank_for_undo
 	bpl .undo_is_available
@@ -1824,6 +1829,15 @@ z_init
 	jsr write_header_byte
 }
 }
+}
+!ifdef Z6_FCM_MODE {
+	; if the game kept the mouse bit (Flags 2 bit 5) set, turn the mouse on
+	ldy #header_flags_2 + 1
+	jsr read_header_word
+	and #32
+	beq +
+	jsr mouse_enable
++
 }
 !ifdef Z4PLUS {
 	lda #TERPNO ; Interpreter number (8 = C64)
@@ -1936,6 +1950,9 @@ z_init
 }
 !ifdef Z6_PICTURES {
 	jsr pic_load_all ; preload the pictures into attic RAM, as sound.asm does
+}
+!ifdef Z6_FCM_MODE {
+	jsr mouse_init ; sprite 0 becomes the mouse pointer on the full colour screen
 }
 !ifdef TARGET_PLUS4 {
 	lda #0
