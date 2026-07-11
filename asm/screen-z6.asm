@@ -175,7 +175,12 @@ pic_load_all
 	sta .pic_index
 	sta .pic_index + 1
 	sta .cur_disk			; no picture disk located yet
-	lda #13					; start the loading bar on a fresh line
+	lda #13					; a label, then the loading bar on the next line
+	jsr s_printchar
+	lda #>.loading_msg
+	ldx #<.loading_msg
+	jsr printstring_raw
+	lda #13
 	jsr s_printchar
 	lda #1					; first picture prints the first slash
 	sta .pic_progress
@@ -369,6 +374,7 @@ pic_load_all
 	rts
 .swap_msg  !pet 13,"insert picture disk ",0
 .swap_msg2 !pet " and press a key ",0
+.loading_msg !pet "loading graphics",0
 
 .rle_eof   !byte 0
 .rle_byte  !byte 0
