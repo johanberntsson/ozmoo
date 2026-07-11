@@ -138,6 +138,12 @@ PIC_FILE_NAME_LEN = 4
 .cur_disk      !byte 0		; which picture disk .pic_dev holds (0 = none yet)
 .err_digit     !byte 0		; first digit read back from a drive's error channel
 .pic_next_page !byte 0,0
+.pic_progress  !byte 0		; countdown to the next slash in the loading bar
+
+; Loading the pictures takes a noticeable moment, so pic_load_all draws a slash
+; bar like the story preloader's. Scale it to the picture count so it is about
+; 30 slashes wide however many pictures there are, rather than one per picture.
+PIC_PROGRESS_STEP = picture_count / 32 + 1
 
 .pic_addr
 	; .pi_ptr = table base (a,x = lo,hi) + .pic_index, so a game with more than
@@ -169,8 +175,18 @@ pic_load_all
 	sta .pic_index
 	sta .pic_index + 1
 	sta .cur_disk			; no picture disk located yet
+	lda #13					; start the loading bar on a fresh line
+	jsr s_printchar
+	lda #1					; first picture prints the first slash
+	sta .pic_progress
 .pla_loop
-	lda #<pic_number_lo		; build this picture's filename from its number
+	dec .pic_progress		; a slash every PIC_PROGRESS_STEP pictures
+	bne +
+	lda #47					; "/"
+	jsr s_printchar
+	lda #PIC_PROGRESS_STEP
+	sta .pic_progress
++	lda #<pic_number_lo		; build this picture's filename from its number
 	ldx #>pic_number_lo
 	jsr .pic_addr
 	ldy #0
