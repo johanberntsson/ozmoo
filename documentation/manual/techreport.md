@@ -162,7 +162,7 @@ The extended memory is mapped into \$a000-\$bfff, so the memory is accessible in
 
 On the MEGA65, the boot file doesn't hold any story data. The entire Z-code file is held in a SEQ file called "zcode" and is loaded into Attic RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place, this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a MEGA65 game can be copied from one disk to another using a regular file copier.
 
-A version 6 game built with Z6_PICTURES also has one file per picture on the disk, named p001 to p255, which are decompressed into Attic RAM at boot. See "Version 6".
+A version 6 game built with Z6_PICTURES also has one file per picture, named p001 up to p999, decompressed into Attic RAM at boot. These live on their own picture disk(s), not the boot disk, spread over as many as they need. See "Version 6".
 
 ### MEGA65 Memory map
 | **Address range** | **KB** |  **Usage** |
@@ -335,6 +335,15 @@ The code that reaches every cell would otherwise have to change everywhere, so:
 Note that most text does not pass through s_printchar at all: it goes through
 print_line_from_buffer in screen-z6.asm, which writes the screen directly.
 
+Because s_printchar only ever writes two-byte FCM cells, there is no 80-column
+text mode to fall back to, so the splash screen renders in Full Colour Mode like
+everything else. Its lines are centred for 40 columns, so splashscreen.asm skips
+the +20 it adds on the 80-column MEGA65 to re-centre them, which on the 40-column
+screen would push them off the right edge and wrap into garbage. On quit,
+z_ins_quit clears CHR16 and FCLRHI again -- the C64 reset it then performs never
+touches \$d054 -- and turns the mouse sprite off, so the machine returns to a
+legible BASIC screen rather than a 16-bit-character full colour one.
+
 ## Pictures
 
 Pictures are drawn only on the MEGA65, and only with Z6_FCM_MODE. On the C64 and
@@ -343,15 +352,29 @@ to the screen so that it never reaches the transcript, erase_picture paints the
 note out, and picture_data reports that no picture exists.
 
 The pictures come from the game's blorb, converted by tools/pics2asm.py, which
-writes one p&lt;nnn&gt;.bin per PNG picture. make.rb's -pics switch takes a blorb
-file (or, for the test pictures, a directory of numbered PNGs), runs the script,
-puts the files on the d81 next to zcode, and sets Z6_PICTURES. Only an index is
-assembled into the interpreter — the picture numbers, the Rect placeholder sizes
-and the adaptive-palette flags, all described below — so a set of a hundred and
-forty pictures costs it almost nothing. At boot, pic_load_all reads each file and
-decompresses it into Attic RAM, in the same spirit as read_sound_files, though it
-opens and reads the files itself rather than calling m65_load_file_to_reu, because
-it has to decompress on the way.
+writes one p&lt;nnn&gt;.bin per PNG picture (numbered up to 999). make.rb's -pics
+switch takes a blorb file (or, for the test pictures, a directory of numbered
+PNGs), runs the script, and sets Z6_PICTURES. Only an index is assembled into the
+interpreter — the picture numbers, the Rect placeholder sizes, the adaptive-palette
+flags and, per picture, which disk it is on, all described below — so a set of a
+hundred and forty pictures costs it almost nothing.
+
+The pictures do not fit on the boot disk beside the story, the interpreter and the
+sound, so they get their own disk(s). Since a game may have more pictures than a
+d81's directory holds (Zork Zero has 396, numbered past 255), pics2asm.py packs
+the files across as many mega65_&lt;game&gt;_pics_N.d81 disks as they need, capped
+by both block count and directory size, and make.rb's build_picture_disks builds
+one d81 each. At boot, pic_load_all sweeps the disks in turn, decompressing each
+file into Attic RAM in the same spirit as read_sound_files (though it opens and
+reads the files itself, rather than calling m65_load_file_to_reu, because it has to
+decompress on the way), under a "loading graphics" label with a slash progress
+bar. For each disk it tries the second drive (boot_device + 1) then the boot
+drive, reading the drive error channel to tell a present file from a missing one —
+a missing file OPENs "successfully" but reads back a stale buffer page, so the
+status byte lies — and only asks for a swap if neither drive holds it. make.rb
+mounts the first picture disk in drive 9 when it launches xemu, so a one-disk set
+loads with no prompt. The picture count and the picture numbers are both 16-bit:
+.pic_index is a word and the parallel pic_* tables are indexed through .pic_addr.
 
 A blorb holds more than PNGs. Its Rect resources are placeholders with no image,
 only a width and height; a game reads those sizes with picture_data to lay real
@@ -456,7 +479,8 @@ read an absolute position;
 it remembers the previous reading, folds the difference into a signed step of
 -32 to 31, and accumulates a pixel position clamped to the 320x200 screen.
 
-The pointer is sprite 0. Its bitmap is a small arrow, and it is addressed through
+The pointer is sprite 0. Its bitmap is a small red arrow (red so it stays visible
+over the white status line), and it is addressed through
 the VIC-IV's 16-bit sprite pointer (\$d06c to \$d06e, with the SPRPTR16 bit set),
 because the sprite pointer list normally sits at the top of screen RAM, which on
 the full colour screen is picture and text data. There is no hardware that makes

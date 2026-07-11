@@ -68,11 +68,15 @@ Still to do for z6 (not crashes):
   reports zero pictures and release 0 for picture 0. picture_table is a
   caching hint with nothing to cache, and make_menu branches false: both are
   correct as they stand, not stubs.
-- read_mouse and mouse_window now work: the MEGA65 full colour screen has a
-  mouse (asm/mouse.asm), sprite 0 is the pointer, a click is input code 254 with
-  its position in the header extension table, and read_mouse reports the live
-  pointer. Port 1 is assumed; the physical button still wants testing on real
-  hardware. Text-only z6 has no pointer.
+- read_mouse and mouse_window work, and the click is confirmed: the MEGA65 full
+  colour screen has a mouse (asm/mouse.asm), sprite 0 is a red pointer, a click
+  is input code 254 with its position (in cells) in the header extension table,
+  and read_mouse reports the live pointer. The mouse is on control port 2: the
+  pots ($d620/$d621) and the button ($dc00 bit 4) are both there. Port 1's fire
+  bit is shared with keyboard row 4, so it can't tell a click from SPACE - that
+  was the bug that made clicks do nothing. Verified on xemu: Zork Zero's compass
+  rose responds. A real MEGA65 mouse in port 1 would need the port-1 registers.
+  Text-only z6 has no pointer.
 - scroll_window scrolls whole character cells, because the header tells the
   game a character is one unit wide and one high. It ignores the scroll delay
   and smooth scrolling that .s_scroll has to honour.
@@ -122,12 +126,12 @@ pictures (pics2asm.py's cap). .pic_index is a word, the parallel pic_* tables
 word per window so two pictures 256 apart no longer alias a window's tile run.
 make zork0-pics builds Zork Zero's 396 pictures (numbered to 504) over two
 picture disks. Verified headless: it loads all 290 pictures of disk 1 from
-drive 9 (indices past 255) and then correctly prompts for disk 2.
+drive 9 (indices past 255) and then correctly prompts for disk 2. Confirmed on
+xemu: Zork Zero loads from both picture disks and starts, and drawing the
+pictures works. (Headless testing can only reach the disk-2 prompt, since xemu
+can't swap a disk, so the second disk's load needed the real check.)
 
-OPEN, but only checkable on real hardware or with a manual disk swap: loading
-past the first picture disk (xemu can't swap, so only the disk-2 prompt is
-seen, not the load that would follow it) and the game actually drawing the
-pictures once loaded. Journey is the next size up to try (more pictures still).
+Journey is the next size up to try (more pictures still).
 
 
 The plan for z6 on the MEGA65
