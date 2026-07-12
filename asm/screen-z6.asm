@@ -1892,11 +1892,16 @@ init_screen_colours
 	sta .more_access1 + 2
 	sta .more_access2 + 2
 	sta .more_access4 + 2
+!ifndef Z6_FCM_MODE {
+	; (under FCM the [More] colour cell goes through zp_more_colour, which
+	; .set_more_prompt_pos sets before every use, so there is nothing to
+	; initialize here)
 	lda s_screen_size + 1
 	clc
 	adc #>COLOUR_ADDRESS
 !ifndef BENCHMARK {
 	sta .more_access3 + 2
+}
 }
 	lda s_screen_size
 	sec
@@ -1904,7 +1909,9 @@ init_screen_colours
 	sta .more_access1 + 1
 	sta .more_access2 + 1
 !ifndef BENCHMARK {
+!ifndef Z6_FCM_MODE {
 	sta .more_access3 + 1
+}
 }
 	sta .more_access4 + 1
 }
@@ -2477,6 +2484,13 @@ show_more_prompt
 	jsr vera_show_more
 }
 ++
+!ifdef Z6_FCM_MODE {
+	; the prompt cell's colour goes through the 32-bit pointer that
+	; .set_more_prompt_pos points at the current window's bottom-right cell
+	txa
+	ldz #0
+	sta [zp_more_colour],z
+} else {
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
@@ -2488,6 +2502,7 @@ show_more_prompt
 }
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
+}
 }
 .check_for_keypress
 	ldx #40
@@ -2577,6 +2592,17 @@ show_more_prompt
 	sta .more_access2 + 2
 	sta .more_access4 + 2
 !ifndef BENCHMARK {
+!ifdef Z6_FCM_MODE {
+	; zp_colourline holds the row's colour RAM offset, already biased to the
+	; colour byte, so adding the cell offset lands on the prompt's colour
+	lda zp_colourline
+	clc
+	adc .more_cell_offset
+	sta zp_more_colour
+	lda zp_colourline + 1
+	adc #0
+	sta zp_more_colour + 1
+} else {
 	lda zp_colourline
 	clc
 	adc .more_cell_offset
@@ -2584,6 +2610,7 @@ show_more_prompt
 	lda zp_colourline + 1
 	adc #0
 	sta .more_access3 + 2
+}
 }
 	; put the cursor back where the text is being printed
 	ldx .more_saved_row
@@ -2744,7 +2771,6 @@ print_line_from_buffer
 ++
 	
 } else ifdef Z6_FCM_MODE {
-		jsr colour2k
 		; y indexes the print buffer by column, but a screen cell is two
 		; bytes, so double it for the store and halve it again afterwards.
 		ldy first_buffered_column
@@ -2761,14 +2787,13 @@ print_line_from_buffer
 		sta (zp_screenline),y
 		+clear_cell_high_byte
 		lda s_colour
-		sta (zp_colourline),y ; the colour pointer is biased by one
+		+sta_colour_ram ; the colour pointer is biased by one
 		tya
 		lsr
 		tay
 		iny
 		bne - ; Always branch
 ++
-		jsr colour1k
 } else {
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k	

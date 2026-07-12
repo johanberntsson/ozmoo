@@ -10,6 +10,17 @@
 	sta (zp_screenline),y
 	dey
 }
+; Colour RAM is CPU-visible only 2 KB at a time through $d800, which the
+; 80-column screen's 4000 colour bytes outgrow. Under FCM zp_colourline is
+; therefore a 32-bit pointer into colour RAM at $ff80000 (see constants.asm)
+; and every colour access goes through it -- no colour2k/colour1k. The store
+; takes the colour in a and the byte index in y, like the old
+; sta (zp_colourline),y it replaces. Clobbers z.
+!macro sta_colour_ram {
+	phy
+	plz
+	sta [zp_colourline],z
+}
 } else {
 !macro clear_cell_high_byte {
 }
@@ -437,31 +448,47 @@ init_mega65
 	lda #^FCM_CHARSET
 	sta $d06a
 
+	; The colour RAM pointers' high words never change: colour RAM is at
+	; $ff80000, and the offsets in the low words stay under 16 bits.
+	lda #$f8
+	sta zp_colourline + 2
+	sta zp_colour_src + 2
+	sta zp_colour_dst + 2
+	sta zp_more_colour + 2
+	lda #$0f
+	sta zp_colourline + 3
+	sta zp_colour_src + 3
+	sta zp_colour_dst + 3
+	sta zp_more_colour + 3
+
 	; Every cell is two bytes. Ozmoo only ever writes the character (the even
 	; byte of a screen cell) and the colour (the odd byte of a colour cell), so
-	; the other two must start at zero and stay there.
-	jsr colour2k
-	ldx #0
-	txa
--	sta SCREEN_ADDRESS,x
-	sta SCREEN_ADDRESS + $100,x
-	sta SCREEN_ADDRESS + $200,x
-	sta SCREEN_ADDRESS + $300,x
-	sta SCREEN_ADDRESS + $400,x
-	sta SCREEN_ADDRESS + $500,x
-	sta SCREEN_ADDRESS + $600,x
-	sta SCREEN_ADDRESS + $700,x
-	sta COLOUR_ADDRESS,x
-	sta COLOUR_ADDRESS + $100,x
-	sta COLOUR_ADDRESS + $200,x
-	sta COLOUR_ADDRESS + $300,x
-	sta COLOUR_ADDRESS + $400,x
-	sta COLOUR_ADDRESS + $500,x
-	sta COLOUR_ADDRESS + $600,x
-	sta COLOUR_ADDRESS + $700,x
-	inx
+	; the other two must start at zero and stay there. The colour RAM is
+	; cleared through the 32-bit pointer; the screen through a plain one.
+	lda #0
+	sta zp_screenline
+	sta zp_colourline
+	sta zp_colourline + 1
+	lda #>SCREEN_ADDRESS
+	sta zp_screenline + 1
+	ldx #(SCREEN_ROW_BYTES * SCREEN_HEIGHT + $ff) >> 8 ; whole pages
+	ldy #0
+	ldz #0
+	tya
+-	sta (zp_screenline),y
+	sta [zp_colourline],z
+	iny
+	inz
 	bne -
-	jsr colour1k
+	inc zp_screenline + 1
+	inc zp_colourline + 1
+	dex
+	bne -
+	; leave the low word pointing at row 0 again, bias included
+	lda #1
+	sta zp_colourline
+	lda #0
+	sta zp_colourline + 1
 }
 	rts
 	
@@ -492,6 +519,14 @@ s_screen_width_plus_one !byte 0
 s_screen_width_minus_one !byte 0
 s_screen_height_minus_one !byte 0
 s_screen_size !byte 0, 0
+
+!ifdef Z6_FCM_MODE {
+; The other targets borrow the tail of screen RAM for the disk directory and
+; hide it by drawing it in the background colour. An FCM cell's high byte
+; would make the borrowed cells show tiles, so the buffer is real memory here
+; (constants.asm points directory_buffer at it).
+fcm_directory_buffer !fill 140
+}
 !ifdef TARGET_X16 {
 s_x16_screen_mode	!byte 0
 }
@@ -689,7 +724,9 @@ s_set_text_colour
 
 s_delete_cursor
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour2k
+}
 }
 !ifdef Z6_FCM_MODE {
 	lda zp_screencolumn ; a cell is two bytes wide
@@ -720,9 +757,13 @@ s_delete_cursor
 } else {
 	lda s_colour
 }
+!ifdef Z6_FCM_MODE {
+	+sta_colour_ram
+} else {
 	sta (zp_colourline),y
 !ifdef TARGET_MEGA65 {
 	jsr colour1k
+}
 }
 	rts
 }
@@ -816,6 +857,10 @@ s_printchar
 } else {
 	sta (zp_screenline),y
 	+clear_cell_high_byte
+!ifdef Z6_FCM_MODE {
+	lda s_colour
+	+sta_colour_ram
+} else {
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -824,6 +869,7 @@ s_printchar
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
+}
 }
 	jmp .printchar_end
 +   cmp #$93 
@@ -895,6 +941,10 @@ s_printchar
 } else {
 	sta (zp_screenline),y
 	+clear_cell_high_byte
+!ifdef Z6_FCM_MODE {
+	lda s_colour
+	+sta_colour_ram
+} else {
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -908,6 +958,7 @@ s_printchar
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
+}
 }
 	; y is a byte offset under FCM, so step the column itself and reload
 	inc zp_screencolumn
@@ -1070,6 +1121,23 @@ s_erase_window
 	;
 	; add screen offsets
 	;
+!ifdef Z6_FCM_MODE {
+	; The row's offset is the same in screen RAM (from SCREEN_ADDRESS) and in
+	; colour RAM (from $ff80000, where the 32-bit zp_colourline points).
+	; The colour of a cell is its odd byte, the character its even one:
+	; biasing the colour pointer by one lets both be written with the same
+	; index. A row offset's low byte is a multiple of 32, so it never carries.
+	lda $d778
+	sta zp_screenline
+	sta zp_colourline
+	inc zp_colourline
+	lda $d779
+	and #$0f ; row offsets run to $0f00 on the 80-column screen
+	sta zp_colourline+1
+	clc
+	adc #>SCREEN_ADDRESS
+	sta zp_screenline+1
+} else {
 	lda $d778
 	sta zp_screenline
 	sta zp_colourline
@@ -1081,11 +1149,6 @@ s_erase_window
 	clc
 	adc #>COLOUR_ADDRESS_DIFF ; add colour start ($d800 for C64)
 	sta zp_colourline+1
-!ifdef Z6_FCM_MODE {
-	; The colour of a cell is its odd byte, the character its even one. Biasing
-	; the colour pointer by one lets both be written with the same index.
-	; A row starts at a multiple of 80, so the low byte never carries.
-	inc zp_colourline
 }
 } else {
 	; calculate zp_screenline = zp_current_screenpos_row * s_screen_width
@@ -1222,10 +1285,17 @@ s_scrolled_lines !byte 0
 	lda zp_screenline + 1
 	sta .scroll_load_screen + 2
 !ifdef COLOURFUL_LOWER_WIN {
+!ifdef Z6_FCM_MODE {
+	lda zp_colourline
+	sta zp_colour_src
+	lda zp_colourline + 1
+	sta zp_colour_src + 1
+} else {
 	lda zp_colourline
 	sta .scroll_load_colour + 1
 	lda zp_colourline + 1
 	sta .scroll_load_colour + 2
+}
 }
 	dec zp_screenrow
 	jsr .update_screenpos
@@ -1234,10 +1304,17 @@ s_scrolled_lines !byte 0
 	lda zp_screenline + 1
 	sta .scroll_store_screen + 2
 !ifdef COLOURFUL_LOWER_WIN {
+!ifdef Z6_FCM_MODE {
+	lda zp_colourline
+	sta zp_colour_dst
+	lda zp_colourline + 1
+	sta zp_colour_dst + 1
+} else {
 	lda zp_colourline
 	sta .scroll_store_colour + 1
 	lda zp_colourline + 1
 	sta .scroll_store_colour + 2
+}
 }
 !ifdef SMOOTHSCROLL {
 	lda smoothscrolling
@@ -1288,7 +1365,9 @@ s_scrolled_lines !byte 0
 .done_delaying
 }
 !ifdef TARGET_MEGA65 {
-	jsr colour2k	
+!ifndef Z6_FCM_MODE {
+	jsr colour2k
+}
 }
 
 	; number of lines to move up = .win_bottom - .win_top
@@ -1313,10 +1392,17 @@ s_scrolled_lines !byte 0
 .scroll_store_screen
 	sta $8000,y ; This address is modified above
 !ifdef COLOURFUL_LOWER_WIN {
+!ifdef Z6_FCM_MODE {
+	phy
+	plz
+	lda [zp_colour_src],z
+	sta [zp_colour_dst],z
+} else {
 .scroll_load_colour
 	lda $8000,y ; This address is modified above
 .scroll_store_colour
 	sta $8000,y ; This address is modified above
+}
 }
 	iny
 !ifdef Z6_FCM_MODE {
@@ -1328,13 +1414,43 @@ s_scrolled_lines !byte 0
 	clc ; the compare above leaves carry set
 	dex
 	beq .done_scrolling
+!ifdef Z6_FCM_MODE {
+	; Step all four row pointers. The screen ones are self-modified absolute
+	; addresses; the colour ones are the 32-bit zero page pointers, whose
+	; low bytes differ from the screen ones by the +1 bias, so each is
+	; stepped on its own. Carry is clear here and after every + below.
+	lda .scroll_store_screen + 1
+	adc #SCREEN_ROW_BYTES ; a row is 40 cells of two bytes
+	sta .scroll_store_screen + 1
+	bcc +
+	clc
+	inc .scroll_store_screen + 2
++
+	lda zp_colour_dst
+	adc #SCREEN_ROW_BYTES
+	sta zp_colour_dst
+	bcc +
+	clc
+	inc zp_colour_dst + 1
++
+	lda .scroll_load_screen + 1
+	adc #SCREEN_ROW_BYTES
+	sta .scroll_load_screen + 1
+	bcc +
+	clc
+	inc .scroll_load_screen + 2
++
+	lda zp_colour_src
+	adc #SCREEN_ROW_BYTES
+	sta zp_colour_src
+	bcc -
+	clc
+	inc zp_colour_src + 1
+	bne - ; Always branch
+} else {
 	lda .scroll_store_screen + 1
 ;	clc
-!ifdef Z6_FCM_MODE {
-	adc #SCREEN_ROW_BYTES ; a row is 40 cells of two bytes
-} else {
 	adc s_screen_width
-}
 	sta .scroll_store_screen + 1
 !ifdef COLOURFUL_LOWER_WIN {
 	sta .scroll_store_colour + 1
@@ -1345,22 +1461,9 @@ s_scrolled_lines !byte 0
 !ifdef COLOURFUL_LOWER_WIN {
 	inc .scroll_store_colour + 2
 }
-+		
-; !ifdef COLOURFUL_LOWER_WIN {
-	; lda .scroll_store_colour + 1
-	; adc s_screen_width
-	; sta .scroll_store_colour + 1
-	; bcc +
-	; clc
-	; inc .scroll_store_colour + 2
-; +	
-; }
++
 	lda .scroll_load_screen + 1
-!ifdef Z6_FCM_MODE {
-	adc #SCREEN_ROW_BYTES ; a row is 40 cells of two bytes
-} else {
 	adc s_screen_width
-}
 	sta .scroll_load_screen + 1
 !ifdef COLOURFUL_LOWER_WIN {
 	sta .scroll_load_colour + 1
@@ -1371,16 +1474,8 @@ s_scrolled_lines !byte 0
 !ifdef COLOURFUL_LOWER_WIN {
 	inc .scroll_load_colour + 2
 }
-
-; !ifdef COLOURFUL_LOWER_WIN {
-	; lda .scroll_load_colour + 1
-	; adc s_screen_width
-	; sta .scroll_load_colour + 1
-	; bcc -
-	; clc
-	; inc .scroll_load_colour + 2
-; }	
 	bne - ; Always branch
+}
 
 .done_scrolling
 ;	cli
@@ -1388,7 +1483,9 @@ s_scrolled_lines !byte 0
 ;	inc reg_backgroundcolour
 
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour1k
+}
 }
 !ifdef SMOOTHSCROLL {
 	+done_smoothscroll
@@ -1547,10 +1644,17 @@ s_scroll_window
 	lda zp_screenline + 1
 	sta .sw_load_screen + 2
 !ifdef COLOURFUL_LOWER_WIN {
+!ifdef Z6_FCM_MODE {
+	lda zp_colourline
+	sta zp_colour_src
+	lda zp_colourline + 1
+	sta zp_colour_src + 1
+} else {
 	lda zp_colourline
 	sta .sw_load_colour + 1
 	lda zp_colourline + 1
 	sta .sw_load_colour + 2
+}
 }
 	lda .sw_dst
 	jsr .sw_point_at_row
@@ -1559,13 +1663,22 @@ s_scroll_window
 	lda zp_screenline + 1
 	sta .sw_store_screen + 2
 !ifdef COLOURFUL_LOWER_WIN {
+!ifdef Z6_FCM_MODE {
+	lda zp_colourline
+	sta zp_colour_dst
+	lda zp_colourline + 1
+	sta zp_colour_dst + 1
+} else {
 	lda zp_colourline
 	sta .sw_store_colour + 1
 	lda zp_colourline + 1
 	sta .sw_store_colour + 2
 }
+}
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour2k
+}
 }
 !ifdef Z6_FCM_MODE {
 	; two bytes per cell, so copy the window's columns byte by byte. The colour
@@ -1583,10 +1696,17 @@ s_scroll_window
 .sw_store_screen
 	sta $8000,y
 !ifdef COLOURFUL_LOWER_WIN {
+!ifdef Z6_FCM_MODE {
+	phy
+	plz
+	lda [zp_colour_src],z
+	sta [zp_colour_dst],z
+} else {
 .sw_load_colour
 	lda $8000,y
 .sw_store_colour
 	sta $8000,y
+}
 }
 	iny
 !ifdef Z6_FCM_MODE {
@@ -1596,7 +1716,9 @@ s_scroll_window
 }
 	bcc -
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour1k
+}
 }
 	rts
 
@@ -1738,7 +1860,9 @@ s_erase_line
 
 ; set colour
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour2k
+}
 }
 !ifdef TARGET_X16 {
 	jsr .convert_screenline_y_to_vera_address
@@ -1775,7 +1899,11 @@ s_erase_line
 	ora .vera_background
     sta VERA_data0
 } else {
+!ifdef Z6_FCM_MODE {
+	+sta_colour_ram
+} else {
 	sta (zp_colourline),y
+}
 }
 	iny
 !ifdef Z6_FCM_MODE {
@@ -1783,9 +1911,11 @@ s_erase_line
 }
 	bne -
 }
-.done_erasing	
+.done_erasing
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour1k
+}
 }
 
  	rts
@@ -1865,12 +1995,16 @@ update_cursor
     lda plus4_vic_colours,x
     ldx object_temp + 1
 }
+!ifdef Z6_FCM_MODE {
+    +sta_colour_ram
+} else {
 !ifdef TARGET_MEGA65 {
     jsr colour2k
 }
     sta (zp_colourline),y
 !ifdef TARGET_MEGA65 {
     jsr colour1k
+}
 }
 }
 
@@ -2012,7 +2146,9 @@ toggle_darkmode
 }
 	sta .new_fg ; New foreground colour, transformed for target platform
 !ifdef TARGET_MEGA65 {
+!ifndef Z6_FCM_MODE {
 	jsr colour2k
+}
 }
 ; Set cursor colour
 	ldy cursorcol,x
@@ -2136,6 +2272,46 @@ toggle_darkmode
 } else {
 	bne --
 }
+} else ifdef Z6_FCM_MODE {
+	; A colour cell is two bytes and only the odd one holds a colour -- the
+	; even one is VIC-IV attributes and must stay zero -- so sweep the rows
+	; through the 32-bit pointer two bytes at a time. This file is only built
+	; for z6, so the Z5PLUS comparison logic below is always the one used.
+	; zp_colourline is borrowed as the sweep pointer; the forced
+	; recalculation at the end puts it back.
+	lda #0
+	sta zp_colourline
+	sta zp_colourline + 1
+	ldx #SCREEN_HEIGHT
+.tdm_row
+	ldz #1 ; the colour byte of the row's first cell
+.tdm_cell
+	lda [zp_colourline],z
+	and #$0f
+	cmp .old_input
+	beq .tdm_change
+	cmp .new_bg ; New background colour
+	bne .tdm_dont_change
+.tdm_change
+	lda .new_fg
+	sta [zp_colourline],z
+.tdm_dont_change
+	inz
+	inz
+	cpz #SCREEN_ROW_BYTES + 1
+	bcc .tdm_cell
+	; on to the next row
+	lda zp_colourline
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta zp_colourline
+	bcc +
+	inc zp_colourline + 1
++	dex
+	bne .tdm_row
+	; zp_colourline no longer matches the cached cursor row
+	lda #$ff
+	sta s_current_screenpos_row
 } else {
 	;; Work out how many pages of colour RAM to examine
 	ldx s_screen_size + 1

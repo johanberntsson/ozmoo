@@ -902,6 +902,10 @@ list_save_files
 +
 
 !ifndef TARGET_X16 {
+!ifndef Z6_FCM_MODE {
+	; hide the directory lines: the buffer is the tail of screen RAM, drawn
+	; in the background colour. Under FCM the buffer is ordinary memory
+	; (see constants.asm), so there is nothing to hide.
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -914,6 +918,7 @@ list_save_files
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
+}
 }
 
 

@@ -147,7 +147,15 @@ num_rows 			  = $a6 ; !byte 0
 keyboard_buff_len     = $c6
 keyboard_buff         = $277
 key_repeat            = $028a
+!ifdef Z6_FCM_MODE {
+; The screen-RAM trick below cannot work under FCM: the buffer's cells would
+; need their high bytes zeroed (or they select tiles), and the colour-RAM
+; hiding cannot hide that. A real buffer lives in the program instead
+; (fcm_directory_buffer in screenkernal-z6.asm).
+directory_buffer      = fcm_directory_buffer
+} else {
 directory_buffer      = SCREEN_ADDRESS + $700 ; 140 bytes, must be near end of screen RAM
+}
 m65_x16_checksum_quad = $255
 
 use_reu				  = $9b
@@ -288,7 +296,25 @@ zp_cursorswitch       = $cc
 zp_screenline         = $d1 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $d3 ; 1 byte current cursor column
 zp_screenrow          = $d6 ; 1 byte current cursor row
+!ifdef Z6_FCM_MODE {
+; Under Z6_FCM_MODE zp_colourline is 4 bytes: a 32-bit pointer to the row in
+; colour RAM at $ff80000, because the 80-column screen's 4000 colour bytes
+; outgrow the 2 KB window at $d800. The low word is the row's offset plus the
+; usual +1 bias; the high word is always $0ff8. It cannot stay at $f3: the
+; kernal's keyboard scan writes its decode-table pointer into $f5/$f6 on
+; every IRQ, which would clobber the high word. $d9-$f2 is the kernal screen
+; editor's line-link table, which Ozmoo's own screen code replaces, so that
+; region is free and interrupt-safe (zp_screenline at $d1 always lived there).
+zp_colourline         = $e5 ; 4 bytes (see above)
+; 32-bit scratch pointers (high words also fixed at $0ff8, set in init_mega65)
+; into colour RAM, for the two routines that copy colour rows and for the
+; [More] prompt's colour cell, which used to be self-modified 16-bit stores.
+zp_colour_src         = $d9 ; 4 bytes: colour row being read while scrolling
+zp_colour_dst         = $dd ; 4 bytes: colour row being written while scrolling
+zp_more_colour        = $e1 ; 4 bytes: the current window's [More] colour cell
+} else {
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
+}
 cursor_row			  = $f7 ; 2 bytes
 cursor_column		  = $f9 ; 2 bytes
 
