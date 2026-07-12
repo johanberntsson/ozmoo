@@ -3332,7 +3332,11 @@ if picture_dir
 	# both the block and the directory-entry ceiling so add_file never overflows.
 	pic_disk_blocks = 3100
 	pic_disk_files = 290
+	# The interpreter's FCM screen is still 40 columns; ask for the matching
+	# one-tile-per-cell picture format (80 becomes the default with the
+	# 80-column screen work).
 	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
+	              '--fcm-width', '40',
 	              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
 		puts "ERROR: -pics: tools/pics2asm.py failed."
 		exit 1
