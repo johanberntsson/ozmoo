@@ -577,3 +577,14 @@ Alternate versions / extensions which have been done
 * BBC Micro version
 
 
+
+Seen while bringing the full colour screen to 80 columns (both widths, so
+neither is a regression of that work):
+- Arthur's status line prints "St Anne's Day, Compline" directly after
+  "Churchyard" instead of right-aligning it; sfrotz right-aligns. The game
+  computes the same wrong column on the 40- and the 80-column screen, so it
+  is fed the same wrong number by one of our query opcodes -- likely a
+  layout width around 34. Find which query.
+- The known intermittent dropped-text bug showed once at 80 columns: a
+  paragraph lost the tail of one line ("Noblemen from far an[d ...]") in the
+  intro; a later run of the same passage was clean.

@@ -14,11 +14,14 @@ Writes, into <outdir>:
                     given than fit one d81, they are spread over several.
 
 With --fcm-width 80 (the default) the pictures are for the 80-column H640 full
-colour screen: each logical 8x8-pixel cell of the source becomes two
-horizontally pixel-doubled tiles and two cell-map entries, left half then
-right, so a picture keeps its 320-wide visual size next to 8-pixel-wide text.
---fcm-width 40 emits the old one-tile-per-cell format for the 40-column
-screen. --stats measures and prints but writes nothing.
+colour screen: each logical 8x8-pixel cell of the source becomes two tiles
+(its left half, then its right) and two cell-map entries, and the interpreter
+pixel-doubles each tile as it bakes it into the store, so a picture keeps its
+320-wide visual size next to 8-pixel-wide text. Such a tile is 16 bytes on
+disk: 4 source pixels a row, two to a byte -- the doubling costs nothing on
+disk or in attic RAM. --fcm-width 40 emits the old one-tile-per-cell format
+(32-byte tiles) for the 40-column screen. --stats measures and prints but
+writes nothing.
 
 The file is RLE compressed, PackBits style, and decompressed into attic RAM as
 it is read. Uncompressed it is:
@@ -31,7 +34,9 @@ it is read. Uncompressed it is:
             one and is never shown.
     52..    the cell map: two bytes a cell, row major, a little endian index
             into the tiles below
-    then    the tiles: 32 bytes each, two pixels a byte, high nybble first
+    then    the tiles: two pixels a byte, high nybble first; 32 bytes each on
+            the 40-column screen (8x8 pixels), 16 bytes each on the 80-column
+            screen (4x8 source pixels, doubled to 8x8 when baked)
 
 A tile is 8x8 pixels and holds a colour index of 0..15, where 0 is transparent.
 draw_picture expands each nybble to a byte as it copies the tiles into the store,
@@ -124,17 +129,21 @@ def convert(path, double=False):
                          for r in range(8) for c in range(8))
             if cell != empty:
                 logical.add(cell)
-            # On the 80-column screen a logical cell becomes two pixel-doubled
-            # tiles, left half then right; on the 40-column screen it is
-            # itself the tile.
+            # On the 80-column screen a logical cell becomes two tiles, its
+            # left half then its right. They are stored undoubled -- 4 source
+            # pixels a row -- and the interpreter doubles each pixel as it
+            # bakes them, so the doubling costs nothing on disk. On the
+            # 40-column screen the cell is itself the tile.
             if double:
-                halves = [bytes(cell[r*8 + half*4 + (c >> 1)]
-                                for r in range(8) for c in range(8))
+                halves = [bytes(cell[r*8 + half*4 + c]
+                                for r in range(8) for c in range(4))
                           for half in (0, 1)]
+                empty_tile = empty[:32]
             else:
                 halves = [cell]
+                empty_tile = empty
             for t in halves:
-                if t == empty:
+                if t == empty_tile:
                     # nothing to draw: $ffff tells the interpreter to leave the
                     # cell alone, so a picture drawn over another shows through
                     cellmap.append(0xffff)

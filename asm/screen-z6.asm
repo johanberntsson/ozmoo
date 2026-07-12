@@ -101,6 +101,8 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .pic_pixel_base !byte 0		; 16 + .pic_pal_off: what a colour index of 1 becomes
 .pic_row     !byte 0
 .pic_col2    !byte 0
+.pic_col2_hi !byte 0		; ninth bit of the doubled column: set = past the edge
+.pic_cols_left !byte 0		; cells left on the row being filled or erased
 .pic_map     !byte 0,0,0	; where the cell map starts in attic RAM
 .pic_count   !byte 0,0		; a general 16 bit counter
 .pfc_lo      !byte 0		; a cell's tile index low byte while drawing
@@ -726,13 +728,19 @@ pic_load_all
 	sta .pic_dst + 2
 	lda #0
 	sta .pic_dst + 3
-	; source bytes = ntiles * 32, which cannot overflow: one picture covers at
-	; most the 1000 cells of the screen, so it has at most 1000 tiles
+	; source bytes = ntiles * 32 on the 40-column screen, ntiles * 16 on the
+	; 80-column one, where a tile on disk is 4 source pixels a row and each
+	; pixel is written twice as it is baked, doubling it. Neither product can
+	; overflow: the store itself holds at most 2048 tiles.
 	lda .pic_ntiles
 	sta .pic_count
 	lda .pic_ntiles + 1
 	sta .pic_count + 1
+!ifdef Z6_FCM_40 {
 	ldx #5
+} else {
+	ldx #4
+}
 -	asl .pic_count
 	rol .pic_count + 1
 	dex
@@ -744,10 +752,10 @@ pic_load_all
 	lsr
 	lsr
 	lsr
-	jsr .pic_put_pixel
+	jsr .pic_emit_pixel
 	pla
 	and #$0f
-	jsr .pic_put_pixel
+	jsr .pic_emit_pixel
 	lda .pic_count
 	bne +
 	dec .pic_count + 1
@@ -756,6 +764,18 @@ pic_load_all
 	ora .pic_count + 1
 	bne .pct_loop
 	rts
+
+.pic_emit_pixel
+	; a = a colour index of 0..15, written once on the 40-column screen and
+	; twice -- a doubled pixel -- on the 80-column one
+!ifdef Z6_FCM_40 {
+	jmp .pic_put_pixel
+} else {
+	pha
+	jsr .pic_put_pixel
+	pla
+	jmp .pic_put_pixel
+}
 
 .pic_put_pixel
 	; a = a colour index of 0..15. Store it in the tile store, in this window's
@@ -795,13 +815,31 @@ pic_load_all
 	sta .pic_ptr + 1
 	rts
 
-.pic_row_width
-	; a = the byte offset just past the picture's last cell on a screen row
+.pic_start_row
+	; Start a row of .pic_fill_cells or .pic_erase: count down the picture's
+	; cells with .pic_cols_left, and set the doubled column .pic_col2. The
+	; column needs nine bits: on the 80-column screen 2*(x + w) can pass 256,
+	; and an eight-bit column that wrapped would look on-screen again and
+	; scribble over the wrong cells. .pic_col2_hi holds the ninth bit.
 	lda .pic_w
+	sta .pic_cols_left
+	lda .pic_x
 	asl
+	sta .pic_col2
+	lda #0
+	rol
+	sta .pic_col2_hi
+	rts
+
+.pic_step_cell
+	; step .pic_col2 one cell to the right; z set when the row is done
+	lda .pic_col2
 	clc
-	adc .pic_x
-	adc .pic_x
+	adc #2
+	sta .pic_col2
+	bcc +
+	inc .pic_col2_hi
++	dec .pic_cols_left
 	rts
 
 .pic_fill_cells
@@ -830,9 +868,7 @@ pic_load_all
 	cmp #SCREEN_HEIGHT		; this row past the bottom edge? the rest are too
 	bcc +
 	jmp .pfc_done
-+	lda .pic_x
-	asl
-	sta .pic_col2
++	jsr .pic_start_row
 .pfc_cell
 	jsr .pic_att_next		; index, low byte
 	sta .pfc_lo
@@ -840,9 +876,11 @@ pic_load_all
 	sta .pfc_hi
 	cmp #$ff				; $ffff marks a fully transparent cell: leave what
 	beq .pfc_advance		; is under it, so a picture behind shows through
+	lda .pic_col2_hi		; column past the right edge? drop the write, but
+	bne .pfc_advance		; keep consuming the map so the next row stays aligned
 	ldy .pic_col2
-	cpy #SCREEN_ROW_BYTES	; column past the right edge? drop the write, but
-	bcs .pfc_advance		; keep consuming the map so the next row stays aligned
+	cpy #SCREEN_ROW_BYTES
+	bcs .pfc_advance
 	lda (.pic_ptr),y		; what is already in this cell (the picture behind)?
 	sta .pcf_under_lo
 	iny
@@ -872,12 +910,7 @@ pic_load_all
 	lda .pcf_newcode_hi
 	sta (.pic_ptr),y
 .pfc_advance
-	lda .pic_col2
-	clc
-	adc #2
-	sta .pic_col2
-	jsr .pic_row_width
-	cmp .pic_col2
+	jsr .pic_step_cell
 	beq +
 	jmp .pfc_cell			; body is too long now for a direct branch back
 +	lda .pic_ptr
@@ -1069,10 +1102,10 @@ pic_load_all
 	adc .pic_y
 	cmp #SCREEN_HEIGHT
 	bcs .pic_erase_done
-	lda .pic_x
-	asl
-	sta .pic_col2
+	jsr .pic_start_row
 .pic_erase_cell
+	lda .pic_col2_hi
+	bne .pic_erase_next
 	ldy .pic_col2
 	cpy #SCREEN_ROW_BYTES
 	bcs .pic_erase_next
@@ -1082,12 +1115,7 @@ pic_load_all
 	lda #0					; and so its high byte must go back to zero
 	sta (.pic_ptr),y
 .pic_erase_next
-	lda .pic_col2
-	clc
-	adc #2
-	sta .pic_col2
-	jsr .pic_row_width
-	cmp .pic_col2
+	jsr .pic_step_cell
 	bne .pic_erase_cell
 	lda .pic_ptr
 	clc
