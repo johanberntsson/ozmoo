@@ -10,9 +10,11 @@ ecm:
 	inform -v6 testz6.inf
 	ruby make.rb -s -ecm testz6.z6
 
-# testz6 on the MEGA65: the 80-column text screen, and the 320x200 full colour
-# screen that -fcm selects. The FCM one should match `make z6` line for line,
-# since both are 40 columns.
+# testz6 on the MEGA65: the 80-column text screen, and the full colour screen
+# that -fcm selects. -fcm is 80 columns on a 640x200 (H640) canvas; it should
+# match `dfrotz -h 25 -w 80` line for line. -fcm:40 keeps the old 320x200,
+# 40-column full colour screen, which should match `make z6` line for line,
+# since both are 40 columns - that is the C64-vs-MEGA65 regression check.
 z6-mega65:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:mega65 testz6.z6
@@ -20,6 +22,10 @@ z6-mega65:
 z6-fcm:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:mega65 -fcm testz6.z6
+
+z6-fcm40:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:mega65 -fcm:40 testz6.z6
 
 # The same, drawing the test pictures in tools/testpics rather than "pic:N"
 # notes. Those pictures are ours; tools/gen_testpics.py regenerates them.

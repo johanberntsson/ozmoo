@@ -85,9 +85,17 @@ story_start_far_ram = 0 ; NOTE: This is in Attic RAM
 basic_reset           = $a000 ; the mega65 version is always run in C64 mode
 SCREEN_HEIGHT         = 25
 !ifdef Z6_FCM_MODE {
-; Full Colour Mode: 320x200, and a cell is two bytes in both screen and colour
-; RAM, so a row is the same 80 bytes as the 80 column text screen it replaces.
+; Full Colour Mode: a cell is two bytes in both screen and colour RAM. The
+; normal screen is 80x25 on a 640x200 (H640) canvas -- text glyphs stay 8
+; pixels wide, pictures are drawn as two pixel-doubled tiles per logical
+; cell so they keep their 320-wide scale. -fcm:40 (Z6_FCM_40) keeps the old
+; 320x200, 40x25 screen, whose rows are the same 80 bytes as the 80-column
+; text screen's.
+!ifdef Z6_FCM_40 {
 SCREEN_WIDTH          = 40
+} else {
+SCREEN_WIDTH          = 80
+}
 CELL_BYTES            = 2
 ; The C64 font sits at $2d000 in the MEGA65 ROM, uppercase/graphics first and
 ; lowercase/uppercase second, as on the C64. Ozmoo prints mixed case, so it

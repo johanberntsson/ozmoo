@@ -2403,7 +2403,7 @@ def print_usage
 	puts "         [-statuscol:<colourname>] [-inputcol:<colourname>] [-cursorcol:<colourname>]"
 	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
 	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
-	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]] [-fcm[:0|1]]"
+	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]] [-fcm[:0|1|40|80]]"
 	puts "         [-cb:[n]] [-cs:[b|u|l]]"
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
@@ -2443,7 +2443,8 @@ def print_usage
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -ecm: Use Extended Color Mode, giving each z6 window its own background"
-	puts "  -fcm: MEGA65 only. Use Full Colour Mode: a 320x200, 40x25 z6 screen"
+	puts "  -fcm: MEGA65 only. Use Full Colour Mode: an 80x25 z6 screen (640x200) with"
+	puts "        graphics kept at 320-wide scale. -fcm:40 gives the old 40x25 screen."
 	puts "  -pics: draw the numbered PNGs in the given directory. Needs -fcm."
 	puts "        colour (C64, z6 only). Only the first 64 characters of the charset"
 	puts "        can be used, so text is lowercase only and reverse video is lost."
@@ -2535,6 +2536,7 @@ dark_mode = nil
 smooth_scroll = nil
 ecm_mode = nil
 fcm_mode = nil
+fcm_width = 80
 picture_dir = nil
 scrollback = nil
 reu_boost = nil
@@ -2754,11 +2756,17 @@ begin
 			else
 				ecm_mode = $1.to_i
 			end
-		elsif arg =~ /^-fcm(?::([01]))?$/ then
-			if $1 == nil
+		elsif arg =~ /^-fcm(?::(0|1|40|80))?$/ then
+			# -fcm / -fcm:1 / -fcm:80 = the 80-column H640 full colour screen;
+			# -fcm:40 = the legacy 40-column one (pictures at one tile a cell)
+			case $1
+			when nil, '1'
 				fcm_mode = 1
+			when '0'
+				fcm_mode = 0
 			else
-				fcm_mode = $1.to_i
+				fcm_mode = 1
+				fcm_width = $1.to_i
 			end
 		elsif arg =~ /^-pics$/ then
 			await_picturedir = true
@@ -3315,7 +3323,18 @@ if fcm_mode == 1
 		puts "ERROR: Full Colour Mode is only supported for version 6 games."
 		exit 1
 	end
+	if $font_filename
+		# init_mega65 pins CHARPTR to the ROM font under FCM, so a custom font
+		# could never show; refuse it rather than pretend.
+		puts "ERROR: -fcm always uses the ROM font; a custom font cannot be combined with it."
+		exit 1
+	end
 	$GENERALFLAGS.push('Z6_FCM_MODE') unless $GENERALFLAGS.include?('Z6_FCM_MODE')
+	if fcm_width == 40
+		$GENERALFLAGS.push('Z6_FCM_40') unless $GENERALFLAGS.include?('Z6_FCM_40')
+		# keep the 40-column build's disks apart from the 80-column ones
+		storyname += '_fcm40'
+	end
 end
 
 if picture_dir
@@ -3332,11 +3351,10 @@ if picture_dir
 	# both the block and the directory-entry ceiling so add_file never overflows.
 	pic_disk_blocks = 3100
 	pic_disk_files = 290
-	# The interpreter's FCM screen is still 40 columns; ask for the matching
-	# one-tile-per-cell picture format (80 becomes the default with the
-	# 80-column screen work).
+	# The pictures must match the screen: two pixel-doubled tiles a cell on
+	# the 80-column screen, one tile a cell on the legacy 40-column one.
 	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
-	              '--fcm-width', '40',
+	              '--fcm-width', fcm_width.to_s,
 	              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
 		puts "ERROR: -pics: tools/pics2asm.py failed."
 		exit 1

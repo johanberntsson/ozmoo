@@ -57,10 +57,11 @@ splash_line_y
 +
 }
 !ifdef TARGET_MEGA65 {
-!ifndef Z6_FCM_MODE {
-	; The splash lines are centred for 40 columns; the 80-column MEGA65 screen
-	; needs +20 to re-centre them, but the 40-column full colour screen does not
-	; - there +20 would push them off the right edge and wrap into garbage.
+!ifndef Z6_FCM_40 {
+	; The splash lines are centred for 40 columns; an 80-column MEGA65 screen
+	; (the text screen or the H640 full colour screen) needs +20 to re-centre
+	; them. The 40-column full colour screen must not get the +20 - there it
+	; would push them off the right edge and wrap into garbage.
 	clc
 	adc #20
 }

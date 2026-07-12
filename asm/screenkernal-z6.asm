@@ -396,12 +396,21 @@ init_mega65
 	lda #65
 	sta 0
 !ifdef Z6_FCM_MODE {
+!ifdef Z6_FCM_40 {
 	; 320x200: H640 off, V400 off, and ATTR (bit 5) off, which is what selects
 	; 8 bit colour. Bit 6 (fast CPU) stays on.
 	lda #$40
 	sta $d031
 	lda #$c8
 	sta $D016
+} else {
+	; 640x200: H640 on (bit 7) so 80 8-pixel text cells fit a row, V400 off,
+	; ATTR (bit 5) off. Bit 6 (fast CPU) stays on.
+	lda #$c0
+	sta $d031
+	lda #$c8 + 1 ; as on the 80-column text screen: +1 loses one pixel on the left
+	sta $D016
+}
 } else {
 	; set 80-column mode
 	lda #$c0
