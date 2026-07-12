@@ -588,3 +588,29 @@ neither is a regression of that work):
 - The known intermittent dropped-text bug showed once at 80 columns: a
   paragraph lost the tail of one line ("Noblemen from far an[d ...]") in the
   intro; a later run of the same passage was clean.
+
+80-column stage F findings (Zork Zero / Shogun / Journey with -pics):
+- Shogun's title art renders correctly at 80 columns (~1500 tiles live);
+  its set fits one picture disk. Arthur's first room matches sfrotz.
+- Zork Zero and Journey need two picture disks; pic_load_all reaches the
+  "insert picture disk 2" prompt headlessly, and going further still needs
+  real hardware or a windowed xemu (no way to swap disks headlessly).
+- Zork Zero is playable text-only at 80 columns: status line, wrapping and
+  the pic:N drop-cap notes all land right.
+- Journey boots and lays out its command menu at 80 columns, but the menu
+  dividers render as garbage characters (apostrophes, digits). set_font
+  already refuses font 3, so the suspect is the interpreter number: we
+  claim C64 (TERPNO 8), and Journey then prints the glyph codes of the
+  Infocom C64 interpreter's custom charset. Tried -in:4 (Amiga): the layout
+  changes (more divider rows) but the glyphs stay garbage, so the divider
+  codes are Infocom character graphics on every interpreter and need real
+  rendering -- on the full colour screen a small set of box-drawing tiles
+  would do it. The intro lines also truncate around column 71, which may
+  share the too-small-width root cause with the squished headers below.
+- The "squished header" family: Journey prints "The PartyIndividual
+  Commands" the way Arthur squishes "ChurchyardSt Anne's Day, Compline".
+  Same signature at 40 and 80 columns, so one of our query opcodes feeds
+  every game the same too-small width. Find it once, fix them all.
+- The intermittent dropped-text bug reproduces at 80 columns (Arthur intro
+  once, Zork Zero's banquet paragraph once). Unchanged priority: it is the
+  main text-correctness bug on the full colour screen.
