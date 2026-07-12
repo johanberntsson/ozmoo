@@ -185,7 +185,8 @@ Bank 1, \$10000-\$1ffff, is untouched in an ordinary build: nothing in Ozmoo
 addresses it, and the C64 mode kernal leaves it alone. A version 6 build in Full
 Colour Mode uses it as the tile store, which holds 1024 tiles of 64 bytes.
 
-That is enough for a full 40x25 screen in which no two cells are alike, but not
+That is enough for a full 40x25 screen in which no two cells are alike (the
+80-column screen's 2000 cells would already outgrow it), but not
 for a game that keeps several pictures on the screen at once. Arthur draws its
 interface as pictures — a border, a scene and a status panel are all live
 together, over a thousand tiles — so a build with Z6_PICTURES moves the store to
@@ -198,12 +199,17 @@ it is only ever reached by DMA and so can live anywhere. Banks 2 and 3,
 \$20000-\$3ffff, are the ROM and can never be used for any of this: the C64 font
 the Full Colour Mode text is drawn with is read from \$2d800.
 
-A single picture still has at most 1024 unique tiles, since it covers at most the
-1000 cells of the screen.
+A single picture still has at most 2000 unique tiles, since it covers at most the
+1000 logical cells of the screen, each of which is two tiles on the 80-column
+screen.
 
-In Full Colour Mode a cell is two bytes in both screen RAM and colour RAM, so the
-40x25 screen uses the same 2000 bytes as the 80x25 text screen, and the map above
-does not change.
+In Full Colour Mode a cell is two bytes in both screen RAM and colour RAM. On the
+80-column full colour screen that is 4000 bytes each: the screen grows to
+\$0800-\$179f, ending just under the program at \$1800, and the colour bytes
+outgrow the 2 KB window at \$d800 altogether — which is why all colour access
+under Z6_FCM_MODE goes through 32-bit pointers to colour RAM's real home at
+\$ff80000 instead of colour2k/colour1k. The legacy 40-column screen (-fcm:40)
+uses the same 2000 bytes as the 80x25 text screen.
 
 Note that the scrollback buffer's screen RAM and the current sound effect both
 begin at \$40000. Opening the scrollback while a sound is playing therefore
@@ -297,13 +303,20 @@ available. ECM is C64 only; make.rb rejects it on other targets.
 ## Full Colour Mode on the MEGA65
 
 The MEGA65 does not need the ECM compromise. Z6_FCM_MODE, selected with -fcm,
-puts the VIC-IV into Full Colour Mode with 16-bit character codes: a 320x200
-screen of 40x25 cells, which is the resolution the Amiga versions of the version 6
-games were drawn for.
+puts the VIC-IV into Full Colour Mode with 16-bit character codes on an 80x25
+screen over a 640x200 (H640) canvas. The version 6 games assume 80 columns —
+Zork Zero's layout breaks and Journey is simply unplayable at 40 — while their
+art is drawn to a 320-wide scale, so the text uses the ROM font's ordinary
+8-pixel glyphs and the pictures are pixel-doubled as they are baked (see
+Pictures), keeping their intended size. -fcm:40 (Z6_FCM_40) still builds the
+old 320x200, 40x25 screen; it renders text identically to the C64, which makes
+it the line-for-line regression companion, and its disks carry an _fcm40 suffix
+so the widths never share artifacts.
 
 The registers are set up in init_mega65, with the hot registers turned off so the
-values stick. The important ones are \$d031, where H640 and V400 are cleared and,
-less obviously, ATTR must also be cleared, because that is what selects 8-bit
+values stick. The important ones are \$d031, where H640 is set (cleared under
+-fcm:40), V400 is cleared and, less obviously, ATTR must also be cleared, because
+that is what selects 8-bit
 colour; and \$d054, where CHR16 and FCLRHI are set while FCLRLO is left clear.
 FCLRLO clear is the whole trick: screen codes below 256 are still ordinary 8-byte
 glyphs fetched from CHARPTR, so all the text renders as before, while codes from
@@ -315,8 +328,17 @@ Pointing it at \$2d000 instead renders lowercase as capitals and capitals as
 graphics, which is invisible in an all-lowercase test game and obvious the moment
 a real one prints a sentence.
 
-A cell is two bytes in both screen RAM and colour RAM, so a row of 40 cells is the
-same 80 bytes as the 80 column text screen it replaces, and neither buffer grows.
+A cell is two bytes in both screen RAM and colour RAM, so a row of 80 cells is
+160 bytes and the two buffers are 4000 bytes each. The screen still fits below
+the program (\$0800-\$179f), but the colour bytes no longer fit the CPU's 2 KB
+window at \$d800, so under Z6_FCM_MODE every colour access goes through a 32-bit
+pointer into colour RAM at \$ff80000 (sta [zp],z) instead of the old
+colour2k/colour1k banking. zp_colourline is four bytes for it, at \$e5 — not at
+its old \$f3, because the kernal's keyboard scan rewrites \$f5/\$f6 with its
+decode-table pointer on every IRQ and would clobber the pointer's high word;
+\$d9-\$f2 is the kernal screen editor's line-link table, which Ozmoo's own screen
+code replaces, so that region is interrupt-safe and also houses the two scroll
+scratch pointers and the [More] cell's pointer.
 Ozmoo writes the character into the even byte of a screen cell and the colour into
 the odd byte of a colour cell. The other two bytes, the screen cell's high byte and
 the colour cell's flags, must be zero and stay zero: init_mega65 clears them once.
@@ -326,8 +348,8 @@ The code that reaches every cell would otherwise have to change everywhere, so:
 - zp_screencolumn still holds a column, and only the sites that index the screen
   double it. That leaves the window edges, the margins and every comparison alone.
 - zp_colourline is biased by one, so the same doubled index writes both the
-  character and the colour. A row starts at a multiple of 80, so the bias never
-  carries.
+  character and the colour. A row offset's low byte is a multiple of 32, so the
+  bias never carries.
 - Every place that writes a character also writes zero to the cell's high byte,
   with the clear_cell_high_byte macro. Without it, a character printed over a
   picture would leave the cell pointing at a tile.
@@ -335,11 +357,11 @@ The code that reaches every cell would otherwise have to change everywhere, so:
 Note that most text does not pass through s_printchar at all: it goes through
 print_line_from_buffer in screen-z6.asm, which writes the screen directly.
 
-Because s_printchar only ever writes two-byte FCM cells, there is no 80-column
+Because s_printchar only ever writes two-byte FCM cells, there is no separate
 text mode to fall back to, so the splash screen renders in Full Colour Mode like
-everything else. Its lines are centred for 40 columns, so splashscreen.asm skips
-the +20 it adds on the 80-column MEGA65 to re-centre them, which on the 40-column
-screen would push them off the right edge and wrap into garbage. On quit,
+everything else. Its lines are centred for 40 columns and get the same +20
+re-centring as the 80-column text build; only -fcm:40 skips it, where +20 would
+push them off the right edge and wrap into garbage. On quit,
 z_ins_quit clears CHR16 and FCLRHI again -- the C64 reset it then performs never
 touches \$d054 -- and turns the mouse sprite off, so the machine returns to a
 legible BASIC screen rather than a 16-bit-character full colour one.
@@ -392,8 +414,14 @@ byte repeated 257 minus token times. Decoding needs no lookahead.
 
 Two things about the pixels:
 
-- A tile is 8x8 pixels and a pixel is four bits, so two pixels share a byte on
-  disk and in Attic RAM. In the tile store a pixel is a whole byte. Storing four
+- A pixel is four bits, so two pixels share a byte on disk and in Attic RAM,
+  while in the tile store a pixel is a whole byte. On the 80-column screen each
+  logical 8x8 cell of the source becomes two screen cells — its left half and
+  its right — and the halves are stored undoubled: a tile on disk is then 4
+  source pixels a row, 16 bytes, and .pic_copy_tiles writes every pixel twice as
+  it bakes the 64-byte store tile, doubling the picture to its 320-wide visual
+  scale for free. (Under -fcm:40 a tile is the whole 8x8 cell, 32 bytes, written
+  once.) Deduplication happens on the stored tiles either way. Storing four
   bits a pixel halves the picture set before it is compressed, and Arthur's does
   not otherwise fit on a d81.
 - A colour index of 0 is transparent, and 255 is taken from colour RAM, so
@@ -425,8 +453,10 @@ picture_data is what makes a picture land in the right place. It reports a
 picture's height and width, which the game halves against the window's size to
 centre it. The standard calls those two words pixels, but a pixel here is whatever
 unit the rest of the screen model counts in, and Ozmoo counts characters: the
-header advertises a 40x25 screen and get_wind_prop answers 1x1 for the font size,
-so the size must come back in cells.
+header advertises an 80x25 screen (40x25 under -fcm:40) and get_wind_prop answers
+1x1 for the font size, so the size must come back in cells. On the 80-column
+screen the blob header and the Rect tables already carry the doubled widths, so
+the game lays everything out in the 80-wide grid without any conversion.
 
 Each drawn picture gets its own run of the tile store and its own palette bank,
 allocated together and reused together. The bank is `16 * bank`, bank running
@@ -447,7 +477,10 @@ only spoil a picture that is no longer the newest on screen. The store holds 204
 tiles in a Z6_PICTURES build, which is what Arthur's interface needs: it keeps a
 border, a scene and a status panel on the screen together, and they came to 1063
 tiles the first time all three were live. With the old store of 1024 the allocator
-wrapped and the border's tiles landed on the scene's.
+wrapped and the border's tiles landed on the scene's. On the 80-column screen the
+same live set measures 1894 tiles — splitting every logical cell in two does not
+double the unique count, because the halves deduplicate — and pics2asm.py's
+--stats switch prints the per-picture numbers without writing anything.
 
 Some pictures do not carry their own colours. The blorb's APal chunk lists the
 "adaptive" pictures — Arthur's frame and side bars — which are drawn in the
@@ -466,8 +499,8 @@ asm/mouse.asm, guarded by Z6_FCM_MODE; text-only version 6 has no pointer. A
 game asks for a mouse by setting bit 5 of Flags 2, and the interpreter leaves
 that bit set only where it can honour it. z_init reads the bit and, if the game
 wants a mouse, calls mouse_enable, which shows the pointer and sets mouse_active;
-a game that does not ask (like testz6) gets no pointer and its clicks are
-ignored.
+a game that does not ask gets no pointer and its clicks are ignored. (Arthur,
+Zork Zero and testz6 — whose read_mouse test asks — all get one.)
 
 The pointer is the 1351 or Amiga mouse on control port 2. The MEGA65 exposes its
 paddle lines directly at \$d620 and \$d621, with no SID or CIA multiplexing to
@@ -477,7 +510,10 @@ fire bit \$dc01 bit 4 reads keyboard row 4 as well and cannot tell a click from
 a SPACE. The paddle value is a six bit counter that wraps, so mouse_poll cannot
 read an absolute position;
 it remembers the previous reading, folds the difference into a signed step of
--32 to 31, and accumulates a pixel position clamped to the 320x200 screen.
+-32 to 31, and accumulates a pixel position clamped to the screen: 640x200, or
+320x200 under -fcm:40. Sprite X coordinates stay in the 320-wide space under
+H640 — one sprite unit covers two physical pixels — so mouse_place_sprite halves
+the position on the 80-column screen and the pointer moves in two-pixel steps.
 
 The pointer is sprite 0. Its bitmap is a small red arrow (red so it stays visible
 over the white status line), and it is addressed through
@@ -990,7 +1026,8 @@ See "Version 6".
     Z6_FCM_MODE
 
 MEGA65 and version 6 only. Use the VIC-IV's Full Colour Mode, with 16-bit
-character codes, giving a 320x200 screen of 40x25 cells. Set by make.rb's -fcm
+character codes, giving an 80x25 screen on a 640x200 (H640) canvas, or the
+legacy 320x200, 40x25 one with -fcm:40. Set by make.rb's -fcm
 switch. See "Version 6".
 
     Z6_PICTURES

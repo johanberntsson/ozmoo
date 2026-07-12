@@ -28,13 +28,20 @@ SPRITE0_COLOUR  = $d027
 SPRPTRADR       = $d06c		; 24-bit address of the sprite pointer list
 
 ; The sprite's top-left is the click point (the hot spot), so a screen pixel
-; (px, py) puts the sprite at VIC coordinates px + 24, py + 50.
+; (px, py) puts the sprite at VIC coordinates px + 24, py + 50 -- except that
+; on the H640 screen a sprite X unit covers two physical pixels, so the
+; pointer's 0..639 position halves into sprite coordinates.
 MOUSE_X_OFFSET  = 24
 MOUSE_Y_OFFSET  = 50
+!ifdef Z6_FCM_40 {
 MOUSE_X_MAX     = 319
+} else {
+MOUSE_X_MAX     = 639
+}
 MOUSE_Y_MAX     = 199
 
-mouse_px        !byte 160, 0	; pointer pixel position, X is 0..319 (two bytes)
+; pointer pixel position, starting mid-screen; X is 0..MOUSE_X_MAX (two bytes)
+mouse_px        !byte <((MOUSE_X_MAX + 1) / 2), >((MOUSE_X_MAX + 1) / 2)
 mouse_py        !byte 100		; Y is 0..199
 mouse_prev_potx !byte 0			; the pot readings the last poll, to difference
 mouse_prev_poty !byte 0
@@ -231,11 +238,12 @@ mouse_write_header_coords
 	lda #$ff
 +	adc mouse_px + 1
 	sta mouse_px + 1
-	; result is -32..350; its high byte is $ff, 0 or 1
+	; result is -32..MOUSE_X_MAX+31; its high byte is $ff, or 0..>MOUSE_X_MAX
 	bmi .mouse_x_zero		; negative -> 0
 	beq .mouse_x_ok			; 0..255 -> in range
-	cmp #>MOUSE_X_MAX		; high >= 1
-	bne .mouse_x_max		; > 1 -> above 319
+	cmp #>MOUSE_X_MAX
+	bcc .mouse_x_ok			; a smaller high byte -> in range
+	bne .mouse_x_max		; a bigger one -> past the edge
 	lda mouse_px
 	cmp #<MOUSE_X_MAX + 1
 	bcc .mouse_x_ok
@@ -280,11 +288,23 @@ mouse_write_header_coords
 .mouse_place_sprite
 	jsr mega65io
 	; X = px + 24, which can exceed 255, so maintain the MSB in $d010 bit 0
+!ifdef Z6_FCM_40 {
+	lda mouse_px + 1
+	sta .mouse_temp
 	lda mouse_px
+} else {
+	; a sprite X unit is two physical pixels on the H640 screen (the sprite
+	; coordinate space does not change with H640), so halve the position
+	lda mouse_px + 1
+	lsr
+	sta .mouse_temp
+	lda mouse_px
+	ror
+}
 	clc
 	adc #MOUSE_X_OFFSET
 	sta SPRITE0_X
-	lda mouse_px + 1
+	lda .mouse_temp
 	adc #0
 	lsr						; bit 0 of the high byte -> carry
 	lda SPRITE_XMSB
@@ -299,12 +319,15 @@ mouse_write_header_coords
 
 .mouse_update_cells
 	; cell = pixel / 8, then 1-based
-	lda mouse_px + 1		; px / 8 for a 0..319 value
-	lsr
+	lda mouse_px + 1		; px / 8; the high byte carries up to two bits
+	sta .mouse_temp			; when the position runs to 639
 	lda mouse_px
+	lsr .mouse_temp
 	ror
-	lsr
-	lsr						; A = px / 8 (0..39)
+	lsr .mouse_temp
+	ror
+	lsr .mouse_temp
+	ror						; A = px / 8 (0..SCREEN_WIDTH-1)
 	clc
 	adc #1
 	sta mouse_cell_x
