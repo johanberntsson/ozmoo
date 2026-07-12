@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Ozmoo is a Z-machine interpreter for the Commodore 64, C128, Plus/4 and MEGA65 (plus an X16 target), written in 6502 assembly (ACME cross-assembler syntax) and driven by a Ruby build script. It runs Infocom/Inform story files.
 
-**This checkout is the `z6` branch**, whose purpose is adding Z-machine **version 6** support. The window model works on every target; graphics work on the MEGA65 full colour screen, where Arthur draws its pictures, and the mouse works there too (Zork Zero's clickable controls, Arthur's click-to-dismiss-`[MORE]`). `master` tracks upstream Ozmoo and must keep working — every change here has to be checked against both. This is Johan's personal project: make local commits, but never push without explicit permission.
+**This checkout is the `z6` branch**, whose purpose is adding Z-machine **version 6** support. The window model works on every target; graphics work on the MEGA65 full colour screen — **80 columns (H640) since July 2026, with the pictures pixel-doubled to keep their 320-wide scale** — where Arthur draws its first room like the reference interpreter, and the mouse works there too (Zork Zero's clickable controls, Arthur's click-to-dismiss-`[MORE]`). All four v6 games boot at 80 columns; Johan is play-testing them and collecting the current crop of glitches (see todo.txt for the ones already known). `master` tracks upstream Ozmoo and must keep working — every change here has to be checked against both. This is Johan's personal project: make local commits, but never push without explicit permission.
 
 ## Build and run
 
