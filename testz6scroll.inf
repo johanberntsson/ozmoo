@@ -1,0 +1,47 @@
+! A z6 test for window-local scrolling.
+!
+! Window 0 is filled with a pattern of '#'. A small window 1 is then opened in
+! the middle of it and given more lines than it can hold, so it has to scroll.
+! A correct interpreter scrolls window 1's rectangle and nothing else: the
+! window shows the LAST lines printed, and the '#' pattern around it -- above,
+! below, and on both sides of every one of its rows -- is untouched.
+!
+! Both windows are made unbuffered so that no [MORE] prompt interrupts the
+! test; printing then goes straight to the screen, which is the path the
+! window's own scrolling hangs off.
+
+[main i j w h;
+#iftrue (#version_number == 6);
+	@erase_window (-1);
+	w = $22-->0; ! screen width in units; a unit is a character here
+	h = $24-->0; ! screen height in units
+
+	@window_style 0 8 2; ! clear bit 3 (buffered): no [MORE] prompts
+	@window_style 1 8 2;
+	@window_style 0 3 1; ! set bits 0 and 1: wrapping and scrolling
+	@window_style 1 3 1;
+
+	! Fill window 0 (the whole screen) with the pattern, leaving the last row
+	! empty so that the fill itself never reaches the bottom and scrolls.
+	@set_window 0;
+	@set_cursor 1 1;
+	for (i = 1: i <= h - 1: i++) {
+		for (j = 1: j <= w: j++) { print "#"; }
+	}
+
+	! A small window in the middle of the pattern.
+	@window_size 1 6 20;
+	@move_window 1 9 11;
+	@set_window 1;
+	@erase_window 1;
+
+	! Ten lines into six rows: the last four must scroll it.
+	for (i = 1: i <= 10: i++) {
+		print "line ", i, "^";
+	}
+
+	@set_window 0;
+	@read_char 1 -> i;
+#endif;
+	print "done!^";
+];

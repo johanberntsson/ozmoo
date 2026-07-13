@@ -111,6 +111,25 @@ c64:
 x16:
 	ruby make.rb -s examples/dejavu.z3 -t:x16
 
+# testz6 on the X16: the z6 window model on the VERA screen (80x60, text only)
+z6-x16:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:x16 testz6.z6
+
+# The window-local scrolling test: a small window scrolls inside a screen full
+# of '#', which must survive intact. Every target must draw it the same way.
+scroll:
+	inform -v6 testz6scroll.inf
+	ruby make.rb -s testz6scroll.z6
+
+scroll-x16:
+	inform -v6 testz6scroll.inf
+	ruby make.rb -s -t:x16 testz6scroll.z6
+
+scroll-mega65:
+	inform -v6 testz6scroll.inf
+	ruby make.rb -s -t:mega65 -fcm testz6scroll.z6
+
 mega65:
 	ruby make.rb -s examples/dejavu.z3 -t:mega65
 

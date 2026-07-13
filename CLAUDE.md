@@ -34,6 +34,10 @@ make journey-pics # Journey, the largest v6 game, with its pictures (two disks)
 make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
 make c64       # build examples/dejavu.z3 (a z3 game) — the non-z6 regression check
 make mega65    # same, for MEGA65
+make z6-x16    # testz6 on the X16: the z6 window model on VERA, 80x60, text only
+make scroll    # testz6scroll: a small window scrolls inside a screenful of '#',
+               # which must survive intact. scroll-x16 / scroll-mega65 build the
+               # same test for those; all three must draw it identically.
 make clean
 
 ruby make.rb [options] <storyfile>   # run with no args for the full option list
@@ -139,7 +143,9 @@ Under `-fcm` a screen cell and a colour cell are two bytes each. Ozmoo writes th
 - **v6 is a "large" version, like v7/v8, not like v4/v5.** Story files run to 512 KB, the header file length is divided by 8, and block addresses need two high bits. `make.rb` has always known this (`$zcode_version > 5`); the assembly used to express it as `Z7PLUS`, which excludes v6. Use `Z6PLUS` for anything size-related, and be suspicious of any new `Z4PLUS`/`Z7PLUS` split. See `todo.txt` for the three bugs this caused.
 - No v6 interpreter ever ran on a C64, so v6 code paths have never been exercised against a real game. Expect more latent assumptions — minimum screen size, stack depth, story size — that no other version happens to violate.
 - **An error only the MEGA65 reports is usually a real bug everyone else lives with.** `CHECK_ERRORS` is compiled into MEGA65 builds and out of the others. Arthur's `FATAL ERROR: 17` turned out to be a modulo by zero the C64 executed too, caused by `get_wind_prop` returning 0 for the font size. Reaching for `-re:0` would have hidden a genuine defect.
-- **The C64, Plus/4 and MEGA65 work. The C128 and X16 are still deliberately untouched.** The z6 window model is only wired into the scroll path the first three share; the C128 80-column (VDC) and X16 (VERA) scroll routines still scroll the whole screen, and ECM is C64-only. Those two remain known and accepted, not oversights — don't "fix" them yet.
+- **The C64, Plus/4, MEGA65 and X16 work. The C128 is still deliberately untouched.** The C128's 80-column (VDC) scroll routine still scrolls the whole screen, so a z6 window there smears the rest of the display; `s_scroll_window` returns without doing anything for it. That one remains known and accepted, not an oversight — don't "fix" it yet. ECM is C64-only.
+- **The X16 is text-only z6** (no pictures — VERA is a tile machine, but nothing is wired up), on VERA's **80x60** screen. It has no separate window code: `.s_scroll_vera` and the `scroll_window` opcode go through the same `.calc_window_rect` / `.sw_up_one` / `.sw_blank_row` helpers as every other target, and only the row copy is VERA-specific (`.vera_copy_row`). A VERA text cell is two bytes (character, colour) and a row is **256** bytes whatever the width, so a cell lives at `$1b000 + row * 256 + column * 2`: the row is the address high byte and the column never carries into it, which is why the screen code can keep a row in `zp_screenline + 1` and nothing else. Port 0 reads and port 1 writes; everything else in the screen layer assumes **port 0 is selected with stride 1** (`$11` in `VERA_addr_bank`), so any routine that borrows port 1 must hand port 0 back that way.
+- Under `-t:x16`, **do not lean on VERA's auto-increment across a `jsr`**. `print_line_from_buffer` used to print its first character through `s_printchar` and let the rest of the line ride on the address pointer that call left behind. Now that a window can scroll, `s_printchar` can end up inside `.s_scroll_vera`, whose copy loop leaves the pointer wherever it finished — so each cell is addressed on its own, as on every other target.
 - The C64 and Plus/4 will never draw pictures. The `pic:N` notes have to stay for them.
 - **Terminating characters were a general bug** (all targets, not just mouse). z-spec 10.5.2.1: the table (`$2e`) holds function key codes 129-154 and 252-254, and 255 means "any of them". Ozmoo rejected everything above 140 and its 255 wildcard omitted the mouse clicks, so a click never ended a line. `parse_terminating_characters` now accepts the whole valid range, and the pre-filled default set the wildcard activates includes 252-254 on the full colour screen. If you touch that array, keep it in step with `NUM_DEFAULT_TERMINATORS`.
 - **A big picture set spans several disks.** The `-pics` pipeline packs the numbered files across as many `_pics_N.d81` disks as they need (see the Pictures section) and `pic_load_all` sweeps the disks at boot, trying the second drive before asking for a swap. Picture numbers and the build count are both 16-bit, so Zork Zero's 396 pictures build and load (`make zork0-pics`, two disks). What headless testing can't reach: **loading past the first picture disk** (a real swap, which xemu can't do — verified only up to the disk-2 prompt). All four v6 games have `-pics` targets at 80 columns: Arthur and Shogun fit one picture disk (Arthur's first room and Shogun's title art verified against references), Zork Zero and Journey take two, so their pictures load only up to the swap prompt headlessly. Text-only at 80 columns, Zork Zero is playable and Journey boots into its command-menu layout; Journey's box-drawing divider glyphs are the known follow-up (see todo.txt). The squished right-aligned headers turned out to be the stream-3/live-cursor pair fixed with Shogun's menu screen (below).
@@ -190,6 +196,21 @@ xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
 - Reading the monitor is slow (~16 bytes per round trip), so a full `-fcm` screen takes ~25 s — too slow to catch Arthur's **timed** intro screens. Sample one row (160 bytes, ~1.5 s) and dump more only on a change.
 - `-screenshot` writes the frame xemu is showing **when it finishes shutting down**, not when it is signalled. Under `-sleepless` the game races seconds ahead between SIGTERM and teardown, so a timed screen is gone from the shot; drop `-sleepless` (real-time) when the screenshot must catch a moment, and accept the slower boot.
 - The keyboard-buffer poke (`s0277 <petscii>` then `s00c6 01`) answers game prompts fine (Arthur's Y/N, MORE), one key per poke.
+
+## Debugging the X16 under x16emu (headless)
+
+`make.rb -t:x16` builds a **zip** (`x16_<story>.zip`) and a directory of the same name holding `<STORY>.PRG` and `[ZCODE]`; the emulator is run from inside that directory. The emulator is not in git — keep a checkout (e.g. `x16-emulator46/x16emu`).
+
+```sh
+cd x16_testz6 && ../x16-emulator46/x16emu -prg TESTZ6.PRG -run -warp -zeroram -sound none
+```
+
+- **There is no headless flag and no monitor socket.** Two ways to see the screen:
+  - `-gif out.gif` records every frame. It works with `SDL_VIDEODRIVER=dummy`, so it needs no display at all — take the last frame. A text cell is exactly 8x8 pixels on the 640x480 output, so a cell's contents can be cropped by its row and column. Beware: a long `-warp` run makes a *large* gif (50k frames, ~90 MB).
+  - **`-dump V` plus Ctrl-S** writes VRAM to `dump.bin`, which is the exact screen, not pixels. Ctrl-S needs a real window, so run under `Xvfb` and press the key with `xdotool` (`xdotool search --name "Commander X16" key ctrl+s`). The same trick **types input into the game** (`xdotool type "look"`, `key Return`), which is the only way to drive a game headlessly here.
+- The dump's layout follows the `-dump` flags: it ends with 128 KB of VRAM and 1806 bytes of video registers, with whatever RAM was asked for in front. So **VRAM starts at `len(dump) - 131072 - 1806`**, and the text screen is `$1b000` into it. Cells are two bytes (character, colour) and rows are **256** bytes regardless of the 80-column width.
+- `-testbench` is a headless command mode, but it only re-enters its command loop when the code under test returns (`RTS` to `$fffd`), so it cannot watch a running game. Its `RQM` does a real `read6502`, though, so it can read VRAM through VERA's data port if you ever need to.
+- `-zeroram` zeroes RAM but **not VRAM**: a screen dump taken before the program has drawn anything is random, not blank. If a dump looks like noise, the game had not started (or had crashed) — check with a gif before believing it.
 
 ## References
 

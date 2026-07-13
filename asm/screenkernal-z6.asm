@@ -99,7 +99,6 @@ plus4_vic_colours
 .stored_x_or_y !byte 0
 .vera_background !byte 0
 vera_composite_colour !byte 0
-.vera_temp !byte 0,0
 
 .convert_screenline_y_to_vera_address
     ; convert screenline,y to address in VERA
@@ -111,92 +110,87 @@ vera_composite_colour !byte 0
 	sta VERA_addr_high
     rts
 
-;vera_scroll_line !byte 0,0
 .s_scroll_vera
-	; scroll routine for VERA
-	lda zp_screenrow
-	cmp s_screen_height
-	bpl +
+	; Scroll the current window's rectangle up one line and erase the window's
+	; new last line, the VERA equivalent of .s_scroll. Leaves zp_screenrow on
+	; that last line. The rows and the blanking are the same window-local ones
+	; the scroll_window opcode uses, so only .vera_copy_row is VERA-specific.
+	; (This used to scroll the whole screen from window 0's top line down,
+	; which smeared every window that did not reach the bottom of the screen.)
+	jsr .calc_window_rect
+!ifdef SCROLLBACK {
+	inc s_scrolled_lines
+}
+	jsr .vera_scroll_delay
+	jsr .sw_up_one ; copies the window's rows up, blanks its new last line
+	ldy .win_left
+	sty zp_screencolumn
 	rts
-+   
 
-	; Setup VERA for scrolling
-	; Read address is address 0, write address is address 1 in VERA
-	lda s_screen_width
-;	asl
-	sta .vera_temp
-	lda s_screen_height_minus_one
-	adc #$b0
-	sta .vera_temp + 1
-	lda #1
-	sta VERA_ctrl
-	lda #$11
-	sta VERA_addr_bank
-	lda window_y ; how many top lines to protect
-	adc #$b0
-	tay
-	lda #0
-	sta VERA_ctrl
-
-	; Delay
+.vera_scroll_delay
+	; Slow the scroll down by as much as scroll_delay asks, then land on the
+	; same scanline every time so a scrolling window does not tear.
 	ldx scroll_delay
 	beq .done_delaying_vera
 	dex
 	beq ++
--	tya
-	pha
-	txa
+-	txa
 	pha
 	jsr wait_an_interval
 	pla
 	tax
-	pla
-	tay
 	dex
 	bne -
-
 ++
-
 -	ldx VERA_scanline_l
 	cpx #<450
 	bne -
 	lda VERA_ien
-	and #$40
+	and #$40 ; bit 8 of the scanline: 450 is past the bottom of the text screen
 	beq -
-	
 .done_delaying_vera
-	
-	; Begin actual scrolling
+	rts
 
--	cpy .vera_temp + 1
-	bcs +
-	; Setup for copying a line
+.vera_copy_row
+	; Copy the window's columns from row .sw_src to row .sw_dst. A cell is a
+	; character byte and a colour byte, and a VERA text row is 256 bytes, so a
+	; cell sits at $1b000 + row * 256 + column * 2: the row is the address high
+	; byte and the column never carries into it. Port 0 reads and port 1 writes,
+	; both stepping by one; port 0 is left selected with the stride the rest of
+	; the screen code expects of it.
+	lda .win_right_excl
+	sec
+	sbc .win_left
+	beq + ; a window with no columns has nothing to copy
+	tax
 	lda #1
-	sta VERA_ctrl
-	sty VERA_addr_high
-	ldx #0
-	stx VERA_addr_low
-	stx VERA_ctrl
-	iny
-	sty VERA_addr_high
-	stx VERA_addr_low
-	ldx .vera_temp
-
---	lda VERA_data0
+	sta VERA_ctrl ; port 1: the destination row
+	lda #$11 ; stride 1, and bit 16 of the address (the text map is at $1b000)
+	sta VERA_addr_bank
+	lda .sw_dst
+	clc
+	adc #$b0
+	sta VERA_addr_high
+	lda .win_left
+	asl ; two bytes a cell
+	sta VERA_addr_low
+	stz VERA_ctrl ; port 0: the source row, and the port everything else uses
+	lda #$11
+	sta VERA_addr_bank
+	lda .sw_src
+	clc
+	adc #$b0
+	sta VERA_addr_high
+	lda .win_left
+	asl
+	sta VERA_addr_low
+-	lda VERA_data0 ; the character
 	sta VERA_data1
-	lda VERA_data0
+	lda VERA_data0 ; and its colour
 	sta VERA_data1
 	dex
-	bne --
-	
-	beq - ; Always branch
-	
-+	; prepare for erase line
-	ldy s_screen_height_minus_one
-	sty zp_screenrow
-	lda #$ff
-	sta s_current_screenpos_row ; force recalculation
-	jmp s_erase_line
+	bne -
++	rts
 
 VERASetBorderColour
 	stz VERA_ctrl
@@ -1579,10 +1573,7 @@ s_scroll_window
 	; therefore free of the scroll delay, smooth scrolling and scrollback that
 	; .s_scroll has to care about.
 	; input: x = window, a = number of lines, carry set to scroll down
-	; The C128 80 column and X16 screens are not handled (see todo.txt).
-!ifdef TARGET_X16 {
-	rts
-} else {
+	; The C128 80 column screen is not handled (see todo.txt).
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bmi .sw_return ; 80 columns: the VDC screen is not handled yet
@@ -1661,6 +1652,9 @@ s_scroll_window
 
 .sw_copy_row
 	; copy the window's columns from row .sw_src to row .sw_dst
+!ifdef TARGET_X16 {
+	jmp .vera_copy_row ; the VERA screen is not in the CPU's address space
+} else {
 	lda .sw_src
 	jsr .sw_point_at_row
 	lda zp_screenline
@@ -1745,6 +1739,7 @@ s_scroll_window
 }
 }
 	rts
+} ; not TARGET_X16
 
 .sw_blank_row
 	; a = row. Blank the window's columns on it.
@@ -1771,7 +1766,6 @@ s_scroll_window
 .sw_downwards !byte 0
 .sw_src       !byte 0
 .sw_dst       !byte 0
-}
 
 s_erase_line
 	; registers: a,x,y

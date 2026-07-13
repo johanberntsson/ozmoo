@@ -22,9 +22,14 @@
 # online, so there is no reason to carry it in the repository.
 /z-spec10.pdf
 
+# Local checkout of the Commander X16 emulator, not part of Ozmoo. It may be a
+# symlink, so this must not end in a slash.
+/x16-emulator46
+
 # Build products
 /temp/
 /testz6.z6
+/testz6scroll.z6
 /c64_*.d64
 /c64_*.d81
 /c128_*.d64
@@ -34,3 +39,5 @@
 /mega65_*.d81
 /plus4_*.d64
 /plus4_*.d81
+/x16_*.zip
+/x16_*/

@@ -176,18 +176,45 @@ Still to do for z6 (not crashes):
 
 Z6 on other targets
 -------------------
-The C64 came first and it works. The MEGA65 is next. The C128 and the X16 are
-still deliberately untouched, so the following are known and accepted, not
-oversights:
-- The window-local scrolling in screenkernal-z6.asm only covers the code path
-  the C64, Plus/4 and MEGA65 share (.s_scroll, and the new s_scroll_window).
-  The C128 80 column routine (.s_scroll_vdc) and the X16 routine
-  (.s_scroll_vera) still scroll the whole screen, so a z6 window there will
-  smear the rest of the display.
+The C64 came first and it works, then the Plus/4 and the MEGA65, and now the
+X16 (text only). Only the C128 is still deliberately untouched:
+- The C128's 80 column routine (.s_scroll_vdc) still scrolls the whole screen,
+  so a z6 window there smears the rest of the display, and s_scroll_window
+  returns without doing anything for it. Known and accepted, not an oversight.
 - ECM (-ecm) is C64 only, and make.rb rejects it elsewhere. The MEGA65 and X16
   don't need it: their video chips give every character its own background
   colour, so those targets should set the window's background directly rather
   than borrowing the ECM approach.
+
+DONE: the z6 window model on the X16 (text only, VERA's 80x60 screen). The X16
+got no window code of its own: .s_scroll_vera and the scroll_window opcode now
+go through the same .calc_window_rect / .sw_up_one / .sw_blank_row helpers as
+every other target, and only the row copy is VERA-specific (.vera_copy_row).
+Three things had to change:
+- .s_scroll_vera scrolled the whole screen from window 0's top line down, and
+  bailed out unless the cursor had passed the bottom of the *screen*, so a
+  window that did not reach it never scrolled at all. It now scrolls the
+  current window's rectangle and blanks its new last line.
+- s_scroll_window was an rts for the X16. It works now; only .sw_copy_row
+  needed a VERA branch, because the screen is not in the CPU's address space.
+- The [More] prompt was nailed to the bottom right of the screen. In z6 it
+  belongs at the bottom right of the *current window*, so .set_more_prompt_pos
+  now has an X16 branch that remembers the cell for VERAPrintChar.
+Also: print_line_from_buffer used to print its first character through
+s_printchar and let the rest of the line ride on the VERA address pointer that
+call left behind (undoing its cursor step with an "I have no idea why we need
+to do this" dec). Now that a window can scroll, s_printchar can end up inside
+.s_scroll_vera, whose copy loop leaves the pointer wherever it finished, so
+every cell is addressed on its own, as on the other targets.
+Verified with testz6scroll.inf (new): a small window is given more lines than
+it holds inside a screen full of '#', and the C64, the MEGA65 (-fcm) and the
+X16 all scroll the window and leave the pattern around it -- above, below and
+on both sides of every one of its rows -- untouched. testz6 itself lays out
+its two windows correctly at 80x60, and Zork Zero boots and lays out its
+status window. The [More] prompt lands on the window's bottom right corner.
+Still open for the X16: pictures (VERA is a tile machine, so it could), and
+per-window background colours (VERA gives every cell its own, as on the
+MEGA65).
 
 
 Picture store: multi-disk (done) and the 255-picture cap (open)

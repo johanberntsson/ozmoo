@@ -2940,20 +2940,24 @@ vdc_hide_more
 !ifdef TARGET_X16 {
 
 .vera_more_temp !byte 0
+; The prompt's cell, set by .set_more_prompt_pos: in z6 it is the bottom right
+; cell of the current window, not of the screen.
+.vera_more_row !byte 0
+.vera_more_col !byte 0
 vera_show_more
 	sty .vera_more_temp
-	lda s_screen_height_minus_one
+	lda .vera_more_row
 	sta zp_screenline + 1
 	lda #$2a + 128
 	bne .vera_common_more ; Always branch
 
 vera_hide_more
 	sty .vera_more_temp
-	lda s_screen_height_minus_one
+	lda .vera_more_row
 	sta zp_screenline + 1
 	lda #32
 .vera_common_more
-	ldy s_screen_width_minus_one
+	ldy .vera_more_col
 	jsr VERAPrintChar
 	; lda s_colour
 	; jsr VERAPrintColourAfterChar
@@ -2979,9 +2983,7 @@ increase_num_rows
 show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
-!ifndef TARGET_X16 {
 	jsr .set_more_prompt_pos
-}
 
 !ifdef TARGET_C128 {
     bit COLS_40_80
@@ -3099,11 +3101,35 @@ show_more_prompt
 
 .more_text_char !byte 0
 
-!ifndef TARGET_X16 {
 .set_more_prompt_pos
 	; Point the [More] prompt at the bottom right cell of the current
-	; window, by rewriting the addresses in .more_access1-4. In z6 every
-	; window has its own rectangle, so this can't be a fixed address.
+	; window. In z6 every window has its own rectangle, so this can't be a
+	; fixed address: the VIC/VDC targets rewrite the addresses in
+	; .more_access1-4, and the X16 remembers the cell for VERAPrintChar.
+!ifdef TARGET_X16 {
+	ldx current_window
+	; last column of the window, clamped to the screen
+	lda window_x,x
+	clc
+	adc window_x_size,x
+	cmp s_screen_width
+	bcc +
+	lda s_screen_width
++	sec
+	sbc #1
+	sta .vera_more_col
+	; last row of the window, clamped to the screen
+	lda window_y,x
+	clc
+	adc window_y_size,x
+	cmp s_screen_height
+	bcc +
+	lda s_screen_height
++	sec
+	sbc #1
+	sta .vera_more_row
+	rts
+} else {
 	jsr get_cursor ; x=row, y=column
 	stx .more_saved_row
 	sty .more_saved_column
@@ -3304,33 +3330,23 @@ print_line_from_buffer
 }
 
 !ifdef TARGET_X16 {
+	; Address every cell, as the other targets do. This used to print the first
+	; character through s_printchar and let the rest ride on the VERA address
+	; pointer that call left behind (and undo its cursor step with a "no idea
+	; why we need to do this" dec). Now that a window can scroll, s_printchar
+	; can end up in .s_scroll_vera, whose copy loop leaves the pointer wherever
+	; it finished, so the rest of the line would be written into the blue.
 	ldy first_buffered_column
-	cpy last_break_char_buffer_pos
-	bcs ++
-	lda print_buffer2,y
-	sta s_reverse
-	lda print_buffer,y
-	jsr s_printchar
-	iny
-	dec zp_screencolumn ; I have no idea why we need to do this, but we do...
-
-	; Keep colour + background in x
-	ldx vera_composite_colour
-	; lda s_colour
-	; ora vera_background
-	; tax
-	
--   cpy last_break_char_buffer_pos
+-	cpy last_break_char_buffer_pos
 	bcs ++
 	lda print_buffer,y
 	jsr convert_petscii_to_screencode
 	ora print_buffer2,y
-	sta VERA_data0
-	stx VERA_data0
+	jsr VERAPrintChar ; a = screen code, y = column; preserves y
 	iny
 	bne - ; Always branch
 ++
-	
+
 } else ifdef Z6_FCM_MODE {
 		; y indexes the print buffer by column, but a screen cell is two
 		; bytes, so double it for the store and halve it again afterwards.
