@@ -113,6 +113,28 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .pcf_newcode_hi !byte 0
 .pcf_buf     !fill 64, 0	; one tile being composited, a byte a pixel
 
+; Tile-store compaction (.pic_gc): a bit per tile for "a cell outside the
+; incoming picture still shows this", the survivor count below each bitmap
+; byte, and the byte-arithmetic helper tables.
+.gc_bitmap   !fill 256, 0
+.gc_pref_lo  !fill 256, 0
+.gc_pref_hi  !fill 256, 0
+.gc_bit      !byte 1, 2, 4, 8, 16, 32, 64, 128
+.gc_below    !byte 0, 1, 3, 7, 15, 31, 63, 127
+.gc_pop						; how many bits a byte has set
+!for i, 0, 255 {
+	!byte (i&1) + ((i>>1)&1) + ((i>>2)&1) + ((i>>3)&1) + ((i>>4)&1) + ((i>>5)&1) + ((i>>6)&1) + ((i>>7)&1)
+}
+.gc_row      !byte 0
+.gc_col      !byte 0
+.gc_y1       !byte 0		; .pic_y + .pic_h
+.gc_x1       !byte 0		; .pic_x + .pic_w
+.gc_next     !byte 0,0		; the compacted store's next free tile
+.gc_old      !byte 0,0		; the survivor being moved
+.gc_byi      !byte 0		; bitmap byte index being walked
+.gc_t        !byte 0
+.gc_t2       !byte 0
+
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
 pic_win_count  !fill 16, 0
@@ -650,15 +672,38 @@ pic_load_all
 	lda pic_next_tile + 1
 	adc .pic_ntiles + 1
 	cmp #>PIC_MAX_TILES
-	bcc +
+	bcc .pa_place
+	bne .pa_compact
+	cpy #<PIC_MAX_TILES
+	bcc .pa_place
+.pa_compact
+	; Out of store. Before wrapping over tiles that cells still on screen
+	; point at (Arthur draws the Merlin scene centred over the full-screen
+	; sword picture, whose frame stays visible), compact the survivors to
+	; the bottom of the store and try again. x still indexes the window
+	; tables, and the sweep needs every register.
+	phx
+	jsr .pic_gc
+	plx
+	lda pic_next_tile
+	clc
+	adc .pic_ntiles
+	tay
+	lda pic_next_tile + 1
+	adc .pic_ntiles + 1
+	cmp #>PIC_MAX_TILES
+	bcc .pa_place
 	bne .pa_reset
 	cpy #<PIC_MAX_TILES
-	bcc +
+	bcc .pa_place
 .pa_reset
+	; still too big: start over at the bottom, which can only spoil what is
+	; already doomed
 	lda #0
 	sta pic_next_tile
 	sta pic_next_tile + 1
-+	lda pic_next_tile
+.pa_place
+	lda pic_next_tile
 	sta .pic_slot
 	sta pic_win_base,x
 	lda pic_next_tile + 1
@@ -702,6 +747,283 @@ pic_load_all
 	sec
 	sbc #16
 	sta .pic_pal_off
+	rts
+
+.pic_gc
+	; The store must take a picture bigger than the space left, and wrapping
+	; would overwrite tiles that cells still on screen point at. Keep those:
+	; mark every tile a cell outside the incoming picture's rectangle shows,
+	; copy the survivors to the bottom of the store in ascending index order
+	; (safe in place: a survivor can only move down), and repoint their
+	; cells. pic_next_tile comes back as the survivor count, so the caller's
+	; run and the composites baked over it land above them. Cells the new
+	; picture covers are left alone: it is about to overwrite them, and if
+	; their tiles are shared with cells outside (Arthur's borders repeat)
+	; the sharing marks them survivors anyway. Tiles keep their absolute
+	; palette pixels, so moving one never changes its colours.
+
+	; pass 1: which tiles are still needed?
+	ldx #0
+	txa
+-	sta .gc_bitmap,x
+	inx
+	bne -
+	lda .pic_y
+	clc
+	adc .pic_h
+	sta .gc_y1
+	lda .pic_x
+	clc
+	adc .pic_w
+	sta .gc_x1
+	lda #<SCREEN_ADDRESS
+	sta .pic_ptr
+	lda #>SCREEN_ADDRESS
+	sta .pic_ptr + 1
+	lda #0
+	sta .gc_row
+.gc_mark_row
+	lda #0
+	sta .gc_col
+.gc_mark_cell
+	lda .gc_row
+	cmp .pic_y
+	bcc .gc_mark_keep		; above the rectangle
+	cmp .gc_y1
+	bcs .gc_mark_keep		; below it
+	lda .gc_col
+	cmp .pic_x
+	bcc .gc_mark_keep		; left of it
+	cmp .gc_x1
+	bcc .gc_mark_next		; inside: dies with the old picture
+.gc_mark_keep
+	lda .gc_col
+	asl
+	tay
+	iny						; the cell's high byte
+	lda (.pic_ptr),y
+	sec
+	sbc #FCM_TILE_CODE_HI
+	cmp #>PIC_MAX_TILES
+	bcs .gc_mark_next		; text, or no store code at all
+	asl						; bitmap byte = index high * 32 + index low / 8
+	asl
+	asl
+	asl
+	asl
+	sta .gc_t
+	dey
+	lda (.pic_ptr),y
+	pha
+	lsr
+	lsr
+	lsr
+	clc
+	adc .gc_t
+	tay
+	pla
+	and #7
+	tax
+	lda .gc_bit,x
+	ora .gc_bitmap,y
+	sta .gc_bitmap,y
+.gc_mark_next
+	inc .gc_col
+	lda .gc_col
+	cmp #SCREEN_WIDTH
+	bcc .gc_mark_cell
+	lda .pic_ptr
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta .pic_ptr
+	bcc +
+	inc .pic_ptr + 1
++	inc .gc_row
+	lda .gc_row
+	cmp #SCREEN_HEIGHT
+	bcc .gc_mark_row
+
+	; pass 2: count the survivors below each bitmap byte, and move each one
+	; down to its new home as it is passed
+	lda #0
+	sta .gc_next
+	sta .gc_next + 1
+	sta .gc_byi
+.gc_sweep_byte
+	ldy .gc_byi
+	lda .gc_next
+	sta .gc_pref_lo,y
+	lda .gc_next + 1
+	sta .gc_pref_hi,y
+	ldx #0
+.gc_sweep_bit
+	ldy .gc_byi
+	lda .gc_bitmap,y
+	and .gc_bit,x
+	beq .gc_sweep_next
+	tya						; survivor: its old index is byi * 8 + bit
+	sta .gc_old
+	lda #0
+	sta .gc_old + 1
+	asl .gc_old
+	rol .gc_old + 1
+	asl .gc_old
+	rol .gc_old + 1
+	asl .gc_old
+	rol .gc_old + 1
+	txa
+	ora .gc_old
+	sta .gc_old
+	jsr .gc_copy_tile
+	inc .gc_next
+	bne .gc_sweep_next
+	inc .gc_next + 1
+.gc_sweep_next
+	inx
+	cpx #8
+	bcc .gc_sweep_bit
+	inc .gc_byi
+	bne .gc_sweep_byte
+
+	; pass 3: point the surviving cells at the tiles' new homes
+	lda #<SCREEN_ADDRESS
+	sta .pic_ptr
+	lda #>SCREEN_ADDRESS
+	sta .pic_ptr + 1
+	lda #0
+	sta .gc_row
+.gc_fix_row
+	lda #0
+	sta .gc_col
+.gc_fix_cell
+	lda .gc_col
+	asl
+	tay
+	iny
+	lda (.pic_ptr),y
+	sec
+	sbc #FCM_TILE_CODE_HI
+	cmp #>PIC_MAX_TILES
+	bcs .gc_fix_next
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta .gc_t
+	dey
+	lda (.pic_ptr),y
+	sta .gc_t2
+	lsr
+	lsr
+	lsr
+	clc
+	adc .gc_t
+	tax						; x = the code's bitmap byte
+	lda .gc_t2
+	and #7
+	tay						; y = its bit
+	lda .gc_bitmap,x
+	and .gc_bit,y
+	beq .gc_fix_next		; covered by the new picture: leave it be
+	lda .gc_bitmap,x
+	and .gc_below,y
+	tay
+	lda .gc_pop,y			; survivors below it within its own byte...
+	clc
+	adc .gc_pref_lo,x		; ...plus those below its byte = its new index
+	sta .gc_t
+	lda .gc_pref_hi,x
+	adc #0
+	clc
+	adc #FCM_TILE_CODE_HI	; and back into a screen code
+	pha
+	lda .gc_col
+	asl
+	tay
+	lda .gc_t
+	sta (.pic_ptr),y
+	iny
+	pla
+	sta (.pic_ptr),y
+.gc_fix_next
+	inc .gc_col
+	lda .gc_col
+	cmp #SCREEN_WIDTH
+	bcc .gc_fix_cell
+	lda .pic_ptr
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta .pic_ptr
+	bcc +
+	inc .pic_ptr + 1
++	inc .gc_row
+	lda .gc_row
+	cmp #SCREEN_HEIGHT
+	bcc .gc_fix_row
+
+	; the survivors are the new bottom of the store
+	lda .gc_next
+	sta pic_next_tile
+	lda .gc_next + 1
+	sta pic_next_tile + 1
+	; every window's run has moved: no run may be reused until redrawn
+	ldx #15
+	lda #$ff
+-	sta pic_win_number,x
+	dex
+	bpl -
+	; zp_colour_src/dst go back to being colour RAM pointers
+	lda #$f8
+	sta zp_colour_src + 2
+	sta zp_colour_dst + 2
+	lda #$0f
+	sta zp_colour_src + 3
+	sta zp_colour_dst + 3
+	rts
+
+.gc_copy_tile
+	; move tile .gc_old down to tile .gc_next, 64 bytes. When nothing below
+	; has been freed yet they are the same slot, and there is nothing to do.
+	lda .gc_old
+	cmp .gc_next
+	bne +
+	lda .gc_old + 1
+	cmp .gc_next + 1
+	bne +
+	rts
++	txa
+	pha
+	lda .gc_old + 1
+	clc
+	adc #FCM_TILE_CODE_HI
+	tax
+	lda .gc_old
+	jsr .pcf_code_addr		; .pic_dst = the tile's old home
+	ldx #3
+-	lda .pic_dst,x
+	sta zp_colour_src,x
+	dex
+	bpl -
+	lda .gc_next + 1
+	clc
+	adc #FCM_TILE_CODE_HI
+	tax
+	lda .gc_next
+	jsr .pcf_code_addr		; .pic_dst = its new one
+	ldx #3
+-	lda .pic_dst,x
+	sta zp_colour_dst,x
+	dex
+	bpl -
+	ldz #0
+-	lda [zp_colour_src],z
+	sta [zp_colour_dst],z
+	inz
+	cpz #64
+	bne -
+	pla
+	tax
 	rts
 
 .pic_copy_tiles

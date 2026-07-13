@@ -73,19 +73,28 @@ the stripe. .pcf_make_tile now counts the overlay tile's transparent pixels
 while copying it into the work buffer; a fully opaque cell keeps its own
 screen code and allocates nothing.
 
-STILL OPEN, related pair:
-- The store (2048 tiles) cannot hold two big pictures at once: Arthur's
-  Merlin scene (1057 tiles) drawn centred over the sword picture (1223)
-  recycles the sword's tiles, so the area around the smaller picture shows
-  garbage until the next erase - the reference keeps the old picture visible
-  there. Transient intro cosmetics. A bigger store needs a second, non-
-  contiguous region (bank 1, with sound moved or dropped - Johan has okayed
-  losing sound under -fcm if it comes to that) and a two-region allocator.
-- Entering scrollback mode repoints screen RAM to $40000
-  (scrollback.asm .scrollback_screen_ram), the tile store's first 64 tiles
-  under -pics. Leaving it restores the pointer but not the tiles, so
-  scrollback over a picture corrupts it. Move the scrollback screen or
-  redraw after exit.
+FIXED: the store (2048 tiles) cannot hold two big pictures at once - Arthur
+draws the Merlin scene (1057 tiles) centred over the sword picture (1223),
+whose gold frame stays visible - so recycling the sword's tiles showed
+garbage around the smaller picture. .pic_alloc now compacts instead of
+wrapping (.pic_gc): when a fresh run will not fit, every tile still shown by
+a cell outside the incoming picture's rectangle is kept, moved to the bottom
+of the store in ascending order (a survivor can only move down, so the copy
+is safe in place), and its cells repointed; the new run lands above the
+survivors. ~500 frame tiles + 1057 fit easily. The rewrite works from a
+bitmap, per-byte prefix counts and a popcount table (~1.3 KB of tables); the
+whole sweep is a few hundred thousand cycles at 40 MHz, and it only runs
+when the allocator would otherwise wrap. If even the survivors plus the new
+picture do not fit, the old wrap-to-zero remains as the fallback. Verified:
+Merlin renders inside the sword picture's intact frame, matching the
+reference, and the churchyard screen still composites correctly after the
+GC has run.
+
+STILL OPEN: entering scrollback mode repoints screen RAM to $40000
+(scrollback.asm .scrollback_screen_ram), the tile store's first 64 tiles
+under -pics. Leaving it restores the pointer but not the tiles, so
+scrollback over a picture corrupts it. Move the scrollback screen or
+redraw after exit.
 
 FIXED: Arthur's "FATAL ERROR: 17" on the MEGA65 was a missing window property.
 
