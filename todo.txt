@@ -700,6 +700,21 @@ giving each window its own background colour.
 
 Ideas for tasks / subprojects to do next
 ----------------------------------------
+An autoboot sector for the C128 disks. Not a bug, and not urgent - noted only
+because starting a game on the 80 column screen is currently a nuisance. VICE
+cannot autostart a disk with the 80 column screen selected: its autostart types
+LOAD"...",8 and then watches the VIC-II screen at $0400 for the READY prompt,
+which never comes when the console is the VDC, so it sits at the load prompt for
+ever while the characters it typed land on the VDC. Hence make arthur-c128-80
+only attaches the disk and the player types RUN"STORY", as the player manual
+already says. The C128 can boot a disk by itself, though, from an autoboot
+sector, and a disk carrying one would start in either screen mode with no typing
+and no autostart involved - on real hardware as well as in VICE. The catch is
+that the boot sector wants track 1 sector 0, which is where Ozmoo already keeps
+its config blocks, so it needs a proper look at the disk layout rather than a
+quick patch.
+
+
 Handle case where REU is present but not large enough to hold entire game.
 
 Verify that game data was written correctly to REU and signal error if not.

@@ -26,6 +26,9 @@
 # symlink, so this must not end in a slash.
 /x16-emulator46
 
+# Byte code left behind when tools/pics2asm.py is imported rather than run
+/tools/__pycache__/
+
 # Build products
 /temp/
 /testz6.z6
