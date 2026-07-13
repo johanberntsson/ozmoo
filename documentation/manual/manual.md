@@ -8,7 +8,8 @@ Ozmoo is a a redistributable interpreter of Z-code games - Infocom games and gam
 
 Ozmoo supports:
 
-- Z-code version 1, 2, 3, 4, 5, 7 and 8. Essentially this covers all games except for the Infocom games with graphics.
+- Z-code version 1, 2, 3, 4, 5, 6, 7 and 8. This covers every Infocom game, including the four graphical version 6 games (Arthur, Journey, Shogun and Zork Zero).
+- Version 6 games, with their eight-window screen model, on every target. Their graphics are drawn on the MEGA65 and the Commander X16; on the other computers the game is playable, with a short note printed where each picture would have been. See [Version 6 games](#version-6-games).
 - Fitting a lot more text on screen than Infocom's interpreters - This is done by using all 40 columns, smart wordwrap and a MORE prompt which uses a single character.
 - Embedding a custom font. Currently two fonts are included in the distribution, plus some versions for Swedish, Danish, German, Italian, Spanish and French. And you can supply your own font.
 - Custom alphabets in Z-machine version 5, 7 and 8.
@@ -124,6 +125,41 @@ At a command prompt, type "ruby make.rb mygame.z5"
 
 At a command prompt, type "ruby make.rb -P mygame.z5" to build a game which will only consist of a single file. A game created in this way does not require a disk drive to play.
 
+## Build a game with graphics
+
+The four graphical Infocom games are Z-code version 6, and their pictures are not
+in the story file: they are in a separate Blorb resource file, usually with the
+extension .blb. Give Ozmoo both, with the -pics switch, and it will build the
+pictures into the game.
+
+Graphics are only drawn on the MEGA65 and the Commander X16 — no other target has
+the video hardware for it. On the MEGA65 they also need the full colour screen,
+which is what -fcm asks for. So, to build Arthur:
+
+    > ruby make.rb -t:mega65 -fcm -pics arthur.blb arthur.z6
+    > ruby make.rb -t:x16 -pics arthur.blb arthur.z6
+
+Add -s to either of those to start the game in an emulator once it has been built.
+
+On the MEGA65 the pictures do not fit on the boot disk beside the story, so they
+get one or more picture disks of their own: the build produces
+`mega65_arthur.d81` plus `mega65_arthur_pics_1.d81` and so on. Put the boot disk
+in the first drive and the first picture disk in the second, and the game will
+load without asking for a swap; if you have only one drive, it will ask. On the
+X16 there are no picture disks at all — the pictures are ordinary files in the
+game's directory, and the game reads each one from the SD card as it draws it.
+
+The same works for the other three games:
+
+    > ruby make.rb -t:mega65 -fcm -pics zork0.blb zork0.z6
+    > ruby make.rb -t:mega65 -fcm -pics shogun.blb shogun.z6
+    > ruby make.rb -t:mega65 -fcm -pics journey.blb journey.z6
+
+You can build a version 6 game without -pics, on any target, and it will play
+with a short "pic:N" note wherever a picture belongs. See
+[Version 6 games](#version-6-games) for the details, and for the switches that
+control the version 6 screen.
+
 ## Build a game with optimized preloaded virtual memory data
 
 Ozmoo has the option of optimizing which virtual memory blocks are loaded when the game starts. This is done to make the game as fast as possible in the beginning.
@@ -186,9 +222,19 @@ The Commodore Plus/4 version makes use of the simplified memory map compared to 
 
 The MEGA65 version is very similar to the C64 version of Ozmoo. It runs in C64 mode on the MEGA65, but uses the 80 column screen mode, extended sound support, higher clockspeed, and the extra RAM of the MEGA65. There is no limitation on dynamic memory size. The only supported build mode is -81. Undo is enabled by default for games that support it. A loader image can be used, see [Loader image](#loader-image).
 
+The MEGA65 is one of the two targets that draw the graphics of version 6 games, on
+its full colour screen (-fcm), and the only one with a mouse. See
+[Version 6 games](#version-6-games).
+
 ## Commander X16
 
 The Commander X16 version is using the extended RAM fully to preload the story file by default. It also adapts automatically to the screen resolution used when starting the game. Undo is supported. Unlike the other platforms, scrollback buffer is currently not supported on the X16. The only supported build mode is ZIP.
+
+The X16 is the other target that draws the graphics of version 6 games, on a VERA
+tile layer behind the text (-pics, with no -fcm needed — the X16 has only the one
+screen). It needs no picture disks: the pictures are files in the game's directory
+and are read from the SD card as they are drawn. There is no mouse pointer here
+yet. See [Version 6 games](#version-6-games).
 
 ## Other targets
 
@@ -433,6 +479,9 @@ Cursor shape: either of b,u or l; where b=block (default) shape, u=underscore sh
 
 When building a game with make.rb, you can choose to embed a font (character set) with the game using the -f option. This will use up 2 KB of memory which would otherwise have been available for game data. The font file should be exactly 2048 bytes long and just hold the raw data for the font, without load address or other extra information.
 
+A custom font cannot be used on the MEGA65's full colour screen (-fcm), which
+reads its characters from the ROM font, so make.rb will refuse the combination.
+
 The font files are organized into subfolders under the "font" folder, with one subfolder per language:
 
 da: Danish
@@ -496,6 +545,67 @@ Example: assuming that the sound files are stored in a folder called "lurking_so
 
     ruby make.rb -s -ch -t:mega65 -asw lurking_sounds lurkinghorror-r221-s870918.z3
 
+# Version 6 games
+
+Version 6 of the Z-machine is the graphical one. Infocom released four games in
+it — Arthur, Journey, Shogun and Zork Zero — and it differs from the versions
+around it in two ways that matter to a player. The screen is divided into as many
+as eight windows, each with its own size, cursor and colours, and the game draws
+pictures into them.
+
+Ozmoo plays version 6 games on every target it supports. The windows work
+everywhere. The pictures are drawn on the MEGA65 and the Commander X16; on the
+Commodore 64, the 128 and the Plus/4 the game is played to the end all the same,
+with a short note reading "pic:12" printed where picture 12 would have been, so
+that the layout keeps its shape and nothing is silently missing. Nothing needs to
+be switched on for the window model: build a .z6 story file for any target and it
+is there.
+
+The games were written for machines with more screen than a Commodore 64 has, and
+they show it. They assume 80 columns: Zork Zero's layout comes apart at 40 and
+Journey is unplayable, so on the MEGA65 and the X16, where the graphics are, the
+screen is 80 columns wide.
+
+## Switches
+
+    -pics <blorb or directory>
+
+Build the game's pictures in and draw them. The argument is normally the game's
+Blorb resource file (arthur.blb), which holds the pictures and a few other things
+Ozmoo needs; a directory of numbered PNG files works too, which is useful when
+testing your own. Requires -fcm on the MEGA65, and is available on the MEGA65 and
+the X16 only. See [Build a game with graphics](#build-a-game-with-graphics).
+
+    -fcm[:0|1|40|80]
+
+MEGA65 and version 6 only. Use the MEGA65's full colour screen, which is what the
+pictures are drawn on, and which also gives the text a colour per character.
+-fcm:40 builds the older 40-column version of that screen, which is worth having
+only for comparing against a Commodore 64.
+
+    -ecm[:0|1]
+
+Commodore 64 and version 6 only. Use the VIC-II's Extended Color Mode so that each
+of the eight windows can have its own background colour. The chip charges a price
+for it: only 64 characters are available, so capitals are printed as lowercase and
+reverse video is not available. It is a trade, not an improvement, and it is off
+by default.
+
+## What to expect
+
+Arthur and Shogun keep their pictures on one picture disk on the MEGA65; Zork Zero
+and Journey have enough of them to need two. On the X16 the number does not matter,
+because the pictures are files on the SD card and are read as they are drawn.
+
+On the MEGA65's full colour screen the games also have a working mouse — a 1351 or
+Amiga mouse in control port 2 — for the games that ask for one, which is Arthur
+and Zork Zero. Zork Zero's on-screen controls can be clicked, and Arthur's [MORE]
+prompt can be dismissed with a click.
+
+Ozmoo's version 6 support is newer than the rest of it, and these are the first
+interpreters to run these games on these machines. If you find a picture in the
+wrong place or a screen that does not look like it should, it is worth reporting.
+
 # Loader image
 
 When building for the Commodore 64, 128, the Plus/4, or the MEGA65, it is possible to add a loader which shows an image while the game is loading, using -i (show image) or -if (show image with a flicker effect in the border). The image file must be:
@@ -523,6 +633,9 @@ enable it use -ch or -ch:1. This will allocate a history buffer large enough to 
 # Scrollback buffer
 
 Allows the player to press F5 to enter scrollback mode, where they can scroll up and down through the text that has scrolled off the screen. This feature uses an REU if available on C64 or C128, and AtticRAM on MEGA65. Optionally, it can use a smaller portion of RAM on Plus/4 as well as C64 or C128 without REU. Scrollback buffer is enabled by default for MEGA65 only. Enable it with -sb or -sb:1. Disable it with -sb:0. Add a RAM buffer on Plus/4, C64 or C128 with -sb:6|8|10|12.
+
+The scrollback buffer is not available for version 6 games, whose eight windows
+each scroll their own part of the screen, and make.rb will refuse to build one.
 
 # Undo
 
