@@ -75,6 +75,7 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 !ifdef Z6_PICTURES {
 !source "../temp/pictures.asm"
 
+!ifndef TARGET_X16 {
 ; The pictures are files on the disk, preloaded into attic RAM at boot the same
 ; way the sound effects are. Drawing one copies its tiles down into the tile
 ; store, shifting every pixel index into the drawing window's palette bank,
@@ -82,6 +83,10 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 ;
 ; A window holds at most one picture, so each window owns a run of the tile
 ; store and a bank of 16 palette entries above the 16 text colours.
+;
+; The X16 draws its pictures on a VERA tile layer instead, with its own copy
+; of this machinery in pictures-x16.asm (sourced below); only the state and
+; engine split per target, the opcodes further down are common.
 
 PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 ; PIC_MAX_TILES, FCM_TILE_STORE and FCM_TILE_CODE_HI are in constants.asm:
@@ -134,6 +139,7 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .gc_byi      !byte 0		; bitmap byte index being walked
 .gc_t        !byte 0
 .gc_t2       !byte 0
+} ; !ifndef TARGET_X16
 
 !ifdef DEBUG_SCREENLOG {
 ; A ring buffer of the v6 screen opcodes and their operands, for reading out
@@ -249,6 +255,10 @@ screenlog_extra					; a,x = a result word for the previous entry
 	sta screenlog_buf,y
 	rts
 }
+
+!ifdef TARGET_X16 {
+!source "pictures-x16.asm"
+} else {
 
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
@@ -689,6 +699,16 @@ pic_load_all
 	sta .pic_att + 2
 	lda #$08				; attic RAM starts at $08000000
 	sta .pic_att + 3
+	rts
+
+.pic_size
+	; Set .pic_w and .pic_h for the picture in .pic_index (the first two bytes
+	; of its file in attic RAM), for picture_data.
+	jsr .pic_open
+	jsr .pic_att_next		; cells across
+	sta .pic_w
+	jsr .pic_att_next		; cells down
+	sta .pic_h
 	rts
 
 .pic_bank_start
@@ -1579,6 +1599,7 @@ pic_load_all
 	bne .pic_erase_row
 .pic_erase_done
 	rts
+} ; !ifdef TARGET_X16 / else
 }
 
 z_ins_draw_picture
@@ -1668,11 +1689,7 @@ z_ins_picture_data
 	ldx z_operand_value_low_arr
 	jsr .pic_find
 	bcc .pd_try_rect
-	jsr .pic_open
-	jsr .pic_att_next ; cells across
-	sta .pic_w
-	jsr .pic_att_next ; cells down
-	sta .pic_h
+	jsr .pic_size ; sets .pic_w and .pic_h for the picture in .pic_index
 	jmp .pd_report
 .pd_try_rect
 	; Not a real picture. A Rect placeholder has no image, only a size, which
@@ -2506,6 +2523,14 @@ erase_window
 	; erase a single window (0-7)
 	jsr .erase_window_rect
 	ldx .rect_win
+!ifdef TARGET_X16 {
+!ifdef Z6_PICTURES {
+	; the picture layer behind the text must be erased too; the text layer
+	; cannot bury it the way a one-plane screen does
+	jsr pic_erase_win_rect
+	ldx .rect_win
+}
+}
 	jmp .home_cursor
 .erase_whole_screen
 	cpx #$ff
@@ -2525,6 +2550,11 @@ erase_window
 }
 	lda #147 ; clear screen
 	jsr s_printchar
+!ifdef TARGET_X16 {
+!ifdef Z6_PICTURES {
+	jsr pic_erase_screen
+}
+}
 	ldx current_window
 .home_cursor
 	; move the erased window's cursor to its top left corner, inside the

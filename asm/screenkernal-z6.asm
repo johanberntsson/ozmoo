@@ -197,6 +197,122 @@ VERASetBorderColour
 	sta VERA_dc_border
     rts
 
+!ifdef Z6_PICTURES {
+vera_gfx_init
+	; Set the pictures screen up: halve VSCALE so the 80x60 text mode becomes
+	; 80x30 fat rows, crop the display to 25 of them with VSTOP (640x200
+	; effective - the MEGA65 80-column geometry), move the kernal charset out
+	; of VRAM bank 0 (which becomes the tile store), and put layer 0 behind
+	; the text as a 64x32 map of 16x8-pixel 4bpp tiles, all transparent.
+	stz VERA_ctrl			; port 0, DCSEL 0
+	lda #64
+	sta VERA_dc_vscale
+	lda #2					; DCSEL 1: HSTART/HSTOP/VSTART/VSTOP
+	sta VERA_ctrl
+	lda #200				; VSTOP is in physical lines / 2: 400 lines shown
+	sta VERA_dc_border		; $9f2c is VSTOP when DCSEL = 1
+	stz VERA_ctrl
+
+	; Copy the 2 KB charset from wherever the kernal keeps it to VRAM_CHARSET,
+	; reading with port 0 and writing with port 1, then repoint layer 1 at the
+	; copy. The tilebase register holds address bits 16-11 in its top six
+	; bits: bit 7 is address bit 16, and (reg & $7c) << 1 is the address's
+	; high byte.
+	lda VERA_L1_tilebase
+	pha						; keep the tile size bits for later
+	and #$80
+	asl						; carry = address bit 16, a = 0
+	lda #$10				; stride 1
+	adc #0					; plus address bit 16
+	sta VERA_addr_bank
+	pla
+	pha
+	and #$7c
+	asl
+	sta VERA_addr_high
+	stz VERA_addr_low
+	lda #1					; port 1: the destination, $11000
+	sta VERA_ctrl
+	lda #$11				; stride 1, address bit 16 set
+	sta VERA_addr_bank
+	lda #>(VRAM_CHARSET & $ffff)
+	sta VERA_addr_high
+	stz VERA_addr_low
+	stz VERA_ctrl
+	ldx #8					; 8 pages = 2 KB
+	ldy #0
+-	lda VERA_data0
+	sta VERA_data1
+	iny
+	bne -
+	dex
+	bne -
+	pla
+	and #$03				; keep the 8x8 tile size
+	ora #((VRAM_CHARSET >> 11) << 2) & $fc
+	sta VERA_L1_tilebase
+
+	; Layer 0: 64x32 map at VRAM_L0_MAP, 16x8 tiles at VRAM_PIC_TILES, 4bpp
+	lda #$12				; map height 32, width 64, tile mode, 4bpp
+	sta VERA_L0_config
+	lda #(VRAM_L0_MAP >> 9)
+	sta VERA_L0_mapbase
+	lda #$01				; tile base 0, tile height 8, tile width 16
+	sta VERA_L0_tilebase
+
+	; Zero tile 0 (the transparent tile) and the whole map, port 0, stride 1
+	lda #$10
+	sta VERA_addr_bank
+	stz VERA_addr_high
+	stz VERA_addr_low
+	ldy #64
+	lda #0
+-	sta VERA_data0
+	dey
+	bne -
+	lda #$11				; the map is in bank 1
+	sta VERA_addr_bank
+	lda #>(VRAM_L0_MAP & $ffff)
+	sta VERA_addr_high
+	stz VERA_addr_low
+	ldx #16					; 16 pages = 4 KB
+	ldy #0
+	lda #0
+-	sta VERA_data0
+	iny
+	bne -
+	dex
+	bne -
+
+	; leave port 0 selected with stride 1, as the screen code expects
+	lda #$11
+	sta VERA_addr_bank
+
+	stz VERA_ctrl			; enable layer 0 (DC_VIDEO bit 4)
+	lda VERA_dc_video
+	ora #$10
+	sta VERA_dc_video
+	rts
+
+vera_gfx_restore
+	; The quit path: put the composer and layer 1 back the way the kernal
+	; left them, so BASIC comes up readable after the reset.
+	stz VERA_ctrl
+	lda #128
+	sta VERA_dc_vscale
+	lda #2
+	sta VERA_ctrl
+	lda #240				; VSTOP back to 480 lines
+	sta VERA_dc_border
+	stz VERA_ctrl
+	lda VERA_dc_video		; layer 0 off
+	and #$ef
+	sta VERA_dc_video
+	; The kernal's charset copy at VRAM_CHARSET is intact, and BASIC keeps
+	; using it through our L1 tilebase, so it does not need moving back.
+	rts
+} ; Z6_PICTURES
+
 VERASetBackgroundColour
 	pha
     asl
@@ -666,6 +782,13 @@ s_init
 	sec
 	jsr $ff5f
 	sta s_x16_screen_mode
+!ifdef Z6_PICTURES {
+	; The pictures screen is not a kernal mode: vera_gfx_init reshapes the
+	; 80x60 text mode into 80x25 fat rows with a tile layer behind it.
+	jsr vera_gfx_init
+	ldx #SCREEN_WIDTH
+	ldy #SCREEN_HEIGHT
+}
 	txa
 } else {
 	lda #SCREEN_WIDTH

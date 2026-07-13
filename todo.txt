@@ -212,9 +212,64 @@ X16 all scroll the window and leave the pattern around it -- above, below and
 on both sides of every one of its rows -- untouched. testz6 itself lays out
 its two windows correctly at 80x60, and Zork Zero boots and lays out its
 status window. The [More] prompt lands on the window's bottom right corner.
-Still open for the X16: pictures (VERA is a tile machine, so it could), and
-per-window background colours (VERA gives every cell its own, as on the
-MEGA65).
+Still open for the X16: per-window background colours (VERA gives every cell
+its own, as on the MEGA65).
+
+DONE: pictures on the X16 (-pics without -fcm; make z6-pics-x16 /
+arthur-pics-x16, and the other three games have targets too). The design is
+the MEGA65 FCM engine ported to VERA (asm/pictures-x16.asm; the shared
+opcode plumbing in screen-z6.asm now splits per target around the engine):
+- The screen is two layers: text stays on layer 1, and the pictures live
+  behind it on layer 0, a 64x32 map of 16x8-pixel 4bpp tiles. VSCALE is
+  halved and VSTOP crops to 640x200 effective - the MEGA65 80-column
+  geometry, so `dfrotz -h 25 -w 80` and the MEGA65 build stay the
+  references. SCREEN_HEIGHT is 25 under Z6_PICTURES (constants-x16.asm)
+  and the build reports interpreter 6 (IBM), like the MEGA65 pics builds.
+- One tile is one logical art cell (8x8 art pixels doubled horizontally at
+  bake time). The store is all of VRAM bank 0 - 1024 tiles, tile 0 reserved
+  as the transparent tile - and the map, the relocated charset and the text
+  screen share bank 1. A map entry carries the tile index and a palette
+  offset nybble, which is how each picture keeps its own 16-colour bank
+  (banks 1..14 above the text colours): the bank rides in the map cells,
+  not the pixels, so nothing is rebaked when a bank is reassigned.
+- No preload: a picture is LOADed from SD on demand, uncompressed, into a
+  4-bank staging area just above the story (PIC_STAGING_BANK from make.rb),
+  and the staged picture is cached so redrawing the frame or the status
+  icons never touches the card. No picture disks, no swap prompts - Zork
+  Zero's 396 files just sit in the game directory. picture_data answers
+  from assembled-in pic_width/pic_height tables (the picture asked about
+  is usually not the one staged), which pics2asm's --x16 mode emits.
+- The allocator, the GC (compact instead of wrap) and per-pixel
+  compositing are the MEGA65's, reworked for VERA's data ports: the GC
+  walks the layer 0 map instead of screen RAM, and a composite cell has
+  ONE palette bank, so pixels kept from the underlying picture are
+  translated into the overlay's bank (exact colour match, else nearest by
+  RGB distance over CPU-side palette copies).
+- The text layer cannot bury a picture the way a one-plane screen does, so
+  drawing a picture blanks the text cells it covers (space, background
+  nybble 0 = transparent) - the MEGA65's replace-the-text semantics -
+  and erase_picture / erase_window restore opaque background and clear the
+  layer 0 cells. The undo buffer moved from VRAM (which the tile store now
+  owns) to banked RAM above the staging area; quit restores the composer
+  and switches layer 0 off so BASIC comes back readable.
+Verified: testz6's picture 4 is pixel-identical to its PNG (256/256 cells,
+palette included); Arthur plays to the churchyard with the scene composited
+inside the recoloured frame, and the sword-in-the-stone title (751 tiles,
+the worst single picture) renders clean; quit lands in a readable BASIC.
+The text-only X16 build and the whole non-X16 matrix are unchanged.
+
+Still open for the X16 pictures screen:
+- An odd text column is rounded down to the tile grid (a picture cell is
+  two text columns): draw_picture at an odd x lands 8 pixels left. Arthur
+  centres scenes at odd columns, so implement the half-cell path: bake
+  boundary tiles from two art-cell halves (and erase must preserve the
+  neighbour's half in a shared boundary cell instead of skipping it).
+- erase_line does not clear layer 0 (erase_window and erase_picture do).
+- The on-demand load reads with CHRIN a byte at a time, like the [ZCODE]
+  loader; if a first draw feels slow on real hardware, switch to MACPTR
+  block reads.
+- Headless testing: the emulator stops at every MORE prompt like the
+  others; xdotool key presses answer them (see CLAUDE.md).
 
 
 Picture store: multi-disk (done) and the 255-picture cap (open)

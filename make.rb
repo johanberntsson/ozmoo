@@ -1239,6 +1239,27 @@ def build_interpreter()
 		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
 	end
 
+	if $target == 'x16' and $GENERALFLAGS.include?('Z6_PICTURES')
+		# A picture is LOADed from SD on demand into a staging area of banked
+		# RAM, placed just above the story (whose first 16 KB live in low RAM
+		# at $5f00 and whose banked part starts at bank 1). With undo, the
+		# undo state follows above the staging area (it normally lives in
+		# VRAM, which the tile store owns in a pictures build).
+		story_banks = [($story_file_data.length - 16384 + 8191) / 8192, 0].max
+		staging_bank = 1 + story_banks
+		banks_needed = staging_bank + 4
+		if $undo and $undo > 0
+			undo_bytes = $dynmem_blocks * $VMEM_BLOCKSIZE + ($stack_pages + 1) * 256
+			banks_needed += (undo_bytes + 8191) / 8192
+		end
+		if banks_needed > 64
+			puts "ERROR: -pics: story, picture staging and undo need #{banks_needed} " +
+			     "banks, more than the 512 KB of banked RAM."
+			exit 1
+		end
+		optionalsettings += " -DPIC_STAGING_BANK=#{staging_bank}"
+	end
+
 	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
 	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
 	colourflags = '' #$colour_replacement_clause
@@ -2365,6 +2386,14 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
 	IO.binwrite(foldername+"/[ZCODE]", $story_file_data);
     # Add font, if any
     FileUtils.cp($font_filename, foldername+"/[FONT]") if $font_filename
+	# Add the pictures, if any: p004.bin becomes [P004] next to [ZCODE], and
+	# the interpreter LOADs it from SD the first time the game draws it.
+	if $picture_disks
+		$picture_disks.values.flatten.each do |file|
+			IO.binwrite(foldername + "/[" + File.basename(file, '.bin').upcase + "]",
+			            IO.binread(file))
+		end
+	end
 
     # Create the zip file
     command = "#{$executables['ZIP']} #{foldername}.zip #{foldername}"
@@ -3338,7 +3367,7 @@ if fcm_mode == 1
 end
 
 if picture_dir
-	if fcm_mode != 1
+	if fcm_mode != 1 and $target != 'x16'
 		puts "ERROR: -pics needs -fcm: pictures are drawn on the full colour screen."
 		exit 1
 	end
@@ -3346,23 +3375,36 @@ if picture_dir
 		puts "ERROR: -pics: no such directory or blorb file: #{picture_dir}"
 		exit 1
 	end
-	# A picture disk is a plain d81 of picture files: 79 data tracks (track 40 is
-	# the directory) minus the reserved config track, kept comfortably clear of
-	# both the block and the directory-entry ceiling so add_file never overflows.
-	pic_disk_blocks = 3100
-	pic_disk_files = 290
-	# The pictures must match the screen: two pixel-doubled tiles a cell on
-	# the 80-column screen, one tile a cell on the legacy 40-column one.
-	unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
-	              '--fcm-width', fcm_width.to_s,
-	              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
-		puts "ERROR: -pics: tools/pics2asm.py failed."
-		exit 1
+	if $target == 'x16'
+		# The X16 draws pictures on a VERA tile layer behind the text and
+		# loads each from SD on demand: uncompressed loose files in the game
+		# directory, no picture disks. One 16x8-pixel tile per logical cell.
+		unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
+		              '--x16', $TEMPDIR, picture_dir)
+			puts "ERROR: -pics: tools/pics2asm.py failed."
+			exit 1
+		end
+	else
+		# A picture disk is a plain d81 of picture files: 79 data tracks (track 40 is
+		# the directory) minus the reserved config track, kept comfortably clear of
+		# both the block and the directory-entry ceiling so add_file never overflows.
+		pic_disk_blocks = 3100
+		pic_disk_files = 290
+		# The pictures must match the screen: two pixel-doubled tiles a cell on
+		# the 80-column screen, one tile a cell on the legacy 40-column one.
+		unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
+		              '--fcm-width', fcm_width.to_s,
+		              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
+			puts "ERROR: -pics: tools/pics2asm.py failed."
+			exit 1
+		end
 	end
-	# One file per picture, preloaded into attic RAM at boot like the sounds, but
-	# spread over one or more separate picture disks (the boot disk has room only
-	# for the interpreter, story and sound). picdisks.txt says which disk each is
-	# on; the interpreter's pic_load_all sweeps the disks in turn.
+	# One file per picture. On the MEGA65 they are preloaded into attic RAM at
+	# boot like the sounds, spread over one or more separate picture disks (the
+	# boot disk has room only for the interpreter, story and sound); picdisks.txt
+	# says which disk each is on, and pic_load_all sweeps the disks in turn. On
+	# the X16 the same manifest (all "disk 1") lists the files build_zip copies
+	# into the game directory as [P###].
 	$picture_disks = Hash.new { |h, k| h[k] = [] }
 	File.foreach(File.join($TEMPDIR, 'picdisks.txt')) do |line|
 		name, disknum = line.split
@@ -3372,8 +3414,9 @@ if picture_dir
 	# The 80-column screen with the full picture set is the layout Infocom's
 	# v6 games reserve for the IBM interpreter: Shogun, for one, only draws
 	# its right-hand border picture when the header says IBM. The 40-column
-	# screen stays a C64 (the default), and -in: still overrides.
-	if fcm_width == 80 and $interpreter_number == nil
+	# screen stays a C64 (the default), and -in: still overrides. The X16
+	# pictures screen is 80 columns too.
+	if (fcm_width == 80 or $target == 'x16') and $interpreter_number == nil
 		$interpreter_number = 6
 	end
 end

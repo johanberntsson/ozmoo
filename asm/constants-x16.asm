@@ -2,7 +2,31 @@
 ;
 
 story_start_far_ram   = 0 ; NOTE: This is in banked RAM
+!ifdef Z6_PICTURES {
+; The pictures screen: text on VERA layer 1 as usual, pictures on a layer 0
+; tile map behind it. VSCALE is halved and VSTOP crops the display to
+; 640x200 effective pixels - the same geometry as the MEGA65's 80-column
+; full colour screen, so `dfrotz -h 25 -w 80` stays the reference.
+SCREEN_HEIGHT         = 25
+; A picture cell is one 16x8-pixel 4bpp VERA tile (an 8x8 cell of the
+; 320-wide art, pixel-doubled horizontally as it is baked). The store is
+; all of VRAM bank 0: 1024 tiles of 64 bytes. Tile 0 is reserved as the
+; all-transparent tile an empty layer 0 map cell shows, so runs start at 1.
+PIC_MAX_TILES         = 1024
+PIC_FIRST_TILE        = 1
+VRAM_PIC_TILES        = $00000
+VRAM_L0_MAP           = $10000	; 64x32 map entries, two bytes each
+VRAM_CHARSET          = $11000	; the kernal charset, moved out of bank 0
+; The staging area the current picture is LOADed into from SD: four banks
+; of banked RAM just above the story (PIC_STAGING_BANK comes from make.rb).
+; In x16_load_file_to_reu's page space bank b starts at page (b + 1) * 32.
+PIC_STAGING_PAGE      = (PIC_STAGING_BANK + 1) * 32
+; The undo state normally lives in VRAM, but the tile store owns all of
+; VRAM bank 0 now, so it moves to the banked RAM above the staging area.
+PIC_UNDO_BANK         = PIC_STAGING_BANK + 4
+} else {
 SCREEN_HEIGHT         = 60
+}
 SCREEN_WIDTH          = 80
 SCREEN_ADDRESS        = $0000
 COLOUR_ADDRESS        = $0000

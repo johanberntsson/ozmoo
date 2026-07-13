@@ -116,6 +116,26 @@ z6-x16:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:x16 testz6.z6
 
+# testz6 on the X16 drawing the test pictures: text on VERA layer 1 (80x25),
+# pictures on a layer 0 tile map behind it, loaded from SD on demand.
+z6-pics-x16:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:x16 -pics tools/testpics testz6.z6
+
+# Arthur on the X16, drawing its own pictures from the blorb. The picture
+# files sit uncompressed in the game directory: no picture disks, no swapping.
+arthur-pics-x16:
+	ruby make.rb -s -t:x16 -pics $(ARTHUR_BLORB) $(Z6GAMES)/$(ARTHUR).z6
+
+zork0-pics-x16:
+	ruby make.rb -s -t:x16 -pics $(ZORK0_BLORB) $(Z6GAMES)/$(ZORK0).z6
+
+shogun-pics-x16:
+	ruby make.rb -s -t:x16 -pics $(SHOGUN_BLORB) $(Z6GAMES)/$(SHOGUN).z6
+
+journey-pics-x16:
+	ruby make.rb -s -t:x16 -pics $(JOURNEY_BLORB) $(Z6GAMES)/$(JOURNEY).z6
+
 # The window-local scrolling test: a small window scrolls inside a screen full
 # of '#', which must survive intact. Every target must draw it the same way.
 scroll:

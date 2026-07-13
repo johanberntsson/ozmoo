@@ -2180,6 +2180,192 @@ do_restore_undo
 	rts
 	
 } else ifdef TARGET_X16 {
+!ifdef Z6_PICTURES {
+; The tile store owns all of VRAM bank 0 in a pictures build, so the undo
+; state moves to banked RAM just above the picture staging area
+; (PIC_UNDO_BANK). Source and destination share the one $a000 window, so
+; the put/get helpers switch the RAM bank around every access and hand the
+; caller's bank back.
+.undo_ptr = vmem_temp		; 2 bytes
+
+.undo_bank !byte 0
+
+.undo_rewind
+	lda #PIC_UNDO_BANK
+	sta .undo_bank
+	lda #0
+	sta .undo_ptr
+	lda #$a0
+	sta .undo_ptr + 1
+	rts
+
+.undo_advance
+	inc .undo_ptr
+	bne +
+	inc .undo_ptr + 1
+	pha
+	lda .undo_ptr + 1
+	cmp #$c0
+	bne ++
+	lda #$a0
+	sta .undo_ptr + 1
+	inc .undo_bank
+++	pla
++	rts
+
+.undo_put
+	; write a to the undo stream; every register and the RAM bank survive
+	phx
+	pha
+	lda 0
+	tax
+	lda .undo_bank
+	sta 0
+	pla
+	sta (.undo_ptr)
+	stx 0
+	plx
+	jmp .undo_advance
+
+.undo_get
+	; read the next undo stream byte into a; x, y and the RAM bank survive
+	phx
+	lda 0
+	tax
+	lda .undo_bank
+	sta 0
+	lda (.undo_ptr)
+	stx 0
+	plx
+	jmp .undo_advance
+
+do_save_undo
+	jsr .swap_pointers_for_save
+	jsr .undo_rewind
+
+	; Copy zp + stack, walking the same pages the VRAM version did
+	lda #256 - zp_bytes_to_save
+	sta .read_stack + 1
+	lda #(>stack_start) - 1
+	sta .read_stack + 2
+	; Remember where stack ends
+	lda #>(stack_start + stack_size)
+	sta z_temp + 2 ; Stop when this page is reached
+
+.read_stack
+	lda $8000 ; Self-modifying
+	jsr .undo_put
+	inc .read_stack + 1
+	bne .read_stack
+	inc .read_stack + 2
+	lda .read_stack + 2
+	cmp z_temp + 2
+	bne .read_stack
+
+	; Copy dynmem
+	lda #0
+	sta z_temp
+	sta z_temp + 2 ; Z-code page
+	lda #$5f
+	sta z_temp + 1
+	; Remember pagecount for dynmem
+	ldx nonstored_pages
+	ldy #0
+
+.read_dynmem
+	lda (z_temp),y
+	jsr .undo_put
+	iny
+	bne .read_dynmem
+
+	; Next page
+	dex
+	beq ++ ; No more pages to copy!
+	inc z_temp + 1
+	inc z_temp + 2
+	lda z_temp + 2
+	and #%00011111
+	bne .read_dynmem
+
+	; We are entering a new 8KB block, so we need to calculate bank
+	lda z_temp + 2
+	sta mempointer
+	lda #0
+	sta mempointer + 1
+	jsr x16_prepare_bankmem
+	lda mempointer + 1
+	sta z_temp + 1
+	bne .read_dynmem ; Always branch
+
+++	jsr .swap_pointers_for_save
+    ldx #1
+	stx undo_state_available
+	rts
+
+do_restore_undo
+	jsr .swap_pointers_for_save
+	jsr .undo_rewind
+
+	; Copy zp + stack back
+	lda #256 - zp_bytes_to_save
+	sta .write_stack + 1
+	lda #(>stack_start) - 1
+	sta .write_stack + 2
+	; Remember where stack ends
+	lda #>(stack_start + stack_size)
+	sta z_temp + 2 ; Stop when this page is reached
+
+-	jsr .undo_get
+.write_stack
+	sta $8000 ; Self-modifying
+	inc .write_stack + 1
+	bne -
+	inc .write_stack + 2
+	lda .write_stack + 2
+	cmp z_temp + 2
+	bne -
+
+	; Copy dynmem back
+	lda #0
+	sta z_temp
+	sta z_temp + 2 ; Current Z-code page
+	lda #$5f
+	sta z_temp + 1
+	; Remember pagecount for dynmem
+	ldx nonstored_pages
+	ldy #0
+
+.write_dynmem
+	jsr .undo_get
+	sta (z_temp),y
+	iny
+	bne .write_dynmem
+
+	; Next page
+	dex
+	beq ++ ; No more pages to copy!
+	inc z_temp + 1
+	inc z_temp + 2
+	lda z_temp + 2
+	and #%00011111
+	bne .write_dynmem
+
+	; We are entering a new 8KB block, so we need to calculate bank
+	lda z_temp + 2
+	sta mempointer
+	lda #0
+	sta mempointer + 1
+	jsr x16_prepare_bankmem
+	lda mempointer + 1
+	sta z_temp + 1
+	bne .write_dynmem ; Always branch
+
+++  ldx #0
+	stx undo_state_available
+	jsr .swap_pointers_for_save
+ 	jmp get_page_at_z_pc
+
+} else {
 do_save_undo
 	jsr .swap_pointers_for_save
 
@@ -2201,7 +2387,7 @@ do_save_undo
 	sta VERA_addr_low
 	lda #$10 ; Increment = 1, bank = 0
 	sta VERA_addr_bank
-	
+
 .read_stack
 	lda $8000 ; Self-modifying
 	sta VERA_data0
@@ -2211,7 +2397,7 @@ do_save_undo
 	lda .read_stack + 2
 	cmp z_temp + 2
 	bne .read_stack
-	
+
 	; Copy dynmem from RAM to VRAM
 	; Set start address in RAM
 	lda #0
@@ -2249,7 +2435,7 @@ do_save_undo
 
 ++	pla
 	sta VERA_addr_bank
-	
+
 	jsr .swap_pointers_for_save
     ldx #1
 	stx undo_state_available
@@ -2277,7 +2463,7 @@ do_restore_undo
 	lda #$10 ; Increment = 1, bank = 0
 	sta VERA_addr_bank
 
--	lda VERA_data0	
+-	lda VERA_data0
 .write_stack
 	sta $8000 ; Self-modifying
 	inc .write_stack + 1
@@ -2286,7 +2472,7 @@ do_restore_undo
 	lda .write_stack + 2
 	cmp z_temp + 2
 	bne -
-	
+
 	; Copy dynmem from VRAM to RAM
 	; Set start address in RAM
 	lda #0
@@ -2330,6 +2516,7 @@ do_restore_undo
 	stx undo_state_available
 	jsr .swap_pointers_for_save
  	jmp get_page_at_z_pc
+} ; !ifdef Z6_PICTURES / else
 
 } else {
 	; C64/C128

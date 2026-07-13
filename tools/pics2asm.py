@@ -23,6 +23,15 @@ disk or in attic RAM. --fcm-width 40 emits the old one-tile-per-cell format
 (32-byte tiles) for the 40-column screen. --stats measures and prints but
 writes nothing.
 
+--x16 emits the Commander X16 format instead: the same 80-column geometry, but
+one cell-map entry and one 32-byte tile per logical cell (a VERA tile is 16x8
+pixels, a whole doubled cell), a 32-byte palette in VERA order (GGGGBBBB,
+0000RRRR per entry, ready for $1fa00), and no compression -- the files sit
+loose in the game directory and are LOADed from SD on demand, so there are no
+picture disks and no decompressor. pictures.asm then carries pic_width and
+pic_height (in text cells) instead of the disk and attic-page tables, because
+picture_data must answer for pictures that are not loaded.
+
 The file is RLE compressed, PackBits style, and decompressed into attic RAM as
 it is read. Uncompressed it is:
 
@@ -84,7 +93,7 @@ def rle(data):
             out += lit
     return bytes(out)
 
-def convert(path, double=False):
+def convert(path, double=False, x16=False):
     if not isinstance(path, str):     # (image, name) tuple from a blorb
         im, path = path
     else:
@@ -154,15 +163,25 @@ def convert(path, double=False):
                 cellmap.append(index_of[t])
 
     ntiles = len(index_of)
-    max_tiles = 2048 if double else 1024
+    max_tiles = 1023 if x16 else (2048 if double else 1024)
     if ntiles > max_tiles:
         sys.exit(f"{path}: {ntiles} unique tiles; the store holds {max_tiles}")
 
-    # The bank in the picture file's own index order: entry n is palette index n.
-    palette = bytearray(48)
-    for chan in range(3):
+    if x16:
+        # VERA palette RAM order: two bytes an entry, GGGGBBBB then 0000RRRR,
+        # ready to stream straight to $1fa00 + bank * 32.
+        palette = bytearray(32)
         for n in range(16):
-            palette[chan*16 + n] = nybswap(pal[n*3 + chan])
+            r, g, b = pal[n*3], pal[n*3+1], pal[n*3+2]
+            palette[n*2] = (g & 0xf0) | (b >> 4)
+            palette[n*2 + 1] = r >> 4
+    else:
+        # The bank in the picture file's own index order: entry n is palette
+        # index n, in the nybble-swapped order the VIC-IV registers want.
+        palette = bytearray(48)
+        for chan in range(3):
+            for n in range(16):
+                palette[chan*16 + n] = nybswap(pal[n*3 + chan])
 
     packed = bytearray()          # two pixels a byte, high nybble first
     for i in range(0, len(tiles), 2):
@@ -177,9 +196,13 @@ def convert(path, double=False):
     blob += packed
     if len(blob) > 0xffff:
         sys.exit(f"{path}: {len(blob)} bytes uncompressed; more than 64 KB")
+    # The X16 loads a picture from SD on demand, straight into its staging
+    # banks with the kernal's LOAD: the file stays uncompressed so no
+    # decompressor is needed, and FAT32 has no d81 block pressure. The
+    # MEGA65's files are RLE compressed to fit a picture disk.
     return dict(w=w, h=h, cw=cw * 2 if double else cw, ch=ch, ntiles=ntiles,
                 logical=len(logical), colours=len(opaque),
-                blob=rle(bytes(blob)), raw=len(blob))
+                blob=bytes(blob) if x16 else rle(bytes(blob)), raw=len(blob))
 
 def load_blorb(filepath):
     """Return (images, rects, adaptive) from a Blorb: images is a list of
@@ -249,12 +272,14 @@ def pack_disks(sizes, disk_blocks, disk_files):
 
 
 def main():
-    fcm_width, stats, args = 80, False, []
+    fcm_width, stats, x16, args = 80, False, False, []
     argv, i = sys.argv[1:], 0
     while i < len(argv):
         a = argv[i]
         if a == "--stats":
             stats = True
+        elif a == "--x16":
+            x16 = True
         elif a == "--fcm-width" and i + 1 < len(argv):
             i += 1
             fcm_width = int(argv[i])
@@ -266,10 +291,14 @@ def main():
     if fcm_width not in (40, 80):
         sys.exit("--fcm-width must be 40 or 80")
     if not 2 <= len(args) <= 4:
-        sys.exit(f"usage: {sys.argv[0]} [--fcm-width 40|80] [--stats] "
+        sys.exit(f"usage: {sys.argv[0]} [--fcm-width 40|80] [--x16] [--stats] "
                  f"<outdir> <png-dir-or-blorb> [disk-blocks disk-files]")
     outdir, source = args[0], args[1]
-    double = fcm_width == 80
+    # The X16's screen has the MEGA65 80-column geometry -- text cells 8 pixels,
+    # picture cells 16 -- but its L0 tile map holds one 16x8 tile per logical
+    # cell, so the cell map is one entry per cell like the 40-column format,
+    # while the game-facing sizes (pic_width, rects) are in doubled text cells.
+    double = fcm_width == 80 and not x16
     # make.rb passes the picture-disk budget; without it everything goes on one
     # disk (the standalone / directory-of-PNGs case).
     disk_blocks = int(args[2]) if len(args) > 2 else 1 << 30
@@ -299,7 +328,10 @@ def main():
     for num, src in images:
         if not 0 < num <= MAX_PIC_NUMBER:
             sys.exit(f"picture {num}: numbers must be 1..{MAX_PIC_NUMBER}")
-        p = convert(src, double)
+        p = convert(src, double, x16)
+        if x16 and len(p['blob']) > 0x8000:
+            sys.exit(f"picture {num}: {len(p['blob'])} bytes; more than the "
+                     f"X16's 32 KB (4 bank) staging area")
         if len(p['blob']) > 255 * 256:
             sys.exit(f"picture {num}: {len(p['blob'])} bytes compressed; a picture "
                      f"file may be at most 255 pages")
@@ -321,8 +353,13 @@ def main():
                   f"{p['raw']} -> {len(p['blob'])} bytes")
 
     # Spread the picture files over as many picture disks as they need, parallel
-    # to nums. make.rb reads the manifest below to build one d81 per disk.
-    disk_of, disk_count = pack_disks(sizes, disk_blocks, disk_files)
+    # to nums. make.rb reads the manifest below to build one d81 per disk. The
+    # X16's files sit loose in the game directory -- no disks -- but the
+    # manifest is still what tells make.rb which files belong to the build.
+    if x16:
+        disk_of, disk_count = [1] * len(nums), 1
+    else:
+        disk_of, disk_count = pack_disks(sizes, disk_blocks, disk_files)
     if not stats:
         with open(os.path.join(outdir, "picdisks.txt"), "w") as f:
             for num, d in zip(nums, disk_of):
@@ -331,7 +368,7 @@ def main():
     # A Rect is an invisible placeholder: no image, just a size in cells that
     # picture_data reports. Cells are ceil(pixels / 8), as for a real picture,
     # so on the 80-column screen a rect is twice as many cells wide.
-    rw = 2 if double else 1
+    rw = 1 if fcm_width == 40 else 2
     rects = sorted((n, rw * ((w + 7) // 8), (h + 7) // 8) for n, w, h in rects)
 
     def lo(v): return v & 0xff
@@ -341,9 +378,15 @@ def main():
         with open(os.path.join(outdir, "pictures.asm"), "w") as f:
             f.write("; Generated by tools/pics2asm.py - do not edit\n")
             f.write(f"; from {source}\n;\n")
-            f.write("; Only the index is assembled in. Each picture is a file on a\n")
-            f.write("; picture disk, preloaded into attic RAM at boot. Rect pictures\n")
-            f.write("; carry no image, only a size picture_data reports.\n\n")
+            if x16:
+                f.write("; Only the index is assembled in. Each picture is a file in\n")
+                f.write("; the game directory, loaded from SD on demand when it is\n")
+                f.write("; drawn. Rect pictures carry no image, only a size\n")
+                f.write("; picture_data reports.\n\n")
+            else:
+                f.write("; Only the index is assembled in. Each picture is a file on a\n")
+                f.write("; picture disk, preloaded into attic RAM at boot. Rect pictures\n")
+                f.write("; carry no image, only a size picture_data reports.\n\n")
             f.write(f"picture_count = {len(nums)}\n")
             # How many picture disks the interpreter must sweep at boot; >1 makes
             # pic_load_all prompt for each in turn.
@@ -352,10 +395,19 @@ def main():
             # like pic_page_lo/hi, rather than one word table.
             f.write("pic_number_lo\t!byte " + ",".join(str(lo(n)) for n in nums) + "\n")
             f.write("pic_number_hi\t!byte " + ",".join(str(hi(n)) for n in nums) + "\n")
-            # Which picture disk (1-based) each picture's file lives on.
-            f.write("pic_disk\t!byte " + ",".join(str(d) for d in disk_of) + "\n")
-            f.write("pic_page_lo\t!fill picture_count, 0\n")
-            f.write("pic_page_hi\t!fill picture_count, 0\n")
+            if x16:
+                # The X16 answers picture_data from the index -- the picture may
+                # not be loaded -- so each picture's size is assembled in, in
+                # game units: text cells, so twice the file's 16-pixel cells wide.
+                f.write("pic_width\t!byte " +
+                        ",".join(str(2 * p['cw']) for _, p in pics) + "\n")
+                f.write("pic_height\t!byte " +
+                        ",".join(str(p['ch']) for _, p in pics) + "\n")
+            else:
+                # Which picture disk (1-based) each picture's file lives on.
+                f.write("pic_disk\t!byte " + ",".join(str(d) for d in disk_of) + "\n")
+                f.write("pic_page_lo\t!fill picture_count, 0\n")
+                f.write("pic_page_hi\t!fill picture_count, 0\n")
             # 1 where a picture is adaptive (Blorb APal): it is drawn in the last
             # direct picture's palette, not its own, so a game's UI can recolour to
             # match the scene. Parallel to pic_number.
@@ -370,20 +422,30 @@ def main():
             f.write("rect_width\t!byte " + ",".join(str(w) for _, w, _ in rr) + "\n")
             f.write("rect_height\t!byte " + ",".join(str(h) for _, _, h in rr) + "\n")
 
-    disk_note = (f" over {disk_count} picture disks" if disk_count > 1
-                 else " on one picture disk")
-    print(f"{len(nums)} pictures, {raw_total} bytes packed to {total} on disk "
-          f"({100*total/raw_total:.0f}%){disk_note}, {raw_total} bytes in attic RAM"
-          + (f"; {len(rects)} rect placeholders" if rects else ""))
+    if x16:
+        print(f"{len(nums)} pictures, {total} bytes in {len(nums)} uncompressed "
+              f"files in the game directory"
+              + (f"; {len(rects)} rect placeholders" if rects else ""))
+    else:
+        disk_note = (f" over {disk_count} picture disks" if disk_count > 1
+                     else " on one picture disk")
+        print(f"{len(nums)} pictures, {raw_total} bytes packed to {total} on disk "
+              f"({100*total/raw_total:.0f}%){disk_note}, {raw_total} bytes in attic RAM"
+              + (f"; {len(rects)} rect placeholders" if rects else ""))
 
     if stats:
         # Measurement only, nothing written: how close the set comes to the
         # interpreter's caps. Attic is page-aligned per picture; the tile
-        # store holds PIC_MAX_TILES = 2048 live tiles across all windows.
-        attic = sum((p['raw'] + 255) // 256 * 256 for _, p in pics)
+        # store holds PIC_MAX_TILES live tiles across all windows -- 2048 on
+        # the MEGA65, 1023 in the X16's VERA tile store (tile 0 is reserved).
+        store_cap = 1023 if x16 else 2048
         top = sorted(pics, key=lambda t: -t[1]['ntiles'])[:5]
-        print(f"stats only, nothing written; {attic} bytes of attic, page-aligned")
-        print("  largest by tiles (store cap 2048 live): "
+        if x16:
+            print("stats only, nothing written")
+        else:
+            attic = sum((p['raw'] + 255) // 256 * 256 for _, p in pics)
+            print(f"stats only, nothing written; {attic} bytes of attic, page-aligned")
+        print(f"  largest by tiles (store cap {store_cap} live): "
               + ", ".join(f"#{n}={p['ntiles']}" for n, p in top))
         print(f"  largest picture file: {max(p['raw'] for _, p in pics)} bytes "
               f"raw (cap 65535), {max(sizes)} compressed (cap {255*256})")

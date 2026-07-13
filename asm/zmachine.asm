@@ -1064,7 +1064,13 @@ z_ins_quit
 	; ldy #$02  ; magic location for system reset
 	; lda #$00  ; magic value for system power controller
 	; Jmp $fec9 ; power off or reset the system
-	
+
+!ifdef Z6_PICTURES {
+	; Leaving the pictures screen: BASIC comes back on the same VERA setup,
+	; so put the scale and VSTOP back and switch layer 0 off, or the prompt
+	; appears on 25 fat rows over whatever picture was showing.
+	jsr vera_gfx_restore
+}
 ; New method - put NEW and clearscreen in kbd buffer, then have Ozmoo restore Basic ZP area and return
 	ldx #0
 -	lda .quit_keys,x
