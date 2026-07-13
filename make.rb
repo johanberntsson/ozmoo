@@ -3369,6 +3369,13 @@ if picture_dir
 		$picture_disks[disknum.to_i] << File.join($TEMPDIR, name)
 	end
 	$GENERALFLAGS.push('Z6_PICTURES') unless $GENERALFLAGS.include?('Z6_PICTURES')
+	# The 80-column screen with the full picture set is the layout Infocom's
+	# v6 games reserve for the IBM interpreter: Shogun, for one, only draws
+	# its right-hand border picture when the header says IBM. The 40-column
+	# screen stays a C64 (the default), and -in: still overrides.
+	if fcm_width == 80 and $interpreter_number == nil
+		$interpreter_number = 6
+	end
 end
 
 if is_beyondzork

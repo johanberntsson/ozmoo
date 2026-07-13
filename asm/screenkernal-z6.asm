@@ -1949,6 +1949,7 @@ s_erase_line_from_cursor
 	jmp .erase_line_from_any_col
 
 s_cursorswitch !byte 0
+cursor_hidden !byte 0 ; v6 set_cursor -1/-2: the game asked for no cursor
 !ifdef USE_BLINKING_CURSOR {
 s_cursormode !byte 0
 }
@@ -1967,6 +1968,13 @@ turn_off_cursor
     sta s_cursorswitch
 
 update_cursor
+	; when the game has hidden the cursor, neither draw it nor "delete" it:
+	; the delete writes a space, which would eat the character under the
+	; cursor parking spot (Shogun parks it on the selected menu item)
+	lda cursor_hidden
+	beq +
+	rts
++
     sty object_temp
 	jsr .update_screenpos
     ldy zp_screencolumn

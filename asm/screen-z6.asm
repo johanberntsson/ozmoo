@@ -135,6 +135,121 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .gc_t        !byte 0
 .gc_t2       !byte 0
 
+!ifdef DEBUG_SCREENLOG {
+; A ring buffer of the v6 screen opcodes and their operands, for reading out
+; with the xemu monitor when a game's layout goes wrong. 8 bytes an entry:
+; id, current_window, op0 lo, op1 lo, op1 hi, op2 lo, extra lo, extra hi.
+; The extra word is the result (get_wind_prop) or the width (stream 3 close).
+screenlog_buf  !fill 8 * 128, 0
+screenlog_pos  !byte 0, 0		; entry index 0..127, and a wrap counter
+screenlog_hook					; a = id; logs the current operands
+	stx .slog_x + 1
+	sty .slog_y + 1
+	pha
+	lda screenlog_pos
+	asl
+	asl
+	asl
+	tay						; y = entry offset (0..1016, but 8*128 wraps at 1024:
+	lda screenlog_pos		; offsets 0..127*8 fit a byte times... they don't: use
+	and #$e0				; a split index: low 5 bits * 8 = offset in page,
+	lsr						; high 2 bits = page
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .slog_page
+	lda screenlog_pos
+	and #$1f
+	asl
+	asl
+	asl
+	tay
+	pla
+	pha
+	jsr .slog_put			; id
+	lda current_window
+	jsr .slog_put
+	lda z_operand_value_low_arr
+	jsr .slog_put
+	lda z_operand_value_low_arr + 1
+	jsr .slog_put
+	lda z_operand_value_high_arr + 1
+	jsr .slog_put
+	lda z_operand_value_low_arr + 2
+	jsr .slog_put
+	lda #0
+	jsr .slog_put
+	jsr .slog_put
+	inc screenlog_pos
+	lda screenlog_pos
+	cmp #128
+	bcc +
+	lda #0
+	sta screenlog_pos
+	inc screenlog_pos + 1
++	pla
+.slog_x	ldx #0
+.slog_y	ldy #0
+	rts
+.slog_page !byte 0
+.slog_put
+	sty .slog_put_y + 1
+	pha
+	lda .slog_page
+	clc
+	adc #>screenlog_buf
+	sta .slog_sta + 2
+	pla
+.slog_sta
+	sta screenlog_buf,y
+	iny
+	bne +
+	inc .slog_page
++
+.slog_put_y
+	ldy #0
+	iny
+	sty .slog_put_y + 1
+	rts
+
+screenlog_extra					; a,x = a result word for the previous entry
+	pha
+	stx .slog_ex + 1
+	lda screenlog_pos
+	sec
+	sbc #1
+	and #$1f
+	asl
+	asl
+	asl
+	clc
+	adc #6
+	tay
+	lda screenlog_pos
+	sec
+	sbc #1
+	and #$60
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	clc
+	adc #>screenlog_buf
+	sta .slog_exs + 2
+	sta .slog_exs2 + 2
+.slog_ex
+	lda #0
+.slog_exs
+	sta screenlog_buf,y
+	iny
+	pla
+.slog_exs2
+	sta screenlog_buf,y
+	rts
+}
+
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
 pic_win_count  !fill 16, 0
@@ -1467,6 +1582,10 @@ pic_load_all
 }
 
 z_ins_draw_picture
+!ifdef DEBUG_SCREENLOG {
+	lda #12
+	jsr screenlog_hook
+}
 	; draw_picture picture-number y x
 	; Where we have the picture (MEGA65, -fcm, -pics) it is blitted from bank
 	; 1. Otherwise Ozmoo will never draw pictures on this machine, so instead
@@ -1763,6 +1882,10 @@ window_from_operand
 	rts
 
 z_ins_set_margins
+!ifdef DEBUG_SCREENLOG {
+	lda #4
+	jsr screenlog_hook
+}
 	; set_margins left right [window]
 	; The margins are in pixels, and a character is one pixel wide here, so
 	; they are simply column counts. Text wraps between them.
@@ -1817,6 +1940,10 @@ z_ins_set_margins
 .sm_window !byte 0
 
 z_ins_move_window
+!ifdef DEBUG_SCREENLOG {
+	lda #2
+	jsr screenlog_hook
+}
 	; move_window window y x
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
@@ -1843,6 +1970,10 @@ z_ins_move_window
 +	rts
  
 z_ins_window_size
+!ifdef DEBUG_SCREENLOG {
+	lda #3
+	jsr screenlog_hook
+}
 	; window_size window y x
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
@@ -1858,6 +1989,10 @@ z_ins_window_size
 	rts
  
 z_ins_window_style
+!ifdef DEBUG_SCREENLOG {
+	lda #7
+	jsr screenlog_hook
+}
 	; window_style window flags operation
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
@@ -1892,6 +2027,10 @@ z_ins_window_style
 	rts
  
 z_ins_get_wind_prop
+!ifdef DEBUG_SCREENLOG {
+	lda #8
+	jsr screenlog_hook
+}
 	; get_wind_prop window property-number -> (result)
 !ifdef TRACE_SCREEN {
 	jsr print_following_string
@@ -1911,6 +2050,9 @@ z_ins_get_wind_prop
 	; Arthur takes the height from here and divides by it, so a zero is fatal.
 	lda #1
 	ldx #1
+!ifdef DEBUG_SCREENLOG {
+	jsr screenlog_extra
+}
 	jmp z_store_result
 +
 	; return value at window_y + property-number * 8 + window
@@ -1936,22 +2078,35 @@ z_ins_get_wind_prop
 	beq .gwp_cursor_y
 	cmp #5
 	bne .gwp_store
-	; property 5 (x cursor): stored absolute, return window-relative 1-based
-	txa
+	; property 5 (x cursor): stored absolute, return window-relative 1-based.
+	; The current window's cursor lives in zp while text is printed and is
+	; only written back on a window switch, so the stored value is stale:
+	; Shogun reads the cursor back after every centred line it prints.
+	cpy current_window
+	bne +
+	ldx zp_screencolumn
++	txa
 	sec
 	sbc window_x,y
 	tax
 	inx
 	bne .gwp_store ; Always branch
 .gwp_cursor_y
-	; property 4 (y cursor): stored absolute, return window-relative 1-based
-	txa
+	; property 4 (y cursor): stored absolute, return window-relative 1-based;
+	; live in zp for the current window, as above
+	cpy current_window
+	bne +
+	ldx zp_screenrow
++	txa
 	sec
 	sbc window_y,y
 	tax
 	inx
 .gwp_store
 	lda #0
+!ifdef DEBUG_SCREENLOG {
+	jsr screenlog_extra
+}
 	jmp z_store_result
 
 .gwp_window !byte 0
@@ -2160,6 +2315,10 @@ z_ins_mouse_window
 	rts
  
 z_ins_put_wind_prop
+!ifdef DEBUG_SCREENLOG {
+	lda #9
+	jsr screenlog_hook
+}
 	; put_wind_prop window property-number value
 	; Note: a game should only use put_wind_prop to set the
 	; newline interrupt routine, the interrupt countdown and
@@ -2329,6 +2488,10 @@ init_screen_colours
 
 !ifdef Z4PLUS {
 z_ins_erase_window
+!ifdef DEBUG_SCREENLOG {
+	lda #5
+	jsr screenlog_hook
+}
 	; erase_window window (0-7, -1 = unsplit + clear screen, -2 = clear screen)
 	jsr printchar_flush
 	jsr save_cursor
@@ -2504,15 +2667,19 @@ z_ins_print_table
 .print_table_done	
 	rts
 .print_table_oneline
+	; The characters must go through the stream layer: Shogun measures its
+	; menu items by print_table-ing them into stream 3 and reading the width
+	; back from the header. Printing straight to the screen here both left
+	; the width at zero and leaked the text onto the screen.
 	lda z_operand_value_high_arr ; Start address
 	ldx z_operand_value_low_arr
 	jsr set_z_address
 	ldy .pt_width
 -	jsr read_next_byte
-	jsr translate_zscii_to_petscii
-	bcs + ; Illegal char
-	jsr printchar_buffered
-+	dey
+	sty .pt_cursor ; borrow as scratch: streams_print_output clobbers y
+	jsr streams_print_output
+	ldy .pt_cursor
+	dey
 	bne -
 	rts
 }
@@ -2596,6 +2763,10 @@ split_window
 	jmp set_cursor
 
 z_ins_set_window
+!ifdef DEBUG_SCREENLOG {
+	lda #6
+	jsr screenlog_hook
+}
 	;  set_window window
 	jsr printchar_flush ; the print buffer belongs to the old window
 	jsr save_cursor
@@ -2651,17 +2822,43 @@ z_ins_get_cursor
 	jmp write_next_byte
 
 z_ins_set_cursor
+!ifdef DEBUG_SCREENLOG {
+	lda #1
+	jsr screenlog_hook
+}
 	; set_cursor line column [window]
 	; coordinates are 1-based and relative to the window
 	ldy current_window
 	lda z_operand_count
 	cmp #3
 	bcc +
-	lda z_operand_value_low_arr + 2
-	and #7
-	tay
+	ldx #2
+	jsr window_from_operand ; y = window; handles -3 = the current one
 +	; y = window to move the cursor in
-	ldx z_operand_value_low_arr ; line 1..
+	; a negative line selects the cursor's visibility (z-spec 8.7.2.3, v6):
+	; -1 hides it, -2 shows it again. Shogun hides it over its menus, where
+	; a drawn-and-deleted cursor would eat the selected item's first letter.
+	lda z_operand_value_high_arr
+	bpl .sc_position
+	lda z_operand_value_low_arr
+	cmp #$ff
+	bne +
+	lda #1
+	sta cursor_hidden
++	cmp #$fe
+	bne ++
+	lda #0
+	sta cursor_hidden
+++	rts
+.sc_position
+	; pending buffered text belongs where the current window's cursor was,
+	; so put it there before the move (Shogun centres every credit line with
+	; set_cursor and prints it buffered)
+	cpy current_window
+	bne +
+	jsr printchar_flush
+	ldy current_window
++	ldx z_operand_value_low_arr ; line 1..
 	beq + ; If line is 0, it's a mistake - they mean line 1.
 	dex ; line 0..
 +	txa
@@ -2677,7 +2874,8 @@ z_ins_set_cursor
 	sta window_x_cursor,y
 	cpy current_window
 	bne .do_nothing_2
-	jmp restore_cursor ; make the move visible immediately
+	jsr restore_cursor ; make the move visible immediately
+	jmp start_buffering ; the print buffer starts afresh at the new position
 }
 
 clear_num_rows

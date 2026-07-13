@@ -669,3 +669,39 @@ neither is a regression of that work):
 - The intermittent dropped-text bug reproduces at 80 columns (Arthur intro
   once, Zork Zero's banquet paragraph once). Unchanged priority: it is the
   main text-correctness bug on the full colour screen.
+
+FIXED: Shogun's start/restore/quit page - and with it, the whole "squished
+header" family (Arthur's status line now right-aligns "St Anne's Day,
+Compline" like the reference). Diagnosed with DEBUG_SCREENLOG, a ring buffer
+of every v6 screen opcode with operands and results, read out through the
+xemu monitor (see CLAUDE.md). Shogun lays that page out almost entirely from
+values it reads back from the interpreter, and five of them were wrong:
+1. Stream 3 must leave the width of the buffered text in header word $30
+   when it closes (z-spec 7.1.2.1.1) - the game measures every string that
+   way. streams.asm now counts units per line (newline starts a new line,
+   the widest wins) with a parallel save stack for nested streams.
+2. print_table's single-row case printed straight to the screen instead of
+   through streams_print_output, so measuring a menu item via stream 3 got
+   width 0 and leaked the text onto the screen.
+3. get_wind_prop properties 4/5 (cursor) returned the stored per-window
+   values, which only sync on window switches; for the current window the
+   answer is now the live zp cursor. Shogun reads the cursor back after
+   every centred line - all eleven credit lines used to land on one row.
+4. set_cursor now flushes the print buffer (pending text belongs where the
+   cursor was) and restarts buffering at the new position; without the
+   restart, a centred line printed its body at the buffer's stale start
+   column and only its last character at the target. set_cursor -1/-2 is
+   now cursor visibility (8.7.2.3): cursor_hidden suppresses drawing AND
+   the deleting space, which used to eat the selected menu item's first
+   letter where Shogun parks the hidden cursor.
+5. The 80-column pictures build now reports interpreter number 6, IBM
+   (make.rb; -in: overrides): Shogun draws its right-hand border picture
+   (a separate image, pic 59 - pic 2 is only a Rect in the blorb) only for
+   the IBM interpreter, and hardcodes margin 2 otherwise. Text and
+   40-column builds stay a C64.
+  Verified: the menu page matches the sfrotz reference (borders both sides,
+  centred credits, START highlighted with its S intact), testz6 matches
+  dfrotz at 40 and 80 columns including new stream-3 width tests, and
+  Arthur still plays to the churchyard, now with a correct status line.
+  Journey's divider glyphs remain open (they are Infocom character
+  graphics on every interpreter, see above).

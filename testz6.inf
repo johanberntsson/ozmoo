@@ -11,6 +11,10 @@ Array formtable ->
     0 3 'y' 'o' 'u'
     0 0;
 
+! Shogun measures its menu strings by printing them to stream 3 and reading
+! the width the interpreter must leave in header word $30 (z-spec 7.1.2.1.1).
+Array s3tab -> 66;
+
 [main w h ww hh dx dy result;
 #iftrue (#version_number == 6);
 	! --- user stack: push_stack / pop_stack ---
@@ -78,6 +82,16 @@ Array formtable ->
 	! --- print_form ---
 	print "print_form:^";
 	@print_form formtable;
+
+	! --- output_stream 3: the text width lands in header $30 ---
+	@output_stream 3 s3tab;
+	print "RESTORE a saved game";
+	@output_stream (-3);
+	print "s3 width ", $30-->0, " len ", s3tab-->0, "^";
+	@output_stream 3 s3tab;
+	print "abc^ABCDE";   ! two lines: the widest one is the answer
+	@output_stream (-3);
+	print "s3 width2 ", $30-->0, "^";
 
 	! --- picture_data: no pictures, so nothing is valid and 0 reports none ---
 	picinfo-->0 = 99; picinfo-->1 = 99;

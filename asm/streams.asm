@@ -6,6 +6,16 @@ streams_stack				!fill 60, 0
 streams_stack_items			!byte 0
 streams_buffering			!byte 1,1
 streams_output_selected		!byte 0, 0, 0, 0
+!ifdef Z6 {
+; The width of the text sent to stream 3, which the game reads back from
+; header word $30 when the stream closes (z-spec 7.1.2.1.1) -- Shogun sizes
+; its whole menu screen by measuring strings this way. A character is one
+; unit here; a newline ends the line, and the widest line is the answer.
+; cur and max must stay adjacent: the stack push/pop moves all four bytes.
+streams_width_cur			!byte 0,0
+streams_width_max			!byte 0,0
+streams_width_stack			!fill 60, 0
+}
 
 .streams_tmp	!byte 0,0,0
 .current_character !byte 0
@@ -661,6 +671,19 @@ streams_print_output
 .mem_write
 	stx s_stored_x
 	sty s_stored_y
+!ifdef Z6 {
+	pla					; peek at the character for the width count
+	pha
+	cmp #13
+	bne .mw_count
+	jsr .streams_line_done
+	jmp .mw_counted
+.mw_count
+	inc streams_width_cur
+	bne .mw_counted
+	inc streams_width_cur + 1
+.mw_counted
+}
 	ldx streams_current_entry + 2
 	lda streams_current_entry + 3
 	jsr streams_set_z_address
@@ -727,6 +750,10 @@ z_ins_output_stream
 	sta streams_output_selected - 1,x
 	rts
 .turn_on_mem_stream
+!ifdef DEBUG_SCREENLOG {
+	lda #10
+	jsr screenlog_hook
+}
 	lda streams_stack_items
 	beq .add_first_level
 !ifdef CHECK_ERRORS {
@@ -740,10 +767,22 @@ z_ins_output_stream
 	ldx #3
 -	lda streams_current_entry,x
 	sta streams_stack - 4 + 3,y
+!ifdef Z6 {
+	lda streams_width_cur,x
+	sta streams_width_stack - 4 + 3,y
+}
 	dey
 	dex
 	bpl -
 .add_first_level
+!ifdef Z6 {
+	; this level's text starts unmeasured
+	lda #0
+	sta streams_width_cur
+	sta streams_width_cur + 1
+	sta streams_width_max
+	sta streams_width_max + 1
+}
 	; Setup pointer to start of table
 	lda z_operand_value_low_arr + 1
 	sta streams_current_entry
@@ -798,7 +837,7 @@ z_ins_output_stream
 	tya
 	jsr write_next_byte
 	jsr streams_unset_z_address
-	
+
 	; ldy #1
 	; sta (zp_temp),y
 	; txa
@@ -806,6 +845,22 @@ z_ins_output_stream
 	; dey
 	; sta (zp_temp),y
 
+!ifdef Z6 {
+	; close the last line and hand the game the width of the text it
+	; buffered, in header word $30 (z-spec 7.1.2.1.1)
+	jsr .streams_line_done
+	ldy #header_stream_3_width_units
+	lda streams_width_max + 1
+	ldx streams_width_max
+	jsr write_header_word
+!ifdef DEBUG_SCREENLOG {
+	lda #11
+	jsr screenlog_hook
+	lda streams_width_max + 1
+	ldx streams_width_max
+	jsr screenlog_extra
+}
+}
 	; Pop item off stack
 	dec streams_stack_items
 	lda streams_stack_items
@@ -817,6 +872,10 @@ z_ins_output_stream
 	ldx #3
 -	lda streams_stack - 4 + 3,y
 	sta streams_current_entry,x
+!ifdef Z6 {
+	lda streams_width_stack - 4 + 3,y
+	sta streams_width_cur,x
+}
 	dey
 	dex
 	bpl -
@@ -825,6 +884,29 @@ z_ins_output_stream
 	; Turn off stream 3 output (A is always 0 here)
 	sta streams_output_selected + 2
 	rts
+
+!ifdef Z6 {
+.streams_line_done
+	; a line of stream 3 text ended: keep it if it is the widest, and let
+	; the next start from nothing
+	lda streams_width_cur + 1
+	cmp streams_width_max + 1
+	bcc .sld_shorter
+	bne .sld_wider
+	lda streams_width_cur
+	cmp streams_width_max
+	bcc .sld_shorter
+.sld_wider
+	lda streams_width_cur
+	sta streams_width_max
+	lda streams_width_cur + 1
+	sta streams_width_max + 1
+.sld_shorter
+	lda #0
+	sta streams_width_cur
+	sta streams_width_cur + 1
+	rts
+}
 
 !ifndef NO_DEFAULT_UNICODE_MAP {
 default_unicode_out

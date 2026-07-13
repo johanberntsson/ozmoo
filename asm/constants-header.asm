@@ -25,6 +25,7 @@ header_string_offset = $2a
 header_default_bg_colour = $2c
 header_default_fg_colour = $2d
 header_terminating_chars_table = $2e
+header_stream_3_width_units = $30 ; v6: total width of text sent to stream 3
 header_standard_revision_number = $32
 header_alphabet_table = $34
 header_header_extension_table = $36
