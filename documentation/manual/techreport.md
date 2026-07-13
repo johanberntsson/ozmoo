@@ -59,6 +59,8 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | picloader.asm | code to show a picture while reading the story file |
 |  |  |
+| pictures-x16.asm | the version 6 picture engine for the X16: VERA's tile layer, and loading a picture from SD when it is drawn |
+|  |  |
 | reu.asm | implements the Ram Expansion Unit interface for C64 and C128, banked RAM for the X16, and an interface to Attic RAM on MEGA65 |
 |  |  |
 | screen.asm | printing routines |
@@ -91,7 +93,7 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | vdc.asm | low level routines to write text on the C128 in 80 column mode |
 |  |  |
-| vera.asm | defines the interface to the VERA chip for text output on the X16 |
+| vera.asm | defines the interface to the VERA chip for text and graphics output on the X16 |
 |  |  |
 | vmem.asm | virtual memory routines, and corresponding routines for non-vmem builds |
 |  |  |
@@ -130,6 +132,11 @@ The interpreter detects the size of the REU in banks, where a bank is 64 KB. Aft
 
 On the X16, the main game file doesn't hold any story data. The entire Z-code file is held in a file called "zcode" and is loaded into banked RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place (using banking), this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a X16 game can be copied from one disk to another using a regular file copier.
 
+A version 6 game built with Z6_PICTURES also has one file per picture, named
+\[P001\] up to \[P999\], sitting in the game's directory beside \[ZCODE\]. Unlike
+the MEGA65's, they are not compressed and are not preloaded: a picture is read
+from the SD card the first time the game draws it. See "Version 6".
+
 ### X16 Memory map
 
 Similar to C128, the graphics output is handled by a chip called VERA that contains the video memory. This means that no normal memory is needed for screen RAM. There is a standard 512 KB extended memory, of which a chunk/bank at a time is available at \$a000-\$bfff. The currently accessible bank of the extended memory is controlled by setting $0000 to the chunk number.
@@ -149,6 +156,23 @@ The standard text mode needs 80 x 60 x 2 = 9600 bytes, starting from \$1b000, si
 | -- |  - | ---- |
 | \$1b000-\$1d580 | about 10 | Screen RAM |
 
+A version 6 build with Z6_PICTURES puts the pictures on a second VERA layer
+behind the text, and then most of the 128 KB of video RAM is in use:
+
+| **Address range** | **KB** |  **Usage** |
+| -- |  - | ---- |
+| \$00000-\$0ffff | 64 | Picture tile store: 1024 tiles of 64 bytes (Z6_PICTURES) |
+| \$10000-\$10fff | 4 | Layer 0 tile map, 64 x 32 entries of two bytes (Z6_PICTURES) |
+| \$11000-\$117ff | 2 | The character set, moved out of the tile store's way (Z6_PICTURES) |
+| \$1b000-\$1c380 | 4 | Screen RAM (80 x 25 in a pictures build) |
+| \$1fa00-\$1fbff | 0.5 | Palette RAM: 256 entries of two bytes |
+
+Note that in an ordinary build the character set is left where the kernal keeps
+it, in the first 64 KB, which is exactly where the tile store has to go — hence
+the copy to \$11000 and the repointing of layer 1's tile base. Ozmoo also stops
+using video RAM for the undo buffer in a pictures build, for the same reason;
+see "Undo".
+
 #### Extended/banked memory
 
 | **Address range** | **KB** |  **Usage** |
@@ -157,6 +181,15 @@ The standard text mode needs 80 x 60 x 2 = 9600 bytes, starting from \$1b000, si
 | \$02000-\$7ffff | 504 | Story file |
 
 The extended memory is mapped into \$a000-\$bfff, so the memory is accessible in 8KB chunks. Note that the first 8KB is used by the kernal and DOS routines, so we load the story file from \$02000.
+
+In a version 6 build with Z6_PICTURES, two more regions are carved out of the
+banked memory above the story. The picture being drawn is read into a staging
+area of four banks (32 KB, which is more than the largest picture file in any of
+the four version 6 games), and if undo is enabled its buffer follows above that.
+Both start from the first bank the story does not use, which make.rb computes
+from the story's size and passes in as PIC\_STAGING\_BANK; it refuses the build
+if the three together would not fit in the 512 KB. With the largest of the four
+games, Shogun's 345 KB, the story ends in bank 41 and there is room to spare.
 
 ## MEGA65 builds
 
@@ -233,6 +266,14 @@ The main functions for undo are do_save_undo and do_restore_undo in disk.asm. As
 
 On the MEGA65 the undo state is moved by DMA, so the buffer can live anywhere. Its address is the pair of constants UNDO_BANK and UNDO_ADDRESS_TOP: bank 5 of fast RAM normally, and Attic RAM at \$08600000 in a version 6 build with pictures, where the tile store takes bank 5 over.
 
+On the X16 the undo state normally goes into video RAM, which is otherwise
+unused below the text screen. A version 6 build with pictures fills that RAM with
+the tile store, so the buffer moves into banked RAM instead, just above the
+picture staging area (PIC\_UNDO\_BANK). Since source and destination then share
+the one \$a000 window, do_save_undo and do_restore_undo copy through a pair of
+helpers that switch the RAM bank around every byte and hand the caller's bank
+back.
+
 # Screenkernal 
 
 Screenkernal, implemented in screenkernal.asm, is a replacement for the
@@ -258,7 +299,9 @@ The Plus/4 and Commodore 128 in 80 column mode doesn't use the same palette as t
 Version 6 of the Z-machine replaces the two windows of versions 3 to 5 with
 eight, each with its own rectangle on the screen, its own cursor and its own
 colours, and it expects the interpreter to draw pictures. Ozmoo implements the
-window model on every target and the pictures on the MEGA65.
+window model on every target, and the pictures on the MEGA65 (in Full Colour
+Mode) and on the X16 (on a VERA tile layer). The C64 and the Plus/4 will never
+draw pictures.
 
 Because so much of the screen layer changes, version 6 gets its own copies of the
 two screen files: screen-z6.asm and screenkernal-z6.asm, sourced instead of
@@ -285,10 +328,11 @@ per window: text wraps at the window's right margin, a window scrolls its own
 rectangle, and the MORE prompt appears in the window's bottom right cell rather
 than the screen's. Each window keeps its own cursor and its own line count.
 
-The window-local scrolling only covers the code path the C64, Plus/4 and MEGA65
-share (.s_scroll, and s_scroll_window for the scroll_window opcode). The C128's
-80 column routine and the X16's still scroll the whole screen, so a window on
-those targets will smear the rest of the display.
+The window-local scrolling covers the code path the C64, Plus/4, MEGA65 and X16
+share (.s_scroll, and s_scroll_window for the scroll_window opcode); the X16 has
+no window code of its own, only a VERA-specific row copy. The one exception is
+the C128's 80 column routine, which still scrolls the whole screen, so a window
+there will smear the rest of the display.
 
 ## Extended Color Mode on the C64
 
@@ -366,12 +410,113 @@ z_ins_quit clears CHR16 and FCLRHI again -- the C64 reset it then performs never
 touches \$d054 -- and turns the mouse sprite off, so the machine returns to a
 legible BASIC screen rather than a 16-bit-character full colour one.
 
+## The VERA screen on the X16
+
+The X16's screen is not in the CPU's address space at all: VERA holds it, and it
+is reached through a pair of address-and-data port pairs. A text cell is two
+bytes, a character code and a colour, and a text row is 256 bytes whatever the
+screen's width, so a cell lives at \$1b000 + row \* 256 + column \* 2. That is
+convenient: the row is the address's high byte and the column can never carry
+into it, which is why the screen code can keep a row in zp_screenline + 1 and
+nothing else. Port 0 reads and port 1 writes; the rest of the screen layer
+assumes port 0 is left selected with stride 1 (\$11 in VERA_addr_bank), so any
+routine that borrows port 1 must hand port 0 back that way.
+
+The ordinary version 6 build is text only, on VERA's 80x60 screen, and it needed
+no window code of its own: .s_scroll_vera and the scroll_window opcode go through
+the same .calc_window_rect / .sw_up_one / .sw_blank_row helpers as every other
+target, and only the row copy (.vera_copy_row) is VERA's. One habit does not
+survive the window model, though. print_line_from_buffer used to print its first
+character through s_printchar and let the rest of the line ride on the address
+pointer that call left behind, because VERA auto-increments. Now that a window
+can scroll, s_printchar can end up inside .s_scroll_vera, whose copy loop leaves
+the pointer wherever it happened to finish — so every cell is addressed on its
+own, as on the other targets. Do not lean on VERA's auto-increment across a jsr.
+
+### The pictures screen
+
+VERA is a tile machine, so the X16 draws pictures the way the MEGA65 does, and
+pictures-x16.asm is a port of the same engine (Z6_PICTURES; there is no -fcm to
+ask for, since VERA has no equivalent switch). The difference is that VERA has
+two layers, and Ozmoo uses both: the text stays on layer 1, exactly as in the
+text-only build, and the pictures live on layer 0 behind it. A tile is 16 pixels
+wide, 8 high and 4 bits a pixel, and layer 0's map is 64x32 of them.
+
+The geometry is chosen to match the MEGA65's 80-column full colour screen, so
+that dfrotz at 80x25 and the MEGA65 build remain the references for both. VERA's
+scaling registers apply to the whole display rather than to one layer, so
+halving VSCALE (to 64) and cropping the display with VSTOP turns the 80x60 text
+mode into 80x25 of double-height rows on a 640x200 effective canvas.
+SCREEN_HEIGHT is therefore 25 under Z6_PICTURES, and the build reports
+interpreter number 6 (IBM), like the MEGA65's 80-column picture builds.
+
+One picture tile is one logical 8x8 cell of the game's 320-wide art, with every
+pixel written twice as the tile is baked, so a picture keeps its intended size
+next to 8-pixel-wide text — the same doubling the MEGA65 does, but a whole cell
+at a time, because a VERA tile is 16 pixels wide where a full colour cell is 8.
+The tile store is the whole of VRAM's first 64 KB: 1024 tiles, with tile 0
+reserved as the all-transparent tile an empty map cell shows, so a picture's run
+of tiles starts at 1. That is half the MEGA65's 2048, and it is enough: the worst
+live set any of the four games needs is about a thousand tiles (Arthur's frame
+plus a scene plus its status panel; the largest single picture, the sword title,
+is 751).
+
+The colour arrangement is where VERA and the VIC-IV really part company. A layer
+0 map entry is the tile's index (10 bits) and a palette offset (4 bits, plus the
+flip bits, which Ozmoo does not use), and the offset selects one of 16 banks of
+16 colours in VERA's palette RAM. So a picture's palette bank rides in the map
+cells rather than in the pixels: the tiles hold the picture's own colour indices
+untouched (0 transparent, 1 to 15 straight into the bank), and nothing has to be
+rebaked when a bank is reassigned. Bank 0 is the text colours; a drawn picture
+takes one of banks 1 to 14, bumped alongside its tile run and reused alongside
+it, exactly as on the MEGA65.
+
+Because the text sits on the layer in *front* of the pictures, drawing a picture
+has to blank the text cells it covers, or a window's painted background would
+hide the picture completely. It writes a space with the background nybble
+cleared, which VERA renders as transparent, so the picture behind shows through;
+erase_picture and erase_window put opaque background back and clear the layer 0
+cells underneath. The result is the MEGA65's semantics — a picture replaces the
+text in the cells it covers — reached by different means. A fully transparent
+cell (\$ffff in the cell map) is left alone on both layers, so a frame with a
+hole still shows the scene behind it.
+
+Compositing a partly transparent cell over another picture works as it does on
+the MEGA65, with one wrinkle. There, the store holds absolute palette indices and
+every bank is loaded at once, so a composite tile can freely mix two pictures'
+colours. Here a map entry carries a single palette offset, so a composite cell
+can only speak one bank's language: the pixels kept from the picture behind are
+translated into the overlay's bank, by exact colour match where the bank has the
+same colour and by nearest colour (the smallest sum of absolute red, green and
+blue differences) where it does not. The interpreter keeps a copy of every loaded
+bank in ordinary RAM for that comparison, so it never has to read the palette back
+out of VERA.
+
+On quit the composer is put back — VSCALE, VSTOP, and layer 0 switched off —
+because the X16 build returns to BASIC rather than resetting the machine, and
+BASIC would otherwise come up on 25 double-height rows over whatever picture was
+last drawn.
+
+Two things remain to do. A picture cell is two text columns wide, so a picture
+placed at an odd text column is currently rounded down to the tile grid and lands
+eight pixels to the left; Arthur centres its scenes at odd columns. Fixing it
+means baking the boundary tiles from two half-cells, and teaching erase to keep
+the neighbour's half of a shared boundary cell. And erase_line does not clear
+layer 0, though erase_window and erase_picture do.
+
 ## Pictures
 
-Pictures are drawn only on the MEGA65, and only with Z6_FCM_MODE. On the C64 and
-the Plus/4, draw_picture writes a "pic:N" note where the picture belongs, straight
-to the screen so that it never reaches the transcript, erase_picture paints the
-note out, and picture_data reports that no picture exists.
+Pictures are drawn on the MEGA65, with Z6_FCM_MODE, and on the X16 (see above).
+On the C64 and the Plus/4, draw_picture writes a "pic:N" note where the picture
+belongs, straight to the screen so that it never reaches the transcript,
+erase_picture paints the note out, and picture_data reports that no picture
+exists.
+
+Everything in this section is the MEGA65's arrangement unless it says otherwise;
+the X16 shares the design — the picture files, the index, the tile store, the
+allocator, the compaction and the adaptive palettes — and differs in the hardware
+it draws with and in how the picture files reach memory, both described in "The
+VERA screen on the X16" above and summarised at the end of this section.
 
 The pictures come from the game's blorb, converted by tools/pics2asm.py, which
 writes one p&lt;nnn&gt;.bin per PNG picture (numbered up to 999). make.rb's -pics
@@ -472,8 +617,7 @@ engine can neither add nor expand a nybble, so that copy is done by the CPU; at
 
 The bank travels with the tile run: the allocator reuses a window's run, and its
 bank, only when the same picture is redrawn into it; a different picture takes a
-fresh run and bank, bumped from where the last one ended. When either wraps it can
-only spoil a picture that is no longer the newest on screen. The store holds 2048
+fresh run and bank, bumped from where the last one ended. The store holds 2048
 tiles in a Z6_PICTURES build, which is what Arthur's interface needs: it keeps a
 border, a scene and a status panel on the screen together, and they came to 1063
 tiles the first time all three were live. With the old store of 1024 the allocator
@@ -481,6 +625,23 @@ wrapped and the border's tiles landed on the scene's. On the 80-column screen th
 same live set measures 1894 tiles — splitting every logical cell in two does not
 double the unique count, because the halves deduplicate — and pics2asm.py's
 --stats switch prints the per-picture numbers without writing anything.
+
+Even 2048 tiles run out, though, because a game may draw one picture over
+another and keep both: Arthur draws the Merlin scene centred inside the sword
+picture, whose gold frame stays visible around it, and the two together are more
+than the store holds. So when a fresh run will not fit, the allocator compacts
+the store rather than wrapping over it (.pic_gc). It marks every tile that a cell
+*outside* the incoming picture's rectangle still shows, moves those survivors down
+to the bottom of the store in ascending order — a survivor can only move down, so
+the copy is safe in place — and repoints the cells that show them; the new run
+then lands above the survivors. Cells the new picture is about to cover are not
+marked, since it is about to overwrite them anyway, and if their tiles are shared
+with cells outside (Arthur's borders repeat), the sharing marks them survivors in
+any case. The sweep works from a bitmap of live tiles, a per-byte prefix count of
+the survivors below it and a popcount table. Only if the survivors plus the new
+picture still do not fit does the old wrap-to-zero happen, which can then only
+spoil a picture that is no longer the newest on screen. The palette allocator
+still simply wraps, with the same consequence.
 
 Some pictures do not carry their own colours. The blorb's APal chunk lists the
 "adaptive" pictures — Arthur's frame and side bars — which are drawn in the
@@ -492,10 +653,46 @@ skips loading a palette and bakes the tiles into that bank. Because the indices 
 never compacted, the frame's index 5 means the same colour as the scene's index 5,
 and the borrowed palette lands right.
 
+### What the X16 does differently
+
+The X16 shares all of the above: the same converter, the same index, the same
+allocator, compaction and adaptive palettes, and the same clipping. It differs in
+four ways, three of them consequences of the hardware and one of the machine it
+runs on.
+
+- **The tiles and the cells.** A tile is a 16x8 VERA tile rather than a 64-byte
+  full colour cell, so a logical art cell is one tile, not two, and pics2asm.py's
+  --x16 mode writes one cell-map entry and one 32-byte tile per cell (the pixels
+  undoubled; the interpreter doubles each as it bakes). The palette is 32 bytes in
+  VERA's own format instead of 48 in the VIC-IV's. The store holds 1024 tiles,
+  with tile 0 reserved as the transparent tile.
+- **The palette bank is in the map entry, not in the pixels.** Which means a
+  composite cell can carry only one bank, and the pixels taken from the picture
+  behind have to be colour-matched into the overlay's — see "The VERA screen on
+  the X16".
+- **The pictures are loaded when they are drawn, not at boot.** There is nowhere
+  on the X16 to preload half a megabyte of pictures: the story already fills most
+  of the 512 KB of banked RAM. But the pictures are on an SD card, not a floppy,
+  so there is no need to. Each picture is an ordinary uncompressed file in the
+  game's directory, and the engine reads it into the staging banks the first time
+  the game draws it, remembering which picture is staged so that redrawing the
+  frame or a status icon never touches the card again. The files are therefore
+  not RLE compressed and there is no decompressor, no picture disk, and no disk
+  swapping — Zork Zero's 396 pictures simply sit in the directory. The cost is
+  that picture_data cannot read a size out of the staged picture, because it is
+  usually asked about a picture that is not the staged one, so pics2asm.py
+  assembles the sizes in as pic_width and pic_height tables (in text cells, as
+  the MEGA65 reports them).
+- **The text is a layer in front, so drawing must blank it**, and erasing must put
+  it back. On the MEGA65 the text and the picture share one plane, and a tile
+  simply replaces a character.
+
 ## Mouse
 
 The mouse (z-spec 10.3) is drawn only on the MEGA65's full colour screen, in
-asm/mouse.asm, guarded by Z6_FCM_MODE; text-only version 6 has no pointer. A
+asm/mouse.asm, guarded by Z6_FCM_MODE; text-only version 6 has no pointer, and
+neither does the X16's picture screen yet, though VERA has sprites and the same
+approach would work there. A
 game asks for a mouse by setting bit 5 of Flags 2, and the interpreter leaves
 that bit set only where it can honour it. z_init reads the bit and, if the game
 wants a mouse, calls mouse_enable, which shows the pointer and sets mouse_active;
@@ -983,7 +1180,8 @@ Allocate a page of memory to keep a record of the last 64 instructions that were
     UNDO
 
 Include support for Undo. Unless UNDO_RAM is also defined, this uses REU on C64 and C128, 
-video RAM on Commander X16, and Attic RAM on MEGA65. Undo is not available on Commodore Plus/4.
+video RAM on Commander X16 (banked RAM in a version 6 build with pictures, where
+the tile store takes the video RAM over), and Attic RAM on MEGA65. Undo is not available on Commodore Plus/4.
 
     UNDO_RAM
 
@@ -1032,8 +1230,17 @@ switch. See "Version 6".
 
     Z6_PICTURES
 
-MEGA65 and version 6 only, and requires Z6_FCM_MODE. The game's pictures are on
-the disk and are drawn. Set by make.rb's -pics switch. See "Version 6".
+Version 6 only, and only on the MEGA65 (where it requires Z6_FCM_MODE) and the
+X16 (where there is nothing else to ask for). The game's pictures are built
+alongside it and are drawn: on their own picture disks, preloaded into Attic RAM,
+on the MEGA65; in the game's directory, read from the SD card as they are drawn,
+on the X16. Set by make.rb's -pics switch. See "Version 6".
+
+    PIC_STAGING_BANK=n
+
+X16 and Z6_PICTURES only. The first bank of banked RAM above the story, where the
+picture being drawn is staged (four banks) and, above that, the undo buffer.
+Computed and passed in by make.rb, which knows the story's size.
 
     DANISH_CHARS
 	FRENCH_CHARS
