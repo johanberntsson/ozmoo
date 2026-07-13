@@ -58,6 +58,21 @@ arthur-d2:
 	ruby make.rb -D2 $(Z6GAMES)/$(ARTHUR).z6
 	x64 -drive8type 1541 -9 c64_$(ARTHUR)_story_2.d64 c64_$(ARTHUR)_boot_story_1.d64
 
+# Arthur on the C128. The story fits a single 1571 with room to spare (376
+# blocks free after the story), so there is no need for a d81; -71 is the
+# default build mode for this target anyway. This autostarts in 40 columns.
+arthur-c128:
+	ruby make.rb -s -t:c128 -71 $(Z6GAMES)/$(ARTHUR).z6
+
+# The same on the 80 column screen, which is where the VDC's own window code
+# runs. VICE cannot autostart a disk with the 80 column screen selected -- it
+# waits for a READY prompt on the VIC-II screen, which never comes, and sits
+# at the load prompt for ever -- so the disk is only attached, and the game is
+# started the way the player manual says: type RUN"STORY" at the BASIC prompt.
+arthur-c128-80:
+	ruby make.rb -t:c128 -71 $(Z6GAMES)/$(ARTHUR).z6
+	x128 -80col -drive8type 1571 -8 c128_$(ARTHUR).d71
+
 # Arthur on the MEGA65, as 80-column text and on the full colour screen.
 # Neither draws pictures: draw_picture still writes its "pic:N" note.
 arthur-mega65:
