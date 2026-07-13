@@ -71,6 +71,17 @@ Ozmoo has several build modes to allow even large game files to be played, which
 
 However, really large games may use two Story disks. Such games can only be played if you have either two floppy drives, or a ram expansion unit (REU).
 
+# Graphical games
+Four Infocom games - Arthur, Journey, Shogun and Zork Zero - draw pictures as well as text. Ozmoo plays all four on every computer it supports, but only the MEGA65 and the Commander X16 have the video hardware to draw the pictures.
+
+On the Commodore 64, the 128 and the Plus/4 you can play these games from beginning to end, but where a picture belongs you will see a short note instead, such as `pic:12`. This is not a fault: it is Ozmoo telling you a picture would have been there, and keeping the rest of the screen in its proper shape.
+
+On the MEGA65 the pictures do not fit on the game disk, so they come on one or more picture disks of their own. If you have two drives, put the game disk in the first and the first picture disk in the second, and the game will start without asking you for anything. With a single drive, or when a game has more pictures than one disk holds (Journey and Zork Zero do), Ozmoo will print `insert picture disk 2` and wait for you to change disks and press a key.
+
+Arthur and Zork Zero can also be played with a mouse on the MEGA65: plug a 1351 or Amiga mouse into control port 2, and a pointer appears. Zork Zero's on-screen controls can be clicked, and Arthur lets you click to dismiss a [MORE] prompt.
+
+On the Commander X16 there are no picture disks. The pictures are ordinary files that live beside the game, and it reads each one from the SD card as it draws it, so keep them together when you copy the game.
+
 # Copying
 An Ozmoo game stores data directly onto the floppy disk in addition to files. Because of this, it is not possible to copy a game to a new floppy by just copying files. If you want to make a copy you need to use a copy program that copies the whole disk, sectors by sector.
 
@@ -94,7 +105,7 @@ Ozmoo can be built with support for Undo, meaning the player can revert the effe
 If Ozmoo was built with this feature, the splash screen will mention the undo feature.
 
 # Scrollback buffer
-Ozmoo has an optional feature called Scrollback buffer, which can be used on all platforms except Commander X16. With the Scrollback buffer feature enabled, you can press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown, and Enter to exit scrollback mode. 
+Ozmoo has an optional feature called Scrollback buffer, which can be used on all platforms except Commander X16, and in all games except the graphical version 6 ones (whose several windows each scroll their own part of the screen). With the Scrollback buffer feature enabled, you can press F5 at any input prompt or More prompt, to access the text the game has printed this far. Use F5/F7 as PageUp/PageDown, and Enter to exit scrollback mode. 
 
 On the C64 and C128, scrollback can either be built to work with an REU only, or it can reserve a buffer in RAM as well. On the MEGA65 and Plus/4, it always uses a RAM buffer. If Ozmoo was built to work only with an REU, and no REU is detected, or there is no room for a scrollback buffer in the REU, Ozmoo will print a message saying scrollback isn't available.
 
