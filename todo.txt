@@ -176,15 +176,47 @@ Still to do for z6 (not crashes):
 
 Z6 on other targets
 -------------------
-The C64 came first and it works, then the Plus/4 and the MEGA65, and now the
-X16 (text only). Only the C128 is still deliberately untouched:
-- The C128's 80 column routine (.s_scroll_vdc) still scrolls the whole screen,
-  so a z6 window there smears the rest of the display, and s_scroll_window
-  returns without doing anything for it. Known and accepted, not an oversight.
+The window model now works on every target Ozmoo supports: the C64 first, then
+the Plus/4, the MEGA65, the X16, and finally the C128's 80 column (VDC) screen.
 - ECM (-ecm) is C64 only, and make.rb rejects it elsewhere. The MEGA65 and X16
   don't need it: their video chips give every character its own background
   colour, so those targets should set the window's background directly rather
   than borrowing the ECM approach.
+
+DONE: the z6 window model on the C128's 80 column screen. This was the last
+target still scrolling the whole screen, and the fix is the same shape as the
+X16's: .s_scroll_vdc now goes through the shared .calc_window_rect /
+.sw_up_one / .sw_blank_row helpers, and only the row copy (.vdc_copy_row) is
+VDC-specific. s_scroll_window's "80 columns are not handled" early return is
+gone, so the scroll_window opcode works there too.
+- The VDC's screen is not in the CPU's address space, but the chip has a
+  blitter: with the copy bit of the vertical scroll register (24) set, writing
+  a byte count to VDC_COUNT (30) copies that many bytes from the copy source
+  address (32/33) to the current address (18/19). So a window row is one
+  register write instead of 80 read/write round trips through the data port.
+  Characters live at $0000 and their attributes at $0800, so a row is copied
+  twice, once per region (the attributes only under COLOURFUL_LOWER_WIN, which
+  z6 always sets, since Z6 implies Z5PLUS).
+- A count of 0 means 256 bytes, not none, so .vdc_copy_row returns early for a
+  window with no columns rather than blitting a quarter of the screen.
+- .sw_blank_row needed nothing: it blanks through s_delete_cursor, which
+  already dispatches to VDCPrintChar in 80 column mode. Note that it does so
+  before loading y from zp_screencolumn, so y must hold the column on entry -
+  which every caller already arranges.
+- The old .s_scroll_vdc also refused to scroll until the cursor had passed the
+  bottom of the *screen* (its "cmp s_screen_height / bpl" guard), which is the
+  same bug the X16's had: a window that did not reach the bottom never
+  scrolled at all. The caller has already checked the window's own edge.
+Verified under VICE (x128) by dumping VDC RAM through the monitor - the screen
+is not in the CPU's address space, so the dump needs "bank vdc; m 0000 07cf" as
+one command, and note that VICE's -80col does not reach the kernal's 40/80 flag
+under -default, so the test pokes $d7 = $80 at program_start instead (a
+tracepoint on program_start with "> d7 80"). testz6scroll then renders on the
+VDC exactly as it does on the C64: the window scrolls to "line 6".."line 10"
+and the screenful of '#' around it survives intact on all four sides. testz6
+lays out both windows at 80x25 and its two scroll_window calls both run. The
+C128's 40 column mode is unchanged (it takes the same CPU path as the C64, and
+its dump is identical).
 
 DONE: the z6 window model on the X16 (text only, VERA's 80x60 screen). The X16
 got no window code of its own: .s_scroll_vera and the scroll_window opcode now

@@ -1328,12 +1328,18 @@ s_erase_window
 
 !ifdef TARGET_C128 {
 .s_scroll_vdc
-	; scroll routine for 80 column C128 mode, using the blitter
-	lda zp_screenrow
-	cmp s_screen_height
-	bpl +
-	rts
-+   
+	; Scroll the current window's rectangle up one line and erase the window's
+	; new last line, the VDC equivalent of .s_scroll. Leaves zp_screenrow on
+	; that last line. The rows and the blanking are the same window-local ones
+	; the scroll_window opcode uses, so only the row copy (.vdc_copy_row) is
+	; VDC-specific. (This used to scroll the whole screen from window 0's top
+	; line down to the bottom of the screen, which smeared every window that
+	; did not reach it, and it only ran at all once the cursor had passed the
+	; bottom of the *screen* rather than of the window.)
+	jsr .calc_window_rect
+!ifdef SCROLLBACK {
+	inc s_scrolled_lines
+}
 	ldx scroll_delay
 	beq .done_delaying_vdc
 -	txa
@@ -1344,59 +1350,72 @@ s_erase_window
 	dex
 	bne -
 .done_delaying_vdc
+	jsr .sw_up_one ; copies the window's rows up, blanks its new last line
+	ldy .win_left
+	sty zp_screencolumn
+	rts
 
-	; set up copy mode
+.vdc_copy_row
+	; Copy the window's columns from row .sw_src to row .sw_dst. The VDC's
+	; screen is not in the CPU's address space, but the chip has a blitter:
+	; with the copy bit of the vertical scroll register set, writing the byte
+	; count to VDC_COUNT copies that many bytes from the copy source address
+	; to the current address. So a row is one register write, rather than 80
+	; read/write round trips through the data port.
+	lda .win_right_excl
+	sec
+	sbc .win_left
+	beq +  ; a window with no columns has nothing to copy
+	sta .vdc_count ; a count of 0 would mean 256 bytes, hence the check above
 	ldx #VDC_VSCROLL
 	jsr VDCReadReg
-	ora #$80 ; set copy bit
+	ora #$80 ; the blitter copies rather than fills
 	jsr VDCWriteReg
-	; scroll characters
-	lda #$00
-	jsr .s_scroll_vdc_copy
+	lda #$00 ; the characters, at $0000
+	jsr .vdc_copy_block
 !ifdef COLOURFUL_LOWER_WIN {
-	; scroll colours
-	lda #$08
-	jsr .s_scroll_vdc_copy
+	lda #$08 ; and their attributes, at $0800
+	jsr .vdc_copy_block
 }
-	; prepare for erase line
-	sty zp_screenrow
-	lda #$ff
-	sta s_current_screenpos_row ; force recalculation
-	jmp s_erase_line
++	rts
 
-.s_scroll_vdc_copy
-	; input: a = offset (0 for characters, $08 for colours)
-	;
-	; calculate start position (start_row * screen_width)
-	pha
+.vdc_copy_block
+	; a = the high byte of the VDC region's base: $00 for the characters,
+	; $08 for the attributes.
+	sta .vdc_base
+	lda .sw_src
+	jsr .vdc_row_addr
+	jsr VDCSetCopySourceAddress
+	lda .sw_dst
+	jsr .vdc_row_addr
+	jsr VDCSetAddress
+	lda .vdc_count
+	ldx #VDC_COUNT
+	jmp VDCWriteReg ; writing the count is what runs the copy
+
+.vdc_row_addr
+	; a = row. Return the VDC address of the window's first column on that row
+	; in a (low) and y (high): base + row * screen width + left column.
+	sta .vdc_row
 	lda s_screen_width
 	sta multiplier
 	lda #0
 	sta multiplier + 1
-	lda window_y ; how many top lines to protect
+	lda .vdc_row
 	jsr mult8
-	; set up source and destination
-	pla
-	clc
-	adc product + 1
-	tay
 	lda product
-	jsr VDCSetAddress ; where to copy to (first line)
 	clc
-	adc s_screen_width
-	bcc +
-	iny
-+	jsr VDCSetCopySourceAddress ; where to copy from (next line)
-	; start copying
-	ldy window_y ; how many top lines to protect
--	cpy s_screen_height_minus_one
-	beq +
-	lda #80 ;copy 80 bytes
-	ldx #VDC_COUNT
-	jsr VDCWriteReg
-	iny
-	bne - ; Always branch
-+	rts
+	adc .win_left
+	tax
+	lda product + 1
+	adc .vdc_base
+	tay
+	txa
+	rts
+
+.vdc_count !byte 0
+.vdc_base  !byte 0
+.vdc_row   !byte 0
 }
 
 !ifdef SCROLLBACK {
@@ -1696,11 +1715,6 @@ s_scroll_window
 	; therefore free of the scroll delay, smooth scrolling and scrollback that
 	; .s_scroll has to care about.
 	; input: x = window, a = number of lines, carry set to scroll down
-	; The C128 80 column screen is not handled (see todo.txt).
-!ifdef TARGET_C128 {
-	bit COLS_40_80
-	bmi .sw_return ; 80 columns: the VDC screen is not handled yet
-}
 	stx .sw_window
 	sta .sw_count
 	lda #0
@@ -1778,6 +1792,12 @@ s_scroll_window
 !ifdef TARGET_X16 {
 	jmp .vera_copy_row ; the VERA screen is not in the CPU's address space
 } else {
+!ifdef TARGET_C128 {
+	bit COLS_40_80
+	bpl + ; 40 columns: the VIC-II screen, which the CPU can address
+	jmp .vdc_copy_row ; 80 columns: the VDC's, which it cannot
++
+}
 	lda .sw_src
 	jsr .sw_point_at_row
 	lda zp_screenline

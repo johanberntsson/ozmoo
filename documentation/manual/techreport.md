@@ -328,11 +328,25 @@ per window: text wraps at the window's right margin, a window scrolls its own
 rectangle, and the MORE prompt appears in the window's bottom right cell rather
 than the screen's. Each window keeps its own cursor and its own line count.
 
-The window-local scrolling covers the code path the C64, Plus/4, MEGA65 and X16
-share (.s_scroll, and s_scroll_window for the scroll_window opcode); the X16 has
-no window code of its own, only a VERA-specific row copy. The one exception is
-the C128's 80 column routine, which still scrolls the whole screen, so a window
-there will smear the rest of the display.
+Every target scrolls a window rather than the screen, and they all do it with the
+same code: .calc_window_rect works out the window's rectangle, .sw_up_one and
+.sw_down_one move its rows, and .sw_blank_row blanks the one scrolled into view.
+Only the row copy is per machine. The C64, the Plus/4 and the MEGA65 have their
+screen in the CPU's address space and copy it themselves; the X16's VERA and the
+C128's VDC do not, and get a row copy of their own (.vera_copy_row and
+.vdc_copy_row).
+
+The VDC's is worth a word, because the chip has a blitter and it would be a
+waste not to use it. With the copy bit of the vertical scroll register (24) set,
+writing a byte count to VDC_COUNT (30) copies that many bytes from the copy
+source address (registers 32 and 33) to the current address (18 and 19). A row
+of a window is therefore one register write rather than eighty read-and-write
+round trips through the data port; the characters at $0000 and their attributes
+at $0800 are copied in turn. A count of 0 means 256 bytes rather than none, so a
+window with no columns has to be turned away before the blitter is asked to copy
+a quarter of the screen. This is the same blitter the old whole-screen scroll
+used, driven a row at a time between two arbitrary rows instead of down the whole
+display.
 
 ## Extended Color Mode on the C64
 
