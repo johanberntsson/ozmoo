@@ -24,8 +24,10 @@ if $is_windows then
 	$commandline_quotemark = "\""
 else
 	# Paths on Linux. Comment out X16 and/or MEGA65 if you don't have them installed.
+	# The X16 path is relative to the game directory (x16_<story>/), not to this
+	# one: play() cd's in there so the emulator finds [ZCODE] and the pictures.
 	$executables = {
-		'X16' => "../x16-emulator/x16emu",
+		'X16' => "../x16-emulator46/x16emu",
 		'X64' => "x64 -autostart-delay-random",
 		'X128' => "x128 -autostart-delay-random",
 		'XPLUS4' => "xplus4 -autostart-delay-random",
@@ -1550,7 +1552,12 @@ end
 def play(filename, storyname)
 	if $target == "x16" then
 		if $executables.has_key?('X16') then
-			command = "cd #{filename} && #{$executables['X16']} -prg #{storyname.upcase}"
+			# The command cd's into the game directory (the emulator must run
+			# from where [ZCODE] and the [P###] pictures sit), so the X16 path
+			# at the top of make.rb is relative to that directory, one level
+			# below this one. The emulator needs the PRG's real name: without
+			# the .PRG extension it reports "Cannot open" and drops to BASIC.
+			command = "cd #{filename} && #{$executables['X16']} -prg #{$file_name.upcase}"
 			command += " -run"
 			command += " -dump RV" # Ctrl-S from the emulator to dump memory
 			command += " -debug"
