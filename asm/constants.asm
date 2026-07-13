@@ -97,6 +97,16 @@ SCREEN_WIDTH          = 40
 SCREEN_WIDTH          = 80
 }
 CELL_BYTES            = 2
+; The screen's colour cells start this far into the 32 KB colour RAM (the
+; VIC-IV colour offset, $d064/5). It cannot be 0: the first 2 KB of colour
+; RAM is also mapped at $1f800-$1fffff in bank 1, whose top is CBDOS
+; workspace -- every SD/disk access rewrites colour bytes around $7f2-$7fb.
+; The 40-column screen's 2000 bytes happened to stop short of them; the
+; 80-column screen's 4000 bytes reach row 12, and a stray $f8 there is a
+; GOTOX attribute that blanks the rest of the row (the "white stripe over
+; the picture" / "line loses its tail" bugs). At $0800 the screen is clear
+; of the DOS bytes entirely.
+FCM_COLOUR_OFFSET     = $0800
 ; The C64 font sits at $2d000 in the MEGA65 ROM, uppercase/graphics first and
 ; lowercase/uppercase second, as on the C64. Ozmoo prints mixed case, so it
 ; needs the second 2 KB half.

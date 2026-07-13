@@ -1052,6 +1052,10 @@ z_ins_quit
 	lda $d015
 	and #$fe
 	sta $d015
+	; put the colour RAM offset back where BASIC expects it
+	lda #0
+	sta $d064
+	sta $d065
 }
 }
 !ifdef TARGET_X16 {

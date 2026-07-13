@@ -38,8 +38,54 @@ taking the overlay's pixel where opaque and the underlying tile's pixel where
 transparent - which the store's absolute palette indices (all banks loaded at
 once) make legal. Matches the reference. The composite tiles come off
 pic_next_tile; a game that redraws full-screen pictures over each other without
-clearing would churn the store, so if Zork Zero or Journey corrupt tiles, skip
-compositing for fully-opaque overlays.
+clearing churns the store, and that predicted corruption arrived as Arthur's
+intro stripe (below), so .pcf_make_tile now skips compositing for fully-opaque
+cells.
+
+FIXED: the white stripe across Arthur's full-screen intro pictures - and,
+almost certainly, the "games drop or change the odd stretch of body text"
+bug, which had the same root cause. Not a write into the tile store's banks
+at all: the first 2 KB of colour RAM is also mapped at $1f800-$1fffff in bank
+1, whose top is CBDOS workspace, so every SD/disk access rewrites colour
+bytes around $7f2-$7fb. The 40-column screen's 2000 colour bytes stop just
+short of them; the 80-column screen's 4000 reach row 12 cell 57, and the
+DOS's $f8 bytes have bit 4 set - a VIC-IV GOTOX token in FCM's 16-bit colour
+cells, which blanks the rest of the row from that cell on. Hence a white
+stripe over the last fifth of a middle picture row, and text lines losing
+their tails "differently on each run" (whenever disk access had scribbled
+since the row was last printed). Diagnosed in xemu by dumping the stripe
+cells (valid tile codes, garbage colour flag bytes) and then watching
+$ff807f0 through the boot: the bytes tick during every disk phase. The fix
+moves the screen's colour region off the DOS bytes with the VIC-IV colour
+offset ($d064/5): FCM_COLOUR_OFFSET = $0800 (constants.asm), added to
+zp_colourline everywhere it is computed; scrollback's temporary colour moved
+to $1000 to stay clear of it; quit puts the offset back to 0 for BASIC.
+Verified: Arthur's sword-and-chapel and Merlin intro pictures render
+pixel-clean, and testz6 still matches dfrotz at both 40 and 80 columns.
+
+FIXED, found on the way: drawing a full-screen picture over another (or
+redrawing one over itself, which Arthur's intro does) baked a composite tile
+for every cell - ~1850 allocations on a 2048-tile store - wrapping
+pic_next_tile into the picture's own run and overwriting source tiles that
+later, deduplicated cells still needed. This was the todo entry above coming
+true, as garbled borders and bottom band on the intro pictures rather than as
+the stripe. .pcf_make_tile now counts the overlay tile's transparent pixels
+while copying it into the work buffer; a fully opaque cell keeps its own
+screen code and allocates nothing.
+
+STILL OPEN, related pair:
+- The store (2048 tiles) cannot hold two big pictures at once: Arthur's
+  Merlin scene (1057 tiles) drawn centred over the sword picture (1223)
+  recycles the sword's tiles, so the area around the smaller picture shows
+  garbage until the next erase - the reference keeps the old picture visible
+  there. Transient intro cosmetics. A bigger store needs a second, non-
+  contiguous region (bank 1, with sound moved or dropped - Johan has okayed
+  losing sound under -fcm if it comes to that) and a two-region allocator.
+- Entering scrollback mode repoints screen RAM to $40000
+  (scrollback.asm .scrollback_screen_ram), the tile store's first 64 tiles
+  under -pics. Leaving it restores the pointer but not the tiles, so
+  scrollback over a picture corrupts it. Move the scrollback screen or
+  redraw after exit.
 
 FIXED: Arthur's "FATAL ERROR: 17" on the MEGA65 was a missing window property.
 

@@ -418,10 +418,19 @@ init_mega65
 	lda #$c8 + 1 ; +1 loses one pixel on the left, +2 loses one pixel on the right. Leftmost pixel usually empty.
 	sta $D016
 }
-	; Set colour RAM offset to 0
+	; Set the colour RAM offset. Under FCM the screen's colour cells sit at
+	; FCM_COLOUR_OFFSET, past the CBDOS workspace that owns the top of colour
+	; RAM's first 2 KB (see constants.asm); elsewhere at 0.
+!ifdef Z6_FCM_MODE {
+	lda #<FCM_COLOUR_OFFSET
+	sta $d064
+	lda #>FCM_COLOUR_OFFSET
+	sta $d065
+} else {
 	lda #0
 	sta $d064
 	sta $d065
+}
 	; set screen at $0800
 	;lda #$26
 	;sta $d018
@@ -477,6 +486,7 @@ init_mega65
 	lda #0
 	sta zp_screenline
 	sta zp_colourline
+	lda #>FCM_COLOUR_OFFSET
 	sta zp_colourline + 1
 	lda #>SCREEN_ADDRESS
 	sta zp_screenline + 1
@@ -496,7 +506,7 @@ init_mega65
 	; leave the low word pointing at row 0 again, bias included
 	lda #1
 	sta zp_colourline
-	lda #0
+	lda #>FCM_COLOUR_OFFSET
 	sta zp_colourline + 1
 }
 	rts
@@ -1132,7 +1142,8 @@ s_erase_window
 	;
 !ifdef Z6_FCM_MODE {
 	; The row's offset is the same in screen RAM (from SCREEN_ADDRESS) and in
-	; colour RAM (from $ff80000, where the 32-bit zp_colourline points).
+	; colour RAM (from $ff80000 + FCM_COLOUR_OFFSET, where the 32-bit
+	; zp_colourline points -- the offset keeps the screen off the CBDOS bytes).
 	; The colour of a cell is its odd byte, the character its even one:
 	; biasing the colour pointer by one lets both be written with the same
 	; index. A row offset's low byte is a multiple of 32, so it never carries.
@@ -1142,7 +1153,11 @@ s_erase_window
 	inc zp_colourline
 	lda $d779
 	and #$0f ; row offsets run to $0f00 on the 80-column screen
+	clc
+	adc #>FCM_COLOUR_OFFSET
 	sta zp_colourline+1
+	sec
+	sbc #>FCM_COLOUR_OFFSET ; back to the bare row offset for the screen line
 	clc
 	adc #>SCREEN_ADDRESS
 	sta zp_screenline+1
@@ -2290,6 +2305,7 @@ toggle_darkmode
 	; recalculation at the end puts it back.
 	lda #0
 	sta zp_colourline
+	lda #>FCM_COLOUR_OFFSET
 	sta zp_colourline + 1
 	ldx #SCREEN_HEIGHT
 .tdm_row

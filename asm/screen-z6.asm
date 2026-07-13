@@ -959,16 +959,29 @@ pic_load_all
 	adc #FCM_TILE_CODE_HI
 	tax
 	pla
+	sta .pcf_newcode_lo		; if the cell turns out fully opaque, this code is
+	stx .pcf_newcode_hi		; the answer and no composite is baked
 	jsr .pcf_code_addr		; .pic_dst -> our tile in the store
 	ldy #0					; copy its 64 pixels into the work buffer
 	ldz #0
+	ldx #0					; x counts transparent pixels
 -	lda [.pic_dst],z
 	sta .pcf_buf,y
-	inz
+	bne +
+	inx
++	inz
 	iny
 	cpy #64
 	bne -
-	lda .pcf_under_lo		; the tile that was behind us
+	; A fully opaque cell hides what is behind it completely, so the composite
+	; would be a copy of our own tile: use it directly and allocate nothing.
+	; Without this, a full-screen picture drawn over another (Arthur's intro)
+	; bakes a composite for every cell, wraps pic_next_tile into its own run
+	; and overwrites source tiles that later, deduplicated cells still need.
+	cpx #0
+	bne +
+	rts
++	lda .pcf_under_lo		; the tile that was behind us
 	ldx .pcf_under_hi
 	jsr .pcf_code_addr		; .pic_dst -> it in the store
 	ldy #0					; where we are transparent, take its pixel instead

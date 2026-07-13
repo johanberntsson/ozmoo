@@ -139,12 +139,15 @@ launch_scrollback
 	stq z_temp + 8 ; Note: We only care about the first two bytes
 	ldq .scrollback_screen_ram
 	stq $d060
+	; scrollback's colour lives at offset $1000, clear of the game screen's
+	; FCM_COLOUR_OFFSET ($0800) and of the CBDOS bytes in the first 2 KB
 	lda #0
 	sta $d064
-	lda #8
+	lda #$10
 	sta $d065
 
-	; Fill relevant portion of colour RAM (start at offset 2 KB) with the game's foreground colour
+	; Fill relevant portion of colour RAM (at offset $1000, matching $d064/65
+	; above) with the game's foreground colour
 	ldx darkmode
 	ldy bgcol,x
 	lda zcolours,y
@@ -154,8 +157,9 @@ launch_scrollback
 	sta dma_source_address
 	ldx #0
 	stx dma_dest_address
-	lda #8
+	lda #$10
 	sta dma_dest_address + 1
+	lda #8
 	sta dma_dest_bank_and_flags
 	lda #$ff
 	sta dma_dest_address_top
