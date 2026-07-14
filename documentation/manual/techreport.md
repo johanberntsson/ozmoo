@@ -164,8 +164,10 @@ behind the text, and then most of the 128 KB of video RAM is in use:
 | \$00000-\$0ffff | 64 | Picture tile store: 1024 tiles of 64 bytes (Z6_PICTURES) |
 | \$10000-\$10fff | 4 | Layer 0 tile map, 64 x 32 entries of two bytes (Z6_PICTURES) |
 | \$11000-\$117ff | 2 | The character set, moved out of the tile store's way (Z6_PICTURES) |
+| \$13000-\$13fff | 4 | Sprite 0's image: the kernal's mouse pointer (Z6_MOUSE) |
 | \$1b000-\$1c380 | 4 | Screen RAM (80 x 25 in a pictures build) |
 | \$1fa00-\$1fbff | 0.5 | Palette RAM: 256 entries of two bytes |
+| \$1fc00-\$1ffff | 1 | Sprite attributes |
 
 Note that in an ordinary build the character set is left where the kernal keeps
 it, in the first 64 KB, which is exactly where the tile store has to go — hence
@@ -703,15 +705,24 @@ runs on.
 
 ## Mouse
 
-The mouse (z-spec 10.3) is drawn only on the MEGA65's full colour screen, in
-asm/mouse.asm, guarded by Z6_FCM_MODE; text-only version 6 has no pointer, and
-neither does the X16's picture screen yet, though VERA has sprites and the same
-approach would work there. A
+The mouse (z-spec 10.3) is drawn on the two screens that can show a pointer: the
+MEGA65's full colour screen and the X16's pictures screen. Both are in
+asm/mouse.asm, guarded by Z6_MOUSE, which is set for Z6_FCM_MODE or for the X16
+with Z6_PICTURES; text-only version 6 has no pointer on either machine. A
 game asks for a mouse by setting bit 5 of Flags 2, and the interpreter leaves
 that bit set only where it can honour it. z_init reads the bit and, if the game
 wants a mouse, calls mouse_enable, which shows the pointer and sets mouse_active;
 a game that does not ask gets no pointer and its clicks are ignored. (Arthur,
 Zork Zero and testz6 — whose read_mouse test asks — all get one.)
+
+Everything the standard asks for is the same on both machines and is written
+once: the press edge that turns a held button into a single click, the cell the
+click landed in, the words written into the header extension table, and the
+window the mouse is confined to. Only reading the hardware and moving the
+pointer differ, and that is one routine, mouse_read, which mouse_poll calls and
+which returns the button mask with the pointer's pixel position updated.
+
+### The MEGA65's mouse
 
 The pointer is the 1351 or Amiga mouse on control port 2. The MEGA65 exposes its
 paddle lines directly at \$d620 and \$d621, with no SID or CIA multiplexing to
@@ -732,7 +743,33 @@ the VIC-IV's 16-bit sprite pointer (\$d06c to \$d06e, with the SPRPTR16 bit set)
 because the sprite pointer list normally sits at the top of screen RAM, which on
 the full colour screen is picture and text data. There is no hardware that makes
 a sprite follow the mouse; the MEGA65 KERNAL moves it in an interrupt and so does
-Ozmoo, from mouse_poll.
+Ozmoo, from mouse_poll. On quit the sprite is switched off along with the full
+colour mode bits, so no arrow is left on the BASIC screen.
+
+### The X16's mouse
+
+On the X16 the kernal owns the mouse, and mouse_read is a single call into it.
+mouse_config (\$ff68) shows the pointer and gives it its bounds, taken in units
+of 8 pixels: 80 by 25, which is the 640x200 pictures screen. mouse_get (\$ff6b)
+fills four zero page bytes with the position and returns the button mask in the
+accumulator; the four bytes are the kernal's own API registers r0 and r1 at
+\$02, which its interrupt handler saves and restores around its use of them, so
+they are safe to borrow. The kernal's default interrupt handler also calls
+mouse_scan and moves the pointer itself, and Ozmoo never replaces the interrupt
+vector on the X16, so there is no sprite for Ozmoo to place and no paddle
+counter to difference.
+
+The pointer is VERA sprite 0, and the kernal keeps its image at video RAM
+\$13000, which is clear of both the tile store and the layer 0 map (see the X16
+memory map above). mouse_enable therefore only has to switch the sprite layer on
+in DC_VIDEO. One detail is worth knowing: because the screen is fewer than 31
+cells high, the kernal doubles its internal y coordinate and mouse_get halves it
+back again. That is exactly right for a screen whose VSCALE is halved — the
+pointer moves at the same physical speed as on any other X16 screen, and reports
+a position of 0 to 199. On quit the pointer is hidden with mouse_config again,
+which also puts the system management controller back to sending key codes only.
+
+### Clicks, and how they reach the game
 
 mouse_poll is called from getchar, the routine every input path waits on, so the
 pointer follows the mouse through read, read_char and the [MORE] prompt, and a
@@ -750,7 +787,7 @@ parse_terminating_characters had rejected everything above 140 and, for the 255
 wildcard, activated only the ordinary function keys, never the mouse clicks 252
 to 254 -- so a click could not end a line, whichever way a game asked. It now
 accepts the whole valid range, and the default set it turns on for the wildcard
-includes the mouse clicks on the full colour screen, so both a game that lists
+includes the mouse clicks on a screen that has a mouse, so both a game that lists
 the clicks (Arthur) and one that says "any function key" (Zork Zero) work.
 
 
@@ -1292,6 +1329,10 @@ If the target potentially supports extended memory of some sort, to be used as a
 	VMEM_END_PAGE=n
 
 This is the page where virtual memory storage ends, i.e. the last page that can be used by the virtual memory system plus one. For the C64, the last page is $FF (address $FF00-$FFFF), so VMEM_END_PAGE is $00.
+
+	Z6_MOUSE
+
+Set when the build has a screen that can show a mouse pointer: a MEGA65 build with Z6_FCM_MODE, or an X16 build with Z6_PICTURES. It guards asm/mouse.asm and everything that depends on a mouse existing — the Flags 2 mouse bit, the read_mouse and mouse_window opcodes, and the mouse clicks in the default set of terminating characters. See "Mouse".
 
 ## Debug flags 
 
