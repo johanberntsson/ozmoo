@@ -236,5 +236,6 @@ cd x16_testz6 && ../x16-emulator46/x16emu -prg TESTZ6.PRG -run -warp -zeroram -s
 ## References
 
 - The Z-machine standard, version 1.0/1.1 — essential for v6 window and opcode semantics, and worth checking rather than trusting memory. Not in the repo; it is easy to find online (`z-spec10.pdf`). Keep a copy in the working directory when doing v6 work: `pdftotext z-spec10.pdf -` makes it greppable.
+- Two reference interpreters, for different questions: `dfrotz -h 25 -w 40` (or `-w 80`) for line-for-line text comparison, and **sfrotz** (SDL Frotz, windowed) for how a v6 game *presents* — colours, reverse-video message boxes, pictures. Both parser-message bugs of July 2026 (a spurious [More], a missing reverse-video band) were invisible in dfrotz text and obvious next to sfrotz. Note sfrotz's grey background is its default scheme, not the game's doing.
 - `documentation/techreport_15.pdf` — Ozmoo's internal design.
 - `todo.txt` — known bugs and remaining v6 work.
