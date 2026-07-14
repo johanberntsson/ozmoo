@@ -1,5 +1,41 @@
 Known bugs
 ----------
+FIXED (July 2026), the follow-up pair to the parser-message fix below, found
+by comparing against sfrotz (z6games/z6specialmessage.png):
+1. Printing the message used to raise a [More] prompt. Arthur's message
+   window is one line tall and non-scrolling, and sfrotz never pauses there:
+   a [More] only makes sense where text scrolls away unread. increase_num_rows
+   now requires WIN_SCROLLING (window 0 has it, windows 1-7 default off). At
+   the same time the line count became the signed word the spec requires
+   (window_linecount_hi): games park it at -999 to postpone [More] and 999
+   means never (8.8.3.2.6) - Arthur puts -999 into window 0 after its intro
+   keypresses, which the old byte array truncated to 25, a value that made
+   window 0 [More] on the *next* newline. put/get_wind_prop and erase/clear
+   handle both bytes.
+2. The message wasn't "bold". Arthur prints it by reading the current
+   window's colour pair (get_wind_prop -3 property 11, bg high byte / fg low,
+   8.8.3.2.4), calling set_colour with the pair swapped, erasing the window
+   and print_forming into it - i.e. reverse video, like its status line.
+   Ozmoo's property 11 was a never-written byte, so the swap became
+   set_colour 0,0 = "no change". set_colour now keeps each window's pair
+   (window_colour, nybble-packed; operands 0/-1 keep, 1 is the default) and
+   get_wind_prop answers it; when a set_colour is an exact swap of the
+   current pair (new fg = screen bg, new bg = old fg), s_colour_swap renders
+   everything as reversed glyphs with the field in the old foreground - no
+   target has per-window hardware backgrounds, but a swapped pair is exactly
+   what the reversed glyph draws. The real colours stay put; the un-swap
+   switches it off. ECM (no reversed glyphs) keeps the tracking only.
+   En route this turned up that erase_window took its operand raw, so
+   Arthur's erase_window -3 indexed the window arrays 253 bytes out (writing
+   window_y_cursor+253!) and never actually erased - the band was invisible
+   and memory was scribbled on every parser error. It goes through
+   window_from_operand now, like every other window-numbered opcode.
+   Verified on C64 (band reversed full width, [More] gone over ~750 empty
+   commands, intro/status unchanged) and arthur-mega65; testz6 C64/-fcm:40/
+   -fcm screens byte-identical to before. The sfrotz "grey" is just its
+   default scheme - the band now reverses whatever scheme Ozmoo runs
+   (-fgcol:/-bgcol: pick another; darkmode still works).
+
 FIXED (July 2026): an empty command or an unknown word at Arthur's prompt
 printed "I beg your pardon?" and then gibberish forever, on every target (the
 mega65 screenshot was z6games/z6error.png). Not a PC desync and not corrupt

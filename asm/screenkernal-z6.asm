@@ -858,6 +858,16 @@ s_set_text_colour
 	rts
 }
 
+; The game swapped its foreground and background around (Arthur does it for
+; every parser message, boxing the text like its status line): no target has
+; per-window hardware backgrounds, but a swapped pair is exactly what the
+; reversed glyphs draw -- the field in the glyph colour, the text in the
+; screen background -- so while this is $80 everything prints reversed and
+; the glyph colour is the requested background. Cleared when set_colour puts
+; the background back. (ECM has no reversed glyphs; it never sets this.)
+s_colour_swap	!byte 0
+s_bg_zcolour	!byte 0	; the screen background as a z-colour number
+
 s_delete_cursor
 !ifdef TARGET_MEGA65 {
 !ifndef Z6_FCM_MODE {
@@ -872,6 +882,8 @@ s_delete_cursor
 	lda #$20 ; blank space
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
+} else {
+	ora s_colour_swap ; swapped colours erase to a field of the glyph colour
 }
 !ifdef TARGET_C128 {
 	bit COLS_40_80
@@ -1044,6 +1056,7 @@ s_printchar
 	ora ecm_bits
 } else {
 	ora s_reverse
+	ora s_colour_swap ; swapped colours render as reverse video
 }
 	pha
 	jsr .update_screenpos
@@ -2592,11 +2605,113 @@ toggle_darkmode
 } ; ifndef NODARKMODE
 
 !ifdef Z5PLUS {
+
+!ifdef Z6 {
+s_track_colours
+	; Keep the current window's colour pair (property 11: background in
+	; the high nybble, foreground in the low, as z-colour numbers) in step
+	; with set_colour's operands -- 0 keeps a colour, 1 means the default.
+	; Then decide whether the pair has become a swap of the screen
+	; colours: the new foreground is the screen background while the new
+	; background is not. If so, switch on reverse-video rendering with the
+	; new background as the glyph colour and leave the real colours alone
+	; (see s_colour_swap). ECM keeps the tracking for get_wind_prop but
+	; never swaps: it has no reversed glyphs.
+	ldx current_window
+	lda window_colour,x
+	sta .stc_pair
+	and #$0f
+	sta .stc_old_fg
+	lda z_operand_value_low_arr
+	beq .stc_fg_done	; 0: keep the foreground
+	cmp #$ff
+	beq .stc_fg_done	; -1: the colour under the cursor -- keep
+	cmp #1
+	bne +
+	lda #FGCOL		; 1: the default
++	and #$0f
+	sta .stc_nybble
+	lda .stc_pair
+	and #$f0
+	ora .stc_nybble
+	sta .stc_pair
+.stc_fg_done
+	lda z_operand_value_low_arr + 1
+	beq .stc_bg_done	; 0: keep the background
+	cmp #$ff
+	beq .stc_bg_done	; -1: the colour under the cursor -- keep
+	cmp #1
+	bne +
+	lda #BGCOL		; 1: the default
++	and #$0f
+	asl
+	asl
+	asl
+	asl
+	sta .stc_nybble
+	lda .stc_pair
+	and #$0f
+	ora .stc_nybble
+	sta .stc_pair
+.stc_bg_done
+	lda .stc_pair
+	sta window_colour,x
+!ifndef Z6_ECM_MODE {
+	; a swap must be exact: the new foreground is the screen background
+	; and the new background is the old foreground
+	and #$0f
+	cmp s_bg_zcolour
+	bne .stc_normal		; the foreground is a real colour: no swap
+	lda .stc_pair
+	lsr
+	lsr
+	lsr
+	lsr
+	cmp s_bg_zcolour
+	beq .stc_normal		; both are the screen background: not a swap
+	cmp .stc_old_fg
+	bne .stc_normal		; some other background: a real colour change
+	tax
+	lda zcolours,x
+	jsr s_set_text_colour	; the field takes the requested background
+	lda #$80
+	sta s_colour_swap
+	rts
+.stc_normal
+	lda #0
+	sta s_colour_swap
+	; the background is about to be applied for real: remember it
+	lda z_operand_value_low_arr + 1
+	beq +
+	lda .stc_pair
+	lsr
+	lsr
+	lsr
+	lsr
+	sta s_bg_zcolour
++
+}
+	rts
+.stc_pair	!byte 0
+.stc_nybble	!byte 0
+.stc_old_fg	!byte 0
+}
+
 z_ins_set_colour
 	; set_colour foreground background [window]
 	; (in ECM mode the background is set per window, otherwise the window
 	; operand is not used in Ozmoo)
 	jsr printchar_flush
+
+!ifdef Z6 {
+	jsr s_track_colours	; the window's colour pair (property 11)
+!ifndef Z6_ECM_MODE {
+	lda s_colour_swap
+	beq +
+	rts	; swap mode: reverse video does the work, the colours stay put
++
+}
+}
 
 ; Load y with bordercol (needed later)
 	ldx darkmode
@@ -2605,6 +2720,10 @@ z_ins_set_colour
 ; Set background colour
 	ldx z_operand_value_low_arr + 1
 	beq .current_background
+!ifdef Z6 {
+	cpx #$ff
+	beq .current_background	; -1: the colour under the cursor -- keep
+}
 	lda zcolours,x
 	bpl +
 	sty zp_temp
@@ -2643,6 +2762,10 @@ z_ins_set_colour
 ; Set foreground colour
 	ldx z_operand_value_low_arr
 	beq .current_foreground
+!ifdef Z6 {
+	cpx #$ff
+	beq .current_foreground	; -1: the colour under the cursor -- keep
+}
 	lda zcolours,x
 	bpl + ; Branch unless it's the special value $ff, which means "default colour"
 	sty zp_temp

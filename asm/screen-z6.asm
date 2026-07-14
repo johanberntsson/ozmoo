@@ -14,8 +14,8 @@
     ; convert from/to the 1-based coordinates the z-machine uses
 	lda #0
 	sta current_window
-	ldx #(16 * 8) - 1 ; clear all 16 window property arrays
--   sta window_y,x
+	ldx #(17 * 8) - 1 ; clear all 16 window property arrays,
+-   sta window_y,x    ; plus the line count's high bytes behind them
 	dex
 	bpl -
 	ldx #6
@@ -28,6 +28,7 @@
 -   sta window_font,x
 	dex
 	bpl -
+	jsr init_window_colours
 	; window 0 fills the whole screen; wrapping, scrolling,
 	; transcripting and buffering all on
 	lda #15
@@ -71,6 +72,12 @@ window_font            !byte 0,0,0,0,0,0,0,0
 window_font_size_slot  !byte 0,0,0,0,0,0,0,0
 window_attributes      !byte 0,0,0,0,0,0,0,0
 window_linecount       !byte 0,0,0,0,0,0,0,0
+; The line count is game-visible as a signed word (property 15): games park
+; it at -999 to postpone [More] and 999 means never (z-spec 8.8.3.2.6 --
+; Arthur resets window 0 with -999 after its intro keypresses). So it cannot
+; be a bare byte. This is its high byte; it lives past the 16 properties,
+; which keeps the window_y + 8 * property indexing undisturbed.
+window_linecount_hi    !byte 0,0,0,0,0,0,0,0
 
 !ifdef Z6_PICTURES {
 !source "../temp/pictures.asm"
@@ -2094,7 +2101,28 @@ z_ins_get_wind_prop
 +	cmp #4
 	beq .gwp_cursor_y
 	cmp #5
+	beq .gwp_cursor_x
+	cmp #11
+	bne +
+	; property 11 is the colour pair (8.8.3.2.4): the background in the
+	; high byte, the foreground in the low, as z-colour numbers. Arthur
+	; reads it and sets the swap of it to print its parser messages in
+	; reverse video. set_colour keeps the pair packed in window_colour.
+	lda window_colour,y
+	and #$0f
+	tax
+	lda window_colour,y
+	lsr
+	lsr
+	lsr
+	lsr
+	jmp .gwp_store_high_in_a
++	cmp #15
 	bne .gwp_store
+	; the line count (property 15) is a signed word (8.8.3.2.6)
+	lda window_linecount_hi,y
+	jmp .gwp_store_high_in_a
+.gwp_cursor_x
 	; property 5 (x cursor): stored absolute, return window-relative 1-based.
 	; The current window's cursor lives in zp while text is printed and is
 	; only written back on a window switch, so the stored value is stale:
@@ -2121,6 +2149,7 @@ z_ins_get_wind_prop
 	inx
 .gwp_store
 	lda #0
+.gwp_store_high_in_a
 !ifdef DEBUG_SCREENLOG {
 	jsr screenlog_extra
 }
@@ -2358,7 +2387,15 @@ z_ins_put_wind_prop
 	tay
 	lda z_operand_value_low_arr + 2
 	sta window_y,y
-	rts
+	lda z_operand_value_low_arr + 1
+	cmp #15
+	bne +
+	; the line count (property 15) is a signed word: games park it at
+	; -999 / 999 to manipulate [More] (z-spec 8.8.3.2.6)
+	ldx .pwp_window
+	lda z_operand_value_high_arr + 2
+	sta window_linecount_hi,x
++	rts
 
 .pwp_window !byte 0
  
@@ -2513,6 +2550,15 @@ z_ins_erase_window
 	jsr printchar_flush
 	jsr save_cursor
 	ldx z_operand_value_low_arr
+	cpx #$fe
+	bcs +	; -1 / -2: the whole screen
+	; a window: -3 is the current one (z-spec 8.8.3) -- Arthur erases its
+	; parser-message window that way; taking the raw $fd used to index the
+	; window arrays 253 bytes out
+	ldx #0
+	jsr window_from_operand
+	tax
++
 ;    jmp erase_window ; Not needed, since erase_window follows
 }
 
@@ -2565,6 +2611,7 @@ erase_window
 	sta window_x_cursor,x
 	lda #0
 	sta window_linecount,x ; the window is empty again
+	sta window_linecount_hi,x
 	; put the live cursor back where the current window wants it
 	jsr restore_cursor
 	jmp start_buffering
@@ -2908,11 +2955,28 @@ z_ins_set_cursor
 	jmp start_buffering ; the print buffer starts afresh at the new position
 }
 
+init_window_colours
+	; every window starts in the default colours (property 11: background
+	; in the high nybble, foreground in the low, as z-colour numbers)
+	ldx #7
+	lda #(BGCOL << 4) | FGCOL
+-	sta window_colour,x
+	dex
+	bpl -
+!ifndef Z6_ECM_MODE {
+	lda #0
+	sta s_colour_swap
+	lda #BGCOL
+	sta s_bg_zcolour
+}
+	rts
+
 clear_num_rows
 	; every window counts its own printed lines (property 15)
 	lda #0
 	ldx current_window
 	sta window_linecount,x
+	sta window_linecount_hi,x
 .do_nothing_2
 	rts
 
@@ -3003,13 +3067,35 @@ increase_num_rows
 	ldx current_window
 	lda window_attributes,x
 	and #WIN_BUFFERED
-	beq .increase_num_rows_done ; An unbuffered window never shows [More]
+	beq .inr_done ; An unbuffered window never shows [More]
 	inc window_linecount,x
+	bne +
+	inc window_linecount_hi,x
++	lda window_attributes,x
+	and #WIN_SCROLLING
+	beq .inr_done ; only a scrolling window pauses with [More]: nothing
+	              ; is carried off one that stays put (Arthur's one-line
+	              ; parser message window used to [More] here)
 	lda is_buffered_window
-	beq .increase_num_rows_done
+	beq .inr_done
+	; the line count is a signed word the game manipulates (8.8.3.2.6):
+	; negative means a screenful is still far off, 999 means never
+	lda window_linecount_hi,x
+	bmi .inr_done
+	bne .lc_large
 	jsr .window_rows_minus_one
 	cmp window_linecount,y
-	bcs .increase_num_rows_done
+	bcs .inr_done
+	bcc show_more_prompt ; always
+.lc_large
+	; 256 lines or more unread: always a screenful, except the magic 999
+	cmp #>999
+	bne show_more_prompt
+	lda window_linecount,x
+	cmp #<999
+	bne show_more_prompt
+.inr_done
+	rts
 show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
@@ -3505,6 +3591,7 @@ printchar_buffered
 	ldx .buffer_edge
 	sta print_buffer,y
 	lda s_reverse
+	ora s_colour_swap ; swapped colours render as reverse video
 	sta print_buffer2,y
 	iny
 	sty buffer_index
