@@ -2285,7 +2285,7 @@ z_ins_read_mouse
 	jsr set_z_address
 	lda #0
 	jsr write_next_byte
-!ifdef Z6_FCM_MODE {
+!ifdef Z6_MOUSE {
 	lda mouse_cell_y
 	jsr write_next_byte ; y coordinate
 	lda #0
@@ -2318,7 +2318,7 @@ z_ins_mouse_window
 	!pet "z_ins_mouse_window ",0
 	jsr newline
 }
-!ifdef Z6_FCM_MODE {
+!ifdef Z6_MOUSE {
 	lda z_operand_value_high_arr
 	cmp #$ff			; -1 means free
 	beq +

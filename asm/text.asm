@@ -26,10 +26,10 @@ terminating_characters !byte $0d ; index 0: ENTER always terminates
 !ifdef Z5PLUS {
 	; The rest of the array is pre-filled with the function keys this
 	; interpreter can actually produce, so the "255 = any function key" table
-	; can activate them all just by setting the count. On the MEGA65's full
-	; colour screen that includes the mouse clicks 252-254.
+	; can activate them all just by setting the count. On a screen with a mouse
+	; that includes the clicks 252-254.
 	!byte $81,$82,$83,$84,$85,$86,$87,$88,$89,$8a,$8b,$8c ; cursor, F1-F8
-!ifdef Z6_FCM_MODE {
+!ifdef Z6_MOUSE {
 	!byte $fc,$fd,$fe ; menu / double / single mouse click
 NUM_DEFAULT_TERMINATORS = 16
 } else {
@@ -1088,7 +1088,7 @@ getchar_and_maybe_toggle_darkmode
 	jsr kernal_getchar
 	cmp #0
 	bne +
-!ifdef Z6_FCM_MODE {
+!ifdef Z6_MOUSE {
 	; no key was waiting: move the pointer, and turn a click into input code 254
 	lda mouse_active
 	beq ++

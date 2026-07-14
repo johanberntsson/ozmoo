@@ -190,5 +190,12 @@ kernal_save           = $ffd8 ; save file
 kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
+kernal_mouse_config   = $ff68 ; a = pointer shape (0 = hide), x/y = bounds in 8px
+kernal_mouse_get      = $ff6b ; x = zp address to fill with the position
 
 kernal_entropy_get    = $fecf;
+
+; The KERNAL API registers r0-r15 at $02-$21: the mouse is the only thing here
+; that uses them, as the four zero page bytes mouse_get fills.
+x16_r0                = $02 ; 2 bytes
+x16_r1                = $04 ; 2 bytes

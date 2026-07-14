@@ -1,12 +1,17 @@
 Known bugs
 ----------
-Under -fcm, Arthur drops or changes the odd character in the body text: one run
-gives "Anne's Day, Compline hurchyard" and "sudtenly", the next gives
-"-AY" and "suddtnly". It happens with and without -pics, so the pictures are
-not the cause, and it happens only with Arthur, never with testz6. That it
-varies between runs points at something timed - the cursor, or the MORE prompt
-saving and restoring the character under it, both of which now have to handle a
-two byte cell. The 80 column build is clean.
+FIXED, and confirmed in play (July 2026): under -fcm, Arthur used to drop or
+change the odd character in the body text, differently on each run - one run
+gave "Anne's Day, Compline hurchyard" and "sudtenly", the next "-AY" and
+"suddtnly". Zork Zero's banquet paragraph lost text the same way. That it varied
+between runs pointed at something timed, and it was: CBDOS rewrites colour bytes
+around $7f2-$7fb on every disk access, which in FCM's 16 bit colour cells land
+in attribute bytes, where $f8 is a GOTOX token that blanks the rest of the row
+(the same root cause as the white stripe over Arthur's intro pictures - see the
+FIXED entry below). Moving the screen's colour region to FCM_COLOUR_OFFSET
+($0800) put it out of the way. Play-tested since: Arthur's prologue, its first
+room description and its status line are all clean. Zork Zero's banquet
+paragraph has not been re-checked specifically, but it was the same bug.
 
 Shogun and Journey now have -pics targets (make shogun-pics, make journey-pics)
 and both start. Shogun's pictures fit on one disk, Journey's on two (it is the
@@ -164,7 +169,17 @@ Still to do for z6 (not crashes):
   bit is shared with keyboard row 4, so it can't tell a click from SPACE - that
   was the bug that made clicks do nothing. Verified on xemu: Zork Zero's compass
   rose responds. A real MEGA65 mouse in port 1 would need the port-1 registers.
-  Text-only z6 has no pointer.
+  The X16's pictures screen has a mouse too (July 2026), gated on the same
+  Z6_MOUSE: there the KERNAL owns it, so mouse_config ($ff68) shows the pointer
+  and bounds it (80x25 cells, in 8-pixel units), mouse_get ($ff6b) reads the
+  position and buttons, and the KERNAL's interrupt handler scans the mouse and
+  moves VERA sprite 0 (image at VRAM $13000, clear of the tile store and the
+  layer 0 map) - so only .mouse_read differs between the two machines. Verified
+  headlessly: x16emu under Xvfb, xdotool to move and press, ctrl+s to dump RAM.
+  That port also refactored mouse.asm into a shared part (the press edge, the
+  click cell, the header extension table, the mouse window) and a per-machine
+  .mouse_read; the MEGA65 click was re-checked by hand afterwards and still
+  works. Text-only z6 has no pointer on either machine.
 - scroll_window scrolls whole character cells, because the header tells the
   game a character is one unit wide and one high. It ignores the scroll delay
   and smooth scrolling that .s_scroll has to honour.
@@ -330,8 +345,13 @@ make zork0-pics builds Zork Zero's 396 pictures (numbered to 504) over two
 picture disks. Verified headless: it loads all 290 pictures of disk 1 from
 drive 9 (indices past 255) and then correctly prompts for disk 2. Confirmed on
 xemu: Zork Zero loads from both picture disks and starts, and drawing the
-pictures works. (Headless testing can only reach the disk-2 prompt, since xemu
-can't swap a disk, so the second disk's load needed the real check.)
+pictures works.
+
+DONE: the disk swap itself is confirmed by hand (July 2026). Headless testing
+can only reach the "insert picture disk N" prompt, since xemu cannot swap a
+disk, so this was the last part of the multi-disk path that no automated run
+could reach. It works: the prompt is answered by swapping the disk in the
+drive, and the load continues into the second disk's pictures.
 
 Journey is the next size up to try (more pictures still).
 
@@ -776,9 +796,10 @@ neither is a regression of that work):
 80-column stage F findings (Zork Zero / Shogun / Journey with -pics):
 - Shogun's title art renders correctly at 80 columns (~1500 tiles live);
   its set fits one picture disk. Arthur's first room matches sfrotz.
-- Zork Zero and Journey need two picture disks; pic_load_all reaches the
-  "insert picture disk 2" prompt headlessly, and going further still needs
-  real hardware or a windowed xemu (no way to swap disks headlessly).
+- Zork Zero and Journey need two picture disks. pic_load_all reaches the
+  "insert picture disk 2" prompt headlessly; the swap past it cannot be
+  driven headlessly (xemu cannot swap a disk) and was confirmed by hand -
+  the load continues into the second disk. DONE.
 - Zork Zero is playable text-only at 80 columns: status line, wrapping and
   the pic:N drop-cap notes all land right.
 - Journey boots and lays out its command menu at 80 columns, but the menu

@@ -1068,7 +1068,9 @@ z_ins_quit
 !ifdef Z6_PICTURES {
 	; Leaving the pictures screen: BASIC comes back on the same VERA setup,
 	; so put the scale and VSTOP back and switch layer 0 off, or the prompt
-	; appears on 25 fat rows over whatever picture was showing.
+	; appears on 25 fat rows over whatever picture was showing. Hide the
+	; pointer too, so no arrow is left on the BASIC screen.
+	jsr mouse_disable
 	jsr vera_gfx_restore
 }
 ; New method - put NEW and clearscreen in kbd buffer, then have Ozmoo restore Basic ZP area and return
