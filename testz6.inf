@@ -93,6 +93,23 @@ Array s3tab -> 66;
 	@output_stream (-3);
 	print "s3 width2 ", $30-->0, "^";
 
+	! --- output_stream 3 with a width operand: the table then gets the
+	! print_form format, word-wrapped to the width -- Arthur buffers its
+	! parser errors this way ("I beg your pardon?") and print_forms them
+	@output_stream 3 s3tab (-10);
+	print "I beg your pardon?";
+	@output_stream (-3);
+	w = s3tab-->0;
+	h = (s3tab + 2 + w)-->0;
+	print "form recs ", w, " ", h, " end ", (s3tab + 4 + w + h)-->0, "^";
+	@print_form s3tab;
+	! an embedded newline ends a record too; width 0 wraps at window 0
+	@output_stream 3 s3tab 0;
+	print "ab^cd";
+	@output_stream (-3);
+	w = s3tab-->0;
+	print "form nl ", w, " ", (s3tab + 2 + w)-->0, "^";
+
 	! --- picture_data: no pictures, so nothing is valid and 0 reports none ---
 	picinfo-->0 = 99; picinfo-->1 = 99;
 	@picture_data 0 picinfo ?pic0valid;

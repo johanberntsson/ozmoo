@@ -15,6 +15,23 @@ streams_output_selected		!byte 0, 0, 0, 0
 streams_width_cur			!byte 0,0
 streams_width_max			!byte 0,0
 streams_width_stack			!fill 60, 0
+; The v6 formatted table (a width operand on output_stream 3): the table
+; gets the print_form format -- one record per line, a length word then the
+; characters, ended by a zero word -- word-wrapped to the width. Arthur's
+; parser errors go through this ("I beg your pardon?" buffered, then
+; print_form). Per level: the wrap width in units (0 means the plain v5
+; format), the characters on the current line, and how many of them follow
+; the last space ($ff: no space yet). The pad byte keeps the entry four
+; bytes, the stride of the stack copies.
+streams_form_width			!byte 0
+streams_form_line_len		!byte 0
+streams_form_since_space	!byte 0
+							!byte 0
+streams_form_stack			!fill 60, 0
+.form_char	!byte 0
+.form_len	!byte 0
+.form_addr	!byte 0,0
+.form_idx	!byte 0
 }
 
 .streams_tmp	!byte 0,0,0
@@ -639,6 +656,9 @@ streams_init
 	sta streams_output_selected + 1
 	sta streams_output_selected + 2
 	sta streams_output_selected + 3
+!ifdef Z6 {
+	sta streams_form_width
+}
 	lda #1
 	sta streams_buffering
 	sta streams_buffering + 1
@@ -683,6 +703,8 @@ streams_print_output
 	bne .mw_counted
 	inc streams_width_cur + 1
 .mw_counted
+	lda streams_form_width
+	bne .mw_formatted
 }
 	ldx streams_current_entry + 2
 	lda streams_current_entry + 3
@@ -708,7 +730,159 @@ streams_print_output
 .pla_and_return
 	pla
 	rts
-	
+
+!ifdef Z6 {
+.mw_formatted
+	; This level was opened with a width operand, so the table gets the
+	; print_form format. A record's length word is the two bytes just
+	; before its characters; it stays unwritten until the line ends
+	; (here on a newline or a wrap, or at close), so the write pointer
+	; always sits after the last character and the open record starts
+	; line_len + 2 bytes behind it.
+	ldx streams_current_entry + 2
+	lda streams_current_entry + 3
+	jsr streams_set_z_address
+	pla
+	cmp #13
+	bne .mwf_char
+	jmp .mwf_line_end
+.mwf_char
+	sta .form_char
+	jsr write_next_byte
+	jsr .form_advance_cur
+	inc streams_form_line_len
+	lda .form_char
+	cmp #32
+	bne +
+	lda #0
+	sta streams_form_since_space
+	beq .mwf_check_width
++	lda streams_form_since_space
+	cmp #$ff
+	beq .mwf_check_width
+	inc streams_form_since_space
+.mwf_check_width
+	lda streams_form_line_len
+	cmp streams_form_width
+	bcc .mwf_within
+	bne .mwf_wrap
+.mwf_within
+	jmp .mwf_done
+.mwf_wrap
+	; the line is one character over the width: wrap it
+	lda streams_form_since_space
+	cmp #$ff
+	beq .mwf_hard_break
+	; break at the last space, which the new record's length word
+	; overwrites; the characters after the space move up one byte,
+	; copied from the top so the shift is safe in place
+	lda streams_current_entry + 2
+	sec
+	sbc #1
+	sta .form_addr
+	lda streams_current_entry + 3
+	sbc #0
+	sta .form_addr + 1
+	ldx streams_form_since_space
+	beq .mwf_shifted
+.mwf_shift
+	stx .form_idx
+	ldx .form_addr
+	lda .form_addr + 1
+	jsr set_z_address
+	jsr read_next_byte
+	jsr write_next_byte	; the read left the address one byte up
+	lda .form_addr
+	bne +
+	dec .form_addr + 1
++	dec .form_addr
+	ldx .form_idx
+	dex
+	bne .mwf_shift
+.mwf_shifted
+	lda streams_form_line_len
+	sec
+	sbc streams_form_since_space
+	tay
+	dey			; the space is dropped, not part of the record
+	jsr .form_write_len
+	lda streams_form_since_space
+	sta streams_form_line_len
+	lda #$ff
+	sta streams_form_since_space
+	jsr .form_advance_cur
+	jmp .mwf_done
+.mwf_hard_break
+	; no space to break at: the record keeps exactly width characters
+	; and the overflowing one moves up two bytes, past where the new
+	; record's length word will go
+	lda streams_current_entry + 2
+	sec
+	sbc #1
+	tax
+	lda streams_current_entry + 3
+	sbc #0
+	jsr set_z_address
+	jsr read_next_byte
+	sta .form_char
+	jsr read_next_byte	; step over the length word's first byte
+	lda .form_char
+	jsr write_next_byte
+	ldy streams_form_width
+	jsr .form_write_len
+	lda #1
+	sta streams_form_line_len
+	lda #$ff
+	sta streams_form_since_space
+	jsr .form_advance_cur
+	jsr .form_advance_cur
+	jmp .mwf_done
+.mwf_line_end
+	ldy streams_form_line_len
+	jsr .form_write_len
+	jsr .form_advance_cur	; leave the next record's length word open
+	jsr .form_advance_cur
+	lda #0
+	sta streams_form_line_len
+	lda #$ff
+	sta streams_form_since_space
+.mwf_done
+	jsr streams_unset_z_address
+	ldx s_stored_x
+	ldy s_stored_y
+	rts
+
+.form_advance_cur
+	inc streams_current_entry + 2
+	bne +
+	inc streams_current_entry + 3
++	rts
+
+.form_write_len
+	; Close the open record: write its length word, value in y. The
+	; word sits line_len + 2 bytes behind the write pointer.
+	sty .form_len
+	lda streams_current_entry + 2
+	sec
+	sbc streams_form_line_len
+	tax
+	lda streams_current_entry + 3
+	sbc #0
+	sta .form_addr + 1
+	txa
+	sec
+	sbc #2
+	tax
+	bcs +
+	dec .form_addr + 1
++	lda .form_addr + 1
+	jsr set_z_address
+	lda #0
+	jsr write_next_byte
+	lda .form_len
+	jmp write_next_byte
+}
+
 z_ins_output_stream
 	; Set output stream held in z_operand 0
 	; input:  z_operand 0: 1..4 to enable, -1..-4 to disable. If enabling stream 3, also provide z_operand 1: z_address of table
@@ -744,8 +918,9 @@ z_ins_output_stream
 	clc
 	adc #1
 	cmp #3
-	beq .turn_off_mem_stream
-	tax
+	bne +
+	jmp .turn_off_mem_stream
++	tax
 	lda #0
 	sta streams_output_selected - 1,x
 	rts
@@ -770,6 +945,8 @@ z_ins_output_stream
 !ifdef Z6 {
 	lda streams_width_cur,x
 	sta streams_width_stack - 4 + 3,y
+	lda streams_form_width,x
+	sta streams_form_stack - 4 + 3,y
 }
 	dey
 	dex
@@ -782,6 +959,41 @@ z_ins_output_stream
 	sta streams_width_cur + 1
 	sta streams_width_max
 	sta streams_width_max + 1
+	; a third operand asks for the formatted (print_form) table,
+	; word-wrapped: >= 0 names a window whose width is used, < 0 is a
+	; box -width units wide (z-spec 1.0 and dfrotz agree; Infocom's v6
+	; games always pass 0, window 0)
+	sta streams_form_width
+	sta streams_form_line_len
+	lda #$ff
+	sta streams_form_since_space
+	lda z_operand_count
+	cmp #3
+	bcc .form_no_width
+	lda z_operand_value_high_arr + 2
+	bmi .form_box_width
+	lda z_operand_value_low_arr + 2
+	and #7
+	tax
+	lda window_x_size,x
+	bne .form_set_width
+.form_no_wrap
+	lda #254	; wider than any line gets: the format without the wrap
+	bne .form_set_width	; always
+.form_box_width
+	lda #0
+	sec
+	sbc z_operand_value_low_arr + 2
+	tax
+	lda #0
+	sbc z_operand_value_high_arr + 2
+	bne .form_no_wrap	; 256 units or wider: wrap never triggers
+	txa
+	cmp #255
+	bcs .form_no_wrap
+.form_set_width
+	sta streams_form_width
+.form_no_width
 }
 	; Setup pointer to start of table
 	lda z_operand_value_low_arr + 1
@@ -809,6 +1021,30 @@ z_ins_output_stream
 	lda streams_stack_items
 !ifdef CHECK_ERRORS {
 	beq .stream_nesting_error
+}
+!ifdef Z6 {
+	; a formatted (width-operand) table ends with its last record and a
+	; zero word; it has no character count at the start
+	lda streams_form_width
+	beq .form_plain_close
+	ldx streams_current_entry + 2
+	lda streams_current_entry + 3
+	jsr streams_set_z_address
+	ldy streams_form_line_len
+	jsr .form_write_len	; a zero-length record is itself the terminator
+	lda streams_form_line_len
+	beq .form_closed
+	ldx streams_current_entry + 2
+	lda streams_current_entry + 3
+	jsr set_z_address
+	lda #0
+	jsr write_next_byte
+	lda #0
+	jsr write_next_byte
+.form_closed
+	jsr streams_unset_z_address
+	jmp .mem_stream_closed
+.form_plain_close
 }
 	; Copy length to first word in table
 
@@ -845,6 +1081,7 @@ z_ins_output_stream
 	; dey
 	; sta (zp_temp),y
 
+.mem_stream_closed
 !ifdef Z6 {
 	; close the last line and hand the game the width of the text it
 	; buffered, in header word $30 (z-spec 7.1.2.1.1)
@@ -875,6 +1112,8 @@ z_ins_output_stream
 !ifdef Z6 {
 	lda streams_width_stack - 4 + 3,y
 	sta streams_width_cur,x
+	lda streams_form_stack - 4 + 3,y
+	sta streams_form_width,x
 }
 	dey
 	dex

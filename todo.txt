@@ -1,5 +1,28 @@
 Known bugs
 ----------
+FIXED (July 2026): an empty command or an unknown word at Arthur's prompt
+printed "I beg your pardon?" and then gibberish forever, on every target (the
+mega65 screenshot was z6games/z6error.png). Not a PC desync and not corrupt
+attic RAM: Arthur buffers its parser complaints with the v6 three-operand form
+"output_stream 3 table width" (routine 111ac in txd's disassembly, width 0 =
+wrap to window 0), counts the buffered lines, and re-prints them with
+print_form into a pop-up window 3. With a width operand the table must be in
+the print_form format - one record per wrapped line, a length word then the
+characters, ended by a zero word - but streams.asm ignored the third operand
+and always wrote the plain v5 format (count word + raw text). print_form then
+read the count word (18) as "line 1 is 18 characters", which is why the
+message itself printed correctly, and walked garbage from there until a zero
+word happened to stop it; the garbage line count also fed scroll_window and
+window_size. Normal commands never touch this path, which is why only parser
+errors broke. streams.asm now word-wraps into the record format when the
+width operand is present (>= 0 names a window whose width is used, < 0 is a
+box -width units wide - the z-spec 1.0/dfrotz convention; all Infocom v6
+games pass 0). All four v6 games use the three-operand form, always with
+width 0; only Arthur print_forms the result. Verified against dfrotz with new
+testz6 cases (record lengths, wrap points, embedded newline) on C64, -fcm:40
+and -fcm, and the repro itself on C64 and arthur-mega65: thousands of empty
+commands now leave a clean "I beg your pardon?" line.
+
 FIXED, and confirmed in play (July 2026): under -fcm, Arthur used to drop or
 change the odd character in the body text, differently on each run - one run
 gave "Anne's Day, Compline hurchyard" and "sudtenly", the next "-AY" and
