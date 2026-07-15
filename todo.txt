@@ -552,18 +552,25 @@ Still open for the X16 pictures screen:
     pic_next_tile + (cw+1)*ch would exceed the store; an 8px shift is
     invisible on a full-screen frame, and small centred scenes still fit and
     stay exact.
+  * Room-change gaps: an odd scene's two EDGE cells hold half the scene beside
+    half of the frame border it composited over, and the erase cleared them
+    whole - stripping the frame, which is never redrawn, so white lines flanked
+    the scene after moving rooms and back. .pic_erase now clears only the cw-1
+    interior cells and leaves the two edge cells; the next scene re-composites
+    its half over them, keeping the frame's half.
+  VERIFIED IN PLAY (Johan, windowed, July 2026): intro frame clean, churchyard
+  scene correctly placed and unstriped on first visit AND after w/e room
+  changes - the render is correct.
   STILL OPEN:
   * Large odd pictures fall back to even (8px off) because the odd path copies
     the whole tiles AND bakes boundary tiles - 2x the store transiently. The
     real fix is to bake boundary tiles straight from the staging banks (no
     copy), so even a full-screen odd picture fits; then add dedup on the
     (left-index, right-index) pair (offline analysis: ~+1% tiles) if needed.
-  * Verify in play (windowed; headless can't reach past Arthur's loader/intro):
-    the intro frame should be clean, the churchyard scene correctly placed and
-    unstriped, and pic_next_tile ($21a2) well under 1024.
-  * erase clears an odd picture's two edge boundary cells whole, which clips a
-    neighbour that shares a boundary cell (fine for Arthur's scenes, which sit
-    on the window background).
+  * Leaving the edge cells assumes the next picture lands on the same cells
+    (Arthur's scenes all fill the same hole). A differently-sized/placed odd
+    picture could leave a thin sliver of the previous one's edge until it is
+    overwritten; track composited cells explicitly if that ever shows.
 - erase_line clears layer 0 now (July 2026): z_ins_erase_line calls
   pic_erase_line_cells (pictures-x16.asm) for the erased run on the cursor's
   row, zeroing the whole map cells it covers (a text row is a map row, a text
