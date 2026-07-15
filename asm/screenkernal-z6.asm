@@ -895,6 +895,39 @@ s_set_text_colour
 ; the background back. (ECM has no reversed glyphs; it never sets this.)
 s_colour_swap	!byte 0
 s_bg_zcolour	!byte 0	; the screen background as a z-colour number
+; The swap is a per-window look, but s_colour_swap/s_colour are global, so a
+; window switch used to leave the previous window's reverse state in force -
+; the reversed field bled onto the next window and scrolled-in text came out
+; the wrong way round. s_track_colours now records each window's swap state
+; here, and apply_window_swap restores it (with the glyph colour) when the
+; window becomes current again. (X16 has real backgrounds, Z6_WINDOW_BG; ECM
+; has hardware backgrounds - neither uses this.)
+window_swap		!byte 0,0,0,0,0,0,0,0
+
+!ifndef Z6_ECM_MODE {
+!ifndef Z6_WINDOW_BG {
+apply_window_swap
+	ldx current_window
+	lda window_swap,x
+	sta s_colour_swap
+	bne .aws_swapped
+	; not swapped: leave s_colour to the global/darkmode state. The game sets
+	; a real colour before printing to a non-swap window; forcing the window's
+	; stored foreground here would undo darkmode for default-colour windows.
+	rts
+.aws_swapped
+	; swapped: the reversed glyph's field takes the window's background
+	; (property 11 high nybble) - an explicit colour, so darkmode-independent.
+	lda window_colour,x
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda zcolours,x
+	jmp s_set_text_colour ; sets s_colour
+}
+}
 
 s_delete_cursor
 !ifdef TARGET_MEGA65 {
@@ -2711,7 +2744,7 @@ s_track_colours
 	jsr s_set_text_colour	; the field takes the requested background
 	lda #$80
 	sta s_colour_swap
-	rts
+	jmp .stc_store_swap
 .stc_normal
 	lda #0
 	sta s_colour_swap
@@ -2725,6 +2758,11 @@ s_track_colours
 	lsr
 	sta s_bg_zcolour
 +
+.stc_store_swap
+	; keep this window's swap state so a window switch can restore it
+	ldx current_window
+	lda s_colour_swap
+	sta window_swap,x
 }
 }
 	rts

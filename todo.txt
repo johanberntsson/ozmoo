@@ -492,14 +492,32 @@ item and is usable; Shogun's start screen no longer flickers between a white
 reverse field and white-on-black through scrolling ("no colour switches"). The
 Journey selected-command highlight and the Shogun white-window bug listed
 elsewhere were both this - fixed as a consequence.
-Still open: the MEGA65 full colour screen (Z6_FCM_MODE) does the same in
-principle (the VIC-IV gives every cell its own colour) but is not yet wired to
-Z6_WINDOW_BG - it still uses the reverse-video fake. Extending Z6_WINDOW_BG to
-the MEGA65 needs the FCM per-cell background mechanism sorted out (the colour
-RAM's odd byte is the 8-bit foreground; the background for a 1bpp text glyph
-comes from elsewhere - to be investigated). ECM (C64) keeps its own four-
-register scheme. C128 VDC and Plus/4 have no per-cell background hardware, so
-they keep the reverse-video fake.
+DONE for the reverse-video (swap) targets - C64, C128, Plus/4, MEGA65 -fcm
+(July 2026). These have no per-cell background hardware (the MEGA65 VIC-IV in
+FCM has an 8-bit foreground in the colour RAM's odd byte and a global $d021
+background - confirmed in fcm-prototype.asm - so Z6_WINDOW_BG's real-background
+approach does not apply). They render a swapped colour pair as reversed glyphs,
+which already fill and scroll per cell; the bug was that the swap state
+(s_colour_swap + the glyph field colour) was GLOBAL, so a window switch left
+the previous window's reverse in force - the reversed field bled onto the next
+window and scrolled-in text came out the wrong way round (Journey's selected-
+command menu row unhighlighted, Shogun's start window flipping between a white
+reverse field and white-on-black). Fixed by making the swap per window:
+s_track_colours records each window's swap state in window_swap, and
+apply_window_swap restores it (and the swapped window's field colour) on a
+window switch, the same shape as ECM's ecm_update_bits and the X16's
+x16_apply_window_colour. It only forces s_colour for a *swapped* window (an
+explicit colour, darkmode-independent); a non-swap window keeps the global/
+darkmode colour, so darkmode is unaffected. Verified in play (Johan): Journey's
+menu highlight works on the MEGA65 -fcm build (and the mouse there too).
+So the per-window background/reverse look now works on every target: X16 with
+real VERA backgrounds (Z6_WINDOW_BG), C64 with ECM's four background registers,
+and C64/C128/Plus4/MEGA65 -fcm with the per-window reversed-glyph swap.
+Remaining nicety: the reverse targets still cannot show an *arbitrary* window
+background (only the swap/reverse look the games actually use); a true coloured
+background there would need full-colour tiles or the VIC-IV reverse attribute
+(rejected as too invasive - it writes the colour RAM even byte that must stay
+zero).
 
 DONE: pictures on the X16 (-pics without -fcm; make z6-pics-x16 /
 arthur-pics-x16, and the other three games have targets too). The design is

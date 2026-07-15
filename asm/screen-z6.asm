@@ -2989,6 +2989,11 @@ z_ins_set_window
 !ifdef Z6_WINDOW_BG {
 	jsr x16_apply_window_colour ; each window keeps its own background
 }
+!ifndef Z6_ECM_MODE {
+!ifndef Z6_WINDOW_BG {
+	jsr apply_window_swap ; each window keeps its own reverse-video state
+}
+}
 	jsr restore_cursor ; each window keeps its own cursor
 	jmp start_buffering
 
@@ -3104,6 +3109,13 @@ init_window_colours
 	sta s_colour_swap
 	lda #BGCOL
 	sta s_bg_zcolour
+!ifndef Z6_WINDOW_BG {
+	lda #0
+	ldx #7
+-	sta window_swap,x ; every window starts un-swapped
+	dex
+	bpl -
+}
 }
 !ifdef Z6_WINDOW_BG {
 	jsr x16_apply_window_colour ; window 0's default background, ready to print
