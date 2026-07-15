@@ -67,12 +67,22 @@ with the composited frame and a correct status line, and Zork Zero's
 banquet hall renders with the drop-cap margins working. The C64 and
 MEGA65 interpreter binaries are byte-identical across the change (every
 edit is inside TARGET_X16 conditionals).
-Seen while verifying Zork Zero on the X16, pre-existing and OPEN: layer 0
-does not scroll with the text, so a drop-cap initial stays put when its
-paragraph scrolls up (the MEGA65 has no such problem - its picture tiles
-live in screen RAM and scroll with it), and the statue picture in the
-banquet hall renders as a black box. Both need a look at the X16 picture
-engine's scroll behaviour.
+FIXED (July 2026): layer 0 did not scroll with the text on the X16, so a
+drop-cap initial stayed put when its paragraph scrolled up, leaving its
+colours smeared across the scrolled text (the MEGA65 has no such problem -
+its picture tiles live in screen RAM and scroll with it). .s_scroll_vera
+now calls pic_scroll_win_up (pictures-x16.asm, Z6_PICTURES only) after it
+scrolls the text: it recomputes the current window's rectangle from
+current_window the way .calc_window_rect does, and moves the layer 0 map
+cells up one row (a text row is a map row, a text column is map column * 2),
+blanking the new last row. Only whole map cells inside the window move, the
+same odd-column boundary rule pic_erase_win_rect keeps. Verified in play in
+Zork Zero (the illuminated initial travels up with its paragraph) and in
+Shogun, where the same layer-0 smear cleared up too. Still open
+here: the scroll_window opcode and downward scroll (.sw_down_one) do not
+touch layer 0 yet - no game hits that for the main window - and the statue
+picture in the banquet hall still renders as a black box (a separate draw
+issue, not scrolling).
 
 FIXED (July 2026), the third Journey find: selecting "Start Game" left the
 party-command window uncleared, so the updated list printed over the old one

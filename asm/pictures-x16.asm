@@ -1591,6 +1591,95 @@ pic_erase_win_rect
 .pewr_done
 	rts
 
+pic_scroll_win_up
+	; The current window has just scrolled up one line on the text layer
+	; (.s_scroll_vera). The pictures behind it live on layer 0, which the text
+	; scroll does not touch, so a drop-cap initial or any picture under the
+	; text would stay put while its paragraph moved up. Scroll the layer 0 map
+	; the same way and blank the new last row, so the picture travels with the
+	; text as it does on the MEGA65 (where the tiles are in screen RAM).
+	;
+	; The window's rectangle is recomputed from current_window and clamped to
+	; the screen, the way .calc_window_rect does for the text scroll. A map
+	; cell spans two text columns and one text row, so a text row is a map row
+	; and a text column is map column * 2. Only whole map cells inside the
+	; window move - the same boundary rule pic_erase_win_rect keeps for an
+	; odd-column window.
+	ldx current_window
+	lda window_x,x
+	clc
+	adc #1
+	lsr						; first whole map column inside the window
+	sta .psu_col0
+	lda window_x,x
+	clc
+	adc window_x_size,x
+	cmp s_screen_width		; clamp the right edge to the screen
+	bcc +
+	lda s_screen_width
++	lsr						; first map column past the window
+	sec
+	sbc .psu_col0
+	beq .psu_done			; no whole cells inside: nothing to scroll
+	bcc .psu_done
+	sta .psu_cw				; whole map cells across the window
+	lda window_y,x
+	sta .psu_dst			; the window's top row
+	clc
+	adc window_y_size,x
+	cmp s_screen_height		; clamp the bottom edge to the screen
+	bcc +
+	lda s_screen_height
++	sec
+	sbc #1
+	sta .psu_bottom			; the window's last (on-screen) row
+	lda #0
+	sta .pic_y				; .pic_map_row_addr adds .pic_y to .pic_row
+	lda .psu_col0
+	sta .pic_lx
+.psu_row
+	lda .psu_dst
+	cmp .psu_bottom
+	beq .psu_blank			; the last row is blanked, not copied into
+	bcs .psu_done			; a zero-height window: nothing to scroll
+	clc
+	adc #1
+	sta .pic_row
+	ldy #0
+	jsr .pic_map_row_addr	; port 0 reads the source row (dst + 1)
+	lda .psu_dst
+	sta .pic_row
+	ldy #1
+	jsr .pic_map_row_addr	; port 1 writes the destination row
+	ldx .psu_cw
+-	lda VERA_data0			; two bytes a cell
+	sta VERA_data1
+	lda VERA_data0
+	sta VERA_data1
+	dex
+	bne -
+	inc .psu_dst
+	bne .psu_row			; always (rows are well under 256)
+.psu_blank
+	lda .psu_bottom
+	sta .pic_row
+	ldy #1
+	jsr .pic_map_row_addr	; port 1 writes the new last row
+	ldx .psu_cw
+	lda #0					; transparent tile 0, palette offset 0
+-	sta VERA_data1
+	sta VERA_data1
+	dex
+	bne -
+.psu_done
+	stz VERA_ctrl			; leave port 0 selected, as the screen code expects
+	rts
+
+.psu_col0   !byte 0
+.psu_cw     !byte 0
+.psu_dst    !byte 0
+.psu_bottom !byte 0
+
 pic_erase_screen
 	; The whole screen is being cleared: blank the layer 0 map and start the
 	; tile store over, since nothing on it is shown any more.

@@ -123,6 +123,9 @@ vera_composite_colour !byte 0
 }
 	jsr .vera_scroll_delay
 	jsr .sw_up_one ; copies the window's rows up, blanks its new last line
+!ifdef Z6_PICTURES {
+	jsr pic_scroll_win_up ; and the pictures behind it, on layer 0
+}
 	ldy .win_left
 	sty zp_screencolumn
 	rts
