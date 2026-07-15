@@ -12,7 +12,32 @@ Ozmoo is a Z-machine interpreter for the Commodore 64, C128, Plus/4 and MEGA65 (
 
 Required: `acme`, `exomizer` (expected at `exomizer/src/exomizer` on Linux — a local checkout, not in git), VICE (`x64`, `x64sc`, `x128`, `xplus4`, `c1541`), `ruby`, and `inform` + `frotz`/`dfrotz` for the v6 test game. Tool paths are hardcoded at the top of `make.rb` (separate Windows/Linux sections).
 
+The real games use a consistent grid: `<game>-<platform>` for text, and
+`<game>-pics-<platform>` for the graphics build on the platforms that draw
+pictures (mega65, x16). Games are `arthur shogun journey zorkzero` (plus
+`dejavu`, the z3 non-z6 regression game); platforms are `c64 c128 plus4 mega65
+x16`. All autostart in the platform's emulator. On the MEGA65, `<game>-mega65`
+is the full colour 80-column screen (`-fcm`) — the same screen `-pics` draws
+on, so the two differ only by the pictures. The grid is generated from a
+`define game_targets` template in the Makefile, so a new game is one
+`$(eval $(call game_targets,...))` line.
+
 ```sh
+# The real v6 games (examples; the full grid is games x platforms):
+make arthur-c64        # Arthur on the C64 (1581), autostart in VICE
+make arthur-mega65     # Arthur on the MEGA65 full colour screen (80 col, -fcm)
+make arthur-pics-mega65 # ...and drawing its own pictures. The whole thing.
+make arthur-x16        # Arthur on the X16 (VERA text)
+make arthur-pics-x16   # ...with pictures (layer 0 tile map, loaded from SD)
+make zorkzero-pics-mega65 # Zork Zero + its 396 pictures (two picture disks)
+make journey-plus4     # Journey on the Plus/4 (1581) - builds even if too big to play
+make shogun-pics-x16   # Shogun on the X16 with pictures
+make dejavu-c64        # dejavu.z3 (z3) - the non-z6 regression check; also -mega65 etc.
+# Arthur oddities that do not fit the grid:
+make arthur-c64-d2     # Arthur on the C64 split over two 1541 drives
+make arthur-c128-80    # Arthur on the C128 80-column (VDC) screen (type RUN"STORY")
+
+# testz6, the v6 test game (grown opcode by opcode, compared against frotz):
 make z6        # compile testz6.inf with inform -v6, build a d64, autostart in VICE
 make ecm       # same, with -ecm (per-window background colours)
 make frotz     # compile testz6.inf and run it in frotz — the reference behaviour
@@ -22,32 +47,19 @@ make z6-fcm    # testz6 on the MEGA65 full colour screen: 80 columns (H640);
 make z6-fcm40  # the legacy 40-column full colour screen; should match `make z6`
                # line for line -- the C64-vs-MEGA65 regression check
 make z6-pics   # z6-fcm, drawing the test pictures in tools/testpics
-make arthur    # build the real v6 game Arthur as a d81 and run it
-make arthur-d2 # same, but split over two 1541 drives
-make arthur-mega65 # Arthur on the MEGA65, 80-column text
-make arthur-fcm    # Arthur on the MEGA65 full colour screen
-make arthur-pics   # ...and drawing its own pictures. The whole thing.
-make zork0     # Zork Zero on the full colour screen, to try the mouse (no pictures)
-make zork0-pics # ...with its 396 pictures, spread over two picture disks
-make shogun-pics  # Shogun on the full colour screen with its pictures (one disk)
-make journey-pics # Journey, the largest v6 game, with its pictures (two disks)
-make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
-make c64       # build examples/dejavu.z3 (a z3 game) — the non-z6 regression check
-make mega65    # same, for MEGA65
 make z6-x16    # testz6 on the X16: the z6 window model on VERA, 80x60, text only
 make z6-pics-x16 # testz6 on the X16 with pictures: text on VERA layer 1 (80x25),
-               # pictures behind it on a layer 0 tile map, loaded from SD on
-               # demand. arthur-pics-x16 / zork0- / shogun- / journey- likewise;
-               # no picture disks on this target, the files sit in the game dir.
+               # pictures behind it on a layer 0 tile map, loaded from SD on demand
 make scroll    # testz6scroll: a small window scrolls inside a screenful of '#',
                # which must survive intact. scroll-x16 / scroll-mega65 build the
                # same test for those; all three must draw it identically.
+make amfv      # build the large z4 game AMFV as a d81 (checks large files + d81)
 make clean
 
 ruby make.rb [options] <storyfile>   # run with no args for the full option list
 ```
 
-`make arthur-pics` needs `z6games/arthur-r74-s890714.blb`, the game's blorb,
+`make arthur-pics-mega65` needs `z6games/arthur-r74-s890714.blb`, the game's blorb,
 which is not in git. `-pics <blorb-or-dir>` runs `tools/pics2asm.py`, which puts
 one compressed file per PNG picture on the d81 and sets `Z6_PICTURES`; it needs
 `-fcm`. Given a blorb it also reads the game's `Rect` placeholders and `APal`
@@ -161,7 +173,7 @@ Under `-fcm` a screen cell and a colour cell are two bytes each. Ozmoo writes th
 - Under `-t:x16`, **do not lean on VERA's auto-increment across a `jsr`**. `print_line_from_buffer` used to print its first character through `s_printchar` and let the rest of the line ride on the address pointer that call left behind. Now that a window can scroll, `s_printchar` can end up inside `.s_scroll_vera`, whose copy loop leaves the pointer wherever it finished — so each cell is addressed on its own, as on every other target.
 - The C64 and Plus/4 will never draw pictures. The `pic:N` notes have to stay for them.
 - **Terminating characters were a general bug** (all targets, not just mouse). z-spec 10.5.2.1: the table (`$2e`) holds function key codes 129-154 and 252-254, and 255 means "any of them". Ozmoo rejected everything above 140 and its 255 wildcard omitted the mouse clicks, so a click never ended a line. `parse_terminating_characters` now accepts the whole valid range, and the pre-filled default set the wildcard activates includes 252-254 on the full colour screen. If you touch that array, keep it in step with `NUM_DEFAULT_TERMINATORS`.
-- **A big picture set spans several disks.** The `-pics` pipeline packs the numbered files across as many `_pics_N.d81` disks as they need (see the Pictures section) and `pic_load_all` sweeps the disks at boot, trying the second drive before asking for a swap. Picture numbers and the build count are both 16-bit, so Zork Zero's 396 pictures build and load (`make zork0-pics`, two disks). The **disk swap** is confirmed by hand (July 2026) — headless testing can only reach the "insert picture disk N" prompt, since xemu can't swap a disk, so that last step of the multi-disk path has to be checked in a windowed run. All four v6 games have `-pics` targets at 80 columns: Arthur and Shogun fit one picture disk (Arthur's first room and Shogun's title art verified against references), Zork Zero and Journey take two, so their pictures load only up to the swap prompt headlessly. Text-only at 80 columns, Zork Zero is playable and Journey boots into its command-menu layout; Journey's box-drawing divider glyphs are the known follow-up (see todo.txt). The squished right-aligned headers turned out to be the stream-3/live-cursor pair fixed with Shogun's menu screen (below).
+- **A big picture set spans several disks.** The `-pics` pipeline packs the numbered files across as many `_pics_N.d81` disks as they need (see the Pictures section) and `pic_load_all` sweeps the disks at boot, trying the second drive before asking for a swap. Picture numbers and the build count are both 16-bit, so Zork Zero's 396 pictures build and load (`make zorkzero-pics-mega65`, two disks). The **disk swap** is confirmed by hand (July 2026) — headless testing can only reach the "insert picture disk N" prompt, since xemu can't swap a disk, so that last step of the multi-disk path has to be checked in a windowed run. All four v6 games have `-pics` targets at 80 columns: Arthur and Shogun fit one picture disk (Arthur's first room and Shogun's title art verified against references), Zork Zero and Journey take two, so their pictures load only up to the swap prompt headlessly. Text-only at 80 columns, Zork Zero is playable and Journey boots into its command-menu layout; Journey's box-drawing divider glyphs are the known follow-up (see todo.txt). The squished right-aligned headers turned out to be the stream-3/live-cursor pair fixed with Shogun's menu screen (below).
 - **Stream 3 has a second, v6-only table format.** `output_stream 3 table width` (the three-operand form) makes the table a sequence of word-wrapped line records — length word, characters, zero-word terminator — the same format `print_form` reads; width ≥ 0 names a window whose width wraps the text, width < 0 is a box −width units wide (spec 1.0/dfrotz convention; all four games always pass 0, window 0). Arthur prints **every parser complaint** through this (buffer, count lines, `print_form` into a pop-up window 3), so getting it wrong showed up as "I beg your pardon?" followed by gibberish forever, while normal commands were fine. streams.asm keeps per-level formatted state (`streams_form_*`) beside the width-measuring state.
 - **The v6 games measure text by printing it to output stream 3** and reading the width back from header word `$30` (z-spec 7.1.2.1.1) — Shogun sizes its whole menu screen that way, Arthur its right-aligned status line. Three things had to hold: the stream-3 close writes the widest buffered line into `$30` (streams.asm counts units per line, newline starts a new one); `print_table` goes through `streams_print_output` even for a single row, since Shogun measures its menu items with print_table into stream 3 (printing them straight to the screen both left the width at 0 and leaked text onto the screen); and `get_wind_prop` answers the **live** cursor (`zp_screenrow`/`zp_screencolumn`) for the current window, because the per-window arrays only sync on window switches and games read the cursor back after every centred line.
 - **`set_cursor` interacts with the print buffer**: pending buffered text belongs where the cursor *was*, so set_cursor flushes first, and restarts the buffer at the new position after the move (`start_buffering` inside the flush captures the pre-move column, so the restart must come after `restore_cursor`). `set_cursor -1/-2` is cursor visibility (z-spec 8.7.2.3): `cursor_hidden` suppresses both drawing and deleting the input cursor — the delete writes a space, which ate the first letter of Shogun's selected menu item where the game parks the (hidden) cursor.

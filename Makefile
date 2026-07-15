@@ -1,5 +1,10 @@
 all: z6
 
+# ---------------------------------------------------------------------------
+# testz6: the v6 test game (grown opcode by opcode, compared against frotz).
+# These are the development targets; the real games are the grid further down.
+# ---------------------------------------------------------------------------
+
 z6:
 	inform -v6 testz6.inf
 	ruby make.rb -s testz6.z6
@@ -33,126 +38,20 @@ z6-pics:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:mega65 -fcm -pics tools/testpics testz6.z6
 
-frotz:
-	inform -v6 testz6.inf
-	frotz testz6.z6
-
-# AMFV is a large z4 game (just to verify d81)
-AMFV = amfvUnprotected
-amfv:
-	ruby make.rb -81 $(AMFV).z4
-	x64 -drive8type 1581 c64_$(AMFV).d81
-
-# Arthur is a real z6 game. It boots and plays; the places where it would show
-# a picture get a "pic:N" note instead. Its story file is too big for a 1541,
-# so it is built either for a 1581, or for a two drive system with boot +
-# story 1 in drive 8 and story 2 in drive 9.
-Z6GAMES = z6games
-ARTHUR = arthur-r74-s890714
-
-arthur:
-	ruby make.rb -81 $(Z6GAMES)/$(ARTHUR).z6
-	x64 -drive8type 1581 c64_$(ARTHUR).d81
-
-arthur-d2:
-	ruby make.rb -D2 $(Z6GAMES)/$(ARTHUR).z6
-	x64 -drive8type 1541 -9 c64_$(ARTHUR)_story_2.d64 c64_$(ARTHUR)_boot_story_1.d64
-
-# Arthur on the C128. The story fits a single 1571 with room to spare (376
-# blocks free after the story), so there is no need for a d81; -71 is the
-# default build mode for this target anyway. This autostarts in 40 columns.
-arthur-c128:
-	ruby make.rb -s -t:c128 -71 $(Z6GAMES)/$(ARTHUR).z6
-
-# The same on the 80 column screen, which is where the VDC's own window code
-# runs. VICE cannot autostart a disk with the 80 column screen selected -- it
-# waits for a READY prompt on the VIC-II screen, which never comes, and sits
-# at the load prompt for ever -- so the disk is only attached, and the game is
-# started the way the player manual says: type RUN"STORY" at the BASIC prompt.
-arthur-c128-80:
-	ruby make.rb -t:c128 -71 $(Z6GAMES)/$(ARTHUR).z6
-	x128 -80col -drive8type 1571 -8 c128_$(ARTHUR).d71
-
-# Arthur on the MEGA65, as 80-column text and on the full colour screen.
-# Neither draws pictures: draw_picture still writes its "pic:N" note.
-arthur-mega65:
-	ruby make.rb -s -t:mega65 $(Z6GAMES)/$(ARTHUR).z6
-
-arthur-fcm:
-	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ARTHUR).z6
-
-# The whole game: Arthur on the full colour screen, drawing its own pictures.
-# Needs $(ARTHUR_BLORB), which is not in git and is not ours to distribute.
-# -pics reads the blorb directly: the PNG pictures are compressed onto the d81,
-# and the Rect placeholders (which have no image, only a size the game reads to
-# lay pictures out) become an index picture_data answers from.
-ARTHUR_BLORB = $(Z6GAMES)/$(ARTHUR).blb
-
-arthur-pics:
-	ruby make.rb -s -t:mega65 -fcm -pics $(ARTHUR_BLORB) $(Z6GAMES)/$(ARTHUR).z6
-
-# Zork Zero on the full colour screen, to try the mouse: click the compass rose
-# and other controls in the top window. The mouse needs no pictures, so this
-# builds without them.
-ZORK0 = zork0-r393-s890714
-ZORK0_BLORB = $(Z6GAMES)/$(ZORK0).blb
-zork0:
-	ruby make.rb -s -t:mega65 -fcm $(Z6GAMES)/$(ZORK0).z6
-
-# ...and with its graphics. Zork Zero has 396 pictures numbered up to 504, so it
-# exercises both the 16-bit picture numbers and the multi-disk picture store:
-# the set spreads over several _pics_N.d81 disks (only the first is auto-mounted
-# in drive 9, so the rest still prompt for a swap).
-zork0-pics:
-	ruby make.rb -s -t:mega65 -fcm -pics $(ZORK0_BLORB) $(Z6GAMES)/$(ZORK0).z6
-
-# Shogun on the full colour screen, with its pictures.
-SHOGUN = shogun-r322-s890706
-SHOGUN_BLORB = $(Z6GAMES)/$(SHOGUN).blb
-shogun-pics:
-	ruby make.rb -s -t:mega65 -fcm -pics $(SHOGUN_BLORB) $(Z6GAMES)/$(SHOGUN).z6
-
-# Journey on the full colour screen, with its pictures. It is the largest of the
-# v6 games, so it is the next size up from Zork Zero for the multi-disk picture
-# store.
-JOURNEY = journey-r83-s890706
-JOURNEY_BLORB = $(Z6GAMES)/$(JOURNEY).blb
-journey-pics:
-	ruby make.rb -s -t:mega65 -fcm -pics $(JOURNEY_BLORB) $(Z6GAMES)/$(JOURNEY).z6
-
-journey-mega65:
-	ruby make.rb -s -t:mega65 $(Z6GAMES)/$(JOURNEY).z6
-
-c64:
-	ruby make.rb -s examples/dejavu.z3
-
-x16:
-	ruby make.rb -s examples/dejavu.z3 -t:x16
-
-# testz6 on the X16: the z6 window model on the VERA screen (80x60, text only)
+# testz6 on the X16: the z6 window model on the VERA screen (80x60, text only),
+# and drawing the test pictures (text on VERA layer 1, pictures on a layer 0
+# tile map behind it, loaded from SD on demand).
 z6-x16:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:x16 testz6.z6
 
-# testz6 on the X16 drawing the test pictures: text on VERA layer 1 (80x25),
-# pictures on a layer 0 tile map behind it, loaded from SD on demand.
 z6-pics-x16:
 	inform -v6 testz6.inf
 	ruby make.rb -s -t:x16 -pics tools/testpics testz6.z6
 
-# Arthur on the X16, drawing its own pictures from the blorb. The picture
-# files sit uncompressed in the game directory: no picture disks, no swapping.
-arthur-pics-x16:
-	ruby make.rb -s -t:x16 -pics $(ARTHUR_BLORB) $(Z6GAMES)/$(ARTHUR).z6
-
-zork0-pics-x16:
-	ruby make.rb -s -t:x16 -pics $(ZORK0_BLORB) $(Z6GAMES)/$(ZORK0).z6
-
-shogun-pics-x16:
-	ruby make.rb -s -t:x16 -pics $(SHOGUN_BLORB) $(Z6GAMES)/$(SHOGUN).z6
-
-journey-pics-x16:
-	ruby make.rb -s -t:x16 -pics $(JOURNEY_BLORB) $(Z6GAMES)/$(JOURNEY).z6
+frotz:
+	inform -v6 testz6.inf
+	frotz testz6.z6
 
 # The window-local scrolling test: a small window scrolls inside a screen full
 # of '#', which must survive intact. Every target must draw it the same way.
@@ -168,11 +67,88 @@ scroll-mega65:
 	inform -v6 testz6scroll.inf
 	ruby make.rb -s -t:mega65 -fcm testz6scroll.z6
 
-mega65:
-	ruby make.rb -s examples/dejavu.z3 -t:mega65
+# ---------------------------------------------------------------------------
+# The real v6 games, and dejavu (the z3 non-z6 regression game).
+#
+# Every game builds for every platform as <game>-<platform>, and - on the
+# MEGA65 and X16, which draw pictures - with its graphics as
+# <game>-pics-<platform>. All autostart in the platform's emulator.
+#
+#   platforms:  c64  c128  plus4  mega65  x16
+#   games:      arthur  shogun  journey  zorkzero   (+ dejavu, regression)
+#
+# On the MEGA65 <game>-<platform> is the full colour 80-column screen (-fcm),
+# the same screen the -pics target draws on, so the two differ only by the
+# pictures. The C64 and Plus/4 get a target for every game even where the
+# story is really too big to play comfortably (Journey especially) - the build
+# itself is the useful check. Those large stories need a 1581, and the
+# emulator is launched by hand with the drive set to 1581, since autostart
+# alone does not pick that up.
+# ---------------------------------------------------------------------------
 
-plus4:
-	ruby make.rb -s examples/dejavu.z3 -t:plus4
+Z6GAMES = z6games
+
+# $(1) = target game name, $(2) = story file basename in z6games/
+define game_targets
+$(1)-c64:
+	ruby make.rb -81 $$(Z6GAMES)/$(2).z6
+	x64 -drive8type 1581 c64_$(2).d81
+$(1)-c128:
+	ruby make.rb -s -t:c128 -71 $$(Z6GAMES)/$(2).z6
+$(1)-plus4:
+	ruby make.rb -t:plus4 -81 $$(Z6GAMES)/$(2).z6
+	xplus4 -drive8type 1581 plus4_$(2).d81
+$(1)-mega65:
+	ruby make.rb -s -t:mega65 -fcm $$(Z6GAMES)/$(2).z6
+$(1)-x16:
+	ruby make.rb -s -t:x16 $$(Z6GAMES)/$(2).z6
+$(1)-pics-mega65:
+	ruby make.rb -s -t:mega65 -fcm -pics $$(Z6GAMES)/$(2).blb $$(Z6GAMES)/$(2).z6
+$(1)-pics-x16:
+	ruby make.rb -s -t:x16 -pics $$(Z6GAMES)/$(2).blb $$(Z6GAMES)/$(2).z6
+endef
+
+$(eval $(call game_targets,arthur,arthur-r74-s890714))
+$(eval $(call game_targets,shogun,shogun-r322-s890706))
+$(eval $(call game_targets,journey,journey-r83-s890706))
+$(eval $(call game_targets,zorkzero,zork0-r393-s890714))
+
+# dejavu is a small z3 game (examples/dejavu.z3): the non-z6 regression check,
+# so it has no pictures and fits the default disk of every platform.
+dejavu-c64:
+	ruby make.rb -s examples/dejavu.z3
+dejavu-c128:
+	ruby make.rb -s -t:c128 examples/dejavu.z3
+dejavu-plus4:
+	ruby make.rb -s -t:plus4 examples/dejavu.z3
+dejavu-mega65:
+	ruby make.rb -s -t:mega65 examples/dejavu.z3
+dejavu-x16:
+	ruby make.rb -s -t:x16 examples/dejavu.z3
+
+# ---------------------------------------------------------------------------
+# Extras that do not fit the grid.
+# ---------------------------------------------------------------------------
+
+# Arthur on the C64 split over two 1541 drives instead of one 1581: boot +
+# story 1 in drive 8, story 2 in drive 9.
+arthur-c64-d2:
+	ruby make.rb -D2 $(Z6GAMES)/arthur-r74-s890714.z6
+	x64 -drive8type 1541 -9 c64_arthur-r74-s890714_story_2.d64 c64_arthur-r74-s890714_boot_story_1.d64
+
+# Arthur on the C128's 80 column (VDC) screen, where the VDC window code runs.
+# VICE cannot autostart a disk with the 80 column screen selected (it waits for
+# a READY prompt on the VIC-II screen that never comes), so the disk is only
+# attached and the game is started by typing RUN"STORY" at the BASIC prompt, as
+# the player manual says.
+arthur-c128-80:
+	ruby make.rb -t:c128 -71 $(Z6GAMES)/arthur-r74-s890714.z6
+	x128 -80col -drive8type 1571 -8 c128_arthur-r74-s890714.d71
+
+# AMFV is a large z4 game, built as a d81 just to verify large files + d81.
+amfv:
+	ruby make.rb -81 amfvUnprotected.z4
+	x64 -drive8type 1581 c64_amfvUnprotected.d81
 
 clean:
 	rm -rf *d64 *d71 *d81 x16_*

@@ -35,7 +35,7 @@ around routine 1c9a2 (txd):
    stay exercised.
    Verified: testz6's newline-interrupt and margin cases match dfrotz on
    the C64; Shogun's X16 menu page still matches the reference; Arthur,
-   Journey unaffected (neither uses the interrupt). The MEGA65 zork0-pics
+   Journey unaffected (neither uses the interrupt). The MEGA65 zorkzero-pics-mega65
    build compiles and awaits the windowed play-test (headless stops at the
    picture-disk swap prompt; the drop-cap pillars are on disk 2).
 
@@ -72,7 +72,9 @@ does not scroll with the text, so a drop-cap initial stays put when its
 paragraph scrolls up (the MEGA65 has no such problem - its picture tiles
 live in screen RAM and scroll with it), and the statue picture in the
 banquet hall renders as a black box. Both need a look at the X16 picture
-engine's scroll behaviour. selecting "Start Game" left the
+engine's scroll behaviour.
+
+FIXED (July 2026), the third Journey find: selecting "Start Game" left the
 party-command window uncleared, so the updated list printed over the old one
 ("Enter" over "Background" read "Enterround"). Journey repaints each command
 cell with the v6 pixel form of erase_line - set_cursor, "erase_line G82"
@@ -197,7 +199,7 @@ FIXED entry below). Moving the screen's colour region to FCM_COLOUR_OFFSET
 room description and its status line are all clean. Zork Zero's banquet
 paragraph has not been re-checked specifically, but it was the same bug.
 
-Shogun and Journey now have -pics targets (make shogun-pics, make journey-pics)
+Shogun and Journey now have -pics targets (make shogun-pics-mega65, make journey-pics-mega65)
 and both start. Shogun's pictures fit on one disk, Journey's on two (it is the
 largest v6 game). Both have rendering issues still to work through - next
 session's job. This is the second round of "no interpreter of ours ever ran
@@ -525,7 +527,7 @@ pictures (pics2asm.py's cap). .pic_index is a word, the parallel pic_* tables
 .pic_addr - which forms base + word index in .pi_ptr (z_temp + 10) and reads
 (.pi_ptr),y - instead of the old ,y that capped at 256, and pic_win_number is a
 word per window so two pictures 256 apart no longer alias a window's tile run.
-make zork0-pics builds Zork Zero's 396 pictures (numbered to 504) over two
+make zorkzero-pics-mega65 builds Zork Zero's 396 pictures (numbered to 504) over two
 picture disks. Verified headless: it loads all 290 pictures of disk 1 from
 drive 9 (indices past 255) and then correctly prompts for disk 2. Confirmed on
 xemu: Zork Zero loads from both picture disks and starts, and drawing the
@@ -778,7 +780,7 @@ Screen size, and why 320x200
      bank. It now draws picture 4 in window 0.
 
    4c. DONE: Arthur's pictures fit on a d81, and Arthur draws them.
-   `make arthur-pics` leaves 28 blocks free, and the churchyard picture appears
+   `make arthur-pics-mega65` leaves 28 blocks free, and the churchyard picture appears
    above the text. `make z6-pics` does the same for testz6 and the pictures in
    tools/testpics, which are ours.
 
