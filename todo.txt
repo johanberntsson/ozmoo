@@ -537,19 +537,30 @@ Still open for the X16 pictures screen:
   .pic_erase clears the cw+1 cells. Verified headless on testz6: a picture at
   .pic_x 7/9 (odd) and 10 (even) renders identically, the odd ones landing at
   px 56/72 - exact 8px placement, not the even grid.
+  Two bugs found play-testing Arthur and fixed (July 2026):
+  * Composite striping ("every second pixel black" on the churchyard border):
+    the composite path filled a transparent pixel with .pcf_xlat[under], but
+    the table held a bare 0..15 nybble, so the store byte was 0x0C not 0xCC
+    (colour, black, colour, black). Latent in the even path (few partial
+    cells); the odd path's half-transparent edge cells exposed it wholesale.
+    .pcf_build_xlat now stores doubled bytes. Verified: picture 4 at an odd
+    column over picture 9 shows 9's solid blocks through its edges, unstriped.
+  * Intro frame corruption (random tiles at the far edges): the full-screen
+    intro (~37x25) overflowed the store - copied run + (cw+1)*ch boundary
+    tiles > 1024 - and the boundary allocator wrapped over the source tiles
+    it was reading. .dp_odd_fits now falls back to even placement when
+    pic_next_tile + (cw+1)*ch would exceed the store; an 8px shift is
+    invisible on a full-screen frame, and small centred scenes still fit and
+    stay exact.
   STILL OPEN:
-  * No runtime dedup yet. Offline analysis shows the boundary tiles dedup to
-    ~+1% over the even placement (Arthur's art repeats horizontally), but the
-    draw currently bakes one fresh tile per boundary cell, so a LARGE odd
-    scene can bake (cw+1)*ch tiles and churn/wrap the 1024-tile store, which
-    would corrupt the frame drawn under it. Dedup on the (left-tile-index,
-    right-tile-index) pair for cells with nothing behind brings it back to the
-    measured counts; needs a ~ntiles-entry table (banked RAM, staging is busy).
-  * Arthur's scene compositing over the frame at an odd column, and the budget
-    above, are not yet verified in play - reaching the churchyard headless has
-    been unreliable (timed/mouse intro). Check arthur-pics-x16 in a windowed
-    run: the churchyard scene should sit where the reference puts it, with no
-    tile corruption, and pic_next_tile ($21a2) should stay well under 1024.
+  * Large odd pictures fall back to even (8px off) because the odd path copies
+    the whole tiles AND bakes boundary tiles - 2x the store transiently. The
+    real fix is to bake boundary tiles straight from the staging banks (no
+    copy), so even a full-screen odd picture fits; then add dedup on the
+    (left-index, right-index) pair (offline analysis: ~+1% tiles) if needed.
+  * Verify in play (windowed; headless can't reach past Arthur's loader/intro):
+    the intro frame should be clean, the churchyard scene correctly placed and
+    unstriped, and pic_next_tile ($21a2) well under 1024.
   * erase clears an odd picture's two edge boundary cells whole, which clips a
     neighbour that shares a boundary cell (fine for Arthur's scenes, which sit
     on the window background).
