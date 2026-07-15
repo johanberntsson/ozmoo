@@ -36,7 +36,8 @@ m65_x16_reu_enable_load_page_limit !byte 0 ; respect page # limit or not
 ;.x16_bank !byte 0 ; current bank (8 KB, $a000-$bfff)
 
 x16_load_file_to_reu
-	; In: a,x: REU load page (0-63 are in normal RAM, at $6000-$9fff, 64- are in high RAM, bank 1 and up)
+	; In: a,x: REU load page (0 to X16_LOW_STORY_PAGES-1 are in normal RAM,
+	; at X16_STORY_BASE up; the rest are in high RAM, bank 1 and up)
 	; Returns: a: Number of pages loaded.
 	; Call SETNAM before calling this
 	; Opens file as #2. Closes file at end.
@@ -47,26 +48,35 @@ x16_load_file_to_reu
     ; find out which bank
 	cmp #0
 	bne .in_high_ram
-	cpx #64
+	cpx #X16_LOW_STORY_PAGES
 	bcs .in_high_ram
-	
-	; In normal RAM
-	; Set bank to -1 or 0
+
+	; In normal RAM. Preset the bank register so that the sequential page
+	; walk below, which increments it at every $2000 boundary it crosses,
+	; arrives at bank 1 exactly when it reaches the $a000 window.
 	stz 0
+!if X16_LOW_STORY_PAGES = 32 {
+	; from $7f00 the walk crosses $8000 and $a000: one crossing too many
+	cpx #1
+	bcs +
+	dec 0
+} else {
+	; from $5f00 the walk crosses $6000, $8000 and $a000
 	cpx #$21
 	bcs +
 	dec 0
 	cpx #0
 	bne +
 	dec 0
+}
 +	txa
 	clc
-	adc #$5f 	; Start at $5f00
+	adc #X16_STORY_BASE_PAGE
 	sta z_temp + 1
 	bne .done_bank_calc ; Always branch
 
 .in_high_ram
-	
+
 	stx .x16_reu_load_address ; Lowbyte of current page in REU memory
 	sta .x16_reu_load_address + 1 ; Highbyte of current page in REU memory
 	txa
@@ -77,7 +87,10 @@ x16_load_file_to_reu
 	asl
 	lda .x16_reu_load_address + 1
 	rol
-	sbc #0 ; Carry is already clear, so this subtracts 1
+	; a = page / 32; the banked story starts at bank 1 (see x16_prepare_bankmem)
+!if X16_LOW_STORY_PAGES != 32 {
+	sbc #(X16_LOW_STORY_PAGES / 32) - 2 ; Carry is clear: subtracts one more
+}
 	sta 0
 	lda .x16_reu_load_address
 	and #$1f

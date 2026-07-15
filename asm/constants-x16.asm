@@ -2,6 +2,21 @@
 ;
 
 story_start_far_ram   = 0 ; NOTE: This is in banked RAM
+
+; The story's low-RAM slice: its first X16_LOW_STORY_PAGES pages load at
+; X16_STORY_BASE and run to $9eff; the rest lives in banked RAM from bank 1.
+; In x16_load_file_to_reu's page space, bank b starts at page
+; X16_LOW_STORY_PAGES + (b - 1) * 32. The slice was 16 KB at $5f00 until July
+; 2026; 8 KB at $7f00 gives the interpreter + z-stack (which must end below
+; X16_STORY_BASE, see make.rb's check) 8 KB more low RAM - the pics builds
+; need it - and costs one more story bank of the 512 KB. make.rb's story-bank
+; and staging-bank arithmetic hardcodes the same 8192 (see build_interpreter).
+X16_STORY_BASE_PAGE   = $7f
+X16_STORY_BASE        = X16_STORY_BASE_PAGE * 256
+X16_LOW_STORY_PAGES   = $9f - X16_STORY_BASE_PAGE
+!if X16_LOW_STORY_PAGES & 31 {
+	!error "X16_LOW_STORY_PAGES must be a multiple of 32: the bank arithmetic assumes 8 KB alignment"
+}
 !ifdef Z6_PICTURES {
 ; The pictures screen: text on VERA layer 1 as usual, pictures on a layer 0
 ; tile map behind it. VSCALE is halved and VSTOP crops the display to
@@ -19,8 +34,7 @@ VRAM_L0_MAP           = $10000	; 64x32 map entries, two bytes each
 VRAM_CHARSET          = $11000	; the kernal charset, moved out of bank 0
 ; The staging area the current picture is LOADed into from SD: four banks
 ; of banked RAM just above the story (PIC_STAGING_BANK comes from make.rb).
-; In x16_load_file_to_reu's page space bank b starts at page (b + 1) * 32.
-PIC_STAGING_PAGE      = (PIC_STAGING_BANK + 1) * 32
+PIC_STAGING_PAGE      = X16_LOW_STORY_PAGES + (PIC_STAGING_BANK - 1) * 32
 ; The undo state normally lives in VRAM, but the tile store owns all of
 ; VRAM bank 0 now, so it moves to the banked RAM above the staging area.
 PIC_UNDO_BANK         = PIC_STAGING_BANK + 4

@@ -1251,11 +1251,12 @@ def build_interpreter()
 
 	if $target == 'x16' and $GENERALFLAGS.include?('Z6_PICTURES')
 		# A picture is LOADed from SD on demand into a staging area of banked
-		# RAM, placed just above the story (whose first 16 KB live in low RAM
-		# at $5f00 and whose banked part starts at bank 1). With undo, the
-		# undo state follows above the staging area (it normally lives in
-		# VRAM, which the tile store owns in a pictures build).
-		story_banks = [($story_file_data.length - 16384 + 8191) / 8192, 0].max
+		# RAM, placed just above the story (whose first 8 KB live in low RAM
+		# at $7f00 - X16_STORY_BASE in constants-x16.asm - and whose banked
+		# part starts at bank 1). With undo, the undo state follows above the
+		# staging area (it normally lives in VRAM, which the tile store owns
+		# in a pictures build).
+		story_banks = [($story_file_data.length - 8192 + 8191) / 8192, 0].max
 		staging_bank = 1 + story_banks
 		banks_needed = staging_bank + 4
 		if $undo and $undo > 0
@@ -3646,8 +3647,10 @@ if $target == 'c128'
 	end
 end
 
-if $target =~ /^(x16)$/ and $stackstart + 256 * $stack_pages > 0x5f00 then
-	puts "ERROR: Stack is too big. Maximum stack size is #{(0x5f00 - $stackstart) / 256} pages." 
+if $target =~ /^(x16)$/ and $stackstart + 256 * $stack_pages > 0x7f00 then
+	# The story's low-RAM slice loads at $7f00 (X16_STORY_BASE in
+	# constants-x16.asm), so the interpreter + z-stack must end below it.
+	puts "ERROR: Stack is too big. Maximum stack size is #{(0x7f00 - $stackstart) / 256} pages."
 	exit 1
 end
 

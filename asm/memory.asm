@@ -30,8 +30,8 @@ inc_z_pc_page
 		lda z_pc
 		bne ++
 		lda z_pc + 1
-		cmp #$40
-		bcc + ; We're in the first 16 KB, i.e. normal RAM
+		cmp #X16_LOW_STORY_PAGES
+		bcc + ; We're in the story's low-RAM slice
 ++		lda z_pc + 1
 		and #%00011111
 		beq get_page_at_z_pc_did_pha ; Branch if we just hit a new bank
@@ -594,9 +594,9 @@ read_header_word
 ; Returns: Value in a,x
 ; y retains its original value
 !ifdef TARGET_X16 {
-	lda $5f01,y
+	lda X16_STORY_BASE + 1,y
 	tax
-	lda $5f00,y
+	lda X16_STORY_BASE,y
 	rts
 } else ifdef FAR_DYNMEM {
 	jsr setup_to_write_to_header_far_ram
@@ -615,9 +615,9 @@ write_header_word
 ; a,x contains word value
 ; a,x,y are destroyed
 !ifdef TARGET_X16 {
-	sta $5f00,y
+	sta X16_STORY_BASE,y
 	txa
-	sta $5f01,y
+	sta X16_STORY_BASE + 1,y
 	rts
 } else  ifdef FAR_DYNMEM {
 	stx .tmp
@@ -656,7 +656,7 @@ write_header_byte
 	sta [dynmem_pointer],z
 	rts
 } else ifdef TARGET_X16 {
-	sta $5f00,y
+	sta X16_STORY_BASE,y
 	rts
 } else {
 	sta story_start,y

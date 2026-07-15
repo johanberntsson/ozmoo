@@ -2139,10 +2139,10 @@ deletable_init
 
 !ifdef Z3PLUS {
 	ldy #header_filelength
-	lda $5f00,y
+	lda X16_STORY_BASE,y
 	sta .first_value
 
--	lda $5f00,y
+-	lda X16_STORY_BASE,y
 	cmp .first_value
 	beq +
 	inc .different_values
@@ -2533,7 +2533,7 @@ deletable_init
 	; Store header values for file length and checksum to say the game has been loaded
 
 	ldy #header_filelength
--	lda $5f00,y
+-	lda X16_STORY_BASE,y
 	sta m65_x16_checksum_quad - header_filelength,y
 	iny
 	cpy #header_filelength + 4 ; Compare file length (2 bytes) + checksum (2 bytes)
@@ -2976,9 +2976,15 @@ m65_x16_load_dynmem_maybe_statmem
 	ldx m65_x16_statmem_already_loaded
 	beq ++ ; Statmem is not loaded => load entire zcode file
 	ldx nonstored_pages
-	cpx #64 ; First 16 K, in low RAM, may be corrupted
+!ifdef TARGET_X16 {
+	cpx #X16_LOW_STORY_PAGES ; the story's low-RAM slice may be corrupted
+	bcs +++
+	ldx #X16_LOW_STORY_PAGES
+} else {
+	cpx #64 ; First 16 K may be corrupted
 	bcs +++
 	ldx #64
+}
 +++	stx m65_x16_reu_load_page_limit
 	ldx #$ff ; Don't store value of nonstored_pages, since it's $00 if dynmem size is >= $fe00
 	stx m65_x16_reu_enable_load_page_limit

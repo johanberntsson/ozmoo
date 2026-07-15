@@ -395,18 +395,18 @@ convert_byte_to_two_digits
 }
 
 x16_prepare_bankmem
-    ; Read top two bytes of Z-machine address from mempointer 
+    ; Read top two bytes of Z-machine address from mempointer
 	; Store absolute address in mempointer, and set bank as necessary
 	lda mempointer + 1
 ;	cmp #0
 	bne .in_high_ram
 	lda mempointer
-	cmp #64
+	cmp #X16_LOW_STORY_PAGES
 	bcs .in_high_ram_loaded_mempointer
 
 	; Normal RAM
 ;	clc
-	adc #$5f ; Story starts at $5f00. Carry is already clear
+	adc #X16_STORY_BASE_PAGE ; Carry is already clear
 	sta mempointer + 1
 	bne .done_bank_calc ; Always branch
 
@@ -420,7 +420,11 @@ x16_prepare_bankmem
 	asl
 	lda mempointer + 1
 	rol
-	sbc #0 ; Carry is already clear, so this subtracts 1
+	; a = page / 32; the banked story starts at bank 1, so the bank is that
+	; minus (X16_LOW_STORY_PAGES / 32 - 1)
+!if X16_LOW_STORY_PAGES != 32 {
+	sbc #(X16_LOW_STORY_PAGES / 32) - 2 ; Carry is clear: subtracts one more
+}
 	sta 0
 	lda mempointer
 	and #$1f

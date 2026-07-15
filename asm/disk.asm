@@ -2266,7 +2266,7 @@ do_save_undo
 	lda #0
 	sta z_temp
 	sta z_temp + 2 ; Z-code page
-	lda #$5f
+	lda #X16_STORY_BASE_PAGE
 	sta z_temp + 1
 	; Remember pagecount for dynmem
 	ldx nonstored_pages
@@ -2329,7 +2329,7 @@ do_restore_undo
 	lda #0
 	sta z_temp
 	sta z_temp + 2 ; Current Z-code page
-	lda #$5f
+	lda #X16_STORY_BASE_PAGE
 	sta z_temp + 1
 	; Remember pagecount for dynmem
 	ldx nonstored_pages
@@ -2403,7 +2403,7 @@ do_save_undo
 	lda #0
 	sta z_temp
 	sta z_temp + 2 ; Z-code page
-	lda #$5f
+	lda #X16_STORY_BASE_PAGE
 	sta z_temp + 1
 	; Remember pagecount for dynmem
 	ldx nonstored_pages
@@ -2478,7 +2478,7 @@ do_restore_undo
 	lda #0
 	sta z_temp
 	sta z_temp + 2 ; Current Z-code page
-	lda #$5f
+	lda #X16_STORY_BASE_PAGE
 	sta z_temp + 1
 	; Remember pagecount for dynmem
 	ldx nonstored_pages

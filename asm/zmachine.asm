@@ -721,10 +721,10 @@ z_get_referenced_value
 	lda zp_temp + 1
 	adc z_low_global_vars_ptr + 1
 !ifdef TARGET_X16 {
-	cmp #64
+	cmp #X16_LOW_STORY_PAGES
 	bcs +
 ; Normal RAM
-	adc #$5f ; Story starts on $5f00
+	adc #X16_STORY_BASE_PAGE ; Carry is already clear
 	bne ++ ; Always branch
 ; High RAM
 +	pha
@@ -734,7 +734,9 @@ z_get_referenced_value
 	lsr
 	lsr
 	tay
-	dey
+!if X16_LOW_STORY_PAGES != 32 {
+	dey ; the banked story starts one bank-width past page 32
+}
 	sty zp_temp + 2
 	pla
 	and #%00011111

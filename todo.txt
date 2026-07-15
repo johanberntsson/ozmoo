@@ -39,26 +39,40 @@ around routine 1c9a2 (txd):
    build compiles and awaits the windowed play-test (headless stops at the
    picture-disk swap prompt; the drop-cap pillars are on disk 2).
 
-OPEN, found by the same work: the X16 pics builds are out of low RAM. The
-interpreter + z-stack must end below $5f00, where the story's low 16 KB
-slice loads (hardcoded in x16_prepare_bankmem's "adc #$5f / cmp #64", the
-[ZCODE] loader and make.rb's checks). shogun-pics-x16 and testz6 pics
-still fit; journey-pics-x16 is ~120 bytes over (it crossed the line with
-this session's fixes), arthur-pics-x16 ~500 over and zork0-pics-x16 ~1.8 KB
-over - the latter two were already over before this session (nothing
-rebuilds every target, so it went unnoticed; the last known-good X16 pics
-builds predate the mouse work). Two ways out, decide before more X16 work:
-- Move the story split: an 8 KB low slice at $7f00 instead of 16 KB at
-  $5f00 frees 8 KB of interpreter headroom for every X16 build and costs
-  one more banked-RAM story bank (banked reads cost the same cycles on the
-  X16). Touches ~6 asm sites (utilities, disk loader, the restore-time
-  "first 16 K may be corrupted" logic in ozmoo.asm) plus make.rb's 16384 /
-  0x5f00 arithmetic - best done as named constants in constants-x16.asm.
-- Or move the assembled-in picture index tables (pic_number/width/height,
-  rects: ~2 KB for Zork Zero) into a banked-RAM copy read through the
-  $a000 window; smaller blast radius, scales with the picture count, but
-  more fiddly code at every table access.
-A stopgap: -sp:3 shaves a stack page and lets journey-pics-x16 build today. selecting "Start Game" left the
+FIXED (July 2026): the X16 pics builds were out of low RAM - the interpreter
++ z-stack must end below the story's low-RAM slice, and journey-pics-x16
+(~120 bytes), arthur-pics-x16 (~500) and zork0-pics-x16 (~1.8 KB) had all
+crossed the line (the latter two before the drop-cap session; nothing
+rebuilds every target, so it went unnoticed). The story split moved: the
+low slice is now 8 KB at $7f00 instead of 16 KB at $5f00, freeing 8 KB of
+interpreter headroom for every X16 build at the cost of one more story
+bank of the 512 KB (banked reads cost the same cycles). Zork Zero, the
+biggest build, now links with 6 KB to spare. The split is named
+X16_STORY_BASE / X16_LOW_STORY_PAGES in constants-x16.asm; the sites that
+had hardcoded it were x16_prepare_bankmem (utilities.asm),
+x16_load_file_to_reu's low path and its bank-preset thresholds (reu.asm),
+the four undo dynmem copies (disk.asm), the header accessors (memory.asm),
+the checksum reads and restart reload floor (ozmoo.asm), the inline mapping
+in zmachine.asm's .find_global_var (indirect variable access - czech's
+test 283 found it), and inc_z_pc_page's "cmp #$40" low-RAM test in
+memory.asm, which was the last one found: with the slice at 8 KB the
+cached z-pc pointer walked straight past the new bank boundary and czech
+crashed to BASIC when its code crossed z-address $2000. The constants
+!error if the slice is not a multiple of 32 pages - the bank arithmetic
+in all three mapping sites assumes 8 KB alignment.
+Verified on the X16: czech 406 passed / 0 failed, praxix's undo test
+passes with -u (multiundo fails as always: Ozmoo keeps one undo slot),
+testz6 text and pics match, dejavu boots, Arthur plays to the churchyard
+with the composited frame and a correct status line, and Zork Zero's
+banquet hall renders with the drop-cap margins working. The C64 and
+MEGA65 interpreter binaries are byte-identical across the change (every
+edit is inside TARGET_X16 conditionals).
+Seen while verifying Zork Zero on the X16, pre-existing and OPEN: layer 0
+does not scroll with the text, so a drop-cap initial stays put when its
+paragraph scrolls up (the MEGA65 has no such problem - its picture tiles
+live in screen RAM and scroll with it), and the statue picture in the
+banquet hall renders as a black box. Both need a look at the X16 picture
+engine's scroll behaviour. selecting "Start Game" left the
 party-command window uncleared, so the updated list printed over the old one
 ("Enter" over "Background" read "Enterround"). Journey repaints each command
 cell with the v6 pixel form of erase_line - set_cursor, "erase_line G82"
