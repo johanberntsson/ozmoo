@@ -1894,9 +1894,50 @@ pic_load_all
 +
 	jsr .pic_copy_tiles
 	lda .pic_odd
-	beq +
+	beq .dp_even
+	jsr .dp_odd_fits		; clears .pic_odd if the boundary tiles would overflow
+	lda .pic_odd
+	beq .dp_even
 	jmp .pic_fill_cells_odd
-+	jmp .pic_fill_cells
+.dp_even
+	jmp .pic_fill_cells
+
+.dp_odd_fits
+	; The odd path bakes up to (cw+1)*ch boundary tiles above the picture's own
+	; copied run (pic_next_tile is now just past it). If they would run off the
+	; end of the 1024-tile store they must not wrap - that would overwrite the
+	; source tiles the bake reads and the frame under the picture - so a picture
+	; too big for a boundary redraw falls back to even placement, which reuses
+	; the copied tiles at the rounded column (an 8px shift, invisible on the
+	; full-screen frames that hit this). Small centred scenes fit and stay exact.
+	lda #0
+	sta .pic_count
+	sta .pic_count + 1
+	ldx .pic_ch
+	beq .dof_done
+	lda .pic_cw
+	clc
+	adc #1					; cw + 1 boundary cells a row (<= 41, one byte)
+	sta .pic_tmp
+-	lda .pic_count
+	clc
+	adc .pic_tmp
+	sta .pic_count
+	bcc +
+	inc .pic_count + 1
++	dex
+	bne -
+	lda pic_next_tile		; pic_next_tile + (cw+1)*ch >= PIC_MAX_TILES ?
+	clc
+	adc .pic_count
+	lda pic_next_tile + 1
+	adc .pic_count + 1
+	cmp #>PIC_MAX_TILES		; the store's high byte; low byte is 0
+	bcc .dof_done			; sum's high byte < it: fits
+	lda #0
+	sta .pic_odd			; would overflow: round to even instead
+.dof_done
+	rts
 
 ; ---------------------------------------------------------------------------
 ; The text layer cannot bury a picture the way the MEGA65's one-plane screen
