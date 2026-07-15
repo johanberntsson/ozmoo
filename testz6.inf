@@ -87,6 +87,15 @@ Array s3tab -> 66;
 	@window_style 1 15;
 	print "a bare window_style must keep wrapping^";
 
+	! --- erase_line with a pixel count erases value-1 units and leaves the
+	! cursor where it was: Journey repaints its command cells this way
+	print "0123456789";
+	@get_cursor mouse; ! reuse the array: word 0 is the row
+	w = mouse-->0;
+	@set_cursor w 3;
+	@erase_line 5; ! four cells: 2345 go, 6789 stay
+	print "ab^"; ! ...and lands right after the cursor: 01ab  6789
+
 	! --- print_form ---
 	print "print_form:^";
 	@print_form formtable;

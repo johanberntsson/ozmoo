@@ -2674,13 +2674,56 @@ erase_window
 !ifdef Z4PLUS {
 z_ins_erase_line
 	; erase_line value
-	; clear current line (where the cursor is)
+	; Value 1 erases from the cursor to the window's right margin. Any other
+	; value erases value-1 pixels - character cells here - to the right of
+	; the cursor, clipped at the right margin (8.8.5.2); the cursor does not
+	; move. Journey repaints its command menu by erasing each cell this way
+	; (erase_line G82) before printing the new command into it, so the old
+	; do-nothing left "Enter" printed over "Background".
+	jsr printchar_flush ; pending text belongs on screen before the erase
 	lda z_operand_value_low_arr
-	cmp #1
-	bne .return
-	jmp s_erase_line_from_cursor
-.return
+	ora z_operand_value_high_arr
+	beq .el_done ; erase_line 0: nothing to erase
+	ldx current_window
+	jsr s_window_right_edge
+	sec
+	sbc zp_screencolumn
+	beq .el_done
+	bcc .el_done ; the cursor already sits past the right margin
+	sta .el_count ; the cells from the cursor to the margin
+	lda z_operand_value_high_arr
+	bne .el_clipped ; 256 units or more always reaches the margin
+	ldx z_operand_value_low_arr
+	cpx #1
+	beq .el_clipped ; 1: all the way to the margin
+	dex
+	txa ; value - 1 cells wanted
+	cmp .el_count
+	bcs .el_clipped
+	sta .el_count
+.el_clipped
+	; walk the cells with s_delete_cursor, each target's space-writer (it
+	; wants the column in y), and put the cursor back where it was
+	lda zp_screencolumn
+	pha
+	tay
+	ldx zp_screenrow
+	clc
+	jsr s_plot ; sync the screen pointers to the cursor
+-	ldy zp_screencolumn
+	jsr s_delete_cursor
+	inc zp_screencolumn
+	dec .el_count
+	bne -
+	pla
+	tay
+	ldx zp_screenrow
+	clc
+	jsr s_plot
+.el_done
 	rts
+
+.el_count !byte 0
 
 !ifdef Z5PLUS {
 .pt_cursor = z_temp;  !byte 0,0

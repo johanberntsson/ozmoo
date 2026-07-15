@@ -1,5 +1,25 @@
 Known bugs
 ----------
+FIXED (July 2026), the third Journey find: selecting "Start Game" left the
+party-command window uncleared, so the updated list printed over the old one
+("Enter" over "Background" read "Enterround"). Journey repaints each command
+cell with the v6 pixel form of erase_line - set_cursor, "erase_line G82"
+(the column width), print the new command - and Ozmoo's erase_line did
+nothing unless the operand was exactly 1. It now implements 8.8.5.2: value 1
+erases from the cursor to the window's right margin (it used to run to the
+screen edge, a latent over-erase in any narrow window), any other value
+erases value-1 units - character cells here - clipped at the margin, and
+the cursor stays put. The fill walks s_delete_cursor, so every target and
+the colour-swap band case are covered by the same code erase_window uses.
+testz6 gained the case (print 0123456789, cursor back, erase_line 5, print
+ab -> "01ab  6789") and matches dfrotz on the C64. Verified in play on the
+MEGA65 text build and the X16 pics build: after Start Game the party column
+reads Proceed / Enter / (blank) / Game with no leftovers, and the initial
+menu still paints in full. Seen while comparing, pre-existing and NOT fixed:
+after print_form, Ozmoo puts the next print on a fresh line where dfrotz
+keeps the cursor at the end of print_form's last line ("you" + "s3 width"
+merge to "yous3 width" there); revisit if a game lays out around print_form.
+
 FIXED (July 2026): Journey's intro text did not wrap - each paragraph printed
 one truncated line (the todo note "intro lines truncate around column 71"),
 on every target. Journey sets up window 0 with a two-operand
