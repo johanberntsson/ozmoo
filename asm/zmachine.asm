@@ -2169,6 +2169,15 @@ z_ins_set_font
 	beq .set_font_check_status
 	cmp #1
 	beq .set_font_do
+!ifdef Z6 {
+	; Font 3 is the character-graphics font (z-spec 16). We have no such
+	; charset, but the glyphs a v6 game actually draws with it are box lines
+	; and corners, which the print path maps to the target's native
+	; box-drawing characters (font3_translate) - so report it as available
+	; and track it per window.
+	cmp #3
+	beq .set_font_do
+}
 	cmp #4
 	beq .set_font_do
 	; Font is unavailable
@@ -2176,12 +2185,23 @@ z_ins_set_font
 	tax
 	jmp z_store_result
 .set_font_do
+!ifdef Z6 {
+	; The z6 font is window property 12; the shared z_font is only two bytes,
+	; but current_window runs 0-7 here.
+	ldx window_font,y
+	sta window_font,y
+} else {
 	ldx z_font,y
 	sta z_font,y
+}
 	lda #0
 	jmp z_store_result
-.set_font_check_status	
+.set_font_check_status
+!ifdef Z6 {
+	ldx window_font,y ; a is already 0
+} else {
 	ldx z_font,y ; a is already 0
+}
 	jmp z_store_result
 
 ; z_ins_save_restore_undo moved to disk.asm

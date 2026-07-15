@@ -88,6 +88,48 @@ window_linecount_hi    !byte 0,0,0,0,0,0,0,0
 ; its high byte, placed here for the same reason as window_linecount_hi.
 window_newline_routine_hi !byte 0,0,0,0,0,0,0,0
 
+; Font 3 (z-spec 16, character graphics). We have no such charset, but the v6
+; games (Journey's command-menu dividers) use only its box-drawing glyphs:
+; horizontal/vertical lines and the four corners. When the current window is in
+; font 3, map those glyph codes to the equivalent PETSCII box-drawing character
+; so the ordinary convert_petscii_to_screencode path renders them natively on
+; every screen target (C64/C128 VDC/Plus4/MEGA65 FCM text/X16). Codes we do not
+; render (Journey uses none of them) pass through unchanged.
+;   input:  a = ZSCII glyph code
+;   output: carry set  -> a = PETSCII replacement (handled)
+;           carry clear -> a = original code (not font 3, or not a mapped glyph)
+font3_translate
+	sta .f3_char
+	ldx current_window
+	lda window_font,x
+	cmp #3
+	bne .f3_passthrough
+	lda .f3_char
+	sec
+	sbc #38            ; the mapped glyphs are codes 38..57
+	cmp #(font3_to_petscii_end - font3_to_petscii)
+	bcs .f3_passthrough
+	tax
+	lda font3_to_petscii,x
+	beq .f3_passthrough ; 0 = a gap in the table, not rendered
+	sec
+	rts
+.f3_passthrough
+	lda .f3_char
+	clc
+	rts
+.f3_char !byte 0
+
+; Indexed by font-3 code - 38. Values are PETSCII (fed to
+; convert_petscii_to_screencode). 0 marks a code we do not map.
+;                     38   39   40   41   42 43 44 45   46   47   48   49
+font3_to_petscii !byte $c0, $c0, $dd, $dd, 0, 0, 0, 0, $ad, $b0, $ae, $bd
+;                     50 51 52 53 54 55 56   57
+                 !byte 0, 0, 0, 0, 0, 0, 0, $a1
+font3_to_petscii_end
+;  38/39 horizontal line, 40/41 vertical line, 46 corner up+right, 47 down+right,
+;  48 down+left, 49 up+left, 57 solid left block (Journey's selected-command bar).
+
 !ifdef Z6_PICTURES {
 !source "../temp/pictures.asm"
 

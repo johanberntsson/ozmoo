@@ -679,6 +679,15 @@ streams_print_output
 	lda streams_output_selected
 	beq .pla_and_return
 	pla
+!ifdef Z6 {
+	; If the current window is in font 3 (character graphics), map the glyph
+	; to the target's native box-drawing PETSCII before it enters the buffer,
+	; so every screen target renders it through the usual charset path.
+	jsr font3_translate
+	bcc +
+	jmp printchar_buffered
++
+}
 	jsr translate_zscii_to_petscii
 	bcs .could_not_convert
 	jmp printchar_buffered

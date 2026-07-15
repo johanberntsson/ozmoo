@@ -1111,19 +1111,40 @@ neither is a regression of that work):
   the load continues into the second disk. DONE.
 - Zork Zero is playable text-only at 80 columns: status line, wrapping and
   the pic:N drop-cap notes all land right.
-- Journey boots and lays out its command menu at 80 columns, but the menu
-  dividers render as garbage characters (apostrophes, digits). set_font
-  already refuses font 3, so the suspect is the interpreter number: we
-  claim C64 (TERPNO 8), and Journey then prints the glyph codes of the
-  Infocom C64 interpreter's custom charset. Tried -in:4 (Amiga): the layout
-  changes (more divider rows) but the glyphs stay garbage, so the divider
-  codes are Infocom character graphics on every interpreter and need real
-  rendering -- on the full colour screen a small set of box-drawing tiles
-  would do it. (On the pics builds, which report IBM, Journey uses no font 3
-  at all - reverse-video spaces and erase_line bands instead - so those now
-  render correctly; the font 3 glyphs remain open for the text builds.)
+- Journey boots and lays out its command menu at 80 columns. Its menu
+  dividers used to render as garbage characters (apostrophes, digits):
+  the game draws them with Z-machine FONT 3 (character graphics, z-spec 16),
+  and Ozmoo refused font 3 while the game printed its glyph codes anyway
+  (it decides font 3 is available from the interpreter number, global G31,
+  not from set_font's return - routine 4da4/4740 in txd - so on a C64 it
+  emits font-3 codes regardless). FIXED (July 2026): set_font now accepts
+  font 3 and tracks it per window (window_font, property 12; the shared
+  z_font was two bytes but current_window runs 0-7), and streams.asm's
+  screen path maps the font-3 glyph codes to the target's native PETSCII
+  box-drawing characters (font3_translate + font3_to_petscii in
+  screen-z6.asm) before they enter the print buffer, so every text target
+  renders them through the ordinary convert_petscii_to_screencode path with
+  no per-target code (C64/C128 40 + VDC 80/Plus4/MEGA65 -fcm text/X16). The
+  glyphs Journey actually uses are the four corners, horizontal and vertical
+  lines (codes 38/39/40/41/46/47/48/49) plus the solid left block (code 57,
+  the selected-command highlight bar). Verified in play on the X16 text
+  build: the command-menu boxes and the selection bar draw as boxes and
+  bars. No interpreter spoof was needed - the C64 default (interp 8) already
+  enables font 3 with the standard box-drawing layout; spoofing Amiga (-in:4)
+  only switches to the rune layout. (On the pics builds, which report IBM,
+  Journey uses no font 3 at all - reverse-video spaces and erase_line bands
+  instead - so those already rendered correctly.)
   The intro truncation that used to sit beside this is FIXED (the
   two-operand window_style, see the top of this file).
+  STILL OPEN (new todo): the current menu selection is not highlighted in the
+  text builds. sfrotz shows the currently-selected command in reverse video
+  (a normal highlighted menu row); on our text builds the row prints in plain
+  (black) text, so which item is selected is hard to see. Journey marks the
+  connected/active command with the solid font-3 bar (above), but the
+  selected row itself wants the reverse-video / colour highlight the game
+  asks for - likely a set_text_style REVERSE or set_colour path in the
+  command list that we are not honouring on the text builds. Separate from
+  the font-3 glyphs, which now render.
 - The "squished header" family: Journey printed "The PartyIndividual
   Commands" the way Arthur squished "ChurchyardSt Anne's Day, Compline".
   FIXED - see the "Shogun's start/restore/quit page" entry below: one of
