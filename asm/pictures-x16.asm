@@ -1732,10 +1732,14 @@ pic_load_all
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y,
 	; .pic_x: clear its layer 0 map cells back to the transparent tile 0.
 	; The text layer in front is left alone. An odd-column picture was drawn
-	; across cw+1 boundary cells (.pic_fill_cells_odd), so it is erased across
-	; cw+1 too; the two edge cells are cleared whole, which is right when the
-	; picture stood on the window background (Arthur's scenes do) but would
-	; clip a neighbour sharing a boundary cell. See todo.txt.
+	; across cw+1 boundary cells (.pic_fill_cells_odd); its two EDGE cells each
+	; hold half the picture beside half of whatever it was drawn over (a frame
+	; border, for Arthur's scenes composited into the frame's hole), so clearing
+	; them whole would strip the frame - and it is never redrawn, so the gap
+	; persists. Erase only the cw-1 interior cells (fully the picture) and leave
+	; the two edges: the next scene re-composites its half over them, keeping
+	; the frame's half. A picture standing on plain background loses nothing
+	; from this - its edge halves are transparent there.
 	; The size comes from the assembled-in tables, so erasing never has to
 	; load the picture from disk.
 	jsr .pic_size
@@ -1743,14 +1747,15 @@ pic_load_all
 	lsr
 	sta .pic_cw
 	lda .pic_x
-	and #1
-	beq +
-	inc .pic_cw				; an odd picture spans one more (boundary) cell
-+	lda .pic_h
-	sta .pic_ch
-	lda .pic_x
 	lsr
 	sta .pic_lx
+	lda .pic_x
+	and #1
+	beq +
+	inc .pic_lx				; skip the left edge cell...
+	dec .pic_cw				; ...and the right one: cw+1 spanned - 2 edges = cw-1
++	lda .pic_h
+	sta .pic_ch
 	lda #0
 	sta .pic_row
 .pic_erase_row
