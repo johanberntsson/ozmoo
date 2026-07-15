@@ -2025,7 +2025,18 @@ z_ins_window_style
 }
 	ldx #0
 	jsr window_from_operand
+	; the operation operand is optional and the operand array keeps stale
+	; values between instructions: Journey styles window 0 with two operands
+	; right after a three-operand window_size, whose width read as operation
+	; 3 (xor) and switched all of window 0's attributes off, so its intro
+	; text neither wrapped nor scrolled. A missing operation means 0 (set).
+	ldx #0
+	lda z_operand_count
+	cmp #3
+	bcc .ws_have_operation
 	ldx z_operand_value_low_arr + 2
+.ws_have_operation
+	cpx #0
 	bne +
 	; set to these settings
 	lda z_operand_value_low_arr + 1

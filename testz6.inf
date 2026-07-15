@@ -79,6 +79,14 @@ Array s3tab -> 66;
 	@erase_window 1;
 	print "this is another long text that needs to be wrapped^";
 
+	! --- window_style with two operands: the operation defaults to 0 (set).
+	! Journey styles window 0 this way right after window_size, whose third
+	! operand was still in the operand array; reading it as the operation
+	! xor'ed every attribute off and Journey's intro stopped wrapping.
+	@window_size 1 hh ww;
+	@window_style 1 15;
+	print "a bare window_style must keep wrapping^";
+
 	! --- print_form ---
 	print "print_form:^";
 	@print_form formtable;

@@ -1,5 +1,38 @@
 Known bugs
 ----------
+FIXED (July 2026): Journey's intro text did not wrap - each paragraph printed
+one truncated line (the todo note "intro lines truncate around column 71"),
+on every target. Journey sets up window 0 with a two-operand
+"window_style window flags" (routine 477c in txd: the style defaults to 15,
+all attributes on) immediately after a three-operand window_size - and Ozmoo
+read the absent operation operand raw from the operand array, which is not
+cleared between instructions, so window_size's width was still there. A
+nonzero leftover fell into the xor branch: 15 xor 15 = 0, and window 0 lost
+wrapping, scrolling and buffering in one stroke. z_ins_window_style now
+checks z_operand_count like set_margins does (a missing operation means 0 =
+set). The same audit found every other v6 opcode with optional operands
+already checks the count (.pic_place_cursor, set_cursor, set_colour,
+print_table). testz6 gained the exact pattern (window_size then a bare
+two-operand window_style, then a line that must wrap) and matches dfrotz.
+Verified: the MEGA65 text build wraps the intro at sfrotz's exact break
+points, and the X16 pics build likewise.
+
+FIXED (July 2026), found with the same Journey screens: the horizontal bar
+of its layout - the band the headers "The Party" and "Individual Commands"
+sit in - was missing on the graphics builds (empty space between the
+headers). On interpreter 6 (IBM, what the pics builds report) Journey has no
+font 3, so it draws that band the way Arthur draws its parser message: read
+the window pair (get_wind_prop -3, 11), set_colour swapped, then ERASE_LINE
+(routine 5058) - and s_erase_line filled plain spaces, ignoring
+s_colour_swap, unlike erase_window and s_delete_cursor which already OR it
+in. All three of its branches (the shared C64/Plus4/MEGA65/X16 loop, the
+C128 40-column loop and the VDC blit) now fill reversed spaces under a swap.
+The C128 40-column loop had to hoist the fill character out of the loop to
+keep a branch in range. Verified on the X16 pics build: the band renders
+solid with the header text knocked out, like the MS-DOS layout, and the
+intro screen matches the reference; the C64 testz6 screen is byte-identical
+to the pre-change build (testz6 never swaps colours).
+
 FIXED (July 2026), the follow-up pair to the parser-message fix below, found
 by comparing against sfrotz (z6games/z6specialmessage.png):
 1. Printing the message used to raise a [More] prompt. Arthur's message
@@ -869,8 +902,11 @@ neither is a regression of that work):
   changes (more divider rows) but the glyphs stay garbage, so the divider
   codes are Infocom character graphics on every interpreter and need real
   rendering -- on the full colour screen a small set of box-drawing tiles
-  would do it. The intro lines also truncate around column 71, which may
-  share the too-small-width root cause with the squished headers below.
+  would do it. (On the pics builds, which report IBM, Journey uses no font 3
+  at all - reverse-video spaces and erase_line bands instead - so those now
+  render correctly; the font 3 glyphs remain open for the text builds.)
+  The intro truncation that used to sit beside this is FIXED (the
+  two-operand window_style, see the top of this file).
 - The "squished header" family: Journey prints "The PartyIndividual
   Commands" the way Arthur squishes "ChurchyardSt Anne's Day, Compline".
   Same signature at 40 and 80 columns, so one of our query opcodes feeds

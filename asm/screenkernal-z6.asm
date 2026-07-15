@@ -1938,9 +1938,12 @@ s_erase_line
 	bit COLS_40_80
 	bmi .col80_5
 	; 40 columns, use VIC-II screen
+	lda #$20
+	ora s_colour_swap ; swapped colours erase to a field of the glyph colour
+	tax
 -	cpy s_screen_width
 	bcs .done_erasing
-	lda #$20
+	txa
 	sta (zp_screenline),y
 	+clear_cell_high_byte
 	lda s_colour
@@ -1966,6 +1969,7 @@ s_erase_line
 	ldx #VDC_DATA_LO
 	jsr VDCWriteReg
 	lda #$20
+	ora s_colour_swap ; swapped colours erase to a field of the glyph colour
 
 	ldx #VDC_DATA
 	jsr VDCWriteReg
@@ -2056,6 +2060,8 @@ s_erase_line
 	lda #$20
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
+} else {
+	ora s_colour_swap ; swapped colours erase to a field of the glyph colour
 }
 !ifdef TARGET_X16 {
     sta VERA_data0

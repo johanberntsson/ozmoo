@@ -120,6 +120,9 @@ JOURNEY_BLORB = $(Z6GAMES)/$(JOURNEY).blb
 journey-pics:
 	ruby make.rb -s -t:mega65 -fcm -pics $(JOURNEY_BLORB) $(Z6GAMES)/$(JOURNEY).z6
 
+journey-mega65:
+	ruby make.rb -s -t:mega65 $(Z6GAMES)/$(JOURNEY).z6
+
 c64:
 	ruby make.rb -s examples/dejavu.z3
 
