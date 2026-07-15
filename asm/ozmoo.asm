@@ -111,6 +111,17 @@
 	}
 }
 
+; Targets whose video hardware gives every text cell its own background colour
+; render each z6 window's background directly (property 11) instead of the
+; reverse-video fake the C64/Plus4/VDC fall back to for the swap case. The X16
+; (VERA's per-cell colour byte, high nybble = background) does; the MEGA65 full
+; colour screen will join once the VIC-IV per-cell background is wired.
+!ifdef Z6 {
+	!ifdef TARGET_X16 {
+		Z6_WINDOW_BG = 1
+	}
+}
+
 !ifdef TARGET_C64 {
 	HAS_SID = 1
 	!ifdef SLOW {

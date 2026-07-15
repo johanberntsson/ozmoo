@@ -349,6 +349,31 @@ VERAPrintChar
 	ldy .stored_x_or_y
     rts
 
+!ifdef Z6_WINDOW_BG {
+x16_apply_window_colour
+	; Point the live VERA colour (vera_composite_colour = background in the high
+	; nybble, foreground in the low) at the current window's colour pair
+	; (window_colour, property 11: background high nybble, foreground low, as
+	; z-colour numbers). Called on set_colour and whenever the current window
+	; changes, so every cell printed or erased carries that window's own
+	; background - the per-window background the reverse-video fake stood in for.
+	ldx current_window
+	lda window_colour,x
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda zcolours,x		; z-colour -> VERA colour
+	jsr VERASetBackgroundColour
+	ldx current_window
+	lda window_colour,x
+	and #$0f
+	tax
+	lda zcolours,x
+	jmp VERASetForegroundColour
+}
+
 ; VERAPrintColour
 	; pha
 	; sty .stored_x_or_y
@@ -2666,6 +2691,7 @@ s_track_colours
 	lda .stc_pair
 	sta window_colour,x
 !ifndef Z6_ECM_MODE {
+!ifndef Z6_WINDOW_BG {
 	; a swap must be exact: the new foreground is the screen background
 	; and the new background is the old foreground
 	and #$0f
@@ -2700,6 +2726,7 @@ s_track_colours
 	sta s_bg_zcolour
 +
 }
+}
 	rts
 .stc_pair	!byte 0
 .stc_nybble	!byte 0
@@ -2714,6 +2741,15 @@ z_ins_set_colour
 
 !ifdef Z6 {
 	jsr s_track_colours	; the window's colour pair (property 11)
+!ifdef Z6_WINDOW_BG {
+	; per-cell hardware backgrounds: apply the window's real fg/bg (both from
+	; window_colour, resolved by s_track_colours) and let every cell carry it,
+	; instead of the reverse-video swap fake. The cursor follows the foreground.
+	jsr x16_apply_window_colour
+	lda s_colour
+	sta current_cursor_colour
+	rts
+}
 !ifndef Z6_ECM_MODE {
 	lda s_colour_swap
 	beq +

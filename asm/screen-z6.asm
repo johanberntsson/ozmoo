@@ -2986,6 +2986,9 @@ z_ins_set_window
 !ifdef Z6_ECM_MODE {
 	jsr ecm_update_bits ; print in the new window's background colour
 }
+!ifdef Z6_WINDOW_BG {
+	jsr x16_apply_window_colour ; each window keeps its own background
+}
 	jsr restore_cursor ; each window keeps its own cursor
 	jmp start_buffering
 
@@ -3101,6 +3104,9 @@ init_window_colours
 	sta s_colour_swap
 	lda #BGCOL
 	sta s_bg_zcolour
+}
+!ifdef Z6_WINDOW_BG {
+	jsr x16_apply_window_colour ; window 0's default background, ready to print
 }
 	rts
 

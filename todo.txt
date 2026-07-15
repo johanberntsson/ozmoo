@@ -474,8 +474,32 @@ X16 all scroll the window and leave the pattern around it -- above, below and
 on both sides of every one of its rows -- untouched. testz6 itself lays out
 its two windows correctly at 80x60, and Zork Zero boots and lays out its
 status window. The [More] prompt lands on the window's bottom right corner.
-Still open for the X16: per-window background colours (VERA gives every cell
-its own, as on the MEGA65).
+DONE for the X16: per-window background colours (July 2026). VERA gives every
+text cell its own background (the colour byte's high nybble), so each z6 window
+now renders its real background colour (property 11) instead of the reverse-
+video swap fake the C64/Plus4/VDC still use. A new build flag Z6_WINDOW_BG
+(ozmoo.asm, set for TARGET_X16) turns the fake off (s_track_colours no longer
+sets s_colour_swap) and instead keeps the live VERA colour
+(vera_composite_colour = background high nybble | foreground low) pointed at the
+current window's pair through x16_apply_window_colour, called from
+z_ins_set_colour, z_ins_set_window (each window keeps its own background) and at
+init. Because the colour byte travels with the cell, the background fills on
+erase and survives scrolling - the two bugs the fake had. On the pics build a
+black window background (VERA colour 0) is transparent, so text over a picture
+still shows it; a coloured window background is opaque, as it should be.
+Verified in play (Johan): Journey's command menu now highlights the selected
+item and is usable; Shogun's start screen no longer flickers between a white
+reverse field and white-on-black through scrolling ("no colour switches"). The
+Journey selected-command highlight and the Shogun white-window bug listed
+elsewhere were both this - fixed as a consequence.
+Still open: the MEGA65 full colour screen (Z6_FCM_MODE) does the same in
+principle (the VIC-IV gives every cell its own colour) but is not yet wired to
+Z6_WINDOW_BG - it still uses the reverse-video fake. Extending Z6_WINDOW_BG to
+the MEGA65 needs the FCM per-cell background mechanism sorted out (the colour
+RAM's odd byte is the 8-bit foreground; the background for a 1bpp text glyph
+comes from elsewhere - to be investigated). ECM (C64) keeps its own four-
+register scheme. C128 VDC and Plus/4 have no per-cell background hardware, so
+they keep the reverse-video fake.
 
 DONE: pictures on the X16 (-pics without -fcm; make z6-pics-x16 /
 arthur-pics-x16, and the other three games have targets too). The design is
