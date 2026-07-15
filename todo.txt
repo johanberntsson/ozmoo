@@ -560,6 +560,46 @@ drive, and the load continues into the second disk's pictures.
 
 Journey is the next size up to try (more pictures still).
 
+IDEA, future consideration: a single MEGA65 D65 disk instead of picture-disk
+swapping. The MEGA65's HD-floppy image format (.d65) holds roughly double a
+d81 - about 1.6 MB for a standard HD floppy (the F011 controller and the
+image format can express larger, variable geometries, ~2.7 MB and up in the
+64-sectors x 85-tracks "superfloppy" layout, but the numbers are not cleanly
+pinned down publicly and the format has moved over time). One d65 would fit
+Zork Zero's two picture disks (and probably Journey's), removing the swap
+prompt AND the need for a second drive: on real hardware the swap exists only
+because most machines have just the internal drive (device 8), and our "two
+drives then swap" logic (pic_load_all) is the fallback for that.
+
+Why this is promising: on the MEGA65 the KERNAL/HYPPO and CBDOS already read
+d65 through the standard file OPEN/LOAD path (the hypervisor and freezer gained
+.d65 support years ago), so Ozmoo's disk.asm would likely need little more than
+dropping the per-disk grouping and the swap prompt - the reads themselves go
+through the same DOS. The directory would need to hold all ~396 files on one
+disk; the d81's ~296-file limit was the second reason for two disks (separate
+from the 800 KB capacity), so confirm the d65 directory chain actually scales
+before assuming one disk is enough.
+
+Two hard blockers for OUR workflow, which is why this is future-only:
+  1. xemu does NOT mount d65 (it is a TODO in xemu, not implemented - lgblgblgb
+     /xemu#140). Our entire MEGA65 test path is headless xemu, so we could not
+     test a d65 build at all, headless or windowed, without real hardware.
+  2. VICE's c1541 cannot CREATE d65 (it knows d64/d71/d81/d80/d82/d90 only).
+     make.rb's whole disk-building pipeline is c1541, so we would have to write
+     a d65 authoring tool - a d65 variant of pics2asm/build_picture_disks that
+     lays out the MEGA65 BAM and directory itself, or drive mega65_ftp / the
+     MEGA65 tools. The format is only semi-documented (c65gs blog, mega65-core),
+     which makes a from-scratch writer real work.
+
+Estimate: feasible on real hardware and genuinely nicer there (one disk, one
+drive, no swap), but currently impractical to build or test with our tooling
+until both xemu-mount and a Linux d65 writer exist. Worth revisiting when xemu
+adds d65, or if a maintained d65 creation tool appears. A closer-in alternative
+that needs no new format is to mirror the X16: load MEGA65 pictures straight
+from the SD card on demand (as pictures-x16.asm does from SD), bypassing d81
+containers entirely - that reuses the on-demand-load design we already have and
+sidesteps both blockers, at the cost of MEGA65 SD/HYPPO access code.
+
 
 The plan for z6 on the MEGA65
 -----------------------------
