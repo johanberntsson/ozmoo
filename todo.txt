@@ -507,7 +507,16 @@ Still open for the X16 pictures screen:
   centres scenes at odd columns, so implement the half-cell path: bake
   boundary tiles from two art-cell halves (and erase must preserve the
   neighbour's half in a shared boundary cell instead of skipping it).
-- erase_line does not clear layer 0 (erase_window and erase_picture do).
+- erase_line clears layer 0 now (July 2026): z_ins_erase_line calls
+  pic_erase_line_cells (pictures-x16.asm) for the erased run on the cursor's
+  row, zeroing the whole map cells it covers (a text row is a map row, a text
+  column is map column * 2), so a picture behind erased text no longer shows
+  through - as erase_window/erase_picture already did. Only whole cells clear;
+  a boundary half-cell of an odd start/end column survives, the same rule
+  pic_erase_win_rect keeps. Only VERA port 1 is touched, so the screen code's
+  port 0 is undisturbed. Verified headless: with picture 4 drawn over window 0
+  and erase_line run on its first line, that row's map cells cleared to tile 0
+  while the row below survived, and the odd-column boundary cell was kept.
 - The on-demand load reads with CHRIN a byte at a time, like the [ZCODE]
   loader; if a first draw feels slow on real hardware, switch to MACPTR
   block reads.

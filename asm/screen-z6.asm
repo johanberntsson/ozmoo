@@ -2729,6 +2729,16 @@ z_ins_erase_line
 	bcs .el_clipped
 	sta .el_count
 .el_clipped
+!ifdef Z6_PICTURES {
+!ifdef TARGET_X16 {
+	; also clear the layer 0 picture cells under the erased run, so a picture
+	; behind the text does not survive the erase (as erase_window already does)
+	lda zp_screenrow
+	ldx zp_screencolumn
+	ldy .el_count
+	jsr pic_erase_line_cells
+}
+}
 	; walk the cells with s_delete_cursor, each target's space-writer (it
 	; wants the column in y), and put the cursor back where it was
 	lda zp_screencolumn

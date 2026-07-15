@@ -1680,6 +1680,56 @@ pic_scroll_win_up
 .psu_dst    !byte 0
 .psu_bottom !byte 0
 
+pic_erase_line_cells
+	; a = text row, x = start text column, y = count of text columns. Clear the
+	; whole layer 0 map cells the run [x, x + y) covers, so erase_line leaves no
+	; picture showing on that row - erase_window clears its rectangle the same
+	; way. A map cell spans two text columns, so only the whole cells inside the
+	; run die; the boundary half-cell of an odd start or end column survives, as
+	; pic_erase_win_rect's do. Only port 1 is touched, so the screen code's
+	; port 0 is left exactly as it was.
+	sta .pelc_row
+	stx .pelc_start
+	tya
+	clc
+	adc .pelc_start			; end column (exclusive) = start + count
+	lsr						; first map column past the run
+	sta .pelc_end
+	lda .pelc_start
+	clc
+	adc #1
+	lsr						; first whole map column inside the run
+	sta .pelc_c0
+	lda .pelc_end
+	sec
+	sbc .pelc_c0
+	beq .pelc_done			; no whole cells inside: nothing to clear
+	bcc .pelc_done
+	sta .pelc_cw
+	lda #0
+	sta .pic_y				; .pic_map_row_addr adds .pic_y to .pic_row
+	lda .pelc_c0
+	sta .pic_lx
+	lda .pelc_row
+	sta .pic_row
+	ldy #1
+	jsr .pic_map_row_addr	; port 1 -> the run's first whole map cell
+	ldx .pelc_cw
+	lda #0					; transparent tile 0, palette offset 0
+-	sta VERA_data1
+	sta VERA_data1
+	dex
+	bne -
+.pelc_done
+	stz VERA_ctrl			; leave port 0 selected, as the screen code expects
+	rts
+
+.pelc_row   !byte 0
+.pelc_start !byte 0
+.pelc_end   !byte 0
+.pelc_c0    !byte 0
+.pelc_cw    !byte 0
+
 pic_erase_screen
 	; The whole screen is being cleared: blank the layer 0 map and start the
 	; tile store over, since nothing on it is shown any more.
