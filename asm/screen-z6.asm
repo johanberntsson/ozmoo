@@ -14,8 +14,13 @@
     ; convert from/to the 1-based coordinates the z-machine uses
 	lda #0
 	sta current_window
-	ldx #(17 * 8) - 1 ; clear all 16 window property arrays,
--   sta window_y,x    ; plus the line count's high bytes behind them
+	; clear all 16 window property arrays, plus the line count's and the
+	; newline routine's high bytes behind them: 18 * 8 = 144 bytes, done in
+	; two halves because an index past 127 looks negative to bpl (the old
+	; single loop stopped after one byte, which only a restart ever noticed)
+	ldx #(9 * 8) - 1
+-	sta window_y,x
+	sta window_y + 9 * 8,x
 	dex
 	bpl -
 	ldx #6
@@ -78,6 +83,10 @@ window_linecount       !byte 0,0,0,0,0,0,0,0
 ; be a bare byte. This is its high byte; it lives past the 16 properties,
 ; which keeps the window_y + 8 * property indexing undisturbed.
 window_linecount_hi    !byte 0,0,0,0,0,0,0,0
+; Property 8, the newline interrupt routine, is a packed address - a word,
+; like the line count. The low byte sits in the property slot above; this is
+; its high byte, placed here for the same reason as window_linecount_hi.
+window_newline_routine_hi !byte 0,0,0,0,0,0,0,0
 
 !ifdef Z6_PICTURES {
 !source "../temp/pictures.asm"
@@ -1918,6 +1927,11 @@ z_ins_set_margins
 	!pet "z_ins_set_margins ",0
 	jsr newline
 }
+	; pending buffered text belongs inside the old margins, and the buffer's
+	; start column must move with the cursor below: Zork Zero sets the left
+	; margin beside its drop-cap initial and prints straight away, and the
+	; stale start column put the paragraph's first line over the picture
+	jsr printchar_flush
 	ldy current_window
 	lda z_operand_count
 	cmp #3
@@ -1956,7 +1970,8 @@ z_ins_set_margins
 .sm_inside
 	cpy current_window
 	bne +
-	jmp restore_cursor
+	jsr restore_cursor
+	jmp start_buffering ; the buffer restarts at the (possibly moved) cursor
 +	rts
 
 .sm_left   !byte 0
@@ -2129,9 +2144,14 @@ z_ins_get_wind_prop
 	lsr
 	jmp .gwp_store_high_in_a
 +	cmp #15
-	bne .gwp_store
+	bne +
 	; the line count (property 15) is a signed word (8.8.3.2.6)
 	lda window_linecount_hi,y
+	jmp .gwp_store_high_in_a
++	cmp #8
+	bne .gwp_store
+	; the newline interrupt routine (property 8) is a packed address, a word
+	lda window_newline_routine_hi,y
 	jmp .gwp_store_high_in_a
 .gwp_cursor_x
 	; property 5 (x cursor): stored absolute, return window-relative 1-based.
@@ -2406,6 +2426,13 @@ z_ins_put_wind_prop
 	ldx .pwp_window
 	lda z_operand_value_high_arr + 2
 	sta window_linecount_hi,x
+	rts
++	cmp #8
+	bne +
+	; the newline interrupt routine (property 8) is a packed address, a word
+	ldx .pwp_window
+	lda z_operand_value_high_arr + 2
+	sta window_newline_routine_hi,x
 +	rts
 
 .pwp_window !byte 0
@@ -3117,8 +3144,126 @@ vera_hide_more
 
 
 
-increase_num_rows
+!ifdef ZORK0_MSDOS_QUIRK {
+nl_interrupt_pending !byte 0
+nl_fire_pending
+	; the countdown ran out earlier in this newline; now that the cursor
+	; sits on the new line, call the routine (8.8.3.2.2.1)
+	lda nl_interrupt_pending
+	beq +
+	lda #0
+	sta nl_interrupt_pending
 	ldx current_window
+	jmp fire_newline_interrupt
++	rts
+}
+
+fire_newline_interrupt
+	; x = the window whose interrupt countdown just reached zero. Call the
+	; routine whose packed address is window property 8, exactly like a
+	; timed-input interrupt (stack_call_routine mode $80 + z_execute). We
+	; are in the middle of printing, so everything the print relies on is
+	; saved around the call: the string position and zchar decode state,
+	; the operand array (the nested instructions rewrite it), the z_temp
+	; scratch, and the print buffer's indices - neutralized so a nested
+	; printchar_flush (set_margins does one now) cannot reprint the line
+	; being wrapped. The routine must not print (8.8.3.2.2); it exists to
+	; meddle with margins, which is all Zork Zero's and Shogun's do.
+	lda window_newline_routine,x
+	sta .nli_routine
+	lda window_newline_routine_hi,x
+	sta .nli_routine + 1
+	ora .nli_routine
+	beq .nli_done ; no routine to call
+	ldx #.nli_zp_bytes - 1
+-	ldy .nli_zp_list,x
+	lda $0000,y
+	sta .nli_save,x
+	dex
+	bpl -
+	lda first_buffered_column
+	sta .nli_first
+	lda buffer_index
+	sta .nli_index
+	lda first_buffered_column
+	sta buffer_index ; an empty buffer: a nested flush is a no-op
+	; call the routine and run it to completion, like text.asm's timers
+	lda .nli_routine
+	sta z_operand_value_low_arr
+	lda .nli_routine + 1
+	sta z_operand_value_high_arr
+	lda #z_exe_mode_return_from_read_interrupt
+	ldx #0
+	ldy #0
+	jsr stack_call_routine
+	jsr z_execute
+	ldx #.nli_zp_bytes - 1
+-	ldy .nli_zp_list,x
+	lda .nli_save,x
+	sta $0000,y
+	dex
+	bpl -
+	lda .nli_first
+	sta first_buffered_column
+	lda .nli_index
+	sta buffer_index
+!ifdef TARGET_X16 {
+	jsr x16_bank_z_address ; z_address is restored: rebank, as print_addr does
+}
+.nli_done
+	rts
+
+.nli_zp_list
+	!byte z_operand_count
+	!byte z_operand_value_high_arr + 0, z_operand_value_high_arr + 1
+	!byte z_operand_value_high_arr + 2, z_operand_value_high_arr + 3
+	!byte z_operand_value_high_arr + 4, z_operand_value_high_arr + 5
+	!byte z_operand_value_high_arr + 6, z_operand_value_high_arr + 7
+	!byte z_operand_value_low_arr + 0, z_operand_value_low_arr + 1
+	!byte z_operand_value_low_arr + 2, z_operand_value_low_arr + 3
+	!byte z_operand_value_low_arr + 4, z_operand_value_low_arr + 5
+	!byte z_operand_value_low_arr + 6, z_operand_value_low_arr + 7
+	!byte zchar_triplet_cnt
+	!byte packed_text, packed_text + 1
+	!byte alphabet_offset
+	!byte escape_char, escape_char_counter
+	!byte abbreviation_command
+	!byte z_address, z_address + 1, z_address + 2
+	!byte z_address_temp
+	!byte zchars, zchars + 1, zchars + 2
+	!byte z_temp + 0, z_temp + 1, z_temp + 2,  z_temp + 3
+	!byte z_temp + 4, z_temp + 5, z_temp + 6,  z_temp + 7
+	!byte z_temp + 8, z_temp + 9, z_temp + 10, z_temp + 11
+	!byte last_break_char_buffer_pos
+.nli_zp_bytes = * - .nli_zp_list
+
+.nli_save    !fill .nli_zp_bytes, 0
+.nli_routine !byte 0, 0
+.nli_first   !byte 0
+.nli_index   !byte 0
+
+increase_num_rows
+	; 8.8.3.2.2: a nonzero interrupt countdown is decremented on each
+	; new-line, and when it reaches zero the routine in property 8 is called
+	; before printing resumes - Zork Zero and Shogun roll their text around
+	; a picture this way, resetting the margins from the routine once the
+	; picture's rows are past.
+	ldx current_window
+	lda window_newline_countd,x
+	beq +
+	dec window_newline_countd,x
+	bne +
+!ifdef ZORK0_MSDOS_QUIRK {
+	; interpreter 6 running Zork Zero r393.890714 must fire only after the
+	; cursor has moved to the new line (8.8.3.2.2.1) - the game sets its
+	; countdown one lower on this interpreter and expects the late margins
+	lda #1
+	sta nl_interrupt_pending
+} else {
+	jsr fire_newline_interrupt
+	ldx current_window
+}
++
 	lda window_attributes,x
 	and #WIN_BUFFERED
 	beq .inr_done ; An unbuffered window never shows [More]
@@ -3629,6 +3774,9 @@ printchar_buffered
 	lda #$0d
 	jsr s_printchar
 	jsr start_buffering
+!ifdef ZORK0_MSDOS_QUIRK {
+	jsr nl_fire_pending ; the deferred firing point: the new line has begun
+}
 	jmp .printchar_done
 .check_break_char
 	ldy buffer_index
@@ -3691,7 +3839,7 @@ printchar_buffered
 	ldx first_buffered_column
 	cpx .buffer_left
 	beq .print_40_2
-	jmp .move_remaining_chars_to_buffer_start
+	jmp .line_completed
 .print_40_2	
 	ldy max_chars_on_line
 .store_break_pos
@@ -3719,6 +3867,22 @@ printchar_buffered
 	pla
 	sta s_reverse
 
+.line_completed
+	; the line is done: count it, and fire any newline interrupt before the
+	; carried-over text is placed - the interrupt routine may move the
+	; margins (Shogun, Zork Zero), and the carried text belongs inside the
+	; new ones. x holds the carry's source position in the buffer.
+	txa
+	pha
+	jsr increase_num_rows
+	ldx current_window ; the margins may have moved: recompute the edges
+	jsr s_window_left_edge
+	sta .buffer_left
+	jsr s_window_right_edge
+	sta .buffer_edge
+	pla
+	tax
+
 .move_remaining_chars_to_buffer_start
 	; Skip initial spaces, move the rest of the line back to the window's left edge and update indices
 	ldy .buffer_left
@@ -3742,8 +3906,8 @@ printchar_buffered
 	sty buffer_index
 	lda .buffer_left
 	sta first_buffered_column
-	; more on the same line
-	jsr increase_num_rows
+	; more on the same line (the line count moved up to .line_completed,
+	; where the newline interrupt can still shape the carried text)
 	lda last_break_char_buffer_pos
 	cmp .buffer_edge
 	bcs +
@@ -3751,6 +3915,9 @@ printchar_buffered
 	jsr s_printchar
 +   ldy #0
 	sty last_break_char_buffer_pos
+!ifdef ZORK0_MSDOS_QUIRK {
+	jsr nl_fire_pending ; the deferred firing point: the new line has begun
+}
 .printchar_done
 	pla
 	tay

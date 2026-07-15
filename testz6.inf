@@ -96,6 +96,18 @@ Array s3tab -> 66;
 	@erase_line 5; ! four cells: 2345 go, 6789 stay
 	print "ab^"; ! ...and lands right after the cursor: 01ab  6789
 
+	! --- the newline interrupt (8.8.3.2.2): property 9 counts new-lines and
+	! property 8 is called when it hits zero - Zork Zero rolls its text
+	! around the drop-cap initials this way, releasing the margins from the
+	! routine. Two newlines at margin 4, then NLRelease frees the margin.
+	@put_wind_prop 1 8 NLRelease;
+	@get_wind_prop 1 8 -> w; ! the routine address is a word: must read back
+	if (w == NLRelease) print "nl prop ok^"; else print "nl prop BAD^";
+	@set_margins 4 0 1;
+	@put_wind_prop 1 9 2;
+	print "aa^bb^cc^";
+	@set_margins 0 0 1; ! (already released; must be a no-op)
+
 	! --- print_form ---
 	print "print_form:^";
 	@print_form formtable;
@@ -176,4 +188,11 @@ Array s3tab -> 66;
 #endif;
 	print "done!^";
 ];
+
+#iftrue (#version_number == 6);
+[ NLRelease;
+	! the newline interrupt: free window 1's margins (must not print)
+	@set_margins 0 0 1;
+];
+#endif;
 

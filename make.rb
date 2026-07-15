@@ -1226,6 +1226,14 @@ def build_interpreter()
 	optionalsettings = ""
 	optionalsettings += " -DSPLASHWAIT=#{$splash_wait}" if $splash_wait
 	optionalsettings += " -DTERPNO=#{$interpreter_number}" if $interpreter_number
+	# Zork Zero r393.890714 on interpreter 6 expects the MSDOS newline-interrupt
+	# order (z-spec 8.8.3.2.2.1): the game sets its drop-cap countdown one lower
+	# on that interpreter and wants the routine called after the cursor has
+	# moved to the new line. The spec limits this to exactly this story.
+	if $interpreter_number == 6 and $story_file_data[2..3].unpack("n")[0] == 393 and
+			$story_file_data[0x12..0x17] == "890714"
+		optionalsettings += " -DZORK0_MSDOS_QUIRK=1"
+	end
 	optionalsettings += " -DNOSECTORPRELOAD=1" if $no_sector_preload
 	optionalsettings += " -DSCROLLBACK_RAM_PAGES=#{$scrollback_ram_pages}" if $scrollback_ram_pages
 	optionalsettings += " -DFREE_SAVE_BLOCKS=#{$free_blocks_for_saves}" if $free_blocks_for_saves

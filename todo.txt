@@ -1,6 +1,64 @@
 Known bugs
 ----------
-FIXED (July 2026), the third Journey find: selecting "Start Game" left the
+FIXED (July 2026), pending play-test on the pics build: Zork Zero's drop-cap
+paragraphs. The illuminated initial was overwritten by the paragraph's first
+line, the first line wrapped a word too late (the "d" of Flathead landed on
+the screen's rightmost column), and the text never came back to the left
+edge under the picture. Three causes, all in the same dance the game does
+around routine 1c9a2 (txd):
+1. set_margins did not restart the print buffer, so the paragraph printed
+   from the column captured before the margin moved - the first line began
+   at the picture's left edge (and the buffered-wrap bookkeeping, fed a
+   start column left of .buffer_left, produced the stray "d"). set_margins
+   now flushes and restarts buffering around the cursor move, like
+   set_cursor does.
+2. Window property 8/9 - the newline interrupt - was not implemented: the
+   game counts the picture's rows in the countdown (property 9) and resets
+   the margins from the routine (property 8) when they are past. Property 8
+   is a packed address, a word, so it gets a high-byte array beside
+   window_linecount_hi (the byte slot used to truncate it silently).
+   increase_num_rows now decrements the countdown on each completed line
+   and calls the routine like a timed-input interrupt (stack_call_routine
+   mode $80 + z_execute), saving everything the in-flight print relies on
+   (z_address and the zchar state, the operand array, z_temp, the buffer
+   indices - neutralized so a nested set_margins flush cannot reprint the
+   line being wrapped). Shogun uses the same mechanism for its border
+   pictures. The wrap path fires the interrupt before the carried-over
+   word is placed and recomputes the margins for it (spec order); testz6
+   has the case and matches dfrotz on the C64.
+3. z-spec 8.8.3.2.2.1: interpreter 6 running exactly Zork Zero r393.890714
+   must fire the interrupt only after the cursor has moved to the new line
+   - the game sets its countdown one lower on that interpreter. make.rb
+   defines ZORK0_MSDOS_QUIRK for that story + TERPNO combination (our pics
+   builds), and the firing point defers accordingly. The text builds claim
+   interpreter 8, where the game uses the standard order - both orders
+   stay exercised.
+   Verified: testz6's newline-interrupt and margin cases match dfrotz on
+   the C64; Shogun's X16 menu page still matches the reference; Arthur,
+   Journey unaffected (neither uses the interrupt). The MEGA65 zork0-pics
+   build compiles and awaits the windowed play-test (headless stops at the
+   picture-disk swap prompt; the drop-cap pillars are on disk 2).
+
+OPEN, found by the same work: the X16 pics builds are out of low RAM. The
+interpreter + z-stack must end below $5f00, where the story's low 16 KB
+slice loads (hardcoded in x16_prepare_bankmem's "adc #$5f / cmp #64", the
+[ZCODE] loader and make.rb's checks). shogun-pics-x16 and testz6 pics
+still fit; journey-pics-x16 is ~120 bytes over (it crossed the line with
+this session's fixes), arthur-pics-x16 ~500 over and zork0-pics-x16 ~1.8 KB
+over - the latter two were already over before this session (nothing
+rebuilds every target, so it went unnoticed; the last known-good X16 pics
+builds predate the mouse work). Two ways out, decide before more X16 work:
+- Move the story split: an 8 KB low slice at $7f00 instead of 16 KB at
+  $5f00 frees 8 KB of interpreter headroom for every X16 build and costs
+  one more banked-RAM story bank (banked reads cost the same cycles on the
+  X16). Touches ~6 asm sites (utilities, disk loader, the restore-time
+  "first 16 K may be corrupted" logic in ozmoo.asm) plus make.rb's 16384 /
+  0x5f00 arithmetic - best done as named constants in constants-x16.asm.
+- Or move the assembled-in picture index tables (pic_number/width/height,
+  rects: ~2 KB for Zork Zero) into a banked-RAM copy read through the
+  $a000 window; smaller blast radius, scales with the picture count, but
+  more fiddly code at every table access.
+A stopgap: -sp:3 shaves a stack page and lets journey-pics-x16 build today. selecting "Start Game" left the
 party-command window uncleared, so the updated list printed over the old one
 ("Enter" over "Background" read "Enterround"). Journey repaints each command
 cell with the v6 pixel form of erase_line - set_cursor, "erase_line G82"
