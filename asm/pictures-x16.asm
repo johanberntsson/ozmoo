@@ -50,6 +50,11 @@
 .pic_lx      !byte 0		; the picture's first layer 0 map column
 .pic_cols_left !byte 0		; cells left on the row being filled or erased
 .pic_vis     !byte 0		; how many of them are on screen (right clip)
+.pic_odd     !byte 0		; 1 if placed at an odd text column (boundary tiles)
+.bd_left     !byte 0,0		; boundary tile source: left art cell's index ($ffff none)
+.bd_right    !byte 0,0		; and the right art cell's
+.pfo_m       !byte 0		; the odd fill's map cell counter, 0..cw
+.pfo_vis     !byte 0		; cells of the odd row still on screen
 .pic_map     !byte 0,0,0	; where the cell map starts in the staging banks
 .pic_count   !byte 0,0		; a general 16 bit counter
 .pfc_lo      !byte 0		; a cell's tile index low byte while drawing
@@ -1045,6 +1050,326 @@ pic_load_all
 .pfc_done
 	rts
 
+; ---------------------------------------------------------------------------
+; Odd-column placement. A 16x8 tile spans two text columns, so a picture placed
+; at an odd text column is shifted half a tile right: each of the cw+1 map cells
+; it now spans shows the right half of one art cell beside the left half of the
+; next. These boundary tiles are baked fresh from the picture's own stored tiles
+; (their left/right 8-pixel halves), so no new picture data is needed - only up
+; to ~+1% more tiles than the even placement, since Arthur's art repeats
+; horizontally and the boundary patterns recur. A boundary cell with an opaque
+; tile behind it is composited exactly as the even path does.
+
+.pic_bake_boundary_buf
+	; Build a 16x8 boundary tile in .pcf_buf: the right half of the store tile
+	; .pic_slot+.bd_left (art pixels 4-7 = bytes 4-7 of each 8-byte store row)
+	; beside the left half of .pic_slot+.bd_right (bytes 0-3). A $ffff index means
+	; that half is transparent (zeroes). Returns x = the count of transparent (0)
+	; bytes, so the caller can skip compositing when the tile is fully opaque.
+	lda .bd_left + 1
+	cmp #$ff
+	bne .bbb_left
+	ldy #0					; left half transparent: zero buf bytes n*8+0..3
+-	lda #0
+	sta .pcf_buf,y
+	sta .pcf_buf + 1,y
+	sta .pcf_buf + 2,y
+	sta .pcf_buf + 3,y
+	tya
+	clc
+	adc #8
+	tay
+	cpy #64
+	bne -
+	beq .bbb_right			; always
+.bbb_left
+	lda .bd_left			; store tile = .pic_slot + .bd_left
+	clc
+	adc .pic_slot
+	sta .pic_tmp
+	lda .bd_left + 1
+	adc .pic_slot + 1
+	sta .pic_tmp + 1
+	lda .pic_tmp
+	ldx .pic_tmp + 1
+	ldy #0
+	jsr .pic_tile_addr		; port 0 -> the left source tile
+	ldy #0
+-	lda VERA_data0			; skip bytes 0-3 (the source's own left half)
+	lda VERA_data0
+	lda VERA_data0
+	lda VERA_data0
+	lda VERA_data0			; bytes 4-7 -> buf[row+0..3]
+	sta .pcf_buf,y
+	lda VERA_data0
+	sta .pcf_buf + 1,y
+	lda VERA_data0
+	sta .pcf_buf + 2,y
+	lda VERA_data0
+	sta .pcf_buf + 3,y
+	tya
+	clc
+	adc #8
+	tay
+	cpy #64
+	bne -
+.bbb_right
+	lda .bd_right + 1
+	cmp #$ff
+	bne .bbb_rtile
+	ldy #4					; right half transparent: zero buf bytes n*8+4..7
+-	lda #0
+	sta .pcf_buf,y
+	sta .pcf_buf + 1,y
+	sta .pcf_buf + 2,y
+	sta .pcf_buf + 3,y
+	tya
+	clc
+	adc #8
+	tay
+	cpy #68
+	bne -
+	beq .bbb_count			; always
+.bbb_rtile
+	lda .bd_right
+	clc
+	adc .pic_slot
+	sta .pic_tmp
+	lda .bd_right + 1
+	adc .pic_slot + 1
+	sta .pic_tmp + 1
+	lda .pic_tmp
+	ldx .pic_tmp + 1
+	ldy #0
+	jsr .pic_tile_addr		; port 0 -> the right source tile
+	ldy #4
+-	lda VERA_data0			; bytes 0-3 -> buf[row+4..7]
+	sta .pcf_buf,y
+	lda VERA_data0
+	sta .pcf_buf + 1,y
+	lda VERA_data0
+	sta .pcf_buf + 2,y
+	lda VERA_data0
+	sta .pcf_buf + 3,y
+	lda VERA_data0			; skip bytes 4-7 (the source's own right half)
+	lda VERA_data0
+	lda VERA_data0
+	lda VERA_data0
+	tya
+	clc
+	adc #8
+	tay
+	cpy #68
+	bne -
+.bbb_count
+	ldx #0					; count transparent (0) bytes
+	ldy #0
+-	lda .pcf_buf,y
+	bne +
+	inx
++	iny
+	cpy #64
+	bne -
+	rts
+
+.pic_fill_cells_odd
+	; The odd-placement equivalent of .pic_fill_cells: cw+1 boundary cells a row.
+	lda .pic_map
+	sta .pic_att
+	lda .pic_map + 1
+	sta .pic_att + 1
+	lda .pic_map + 2
+	sta .pic_att + 2
+	lda #0
+	sta .pic_row
+.pfo_row
+	lda .pic_row
+	clc
+	adc .pic_y
+	cmp #SCREEN_HEIGHT
+	bcc +
+	jmp .pfo_done
++	lda .pic_cw				; buffer this row's cw cell-map entries
+	asl
+	sta .pic_tmp
+	ldx #0
+-	phx
+	jsr .pic_att_next
+	plx
+	sta .pfc_rowbuf,x
+	inx
+	cpx .pic_tmp
+	bne -
+	ldy #0					; port 0 reads what is there, port 1 writes anew
+	jsr .pic_map_row_addr
+	ldy #1
+	jsr .pic_map_row_addr
+	lda #SCREEN_WIDTH / 2
+	sec
+	sbc .pic_lx				; cells from .pic_lx to the right edge
+	sta .pfo_vis
+	ldx #0					; x = 2 * m into .pfc_rowbuf
+	stz .pfo_m
+.pfo_cell
+	lda .pfo_vis
+	bne +
+	jmp .pfo_rowdone
++	dec .pfo_vis
+	lda .pfo_m				; left index = art cell m-1 (none when m = 0)
+	bne +
+	lda #$ff
+	sta .bd_left
+	sta .bd_left + 1
+	bra .pfo_getright
++	lda .pfc_rowbuf - 2,x
+	sta .bd_left
+	lda .pfc_rowbuf - 1,x
+	sta .bd_left + 1
+.pfo_getright
+	lda .pfo_m				; right index = art cell m (none when m = cw)
+	cmp .pic_cw
+	bcc +
+	lda #$ff
+	sta .bd_right
+	sta .bd_right + 1
+	bra .pfo_have
++	lda .pfc_rowbuf,x
+	sta .bd_right
+	lda .pfc_rowbuf + 1,x
+	sta .bd_right + 1
+.pfo_have
+	lda .bd_left + 1		; both halves transparent? leave the cell alone
+	and .bd_right + 1
+	cmp #$ff
+	bne .pfo_draw
+	ldy .pfo_m
+	lda #0
+	sta .pfo_drawn,y
+	lda VERA_data0			; keep what is under; both ports step
+	sta VERA_data1
+	lda VERA_data0
+	sta VERA_data1
+	jmp .pfo_next
+.pfo_draw
+	lda #0					; record which halves are opaque, for the text blank
+	ldy .bd_left + 1
+	cpy #$ff
+	beq +
+	ora #1					; left half opaque
++	ldy .bd_right + 1
+	cpy #$ff
+	beq +
+	ora #2					; right half opaque
++	ldy .pfo_m
+	sta .pfo_drawn,y
+	lda VERA_data0			; what is behind, for compositing
+	sta .pcf_under_lo
+	lda VERA_data0
+	sta .pcf_under_hi
+	phx
+	jsr .pfc_save_ports
+	jsr .pic_bake_boundary_buf	; -> .pcf_buf, x = transparent count
+	cpx #0
+	beq .pfo_write			; fully opaque: no compositing
+	lda .pcf_under_lo		; is there a tile behind? index != 0
+	sta .pic_tmp
+	lda .pcf_under_hi
+	and #3
+	ora .pic_tmp
+	beq .pfo_write			; nothing behind: our transparent pixels stay 0
+	jsr .pcf_build_xlat
+	jsr .pcf_composite_under
+.pfo_write
+	jsr .pcf_alloc_and_write	; -> .pcf_newcode
+	jsr .pfc_restore_ports
+	plx
+	lda .pcf_newcode_lo
+	sta VERA_data1
+	lda .pcf_newcode_hi
+	sta VERA_data1
+.pfo_next
+	inx
+	inx
+	inc .pfo_m
+	lda .pfo_m
+	cmp .pic_cw
+	beq .pfo_celljmp		; m == cw: the final boundary cell is still valid
+	bcs .pfo_rowdone		; m > cw: the row is done
+.pfo_celljmp
+	jmp .pfo_cell
+.pfo_rowdone
+	jsr .pfo_blank_text
+	inc .pic_row
+	lda .pic_ch
+	cmp .pic_row
+	beq .pfo_done
+	jmp .pfo_row
+.pfo_done
+	rts
+
+.pfo_blank_text
+	; Blank the text over the odd row's drawn boundary cells (two text cells
+	; each), leaving fully-transparent cells' text; .pfo_drawn was filled by the
+	; fill pass. The mirror of .pfc_blank_text for the cw+1 boundary cells.
+	lda #1
+	sta VERA_ctrl
+	jsr .pfc_text_addr
+	stz VERA_ctrl
+	jsr .pfc_text_addr
+	lda #SCREEN_WIDTH / 2
+	sec
+	sbc .pic_lx
+	sta .pfo_vis
+	stz .pfo_m
+.pfobt_cell
+	lda .pfo_vis
+	beq .pfobt_done
+	dec .pfo_vis
+	ldy .pfo_m
+	lda .pfo_drawn,y		; bit 0 = left half opaque, bit 1 = right half
+	sta .pic_tmp
+	and #1					; the left text cell sits over the tile's left half
+	beq .pfobt_lkeep
+	lda VERA_data0			; opaque half: blank (space, keep fg, clear bg)
+	lda #$20
+	sta VERA_data1
+	lda VERA_data0
+	and #$0f
+	sta VERA_data1
+	bra .pfobt_r
+.pfobt_lkeep
+	lda VERA_data0			; transparent half: keep the text background there
+	sta VERA_data1
+	lda VERA_data0
+	sta VERA_data1
+.pfobt_r
+	lda .pic_tmp
+	and #2					; the right text cell over the tile's right half
+	beq .pfobt_rkeep
+	lda VERA_data0
+	lda #$20
+	sta VERA_data1
+	lda VERA_data0
+	and #$0f
+	sta VERA_data1
+	bra .pfobt_next
+.pfobt_rkeep
+	lda VERA_data0
+	sta VERA_data1
+	lda VERA_data0
+	sta VERA_data1
+.pfobt_next
+	inc .pfo_m
+	lda .pfo_m
+	cmp .pic_cw
+	beq +					; m == cw still valid
+	bcs .pfobt_done
++	bra .pfobt_cell
+.pfobt_done
+	rts
+
+.pfo_drawn !fill 44, 0		; per-boundary-cell "was drawn" flags for one row
+
 .pfc_blank_text
 	; Blank the text cells over the row's written picture cells: a space
 	; with the background nybble cleared, so the cell is transparent and the
@@ -1191,7 +1516,16 @@ pic_load_all
 	bne +
 	rts
 +	jsr .pcf_build_xlat
-	lda .pcf_under_lo		; the tile that was behind us
+	jsr .pcf_composite_under	; fill our transparent pixels from the tile behind
+	jsr .pcf_alloc_and_write ; a fresh tile holds the composite; entry in .pcf_newcode
+	rts
+
+.pcf_composite_under
+	; Where .pcf_buf is transparent (0), take the pixel from the tile behind
+	; (.pcf_under), translated into our bank through .pcf_xlat (built by
+	; .pcf_build_xlat). Port 0 walks the underlying tile. Shared by the even and
+	; odd draw paths.
+	lda .pcf_under_lo
 	sta .pic_tmp
 	lda .pcf_under_hi
 	and #3
@@ -1214,7 +1548,14 @@ pic_load_all
 ++	iny
 	cpy #64
 	bne -
-	lda pic_next_tile		; allocate a fresh tile for the composite
+	rts
+
+.pcf_alloc_and_write
+	; Allocate a fresh store tile from pic_next_tile (wrapping at the store end,
+	; as .pic_alloc does), write the 64-byte .pcf_buf into it, and return its map
+	; entry in .pcf_newcode. Shared by the compositing (even) and the boundary
+	; (odd) draw paths.
+	lda pic_next_tile
 	sta .pcf_newcode_lo
 	lda pic_next_tile + 1
 	and #3
@@ -1389,16 +1730,22 @@ pic_load_all
 .pic_erase
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y,
 	; .pic_x: clear its layer 0 map cells back to the transparent tile 0.
-	; The text layer in front is left alone. Only cells the rectangle covers
-	; completely are cleared; a half-covered boundary cell (an odd column)
-	; keeps its tile, which may show a stale half-column. See todo.txt.
+	; The text layer in front is left alone. An odd-column picture was drawn
+	; across cw+1 boundary cells (.pic_fill_cells_odd), so it is erased across
+	; cw+1 too; the two edge cells are cleared whole, which is right when the
+	; picture stood on the window background (Arthur's scenes do) but would
+	; clip a neighbour sharing a boundary cell. See todo.txt.
 	; The size comes from the assembled-in tables, so erasing never has to
 	; load the picture from disk.
 	jsr .pic_size
 	lda .pic_w
 	lsr
 	sta .pic_cw
-	lda .pic_h
+	lda .pic_x
+	and #1
+	beq +
+	inc .pic_cw				; an odd picture spans one more (boundary) cell
++	lda .pic_h
 	sta .pic_ch
 	lda .pic_x
 	lsr
@@ -1469,10 +1816,15 @@ pic_load_all
 	jsr .pic_att_next
 	sta .pic_ntiles + 1
 
-	; the tile grid cannot express an odd text column yet: round it down
+	; A 16x8 tile spans two text columns, so an even .pic_x aligns with the
+	; tile grid and an odd one is placed half a tile right via boundary tiles
+	; (.pic_fill_cells_odd). Either way the first map column is .pic_x / 2.
 	lda .pic_x
 	lsr
 	sta .pic_lx
+	lda .pic_x
+	and #1
+	sta .pic_odd
 
 	; .pic_w/.pic_h in text cells, for .pic_gc's rectangle
 	lda .pic_cw
@@ -1540,7 +1892,10 @@ pic_load_all
 	bra -
 +
 	jsr .pic_copy_tiles
-	jmp .pic_fill_cells
+	lda .pic_odd
+	beq +
+	jmp .pic_fill_cells_odd
++	jmp .pic_fill_cells
 
 ; ---------------------------------------------------------------------------
 ; The text layer cannot bury a picture the way the MEGA65's one-plane screen
