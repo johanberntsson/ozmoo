@@ -1601,9 +1601,9 @@ pic_load_all
 	lsr						; the underlying bank
 	cmp .pic_bank
 	bne .bx_differ
-	ldx #15					; same bank: identity
--	txa
-	sta .pcf_xlat,x
+	ldx #15					; same bank: identity, but doubled (both nybbles)
+-	lda .pic_dub,x			; a store pixel is a byte of two identical nybbles,
+	sta .pcf_xlat,x			; so the translation table must be doubled too
 	dex
 	bpl -
 	rts
@@ -1694,7 +1694,8 @@ pic_load_all
 	iny
 	cpy #32
 	bne .bx_our
-	lda .bx_bestj
+	ldy .bx_bestj			; store the mapped colour doubled (both nybbles),
+	lda .pic_dub,y			; to match the store's two-pixels-a-byte format
 	sta .pcf_xlat,x
 	inx
 	cpx #16
