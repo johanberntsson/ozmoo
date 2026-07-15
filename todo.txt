@@ -291,11 +291,30 @@ Merlin renders inside the sword picture's intact frame, matching the
 reference, and the churchyard screen still composites correctly after the
 GC has run.
 
-STILL OPEN: entering scrollback mode repoints screen RAM to $40000
-(scrollback.asm .scrollback_screen_ram), the tile store's first 64 tiles
-under -pics. Leaving it restores the pointer but not the tiles, so
-scrollback over a picture corrupts it. Move the scrollback screen or
-redraw after exit.
+LATENT, not reachable in current builds - scrollback is disabled for all v6
+games (make.rb defaults it off for v6 and hard-errors on -sb with "Scrollback
+buffer is not supported in version 6 games"), so NOSCROLLBACK is set and
+scrollback.asm is never sourced (launch_scrollback is absent from a v6 build's
+labels). Decision (July 2026): leave scrollback off for v6 - it is a minor
+loss, and the single-scrolling-screen model does not fit v6's 8 windows
+without real design work (which window scrolls back? how does it interact with
+pictures and per-window state?). Recorded here as a possible future extension.
+
+If v6 scrollback is ever enabled, the picture corruption below must be handled:
+entering scrollback repoints the VIC-IV screen ($d060) to $40000
+(scrollback.asm .scrollback_screen_ram), which under -pics is the foot of the
+tile store; filling it with text corrupts the first ~64 tiles of whatever
+pictures are on screen, and leaving restores the pointer but not the tiles.
+The tried fix (works, but reverted as untestable dead code while scrollback is
+off): DMA the clobbered region ($40000, ~$1400 bytes covering the 4000-byte
+screen fill at $40050 plus its instruction line) to the free attic gap at
+$08500000 - between the pictures, which end below $08400000, and the undo
+buffer at $08600000 ($86) - in launch_scrollback before it repoints $d060, and
+DMA it back at .done after the pointer is restored, both guarded by
+Z6_PICTURES. Alternative: move the scrollback screen out of the tile store, or
+have the game redraw after exit. The X16 has the analogous risk (its scrollback
+would collide with the VRAM tile store) but scrollback is off there for every
+version anyway.
 
 FIXED: Arthur's "FATAL ERROR: 17" on the MEGA65 was a missing window property.
 
