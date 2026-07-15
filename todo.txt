@@ -1001,13 +1001,14 @@ neither is a regression of that work):
   render correctly; the font 3 glyphs remain open for the text builds.)
   The intro truncation that used to sit beside this is FIXED (the
   two-operand window_style, see the top of this file).
-- The "squished header" family: Journey prints "The PartyIndividual
-  Commands" the way Arthur squishes "ChurchyardSt Anne's Day, Compline".
-  Same signature at 40 and 80 columns, so one of our query opcodes feeds
-  every game the same too-small width. Find it once, fix them all.
-- The intermittent dropped-text bug reproduces at 80 columns (Arthur intro
-  once, Zork Zero's banquet paragraph once). Unchanged priority: it is the
-  main text-correctness bug on the full colour screen.
+- The "squished header" family: Journey printed "The PartyIndividual
+  Commands" the way Arthur squished "ChurchyardSt Anne's Day, Compline".
+  FIXED - see the "Shogun's start/restore/quit page" entry below: one of
+  our query opcodes fed every game a too-small width, and fixing Shogun's
+  menu page fixed all of them.
+- The intermittent dropped-text bug (Arthur intro, Zork Zero's banquet
+  paragraph). FIXED - the CBDOS colour-RAM collision, moved off with
+  FCM_COLOUR_OFFSET; see the FIXED entry near the top and CLAUDE.md.
 
 FIXED: Shogun's start/restore/quit page - and with it, the whole "squished
 header" family (Arthur's status line now right-aligns "St Anne's Day,
