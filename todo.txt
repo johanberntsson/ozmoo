@@ -521,11 +521,38 @@ the worst single picture) renders clean; quit lands in a readable BASIC.
 The text-only X16 build and the whole non-X16 matrix are unchanged.
 
 Still open for the X16 pictures screen:
-- An odd text column is rounded down to the tile grid (a picture cell is
-  two text columns): draw_picture at an odd x lands 8 pixels left. Arthur
-  centres scenes at odd columns, so implement the half-cell path: bake
-  boundary tiles from two art-cell halves (and erase must preserve the
-  neighbour's half in a shared boundary cell instead of skipping it).
+- Odd text columns: mostly done (July 2026). A picture placed at an odd text
+  column used to round down to the even tile grid, landing 8px left (Arthur
+  centres scenes at odd columns). The MEGA65's 8px-halves model can't be
+  ported - VERA's tile map is a 10-bit index, so at most 1024 tiles are
+  addressable, and Arthur's half-tile working set (~1894) would exceed it,
+  which is why the X16 uses 16px (whole-art-cell) tiles. So an odd placement
+  is drawn with BOUNDARY TILES instead: .pic_fill_cells_odd spans cw+1 map
+  cells, each showing the right half of one art cell beside the left half of
+  the next, baked fresh from the picture's own stored tiles
+  (.pic_bake_boundary_buf). Per-half opacity is tracked so .pfo_blank_text
+  clears text only over an opaque half (an edge cell's transparent 8px keeps
+  the window background, not the layer-0 backdrop); a cell over an opaque tile
+  composites through the shared .pcf_composite_under / .pcf_alloc_and_write.
+  .pic_erase clears the cw+1 cells. Verified headless on testz6: a picture at
+  .pic_x 7/9 (odd) and 10 (even) renders identically, the odd ones landing at
+  px 56/72 - exact 8px placement, not the even grid.
+  STILL OPEN:
+  * No runtime dedup yet. Offline analysis shows the boundary tiles dedup to
+    ~+1% over the even placement (Arthur's art repeats horizontally), but the
+    draw currently bakes one fresh tile per boundary cell, so a LARGE odd
+    scene can bake (cw+1)*ch tiles and churn/wrap the 1024-tile store, which
+    would corrupt the frame drawn under it. Dedup on the (left-tile-index,
+    right-tile-index) pair for cells with nothing behind brings it back to the
+    measured counts; needs a ~ntiles-entry table (banked RAM, staging is busy).
+  * Arthur's scene compositing over the frame at an odd column, and the budget
+    above, are not yet verified in play - reaching the churchyard headless has
+    been unreliable (timed/mouse intro). Check arthur-pics-x16 in a windowed
+    run: the churchyard scene should sit where the reference puts it, with no
+    tile corruption, and pic_next_tile ($21a2) should stay well under 1024.
+  * erase clears an odd picture's two edge boundary cells whole, which clips a
+    neighbour that shares a boundary cell (fine for Arthur's scenes, which sit
+    on the window background).
 - erase_line clears layer 0 now (July 2026): z_ins_erase_line calls
   pic_erase_line_cells (pictures-x16.asm) for the erased run on the cursor's
   row, zeroing the whole map cells it covers (a text row is a map row, a text
