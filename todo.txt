@@ -397,6 +397,31 @@ cell offset used as a byte offset. Under -fcm that writes the high byte of cell
 screen that is about to reset - but it is the same class of bug as the three the
 FCM work turned up.
 
+Latent, and deliberately NOT fixed: two more places that can drive the print
+buffer past its end, exactly as set_cursor's unclamped column did (the Shogun
+40-column bug fixed in July 2026 - see CLAUDE.md). Both are one-line
+speculative clamps, and neither is triggered by any of the four games today, so
+they stay written down rather than written: fix them only if a real game is
+actually seen to hit one. Guessing at clamps in the screen layer has its own
+cost - the margins and edges feed wrapping, erasing and scrolling, and a clamp
+in the wrong place would quietly change a layout no test covers.
+- set_margins reads both margins with `lda z_operand_value_low_arr` (+1), the
+  low byte only, so a negative margin would arrive as ~250 the way column -6
+  arrived as 250. It then computes .sm_left = window_x + window_left_margin and
+  can park window_x_cursor there, which start_buffering turns straight into
+  buffer_index. Shogun passes 2,2 and Zork Zero small positive values, so
+  nothing reaches it. If a game ever does, read the margins as signed words.
+- window_size stores its width with no clamp (window_x_size = the operand's low
+  byte), and s_window_right_edge trusts it: window_x + window_x_size -
+  window_right_margin, with no ceiling at s_screen_width. A game that sets a
+  window wider than the screen - a plausible thing for a v6 game laid out for 80
+  columns to do on a 40-column screen - would let buffer_index run past
+  print_buffer's SCREEN_WIDTH + 1 bytes at $100 and into the 6502 stack. Every
+  window the four games set is <= the screen width (checked in play on the
+  40-column MEGA65: Shogun's are 40, 40, 22), which is why this has never
+  fired. The fix, if it ever does, is to clamp the edge in s_window_right_edge,
+  since that is the single place the buffer's right-hand limit comes from.
+
 Still to do for z6 (not crashes):
 - These machines will never draw pictures. draw_picture writes a "pic:N" note
   where the picture belongs instead, straight to the screen so that it stays
