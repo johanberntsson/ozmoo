@@ -3119,6 +3119,11 @@ init_window_colours
 }
 !ifdef Z6_WINDOW_BG {
 	jsr x16_apply_window_colour ; window 0's default background, ready to print
+!ifdef Z6_PICTURES {
+	ldx #BGCOL
+	lda zcolours,x
+	sta x16_screen_bg ; the default screen background pictures show through
+}
 }
 	rts
 

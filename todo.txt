@@ -1,5 +1,37 @@
 Known bugs
 ----------
+FIXED (July 2026): on the X16 pics build, Zork Zero's in-text insets (the
+illuminated drop-cap initials, the banquet-hall statue, the room icons) drew on
+a BLACK background inside the white text window, where the MEGA65 and sfrotz
+show them on white. Root cause is the two-layer screen: text (layer 1) is
+blanked transparent over a picture so layer 0 shows through, and a picture's
+transparent pixels (index 0) then reveal the VERA backdrop - palette entry 0,
+which is black and is shared with text colour 0, so it cannot be recoloured. On
+the MEGA65 there is one layer, so a transparent FCM pixel shows the global $d021
+(white). The fix mirrors that: a picture's transparent pixels are filled with
+the screen background colour (pictures-x16.asm).
+- x16_screen_bg tracks the screen background as the MEGA65's $d021 does: the
+  last set_colour background, a VERA colour; set_window does NOT change it. This
+  matters because a game draws an inset into a throwaway window (set_window,
+  draw, set_window 0 - Zork Zero routine 1330c) whose own background is the
+  default, while the surrounding text is another window's white. Using the
+  drawing window's own background (the first attempt) filled with the wrong
+  colour; the global screen background is right.
+- .pic_compute_bg_index finds the index in the picture's palette bank whose
+  colour is x16_screen_bg. The insets' palettes have no white (they are reds,
+  greens, etc., transparency at index 0), so an exact match usually fails; then
+  it INJECTS the screen background into a free index - one the picture's pixels
+  do not use, recorded in pic_used while .pic_copy_tiles runs - and points
+  transparent pixels there. Only a DIRECT picture's own bank is injected into;
+  an adaptive picture shares the direct one's bank and is left alone.
+- Both the even and odd "nothing behind" cell paths bake the fill
+  (.pcf_bake_bg / .pcf_fill_bg); cells composited over another picture (Arthur's
+  scene in its frame) are untouched, and a black screen background or a
+  fully-opaque picture changes nothing. Verified in play (Johan): Zork Zero's
+  banquet-hall insets now sit on white like the reference. testz6 pics-x16
+  still draws its test pictures; Arthur's adaptive frame is skipped by the
+  direct-only gate and its full-screen title has no transparent pixels to fill.
+
 FIXED (July 2026), pending play-test on the pics build: Zork Zero's drop-cap
 paragraphs. The illuminated initial was overwritten by the paragraph's first
 line, the first line wrapped a word too late (the "d" of Flathead landed on
@@ -80,9 +112,9 @@ same odd-column boundary rule pic_erase_win_rect keeps. Verified in play in
 Zork Zero (the illuminated initial travels up with its paragraph) and in
 Shogun, where the same layer-0 smear cleared up too. Still open
 here: the scroll_window opcode and downward scroll (.sw_down_one) do not
-touch layer 0 yet - no game hits that for the main window - and the statue
-picture in the banquet hall still renders as a black box (a separate draw
-issue, not scrolling).
+touch layer 0 yet - no game hits that for the main window. (The statue and the
+other banquet-hall insets rendering on a black background is FIXED - see the
+in-text-insets entry at the top of this file.)
 
 FIXED (July 2026), the third Journey find: selecting "Start Game" left the
 party-command window uncleared, so the updated list printed over the old one

@@ -99,6 +99,13 @@ plus4_vic_colours
 .stored_x_or_y !byte 0
 .vera_background !byte 0
 vera_composite_colour !byte 0
+!ifdef Z6_PICTURES {
+; The screen background pictures show through their transparent pixels (the X16
+; stand-in for the MEGA65's global $d021): the last set_colour background, as a
+; VERA colour. set_window does not change it, so an inset drawn into a throwaway
+; window still shows the surrounding text's background. Default: the boot bg.
+x16_screen_bg !byte 1
+}
 
 .convert_screenline_y_to_vera_address
     ; convert screenline,y to address in VERA
@@ -2786,6 +2793,21 @@ z_ins_set_colour
 	jsr x16_apply_window_colour
 	lda s_colour
 	sta current_cursor_colour
+!ifdef Z6_PICTURES {
+	; track the screen background pictures show through (the $d021 stand-in):
+	; only a real background operand moves it, so set_window leaves it be
+	lda z_operand_value_low_arr + 1
+	beq +
+	cmp #$ff
+	beq +
+	lda .vera_background	; the just-applied background, high nybble
+	lsr
+	lsr
+	lsr
+	lsr
+	sta x16_screen_bg
++
+}
 	rts
 }
 !ifndef Z6_ECM_MODE {

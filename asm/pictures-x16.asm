@@ -885,6 +885,13 @@ pic_load_all
 	; in the store: each art pixel becomes a byte of two identical 4bpp store
 	; pixels, doubling the picture horizontally. The pixels stay raw colour
 	; indices - the palette bank rides in the map entries instead.
+	; While copying, record which palette indices the picture actually uses, so
+	; a free one can hold the window background for transparent pixels.
+	ldx #15
+	lda #0
+-	sta pic_used,x
+	dex
+	bpl -
 	lda .pic_slot
 	ldx .pic_slot + 1
 	ldy #0
@@ -910,11 +917,15 @@ pic_load_all
 	lsr
 	lsr
 	tax
+	lda #$ff
+	sta pic_used,x			; this index is used
 	lda .pic_dub,x
 	sta VERA_data0
 	pla
 	and #$0f
 	tax
+	lda #$ff
+	sta pic_used,x
 	lda .pic_dub,x
 	sta VERA_data0
 	lda .pic_count
@@ -989,8 +1000,9 @@ pic_load_all
 	ldx #0
 .pfc_cell
 	lda .pic_vis
-	beq .pfc_rowdone		; the rest of the row is right of the screen
-	dec .pic_vis
+	bne +
+	jmp .pfc_rowdone		; the rest of the row is right of the screen
++	dec .pic_vis
 	lda VERA_data0			; what is already in this cell (the picture behind)?
 	sta .pcf_under_lo
 	lda VERA_data0
@@ -1007,7 +1019,23 @@ pic_load_all
 	and #3
 	ora .pic_tmp
 	bne .pfc_composite
-	; nothing behind: write our own tile, its 0 pixels transparent
+	; nothing behind. If the window has a background colour we can show (like a
+	; transparent FCM pixel showing the MEGA65's $d021), bake it into our
+	; transparent pixels; otherwise write our tile directly, its 0 pixels the
+	; VERA backdrop.
+	lda pic_bg_index
+	beq .pfc_nb_direct
+	phx
+	jsr .pfc_save_ports
+	jsr .pcf_bake_bg
+	jsr .pfc_restore_ports
+	plx
+	lda .pcf_newcode_lo
+	sta VERA_data1
+	lda .pcf_newcode_hi
+	sta VERA_data1
+	jmp .pfc_advance
+.pfc_nb_direct
 	lda .pfc_lo
 	clc
 	adc .pic_slot
@@ -1276,9 +1304,14 @@ pic_load_all
 	lda .pcf_under_hi
 	and #3
 	ora .pic_tmp
-	beq .pfo_write			; nothing behind: our transparent pixels stay 0
+	beq .pfo_nothing_behind	; nothing behind
 	jsr .pcf_build_xlat
 	jsr .pcf_composite_under
+	bra .pfo_write
+.pfo_nothing_behind
+	lda pic_bg_index		; show the window background through our transparent
+	beq .pfo_write			; pixels (0 = none: leave them the backdrop)
+	jsr .pcf_fill_bg
 .pfo_write
 	jsr .pcf_alloc_and_write	; -> .pcf_newcode
 	jsr .pfc_restore_ports
@@ -1587,6 +1620,197 @@ pic_load_all
 	bne -
 	rts
 
+; The index in the drawing bank whose colour is the current window's background,
+; so a picture's transparent (0) pixels can be filled with it - the way a
+; transparent FCM pixel shows the MEGA65's $d021. 0 means leave them transparent
+; (window background is black/the VERA backdrop, or the bank has no such colour).
+pic_bg_index	!byte 0
+.pcbi_gb		!byte 0
+.pcbi_0r		!byte 0
+.pcbi_addr		!byte 0, 0
+.pic_direct		!byte 1		; 1 = own palette bank (may inject); 0 = adaptive (shared)
+pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
+
+.pic_compute_bg_index
+	; Work out pic_bg_index for the picture about to be drawn (.pic_bank). Called
+	; once per draw_picture, after the palette is loaded. The colour a picture's
+	; transparent pixels should show is the screen background (as a transparent
+	; FCM pixel shows the MEGA65's global $d021), not the picture's own window:
+	; games draw an inset into a throwaway window (set_window, draw, set_window 0)
+	; whose background is the default, while the text around it is another
+	; window's colour. x16_screen_bg tracks the last set_colour background, like
+	; $d021, and set_window leaves it be.
+	stz pic_bg_index
+	lda x16_screen_bg		; the screen background as a VERA colour 0..15
+	beq .pcbi_done			; 0 = black = the backdrop already: nothing to do
+	asl						; N * 2 -> the base palette entry ($1fa00 + N*2)
+	tay
+	stz VERA_ctrl
+	lda #$11				; stride 1, address bit 16 ($1fa00 is in bank 1)
+	sta VERA_addr_bank
+	lda #$fa
+	sta VERA_addr_high
+	sty VERA_addr_low
+	lda VERA_data0			; the window background's colour, VERA order
+	sta .pcbi_gb
+	lda VERA_data0
+	sta .pcbi_0r
+	; point .pic_tmp at the bank's CPU palette copy (pic_bank_pal + bank * 32)
+	lda .pic_bank
+	asl
+	asl
+	asl
+	asl
+	asl						; low byte of bank * 32
+	sta .pic_tmp
+	lda .pic_bank
+	lsr
+	lsr
+	lsr						; high byte (bank * 32 / 256)
+	sta .pic_tmp + 1
+	lda .pic_tmp
+	clc
+	adc #<pic_bank_pal
+	sta .pic_tmp
+	lda .pic_tmp + 1
+	adc #>pic_bank_pal
+	sta .pic_tmp + 1
+	ldx #1					; search indices 1..15 (0 is transparent)
+.pcbi_search
+	txa
+	asl
+	tay						; y = index * 2
+	lda (.pic_tmp),y
+	cmp .pcbi_gb
+	bne .pcbi_next
+	iny
+	lda (.pic_tmp),y
+	cmp .pcbi_0r
+	bne .pcbi_next
+	stx pic_bg_index		; a match: fill transparent pixels with this index
+	rts
+.pcbi_next
+	inx
+	cpx #16
+	bne .pcbi_search
+	; the bank has no such colour. Only inject one into a direct picture's own
+	; bank - an adaptive picture shares the direct picture's bank, and adding a
+	; colour to it could disturb that picture.
+	lda .pic_direct
+	beq .pcbi_done
+	; inject the background into a free index (one the picture's pixels do not
+	; use, from pic_used) so transparent pixels can still show it.
+	ldx #1
+.pcbi_free
+	lda pic_used,x
+	beq .pcbi_inject		; index x is unused: take it
+	inx
+	cpx #16
+	bne .pcbi_free
+.pcbi_done
+	rts						; no free index either: leave transparent
+.pcbi_inject
+	stx pic_bg_index
+	; CPU-side palette copy (.pic_tmp already -> pic_bank_pal + bank*32)
+	txa
+	asl
+	tay
+	lda .pcbi_gb
+	sta (.pic_tmp),y
+	iny
+	lda .pcbi_0r
+	sta (.pic_tmp),y
+	; VERA palette RAM: $1fa00 + bank * 32 + x * 2
+	lda .pic_bank
+	asl
+	asl
+	asl
+	asl
+	asl						; low byte of bank * 32
+	sta .pcbi_addr
+	lda .pic_bank
+	lsr
+	lsr
+	lsr						; high byte
+	sta .pcbi_addr + 1
+	txa
+	asl						; x * 2
+	clc
+	adc .pcbi_addr
+	sta .pcbi_addr
+	bcc +
+	inc .pcbi_addr + 1
++	stz VERA_ctrl
+	lda #$11
+	sta VERA_addr_bank
+	lda .pcbi_addr + 1
+	clc
+	adc #$fa
+	sta VERA_addr_high
+	lda .pcbi_addr
+	sta VERA_addr_low
+	lda .pcbi_gb
+	sta VERA_data0
+	lda .pcbi_0r
+	sta VERA_data0
+	rts
+
+.pcf_fill_bg
+	; Fill .pcf_buf's transparent (0) bytes with the window background
+	; (pic_bg_index doubled into both nybbles, as store pixels are doubled).
+	; Caller guarantees pic_bg_index is nonzero.
+	lda pic_bg_index
+	sta .pic_tmp
+	asl
+	asl
+	asl
+	asl
+	ora .pic_tmp
+	sta .pic_tmp			; the index in both nybbles
+	ldy #0
+-	lda .pcf_buf,y
+	bne +
+	lda .pic_tmp
+	sta .pcf_buf,y
++	iny
+	cpy #64
+	bne -
+	rts
+
+.pcf_bake_bg
+	; The "nothing behind" even-path cell, but the window has a background we can
+	; show: load our tile into .pcf_buf; if fully opaque, our own tile is the
+	; answer (.pcf_newcode); else fill its transparent pixels with the window
+	; background and write a fresh tile (entry in .pcf_newcode).
+	lda .pfc_lo
+	clc
+	adc .pic_slot
+	sta .pcf_newcode_lo
+	lda .pfc_hi
+	adc .pic_slot + 1
+	and #3
+	sta .pic_tmp
+	ora .pic_entry_hi
+	sta .pcf_newcode_hi
+	lda .pcf_newcode_lo
+	ldx .pic_tmp
+	ldy #0
+	jsr .pic_tile_addr		; port 0 -> our tile
+	ldy #0
+	ldx #0					; count transparent
+-	lda VERA_data0
+	sta .pcf_buf,y
+	bne +
+	inx
++	iny
+	cpy #64
+	bne -
+	cpx #0
+	bne +
+	rts						; fully opaque: use our own tile, allocate nothing
++	jsr .pcf_fill_bg
+	jmp .pcf_alloc_and_write	; fresh tile, entry in .pcf_newcode
+
 .pcf_build_xlat
 	; Build the 16-entry table translating the underlying picture's colour
 	; indices into our palette bank. Identity when the banks are the same;
@@ -1847,6 +2071,8 @@ pic_load_all
 	jsr .pic_addr
 	lda (.pi_ptr)
 	beq .pd_direct
+	lda #0
+	sta .pic_direct			; adaptive: reuse the direct bank, do not inject into it
 	lda pic_direct_bank
 	jsr .pa_set_bank
 	clc						; step over our own 32 palette bytes unread: we
@@ -1863,6 +2089,8 @@ pic_load_all
 	inc .pic_att + 2
 	jmp +
 .pd_direct
+	lda #1
+	sta .pic_direct
 	lda .pic_bank
 	sta pic_direct_bank
 	jsr .pic_read_palette	; the picture's palette, into its bank
@@ -1898,6 +2126,7 @@ pic_load_all
 	bra -
 +
 	jsr .pic_copy_tiles
+	jsr .pic_compute_bg_index ; fill transparent pixels with the window background
 	lda .pic_odd
 	beq .dp_even
 	jsr .dp_odd_fits		; clears .pic_odd if the boundary tiles would overflow
