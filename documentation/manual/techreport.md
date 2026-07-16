@@ -145,8 +145,17 @@ Similar to C128, the graphics output is handled by a chip called VERA that conta
 
 | **Address range** | **KB** |  **Usage** |
 | -- |  - | ---- |
-| \$0000-\$9fff | 40 | System RAM, interpreter |
-| \$a000-\$bfff | 8 | Story file (currently banked chunk) |
+| \$0000-\$7eff | 32 | System RAM, interpreter, z-stack |
+| \$7f00-\$9eff | 8 | Story file, low-RAM slice (from X16\_STORY\_BASE) |
+| \$a000-\$bfff | 8 | Story file, banked chunk (bank 1 and up) |
+
+The story's first pages live in normal RAM from X16\_STORY\_BASE (\$7f00); the
+rest is reached through the banked window at \$a000. The interpreter and the
+z-stack must end below X16\_STORY\_BASE, and three sites map a z-page to a bank
+with the same 8 KB-aligned arithmetic (X16\_LOW\_STORY\_PAGES + (bank - 1) \* 32),
+so the constant is required to be a multiple of 32 pages. The slice was 16 KB at
+\$5f00 until the picture builds needed the room; dropping it to 8 KB freed 8 KB
+of interpreter space at the cost of one more story bank of the 512 KB.
 
 #### Video memory (VERA)
 
@@ -426,6 +435,58 @@ z_ins_quit clears CHR16 and FCLRHI again -- the C64 reset it then performs never
 touches \$d054 -- and turns the mouse sprite off, so the machine returns to a
 legible BASIC screen rather than a 16-bit-character full colour one.
 
+## Per-window backgrounds and reverse video
+
+A version 6 window has its own colour pair (property 11: the background in the
+high nybble, the foreground in the low). set_colour keeps each window's pair in
+window_colour, and get_wind_prop answers it, because the games read it back —
+Arthur reads the pair and sets its exact swap to box a parser message the way it
+boxes the status line.
+
+How that pair reaches the screen depends on what the hardware can do:
+
+- **The X16 has a real per-cell background.** VERA's colour byte carries the
+  background in its high nybble, so under Z6_WINDOW_BG (set for the X16) each
+  window simply renders its own background colour. x16_apply_window_colour
+  points the live VERA colour (background high nybble, foreground low) at the
+  current window's pair; it runs on set_colour and on every window switch, so a
+  window always prints in its own colours. Because the colour travels with the
+  cell, the background fills on erase and survives a scroll for free. This is the
+  clean version of what ECM does with four registers, and it retires the
+  reverse-video fake below on the X16.
+- **Every other target fakes it with reversed glyphs.** The C64, the C128, the
+  Plus/4 and the MEGA65's full colour screen have no per-cell background, so a
+  *swapped* pair — one whose foreground equals the screen background, which is
+  exactly what the games ask for — is drawn as reversed glyphs: the field takes
+  the requested background colour and the text takes the screen background. The
+  glyphs already fill and scroll a cell at a time, but the swap *state* is per
+  window, not global: window_swap records each window's, and apply_window_swap
+  restores it (with the field colour) on a window switch, so a reversed field no
+  longer bleeds onto the next window or comes out the wrong way round after a
+  scroll. It forces the colour only for a swapped window, whose field colour is
+  an explicit choice; a non-swap window keeps the global (and darkmode) colour.
+- ECM keeps its four-register scheme (above); the reversed-glyph fake and
+  Z6_WINDOW_BG both stand down on that target.
+
+## Font 3
+
+Font 3 is the standard's character-graphics font (section 16), a set of
+box-drawing glyphs. Ozmoo has no such charset, but the only version 6 use of it
+is Journey's command-menu dividers — the four corners, horizontal and vertical
+lines, and a solid block that marks the connected command. Journey decides font
+3 is available from the interpreter number, not from set_font's result, so it
+prints the glyph codes regardless; on a plain interpreter they used to come out
+as stray punctuation and digits.
+
+set_font now accepts font 3 and records it per window (window_font, property 12;
+the shared z_font is only two bytes, but a version 6 window runs 0 to 7). When
+the current window is in font 3, font3_translate maps each glyph code to the
+equivalent PETSCII box-drawing character before it enters the print buffer, so
+the ordinary convert_petscii_to_screencode path renders it natively on every
+text target — the C64, the C128's two screens, the Plus/4, the MEGA65 full
+colour text screen and the X16 — with no per-target code. Codes the games do not
+use pass through unchanged.
+
 ## The VERA screen on the X16
 
 The X16's screen is not in the CPU's address space at all: VERA holds it, and it
@@ -513,12 +574,46 @@ because the X16 build returns to BASIC rather than resetting the machine, and
 BASIC would otherwise come up on 25 double-height rows over whatever picture was
 last drawn.
 
-Two things remain to do. A picture cell is two text columns wide, so a picture
-placed at an odd text column is currently rounded down to the tile grid and lands
-eight pixels to the left; Arthur centres its scenes at odd columns. Fixing it
-means baking the boundary tiles from two half-cells, and teaching erase to keep
-the neighbour's half of a shared boundary cell. And erase_line does not clear
-layer 0, though erase_window and erase_picture do.
+Layer 0 moves with the text. .s_scroll_vera calls pic_scroll_win_up after it
+scrolls a window, so a drop-cap initial travels up with its paragraph instead of
+staying put and smearing its colours across the scrolled text; erase_line clears
+the layer 0 cells on the cursor's row (pic_erase_line_cells) as erase_window and
+erase_picture already did, so a picture behind erased text goes with it. Both
+touch whole map cells only and only VERA's write port, so the screen layer's
+port 0 is left as it found it.
+
+A picture cell is two text columns wide, and a game may place a picture at an
+odd text column — Arthur centres its scenes. VERA's tile map is a 10-bit index,
+so the MEGA65's trick of storing each half-cell as its own 8-pixel tile would
+need more than the 1024 tiles the map can address. Instead an odd placement is
+drawn with **boundary tiles**: .pic_fill_cells_odd spans one more map cell than
+the picture is wide, and bakes each as the right half of one art cell beside the
+left half of the next (.pic_bake_boundary_buf), from the picture's own stored
+tiles. A picture whose copied run plus its boundary tiles would overflow the
+store falls back to even placement — an eight-pixel shift, invisible on a
+full-screen frame. Erasing an odd picture clears only the interior cells and
+leaves the two shared edge cells, each of which holds half the picture beside
+half of whatever it was composited over (a frame border), so the border survives
+a room change and the next scene re-composites its half over it.
+
+One more thing separates the two layers. On the MEGA65 a picture and the text
+share one plane, so a transparent picture pixel shows the screen background
+(\$d021) directly. On the X16 the picture is on layer 0 and its transparent
+pixels (index 0) reveal VERA's backdrop — palette entry 0, which is black and is
+shared with text colour 0, so it cannot simply be recoloured. Left alone, Zork
+Zero's in-text insets (drop-cap initials, the banquet-hall statue, room icons)
+sit in a black box inside the white text window, where the MEGA65 and sfrotz show
+them on white. So a picture drawn over nothing has its transparent pixels filled
+with the screen background instead: x16_screen_bg follows the last set_colour
+background the way \$d021 would (set_window leaves it be, because a game draws an
+inset into a throwaway window whose own background is the default while the text
+around it is white). .pic_compute_bg_index finds that colour in the picture's
+palette bank; the insets have no white, so it usually is not there, and the
+colour is then injected into a free index the picture's pixels do not use
+(pic_used, recorded while the tiles are copied) and the transparent pixels point
+at it. Only a direct picture's own bank is written to; an adaptive picture shares
+the direct one's bank and is left alone. Composited cells, a black screen
+background and fully-opaque pictures are all unchanged.
 
 ## Pictures
 
