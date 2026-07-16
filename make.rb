@@ -120,6 +120,7 @@ $DEBUGFLAGS = [
 #	'TRACE_SHOW_DICT_ENTRIES',
 #	'TRACE_TOKENISE',
 #	'TRACE_HISTORY',
+#	'DEBUG_SCREENLOG',
 ]
 
 $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.

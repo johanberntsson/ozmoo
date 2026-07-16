@@ -199,120 +199,6 @@ PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
 .gc_t2       !byte 0
 } ; !ifndef TARGET_X16
 
-!ifdef DEBUG_SCREENLOG {
-; A ring buffer of the v6 screen opcodes and their operands, for reading out
-; with the xemu monitor when a game's layout goes wrong. 8 bytes an entry:
-; id, current_window, op0 lo, op1 lo, op1 hi, op2 lo, extra lo, extra hi.
-; The extra word is the result (get_wind_prop) or the width (stream 3 close).
-screenlog_buf  !fill 8 * 128, 0
-screenlog_pos  !byte 0, 0		; entry index 0..127, and a wrap counter
-screenlog_hook					; a = id; logs the current operands
-	stx .slog_x + 1
-	sty .slog_y + 1
-	pha
-	lda screenlog_pos
-	asl
-	asl
-	asl
-	tay						; y = entry offset (0..1016, but 8*128 wraps at 1024:
-	lda screenlog_pos		; offsets 0..127*8 fit a byte times... they don't: use
-	and #$e0				; a split index: low 5 bits * 8 = offset in page,
-	lsr						; high 2 bits = page
-	lsr
-	lsr
-	lsr
-	lsr
-	sta .slog_page
-	lda screenlog_pos
-	and #$1f
-	asl
-	asl
-	asl
-	tay
-	pla
-	pha
-	jsr .slog_put			; id
-	lda current_window
-	jsr .slog_put
-	lda z_operand_value_low_arr
-	jsr .slog_put
-	lda z_operand_value_low_arr + 1
-	jsr .slog_put
-	lda z_operand_value_high_arr + 1
-	jsr .slog_put
-	lda z_operand_value_low_arr + 2
-	jsr .slog_put
-	lda #0
-	jsr .slog_put
-	jsr .slog_put
-	inc screenlog_pos
-	lda screenlog_pos
-	cmp #128
-	bcc +
-	lda #0
-	sta screenlog_pos
-	inc screenlog_pos + 1
-+	pla
-.slog_x	ldx #0
-.slog_y	ldy #0
-	rts
-.slog_page !byte 0
-.slog_put
-	sty .slog_put_y + 1
-	pha
-	lda .slog_page
-	clc
-	adc #>screenlog_buf
-	sta .slog_sta + 2
-	pla
-.slog_sta
-	sta screenlog_buf,y
-	iny
-	bne +
-	inc .slog_page
-+
-.slog_put_y
-	ldy #0
-	iny
-	sty .slog_put_y + 1
-	rts
-
-screenlog_extra					; a,x = a result word for the previous entry
-	pha
-	stx .slog_ex + 1
-	lda screenlog_pos
-	sec
-	sbc #1
-	and #$1f
-	asl
-	asl
-	asl
-	clc
-	adc #6
-	tay
-	lda screenlog_pos
-	sec
-	sbc #1
-	and #$60
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
-	clc
-	adc #>screenlog_buf
-	sta .slog_exs + 2
-	sta .slog_exs2 + 2
-.slog_ex
-	lda #0
-.slog_exs
-	sta screenlog_buf,y
-	iny
-	pla
-.slog_exs2
-	sta screenlog_buf,y
-	rts
-}
 
 !ifdef TARGET_X16 {
 !source "pictures-x16.asm"
@@ -1658,6 +1544,121 @@ pic_load_all
 .pic_erase_done
 	rts
 } ; !ifdef TARGET_X16 / else
+}
+
+!ifdef DEBUG_SCREENLOG {
+; A ring buffer of the v6 screen opcodes and their operands, for reading out
+; with the xemu monitor when a game's layout goes wrong. 8 bytes an entry:
+; id, current_window, op0 lo, op1 lo, op1 hi, op2 lo, extra lo, extra hi.
+; The extra word is the result (get_wind_prop) or the width (stream 3 close).
+screenlog_buf  !fill 8 * 128, 0
+screenlog_pos  !byte 0, 0		; entry index 0..127, and a wrap counter
+screenlog_hook					; a = id; logs the current operands
+	stx .slog_x + 1
+	sty .slog_y + 1
+	pha
+	lda screenlog_pos
+	asl
+	asl
+	asl
+	tay						; y = entry offset (0..1016, but 8*128 wraps at 1024:
+	lda screenlog_pos		; offsets 0..127*8 fit a byte times... they don't: use
+	and #$e0				; a split index: low 5 bits * 8 = offset in page,
+	lsr						; high 2 bits = page
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .slog_page
+	lda screenlog_pos
+	and #$1f
+	asl
+	asl
+	asl
+	tay
+	pla
+	pha
+	jsr .slog_put			; id
+	lda current_window
+	jsr .slog_put
+	lda z_operand_value_low_arr
+	jsr .slog_put
+	lda z_operand_value_low_arr + 1
+	jsr .slog_put
+	lda z_operand_value_high_arr + 1
+	jsr .slog_put
+	lda z_operand_value_low_arr + 2
+	jsr .slog_put
+	lda #0
+	jsr .slog_put
+	jsr .slog_put
+	inc screenlog_pos
+	lda screenlog_pos
+	cmp #128
+	bcc +
+	lda #0
+	sta screenlog_pos
+	inc screenlog_pos + 1
++	pla
+.slog_x	ldx #0
+.slog_y	ldy #0
+	rts
+.slog_page !byte 0
+.slog_put
+	sty .slog_put_y + 1
+	pha
+	lda .slog_page
+	clc
+	adc #>screenlog_buf
+	sta .slog_sta + 2
+	pla
+.slog_sta
+	sta screenlog_buf,y
+	iny
+	bne +
+	inc .slog_page
++
+.slog_put_y
+	ldy #0
+	iny
+	sty .slog_put_y + 1
+	rts
+
+screenlog_extra					; a,x = a result word for the previous entry
+	pha
+	stx .slog_ex + 1
+	lda screenlog_pos
+	sec
+	sbc #1
+	and #$1f
+	asl
+	asl
+	asl
+	clc
+	adc #6
+	tay
+	lda screenlog_pos
+	sec
+	sbc #1
+	and #$60
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	clc
+	adc #>screenlog_buf
+	sta .slog_exs + 2
+	sta .slog_exs2 + 2
+.slog_ex
+	lda #0
+.slog_exs
+	sta screenlog_buf,y
+	iny
+	pla
+.slog_exs2
+	sta screenlog_buf,y
+	rts
 }
 
 z_ins_draw_picture
@@ -3083,12 +3084,35 @@ z_ins_set_cursor
 	clc
 	adc window_y,y
 	sta window_y_cursor,y
+	; The column is a signed word, and a game can legitimately ask for one
+	; off the screen: Shogun centres each credit line with
+	; set_cursor row, (window_width - measured_width) / 2 + 1, which goes
+	; negative when the line is wider than the screen. Two of its title
+	; lines measure 54 and 48 units, so at 40 columns it asks for columns
+	; -6 and -3. Reading the low byte alone made those columns 250 and 253:
+	; buffer positions are absolute screen columns and print_buffer only
+	; holds SCREEN_WIDTH + 1 of them, so the credits printed straight
+	; through the 6502 stack at $100 and the machine reset. Clamp into the
+	; screen instead - the line then starts at the left edge and wraps.
+	lda z_operand_value_high_arr + 1
+	bmi .sc_column_left ; negative: clamp to the window's left edge
+	bne .sc_column_right ; 256 or more: clamp to the right edge
 	ldx z_operand_value_low_arr + 1 ; column 1..
-	beq +
-	dex
-+	txa
+	beq .sc_column_left ; column 0 is a mistake - they mean column 1
+	dex ; column 0..
+	jmp .sc_column_add
+.sc_column_left
+	ldx #0
+.sc_column_add
+	txa
 	clc
 	adc window_x,y
+	bcs .sc_column_right ; wrapped past the end of the screen
+	cmp s_screen_width
+	bcc .sc_column_store
+.sc_column_right
+	lda s_screen_width_minus_one
+.sc_column_store
 	sta window_x_cursor,y
 	cpy current_window
 	bne .do_nothing_2
