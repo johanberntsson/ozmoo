@@ -1314,7 +1314,12 @@ pic_load_all
 	jsr .pcf_fill_bg
 .pfo_write
 	jsr .pcf_alloc_and_write	; -> .pcf_newcode
-	jsr .pfc_restore_ports
+	bcs +
+	lda .pcf_under_lo		; store full, nothing baked: keep what is behind,
+	sta .pcf_newcode_lo		; so the cell shows the frame rather than a stale
+	lda .pcf_under_hi		; index into tiles that belong to someone else
+	sta .pcf_newcode_hi
++	jsr .pfc_restore_ports
 	plx
 	lda .pcf_newcode_lo
 	sta VERA_data1
@@ -1551,6 +1556,11 @@ pic_load_all
 +	jsr .pcf_build_xlat
 	jsr .pcf_composite_under	; fill our transparent pixels from the tile behind
 	jsr .pcf_alloc_and_write ; a fresh tile holds the composite; entry in .pcf_newcode
+	; If the store was full nothing was baked and carry is clear, but
+	; .pcf_newcode still holds our own tile's entry from the top of this
+	; routine: the cell shows our pixels un-composited, losing only the
+	; show-through of what was behind. Do not seed .pcf_newcode any later
+	; than that without handling the failure here.
 	rts
 
 .pcf_composite_under
@@ -1584,10 +1594,40 @@ pic_load_all
 	rts
 
 .pcf_alloc_and_write
-	; Allocate a fresh store tile from pic_next_tile (wrapping at the store end,
-	; as .pic_alloc does), write the 64-byte .pcf_buf into it, and return its map
-	; entry in .pcf_newcode. Shared by the compositing (even) and the boundary
-	; (odd) draw paths.
+	; Allocate a fresh store tile from pic_next_tile, write the 64-byte .pcf_buf
+	; into it, and return its map entry in .pcf_newcode. Shared by the
+	; compositing (even) and the boundary (odd) draw paths. Returns carry set on
+	; success, carry clear when the store is full and nothing was baked.
+	;
+	; These tiles are baked mid-draw and belong to no window's run: .pic_alloc
+	; reserved the picture's own tiles and nothing more, so the store really can
+	; run out here. It must never wrap to the bottom. Everything below is live -
+	; the picture's own run, and the frame the game keeps on screen for the whole
+	; game - so a wrap lands straight on it. Worse, wrapping leaves pic_next_tile
+	; low, which convinces .pic_alloc the store is nearly empty, so .pic_gc never
+	; runs again and the allocator marches up through the frame unchecked. That
+	; was the Arthur X16 bug: the frame's tiles were overwritten a few rooms
+	; after the wrap, once the march reached them.
+	;
+	; So the allocator saturates instead: pic_next_tile stops at PIC_MAX_TILES
+	; and further bakes fail. That is self-correcting - a pic_next_tile of
+	; PIC_MAX_TILES fails .pic_alloc's fit check, so the next picture drawn
+	; compacts the store and the bakes have room again. The caller degrades for
+	; the cells it could not bake (see the three call sites); the cost is
+	; cosmetic and confined to a nearly-full store, where the alternative was
+	; corruption. See todo.txt for the accounting fix that would avoid the
+	; degradation altogether.
+	lda pic_next_tile + 1
+	cmp #>PIC_MAX_TILES
+	bcc .paw_have
+	bne .paw_full
+	lda pic_next_tile
+	cmp #<PIC_MAX_TILES
+	bcc .paw_have
+.paw_full
+	clc						; nothing baked; .pcf_newcode is untouched
+	rts
+.paw_have
 	lda pic_next_tile
 	sta .pcf_newcode_lo
 	lda pic_next_tile + 1
@@ -1598,26 +1638,16 @@ pic_load_all
 	ldx pic_next_tile + 1
 	ldy #1
 	jsr .pic_tile_addr		; port 1 -> the fresh tile
-	inc pic_next_tile
+	inc pic_next_tile		; saturates at PIC_MAX_TILES; never wraps
 	bne +
 	inc pic_next_tile + 1
-+	lda pic_next_tile + 1	; wrap at the end of the store, as .pic_alloc does
-	cmp #>PIC_MAX_TILES
-	bcc +
-	bne ++
-	lda pic_next_tile
-	cmp #<PIC_MAX_TILES
-	bcc +
-++	lda #PIC_FIRST_TILE
-	sta pic_next_tile
-	lda #0
-	sta pic_next_tile + 1
 +	ldy #0					; write the buffer out to the fresh tile
 -	lda .pcf_buf,y
 	sta VERA_data1
 	iny
 	cpy #64
 	bne -
+	sec
 	rts
 
 ; The index in the drawing bank whose colour is the current window's background,
@@ -1809,6 +1839,9 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	bne +
 	rts						; fully opaque: use our own tile, allocate nothing
 +	jsr .pcf_fill_bg
+	; As in .pcf_make_tile: a full store bakes nothing and returns carry clear,
+	; leaving .pcf_newcode as our own tile's entry, seeded above - the cell keeps
+	; our pixels and its transparent ones stay the backdrop.
 	jmp .pcf_alloc_and_write	; fresh tile, entry in .pcf_newcode
 
 .pcf_build_xlat

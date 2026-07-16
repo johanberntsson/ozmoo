@@ -1,5 +1,55 @@
 Known bugs
 ----------
+FIXED (July 2026): on the X16 pics build, Arthur's frame was destroyed after a
+few room changes ("w", "e", "w" was enough) - it filled with fragments of the
+room pictures in the wrong colours, permanently, since the frame is drawn once
+and never redrawn. Root cause: .pcf_alloc_and_write wrapped pic_next_tile back
+to PIC_FIRST_TILE when the store filled. The tiles it bakes (the even path's
+composites, the odd path's boundary tiles) are allocated mid-draw and belong to
+no window's run - .pic_alloc reserves only the picture's own tiles - so the
+store can run out there, and the wrap landed on the frame's tiles at the bottom.
+Two things made it bite hard:
+- The odd path costs 2x: a picture's copied run (cw*ch, only ever read as the
+  bake's source) PLUS its boundary tiles ((cw+1)*ch, what the map points at).
+  That drove pic_next_tile to the top of the 1023-tile store within two rooms.
+- The wrap then DEFEATED .pic_gc permanently: it left pic_next_tile low, so
+  .pic_alloc's fit check always passed and never compacted again. The allocator
+  simply marched back up through the frame. This is why the damage appeared two
+  turns AFTER the wrap - only when the march reached the frame's tile range.
+Measured with counters on a real run (dumps at each turn): pic_next_tile went
+698 -> 7 (wrap) -> 343 -> 679, and the frame's tiles lived at 347..697, so the
+picture drawn on the fourth turn (tiles 496..657) landed inside it. The wrap was
+reached via the EVEN fallback: with pic_next_tile at 1013, .dp_odd_fits
+correctly forced a 3x3 icon to even placement, .pic_alloc correctly saw its 9
+tiles fit, and then the unguarded composite bake ran off the end.
+Fix: .pcf_alloc_and_write no longer wraps. pic_next_tile saturates at
+PIC_MAX_TILES and the bake fails with carry clear; callers degrade (the even
+paths keep their own un-composited tile, the odd path keeps what is behind).
+This is self-correcting: a saturated pic_next_tile fails .pic_alloc's fit check,
+so the next picture compacts the store and the bakes have room again.
+
+TODO (X16 pics, option 2): make the store account for baked tiles, so the
+degradation above never triggers. .pic_alloc reserves only .pic_ntiles; the
+bake needs up to (cw+1)*ch more on the odd path and up to cw*ch on the even
+path. Reserving run + worst-case bake up front would make .pic_gc fire at the
+right time and keep every cell exact. The catch, and why it was not done as the
+bug fix: the worst case is wildly pessimistic for the big pictures. Arthur's
+frame is 37x25 = 925 cells and 653 tiles, so a worst-case reservation of ~1578
+exceeds the 1023-tile store outright and would trigger spurious .pa_reset calls
+on a picture that in practice composites almost nothing. A real fix therefore
+needs a TIGHT bake estimate, not a bound - e.g. have pics2asm.py count the
+partly-transparent cells per picture (it already classifies cells: it emits
+$ffff for fully transparent ones) and assemble that count into the picture
+index beside pic_width/pic_height, so the interpreter can reserve exactly what
+the bake will use. Note the store cap is a hard VERA limit (a tile map entry is
+a 10-bit index), so it cannot simply be raised; and the MEGA65 only gets away
+with the same wrap because it has 2048 tiles and half the per-room cost.
+Related: the odd path's 2x cost is what fills the store in the first place, so
+the staging-read follow-up below (bake boundary tiles straight from the staging
+banks, without copying a run first) would relieve the same pressure.
+NOTE: PIC_MAX_TILES must keep a zero low byte - .dp_odd_fits compares
+#>PIC_MAX_TILES alone. 768 and 1024 are fine; something like 800 is not.
+
 FIXED (July 2026): on the X16 pics build, Zork Zero's in-text insets (the
 illuminated drop-cap initials, the banquet-hall statue, the room icons) drew on
 a BLACK background inside the white text window, where the MEGA65 and sfrotz
