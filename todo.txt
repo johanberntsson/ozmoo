@@ -1210,15 +1210,12 @@ neither is a regression of that work):
   instead - so those already rendered correctly.)
   The intro truncation that used to sit beside this is FIXED (the
   two-operand window_style, see the top of this file).
-  STILL OPEN (new todo): the current menu selection is not highlighted in the
-  text builds. sfrotz shows the currently-selected command in reverse video
-  (a normal highlighted menu row); on our text builds the row prints in plain
-  (black) text, so which item is selected is hard to see. Journey marks the
-  connected/active command with the solid font-3 bar (above), but the
-  selected row itself wants the reverse-video / colour highlight the game
-  asks for - likely a set_text_style REVERSE or set_colour path in the
-  command list that we are not honouring on the text builds. Separate from
-  the font-3 glyphs, which now render.
+  FIXED (July 2026): the current menu selection is now highlighted. It was a
+  set_colour swap the game makes per window, and the swap state was a global
+  flag that desynced across window switches - so the highlight bled or was
+  lost. Made per window (window_swap / apply_window_swap); verified in play on
+  the X16 and MEGA65 -fcm builds. See "per-window reverse-video (swap) state"
+  in the colour session's commits.
 - The "squished header" family: Journey printed "The PartyIndividual
   Commands" the way Arthur squished "ChurchyardSt Anne's Day, Compline".
   FIXED - see the "Shogun's start/restore/quit page" entry below: one of
