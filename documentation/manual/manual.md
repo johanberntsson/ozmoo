@@ -51,6 +51,7 @@ You need to install:
 - The xemu-xmega65 emulator if you want to test MEGA65 builds on virtual hardware
 - A zip program if you want to build games for X16
 - The Commander X16 emulator if you want to test X16 builds on virtual hardware
+- Python and its PIL package if you want Z6 games with graphics (X16 and MEGA65 only)
 
 #### Windows
 
@@ -68,6 +69,11 @@ Get 7-Zip from [https://www.7-zip.org/](https://www.7-zip.org/)
 
 The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
 
+The z6 picture support tools require python along with the Pillow image library. First open PowerShell or Command Prompt and run the following commands:
+
+    > winget install Python.Python.3.12
+    > python -m pip install Pillow
+`
 ####  Linux
 
 Acme is available on Debian/Ubuntu with:
@@ -94,6 +100,10 @@ Download the MEGA65 emulator from [https://github.lgb.hu/xemu/](https://github.l
 The zip program that ships with Linux is all you need for zipping Ozmoo games for X16.
 
 The Commander X16 emulator is available at [https://github.com/X16Community/x16-emulator](https://github.com/X16Community/x16-emulator)
+
+The z6 picture support tools require python along with the Pillow image library. For Debian, use this command:
+
+    > sudo apt install python3 python3-pil
 
 ## Customizing the make script
 
