@@ -654,6 +654,31 @@ mounts the first picture disk in drive 9 when it launches xemu, so a one-disk se
 loads with no prompt. The picture count and the picture numbers are both 16-bit:
 .pic_index is a word and the parallel pic_* tables are indexed through .pic_addr.
 
+A restart does not pay for that twice. z_ins_restart reboots the machine and
+reloads the interpreter from disk, so pic_load_all runs again on every "restart"
+command and every death — but Attic RAM survives the reset, and the pictures are
+still sitting in it. Skipping the load is not enough on its own, though: as
+pic_load_all decompresses each file it records which page the picture landed on
+in pic_page_lo and pic_page_hi, and those tables live in the interpreter's RAM,
+which the reboot has just re-read from disk and zeroed. Nor can they be
+recomputed, since a picture's page depends on its decompressed size, which is
+only known by reading the file. So they are kept in Attic too. \$08300000 is an
+attic *header* — an eight byte signature followed by the two page tables, two
+pages for Arthur's hundred and thirty-seven pictures and eight at the maximum of
+999 — with the pictures themselves starting at PIC_ATTIC_PAGE just above it; the
+undo buffer at \$08600000 is megabytes clear, so the shift costs nothing. On boot
+a matching signature restores the tables and skips the disks entirely, swaps and
+all. This is reu_filled's idiom from disk.asm, a signature that outlives the
+reboot to say the data is already there, with two differences: it cannot use
+game_id, which is inside !ifdef VMEM and so does not exist on the MEGA65, and
+uses the story's serial and checksum instead — they identify the story file just
+as well, and Ozmoo never rewrites either, unlike flags\_2 or the screen
+dimensions; and the signature is written *last*, after the tables, so a load
+interrupted partway leaves no signature claiming the tables are good. The check
+runs on every boot rather than only after a restart, so a cold reboot of the same
+game skips the load as well. The X16 needs none of this, having no preload at
+all.
+
 A blorb holds more than PNGs. Its Rect resources are placeholders with no image,
 only a width and height; a game reads those sizes with picture_data to lay real
 pictures out, and Arthur's whole room frame is built that way, so pics2asm.py
@@ -753,6 +778,36 @@ the survivors below it and a popcount table. Only if the survivors plus the new
 picture still do not fit does the old wrap-to-zero happen, which can then only
 spoil a picture that is no longer the newest on screen. The palette allocator
 still simply wraps, with the same consequence.
+
+Not every tile a draw consumes comes out of that run, and the difference is worth
+spelling out, because it cost a long hunt. The allocator reserves a picture's own
+tiles and nothing more, but both draw paths then bake further tiles from
+pic_next_tile as they go — a composite where a partly transparent cell falls over
+an existing picture, and on the X16 a boundary tile per cell of an odd-column
+placement. Those belong to no window's run, so the store can genuinely run out in
+the middle of a draw, where there is no opportunity to compact: the picture's own
+run is already placed and half its cells are written. The X16's baker therefore
+*saturates* rather than wrapping (.pcf_alloc_and_write): pic_next_tile stops at
+PIC_MAX_TILES and the bake reports failure, and the caller degrades for the cells
+it could not bake — the even paths keep their own un-composited tile, the odd
+path keeps whatever was behind. That is self-correcting, because a saturated
+pic_next_tile fails the allocator's fit check, so the next picture drawn compacts
+the store and the bakes have room again; the cost is cosmetic, confined to a
+nearly full store, and the alternative was corruption.
+
+It used to wrap to the bottom of the store, and that destroyed Arthur's frame a
+few rooms into a game. Everything below is live — the picture's own run, and the
+frame, which is drawn once at boot and never redrawn and so sits at the very
+bottom — so the wrap landed squarely on it. Two properties made it hard to see.
+The damage surfaced two rooms *after* the wrap, only once the allocator had
+marched back up into the frame's tiles, which pointed suspicion at the wrong
+event. And the wrap disabled the compactor that would have saved it: it left
+pic_next_tile low, so the fit check always passed and .pic_gc never ran again.
+The lesson generalises past this engine — an allocator that wraps onto live data
+is a bug rather than a fallback, and a wrap that erases the "store is full"
+signal takes the recovery path down with it. The MEGA65's baker still wraps: it
+has 2048 tiles and half the X16's per-picture cost, so it has not bitten, but the
+defect is the same one and the fix to port is the X16's.
 
 Some pictures do not carry their own colours. The blorb's APal chunk lists the
 "adaptive" pictures — Arthur's frame and side bars — which are drawn in the
