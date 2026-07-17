@@ -1,6 +1,6 @@
 ; The z6 picture engine for the Commander X16: the same job as the MEGA65
-; engine in screen-z6.asm (which this is a port of), done with VERA instead
-; of the VIC-IV.
+; engine in pictures-mega65.asm (which this is a port of), done with VERA
+; instead of the VIC-IV.
 ;
 ; The screen is two VERA layers. Text stays on layer 1 exactly as in the
 ; text-only build; the pictures live behind it on layer 0, a 64x32 map of

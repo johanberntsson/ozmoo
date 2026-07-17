@@ -1,6 +1,5 @@
 ; Which Z-machine to generate binary for
 ; (usually defined on the acme command line instead)
-; Z6 has partial support (window model, but not graphics)
 ;Z1 = 1
 ;Z2 = 1
 ;Z3 = 1
