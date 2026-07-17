@@ -716,6 +716,12 @@ Still open for the X16 pictures screen:
     real fix is to bake boundary tiles straight from the staging banks (no
     copy), so even a full-screen odd picture fits; then add dedup on the
     (left-index, right-index) pair (offline analysis: ~+1% tiles) if needed.
+    NOT just cosmetic any more: that 2x cost is what drove pic_next_tile to
+    the top of the store within two rooms and set up the wrap that destroyed
+    Arthur's frame (see the FIXED entry at the top). The wrap itself is fixed,
+    so this is no longer a correctness risk - but it is still what makes the
+    store run out, and removing the copy would relieve the pressure and cut
+    the even-placement fallbacks (and so the degraded bakes) with it.
   * Leaving the edge cells assumes the next picture lands on the same cells
     (Arthur's scenes all fill the same hole). A differently-sized/placed odd
     picture could leave a thin sliver of the previous one's edge until it is
