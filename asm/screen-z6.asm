@@ -146,7 +146,22 @@ font3_to_petscii_end
 ; of this machinery in pictures-x16.asm (sourced below); only the state and
 ; engine split per target, the opcodes further down are common.
 
-PIC_ATTIC_PAGE = $3000		; $08300000: past the story, the sounds and scrollback
+; Attic RAM survives the machine reset that z_ins_restart reboots through, so a
+; restart (the "restart" command, or dying) can reuse the pictures already
+; preloaded there instead of reading every file off the picture disks again.
+; What does NOT survive is the interpreter's RAM: the reboot reloads it from
+; disk, zeroing the pic_page_lo/hi tables that say where each picture landed.
+; Those cannot be recomputed - a picture's page depends on its decompressed
+; size, known only by reading it - so they are kept in attic too, in a header
+; below the pictures, behind a signature. Same idea as reu_filled in disk.asm: a
+; signature that outlives the reboot says the data is already there. reu_filled
+; uses game_id, which is !ifdef VMEM and so does not exist on the MEGA65; the
+; story's serial and checksum identify the story file just as well, and Ozmoo
+; never rewrites either (unlike flags_2 or the screen dimensions).
+PIC_SIG_BYTES = 8				; header_serial (6) then header_checksum (2)
+PIC_ATTIC_HEADER_PAGE = $3000	; $08300000: past the story, sounds and scrollback
+PIC_ATTIC_HEADER_BYTES = PIC_SIG_BYTES + 2 * picture_count
+PIC_ATTIC_PAGE = PIC_ATTIC_HEADER_PAGE + (PIC_ATTIC_HEADER_BYTES + 255) / 256
 ; PIC_MAX_TILES, FCM_TILE_STORE and FCM_TILE_CODE_HI are in constants.asm:
 ; where the store can live depends on what else is in the target's fast RAM.
 
@@ -266,6 +281,26 @@ pic_load_all
 	; to fill one d81 before the next. With two drives the second disk can sit
 	; in the second drive, so each disk is looked for there and in the boot
 	; drive before the player is ever asked to swap.
+	;
+	; A restart reboots the machine and reloads the interpreter, so this runs
+	; again - but attic still holds the pictures. If the header's signature is
+	; this game's, take the page tables back out of it and skip the load; see
+	; the PIC_ATTIC_HEADER_PAGE comment above. The header is readable by now:
+	; deletable_init loads the story before z_init runs.
+	jsr .pic_make_signature
+	jsr .pic_attic_header
+	ldx #0
+-	jsr .pic_att_next
+	cmp .pic_sig,x
+	bne .pla_load			; another story, or cold-boot garbage: load
+	inx
+	cpx #PIC_SIG_BYTES
+	bne -
+	lda #0					; ours: restore the tables and skip the disk
+	sta .pic_header_write
+	jsr .pic_header_tables
+	rts
+.pla_load
 	lda #<PIC_ATTIC_PAGE
 	sta .pic_next_page
 	lda #>PIC_ATTIC_PAGE
@@ -360,7 +395,117 @@ pic_load_all
 	sbc #>picture_count
 	bcs +					; the loop body is too long for a direct branch back
 	jmp .pla_loop
-+	rts
++
+	; Every picture is in attic now. Write the header so a restart can skip all
+	; of the above: the page tables first, then the signature last, so a load
+	; interrupted before this point leaves no signature claiming the tables are
+	; good.
+	lda #1
+	sta .pic_header_write
+	jsr .pic_header_tables
+	jsr .pic_attic_header
+	ldx #0
+-	lda .pic_sig,x
+	ldz #0
+	sta [.pic_att],z
+	inc .pic_att
+	inx
+	cpx #PIC_SIG_BYTES
+	bne -
+	rts
+
+.pic_make_signature
+	; .pic_sig = the story's serial (6 bytes) then its checksum (2). Ozmoo does
+	; not write either, so they still identify the story file at restart.
+	; read_header_word returns the word at y as a = high byte, x = low.
+	ldy #header_serial
+	jsr read_header_word
+	sta .pic_sig
+	stx .pic_sig + 1
+	ldy #header_serial + 2
+	jsr read_header_word
+	sta .pic_sig + 2
+	stx .pic_sig + 3
+	ldy #header_serial + 4
+	jsr read_header_word
+	sta .pic_sig + 4
+	stx .pic_sig + 5
+	ldy #header_checksum
+	jsr read_header_word
+	sta .pic_sig + 6
+	stx .pic_sig + 7
+	rts
+
+.pic_sig !fill PIC_SIG_BYTES, 0
+
+.pic_attic_header
+	; .pic_att -> the attic header at PIC_ATTIC_HEADER_PAGE.
+	lda #0
+	sta .pic_att
+	lda #<PIC_ATTIC_HEADER_PAGE
+	sta .pic_att + 1
+	lda #>PIC_ATTIC_HEADER_PAGE
+	sta .pic_att + 2
+	lda #$08				; attic RAM starts at $08000000
+	sta .pic_att + 3
+	rts
+
+.pic_header_tables
+	; Copy pic_page_lo and pic_page_hi between RAM and the attic header, which
+	; way round depending on .pic_header_write. The tables run to picture_count
+	; bytes each (up to 999), so the index is 16 bit and .pic_addr does the
+	; addressing, exactly as the rest of this file indexes the pic_* tables.
+	jsr .pic_attic_header
+	lda #PIC_SIG_BYTES		; the signature sits in front of the tables
+	clc
+	adc .pic_att
+	sta .pic_att
+	lda #<pic_page_lo
+	ldx #>pic_page_lo
+	jsr .pht_one
+	lda #<pic_page_hi
+	ldx #>pic_page_hi
+.pht_one
+	; a,x = the RAM table's base. Walks .pic_att on to the next table.
+	sta .pht_base
+	stx .pht_base + 1
+	lda #0
+	sta .pic_index
+	sta .pic_index + 1
+.pht_loop
+	lda .pht_base
+	ldx .pht_base + 1
+	jsr .pic_addr			; .pi_ptr -> the table's entry for .pic_index
+	lda .pic_header_write
+	bne .pht_write
+	ldz #0					; reading: attic -> RAM
+	lda [.pic_att],z
+	ldy #0
+	sta (.pi_ptr),y
+	bra .pht_next
+.pht_write
+	ldy #0					; writing: RAM -> attic
+	lda (.pi_ptr),y
+	ldz #0
+	sta [.pic_att],z
+.pht_next
+	inc .pic_att			; attic is written a byte at a time; the tables are
+	bne +					; small and this runs twice a boot at most
+	inc .pic_att + 1
+	bne +
+	inc .pic_att + 2
++	inc .pic_index
+	bne +
+	inc .pic_index + 1
++	lda .pic_index
+	cmp #<picture_count
+	lda .pic_index + 1
+	sbc #>picture_count
+	bcc .pht_loop
+	rts
+
+.pht_base !byte 0, 0
+.pic_header_write !byte 0	; 0 = attic -> RAM, 1 = RAM -> attic
 
 .pic_open_current
 	; Open pic_file_name as logical file 2 on .pic_dev for reading. The disk is
