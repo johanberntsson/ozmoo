@@ -3348,9 +3348,17 @@ if x_for_examine == 1
 	$GENERALFLAGS.push('X_FOR_EXAMINE') unless $GENERALFLAGS.include?('X_FOR_EXAMINE')
 end	
 
-if dark_mode == 0
+if $zcode_version == 6
+	# Dark mode doesn't work well in z6 games, so it is off by default and
+	# can't be enabled.
+	if dark_mode == 1
+		puts "ERROR: Dark mode (-dm) is not supported for Z-machine version 6 games."
+		exit 1
+	end
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
-end	
+elsif dark_mode == 0
+	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
+end
 
 if smooth_scroll == 1
 	$GENERALFLAGS.push('SMOOTHSCROLL') unless $GENERALFLAGS.include?('SMOOTHSCROLL')
