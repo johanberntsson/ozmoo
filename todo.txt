@@ -1352,7 +1352,7 @@ while layer 0 is blank behind the text: the backdrop is palette 0, also
 black, so it looks exactly like opaque black ink. Over a picture it is
 wrong, and the MEGA65 - one layer, text replaces tiles - does not have
 the problem.
-  Found July 2026 via wyrmward's status line: a reverse-video status bar
+  Found July 2026 via a PunyInform status line: a reverse-video status bar
   printed over a picture that legitimately sat on layer 0 row 0, and the
   picture showed straight through it. Worked around at the source (see
   split_window's pic_clear_map_rows, which stops layer 0 keeping content
