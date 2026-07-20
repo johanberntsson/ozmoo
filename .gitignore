@@ -1,6 +1,11 @@
 # Future unrelated plans
 /apple-plan/
 
+# I'm converting an old game of mine to z6 for testing, but I probably don't want
+# the source code in the ozmoo repository. That's to decide later. For now I keep
+# it here (but uncommitted) for easy of debugging and testing
+/examples/wyrmward/
+
 # Commercial story files and their resources. Never commit these: the story
 # files and graphics of Infocom's games are not ours to distribute. The freely
 # distributable test games in examples/ and test/ are tracked as usual.
