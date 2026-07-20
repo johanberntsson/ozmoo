@@ -1533,7 +1533,29 @@ split_window
 	cpx s_screen_height
 	bcc +
 	ldx s_screen_height
-+	stx window_y_size + 1
++
+!ifdef Z6_PICTURES {
+!ifdef TARGET_X16 {
+	; Window 1 is about to take the top rows off window 0. On the X16 the
+	; pictures live behind the text on layer 0, so whatever window 0 had drawn
+	; there stays put - and window 0 will never scroll or erase those rows
+	; again, so it would show through window 1 for ever. (It shows through even
+	; opaque-looking text: a reverse-video field is drawn in the foreground
+	; colour, and VERA renders palette index 0 - black - as transparent, which
+	; is exactly what a status line prints.) Clear layer 0 under the rows
+	; window 1 has just gained. Shrinking window 1 gives rows back to window 0,
+	; which erases and scrolls them itself, so only growth needs this.
+	stx .spw_new_height
+	lda window_y_size + 1	; the old height = the first row newly gained
+	cmp .spw_new_height
+	bcs .spw_no_clear
+	ldx .spw_new_height
+	jsr pic_clear_map_rows	; a = first row, x = row past the last
+	ldx .spw_new_height
+.spw_no_clear
+}
+}
+	stx window_y_size + 1
 	stx window_y
 	lda #0
 	sta window_y + 1
@@ -1566,6 +1588,12 @@ split_window
 	ldx window_y
 	ldy #0
 	jmp set_cursor
+
+!ifdef Z6_PICTURES {
+!ifdef TARGET_X16 {
+.spw_new_height !byte 0
+}
+}
 
 z_ins_set_window
 !ifdef DEBUG_SCREENLOG {

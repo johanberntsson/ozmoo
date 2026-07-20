@@ -1341,3 +1341,28 @@ values it reads back from the interpreter, and five of them were wrong:
   Arthur still plays to the churchyard, now with a correct status line.
   Journey's divider glyphs remain open (they are Infocom character
   graphics on every interpreter, see above).
+
+X16 pics: text drawn in colour 0 is TRANSPARENT, so it cannot cover a
+picture. VERA renders palette index 0 as transparent on a layer, and
+zcolours maps z-colour 2 (black) to VERA colour 0 - the commonest text
+colour there is. Every cell Ozmoo prints with black as its foreground
+therefore has transparent ink, and a reverse-video field (drawn entirely
+in the foreground colour) is transparent edge to edge. Nobody notices
+while layer 0 is blank behind the text: the backdrop is palette 0, also
+black, so it looks exactly like opaque black ink. Over a picture it is
+wrong, and the MEGA65 - one layer, text replaces tiles - does not have
+the problem.
+  Found July 2026 via wyrmward's status line: a reverse-video status bar
+  printed over a picture that legitimately sat on layer 0 row 0, and the
+  picture showed straight through it. Worked around at the source (see
+  split_window's pic_clear_map_rows, which stops layer 0 keeping content
+  under a window 1 that has just grown), which is correct in its own
+  right, but does not fix the general case: any game printing text over a
+  picture on the X16 will see the picture through the glyphs.
+  The real fix is to stop text using palette index 0: pick a spare index
+  (zcolours only reaches 0-15, and colours 16-23 - the Frotz extension -
+  are what make 10-15 reachable at all), set its VERA palette entry to
+  black on pics builds, and map z-colour 2 to it. Then every printed cell
+  is opaque and text covers layer 0 the way it covers tiles on the
+  MEGA65. Do it behind Z6_PICTURES so the text-only X16 build, which is
+  verified and has no layer 0, is untouched.

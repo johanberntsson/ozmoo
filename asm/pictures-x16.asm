@@ -2344,6 +2344,45 @@ pic_scroll_win_up
 .psu_dst    !byte 0
 .psu_bottom !byte 0
 
+pic_clear_map_rows
+	; a = first text row, x = the row past the last. Clear the layer 0 map
+	; across those rows, full width. Used when window 1 grows downwards and
+	; takes rows off window 0 (split_window): the pictures behind window 0's
+	; text stay on layer 0, and window 0 will never scroll or erase those rows
+	; again, so anything left there shows through window 1 for ever. The
+	; MEGA65 has no such case - its tiles are in screen RAM, so the status
+	; line's own text overwrites them.
+	; The rows are cleared edge to edge, so unlike pic_erase_win_rect there is
+	; no half-cell boundary to preserve.
+	sta .pcmr_row
+	stx .pcmr_end
+	lda #0
+	sta .pic_y				; .pic_map_row_addr adds .pic_y to .pic_row
+	sta .pic_lx				; from map column 0
+.pcmr_loop
+	lda .pcmr_row
+	cmp .pcmr_end
+	bcs .pcmr_done
+	cmp #SCREEN_HEIGHT		; never past the bottom of the screen
+	bcs .pcmr_done
+	sta .pic_row
+	ldy #1
+	jsr .pic_map_row_addr	; port 1 writes the row
+	ldx #64					; every map cell in a 64-wide map row
+	lda #0					; transparent tile 0, palette offset 0
+-	sta VERA_data1
+	sta VERA_data1
+	dex
+	bne -
+	inc .pcmr_row
+	bne .pcmr_loop			; always (rows are well under 256)
+.pcmr_done
+	stz VERA_ctrl			; leave port 0 selected, as the screen code expects
+	rts
+
+.pcmr_row !byte 0
+.pcmr_end !byte 0
+
 pic_erase_line_cells
 	; a = text row, x = start text column, y = count of text columns. Clear the
 	; whole layer 0 map cells the run [x, x + y) covers, so erase_line leaves no
