@@ -218,16 +218,17 @@ def convert(path, double=False, x16=False):
                 blob=bytes(blob), raw=len(blob))
 
 def load_blorb(filepath):
-    """Return (images, rects, adaptive) from a Blorb: images is a list of
-    (num, PIL Image) for the PNG resources; rects is a list of (num, w_px, h_px)
-    for the Rect placeholders (which carry only a size a game reads with
-    picture_data, to lay real pictures out); adaptive is the set of picture
-    numbers in the APal chunk, which are drawn using the last direct picture's
-    palette instead of their own."""
+    """Return (images, rects, adaptive, replacements) from a Blorb: images is a
+    list of (num, PIL Image) for the PNG resources; rects is a list of
+    (num, w_px, h_px) for the Rect placeholders (which carry only a size a game
+    reads with picture_data, to lay real pictures out); adaptive is the set of
+    picture numbers in the APal chunk, which are drawn using the last direct
+    picture's palette instead of their own; replacements is the set of pictures
+    named by a BPal chunk, which we never want (see below)."""
     blorb = open(filepath, "rb").read()
     if blorb[:4] != b"FORM" or blorb[8:12] != b"IFRS":
         sys.exit(f"{filepath}: not a Blorb (FORM..IFRS) file")
-    chunks, ridx, apal, pos = {}, None, b"", 12
+    chunks, ridx, apal, bpal, pos = {}, None, b"", b"", 12
     while pos < len(blorb):
         ctype = blorb[pos:pos+4]
         clen = struct.unpack(">I", blorb[pos+4:pos+8])[0]
@@ -237,10 +238,22 @@ def load_blorb(filepath):
             ridx = data
         elif ctype == b"APal":
             apal = data
+        elif ctype == b"BPal":
+            bpal = data
         pos += 8 + clen + (clen & 1)
     if ridx is None:
         sys.exit(f"{filepath}: no resource index (RIdx) chunk")
     adaptive = {struct.unpack(">I", apal[i:i+4])[0] for i in range(0, len(apal), 4)}
+    # BPal ("Bocfel adaptive palette", github.com/cspiegel/bpal) is a workaround
+    # for interpreters that cannot recolour a Blorb image at runtime: for every
+    # (current palette, APal picture) pair it names a third picture holding that
+    # adaptive picture with the palette already applied. Snavig-generated blorbs
+    # of Arthur and Zork Zero carry hundreds of these, numbered from 1000 up.
+    # Ozmoo does the recolouring itself (pic_adaptive / pic_direct_base), so the
+    # replacements are dead weight -- and their numbers do not fit the three-digit
+    # [Pnnn] filename anyway. Collect them so main() can drop them.
+    replacements = {struct.unpack(">I", bpal[i+8:i+12])[0]
+                    for i in range(0, len(bpal), 12)}
     from PIL import Image
     import io
     images, rects = [], []
@@ -256,7 +269,7 @@ def load_blorb(filepath):
         elif ctype == b"Rect":
             w, h = struct.unpack(">II", data[:8])
             rects.append((num, w, h))
-    return images, rects, adaptive
+    return images, rects, adaptive, replacements
 
 # A picture may be numbered up to 999 (three digits, the P### filename width).
 # The interpreter's picture index is 16-bit, so the count is bounded only by the
@@ -286,11 +299,14 @@ def pack_disks(sizes, disk_blocks, disk_files):
 
 def main():
     fcm_width, stats, x16, exomizer, args = 80, False, False, None, []
+    keep_all = False
     argv, i = sys.argv[1:], 0
     while i < len(argv):
         a = argv[i]
         if a == "--stats":
             stats = True
+        elif a == "--all-pictures":
+            keep_all = True
         elif a == "--x16":
             x16 = True
         elif a == "--fcm-width" and i + 1 < len(argv):
@@ -310,7 +326,7 @@ def main():
         sys.exit("--fcm-width must be 40 or 80")
     if not 2 <= len(args) <= 4:
         sys.exit(f"usage: {sys.argv[0]} [--fcm-width 40|80] [--x16] "
-                 f"[--exomizer PATH] [--stats] "
+                 f"[--exomizer PATH] [--stats] [--all-pictures] "
                  f"<outdir> <png-dir-or-blorb> [disk-blocks disk-files]")
     # The MEGA65 crunches its picture disks; the X16 and stats-only runs do not.
     if not x16 and not stats and exomizer is None:
@@ -329,7 +345,7 @@ def main():
     disk_blocks = int(args[2]) if len(args) > 2 else 1 << 30
     disk_files  = int(args[3]) if len(args) > 3 else 1 << 30
 
-    rects, adaptive = [], set()
+    rects, adaptive, replacements = [], set(), set()
     if os.path.isdir(source):
         images = [(int(os.path.basename(p)[:-4]), p)
                   for p in sorted(glob.glob(os.path.join(source, "*.png")),
@@ -338,9 +354,37 @@ def main():
         if not images:
             sys.exit(f"no numbered PNGs in {source}")
     else:
-        imgs, rects, adaptive = load_blorb(source)
+        imgs, rects, adaptive, replacements = load_blorb(source)
         # convert() takes either a path or an (image, name) tuple
         images = [(num, (im, f"picture {num}")) for num, im in imgs]
+
+    # Drop the pictures no Ozmoo build can use, so that a newer blorb of a game
+    # we already support still works: a BPal replacement (which we recolour at
+    # runtime instead) and, as a catch-all for a blorb we cannot interpret, any
+    # number past the three-digit [Pnnn] filename. --all-pictures keeps them,
+    # which then stops at the MAX_PIC_NUMBER check below rather than quietly
+    # shipping a set the interpreter cannot name.
+    if not keep_all:
+        def unusable(n):
+            return n in replacements or n > MAX_PIC_NUMBER
+        dropped = sorted([n for n, _ in images if unusable(n)] +
+                         [n for n, _, _ in rects if unusable(n)])
+        if dropped:
+            # A picture is reported under the first rule that explains it, so
+            # the usual case (BPal replacements, which are also numbered high)
+            # reads as one reason rather than two.
+            for why, match in (("BPal palette replacements",
+                                lambda n: n in replacements),
+                               (f"numbered above {MAX_PIC_NUMBER}",
+                                lambda n: n > MAX_PIC_NUMBER)):
+                these = [n for n in dropped if match(n)]
+                dropped = [n for n in dropped if not match(n)]
+                if these:
+                    print(f"  skipping {len(these)} pictures ({why}): "
+                          f"{these[0]}-{these[-1]}; "
+                          f"pass --all-pictures to keep them")
+            images = [(n, s) for n, s in images if not unusable(n)]
+            rects  = [(n, w, h) for n, w, h in rects if not unusable(n)]
 
     if len(images) > MAX_PICTURES:
         sys.exit(f"{len(images)} pictures: a build may hold at most "

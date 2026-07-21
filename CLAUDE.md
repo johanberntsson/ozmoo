@@ -66,6 +66,25 @@ one compressed file per PNG picture on the d81 and sets `Z6_PICTURES`; it needs
 adaptive-palette list (see the Pictures section); given a plain directory of
 numbered PNGs (`tools/testpics`) it just tiles those.
 
+**More than one blorb exists for Arthur and Zork Zero, and the bigger one carries
+pictures we must not build.** Snavig-generated blorbs add a `BPal` chunk
+("Bocfel adaptive palette", <https://github.com/cspiegel/bpal>): for every
+(current palette, `APal` picture) pair it names a third picture holding that
+adaptive picture *with the palette already applied*, for Glk interpreters that
+cannot recolour a Blorb image at runtime. Arthur's has 155 of them, numbered
+1000-1154 — pure dead weight for Ozmoo, which does the recolouring itself
+(`pic_adaptive` / `pic_direct_base`), and unnameable by the interpreter's
+three-digit `[Pnnn]` filename (`.pic_set_filename`). `pics2asm.py` drops any
+BPal replacement, and as a catch-all anything past `MAX_PIC_NUMBER`, printing
+what it skipped; `--all-pictures` keeps them and then stops on the number check
+rather than shipping a set the interpreter cannot name. So either Arthur blorb
+now builds the same 137 pictures — verified: identical output, `pics1` 1213
+blocks, and the game plays. Beware the numbering when looking at extracted
+chunks: sequential chunk indices (Arthur's run to 335) are not picture numbers.
+The story file references none of them — both blorbs' `.z6` are byte identical,
+and every picture constant in `txd`'s disassembly is <= 171. Zork Zero's `APal`
+lists 165 pictures, so a BPal blorb of it would be enormous.
+
 `dfrotz -h 25 -w 40 testz6.z6` gives reference output with the same screen size as a C64, which makes line-for-line comparison possible.
 
 There is no automated test suite. `test/` holds standard conformance games (czech, praxix, strictz, oztest, etude) that are built and played manually. `testz6.inf` is the v6 test game — grow it opcode by opcode and compare against frotz rather than debugging a commercial game blind.
