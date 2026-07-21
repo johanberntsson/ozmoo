@@ -208,7 +208,7 @@ games, Shogun's 345 KB, the story ends in bank 41 and there is room to spare.
 
 On the MEGA65, the boot file doesn't hold any story data. The entire Z-code file is held in a SEQ file called "zcode" and is loaded into Attic RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place, this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a MEGA65 game can be copied from one disk to another using a regular file copier.
 
-A version 6 game built with Z6_PICTURES also carries its pictures, as one Exomizer archive per picture disk, decrunched into Attic RAM at boot. These archives live on their own picture disk(s), not the boot disk; every shipped game fits a single one. See "Version 6".
+A version 6 game built with Z6_PICTURES also carries its pictures, as one Exomizer archive per picture disk, decrunched into Attic RAM at boot. The archive is small enough to sit on the boot disk beside the story for every game shipped so far, which makes a MEGA65 version 6 game a single d81; a set too large for that falls back to picture disks of its own. See "Version 6".
 
 ### MEGA65 Memory map
 | **Address range** | **KB** |  **Usage** |
@@ -650,28 +650,52 @@ One archive per disk compresses far better than the old scheme of one RLE file
 per picture, because Exomizer sees the redundancy *between* pictures — shared
 palettes, repeated tiles and cell-map runs — that a per-picture coder cannot.
 The whole set typically halves, and Zork Zero's 396 tiny icons shrink more than
-threefold. That is what lets every shipped game fit one picture disk: Zork Zero
-and Journey needed two before (Zork Zero because 396 files overflowed a d81's
-directory, Journey because its bytes overflowed one disk), and both now fit one.
+threefold. Zork Zero and Journey had needed two picture disks each (Zork Zero
+because 396 files overflowed a d81's directory, Journey because its bytes
+overflowed one disk); afterwards every shipped game came down to one archive —
+and every archive turned out to be small enough that the game needs no picture
+disk at all.
 
-The archives do not fit on the boot disk beside the story, the interpreter and the
-sound, so they get their own disk(s). pics2asm.py packs the pictures across as many
-mega65_&lt;game&gt;_pics_N.d81 disks as their archives need, capped by block count,
-and make.rb's build_picture_disks builds one d81 each, one archive on it. (Because
-a disk now holds one archive rather than one file per picture, the d81 directory
-limit that used to split Zork Zero no longer bites.) At boot, pic_load_all sweeps
-the disks in turn: for each it reads the archive into an Attic staging buffer at
-\$08510000, then decrunches it forward onto the running Attic write pointer, under
-a "loading graphics" label with a slash progress bar. The bar ticks once every so
-many pages *staged from disk* — the slow part on a real 1581 — scaled through the
-assembled-in picture_crunched_pages so it is about thirty slashes wide whatever the
-set's size. For each disk pic_load_all tries the second drive (boot_device + 1)
-then the boot drive, reading the drive error channel to tell a present file from a
-missing one — a missing file OPENs "successfully" but reads back a stale buffer
-page, so the status byte lies — and only asks for a swap if neither drive holds it.
-make.rb mounts the first picture disk in drive 9 when it launches xemu, so a
-one-disk set loads with no prompt. The picture count and the picture numbers are
-both 16-bit: .pic_index is a word and the parallel pic_* tables are indexed through
+The archive fits on the boot disk beside the story, the interpreter and the
+sound, so that is where it goes: a MEGA65 version 6 game is a single d81.
+make.rb's add_pictures_to_boot_disk writes it there with c1541 whenever a build
+produced exactly one archive and it fits in what the finished disk reports free
+— read back from the BAM with c1541 -dir rather than tallied, since the story,
+the loader and the interpreter are written by three separate pieces of code —
+and it deletes any picture disk left over from an earlier build of the same
+game, so a stale one cannot be mistaken for current. The margins as shipped are
+Arthur's 1213 blocks into 2039 free, Shogun's 862 into 1742, Zork Zero's 687
+into 1917, and Journey's 1975 into 1987: twelve blocks to spare. (One trap in
+that last step: c1541 converts a file name from ASCII to PETSCII, so it must be
+given the name in *lower* case. "pics1" is stored as \$50 \$49 \$43 \$53 \$31,
+the unshifted letters the interpreter's `!text "PICS1"` assembles to, while
+"PICS1" is stored shifted, \$d0 \$c9 \$c3 \$d3 \$31, and is never found.)
+
+A set that needs more than one archive, or one that no longer fits beside its
+story, still falls back to build_picture_disks: pics2asm.py packs the pictures
+across as many mega65_&lt;game&gt;_pics_N.d81 disks as their archives need,
+capped by block count, and make.rb builds one d81 each, one archive on it.
+(Because a disk now holds one archive rather than one file per picture, the d81
+directory limit that used to split Zork Zero no longer bites.)
+
+The interpreter is not told which arrangement it got. At boot, pic_load_all
+sweeps the picture disks in turn: for each it finds the archive, reads it into
+an Attic staging buffer at \$08510000, then decrunches it forward onto the
+running Attic write pointer, under a "loading graphics" label with a slash
+progress bar. The bar ticks once every so many pages *staged from disk* — the
+slow part on a real 1581 — scaled through the assembled-in
+picture_crunched_pages so it is about thirty slashes wide whatever the set's
+size. To find a disk, pic_load_all probes the boot drive first and then the
+second drive (boot_device + 1), reading the drive error channel to tell a
+present file from a missing one — a missing file OPENs "successfully" but reads
+back a stale buffer page, so the status byte lies — and only asks for a swap if
+neither drive holds it. The boot drive comes first because that is where the
+archive normally is now; a drive that is not there answers a probe with a KERNAL
+timeout rather than a quick "file not found", and a picture disk from another
+Ozmoo game left in the second drive would carry a PICS&lt;N&gt; of its own.
+make.rb still mounts the first picture disk in drive 9 when a build really
+produced one. The picture count and the picture numbers are both 16-bit:
+.pic_index is a word and the parallel pic_* tables are indexed through
 .pic_addr.
 
 The decruncher is a port of Exomizer's reference decoder (exodec.c) for the -P0
@@ -1464,9 +1488,10 @@ switch. See "Version 6".
 
 Version 6 only, and only on the MEGA65 (where it requires Z6_FCM_MODE) and the
 X16 (where there is nothing else to ask for). The game's pictures are built
-alongside it and are drawn: on their own picture disks, preloaded into Attic RAM,
-on the MEGA65; in the game's directory, read from the SD card as they are drawn,
-on the X16. Set by make.rb's -pics switch. See "Version 6".
+alongside it and are drawn: as one Exomizer archive, normally on the boot disk
+itself, preloaded into Attic RAM, on the MEGA65; in the game's directory, read
+from the SD card as they are drawn, on the X16. Set by make.rb's -pics switch.
+See "Version 6".
 
     PIC_STAGING_BANK=n
 

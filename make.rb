@@ -1583,7 +1583,8 @@ def play(filename, storyname)
 			# there without asking for a swap. (xemu has two drives; a game with
 			# more than one picture disk still needs swapping for the rest.) The
 			# picture disks are the boot disk name with _pics_N before .d81.
-			if $picture_disks and not $picture_disks.empty?
+			# Nothing to mount when the pictures went on the boot disk.
+			if $picture_disks and not $picture_disks.empty? and not $pictures_on_boot_disk
 				command += " -9 \"#{filename.sub(/\.d81$/, '_pics_1.d81')}\""
 			end
 		else
@@ -2367,12 +2368,72 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
+# How many blocks a d81 has left, as the drive itself counts them. The boot
+# disk is finished by other tools (c1541 writes the interpreter and the loader,
+# and the D81_image class the story), so adding up what we wrote ourselves
+# would not answer this - read it back from the BAM instead.
+def d81_blocks_free(diskimage_filename)
+	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -dir"
+	puts c1541_cmd if $verbose
+	output = `#{c1541_cmd} 2>&1`
+	output =~ /^\s*(\d+) blocks free/ ? $1.to_i : nil
+end
+
+# Put the pictures on the boot disk, if they fit, so the whole game is a single
+# d81. Since the pictures became one exomizer archive per picture disk, every
+# v6 game we build needs just one archive, and the story plus the interpreter
+# leave room for it on all four (Journey by only a dozen blocks). A set that
+# needs more than one archive, or one that does not fit in what is left, falls
+# back to its own picture disk(s) below.
+#
+# The interpreter needs no telling which it got: pic_load_all looks for PICS<n>
+# on the boot drive first, then the second drive, and only then asks for a swap.
+def add_pictures_to_boot_disk()
+	return false unless $picture_disks.length == 1
+	files = $picture_disks[$picture_disks.keys.first]
+	needed = files.inject(0) { |sum, file| sum + (File.size(file) / 254.0).ceil }
+	free = d81_blocks_free($bootdiskname)
+	return false if free.nil?
+	if needed > free
+		puts "Pictures need #{needed} blocks and the boot disk has #{free} free: using a separate picture disk."
+		return false
+	end
+	files.each do |file|
+		# pics1.bin becomes "PICS1", a SEQ file like the one a picture disk
+		# holds - the interpreter opens it the same way either way. The name
+		# must be given to c1541 in LOWER case: it converts ASCII to PETSCII,
+		# so "pics1" is stored as $50 $49 $43 $53 $31, the unshifted letters
+		# the interpreter's !text "PICS1" assembles to, while "PICS1" would be
+		# stored shifted ($d0 $c9 ...) and never found.
+		name = File.basename(file, '.bin').downcase
+		c1541_cmd = "#{$executables['C1541']} -attach \"#{$bootdiskname}\" -write \"#{file}\" \"#{name},s\""
+		puts c1541_cmd if $verbose
+		`#{c1541_cmd}`
+	end
+	left = d81_blocks_free($bootdiskname)
+	if left != free - needed
+		puts "ERROR: Failed to write the pictures to the boot disk."
+		exit 1
+	end
+	$pictures_on_boot_disk = true
+	# A picture disk left over from an earlier build of this game is stale now,
+	# and it still holds a PICS<n> the interpreter would accept if it were ever
+	# put in the second drive. Take it away rather than leave it looking current.
+	Dir.glob($bootdiskname.sub(/\.d81$/, '_pics_*.d81')).each do |stale|
+		File.delete(stale)
+		puts "Removed the now unneeded picture disk #{stale}."
+	end
+	puts "Pictures written to the boot disk, #{left} blocks free. No picture disk needed."
+	true
+end
+
 # Build one d81 per picture disk, each holding the picture files pics2asm.py
 # assigned to it (picdisks.txt). These are pure file disks: no boot file, no
 # config, no story - the interpreter opens the files by name on whichever disk
 # is inserted. add_story_data with no story blocks just flushes the directory.
 def build_picture_disks(storyname)
 	return unless $picture_disks and not $picture_disks.empty?
+	return if add_pictures_to_boot_disk()
 	$picture_disks.keys.sort.each do |disknum|
 		diskfilename = "#{$target}_#{storyname}_pics_#{disknum}.d81"
 		imagefilename = File.join($TEMPDIR, "pics#{disknum}.d81")
@@ -2534,6 +2595,7 @@ preloadfile = nil
 $sound_path = nil
 $sound_files = []
 $picture_disks = nil # set by -pics: {disk number => [picture file paths]}
+$pictures_on_boot_disk = nil # set when they fit there, so no picture disk is built
 $font_filename = nil
 $font_address = nil
 $loader_pic_file = nil

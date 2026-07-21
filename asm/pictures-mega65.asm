@@ -404,18 +404,24 @@ pic_load_all
 	jmp fatalerror
 
 .pic_locate_disk
-	; Find the picture disk .cur_disk. Try the second drive, then the boot
+	; Find the picture disk .cur_disk. Try the boot drive, then the second
 	; drive; if neither holds it, ask the player to insert it and try both
 	; again - the disk may have been put in either drive. pic_file_name already
 	; names one of this disk's files, and is the probe.
+	;
+	; The boot drive comes first because the pictures now usually live on the
+	; boot disk itself (make.rb puts the archive there whenever it fits), and a
+	; drive that isn't there answers a probe with a KERNAL timeout, not a quick
+	; "file not found". It is also the safer order: a picture disk from another
+	; Ozmoo game left in the second drive holds a PICS<n> of its own.
 .pld_try
 	lda boot_device
-	clc
-	adc #1					; the second drive (e.g. 9 when booting from 8)
 	sta .pic_dev
 	jsr .pic_probe
 	bcs .pld_found
 	lda boot_device
+	clc
+	adc #1					; the second drive (e.g. 9 when booting from 8)
 	sta .pic_dev
 	jsr .pic_probe
 	bcs .pld_found

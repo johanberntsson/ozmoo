@@ -151,15 +151,21 @@ which is what -fcm asks for. So, to build Arthur:
 
 Add -s to either of those to start the game in an emulator once it has been built.
 
-On the MEGA65 the pictures do not fit on the boot disk beside the story, so they
-get a picture disk of their own: the build produces `mega65_arthur.d81` plus
-`mega65_arthur_pics_1.d81`. The pictures are compressed into a single Exomizer
-archive per disk, so all four games — even Zork Zero with its 396 pictures — fit
-one picture disk. Put the boot disk in the first drive and the picture disk in
-the second, and the game will load without asking for a swap; if you have only
-one drive, it will ask. On the X16 there are no picture disks at all — the
-pictures are ordinary files in the game's directory, and the game reads each one
-from the SD card as it draws it.
+On the MEGA65 the pictures are compressed into a single Exomizer archive, which
+is small enough to go on the boot disk beside the story: the build produces just
+`mega65_arthur.d81`, and the same is true of the other three games — even Zork
+Zero with its 396 pictures, and Journey, which fills all but twelve blocks of
+its disk. Nothing has to be inserted and no second drive is needed.
+
+If a picture set is ever too big to share a disk with its story, the build falls
+back to picture disks of their own (`mega65_arthur_pics_1.d81`, `_pics_2.d81`
+and so on), which it reports as it goes. Then put the boot disk in the first
+drive and the picture disk in the second and the game will load without asking
+for a swap; with only one drive, it will ask.
+
+On the X16 there are no picture disks at all — the pictures are ordinary files
+in the game's directory, and the game reads each one from the SD card as it
+draws it.
 
 The same works for the other three games:
 
@@ -244,9 +250,9 @@ The Commander X16 version is using the extended RAM fully to preload the story f
 
 The X16 is the other target that draws the graphics of version 6 games, on a VERA
 tile layer behind the text (-pics, with no -fcm needed — the X16 has only the one
-screen). It needs no picture disks: the pictures are files in the game's directory
-and are read from the SD card as they are drawn. There is no mouse pointer here
-yet. See [Version 6 games](#version-6-games).
+screen). Nothing is preloaded: the pictures are files in the game's directory and
+are read from the SD card as they are drawn. The mouse works here too, through
+the KERNAL's own pointer. See [Version 6 games](#version-6-games).
 
 ## Other targets
 
@@ -605,9 +611,9 @@ by default.
 
 ## What to expect
 
-Arthur and Shogun keep their pictures on one picture disk on the MEGA65; Zork Zero
-and Journey have enough of them to need two. On the X16 the number does not matter,
-because the pictures are files on the SD card and are read as they are drawn.
+All four games are a single disk on the MEGA65 — the pictures ride on the boot
+disk with the story. On the X16 the number does not matter either, because the
+pictures are files on the SD card and are read as they are drawn.
 
 On the MEGA65's full colour screen the games also have a working mouse — a 1351 or
 Amiga mouse in control port 2 — for the games that ask for one, which is Arthur

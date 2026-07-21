@@ -1,5 +1,29 @@
 Known bugs
 ----------
+DONE (July 2026): every MEGA65 v6 game now fits on ONE d81 - the pictures go on
+the boot disk beside the story, and no picture disk is built at all. This became
+possible when a picture disk turned into a single exomizer archive: measured on
+the finished boot disks, Arthur needs 1213 blocks of 2039 free, Shogun 862 of
+1742, Zork Zero 687 of 1917 and Journey 1975 of 1987 - twelve blocks to spare.
+make.rb's add_pictures_to_boot_disk writes the archive with c1541 when there is
+exactly one and it fits (free space read back from the finished disk with
+c1541 -dir, since story, loader and interpreter are written by three different
+pieces of code), and removes any _pics_N.d81 left over from an earlier build.
+Anything that does not fit still falls back to build_picture_disks unchanged.
+The interpreter needs no flag for this - .pic_locate_disk just probes the boot
+drive BEFORE the second drive now (an absent drive answers with a KERNAL
+timeout, not a quick file-not-found, and another game's picture disk left in
+drive 9 would have a PICS<n> of its own).
+One trap, and it cost a debugging round: c1541 must be handed the name in LOWER
+case. It converts ASCII to PETSCII, so "pics1" is written as $50 $49 $43 $53 $31
+- the unshifted letters !text "PICS1" assembles to - while "PICS1" is written
+shifted, $d0 $c9 $c3 $d3 $31, and the interpreter never finds it. The game then
+sits at "insert picture disk 1" with the pictures on the very disk it booted
+from. c1541 -dir gives it away: the good name lists in lower case.
+All four games verified headlessly under xemu with a single -8 disk and no -9:
+each loads its graphics with no swap prompt and reaches its opening screen
+(Zork Zero drawing the Banquet Hall, Shogun its title art).
+
 FIXED (July 2026): on the X16 pics build, Arthur's frame was destroyed after a
 few room changes ("w", "e", "w" was enough) - it filled with fragments of the
 room pictures in the wrong colours, permanently, since the frame is drawn once
