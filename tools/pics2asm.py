@@ -58,40 +58,49 @@ FCM cells are 8x8 pixels and a cell's screen code is its data address divided by
 64. In the store a pixel of 0 is transparent and 255 comes from colour RAM, so
 neither may be a real colour: hence 15 colours a picture, not 16.
 """
-import os, sys, glob, struct
+import os, sys, glob, struct, subprocess, tempfile
 from PIL import Image
 
 BASE = 16
+PAGE = 256
+
+# A picture disk's pictures are concatenated (each page-padded so every picture
+# starts on an attic page boundary) and crunched into one archive with exomizer.
+# The interpreter's decruncher in pictures-mega65.asm is a port of exomizer's
+# reference decoder (exodec.c), which reads the stream FORWARD, so the archive
+# is crunched forward too (no -b). raw format, exomizer-2 layout (-P0, the
+# table format the port builds), compatibility mode (-c, no literal sequences).
+# -m is the maximum sequence offset (the furthest back a match reaches); 4096
+# costs almost nothing here because page-padded, tile-deduplicated pictures
+# match locally, and it bounds the back-reference distance the decruncher walks.
+STREAM_WINDOW = 4096
+STREAM_FLAGS  = ["raw", "-q", "-C", "-P0", "-c", "-m", str(STREAM_WINDOW)]
 
 def nybswap(v):
     return ((v & 0x0F) << 4) | (v >> 4)
 
-def rle(data):
-    """PackBits: n in 0..127 means n+1 literal bytes follow; n in 129..255 means
-    the next byte repeats 257-n times; 128 is unused. Decoding needs no
-    lookahead, which is what makes the 6502 side short."""
-    out, i, n = bytearray(), 0, len(data)
-    while i < n:
-        run = 1
-        while i + run < n and data[i + run] == data[i] and run < 128:
-            run += 1
-        if run >= 2:
-            out.append(257 - run)
-            out.append(data[i])
-            i += run
-        else:
-            lit = bytearray()
-            while i < n and len(lit) < 128:
-                run = 1
-                while i + run < n and data[i + run] == data[i] and run < 3:
-                    run += 1
-                if run >= 3:
-                    break
-                lit.append(data[i])
-                i += 1
-            out.append(len(lit) - 1)
-            out += lit
-    return bytes(out)
+def crunch(exomizer, data):
+    """Exomizer-crunch a blob with the stream-decruncher flags; return the bytes."""
+    with tempfile.TemporaryDirectory() as d:
+        i, o = os.path.join(d, "in"), os.path.join(d, "out")
+        open(i, "wb").write(data)
+        r = subprocess.run([exomizer] + STREAM_FLAGS + [i, "-o", o],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        if r.returncode != 0:
+            sys.exit(f"exomizer failed: {r.stderr.decode()[:400]}")
+        return open(o, "rb").read()
+
+def build_archive(exomizer, blobs):
+    """Concatenate the raw blobs, each padded up to a page so every picture lands
+    on an attic page boundary, and crunch the lot into one archive. Returns the
+    crunched bytes; the per-picture page counts are ceil(len/256), assembled in
+    as pic_pages so the interpreter can place each picture without the padding
+    ever needing to be measured at runtime."""
+    stream = bytearray()
+    for b in blobs:
+        stream += b
+        stream += b"\x00" * (-len(b) % PAGE)
+    return crunch(exomizer, bytes(stream))
 
 def convert(path, double=False, x16=False):
     if not isinstance(path, str):     # (image, name) tuple from a blorb
@@ -196,13 +205,17 @@ def convert(path, double=False, x16=False):
     blob += packed
     if len(blob) > 0xffff:
         sys.exit(f"{path}: {len(blob)} bytes uncompressed; more than 64 KB")
-    # The X16 loads a picture from SD on demand, straight into its staging
-    # banks with the kernal's LOAD: the file stays uncompressed so no
-    # decompressor is needed, and FAT32 has no d81 block pressure. The
-    # MEGA65's files are RLE compressed to fit a picture disk.
+    # convert() always returns the raw, uncompressed blob now. The X16 stores
+    # it as-is (FAT32 has no block pressure, and it is LOADed from SD on demand).
+    # The MEGA65 concatenates a picture disk's raw blobs, page-padded, and
+    # exomizer-crunches the whole lot into one archive per disk (build_archives
+    # below); the interpreter streams that back into attic through a ported
+    # exomizer decruncher. One archive per disk compresses far better than the
+    # old per-picture RLE (cross-picture redundancy) and collapses Zork Zero and
+    # Journey onto a single picture disk.
     return dict(w=w, h=h, cw=cw * 2 if double else cw, ch=ch, ntiles=ntiles,
                 logical=len(logical), colours=len(opaque),
-                blob=bytes(blob) if x16 else rle(bytes(blob)), raw=len(blob))
+                blob=bytes(blob), raw=len(blob))
 
 def load_blorb(filepath):
     """Return (images, rects, adaptive) from a Blorb: images is a list of
@@ -272,7 +285,7 @@ def pack_disks(sizes, disk_blocks, disk_files):
 
 
 def main():
-    fcm_width, stats, x16, args = 80, False, False, []
+    fcm_width, stats, x16, exomizer, args = 80, False, False, None, []
     argv, i = sys.argv[1:], 0
     while i < len(argv):
         a = argv[i]
@@ -285,14 +298,26 @@ def main():
             fcm_width = int(argv[i])
         elif a.startswith("--fcm-width="):
             fcm_width = int(a.split("=", 1)[1])
+        elif a == "--exomizer" and i + 1 < len(argv):
+            i += 1
+            exomizer = argv[i]
+        elif a.startswith("--exomizer="):
+            exomizer = a.split("=", 1)[1]
         else:
             args.append(a)
         i += 1
     if fcm_width not in (40, 80):
         sys.exit("--fcm-width must be 40 or 80")
     if not 2 <= len(args) <= 4:
-        sys.exit(f"usage: {sys.argv[0]} [--fcm-width 40|80] [--x16] [--stats] "
+        sys.exit(f"usage: {sys.argv[0]} [--fcm-width 40|80] [--x16] "
+                 f"[--exomizer PATH] [--stats] "
                  f"<outdir> <png-dir-or-blorb> [disk-blocks disk-files]")
+    # The MEGA65 crunches its picture disks; the X16 and stats-only runs do not.
+    if not x16 and not stats and exomizer is None:
+        exomizer = os.path.join(os.path.dirname(__file__), "..",
+                                "exomizer", "src", "exomizer")
+        if not os.path.exists(exomizer):
+            sys.exit("MEGA65 picture disks need exomizer; pass --exomizer PATH")
     outdir, source = args[0], args[1]
     # The X16's screen has the MEGA65 80-column geometry -- text cells 8 pixels,
     # picture cells 16 -- but its L0 tile map holds one 16x8 tile per logical
@@ -332,38 +357,57 @@ def main():
         if x16 and len(p['blob']) > 0x8000:
             sys.exit(f"picture {num}: {len(p['blob'])} bytes; more than the "
                      f"X16's 32 KB (4 bank) staging area")
-        if len(p['blob']) > 255 * 256:
-            sys.exit(f"picture {num}: {len(p['blob'])} bytes compressed; a picture "
-                     f"file may be at most 255 pages")
-        if not stats:
+        # pic_pages holds ceil(raw / 256) in a single byte, so a picture is at
+        # most 255 pages (65280 bytes) of attic.
+        if (p['raw'] + PAGE - 1) // PAGE > 255:
+            sys.exit(f"picture {num}: {p['raw']} bytes; more than 255 attic pages")
+        if x16 and not stats:      # the X16 stores one uncompressed file per pic
             open(os.path.join(outdir, f"p{num:03d}.bin"), "wb").write(p['blob'])
         nums.append(num)
-        sizes.append(len(p['blob']))
         pics.append((num, p))
-        total += len(p['blob'])
         raw_total += p['raw']
         if double:
             # logical unique cells -> doubled pre-dedup -> tiles actually stored
             print(f"  picture {num:3d}: {p['w']}x{p['h']} px, {p['cw']}x{p['ch']} cells, "
                   f"{p['logical']} -> {2*p['logical']} -> {p['ntiles']} tiles, "
-                  f"{p['colours']} colours, {p['raw']} -> {len(p['blob'])} bytes")
+                  f"{p['colours']} colours, {p['raw']} bytes")
         else:
             print(f"  picture {num:3d}: {p['w']}x{p['h']} px, {p['cw']}x{p['ch']} cells, "
-                  f"{p['ntiles']} tiles, {p['colours']} colours, "
-                  f"{p['raw']} -> {len(p['blob'])} bytes")
+                  f"{p['ntiles']} tiles, {p['colours']} colours, {p['raw']} bytes")
 
-    # Spread the picture files over as many picture disks as they need, parallel
-    # to nums. make.rb reads the manifest below to build one d81 per disk. The
-    # X16's files sit loose in the game directory -- no disks -- but the
-    # manifest is still what tells make.rb which files belong to the build.
+    # Assign pictures to picture disks and build one crunched archive per disk.
+    # The X16 keeps its loose uncompressed files, one per picture, and no disks.
+    def dblocks(n): return (n + 253) // 254
+    archives = {}                       # disk number -> crunched archive bytes
     if x16:
         disk_of, disk_count = [1] * len(nums), 1
     else:
-        disk_of, disk_count = pack_disks(sizes, disk_blocks, disk_files)
+        # Try the whole set as one archive first: every shipped game fits one
+        # picture disk this way, so the common path crunches exactly once. Only
+        # if it overflows do we fall back to packing by each picture's own
+        # crunched size (an upper bound on its cost inside a shared archive, so
+        # a disk that fits the sum always fits the combined archive) and build
+        # one archive per disk.
+        blobs = [p['blob'] for _, p in pics]
+        one = build_archive(exomizer, blobs)
+        if dblocks(len(one)) <= disk_blocks:
+            disk_of, disk_count, archives = [1] * len(nums), 1, {1: one}
+        else:
+            sizes = [len(crunch(exomizer, b)) for b in blobs]
+            disk_of, disk_count = pack_disks(sizes, disk_blocks, 1 << 30)
+            for d in range(1, disk_count + 1):
+                archives[d] = build_archive(
+                    exomizer, [b for b, dd in zip(blobs, disk_of) if dd == d])
     if not stats:
+        for d, blob in archives.items():
+            open(os.path.join(outdir, f"pics{d}.bin"), "wb").write(blob)
         with open(os.path.join(outdir, "picdisks.txt"), "w") as f:
-            for num, d in zip(nums, disk_of):
-                f.write(f"p{num:03d}.bin {d}\n")
+            if x16:
+                for num, d in zip(nums, disk_of):
+                    f.write(f"p{num:03d}.bin {d}\n")
+            else:
+                for d in range(1, disk_count + 1):
+                    f.write(f"pics{d}.bin {d}\n")
 
     # A Rect is an invisible placeholder: no image, just a size in cells that
     # picture_data reports. Cells are ceil(pixels / 8), as for a real picture,
@@ -384,9 +428,12 @@ def main():
                 f.write("; drawn. Rect pictures carry no image, only a size\n")
                 f.write("; picture_data reports.\n\n")
             else:
-                f.write("; Only the index is assembled in. Each picture is a file on a\n")
-                f.write("; picture disk, preloaded into attic RAM at boot. Rect pictures\n")
-                f.write("; carry no image, only a size picture_data reports.\n\n")
+                f.write("; Only the index is assembled in. Each picture disk holds one\n")
+                f.write("; exomizer archive (picsN.bin) of that disk's pictures, page-\n")
+                f.write("; padded and concatenated; pic_load_all decrunches it into attic\n")
+                f.write("; RAM at boot. pic_pages gives each picture's attic size, so the\n")
+                f.write("; interpreter computes pic_page_lo/hi at boot rather than reading\n")
+                f.write("; sizes off disk. Rect pictures carry no image, only a size.\n\n")
             f.write(f"picture_count = {len(nums)}\n")
             # How many picture disks the interpreter must sweep at boot; >1 makes
             # pic_load_all prompt for each in turn.
@@ -404,8 +451,19 @@ def main():
                 f.write("pic_height\t!byte " +
                         ",".join(str(p['ch']) for _, p in pics) + "\n")
             else:
-                # Which picture disk (1-based) each picture's file lives on.
+                # Total crunched size across all disks, in 256-byte pages, so the
+                # interpreter can scale its "loading graphics" progress bar to a
+                # fixed width however big the picture set is.
+                arch_pages = sum((len(b) + 255) // 256 for b in archives.values())
+                f.write(f"picture_crunched_pages = {arch_pages}\n")
+                # Which picture disk (1-based) each picture's archive lives on.
                 f.write("pic_disk\t!byte " + ",".join(str(d) for d in disk_of) + "\n")
+                # ceil(raw / 256): the picture's attic size in pages. Each picture
+                # is page-padded in its archive, so this is exactly where the next
+                # one begins. pic_load_all sums these from PIC_ATTIC_PAGE to fill
+                # pic_page_lo/hi at boot -- no sizes are ever read off disk.
+                f.write("pic_pages\t!byte " +
+                        ",".join(str((p['raw'] + 255) // 256) for _, p in pics) + "\n")
                 f.write("pic_page_lo\t!fill picture_count, 0\n")
                 f.write("pic_page_hi\t!fill picture_count, 0\n")
             # 1 where a picture is adaptive (Blorb APal): it is drawn in the last
@@ -423,14 +481,16 @@ def main():
             f.write("rect_height\t!byte " + ",".join(str(h) for _, _, h in rr) + "\n")
 
     if x16:
-        print(f"{len(nums)} pictures, {total} bytes in {len(nums)} uncompressed "
+        x16_total = sum(p['raw'] for _, p in pics)
+        print(f"{len(nums)} pictures, {x16_total} bytes in {len(nums)} uncompressed "
               f"files in the game directory"
               + (f"; {len(rects)} rect placeholders" if rects else ""))
-    else:
+    elif not stats:
+        arch_total = sum(len(b) for b in archives.values())
         disk_note = (f" over {disk_count} picture disks" if disk_count > 1
                      else " on one picture disk")
-        print(f"{len(nums)} pictures, {raw_total} bytes packed to {total} on disk "
-              f"({100*total/raw_total:.0f}%){disk_note}, {raw_total} bytes in attic RAM"
+        print(f"{len(nums)} pictures, {raw_total} bytes crunched to {arch_total} on disk "
+              f"({100*arch_total/raw_total:.0f}%){disk_note}, {raw_total} bytes in attic RAM"
               + (f"; {len(rects)} rect placeholders" if rects else ""))
 
     if stats:
@@ -447,7 +507,7 @@ def main():
             print(f"stats only, nothing written; {attic} bytes of attic, page-aligned")
         print(f"  largest by tiles (store cap {store_cap} live): "
               + ", ".join(f"#{n}={p['ntiles']}" for n, p in top))
-        print(f"  largest picture file: {max(p['raw'] for _, p in pics)} bytes "
-              f"raw (cap 65535), {max(sizes)} compressed (cap {255*256})")
+        print(f"  largest picture: {max(p['raw'] for _, p in pics)} bytes raw "
+              f"(cap 65280, 255 attic pages)")
 
 main()

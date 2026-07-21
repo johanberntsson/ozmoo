@@ -152,12 +152,14 @@ which is what -fcm asks for. So, to build Arthur:
 Add -s to either of those to start the game in an emulator once it has been built.
 
 On the MEGA65 the pictures do not fit on the boot disk beside the story, so they
-get one or more picture disks of their own: the build produces
-`mega65_arthur.d81` plus `mega65_arthur_pics_1.d81` and so on. Put the boot disk
-in the first drive and the first picture disk in the second, and the game will
-load without asking for a swap; if you have only one drive, it will ask. On the
-X16 there are no picture disks at all — the pictures are ordinary files in the
-game's directory, and the game reads each one from the SD card as it draws it.
+get a picture disk of their own: the build produces `mega65_arthur.d81` plus
+`mega65_arthur_pics_1.d81`. The pictures are compressed into a single Exomizer
+archive per disk, so all four games — even Zork Zero with its 396 pictures — fit
+one picture disk. Put the boot disk in the first drive and the picture disk in
+the second, and the game will load without asking for a swap; if you have only
+one drive, it will ask. On the X16 there are no picture disks at all — the
+pictures are ordinary files in the game's directory, and the game reads each one
+from the SD card as it draws it.
 
 The same works for the other three games:
 

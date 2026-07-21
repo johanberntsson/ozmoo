@@ -59,6 +59,8 @@ These source files are located in the asm dictory. The table also shows the most
 |  |  |
 | picloader.asm | code to show a picture while reading the story file |
 |  |  |
+| pictures-mega65.asm | the version 6 picture engine for the MEGA65: the Full Colour Mode tile store, and decrunching the pictures' Exomizer archive into Attic RAM at boot |
+|  |  |
 | pictures-x16.asm | the version 6 picture engine for the X16: VERA's tile layer, and loading a picture from SD when it is drawn |
 |  |  |
 | reu.asm | implements the Ram Expansion Unit interface for C64 and C128, banked RAM for the X16, and an interface to Attic RAM on MEGA65 |
@@ -206,7 +208,7 @@ games, Shogun's 345 KB, the story ends in bank 41 and there is room to spare.
 
 On the MEGA65, the boot file doesn't hold any story data. The entire Z-code file is held in a SEQ file called "zcode" and is loaded into Attic RAM on boot. Since the entire file is held in one linear chunk of memory, and accessed in place, this is not a virtual memory build, and the VMEM constant is not defined. No config information is needed, so there are no config blocks on disk. This means a MEGA65 game can be copied from one disk to another using a regular file copier.
 
-A version 6 game built with Z6_PICTURES also has one file per picture, named p001 up to p999, decompressed into Attic RAM at boot. These live on their own picture disk(s), not the boot disk, spread over as many as they need. See "Version 6".
+A version 6 game built with Z6_PICTURES also carries its pictures, as one Exomizer archive per picture disk, decrunched into Attic RAM at boot. These archives live on their own picture disk(s), not the boot disk; every shipped game fits a single one. See "Version 6".
 
 ### MEGA65 Memory map
 | **Address range** | **KB** |  **Usage** |
@@ -220,7 +222,9 @@ A version 6 game built with Z6_PICTURES also has one file per picture, named p00
 | \$08080000-\$080800ff | 0.25 | Signature of last game that was loaded (to make restart faster) |
 | \$08100000-\$081fffff | 1024 | Sound data |
 | \$08200000-\$082fffff | 1024 | Scrollback buffer |
-| \$08300000- | | Pictures, decompressed (version 6, Z6_PICTURES) |
+| \$08300000-\$083000ff | 0.25 | Picture restart signature (version 6, Z6_PICTURES) |
+| \$08300100- | | Pictures, decrunched (version 6, Z6_PICTURES) |
+| \$08510000- | | One disk's crunched archive, staged while it is decrunched (Z6_PICTURES) |
 | \$08600000- | | Undo buffer (Z6_PICTURES) |
 | \$0ff80000-\$0ff807ff | 2 | Colour RAM |
 | \$0ff80800-\$0ff817ff | 4 | Colour RAM for scrollback mode|
@@ -238,7 +242,7 @@ together, over a thousand tiles — so a build with Z6_PICTURES moves the store 
 of the way. The current sound effect goes down into bank 1, which the tile store
 has vacated; it has to stay in fast RAM because the audio DMA's stop address is
 only 16 bits wide, so a sample must sit at the foot of a bank. The undo buffer
-goes to Attic RAM at \$08600000, well clear of the decompressed pictures, because
+goes to Attic RAM at \$08600000, well clear of the decrunched pictures, because
 it is only ever reached by DMA and so can live anywhere. Banks 2 and 3,
 \$20000-\$3ffff, are the ROM and can never be used for any of this: the C64 font
 the Full Colour Mode text is drawn with is read from \$2d800.
@@ -624,59 +628,83 @@ erase_picture paints the note out, and picture_data reports that no picture
 exists.
 
 Everything in this section is the MEGA65's arrangement unless it says otherwise;
-the X16 shares the design — the picture files, the index, the tile store, the
+the X16 shares the design — the picture format, the index, the tile store, the
 allocator, the compaction and the adaptive palettes — and differs in the hardware
-it draws with and in how the picture files reach memory, both described in "The
-VERA screen on the X16" above and summarised at the end of this section.
+it draws with and in how the pictures reach memory (the MEGA65 decrunches an
+archive of them into Attic RAM at boot, the X16 reads one uncompressed file from
+SD as each is drawn), both described in "The VERA screen on the X16" above and
+summarised at the end of this section.
 
-The pictures come from the game's blorb, converted by tools/pics2asm.py, which
-writes one p&lt;nnn&gt;.bin per PNG picture (numbered up to 999). make.rb's -pics
-switch takes a blorb file (or, for the test pictures, a directory of numbered
-PNGs), runs the script, and sets Z6_PICTURES. Only an index is assembled into the
-interpreter — the picture numbers, the Rect placeholder sizes, the adaptive-palette
-flags and, per picture, which disk it is on, all described below — so a set of a
-hundred and forty pictures costs it almost nothing.
+The pictures come from the game's blorb, converted by tools/pics2asm.py. Each
+PNG becomes a fixed-format picture (numbered up to 999; the format is described
+below), and the pictures of a disk are page-padded — so every one starts on an
+Attic page boundary — concatenated, and crunched into a single Exomizer archive,
+pics&lt;N&gt;.bin. make.rb's -pics switch takes a blorb file (or, for the test
+pictures, a directory of numbered PNGs), runs the script, and sets Z6_PICTURES.
+Only an index is assembled into the interpreter — the picture numbers, the Rect
+placeholder sizes, the adaptive-palette flags, each picture's size in Attic pages
+(pic_pages) and which disk its archive is on — so a set of a hundred and forty
+pictures costs it almost nothing.
 
-The pictures do not fit on the boot disk beside the story, the interpreter and the
-sound, so they get their own disk(s). Since a game may have more pictures than a
-d81's directory holds (Zork Zero has 396, numbered past 255), pics2asm.py packs
-the files across as many mega65_&lt;game&gt;_pics_N.d81 disks as they need, capped
-by both block count and directory size, and make.rb's build_picture_disks builds
-one d81 each. At boot, pic_load_all sweeps the disks in turn, decompressing each
-file into Attic RAM in the same spirit as read_sound_files (though it opens and
-reads the files itself, rather than calling m65_load_file_to_reu, because it has to
-decompress on the way), under a "loading graphics" label with a slash progress
-bar. For each disk it tries the second drive (boot_device + 1) then the boot
-drive, reading the drive error channel to tell a present file from a missing one —
-a missing file OPENs "successfully" but reads back a stale buffer page, so the
-status byte lies — and only asks for a swap if neither drive holds it. make.rb
-mounts the first picture disk in drive 9 when it launches xemu, so a one-disk set
-loads with no prompt. The picture count and the picture numbers are both 16-bit:
-.pic_index is a word and the parallel pic_* tables are indexed through .pic_addr.
+One archive per disk compresses far better than the old scheme of one RLE file
+per picture, because Exomizer sees the redundancy *between* pictures — shared
+palettes, repeated tiles and cell-map runs — that a per-picture coder cannot.
+The whole set typically halves, and Zork Zero's 396 tiny icons shrink more than
+threefold. That is what lets every shipped game fit one picture disk: Zork Zero
+and Journey needed two before (Zork Zero because 396 files overflowed a d81's
+directory, Journey because its bytes overflowed one disk), and both now fit one.
 
-A restart does not pay for that twice. z_ins_restart reboots the machine and
+The archives do not fit on the boot disk beside the story, the interpreter and the
+sound, so they get their own disk(s). pics2asm.py packs the pictures across as many
+mega65_&lt;game&gt;_pics_N.d81 disks as their archives need, capped by block count,
+and make.rb's build_picture_disks builds one d81 each, one archive on it. (Because
+a disk now holds one archive rather than one file per picture, the d81 directory
+limit that used to split Zork Zero no longer bites.) At boot, pic_load_all sweeps
+the disks in turn: for each it reads the archive into an Attic staging buffer at
+\$08510000, then decrunches it forward onto the running Attic write pointer, under
+a "loading graphics" label with a slash progress bar. The bar ticks once every so
+many pages *staged from disk* — the slow part on a real 1581 — scaled through the
+assembled-in picture_crunched_pages so it is about thirty slashes wide whatever the
+set's size. For each disk pic_load_all tries the second drive (boot_device + 1)
+then the boot drive, reading the drive error channel to tell a present file from a
+missing one — a missing file OPENs "successfully" but reads back a stale buffer
+page, so the status byte lies — and only asks for a swap if neither drive holds it.
+make.rb mounts the first picture disk in drive 9 when it launches xemu, so a
+one-disk set loads with no prompt. The picture count and the picture numbers are
+both 16-bit: .pic_index is a word and the parallel pic_* tables are indexed through
+.pic_addr.
+
+The decruncher is a port of Exomizer's reference decoder (exodec.c) for the -P0
+stream format, so pics2asm.py crunches with `exomizer raw -C -P0 -c -m 4096` to
+match. It reads the archive *forward* from the staging buffer through the 45GS02's
+[zp],z addressing and writes the plaintext forward into the picture area; a
+back-reference is read straight out of the plaintext already written (src = output
+- offset), so there is no ring buffer to maintain. `-m 4096` bounds a match to
+4 KB back, which costs almost nothing here — page-padded, tile-deduplicated
+pictures match locally — and keeps the offset arithmetic to two bytes. The
+plaintext it produces is the padded concatenation the archive was built from, so
+each picture lands on exactly the page pic_pages predicts.
+
+A restart does not pay the load twice. z_ins_restart reboots the machine and
 reloads the interpreter from disk, so pic_load_all runs again on every "restart"
 command and every death — but Attic RAM survives the reset, and the pictures are
-still sitting in it. Skipping the load is not enough on its own, though: as
-pic_load_all decompresses each file it records which page the picture landed on
-in pic_page_lo and pic_page_hi, and those tables live in the interpreter's RAM,
-which the reboot has just re-read from disk and zeroed. Nor can they be
-recomputed, since a picture's page depends on its decompressed size, which is
-only known by reading the file. So they are kept in Attic too. \$08300000 is an
-attic *header* — an eight byte signature followed by the two page tables, two
-pages for Arthur's hundred and thirty-seven pictures and eight at the maximum of
-999 — with the pictures themselves starting at PIC_ATTIC_PAGE just above it; the
-undo buffer at \$08600000 is megabytes clear, so the shift costs nothing. On boot
-a matching signature restores the tables and skips the disks entirely, swaps and
-all. This is reu_filled's idiom from disk.asm, a signature that outlives the
-reboot to say the data is already there, with two differences: it cannot use
-game_id, which is inside !ifdef VMEM and so does not exist on the MEGA65, and
-uses the story's serial and checksum instead — they identify the story file just
-as well, and Ozmoo never rewrites either, unlike flags\_2 or the screen
-dimensions; and the signature is written *last*, after the tables, so a load
-interrupted partway leaves no signature claiming the tables are good. The check
-runs on every boot rather than only after a restart, so a cold reboot of the same
-game skips the load as well. The X16 needs none of this, having no preload at
+still sitting in it. This time the page tables that say where each picture landed
+need no rescue: pic_page_lo and pic_page_hi are computed at every boot by summing
+the assembled-in pic_pages (each picture's size in pages, known at build time
+because the *uncompressed* size is) up from PIC_ATTIC_PAGE, so they are correct
+whether the pictures were just decrunched or have been sitting in Attic since a
+previous boot. All that has to survive the reboot, then, is the answer to "are the
+pictures still there?", and \$08300000 holds it: an eight-byte signature, with the
+pictures starting one page above at PIC_ATTIC_PAGE. On boot a matching signature
+skips the disks entirely, swaps and all. This is reu_filled's idiom from disk.asm,
+a signature that outlives the reboot to say the data is already there, with two
+differences: it cannot use game_id, which is inside !ifdef VMEM and so does not
+exist on the MEGA65, and uses the story's serial and checksum instead — they
+identify the story file just as well, and Ozmoo never rewrites either, unlike
+flags\_2 or the screen dimensions; and the signature is written *last*, after the
+pictures, so a load interrupted partway leaves none claiming they are good. The
+check runs on every boot rather than only after a restart, so a cold reboot of the
+same game skips the load as well. The X16 needs none of this, having no preload at
 all.
 
 A blorb holds more than PNGs. Its Rect resources are placeholders with no image,
@@ -687,11 +715,14 @@ and draw_picture treats as invisible. Its APal chunk lists the adaptive-palette
 pictures (see below). Reading the blorb directly rather than a hand-extracted PNG
 directory is what makes both of these available.
 
-A picture file holds the cell dimensions, the number of unique tiles, a 48-byte
+A picture holds the cell dimensions, the number of unique tiles, a 48-byte
 palette, a cell map of two bytes a cell, and then the tiles. Identical cells are
-stored once. It is RLE compressed, PackBits style: a token of 0 to 127 is followed
-by that many plus one literal bytes, and a token of 129 to 255 is followed by one
-byte repeated 257 minus token times. Decoding needs no lookahead.
+stored once. Each picture is padded up to a page boundary; the pictures of a disk
+are concatenated in that padded form and the whole run is Exomizer-crunched into
+the disk's archive, so the compression works across pictures, not just within one.
+Once decrunched into Attic RAM the layout is exactly this padded concatenation, and
+the padding is why each picture begins on a page whose number the index already
+knows.
 
 Two things about the pixels:
 
@@ -843,8 +874,8 @@ runs on.
   game's directory, and the engine reads it into the staging banks the first time
   the game draws it, remembering which picture is staged so that redrawing the
   frame or a status icon never touches the card again. The files are therefore
-  not RLE compressed and there is no decompressor, no picture disk, and no disk
-  swapping — Zork Zero's 396 pictures simply sit in the directory. The cost is
+  not compressed and there is no decruncher, no picture archive, no picture disk,
+  and no disk swapping — Zork Zero's 396 pictures simply sit in the directory. The cost is
   that picture_data cannot read a size out of the staged picture, because it is
   usually asked about a picture that is not the staged one, so pics2asm.py
   assembles the sizes in as pic_width and pic_height tables (in text cells, as

@@ -76,7 +76,7 @@ Four Infocom games - Arthur, Journey, Shogun and Zork Zero - draw pictures as we
 
 On the Commodore 64, the 128 and the Plus/4 you can play these games from beginning to end, but where a picture belongs you will see a short note instead, such as `pic:12`. This is not a fault: it is Ozmoo telling you a picture would have been there, and keeping the rest of the screen in its proper shape.
 
-On the MEGA65 the pictures do not fit on the game disk, so they come on one or more picture disks of their own. If you have two drives, put the game disk in the first and the first picture disk in the second, and the game will start without asking you for anything. With a single drive, or when a game has more pictures than one disk holds (Journey and Zork Zero do), Ozmoo will print `insert picture disk 2` and wait for you to change disks and press a key.
+On the MEGA65 the pictures do not fit on the game disk, so each of the four games comes with one picture disk of its own. If you have two drives, put the game disk in the first and the picture disk in the second, and the game will start without asking you for anything. With a single drive, Ozmoo will print `insert picture disk 1`, and you change disks and press a key. (Should a picture set ever be too big for one disk, the same prompt asks for disk 2, 3 and so on, but none of these four games needs it.)
 
 Arthur and Zork Zero can also be played with a mouse on the MEGA65: plug a 1351 or Amiga mouse into control port 2, and a pointer appears. Zork Zero's on-screen controls can be clicked, and Arthur lets you click to dismiss a [MORE] prompt.
 

@@ -2379,8 +2379,9 @@ def build_picture_disks(storyname)
 		disk = D81_image.new(disk_title: "pics #{disknum}", diskimage_filename: imagefilename)
 		disk.interleave_scheme = $i81 if $i81
 		$picture_disks[disknum].each do |file|
-			# p004.bin on disk is "p004": the interpreter builds the name from
-			# the picture number and preloads the file into attic RAM at boot.
+			# pics1.bin on disk is "PICS1", the exomizer archive of this disk's
+			# pictures; pic_load_all opens it by disk number and decrunches it
+			# into attic RAM at boot.
 			disk.add_file(File.basename(file, '.bin'), IO.binread(file))
 		end
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false) # flush directory
@@ -3416,9 +3417,13 @@ if picture_dir
 		pic_disk_blocks = 3100
 		pic_disk_files = 290
 		# The pictures must match the screen: two pixel-doubled tiles a cell on
-		# the 80-column screen, one tile a cell on the legacy 40-column one.
+		# the 80-column screen, one tile a cell on the legacy 40-column one. Each
+		# picture disk gets one exomizer archive (picsN.bin) of its pictures; the
+		# interpreter decrunches them into attic at boot, so pics2asm needs the
+		# cruncher.
 		unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
 		              '--fcm-width', fcm_width.to_s,
+		              '--exomizer', $executables['EXOMIZER'],
 		              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
 			puts "ERROR: -pics: tools/pics2asm.py failed."
 			exit 1

@@ -33,9 +33,20 @@
 ; story's serial and checksum identify the story file just as well, and Ozmoo
 ; never rewrites either (unlike flags_2 or the screen dimensions).
 PIC_SIG_BYTES = 8				; header_serial (6) then header_checksum (2)
-PIC_ATTIC_HEADER_PAGE = $3000	; $08300000: past the story, sounds and scrollback
-PIC_ATTIC_HEADER_BYTES = PIC_SIG_BYTES + 2 * picture_count
-PIC_ATTIC_PAGE = PIC_ATTIC_HEADER_PAGE + (PIC_ATTIC_HEADER_BYTES + 255) / 256
+PIC_ATTIC_HEADER_PAGE = $3000	; $08300000: just the 8-byte signature now
+PIC_ATTIC_PAGE = PIC_ATTIC_HEADER_PAGE + 1	; pictures decrunch one page up
+; The picture disks each hold one exomizer archive of that disk's pictures,
+; page-padded and concatenated; pic_load_all decrunches them into attic here,
+; disk after disk. pic_page_lo/hi are computed at boot from the assembled-in
+; pic_pages (each picture's attic size), so no page table is kept in attic and
+; the header is just the signature. The crunched archive being decrunched is
+; staged high in attic, clear of the picture area ($08300000 up, at most ~2 MB
+; for the largest shipped set) and the undo buffer ($08600000).
+PIC_STAGE_BYTE2 = $51			; one disk's crunched archive staged at $08510000
+; The disk read (the slow part on a real 1581) drives a "loading graphics"
+; progress bar: one slash per PIC_PROGRESS_STEP pages staged, scaled so the bar
+; is about 30 slashes wide whatever the picture set's size.
+PIC_PROGRESS_STEP = picture_crunched_pages / 30 + 1
 ; PIC_MAX_TILES, FCM_TILE_STORE and FCM_TILE_CODE_HI are in constants.asm:
 ; where the store can live depends on what else is in the target's fast RAM.
 
@@ -112,21 +123,16 @@ pic_direct_base !byte 16
 pic_direct_off  !byte 0
 
 ; ---------------------------------------------------------------------------
-pic_file_name !text "P000" ; make.rb upper-cases the names it puts on the disk
-PIC_FILE_NAME_LEN = 4
+pic_file_name !text "PICS0"	; one archive per disk; make.rb upper-cases the name
+PIC_FILE_NAME_LEN = 5
 
 ; .pic_num (a 2-byte scratch defined with the number-printing helper below) is
-; reused here to turn a picture number into a filename and to search pic_number.
+; reused here to search pic_number.
 .pic_dev       !byte 0		; device holding the picture disk being read
 .cur_disk      !byte 0		; which picture disk .pic_dev holds (0 = none yet)
 .err_digit     !byte 0		; first digit read back from a drive's error channel
 .pic_next_page !byte 0,0
-.pic_progress  !byte 0		; countdown to the next slash in the loading bar
-
-; Loading the pictures takes a noticeable moment, so pic_load_all draws a slash
-; bar like the story preloader's. Scale it to the picture count so it is about
-; 30 slashes wide however many pictures there are, rather than one per picture.
-PIC_PROGRESS_STEP = picture_count / 32 + 1
+.pic_prog      !byte 0		; pages left until the next progress-bar slash
 
 .pic_addr
 	; .pi_ptr = table base (a,x = lo,hi) + .pic_index, so a game with more than
@@ -141,21 +147,23 @@ PIC_PROGRESS_STEP = picture_count / 32 + 1
 	rts
 
 pic_load_all
-	; Preload every picture into attic RAM. Called at boot, next to the sound
-	; effects, and for the same reason: the files are far too big to assemble
-	; into the interpreter. They are RLE compressed, and are expanded on the way
-	; in, so attic holds them ready to draw.
+	; Load every picture into attic RAM. Called at boot, next to the sound
+	; effects, and for the same reason: the pictures are far too big to assemble
+	; into the interpreter. Each picture disk holds one exomizer archive of that
+	; disk's pictures, page-padded and concatenated; each is decrunched into
+	; attic here, disk after disk, so attic holds the pictures ready to draw.
 	;
-	; The pictures are spread over one or more picture disks (pic_disk), packed
-	; to fill one d81 before the next. With two drives the second disk can sit
-	; in the second drive, so each disk is looked for there and in the boot
-	; drive before the player is ever asked to swap.
+	; With two drives the second disk can sit in the second drive, so each disk
+	; is looked for there and in the boot drive before the player is ever asked
+	; to swap.
 	;
 	; A restart reboots the machine and reloads the interpreter, so this runs
-	; again - but attic still holds the pictures. If the header's signature is
-	; this game's, take the page tables back out of it and skip the load; see
-	; the PIC_ATTIC_HEADER_PAGE comment above. The header is readable by now:
-	; deletable_init loads the story before z_init runs.
+	; again - but attic still holds the pictures. The page table is rebuilt from
+	; the assembled-in pic_pages every time (below), so the only thing that has
+	; to survive is the answer to "are the pictures still there?": if the
+	; header's signature is this story's, skip the disks. The header is readable
+	; by now: deletable_init loads the story before z_init runs.
+	jsr .pic_compute_pages
 	jsr .pic_make_signature
 	jsr .pic_attic_header
 	ldx #0
@@ -165,19 +173,13 @@ pic_load_all
 	inx
 	cpx #PIC_SIG_BYTES
 	bne -
-	lda #0					; ours: restore the tables and skip the disk
-	sta .pic_header_write
-	jsr .pic_header_tables
-	rts
+	rts						; ours: the pictures are already in attic
+
 .pla_load
-	lda #<PIC_ATTIC_PAGE
+	lda #<PIC_ATTIC_PAGE	; the disks decrunch here, one after another
 	sta .pic_next_page
 	lda #>PIC_ATTIC_PAGE
 	sta .pic_next_page + 1
-	lda #0
-	sta .pic_index
-	sta .pic_index + 1
-	sta .cur_disk			; no picture disk located yet
 	lda #13					; a label, then the loading bar on the next line
 	jsr s_printchar
 	lda #>.loading_msg
@@ -185,93 +187,47 @@ pic_load_all
 	jsr printstring_raw
 	lda #13
 	jsr s_printchar
-	lda #1					; first picture prints the first slash
-	sta .pic_progress
-.pla_loop
-	dec .pic_progress		; a slash every PIC_PROGRESS_STEP pictures
-	bne +
-	lda #47					; "/"
-	jsr s_printchar
-	lda #PIC_PROGRESS_STEP
-	sta .pic_progress
-+	lda #<pic_number_lo		; build this picture's filename from its number
-	ldx #>pic_number_lo
-	jsr .pic_addr
-	ldy #0
-	lda (.pi_ptr),y
-	sta .pic_num
-	lda #<pic_number_hi
-	ldx #>pic_number_hi
-	jsr .pic_addr
-	ldy #0
-	lda (.pi_ptr),y
-	sta .pic_num + 1
-	jsr .pic_set_filename
+	lda #1					; the first page staged prints the first slash
+	sta .pic_prog
 
-	lda #<pic_disk			; still on the located disk, or find the next one?
-	ldx #>pic_disk
-	jsr .pic_addr
-	ldy #0
-	lda (.pi_ptr),y
-	cmp .cur_disk
-	beq +
+	lda #1					; picture disks are numbered from 1
 	sta .cur_disk
-	jsr .pic_locate_disk	; sets .pic_dev to the drive holding this disk
-+
-	jsr .pic_open_current	; open the file on .pic_dev, ready to read
+.pla_disk
+	lda .cur_disk			; open PICS<n> on whichever drive holds this disk
+	jsr .pic_set_archive_name
+	jsr .pic_locate_disk	; sets .pic_dev
+	jsr .pic_open_current
 
-	lda #<pic_page_lo		; the picture starts on the next free page
-	ldx #>pic_page_lo
-	jsr .pic_addr
-	ldy #0
-	lda .pic_next_page
-	sta (.pi_ptr),y
-	sta .pic_att + 1
-	lda #<pic_page_hi
-	ldx #>pic_page_hi
-	jsr .pic_addr
-	ldy #0
-	lda .pic_next_page + 1
-	sta (.pi_ptr),y
-	sta .pic_att + 2
-	lda #0
-	sta .pic_att
-	lda #$08				; attic RAM starts at $08000000
-	sta .pic_att + 3
-
-	jsr .pic_unrle
+	jsr .exo_stage_archive	; stream the crunched archive into attic staging
 
 	lda #2
 	jsr kernal_close
 	jsr kernal_clrchn
 
-	lda .pic_att			; round the write pointer up to the next page
-	beq +
-	inc .pic_att + 1
-	bne +
-	inc .pic_att + 2
-+	lda .pic_att + 1
+	lda #0					; decrunch it onto the running attic write pointer
+	sta .pic_att
+	lda .pic_next_page
+	sta .pic_att + 1
+	lda .pic_next_page + 1
+	sta .pic_att + 2
+	lda #$08
+	sta .pic_att + 3
+	jsr .pic_deexo
+
+	; .pic_att now points just past this disk's pictures - page aligned, since
+	; every picture is page padded - which is where the next disk continues.
+	lda .pic_att + 1
 	sta .pic_next_page
 	lda .pic_att + 2
 	sta .pic_next_page + 1
 
-	inc .pic_index
-	bne +
-	inc .pic_index + 1
-+	lda .pic_index			; loop while .pic_index < picture_count (16 bit)
-	cmp #<picture_count
-	lda .pic_index + 1
-	sbc #>picture_count
-	bcs +					; the loop body is too long for a direct branch back
-	jmp .pla_loop
-+
-	; Every picture is in attic now. Write the header so a restart can skip all
-	; of the above: the page tables first, then the signature last, so a load
-	; interrupted before this point leaves no signature claiming the tables are
-	; good.
-	lda #1
-	sta .pic_header_write
-	jsr .pic_header_tables
+	inc .cur_disk
+	lda .cur_disk
+	cmp #picture_disk_count + 1
+	bcc .pla_disk
+
+	; Every picture is in attic now. Stamp the signature last, so a load
+	; interrupted before this point leaves none claiming they are good.
 	jsr .pic_attic_header
 	ldx #0
 -	lda .pic_sig,x
@@ -282,6 +238,116 @@ pic_load_all
 	cpx #PIC_SIG_BYTES
 	bne -
 	rts
+
+.pic_compute_pages
+	; pic_page_lo/hi[i] = PIC_ATTIC_PAGE + sum(pic_pages[0..i-1]). Every picture
+	; is page padded in its archive, so this is exactly where the decruncher puts
+	; each one. Raw sizes are known at build time, so this needs no disk access
+	; and runs on every boot, restart or not.
+	lda #<PIC_ATTIC_PAGE
+	sta .pcp_page
+	lda #>PIC_ATTIC_PAGE
+	sta .pcp_page + 1
+	lda #0
+	sta .pic_index
+	sta .pic_index + 1
+.pcp_loop
+	lda #<pic_page_lo		; pic_page_lo[i] = running page low
+	ldx #>pic_page_lo
+	jsr .pic_addr
+	ldy #0
+	lda .pcp_page
+	sta (.pi_ptr),y
+	lda #<pic_page_hi		; pic_page_hi[i] = running page high
+	ldx #>pic_page_hi
+	jsr .pic_addr
+	ldy #0
+	lda .pcp_page + 1
+	sta (.pi_ptr),y
+	lda #<pic_pages			; running page += pic_pages[i]
+	ldx #>pic_pages
+	jsr .pic_addr
+	ldy #0
+	clc
+	lda (.pi_ptr),y
+	adc .pcp_page
+	sta .pcp_page
+	bcc +
+	inc .pcp_page + 1
++	inc .pic_index
+	bne +
+	inc .pic_index + 1
++	lda .pic_index
+	cmp #<picture_count
+	lda .pic_index + 1
+	sbc #>picture_count
+	bcc .pcp_loop
+	rts
+.pcp_page !byte 0, 0
+
+.pic_set_archive_name
+	; a = disk number (1..9). pic_file_name becomes "PICS<n>".
+	ora #$30
+	sta pic_file_name + 4
+	rts
+
+.exo_stage_archive
+	; Read the open file into the attic staging buffer. The decruncher reads it
+	; forwards and self-terminates at the stream's end marker, so no length is
+	; needed; leave .exo_cr pointing at the first byte.
+	lda #0
+	sta .pic_att			; reuse .pic_att as the staging write pointer
+	sta .pic_att + 1
+	lda #PIC_STAGE_BYTE2
+	sta .pic_att + 2
+	lda #$08
+	sta .pic_att + 3
+.esa_loop
+	jsr kernal_readst
+	bne .esa_done
+	jsr kernal_readchar
+	ldz #0
+	sta [.pic_att],z
+	inc .pic_att
+	bne .esa_loop			; no page boundary crossed
+	inc .pic_att + 1
+	bne +
+	inc .pic_att + 2
++	jsr .pic_progress_tick	; a page was staged: advance the loading bar
+	bra .esa_loop
+.esa_done
+	lda #0					; .exo_cr = staging base (first crunched byte)
+	sta .exo_cr
+	sta .exo_cr + 1
+	lda #PIC_STAGE_BYTE2
+	sta .exo_cr + 2
+	lda #$08
+	sta .exo_cr + 3
+	rts
+
+.pic_progress_tick
+	; One page has been staged; every PIC_PROGRESS_STEP pages, print a slash.
+	; s_printchar writes screen RAM directly (it does no disk I/O, so the open
+	; file is undisturbed), but it may use z_temp, so save the staging pointer.
+	dec .pic_prog
+	beq +
+	rts
++	ldx #3
+-	lda .pic_att,x
+	sta .pic_prog_save,x
+	dex
+	bpl -
+	lda #47					; "/"
+	jsr s_printchar
+	ldx #3
+-	lda .pic_prog_save,x
+	sta .pic_att,x
+	dex
+	bpl -
+	lda #PIC_PROGRESS_STEP
+	sta .pic_prog
+	rts
+.pic_prog_save !byte 0,0,0,0
 
 .pic_make_signature
 	; .pic_sig = the story's serial (6 bytes) then its checksum (2). Ozmoo does
@@ -318,63 +384,6 @@ pic_load_all
 	lda #$08				; attic RAM starts at $08000000
 	sta .pic_att + 3
 	rts
-
-.pic_header_tables
-	; Copy pic_page_lo and pic_page_hi between RAM and the attic header, which
-	; way round depending on .pic_header_write. The tables run to picture_count
-	; bytes each (up to 999), so the index is 16 bit and .pic_addr does the
-	; addressing, exactly as the rest of this file indexes the pic_* tables.
-	jsr .pic_attic_header
-	lda #PIC_SIG_BYTES		; the signature sits in front of the tables
-	clc
-	adc .pic_att
-	sta .pic_att
-	lda #<pic_page_lo
-	ldx #>pic_page_lo
-	jsr .pht_one
-	lda #<pic_page_hi
-	ldx #>pic_page_hi
-.pht_one
-	; a,x = the RAM table's base. Walks .pic_att on to the next table.
-	sta .pht_base
-	stx .pht_base + 1
-	lda #0
-	sta .pic_index
-	sta .pic_index + 1
-.pht_loop
-	lda .pht_base
-	ldx .pht_base + 1
-	jsr .pic_addr			; .pi_ptr -> the table's entry for .pic_index
-	lda .pic_header_write
-	bne .pht_write
-	ldz #0					; reading: attic -> RAM
-	lda [.pic_att],z
-	ldy #0
-	sta (.pi_ptr),y
-	bra .pht_next
-.pht_write
-	ldy #0					; writing: RAM -> attic
-	lda (.pi_ptr),y
-	ldz #0
-	sta [.pic_att],z
-.pht_next
-	inc .pic_att			; attic is written a byte at a time; the tables are
-	bne +					; small and this runs twice a boot at most
-	inc .pic_att + 1
-	bne +
-	inc .pic_att + 2
-+	inc .pic_index
-	bne +
-	inc .pic_index + 1
-+	lda .pic_index
-	cmp #<picture_count
-	lda .pic_index + 1
-	sbc #>picture_count
-	bcc .pht_loop
-	rts
-
-.pht_base !byte 0, 0
-.pic_header_write !byte 0	; 0 = attic -> RAM, 1 = RAM -> attic
 
 .pic_open_current
 	; Open pic_file_name as logical file 2 on .pic_dev for reading. The disk is
@@ -489,20 +498,6 @@ pic_load_all
 .swap_msg2 !pet " and press a key ",0
 .loading_msg !pet "loading graphics",0
 
-.rle_eof   !byte 0
-.rle_byte  !byte 0
-.rle_count !byte 0
-.rle_value !byte 0
-
-.rle_getc
-	; Read the next byte of the open file. Sets .rle_eof when it was the last.
-	jsr kernal_readchar		; clobbers x and y, so counts live in memory
-	sta .rle_byte
-	jsr kernal_readst
-	sta .rle_eof
-	lda .rle_byte
-	rts
-
 .pic_store
 	; Write a to attic RAM and step .pic_att on.
 	ldz #0
@@ -514,79 +509,243 @@ pic_load_all
 	inc .pic_att + 2
 +	rts
 
-.pic_unrle
-	; PackBits: a token of 0..127 is followed by token+1 literal bytes; a token
-	; of 129..255 is followed by one byte, repeated 257-token times; 128 is
-	; unused. No lookahead, which is what keeps this short.
-.unrle_next
-	jsr .rle_getc
-	ldx .rle_eof
-	bne .unrle_done
-	cmp #$80
-	beq .unrle_next			; 128: nothing to do
-	bcs .unrle_run
-	clc						; literal run of a+1 bytes
-	adc #1
-	sta .rle_count
-.unrle_lit
-	jsr .rle_getc
+; ---------------------------------------------------------------------------
+; The exomizer decruncher: a faithful port of exomizer's reference decoder
+; (exodec.c) for the -P0 (exomizer-2) stream format. It reads the crunched
+; archive FORWARDS from attic staging and writes the plaintext forwards to the
+; picture area (.pic_att); back-references are read straight from that output,
+; so no ring buffer is needed. pics2asm.py crunches with the matching flags
+; (raw -C -P0 -c -m 4096).
+;
+;   .exo_cr  ($16) reads the crunched archive forwards from attic staging
+;   .exo_src ($1e) reads a back-reference from the plaintext already written
+;   .pic_att is the running output pointer (.pic_store advances it)
+;
+; The zero-page pointers borrow the z-machine operand-value arrays, free during
+; boot (pic_load_all runs before the interpreter's main loop). Each is a 32-bit
+; attic pointer for the 45GS02's [zp],z addressing.
+.exo_cr  = z_operand_value_high_arr			; $16, crunched read (forwards)
+.exo_src = z_operand_value_low_arr			; $1e, back-reference read
+
+.exo_bitbuf   !byte 0
+.exo_bits_lo  !byte 0		; get_bits result, low
+.exo_bits_hi  !byte 0		; get_bits result, high (lengths/offsets are 16 bit)
+.exo_count    !byte 0		; get_bits countdown
+.exo_len_lo   !byte 0
+.exo_len_hi   !byte 0
+.exo_a_lo     !byte 0		; table_init accumulator a
+.exo_a_hi     !byte 0
+.exo_b        !byte 0		; table_init: last 4-bit field
+.exo_t_lo     !byte 0		; scratch: 1 << b
+.exo_t_hi     !byte 0
+.exo_c_lo     !byte 0		; cooked-code result
+.exo_c_hi     !byte 0
+.exo_idx      !byte 0		; offset-table index i, kept across get_bits
+.exo_table    !fill 156, 0			; tabl_lo(52), tabl_hi(52), tabl_bi(52)
+.exo_tabl_lo  = .exo_table
+.exo_tabl_hi  = .exo_table + 52
+.exo_tabl_bi  = .exo_table + 104
+.exo_tabl_bit !byte 2, 4, 4			; static bit counts / offsets for lengths 1-3
+.exo_tabl_off !byte 48, 32, 16
+
+.pic_deexo
+	; Decrunch the staged archive (.exo_cr) onto .pic_att until the end marker.
+	jsr .exo_init
+.dx_loop
+	ldx #1					; one flag bit: 1 = literal, 0 = sequence
+	jsr .exo_get_bits
+	beq .dx_seq
+	jsr .exo_get_crunched	; literal byte, straight to the output
 	jsr .pic_store
-	lda .rle_eof
-	bne .unrle_done
-	dec .rle_count
-	bne .unrle_lit
-	beq .unrle_next			; always
-.unrle_run
-	eor #$ff				; 257 - a, which is 2..128
+	bra .dx_loop
+.dx_seq
+	ldy #0					; gamma: count leading zero bits into y
+.dx_gamma
+	ldx #1
+	jsr .exo_get_bits
+	bne +
+	iny
+	bra .dx_gamma
++	cpy #16					; gamma 16 is the end-of-stream marker
+	bne +
+	jmp .dx_done
++	tya						; length = cooked(gamma)
+	tax
+	jsr .exo_cooked
+	lda .exo_c_lo
+	sta .exo_len_lo
+	lda .exo_c_hi
+	sta .exo_len_hi
+	; i = min(length, 3) - 1: which of the three offset tables to use.
+	lda .exo_len_hi
+	bne .dx_i2
+	lda .exo_len_lo
+	cmp #3
+	bcs .dx_i2
+	sec						; length is 1 or 2: i = length - 1
+	sbc #1
+	tax
+	bra .dx_havei
+.dx_i2
+	ldx #2
+.dx_havei
+	stx .exo_idx			; keep i across the get_bits below
+	lda .exo_tabl_bit,x
+	tax
+	jsr .exo_get_bits		; v2 = tabl_off[i] + get_bits(tabl_bit[i])
+	ldx .exo_idx
 	clc
-	adc #2
-	sta .rle_count
-	jsr .rle_getc
-	sta .rle_value
-.unrle_rep
-	lda .rle_value
-	jsr .pic_store
-	dec .rle_count
-	bne .unrle_rep
-	lda .rle_eof
-	beq .unrle_next
-.unrle_done
-	rts
-
-.pic_set_filename
-	; .pic_num = picture number (up to 999). Write it into pic_file_name as
-	; three digits. Numbers run past 255, so the hundreds are counted off a
-	; 16-bit value; this consumes .pic_num, which the caller reloads each time.
-	ldx #0						; hundreds
--	lda .pic_num + 1
-	bne +						; >= 256, so certainly >= 100
-	lda .pic_num
-	cmp #100
-	bcc ++						; < 100, hundreds done
-+	lda .pic_num				; .pic_num -= 100
+	adc .exo_tabl_off,x
+	tax
+	jsr .exo_cooked			; offset = cooked(v2)
+	; src = out - offset (a 32-bit attic subtract; .pic_att+3 stays $08)
 	sec
-	sbc #100
-	sta .pic_num
-	lda .pic_num + 1
+	lda .pic_att
+	sbc .exo_c_lo
+	sta .exo_src
+	lda .pic_att + 1
+	sbc .exo_c_hi
+	sta .exo_src + 1
+	lda .pic_att + 2
 	sbc #0
-	sta .pic_num + 1
-	inx
-	bne -						; always (x stays < 10)
-++	txa
-	ora #$30
-	sta pic_file_name + 1
-	lda .pic_num				; now < 100, low byte only: tens then units
-	ldx #$2f					; '0' - 1
--	inx
-	sec
-	sbc #10
-	bcs -
-	adc #10
-	stx pic_file_name + 2
-	ora #$30
-	sta pic_file_name + 3
+	sta .exo_src + 2
+	lda .pic_att + 3
+	sbc #0
+	sta .exo_src + 3
+.dx_copy
+	ldz #0					; copy length bytes forward from src to the output
+	lda [.exo_src],z
+	jsr .pic_store
+	inc .exo_src
+	bne +
+	inc .exo_src + 1
+	bne +
+	inc .exo_src + 2
++	lda .exo_len_lo			; length -= 1
+	bne +
+	dec .exo_len_hi
++	dec .exo_len_lo
+	lda .exo_len_lo
+	ora .exo_len_hi
+	bne .dx_copy
+	jmp .dx_loop			; too far for a relative branch back
+.dx_done
 	rts
 
+.exo_init
+	; Seed the bit buffer and build the 52-entry decode table (exodec.c
+	; table_init): a = 1 at each 16-entry boundary, else a += 1 << b, where b is
+	; the previous entry's 4-bit field.
+	jsr .exo_get_crunched
+	sta .exo_bitbuf
+	lda #0
+	sta .exo_a_lo
+	sta .exo_a_hi
+	sta .exo_b
+	ldy #0
+.ei_loop
+	tya
+	and #$0f
+	bne .ei_add
+	lda #1					; boundary: a = 1
+	sta .exo_a_lo
+	lda #0
+	sta .exo_a_hi
+	bra .ei_store
+.ei_add
+	lda .exo_b				; a += 1 << b
+	jsr .exo_shift_add
+.ei_store
+	lda .exo_a_lo
+	sta .exo_tabl_lo,y
+	lda .exo_a_hi
+	sta .exo_tabl_hi,y
+	ldx #4					; b = get_bits(4)
+	jsr .exo_get_bits
+	sta .exo_b
+	sta .exo_tabl_bi,y
+	iny
+	cpy #52
+	bne .ei_loop
+	rts
+
+.exo_shift_add
+	; .exo_a += 1 << a, where a (0..15) is the shift count.
+	tax
+	lda #1
+	sta .exo_t_lo
+	lda #0
+	sta .exo_t_hi
+	cpx #0
+	beq +
+-	asl .exo_t_lo
+	rol .exo_t_hi
+	dex
+	bne -
++	clc
+	lda .exo_a_lo
+	adc .exo_t_lo
+	sta .exo_a_lo
+	lda .exo_a_hi
+	adc .exo_t_hi
+	sta .exo_a_hi
+	rts
+
+.exo_cooked
+	; Cooked code: base = tabl_lo/hi[x], result = base + get_bits(tabl_bi[x]).
+	; x = index in, 16-bit result in .exo_c_lo/.exo_c_hi.
+	lda .exo_tabl_lo,x
+	sta .exo_c_lo
+	lda .exo_tabl_hi,x
+	sta .exo_c_hi
+	lda .exo_tabl_bi,x
+	tax
+	jsr .exo_get_bits
+	clc
+	adc .exo_c_lo
+	sta .exo_c_lo
+	lda .exo_bits_hi
+	adc .exo_c_hi
+	sta .exo_c_hi
+	rts
+
+.exo_get_crunched
+	; a = next crunched byte, read forwards from staging. Advances .exo_cr.
+	ldz #0
+	lda [.exo_cr],z
+	inc .exo_cr
+	bne +
+	inc .exo_cr + 1
+	bne +
+	inc .exo_cr + 2
++	rts
+
+.exo_get_bits
+	; get x bits (0..16) MSB-first into a / .exo_bits_lo / .exo_bits_hi. Many
+	; table entries ask for 0 bits, which must return 0 without touching the
+	; stream - the loop below is a do-while, so guard the zero case up front.
+	stx .exo_count
+	lda #0
+	sta .exo_bits_lo
+	sta .exo_bits_hi
+	cpx #0
+	beq .egb_ret
+.egb_loop
+	lsr .exo_bitbuf			; rot(0): carry = bit0, bitbuf >>= 1 (0 into top)
+	lda .exo_bitbuf
+	bne .egb_shift			; buffer not empty: carry is the data bit
+	jsr .exo_get_crunched	; empty: refill and rot(1)
+	lsr						; carry = new byte bit0, a = byte >> 1
+	ora #$80				; rot(1) sets the top bit; ora keeps carry
+	sta .exo_bitbuf
+.egb_shift
+	rol .exo_bits_lo		; val = (val << 1) | carry
+	rol .exo_bits_hi
+	dec .exo_count
+	bne .egb_loop
+.egb_ret
+	lda .exo_bits_lo
+	rts
 ; ---------------------------------------------------------------------------
 .pic_find
 	; Find the picture whose number is in a,x (high, low). Returns its index in
