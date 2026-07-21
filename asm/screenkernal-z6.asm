@@ -862,11 +862,13 @@ s_init
 	lda #0
 	sta zp_screencolumn
 	sta zp_screenrow
-	; Set to 0: s_ignore_next_linebreak, s_reverse
-	ldx #3
+	; Set to 0: s_ignore_next_linebreak, s_reverse. The array is no longer
+	; adjacent to s_reverse (see its declaration), so clear that separately.
+	ldx #7
 -	sta s_ignore_next_linebreak,x
 	dex
 	bpl -
+	sta s_reverse
 	rts
 
 s_plot
@@ -902,6 +904,18 @@ s_set_text_colour
 ; the background back. (ECM has no reversed glyphs; it never sets this.)
 s_colour_swap	!byte 0
 s_bg_zcolour	!byte 0	; the screen background as a z-colour number
+; One entry per window, indexed by current_window. The non-z6 screen model has
+; three windows and constants*.asm reserves three zero page bytes for it, with
+; s_reverse immediately after; z6 has eight, so windows 3-7 wrote past the end.
+; Window 3 is the worst: it *is* s_reverse, and Arthur prints every parser
+; message there in reverse video. .normal_char read s_reverse ($80), took the
+; sign bit for "ignore next linebreak" and INCed it to $81, so the following
+; "ora s_reverse" set bit 0 of the character - turning the last character of
+; each line (the only one s_printchar prints; the rest go through
+; print_line_from_buffer) into the next screen code: 'word' -> 'wore',
+; '"' -> '#'. Eight bytes here, out of zero page, rather than five more bytes
+; of it on each of five targets.
+s_ignore_next_linebreak	!byte 0,0,0,0,0,0,0,0
 ; The swap is a per-window look, but s_colour_swap/s_colour are global, so a
 ; window switch used to leave the previous window's reverse state in force -
 ; the reversed field bled onto the next window and scrolled-in text came out

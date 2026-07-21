@@ -132,7 +132,12 @@ current_window 	      = $b1 ; ### OK C128
 is_buffered_window    = $b2 ; ### OK C128
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+; z6 indexes this by current_window (0-7), so three bytes are not enough and
+; the overrun lands on s_reverse below. screenkernal-z6.asm defines its own
+; eight-byte array instead; this zero page is free in a z6 build.
+!ifndef Z6 {
 s_ignore_next_linebreak=$b3 ; 3 bytes ### OK C128
+}
 s_reverse             = $b6 ; ### OK C128
 
 s_current_screenpos_row=$be ; ### OK C128 ; !byte $ff

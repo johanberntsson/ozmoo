@@ -123,7 +123,12 @@ vmem_temp			  = $7e ; 2 bytes
 ; $a9-$d3 is for math library and Basic, can safely be used
 num_rows 			  = $a9
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+; z6 indexes this by current_window (0-7), so three bytes are not enough and
+; the overrun lands on s_reverse below. screenkernal-z6.asm defines its own
+; eight-byte array instead; this zero page is free in a z6 build.
+!ifndef Z6 {
 s_ignore_next_linebreak = $aa ; 3 bytes
+}
 s_reverse 			  = $ad
 
 savefile_zp_pointer   = $ae ; 2 bytes

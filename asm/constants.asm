@@ -23,7 +23,12 @@ window_start_row	  = $2a; 4 bytes
 
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+; z6 indexes this by current_window (0-7), so three bytes are not enough and
+; the overrun lands on s_reverse below. screenkernal-z6.asm defines its own
+; eight-byte array instead; this zero page is free in a z6 build.
+!ifndef Z6 {
 s_ignore_next_linebreak = $b0 ; 3 bytes
+}
 s_reverse 			  = $b3 ; !byte 0
 
 zp_temp               = $fb ; 5 bytes
@@ -58,7 +63,12 @@ window_start_row	  = $2a; 4 bytes
 num_rows 			  = $b7 ; !byte 0
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+; z6 indexes this by current_window (0-7), so three bytes are not enough and
+; the overrun lands on s_reverse below. screenkernal-z6.asm defines its own
+; eight-byte array instead; this zero page is free in a z6 build.
+!ifndef Z6 {
 s_ignore_next_linebreak = $b8 ; 3 bytes
+}
 s_reverse 			  = $bb ; !byte 0
 
 savefile_zp_pointer   = $c1 ; 2 bytes
@@ -180,7 +190,12 @@ use_reu				  = $9b
 window_start_row	  = $2a; 4 bytes
 
 ; Screen kernal stuff. Must be kept together or update s_init in screenkernal.
+; z6 indexes this by current_window (0-7), so three bytes are not enough and
+; the overrun lands on s_reverse below. screenkernal-z6.asm defines its own
+; eight-byte array instead; this zero page is free in a z6 build.
+!ifndef Z6 {
 s_ignore_next_linebreak = $b0 ; 3 bytes
+}
 s_reverse 			  = $b3 ; !byte 0
 
 zp_temp               = $fb ; 5 bytes
