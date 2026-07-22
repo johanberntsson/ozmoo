@@ -1,5 +1,57 @@
 Known bugs
 ----------
+FIXED (July 2026): in Arthur on the C64 and MEGA65, the LAST character of every
+line of a parser message came out as the next screen code up - typing a bad word
+gave 'You don't need to use the word "aaaa.#' for the closing quote, and the line
+above ended "wore" instead of "word". s_ignore_next_linebreak is a THREE byte
+array in the constants*.asm zero page maps, sized for the non-z6 screen model,
+with s_reverse immediately after it; z6 has eight windows and indexes it by
+current_window, so windows 3-7 wrote past the end - on the C64 window 3 IS
+s_reverse (4/5 are s_stored_x/y, 6 is s_current_screenpos_row). Arthur prints
+every parser message into window 3 in reverse video, so s_reverse held $80;
+.normal_char read that as the window's "ignore next linebreak" flag, took the
+sign bit for "set" and INCed it to $81, and the "ora s_reverse" two instructions
+later then set bit 0 of the character. Only the last character of a line was hit
+because that is the only one s_printchar prints - the rest go through
+print_line_from_buffer, which ORs print_buffer2 instead. Fixed by giving z6 its
+own eight-byte array outside the zero page; the equates stay under !ifndef Z6, so
+non-z6 builds are byte-identical.
+The X16 escaped it only by luck: Z6_WINDOW_BG means it never sets s_reverse for
+these windows, but its map has the same adjacency ($aa + 3 = $ad) and the same
+latent bug. Every other per-window array was audited and is fine - see CLAUDE.md
+for what was checked, so it need not be redone.
+Diagnosis was by measurement: dump screen RAM for the actual screen code (not a
+screenshot), trace exec the OR chain to see which OR introduced the bit, then
+trace store on the variable to find who wrote it. Two dead ends on the way, both
+mine: a bad log regex said the guilty INC "never executes" (it ran 4808 times),
+and a cross-run correlation of char against mask appeared to clear s_reverse.
+Correlate in ONE run, and verify a negative before believing it.
+
+DONE (July 2026): pics2asm.py now ignores the BPal palette replacements in a
+Snavig-generated blorb, so the larger of the two Arthur blorbs in circulation can
+be used. BPal ("Bocfel adaptive palette", github.com/cspiegel/bpal) names, for
+every (current palette, APal picture) pair, a third picture holding the adaptive
+picture with the palette already applied - a workaround for Glk interpreters that
+cannot recolour a Blorb image at runtime. Arthur's has 155 of them numbered
+1000-1154; Ozmoo does that recolouring itself (pic_adaptive/pic_direct_base), and
+the interpreter cannot even name numbers past 999 (the three-digit [Pnnn]
+filename). The story references none of them - both blorbs' .z6 are byte
+identical and every picture constant in txd's disassembly is <= 171. Also drops
+anything past MAX_PIC_NUMBER as a catch-all; --all-pictures keeps them and then
+stops on the number check rather than quietly shipping an unusable set. Beware
+the numbering when looking at extracted chunks: sequential chunk indices (to 335
+for Arthur) are not picture numbers. Zork Zero's APal lists 165 pictures, so a
+BPal blorb of it would be enormous.
+
+DONE (July 2026): the MEGA65 picture load now prints "unpacking pictures" before
+each decrunch and erases the screen when everything is in attic, so the several
+seconds of silence after the progress bar are explained and the game opens clean.
+No progress bar for the decrunch - it walks a crunched stream and has no cheap
+measure of how far along it is, unlike the staging read which counts pages. The
+erase is at the end of the load path, not the top of pic_load_all: the restart
+path (pictures still in attic) returns without printing and must not erase a
+screen it did not write.
+
 DONE (July 2026): every MEGA65 v6 game now fits on ONE d81 - the pictures go on
 the boot disk beside the story, and no picture disk is built at all. This became
 possible when a picture disk turned into a single exomizer archive: measured on
