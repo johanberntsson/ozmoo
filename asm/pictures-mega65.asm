@@ -204,6 +204,16 @@ pic_load_all
 	jsr kernal_close
 	jsr kernal_clrchn
 
+	; Decrunching a whole disk's archive takes a few seconds with nothing to
+	; show for it, so say what is happening. No progress bar: the decruncher
+	; walks a crunched stream, so it has no cheap measure of how far along it
+	; is, unlike the staging read that counts pages.
+	lda #13
+	jsr s_printchar
+	lda #>.unpacking_msg
+	ldx #<.unpacking_msg
+	jsr printstring_raw
+
 	lda #0					; decrunch it onto the running attic write pointer
 	sta .pic_att
 	lda .pic_next_page
@@ -213,6 +223,8 @@ pic_load_all
 	lda #$08
 	sta .pic_att + 3
 	jsr .pic_deexo
+	lda #13					; so a further disk's progress bar starts on its own line
+	jsr s_printchar
 
 	; .pic_att now points just past this disk's pictures - page aligned, since
 	; every picture is page padded - which is where the next disk continues.
@@ -237,6 +249,11 @@ pic_load_all
 	inx
 	cpx #PIC_SIG_BYTES
 	bne -
+	; The label, the bar and the unpacking notes have done their job; the game
+	; should open on a clean screen. Only this path prints anything - the
+	; pictures-already-in-attic path above returns without a word - so the
+	; erase belongs here rather than at the top of pic_load_all.
+	jsr s_erase_window
 	rts
 
 .pic_compute_pages
@@ -503,6 +520,7 @@ pic_load_all
 .swap_msg  !pet 13,"insert picture disk ",0
 .swap_msg2 !pet " and press a key ",0
 .loading_msg !pet "loading graphics",0
+.unpacking_msg !pet "unpacking pictures",0
 
 .pic_store
 	; Write a to attic RAM and step .pic_att on.
