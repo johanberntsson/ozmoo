@@ -72,10 +72,22 @@ mouse_window    !byte $ff		; window the mouse is confined to, $ff = free
 mouse_active    !byte 0			; 1 once a game asks for the mouse (Flags 2 bit 5)
 .mouse_temp     !byte 0
 .mouse_ext      !byte 0, 0		; address of the header extension table
+.mouse_save_x   !byte 0			; caller's registers, kept across a poll
+.mouse_save_y   !byte 0
 
 mouse_poll
 	; Read the mouse, move the pointer, and note a fresh click. Returns with the
-	; press-edge flag in mouse_clicked (also A: 0 = nothing, 1 = a click).
+	; press-edge flag in mouse_clicked (also A: 0 = nothing, 1 = a click), and
+	; with x and y as the caller left them.
+	stx .mouse_save_x
+	sty .mouse_save_y
+	jsr .mouse_poll_body
+	ldx .mouse_save_x
+	ldy .mouse_save_y
+	lda mouse_clicked		; reload, so z reflects the result and not the ldy
+	rts
+
+.mouse_poll_body
 	lda #0
 	sta mouse_clicked		; only a press this poll sets it again
 	jsr .mouse_read			; a = the buttons held now, one bit each

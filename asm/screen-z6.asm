@@ -2020,6 +2020,8 @@ show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
 	jsr .set_more_prompt_pos
+	lda #$ff ; the first pass below INCs this to 0 (even = the prompt is shown)
+	sta .more_blink_phase
 
 !ifdef TARGET_C128 {
     bit COLS_40_80
@@ -2055,8 +2057,10 @@ show_more_prompt
 	lda plus4_vic_colours,x
 	tax
 }
-	iny
-	tya
+	; The blink phase must live in memory, not in y. The
+	; call to mouse update routines kills it
+	inc .more_blink_phase
+	lda .more_blink_phase
 	and #1
 	beq +
 !ifdef TARGET_C128 {
@@ -2136,6 +2140,7 @@ show_more_prompt
 	rts
 
 .more_text_char !byte 0
+.more_blink_phase !byte 0
 
 .set_more_prompt_pos
 	; Point the [More] prompt at the bottom right cell of the current
