@@ -20,6 +20,7 @@ if $is_windows then
 		'EXOMIZER' => "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
 		'ACME' => "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe",
 		'ZIP' => "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0",
+		'PYTHON' => 'python',
 	}
 	$commandline_quotemark = "\""
 else
@@ -36,6 +37,7 @@ else
 		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
 		'ACME' => "acme",
 		'ZIP' => "zip -r",
+		'PYTHON' => 'python3',
 	}
 	$commandline_quotemark = "'"
 end
@@ -66,7 +68,7 @@ unless $settings_file.empty?
 		if line =~ /^\s*'?(\w+)'?\s*=>?(.*)/ then
 			name = $1.upcase
 			val = $2.chomp.strip
-			if name =~ /^(X16|X64|X128|XPLUS4|MEGA65|C1541|EXOMIZER|ACME|ZIP)$/ then
+			if name =~ /^(X16|X64|X128|XPLUS4|MEGA65|C1541|EXOMIZER|ACME|ZIP|PYTHON)$/ then
 				$executables[name] = val
 			end
 		end
@@ -3467,7 +3469,7 @@ if picture_dir
 		# The X16 draws pictures on a VERA tile layer behind the text and
 		# loads each from SD on demand: uncompressed loose files in the game
 		# directory, no picture disks. One 16x8-pixel tile per logical cell.
-		unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
+		unless system($executables['PYTHON'], File.join(__dir__, 'tools', 'pics2asm.py'),
 		              '--x16', $TEMPDIR, picture_dir)
 			puts "ERROR: -pics: tools/pics2asm.py failed."
 			exit 1
@@ -3483,7 +3485,7 @@ if picture_dir
 		# picture disk gets one exomizer archive (picsN.bin) of its pictures; the
 		# interpreter decrunches them into attic at boot, so pics2asm needs the
 		# cruncher.
-		unless system("python3", File.join(__dir__, 'tools', 'pics2asm.py'),
+		unless system($executables['PYTHON'], File.join(__dir__, 'tools', 'pics2asm.py'),
 		              '--fcm-width', fcm_width.to_s,
 		              '--exomizer', $executables['EXOMIZER'],
 		              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
