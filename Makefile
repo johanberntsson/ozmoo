@@ -129,6 +129,8 @@ dejavu-mega65:
 dejavu-x16:
 	ruby make.rb -s -t:x16 examples/dejavu.z3
 
+advent-mega65:
+	ruby make.rb -s -t:mega65 examples/advent_punyinform.z5
 # ---------------------------------------------------------------------------
 # Extras that do not fit the grid.
 # ---------------------------------------------------------------------------
