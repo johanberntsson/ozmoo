@@ -74,6 +74,16 @@
 .gen_rows    !byte 0		; its counters
 .gen_cols    !byte 0
 dbg_gen     !fill 10, 0	; DEBUG_PIC_GEN: state of the last generated draw
+!ifdef DEBUG_PIC_GEN {
+; A ring of the last 32 draws, 16 bytes each, so a screen built out of many
+; pictures can be read back whole. Every draw is recorded, copied or generated:
+; a picture that .pic_gen_size snapped back to the grid never reaches
+; .pic_gen_fill, so its absence from a generated-only log would say nothing.
+dbg_ring    !fill 512, 0
+dbg_ring_at !byte 0			; the next entry, 0..31
+dbg_req     !byte 0,0		; the shift .pic_map_pos asked for, before the fit
+							; check in .pic_gen_size can take it away
+}
 .gen_left    !byte 0		; does either text half of the cell just built have
 .gen_right   !byte 0		; an opaque pixel in it? (for blanking the text)
 .pfo_m       !byte 0		; the fill's map cell counter, 0..gen_mw
@@ -2445,6 +2455,9 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	lda .pic_att + 2
 	sta .gen_tiles + 2
 
+!ifdef DEBUG_PIC_GEN {
+	jsr .dbg_record
+}
 	lda .pic_shift
 	ora .pic_shift_y
 	bne .dp_generate
@@ -2527,7 +2540,63 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	lda .pic_py
 	and #7
 	sta .pic_shift_y
+!ifdef DEBUG_PIC_GEN {
+	lda .pic_shift
+	sta dbg_req
+	lda .pic_shift_y
+	sta dbg_req + 1
+}
 	rts
+
+!ifdef DEBUG_PIC_GEN {
+.dbg_record
+	; Append this draw to dbg_ring: what was asked for, what it became, and
+	; where in the store it landed.
+	lda dbg_ring_at
+	asl
+	asl
+	asl
+	asl
+	tax						; x = entry * 16
+	lda .pic_index
+	sta dbg_ring,x
+	lda .pic_index + 1
+	sta dbg_ring + 1,x
+	lda .pic_cw
+	sta dbg_ring + 2,x
+	lda .pic_ch
+	sta dbg_ring + 3,x
+	lda dbg_req
+	sta dbg_ring + 4,x
+	lda dbg_req + 1
+	sta dbg_ring + 5,x
+	lda .pic_shift
+	sta dbg_ring + 6,x
+	lda .pic_shift_y
+	sta dbg_ring + 7,x
+	lda .gen_mw
+	sta dbg_ring + 8,x
+	lda .gen_mh
+	sta dbg_ring + 9,x
+	lda .pic_slot
+	sta dbg_ring + 10,x
+	lda .pic_slot + 1
+	sta dbg_ring + 11,x
+	lda pic_next_tile
+	sta dbg_ring + 12,x
+	lda pic_next_tile + 1
+	sta dbg_ring + 13,x
+	lda .pic_lx
+	sta dbg_ring + 14,x
+	lda .pic_y
+	sta dbg_ring + 15,x
+	lda dbg_ring_at
+	clc
+	adc #1
+	and #31
+	sta dbg_ring_at
+	rts
+}
 
 .pic_gen_size
 	; .gen_mw / .gen_mh: the map cells the picture covers, one more than its own

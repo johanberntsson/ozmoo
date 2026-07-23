@@ -102,7 +102,10 @@ $GENERALFLAGS = [
 #	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
 #	'X_FOR_EXAMINE', # Automatically change "x" (in a verb position) to "examine" in player input
-#	'DEBUG_PIC_GEN', # v6/X16: record the last generated draw's geometry in dbg_gen
+#	'DEBUG_PIC_GEN', # v6/X16: record every picture draw in dbg_ring (32 entries,
+#	                 # 16 bytes: index, cells, requested and final shift, cells
+#	                 # covered, tile slot, next tile, position) and the last
+#	                 # generated draw in dbg_gen
 #	'Z6_PIXEL_UNITS', # v6: report the 320x200 art pixel space Infocom authored
 #	                  # for, instead of counting whole character cells. See
 #	                  # todo.txt; not finished, do not ship.
