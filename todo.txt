@@ -241,9 +241,11 @@ Phase 0b - SUB-CELL PLACEMENT ON BOTH AXES, generated from staging: DONE
   - .pic_gc treated a vertically shifted picture's TOP edge row as interior:
     the x axis had inc .gc_x0 and the y axis had nothing. A tile shown only by
     cells in that shared row could be reclaimed while the draw still needed it
-    to composite against. .gc_y0 now mirrors .gc_x0. (The MEGA65's .pic_gc has
-    no shift adjustment on either axis and should get the same treatment - it
-    has 2048 tiles and compacts far less often, so nothing has surfaced.)
+    to composite against. .gc_y0 now mirrors .gc_x0. The MEGA65's .pic_gc had
+    no shift adjustment on EITHER axis - it has 2048 tiles and compacts far
+    less often, so nothing had surfaced there - and now has both, .gc_x0 and
+    .gc_y0 against .pic_shift and .pic_shift_y. On the grid (every
+    full-screen picture) both engines behave exactly as before.
 
 Phase 1 - report pixel units behind a build flag: DONE 2026-07-23, commits
   "Phase 1, part 1: report art pixels behind Z6_PIXEL_UNITS" and "part 2: finish

@@ -124,8 +124,10 @@ GEN_TILE_SHIFT = 4			; * 16 bytes
 }
 .gc_row      !byte 0
 .gc_col      !byte 0
-.gc_y1       !byte 0		; .pic_y + .pic_h
-.gc_x1       !byte 0		; .pic_x + .pic_w
+.gc_y0       !byte 0		; the incoming rectangle in screen cells: only the
+.gc_y1       !byte 0		; cells it covers COMPLETELY die with it, so a
+.gc_x0       !byte 0		; shifted picture's shared edge row and column are
+.gc_x1       !byte 0		; outside it
 .gc_next     !byte 0,0		; the compacted store's next free tile
 .gc_old      !byte 0,0		; the survivor being moved
 .gc_byi      !byte 0		; bitmap byte index being walked
@@ -1078,10 +1080,13 @@ pic_load_all
 	; (safe in place: a survivor can only move down), and repoint their
 	; cells. pic_next_tile comes back as the survivor count, so the caller's
 	; run and the composites baked over it land above them. Cells the new
-	; picture covers are left alone: it is about to overwrite them, and if
-	; their tiles are shared with cells outside (Arthur's borders repeat)
-	; the sharing marks them survivors anyway. Tiles keep their absolute
-	; palette pixels, so moving one never changes its colours.
+	; picture covers completely are left alone: it is about to overwrite them,
+	; and if their tiles are shared with cells outside (Arthur's borders
+	; repeat) the sharing marks them survivors anyway. A cell the picture only
+	; half covers - a shifted placement's edge row and column - counts as
+	; outside: the draw still has to composite against what is there. Tiles
+	; keep their absolute palette pixels, so moving one never changes its
+	; colours.
 
 	; pass 1: which tiles are still needed?
 	ldx #0
@@ -1089,15 +1094,29 @@ pic_load_all
 -	sta .gc_bitmap,x
 	inx
 	bne -
+	; The incoming rectangle, interior only. A picture shifted along an axis
+	; spans one cell more there (.pic_x .. .pic_x + .pic_w), and both edge
+	; cells hold part of it beside part of whatever it was drawn over - a
+	; frame border, for a scene composited into a frame's hole - so they count
+	; as OUTSIDE and their tiles must survive. Either way the exclusive end is
+	; origin + size.
 	lda .pic_y
+	sta .gc_y0
 	clc
 	adc .pic_h
 	sta .gc_y1
 	lda .pic_x
+	sta .gc_x0
 	clc
 	adc .pic_w
 	sta .gc_x1
-	lda #<SCREEN_ADDRESS
+	lda .pic_shift
+	beq +
+	inc .gc_x0
++	lda .pic_shift_y
+	beq +
+	inc .gc_y0
++	lda #<SCREEN_ADDRESS
 	sta .pic_ptr
 	lda #>SCREEN_ADDRESS
 	sta .pic_ptr + 1
@@ -1108,12 +1127,12 @@ pic_load_all
 	sta .gc_col
 .gc_mark_cell
 	lda .gc_row
-	cmp .pic_y
+	cmp .gc_y0
 	bcc .gc_mark_keep		; above the rectangle
 	cmp .gc_y1
 	bcs .gc_mark_keep		; below it
 	lda .gc_col
-	cmp .pic_x
+	cmp .gc_x0
 	bcc .gc_mark_keep		; left of it
 	cmp .gc_x1
 	bcc .gc_mark_next		; inside: dies with the old picture
