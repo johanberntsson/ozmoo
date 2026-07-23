@@ -102,6 +102,10 @@ $GENERALFLAGS = [
 #	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
 #	'X_FOR_EXAMINE', # Automatically change "x" (in a verb position) to "examine" in player input
+#	'Z6_PIC_XSUB=2', # v6: shift every picture this many art pixels (1/80th of the
+#	                 # screen width, 2 physical pixels) sideways, positive or
+#	                 # negative. A test hook for the sub-cell picture placement
+#	                 # the pixel-units screen model will ask for; see todo.txt.
 ]
 
 # For a production build, none of these flags should be enabled.
@@ -1274,8 +1278,13 @@ def build_interpreter()
 		optionalsettings += " -DPIC_STAGING_BANK=#{staging_bank}"
 	end
 
-	generalflags = $GENERALFLAGS.empty? ? '' : " -D#{$GENERALFLAGS.join('=1 -D')}=1"
-	debugflags = $DEBUGFLAGS.empty? ? '' : " -D#{$DEBUGFLAGS.join('=1 -D')}=1"
+	# A flag is normally just switched on (-DNAME=1), but an entry may carry its
+	# own value ("Z6_PIC_XSUB=-2") and is then passed through as written.
+	flagdefs = lambda { |flags|
+		flags.empty? ? '' : ' ' + flags.map { |f| "-D#{f.include?('=') ? f : "#{f}=1"}" }.join(' ')
+	}
+	generalflags = flagdefs.call($GENERALFLAGS)
+	debugflags = flagdefs.call($DEBUGFLAGS)
 	colourflags = '' #$colour_replacement_clause
 	
 	if $bg_colour

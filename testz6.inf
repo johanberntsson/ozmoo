@@ -173,6 +173,11 @@ Array s3tab -> 66;
 	! palette bank is the window's, so two pictures in one window share colours
 	@set_window 0;
 	@draw_picture 4 1 1;
+	! ...and again at an odd column. On the X16 a tile spans two text columns,
+	! so this one cannot sit on the tile grid and is drawn through boundary
+	! tiles - the same path a sub-cell horizontal offset uses. Nothing else we
+	! build exercises it without playing a commercial game to a scene.
+	@draw_picture 4 5 12;
 	@set_window 1;
 
 	print "> ";

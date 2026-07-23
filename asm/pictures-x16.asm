@@ -25,10 +25,12 @@
 ; assembled-in pic_width/pic_height tables, because the picture it asks
 ; about is usually not the one staged.
 ;
-; A picture may be placed at an odd text column (Arthur centres scenes),
-; which the 16-pixel tile grid cannot express. For now the column is
-; rounded down to the even one, an 8-pixel error; the true half-cell
-; compositing path is still to do. See todo.txt.
+; A picture may be placed off the 16-pixel tile grid - at an odd text column
+; (Arthur centres scenes), or, once the screen model reports pixels, at any
+; art pixel inside a cell. .pic_shift holds that horizontal offset in art
+; pixels (0..7, one art pixel = one store byte = 2 physical pixels) and a
+; non-zero one is drawn through boundary tiles baked from the picture's own
+; store tiles (.pic_fill_cells_odd). See todo.txt.
 
 ; --- zero page, borrowed from z_temp like the MEGA65 engine ---
 .pi_ptr  = z_temp			; 2 bytes, indexes the pic_* tables by .pic_index
@@ -50,9 +52,13 @@
 .pic_lx      !byte 0		; the picture's first layer 0 map column
 .pic_cols_left !byte 0		; cells left on the row being filled or erased
 .pic_vis     !byte 0		; how many of them are on screen (right clip)
-.pic_odd     !byte 0		; 1 if placed at an odd text column (boundary tiles)
+.pic_shift   !byte 0		; horizontal offset into the tile, in art pixels 0..7
+							; (non-zero: drawn through baked boundary tiles)
 .bd_left     !byte 0,0		; boundary tile source: left art cell's index ($ffff none)
 .bd_right    !byte 0,0		; and the right art cell's
+.bd_rowbase  !byte 0		; the bake's running row offset into .pcf_buf
+.bd_lmask    !byte 0		; which source halves reach the left text cell of a
+.bd_rmask    !byte 0		; boundary cell, and which the right (see .pic_shift)
 .pfo_m       !byte 0		; the odd fill's map cell counter, 0..cw
 .pfo_vis     !byte 0		; cells of the odd row still on screen
 .pic_map     !byte 0,0,0	; where the cell map starts in the staging banks
@@ -583,20 +589,23 @@ pic_load_all
 	; run and the composites baked over it land above them. Cells the new
 	; picture covers completely are left alone: it is about to overwrite
 	; them, and if their tiles are shared with cells outside the sharing
-	; marks them survivors anyway. A cell the picture only half covers (an
-	; odd column) counts as outside: its tile must survive.
+	; marks them survivors anyway. A cell the picture only half covers (a
+	; shifted placement's two edge cells) counts as outside: its tile must
+	; survive.
 
-	; The incoming rectangle in map cells, interior only
-	lda .pic_x
-	clc
-	adc #1
-	lsr
+	; The incoming rectangle in map cells, interior only. A shifted picture
+	; spans .pic_lx .. .pic_lx + cw, sharing both edge cells, so only
+	; .pic_lx + 1 .. .pic_lx + cw - 1 is fully its own; an aligned one owns
+	; .pic_lx .. .pic_lx + cw - 1. Either way the exclusive end is lx + cw.
+	lda .pic_lx
 	sta .gc_x0
-	lda .pic_x
 	clc
-	adc .pic_w
-	lsr
+	adc .pic_cw
 	sta .gc_x1
+	lda .pic_shift
+	beq +
+	inc .gc_x0
++
 	lda .pic_y
 	clc
 	adc .pic_h
@@ -1079,36 +1088,49 @@ pic_load_all
 	rts
 
 ; ---------------------------------------------------------------------------
-; Odd-column placement. A 16x8 tile spans two text columns, so a picture placed
-; at an odd text column is shifted half a tile right: each of the cw+1 map cells
-; it now spans shows the right half of one art cell beside the left half of the
-; next. These boundary tiles are baked fresh from the picture's own stored tiles
-; (their left/right 8-pixel halves), so no new picture data is needed - only up
-; to ~+1% more tiles than the even placement, since Arthur's art repeats
-; horizontally and the boundary patterns recur. A boundary cell with an opaque
-; tile behind it is composited exactly as the even path does.
+; Off-grid placement. A 16x8 tile spans two text columns and eight art pixels,
+; so a picture whose left edge is not on a tile boundary is drawn through
+; boundary tiles: each of the cw+1 map cells it now spans shows the tail of one
+; art cell beside the head of the next, split .pic_shift art pixels in. These
+; are baked fresh from the picture's own stored tiles, so no new picture data is
+; needed - only up to ~+1% more tiles than the aligned placement, since Arthur's
+; art repeats horizontally and the boundary patterns recur. A boundary cell with
+; an opaque tile behind it is composited exactly as the aligned path does.
+;
+; One store byte is one art pixel (two identical nybbles - the pixel doubling),
+; so a shift of one byte is a shift of one art pixel = 2 physical pixels, which
+; is exactly sfrotz's horizontal granularity for these games. A shift of 4 is
+; the half-cell an odd text column asks for.
 
 .pic_bake_boundary_buf
-	; Build a 16x8 boundary tile in .pcf_buf: the right half of the store tile
-	; .pic_slot+.bd_left (art pixels 4-7 = bytes 4-7 of each 8-byte store row)
-	; beside the left half of .pic_slot+.bd_right (bytes 0-3). A $ffff index means
-	; that half is transparent (zeroes). Returns x = the count of transparent (0)
-	; bytes, so the caller can skip compositing when the tile is fully opaque.
+	; Build a 16x8 boundary tile in .pcf_buf from the store tiles
+	; .pic_slot+.bd_left and .pic_slot+.bd_right, split .pic_shift art pixels
+	; in: buf byte j of a row is left[j + shift] while that is still inside the
+	; row, and right[j + shift - 8] after it. A $ffff index means that source is
+	; transparent (zeroes). Returns x = the count of transparent (0) bytes, so
+	; the caller can skip compositing when the tile is fully opaque.
 	lda .bd_left + 1
 	cmp #$ff
 	bne .bbb_left
-	ldy #0					; left half transparent: zero buf bytes n*8+0..3
--	lda #0
-	sta .pcf_buf,y
-	sta .pcf_buf + 1,y
-	sta .pcf_buf + 2,y
-	sta .pcf_buf + 3,y
-	tya
+	stz .bd_rowbase			; left source transparent: zero buf[row+0..7-shift]
+.bbb_lzero_row
+	ldy .bd_rowbase
+	ldx .pic_shift
+	cpx #8
+	beq .bbb_lzero_next		; nothing of the left source in this tile
+	lda #0
+-	sta .pcf_buf,y
+	iny
+	inx
+	cpx #8
+	bne -
+.bbb_lzero_next
+	lda .bd_rowbase
 	clc
 	adc #8
-	tay
-	cpy #64
-	bne -
+	sta .bd_rowbase
+	cmp #64
+	bne .bbb_lzero_row
 	beq .bbb_right			; always
 .bbb_left
 	lda .bd_left			; store tile = .pic_slot + .bd_left
@@ -1122,41 +1144,51 @@ pic_load_all
 	ldx .pic_tmp + 1
 	ldy #0
 	jsr .pic_tile_addr		; port 0 -> the left source tile
-	ldy #0
--	lda VERA_data0			; skip bytes 0-3 (the source's own left half)
-	lda VERA_data0
-	lda VERA_data0
-	lda VERA_data0
-	lda VERA_data0			; bytes 4-7 -> buf[row+0..3]
+	stz .bd_rowbase
+.bbb_lrow
+	ldx .pic_shift			; skip the shift bytes we start past
+	beq .bbb_lstore
+-	lda VERA_data0
+	dex
+	bne -
+.bbb_lstore
+	ldy .bd_rowbase			; the rest -> buf[row+0...]
+	ldx .pic_shift
+	cpx #8
+	beq .bbb_lnext
+-	lda VERA_data0
 	sta .pcf_buf,y
-	lda VERA_data0
-	sta .pcf_buf + 1,y
-	lda VERA_data0
-	sta .pcf_buf + 2,y
-	lda VERA_data0
-	sta .pcf_buf + 3,y
-	tya
+	iny
+	inx
+	cpx #8
+	bne -
+.bbb_lnext
+	lda .bd_rowbase
 	clc
 	adc #8
-	tay
-	cpy #64
-	bne -
+	sta .bd_rowbase
+	cmp #64
+	bne .bbb_lrow
 .bbb_right
 	lda .bd_right + 1
 	cmp #$ff
 	bne .bbb_rtile
-	ldy #4					; right half transparent: zero buf bytes n*8+4..7
--	lda #0
-	sta .pcf_buf,y
-	sta .pcf_buf + 1,y
-	sta .pcf_buf + 2,y
-	sta .pcf_buf + 3,y
-	tya
+	stz .bd_rowbase			; right source transparent: zero buf[row+8-shift..7]
+.bbb_rzero_row
+	jsr .bbb_right_offset	; y = row + 8 - shift, x = shift
+	beq .bbb_rzero_next		; shift 0: nothing of the right source here
+	lda #0
+-	sta .pcf_buf,y
+	iny
+	dex
+	bne -
+.bbb_rzero_next
+	lda .bd_rowbase
 	clc
 	adc #8
-	tay
-	cpy #68
-	bne -
+	sta .bd_rowbase
+	cmp #64
+	bne .bbb_rzero_row
 	beq .bbb_count			; always
 .bbb_rtile
 	lda .bd_right
@@ -1170,25 +1202,43 @@ pic_load_all
 	ldx .pic_tmp + 1
 	ldy #0
 	jsr .pic_tile_addr		; port 0 -> the right source tile
-	ldy #4
--	lda VERA_data0			; bytes 0-3 -> buf[row+4..7]
+	stz .bd_rowbase
+.bbb_rrow
+	jsr .bbb_right_offset	; y = row + 8 - shift, x = shift
+	beq .bbb_rskip
+-	lda VERA_data0			; its first shift bytes -> the tail of buf's row
 	sta .pcf_buf,y
-	lda VERA_data0
-	sta .pcf_buf + 1,y
-	lda VERA_data0
-	sta .pcf_buf + 2,y
-	lda VERA_data0
-	sta .pcf_buf + 3,y
-	lda VERA_data0			; skip bytes 4-7 (the source's own right half)
-	lda VERA_data0
-	lda VERA_data0
-	lda VERA_data0
-	tya
+	iny
+	dex
+	bne -
+.bbb_rskip
+	lda #8					; step over the rest of the source row
+	sec
+	sbc .pic_shift
+	tax
+	beq .bbb_rnext
+-	lda VERA_data0
+	dex
+	bne -
+.bbb_rnext
+	lda .bd_rowbase
 	clc
 	adc #8
+	sta .bd_rowbase
+	cmp #64
+	bne .bbb_rrow
+	bra .bbb_count
+.bbb_right_offset
+	; y = .bd_rowbase + 8 - .pic_shift, x = .pic_shift (z set when it is 0):
+	; where the right source's bytes land in this row of .pcf_buf, and how many.
+	lda .bd_rowbase
+	clc
+	adc #8
+	sec
+	sbc .pic_shift
 	tay
-	cpy #68
-	bne -
+	ldx .pic_shift
+	rts
 .bbb_count
 	ldx #0					; count transparent (0) bytes
 	ldy #0
@@ -1364,9 +1414,9 @@ pic_load_all
 	beq .pfobt_done
 	dec .pfo_vis
 	ldy .pfo_m
-	lda .pfo_drawn,y		; bit 0 = left half opaque, bit 1 = right half
+	lda .pfo_drawn,y		; bit 0 = left source present, bit 1 = right source
 	sta .pic_tmp
-	and #1					; the left text cell sits over the tile's left half
+	and .bd_lmask			; do either of them reach the left text cell?
 	beq .pfobt_lkeep
 	lda VERA_data0			; opaque half: blank (space, keep fg, clear bg)
 	lda #$20
@@ -1382,7 +1432,7 @@ pic_load_all
 	sta VERA_data1
 .pfobt_r
 	lda .pic_tmp
-	and #2					; the right text cell over the tile's right half
+	and .bd_rmask			; and the right text cell?
 	beq .pfobt_rkeep
 	lda VERA_data0
 	lda #$20
@@ -2003,11 +2053,8 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	lda .pic_w
 	lsr
 	sta .pic_cw
-	lda .pic_x
-	lsr
-	sta .pic_lx
-	lda .pic_x
-	and #1
+	jsr .pic_map_x			; .pic_lx, and the shift it was drawn with
+	lda .pic_shift
 	beq +
 	inc .pic_lx				; skip the left edge cell...
 	dec .pic_cw				; ...and the right one: cw+1 spanned - 2 edges = cw-1
@@ -2079,17 +2126,10 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	jsr .pic_att_next
 	sta .pic_ntiles + 1
 
-	; A 16x8 tile spans two text columns, so an even .pic_x aligns with the
-	; tile grid and an odd one is placed half a tile right via boundary tiles
-	; (.pic_fill_cells_odd). Either way the first map column is .pic_x / 2.
-	lda .pic_x
-	lsr
-	sta .pic_lx
-	lda .pic_x
-	and #1
-	sta .pic_odd
+	jsr .pic_map_x			; the first map column, and the shift inside it
+	jsr .pic_boundary_masks
 
-	; .pic_w/.pic_h in text cells, for .pic_gc's rectangle
+	; .pic_w/.pic_h in text cells (.pic_h is .pic_gc's rectangle height)
 	lda .pic_cw
 	asl
 	sta .pic_w
@@ -2160,14 +2200,64 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 +
 	jsr .pic_copy_tiles
 	jsr .pic_compute_bg_index ; fill transparent pixels with the window background
-	lda .pic_odd
+	lda .pic_shift
 	beq .dp_even
-	jsr .dp_odd_fits		; clears .pic_odd if the boundary tiles would overflow
-	lda .pic_odd
+	jsr .dp_odd_fits		; clears .pic_shift if the boundary tiles would overflow
+	lda .pic_shift
 	beq .dp_even
 	jmp .pic_fill_cells_odd
 .dp_even
 	jmp .pic_fill_cells
+
+.pic_map_x
+	; Split the picture's art-pixel column .pic_px (0..319) into .pic_lx, the
+	; first layer 0 map column, and .pic_shift, the split the boundary bake
+	; needs. A tile is 8 art pixels wide (16 physical, doubled), so this is a
+	; divide by 8 and its remainder r.
+	;
+	; .pic_shift is 8 - r, not r: the bake reads FORWARD (buf byte j is source
+	; byte j + shift), so a bigger shift moves the picture LEFT, while a bigger
+	; r means it starts further right inside the tile. r = 4, an odd text
+	; column, is its own complement, which is why the half-cell case reads the
+	; same either way - and why getting this backwards is invisible until an
+	; offset that is not half a cell is tried.
+	lda .pic_px
+	and #7
+	beq +					; r = 0: on the tile grid, no boundary tiles
+	sta .pic_shift
+	lda #8
+	sec
+	sbc .pic_shift
++	sta .pic_shift
+	lda .pic_px + 1
+	lsr
+	lda .pic_px
+	ror						; (px >> 1), the high bit carried down
+	lsr
+	lsr
+	sta .pic_lx
+	rts
+
+.pic_boundary_masks
+	; Which of a boundary cell's two source art cells can put pixels in its left
+	; text cell (buf bytes 0-3) and which in its right (bytes 4-7), given
+	; .pic_shift: buf byte j comes from the left source while j + shift < 8 and
+	; from the right after that. .pfo_blank_text ANDs these over "left source
+	; present" (bit 0) and "right source present" (bit 1) to decide whether the
+	; text under each half has to be blanked. At the half-cell shift of 4 this
+	; is the plain one-source-each split; off it, one text cell straddles both.
+	lda #1					; the left source always reaches the left text cell
+	ldx .pic_shift
+	cpx #5
+	bcc +
+	ora #2					; shift >= 5: the right source reaches it too
++	sta .bd_lmask
+	lda #2					; the right source always reaches the right one
+	cpx #4
+	bcs +
+	ora #1					; shift <= 3: so does the left source
++	sta .bd_rmask
+	rts
 
 .dp_odd_fits
 	; The odd path bakes up to (cw+1)*ch boundary tiles above the picture's own
@@ -2202,7 +2292,7 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	cmp #>PIC_MAX_TILES		; the store's high byte; low byte is 0
 	bcc .dof_done			; sum's high byte < it: fits
 	lda #0
-	sta .pic_odd			; would overflow: round to even instead
+	sta .pic_shift			; would overflow: snap to the tile grid instead
 .dof_done
 	rts
 
