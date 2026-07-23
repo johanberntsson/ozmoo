@@ -250,12 +250,67 @@ Phase 2 - coordinate state:
   and the per-window arrays in cells, derived by /4 and /8. Only go full
   2-byte-everywhere if a game needs cursor-relative sub-cell pictures (none seen
   yet; the compass and map both pass explicit coords).
-Phase 3 - bring games over one at a time, re-verifying the full target matrix each
-  step (C64 / C128 / Plus4 / MEGA65 -fcm / -fcm40 / X16, plus dejavu + praxix as
-  the non-z6 regression): testz6 first (we control it), then Zork Zero's compass,
-  then Arthur's F2 map. The reporting flip re-derives every commercial game's
-  layout, so this is the risky part - expect to re-check Arthur/Journey/Shogun
-  even though they look unrelated.
+Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
+  fixed and one REGRESSION found. Everything below is with Z6_PIXEL_UNITS on;
+  the flag stays off by default until the regression is understood.
+
+  ZORK ZERO'S COMPASS (instance 1 at the top of this file): FIXED, and measured
+  against the reference rather than eyeballed. sfrotz's window is 640 px for the
+  320 art pixels, and so is the X16's layer 0, so x is directly comparable. The
+  S arrow's 2-pixel stem just below the banner:
+      sfrotz (reference)   x 319..320
+      cell units           x 332..333   +13 px
+      pixel units          x 320..321   + 1 px
+  One physical pixel is half an art pixel - the finest the framebuffer can
+  express - so this is as close as the model allows. Reproduce: build
+  zorkzero-pics-x16, capture VRAM at boot (the banner draws before any input),
+  render layer 0 and measure that stem.
+
+  ARTHUR'S FIRST ROOM: fine. Frame, composited scene and a correctly laid out
+  status line, one column left of the cell build, which is the sub-cell
+  precision landing.
+
+  ARTHUR'S F2 MAP (instance 2): REGRESSED - the map's paper background renders
+  BLACK except for small patches around the room box, the connector and the
+  compass. It is correct in the cell build. What is known so far, from the VRAM
+  dump:
+    - It is NOT that the picture is missing: layer 0 rows 0-11 are fully
+      populated with tiles in both builds (480 cells vs 492).
+    - It is NOT tile-store exhaustion in the obvious sense: all 1023 tiles are
+      non-blank in both.
+    - The paper's tiles render transparent, so the generated tiles are mostly
+      zero pixels. The patches that DO show paper are exactly the cells another
+      picture was composited over - which is what compositing does, so the
+      paper's pixels were available at that moment.
+    - The palette banks differ between the builds (bank 9/10 hold the paper's
+      colours in the cell build and a copy of banks 7/8 in the pixel build),
+      but bank 10 index 1 is white there, not black, so that alone does not
+      explain it.
+  So the suspicion is the GENERATOR producing blank tiles for this particular
+  picture - most likely its source-cell lookup going out of range for a large
+  picture, or the too-big-to-generate fallback in .pic_gen_size interacting
+  with .pic_alloc. Next step is to instrument .pic_gen_fill for this draw
+  (DEBUG_PIC_GEN records the last generated draw's geometry in dbg_gen) and
+  compare .pic_shift / .gen_mw / .gen_mh / .pic_slot against what the picture
+  really is. Note the map draws MANY pictures in one screen, and under the
+  pixel model almost every one of them is off-grid and therefore generated
+  rather than copied - the tilebudget.py analysis costed one picture at a time,
+  not a screenful, so the store pressure here is higher than that suggested.
+  The runtime dedup recorded as "headroom, nothing needs it" in phase 0b may
+  well be what this needs.
+
+  How to drive it: Arthur's mode keys are physical F2 = the map and F3 = the
+  inventory (z-codes 134 and 135; the dispatch is at 18353 in txd, on G32).
+  F2 needs the emulator window focused - xdotool windowfocus then plain XTEST,
+  and the Xvfb lock must be cleared first or the keys go nowhere and you get a
+  capture of an undriven boot. That happened twice here; once it produced a
+  "pixel units" capture from a cell-units binary, because the game had been
+  rebuilt with the flag off in between. ALWAYS rebuild the game after changing
+  the flag, and check the build log says so.
+
+  STILL TO DO: testz6, Journey and Shogun have not been run with the flag at
+  all, and the full target matrix has not been re-verified per game as this
+  phase's plan asks.
 Phase 4 - the same off-grid generator on the MEGA65 engine: DONE 2026-07-23,
   commit "Phase 4: the same off-grid generator for the MEGA65 engine". Not a
   bake path, as this line used to say - the same generate-from-the-picture
