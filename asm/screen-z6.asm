@@ -648,12 +648,13 @@ z_ins_erase_picture
 	; the resolution a game can ask for, so these are just the cell position
 	; scaled. They exist because the games really place pictures in art
 	; pixels: a position can fall inside a cell on either axis, which the cell
-	; grid cannot express and which the picture engine can now draw (the X16
-	; generates the shifted tiles from the staged picture). Z6_PIC_XSUB and
-	; Z6_PIC_YSUB add a fixed offset, positive or negative, so that placement can
-	; be exercised before the reporting change that will make the games ask for
-	; it. Arthur's map is the one that needs BOTH axes: its 18-unit lattice puts
-	; rows and columns 2, 4 or 6 pixels into a cell (see todo.txt).
+	; grid cannot express and which both picture engines can now draw. Without
+	; Z6_PIXEL_UNITS a cell is one unit and these are just the cell position.
+	; Z6_PIC_XSUB and Z6_PIC_YSUB add a fixed offset, positive or negative, to
+	; exercise the placement on its own - that is how it was built and verified,
+	; before the reporting change made the games ask for it. Arthur's map is the
+	; one that needs BOTH axes: its 18-unit lattice puts rows and columns 2, 4
+	; or 6 pixels into a cell (see todo.txt).
 	lda .pic_x
 	asl
 	sta .pic_px

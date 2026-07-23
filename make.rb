@@ -115,8 +115,8 @@ $GENERALFLAGS = [
 #	'Z6_PIC_YSUB=2', # this many pixel rows down; either may be negative. An art
 #	                 # pixel is 1/320th of the screen width (2 physical pixels)
 #	                 # and a row is 1/200th of its height. A test hook for the
-#	                 # sub-cell picture placement the pixel-units screen model
-#	                 # will ask for; see todo.txt.
+#	                 # sub-cell picture placement, useful on its own when the
+#	                 # blit is suspect; see todo.txt.
 ]
 
 # For a production build, none of these flags should be enabled.
