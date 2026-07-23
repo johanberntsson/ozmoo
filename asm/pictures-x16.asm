@@ -121,8 +121,9 @@ pic_bank_pal !fill 15 * 32, 0
 }
 .gc_row      !byte 0
 .gc_col      !byte 0
-.gc_y1       !byte 0		; the incoming rectangle in layer 0 map cells:
-.gc_x0       !byte 0		; only cells it covers completely die with it
+.gc_y0       !byte 0		; the incoming rectangle in layer 0 map cells:
+.gc_y1       !byte 0		; only cells it covers completely die with it
+.gc_x0       !byte 0
 .gc_x1       !byte 0
 .gc_next     !byte 0,0		; the compacted store's next free tile
 .gc_old      !byte 0,0		; the survivor being moved
@@ -513,23 +514,16 @@ pic_load_all
 	bcc .pa_place
 .pa_reset
 	; still too big: start over at the bottom, which can only spoil what is
-	; already doomed
+	; already doomed. Falls through to .pa_place - nothing may come between
+	; them: a .pic_alloc that returns without placing leaves .pic_slot pointing
+	; at the LAST picture's run, so this picture's tiles are written over one
+	; the screen is still showing (that was Arthur's frame, and .pa_pack_shift
+	; sat here for a while), and leaves pic_next_tile at the bottom of the
+	; store for everything after it.
 	lda #PIC_FIRST_TILE
 	sta pic_next_tile
 	lda #0
 	sta pic_next_tile + 1
-.pa_pack_shift
-	; The placement a run was built for, as one byte: the horizontal offset in
-	; the low nybble and the vertical in the high. Both are 0..7. y must hold
-	; the window number on entry and still does on exit.
-	lda .pic_shift_y
-	asl
-	asl
-	asl
-	asl
-	ora .pic_shift
-	rts
-
 .pa_place
 	lda pic_next_tile
 	sta .pic_slot
@@ -575,6 +569,20 @@ pic_load_all
 	asl
 	asl
 	sta .pic_entry_hi
+	rts
+
+.pa_pack_shift
+	; The placement a run was built for, as one byte: the horizontal offset in
+	; the low nybble and the vertical in the high. Both are 0..7. y must hold
+	; the window number on entry and still does on exit. It lives outside
+	; .pic_alloc, as the MEGA65 engine's copy does, because the allocator is a
+	; chain of fall-throughs with no room for a subroutine in the middle.
+	lda .pic_shift_y
+	asl
+	asl
+	asl
+	asl
+	ora .pic_shift
 	rts
 
 ; ---------------------------------------------------------------------------
@@ -659,9 +667,14 @@ pic_load_all
 	inc .gc_x0
 +
 	lda .pic_y
+	sta .gc_y0
 	clc
 	adc .pic_h
 	sta .gc_y1
+	lda .pic_shift_y		; the same down the other axis, since phase 0b: a
+	beq +					; picture shifted vertically shares its top edge
+	inc .gc_y0				; row with whatever it is drawn over
++
 
 	; pass 1: which tiles are still needed?
 	ldx #0
@@ -682,7 +695,7 @@ pic_load_all
 	lda VERA_data0
 	sta .gc_t
 	lda .gc_row
-	cmp .pic_y
+	cmp .gc_y0
 	bcc .gc_mark_keep		; above the rectangle
 	cmp .gc_y1
 	bcs .gc_mark_keep		; below it
@@ -1167,14 +1180,37 @@ pic_load_all
 	; Point the staging cursor .pic_att at .gen_base + the 16-bit offset in
 	; .pic_count. A picture is loaded contiguously and is at most 32 KB, so the
 	; offset only has to be walked up through the 8 KB banked window.
+	;
+	; The offset is split into whole banks and a remainder BEFORE it is added,
+	; because .gen_base sits in $a000..$bfff and the offset can be most of a
+	; 32 KB picture: adding it whole overflows $ffff, and the carry has nowhere
+	; to go - the bank is a byte of its own, and the $c0 normalisation below
+	; never sees the wrapped address as too high. Every tile past index
+	; ($ffff - .gen_tiles) / 32 then came out of the wrong bank. Arthur's two
+	; full-screen intro pictures are the only ones whose tile block reaches
+	; that far (37x25 cells, 723 tiles: the break was at index 710), and the
+	; bottom two rows of both were built from whatever was at the wrapped
+	; address. Nothing else uses .pic_seek, which is why only off-grid
+	; placement - the pixel model's doing - ever showed it.
+	lda .pic_count + 1
+	and #$1f				; the part of the offset inside one 8 KB bank
+	clc
+	adc .gen_base + 1
+	sta .pic_att + 1		; $a0..$bf plus $00..$1f: no carry out of the byte
 	lda .gen_base
 	clc
 	adc .pic_count
 	sta .pic_att
-	lda .gen_base + 1
-	adc .pic_count + 1
-	sta .pic_att + 1
-	lda .gen_base + 2
+	bcc +
+	inc .pic_att + 1
++	lda .pic_count + 1
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr						; whole 8 KB banks in the offset
+	clc
+	adc .gen_base + 2
 	sta .pic_att + 2
 -	lda .pic_att + 1
 	cmp #$c0

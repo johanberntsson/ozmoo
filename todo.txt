@@ -204,10 +204,46 @@ Phase 0b - SUB-CELL PLACEMENT ON BOTH AXES, generated from staging: DONE
   room on the X16 - recolouring frame, scene composited inside it, the
   tile-store allocator - renders pixel-identical to the pre-refactor build on
   both the picture and the text layer.
-  STILL TO DO here: the MEGA65 engine has none of this (phase 4), and .pic_gc's
-  rectangle still treats a shifted picture's edge cells as outside, which is
-  right but now applies on two axes - worth a look when phase 1 makes real
-  offsets appear.
+  STILL TO DO here: the MEGA65 engine has none of this (phase 4). .pic_gc's
+  rectangle is dealt with below.
+  THE SECOND BUG THIS TURNED UP, found in play-testing 2026-07-24 and FIXED:
+  the bottom two rows of Arthur's full-screen intro pictures came out as a band
+  of screen background with stray pixels scattered through it, across the
+  frame's lower border (z6games/arthur-x16.png). MEGA65 was fine. It was
+  .pic_seek, the one primitive phase 0b added: it adds a 16-bit byte offset to
+  .gen_base, which sits at $a000 in an 8 KB bank, and the sum overflows $ffff
+  with the carry going nowhere - the bank is a separate byte, and the cmp #$c0
+  normalisation loop cannot recognise a WRAPPED address as too high. So every
+  tile past index ($ffff - .gen_tiles) / 32 was read out of low memory in the
+  wrong bank. The offset is now split into whole banks and a remainder before
+  it is added. Notes worth keeping:
+  - Only pictures whose file runs past ~24.5 KB reach the boundary, and only
+    down the generated path, so nothing could show this until phase 1 made real
+    off-grid offsets appear. In Arthur's set it is [P002] and [P084]; the
+    threshold is a picture file over 24576 bytes.
+  - The MEGA65's .pic_seek is the same routine over flat attic RAM, where the
+    carry just goes into the third byte, which is why that engine was clean.
+  - It looked exactly like an allocator or compositing fault - a strip of the
+    frame destroyed, like the tile-store wrap - and was neither. What settled
+    it in one step was rendering the layer 0 map out of an x16emu -dump V
+    capture and diffing it cell by cell against the [P###] file: 58 wrong
+    cells, every one of them needing a source tile index >= 710, and every cell
+    below that pixel-exact. Predicted threshold and measured threshold agreed.
+  TWO MORE FIXED WITH IT, both latent, both found by reading the allocator
+  while chasing the above:
+  - .pa_reset fell into .pa_pack_shift instead of .pa_place, because phase 0b
+    inserted the helper between them. A .pic_alloc that ran out of store even
+    after compacting therefore returned WITHOUT PLACING: .pic_slot still held
+    the last picture's run, so the new picture's tiles were written over one
+    the screen was showing, the window's bookkeeping was stale, and
+    pic_next_tile was left at the bottom of the store. The allocator is a chain
+    of fall-throughs; the helper now lives outside it, as the MEGA65's does.
+  - .pic_gc treated a vertically shifted picture's TOP edge row as interior:
+    the x axis had inc .gc_x0 and the y axis had nothing. A tile shown only by
+    cells in that shared row could be reclaimed while the draw still needed it
+    to composite against. .gc_y0 now mirrors .gc_x0. (The MEGA65's .pic_gc has
+    no shift adjustment on either axis and should get the same treatment - it
+    has 2048 tiles and compacts far less often, so nothing has surfaced.)
 
 Phase 1 - report pixel units behind a build flag: DONE 2026-07-23, commits
   "Phase 1, part 1: report art pixels behind Z6_PIXEL_UNITS" and "part 2: finish
