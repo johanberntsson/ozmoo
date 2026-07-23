@@ -324,21 +324,37 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
     coordinate and count it passes, and converts values it reads back before
     printing them, so its output is the same under either model - which is
     what a portable v6 game has to do anyway.
-    AND IT IMMEDIATELY FOUND A BUG. With the SAME story file and the SAME
-    drive, differing only by the flag:
-        cell units   completes the whole test after 2 Returns, reaching its
-                     read prompt, and draws all three pictures
-        pixel units  blank screen after 2 Returns; after 10 it is sitting on
-                     a lone MORE prompt, and after 22 it has not got past it
-    Before the rewrite the pixel build ran to the end, so this is something
-    the new code paths reach that the old ones did not. It is NOT the test
-    being wrong - the cell build runs the identical file. The new things it
-    does, in order, are: get_wind_prop 13; a print of the font size;
-    read_mouse (whose conversion subtracts 1 from mouse_cell_y/x, which are
-    ZERO when no mouse is active - that is the first thing to check, it will
-    underflow into cells_to_units_*); set_margins with converted operands;
-    get_wind_prop 6 and 7. Bisect by cutting the test down rather than by
-    reading; that is what found everything else in this refactor.
+    AND IT IMMEDIATELY FOUND A BUG, since FIXED. The fix commit is "Fix a
+    self-referential guard that half-flipped the pixel model". Two commits
+    earlier, "do not break a z3/z5 build" had introduced Z6_PIXELS by renaming
+    every !ifdef Z6_PIXEL_UNITS in ozmoo.asm - including the derivation, which
+    became
+
+        !ifdef Z6_PIXELS {
+            Z6_PIXELS = 1
+        }
+
+    a symbol that tests for itself and so is never defined. Every header
+    conversion in ozmoo.asm was compiled out while screen-z6.asm, which keys
+    off Z6_PIXEL_UNITS directly, kept converting. The model was half-flipped:
+    the header reported CELLS and the opcodes expected UNITS, so a game that
+    divides the reported screen size passed values four to eight times too
+    small - window 0 became two rows and sat on a MORE prompt for ever.
+    Three things worth keeping from it:
+    - A blanket rename across a file will rewrite the definition as well as the
+      uses. A guard that tests the symbol it defines is silently always false.
+    - The failure mode of a HALF-converted unit model is not a wrong layout, it
+      is a game that appears to hang, because the geometry collapses rather
+      than shifts. If the flag ever looks like it hangs something, check the
+      header against get_wind_prop 13 first.
+    - The Arthur, Zork Zero, Shogun and Journey results above all predate that
+      commit, so they stand.
+    testz6 also lays its windows out in cells and converts, rather than
+    dividing the reported units: 25 rows / 10 is two cells but 200 pixel rows
+    / 10 is two and a half, so the same expression placed the window
+    differently under each model. With that it now renders PIXEL-FOR-PIXEL
+    IDENTICALLY under both, which is what makes it a regression check for the
+    flag rather than a second thing to interpret.
 
   FIXED along the way: building a z3/z5 game with the flag left on failed to
   assemble at all, because $GENERALFLAGS is global and ozmoo.asm reached for
@@ -346,8 +362,7 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   derived only when Z6 is defined. Nothing but running the whole matrix WITH
   THE FLAG ON would have found that, so do that on every later change.
 
-  STILL TO DO: the testz6 hang above is the next thing to fix, and it blocks
-  the flag becoming the default. Then the per-game matrix re-verification this
+  STILL TO DO: the per-game matrix re-verification this
   phase's plan asks for
   (the matrix has been run whole with the flag on and off, which is not the
   same as re-verifying it per game as each is brought over), and an sfrotz
