@@ -370,12 +370,25 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   derived only when Z6 is defined. Nothing but running the whole matrix WITH
   THE FLAG ON would have found that, so do that on every later change.
 
-  STILL TO DO: the per-game matrix re-verification this
-  phase's plan asks for
-  (the matrix has been run whole with the flag on and off, which is not the
-  same as re-verifying it per game as each is brought over), and an sfrotz
-  comparison for Shogun's opening screen to settle whether its new margins are
-  right. Phase 2 (how much internal state becomes 2-byte pixel) has not been
+  ARTHUR ON THE MEGA65 (-fcm -pics) with the flag on: works. Driven headlessly
+  through xemu's uartmon socket - there is no key injection, so keys go in by
+  poking the kernal keyboard buffer ($0277 with the PETSCII byte, $00c6 with 1;
+  scratch/m65drive.py does it) - past the restore prompt and into the game. It
+  draws its frame and scene, 50916 pixels of full colour tile against the cell
+  build's 50944, and its text reads correctly below. The picture bbox is offset
+  by (+6, +8) from the cell build: 3 art pixels across and 8 rows down, the
+  sub-cell placement landing where the game asked instead of snapping. So phase
+  4's engine and phase 1's reporting work together on a real game, not only on
+  picprobe.
+  Reading that screen needs care: under -fcm a cell is TWO bytes, and a decoder
+  taking only the even byte renders every picture tile as an arbitrary
+  character, which looks exactly like corrupted text. A non-zero odd byte means
+  the cell is a tile.
+
+  STILL TO DO: the per-game matrix re-verification this phase's plan asks for -
+  though note the flag is global rather than per game, so running the whole
+  matrix with it on and off (which has been done, repeatedly) covers the same
+  ground. Phase 2 (how much internal state becomes 2-byte pixel) has not been
   needed by anything so far. Also worth doing before the flag becomes the default, from
   what the ring showed: six of the map's seven other draws are GENERATED under
   the pixel model where they were copied before, each taking a fresh tile run
