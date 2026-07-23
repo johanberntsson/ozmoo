@@ -15,8 +15,28 @@ Array formtable ->
 ! the width the interpreter must leave in header word $30 (z-spec 7.1.2.1.1).
 Array s3tab -> 66;
 
+Global fw = 1;      ! how many units a character cell is wide...
+Global fh = 1;      ! ...and tall, from get_wind_prop 13 (z-spec 8.8.3.2.5)
+
+! A v6 interpreter may count in character cells or in pixels - the spec lets it
+! choose, and Ozmoo does both depending on Z6_PIXEL_UNITS. Everything below
+! works in CELLS and converts at the opcode boundary with these, so the test
+! lays out and prints the same either way. That is also what a portable game
+! has to do; getting it wrong is the whole reason for the pixel refactor.
+[ ux c; return (c - 1) * fw + 1; ];   ! 1-based cell column -> 1-based units
+[ uy r; return (r - 1) * fh + 1; ];   ! 1-based cell row    -> 1-based units
+[ cw n; return n * fw; ];             ! a WIDTH or count in cells -> units
+[ ch n; return n * fh; ];
+[ toc n; return n / fw; ];            ! a width in units -> cells
+
 [main w h ww hh dx dy result;
 #iftrue (#version_number == 6);
+	@get_wind_prop 0 13 -> result;   ! height in the high byte, width in the low
+	fh = result / 256;
+	fw = result % 256;
+	if (fw == 0) fw = 1;             ! never zero: Arthur divides by it
+	if (fh == 0) fh = 1;
+	print "font ", fw, "x", fh, " units a cell^";
 	! --- user stack: push_stack / pop_stack ---
 	ustack-->0 = 4; ! four free slots
 	@push_stack 111 ustack ?push1ok;
@@ -47,10 +67,11 @@ Array s3tab -> 66;
 	print "mouse ", mouse-->0, ",", mouse-->1, " buttons ", mouse-->2, "^";
 
 	! --- set_margins / get_wind_prop ---
-	@set_margins 2 3 0;
+	w = cw(2); h = cw(3);
+	@set_margins w h 0;
 	@get_wind_prop 0 6 -> w; ! prop 6 is left margin
 	@get_wind_prop 0 7 -> h; ! prop 7 is right margin
-	print "margins ", w, ",", h, "^";
+	print "margins ", toc(w), ",", toc(h), "^";
 
 	@erase_window (-1);
 
@@ -74,7 +95,7 @@ Array s3tab -> 66;
 	@move_window 1 hh ww;
 	@set_window 1;
 	@get_wind_prop 1 3 -> h; ! prop 3 is x_size
-	print ": ",h, "^";
+	print ": ", toc(h), "^";
 
 	@erase_window 1;
 	print "this is another long text that needs to be wrapped^";
@@ -92,8 +113,10 @@ Array s3tab -> 66;
 	print "0123456789";
 	@get_cursor mouse; ! reuse the array: word 0 is the row
 	w = mouse-->0;
-	@set_cursor w 3;
-	@erase_line 5; ! four cells: 2345 go, 6789 stay
+	dx = ux(3);
+	@set_cursor w dx;
+	dx = cw(4) + 1;   ! erase_line erases value-1 units: four cells' worth
+	@erase_line dx;   ! 2345 go, 6789 stay
 	print "ab^"; ! ...and lands right after the cursor: 01ab  6789
 
 	! --- the newline interrupt (8.8.3.2.2): property 9 counts new-lines and
@@ -103,7 +126,8 @@ Array s3tab -> 66;
 	@put_wind_prop 1 8 NLRelease;
 	@get_wind_prop 1 8 -> w; ! the routine address is a word: must read back
 	if (w == NLRelease) print "nl prop ok^"; else print "nl prop BAD^";
-	@set_margins 4 0 1;
+	dx = cw(4);
+	@set_margins dx 0 1;
 	@put_wind_prop 1 9 2;
 	print "aa^bb^cc^";
 	@set_margins 0 0 1; ! (already released; must be a no-op)
@@ -160,24 +184,29 @@ Array s3tab -> 66;
 	! The window's bottom line is blank here, so scrolling down and then up
 	! must put every line back exactly where it was: the blank line the first
 	! scroll writes in at the top is carried off again by the second.
-	@scroll_window 1 (-1);
-	@scroll_window 1 1;
+	dy = ch(1);
+	result = -dy;      ! the operand must be a variable: Inform will not negate
+	@scroll_window 1 result;
+	@scroll_window 1 dy;
 
 	! --- draw_picture / erase_picture: a note, not a picture ---
 	! Last, so that nothing scrolls the notes away. 4 goes to the window's
 	! top left corner, 9 is drawn there and erased again, and 12 lands at
 	! the cursor, which draw_picture must leave where it found it.
-	@draw_picture 9 2 1;
-	@erase_picture 9 2 1;
+	dy = uy(2); dx = ux(1);
+	@draw_picture 9 dy dx;
+	@erase_picture 9 dy dx;
 	! picture 4 goes in window 0: a window holds at most one picture, and its
 	! palette bank is the window's, so two pictures in one window share colours
 	@set_window 0;
-	@draw_picture 4 1 1;
+	dy = uy(1); dx = ux(1);
+	@draw_picture 4 dy dx;
 	! ...and again at an odd column. On the X16 a tile spans two text columns,
 	! so this one cannot sit on the tile grid and is drawn through boundary
 	! tiles - the same path a sub-cell horizontal offset uses. Nothing else we
 	! build exercises it without playing a commercial game to a scene.
-	@draw_picture 4 5 12;
+	dy = uy(5); dx = ux(12);
+	@draw_picture 4 dy dx;
 	@set_window 1;
 
 	print "> ";
