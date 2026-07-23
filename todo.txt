@@ -144,16 +144,94 @@ Phase 4 - port the sub-cell blit to the MEGA65 engine (it has no boundary-tile
   mechanism today; add an equivalent bake path). More store headroom there
   (2048 tiles).
 
-OPEN QUESTIONS (still open after phase 0 - none of them blocked it, but the
-first one is worth settling BEFORE phase 1, which is the step that re-derives
-every commercial game's layout):
-- Exactly what does sfrotz report for these games (screen units, font w/h)? Worth
-  confirming empirically to be sure 320x200 / 4x8 matches, so coordinates are
-  truly portable.
+SETTLED 2026-07-23 - WHAT SFROTZ ACTUALLY REPORTS (this was the first open
+question, and the answer contradicts the geometry model above; read this before
+starting phase 1). Measured against sfrotz 2.55 (frotz-2.55, the Fedora build,
+no config overrides - /etc/frotz.conf is all comments and there is no ~/.frotzrc)
+and cross-checked against its source.
+
+  For ALL FOUR Infocom v6 games sfrotz reports:
+    screen units (header $22/$24) = 640 x 400
+    font (header $26 = HEIGHT, $27 = WIDTH in v6) = 16 tall x 8 wide
+    get_wind_prop 13 = 16 x 8 (height high byte, width low byte)
+    screen chars/lines ($21/$20) = 80 x 25   (640/8 and 400/16)
+    picture_data = the art size DOUBLED on both axes, not native.
+
+  So sfrotz's model is Infocom's 320x200 art space uniformly scaled 2x into a
+  640x400 window. It does NOT report 320x200, and its picture_data is not
+  native.
+
+  Where that comes from (frotz-2.55 source):
+  - src/sdl/sf_resource.c os_init_screen(): screen_width = AcWidth,
+    screen_height = AcHeight, font from os_font_data(FIXED_WIDTH_FONT),
+    screen_cols/rows = the quotients. AcWidth/AcHeight default to
+    DEFAULT_WIDTH/HEIGHT = 640/400 (src/sdl/sf_frotz.h).
+  - checkwidths() only ever RAISES that from the blorb's Reso chunk. All four
+    games' Reso says 320 x 200 (Arthur, Journey, Shogun, Zork Zero - checked),
+    which is below 640x400, so the window stays 640x400.
+  - The Infocom-v6 scale is m_v6scale_x/y, "Display / Infocom V6 Scaling X|Y",
+    default 2 and 2. The EGA halving next to it only fires when Reso is exactly
+    640x200; ours are 320x200, so it does not, and the scale stays 2 x 2.
+  - src/sdl/sf_resource.c os_picture_data() returns m_gfxScale_h * height and
+    m_gfxScale_w * width - the SAME variables that scale the drawing. So "sfrotz
+    doubles the pictures" and "sfrotz doubles picture_data" are one fact, not
+    two.
+  - None of the reporting has a story-ID branch; only the scale does. A
+    non-Infocom v6 game therefore gets 640x400 / 16x8 with NATIVE picture_data
+    (scale 1), and "sfrotz --xscale 2 --yscale 2" multiplies m_gfxScale, so it
+    doubles picture_data too.
+
+  How it was measured, to redo it: a 15-line v6 probe game that prints $20/$21,
+  $22-->0, $24-->0, $26->0, $27->0, get_wind_prop 13 and picture_data for
+  pictures 1..60, run under Xvfb and screenshotted ("import -window root"; the
+  SDL window is centred in the root, so crop at its -trim offset, not at 0,0).
+  Attaching a game's blorb to the PROBE (a non-Infocom story) reports that
+  blorb's pictures at scale 1, which is how the native sizes were read off.
+  Confirmed against the real thing: Zork Zero's status banner is picture 5,
+  native 320 x 34, and in sfrotz it renders 640 wide and exactly 68 rows tall.
+
+  WHAT THIS MEANS FOR THE PLAN. The "CORRECTED GEOMETRY MODEL" above targets
+  320x200 / font 4x8 / native picture_data, and justifies it with "coordinates
+  match sfrotz with NO per-terp conversion - the portability win". That
+  justification is FALSE: sfrotz's numbers are twice ours on both axes. The
+  target itself may still be the right one, but it has to be chosen on its own
+  merits now. The two candidates:
+
+  A. 320x200, font 4x8, native picture_data (the plan as written).
+     + Matches Ozmoo's own grid exactly: 1 unit X = 2 physical px (one art
+       pixel, the placement granularity phase 0 just built), 1 unit Y = 1 row.
+       Every reportable coordinate is exactly reachable.
+     + The four Infocom games lay out identically to sfrotz anyway, because
+       their maths derives positions from the reported screen/picture/font
+       sizes and is therefore scale-invariant.
+     - Absolute numbers differ from sfrotz by 2x, so a NEW portable game that
+       hardcodes pixel coordinates rather than deriving them lands in the wrong
+       place on one of the two.
+  B. 640x400, font 8x16, picture_data 2x native (what sfrotz reports).
+     + Absolute numbers match sfrotz for the four Infocom games, and for a new
+       game run as "sfrotz --xscale 2 --yscale 2".
+     - Not exactly reachable: Ozmoo's framebuffer is 640x200 and its art is
+       pixel-doubled horizontally, so an odd X unit and an odd Y unit are both
+       unrepresentable. NOTE this costs no real precision - the achievable
+       granularity is 2 physical px across and 1 row down either way - so B
+       buys nothing but bigger numbers and rounding.
+     Worth checking before deciding: whether Arthur's F2 map half-steps come
+     out odd in 640-space, since that is the one place a lost odd unit could
+     show.
+
+  TRAP for whichever is chosen: in v6 header byte $26 is the font HEIGHT and
+  $27 the font WIDTH - swapped from v5. constants-header.asm names them the v5
+  way (header_font_width_units = $26) and ozmoo.asm writes 1 to both, so the
+  swap is invisible today and will not be the moment they differ.
+
+STILL OPEN:
 - Phase 2 granularity: is a 2-byte cursor X enough, or do we bite the bullet and
   make the per-window arrays pixel too?
 - Aspect squash: a real defect on hardware, or masked by the display? Decide
-  before committing any 640x400-framebuffer work.
+  before committing any 640x400-framebuffer work. (Note the finding above does
+  NOT bear on this: sfrotz scales 2x on both axes, so its pixels stay square,
+  while Ozmoo's 640x200 framebuffer doubles only across. Reporting B would not
+  change that either - it is a framebuffer question, not a units question.)
 
 FIXED (July 2026): in Arthur on the C64 and MEGA65, the LAST character of every
 line of a parser message came out as the next screen code up - typing a bad word
