@@ -318,12 +318,27 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
     established - it wants an sfrotz comparison of the same screen.
   - JOURNEY's title screen and command-menu header are the same in both, with
     the centred lines landing within one column. Fine.
-  - TESTZ6 runs and draws, but its pictures land somewhere else, and that is
-    the test game's fault rather than the interpreter's: testz6.inf passes CELL
-    coordinates (@draw_picture 4 1 1 means row 1 column 1), which under the
-    pixel model means art pixel (1,1). When the flag becomes the default,
-    testz6 needs its coordinates rewritten in units - or a second test that
-    covers both - or it stops being a regression check.
+  - TESTZ6 has been rewritten to work in CELLS and convert at the opcode
+    boundary, reading the font size from get_wind_prop 13 (commit "testz6:
+    work in cells and convert at the opcode boundary"). It scales every
+    coordinate and count it passes, and converts values it reads back before
+    printing them, so its output is the same under either model - which is
+    what a portable v6 game has to do anyway.
+    AND IT IMMEDIATELY FOUND A BUG. With the SAME story file and the SAME
+    drive, differing only by the flag:
+        cell units   completes the whole test after 2 Returns, reaching its
+                     read prompt, and draws all three pictures
+        pixel units  blank screen after 2 Returns; after 10 it is sitting on
+                     a lone MORE prompt, and after 22 it has not got past it
+    Before the rewrite the pixel build ran to the end, so this is something
+    the new code paths reach that the old ones did not. It is NOT the test
+    being wrong - the cell build runs the identical file. The new things it
+    does, in order, are: get_wind_prop 13; a print of the font size;
+    read_mouse (whose conversion subtracts 1 from mouse_cell_y/x, which are
+    ZERO when no mouse is active - that is the first thing to check, it will
+    underflow into cells_to_units_*); set_margins with converted operands;
+    get_wind_prop 6 and 7. Bisect by cutting the test down rather than by
+    reading; that is what found everything else in this refactor.
 
   FIXED along the way: building a z3/z5 game with the flag left on failed to
   assemble at all, because $GENERALFLAGS is global and ozmoo.asm reached for
@@ -331,7 +346,9 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   derived only when Z6 is defined. Nothing but running the whole matrix WITH
   THE FLAG ON would have found that, so do that on every later change.
 
-  STILL TO DO: the per-game matrix re-verification this phase's plan asks for
+  STILL TO DO: the testz6 hang above is the next thing to fix, and it blocks
+  the flag becoming the default. Then the per-game matrix re-verification this
+  phase's plan asks for
   (the matrix has been run whole with the flag on and off, which is not the
   same as re-verifying it per game as each is brought over), and an sfrotz
   comparison for Shogun's opening screen to settle whether its new margins are
