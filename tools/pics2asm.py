@@ -554,4 +554,7 @@ def main():
         print(f"  largest picture: {max(p['raw'] for _, p in pics)} bytes raw "
               f"(cap 65280, 255 attic pages)")
 
-main()
+# Guarded so that another tool can import load_blorb() and convert() rather
+# than duplicating them -- tilebudget.py does.
+if __name__ == "__main__":
+    main()
