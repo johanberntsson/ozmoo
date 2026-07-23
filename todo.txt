@@ -213,9 +213,33 @@ Phase 3 - bring games over one at a time, re-verifying the full target matrix ea
   then Arthur's F2 map. The reporting flip re-derives every commercial game's
   layout, so this is the risky part - expect to re-check Arthur/Journey/Shogun
   even though they look unrelated.
-Phase 4 - port the sub-cell blit to the MEGA65 engine (it has no boundary-tile
-  mechanism today; add an equivalent bake path). More store headroom there
-  (2048 tiles).
+Phase 4 - the same off-grid generator on the MEGA65 engine: DONE 2026-07-23,
+  commit "Phase 4: the same off-grid generator for the MEGA65 engine". Not a
+  bake path, as this line used to say - the same generate-from-the-picture
+  approach phase 0b settled on, with one constant changed. A MEGA65 screen cell
+  is 8 rows down and GEN_CELL_W art pixels across: 4 on the 80-column screen,
+  where the art is doubled and a cell is half an art cell, 8 on the 40-column
+  one where a cell is a whole art cell. .gen_expand then adds the window's
+  palette bank and doubles each pixel into the store's 64-byte form, which is
+  what .pic_emit_pixel does for the copied path.
+  Note WHY this engine had no boundary mechanism to begin with, since the old
+  wording implied it was an omission: at 80 columns a text column IS a map cell
+  there, so every cell position was already on the grid. Only a game asking for
+  a position BETWEEN cells needs this, which is what phase 1 will allow.
+  Same .pic_alloc fix as the X16 (pic_win_shift), and .pic_erase leaves the
+  shared edge cells on both axes. Generated tiles come out of the reserved run,
+  so .pcf_make_tile's mid-draw allocation - which WRAPS on this engine, the
+  latent twin of the X16 bug that destroyed Arthur's frame - is not reached
+  from the off-grid path. It is still there for the aligned path.
+  Verified with xemu -dumpmem, which dumps the 384 KB of fast RAM and so
+  includes the tile store at $40000: decoding the full colour screen out of it
+  gives exact pixels with no rendering scale in the way, unlike -screenshot,
+  whose 800x625 frame scales 0.875 across and 1.75 down and cannot resolve an
+  art pixel. Aligned placement is byte-identical to the pre-phase-4 engine;
+  XSUB 1 and 3 move exactly 2 physical pixels per art pixel, YSUB 1 and 5
+  exactly one row per unit, (2,3) does both, and each is a pure translation
+  with the rendered content unchanged. On the 40-column screen (3,2) moves 3
+  pixels and 2 rows, as an undoubled art pixel should.
 
 SETTLED 2026-07-23 - WHAT SFROTZ ACTUALLY REPORTS (this was the first open
 question, and the answer contradicts the geometry model above; read this before
