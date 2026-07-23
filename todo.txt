@@ -197,39 +197,53 @@ Phase 0b - SUB-CELL PLACEMENT ON BOTH AXES, generated from staging: DONE
   right but now applies on two axes - worth a look when phase 1 makes real
   offsets appear.
 
-Phase 1 - report pixel units behind a build flag: STARTED 2026-07-23, PART DONE,
-  commit "Phase 1, part 1: report art pixels behind Z6_PIXEL_UNITS". The flag is
-  Z6_PIXEL_UNITS; Z6_UNIT_W / Z6_UNIT_H (screen-z6.asm) are a character cell in
-  art pixels, 4x8 at 80 columns and 8x8 at 40 where the art is not doubled, and
-  both are 1 without the flag so every converted site compiles back to what was
-  there. The x conversions are 16-bit: 320 does not fit a byte. Text stays on the
-  cell grid, so the text engine keeps counting cells and the opcodes convert at
-  the boundary; only pictures carry the remainder.
-  DONE: the header ($22/$24 -> 320x200 and $26/$27 -> 8x4, at all three write
-  sites including the C128/X16 run-time ones); get_wind_prop property 13 and
-  properties 0-7; .pic_place_cursor, so draw_picture and erase_picture keep the
-  sub-cell part all the way to .pic_px/.pic_py - the payoff phases 0b and 4 built
-  the engines for; move_window; window_size; set_margins.
-  NOT DONE, and the flag build is NOT usable until they are:
-    - put_wind_prop, the inverse of get_wind_prop's properties 0-7
-    - set_cursor and get_cursor (set_cursor's column is a SIGNED word with an
-      existing clamp - see the Shogun note below; the clamp has to survive)
-    - erase_line (value-1 units -> cells) and scroll_window (pixels -> rows)
-    - the mouse: the header extension coordinates and read_mouse
-    - picture_data, which needs work in pics2asm.py first: the pic_width /
-      pic_height tables it emits, and the MEGA65 file header it writes, are in
-      whole TEXT CELLS. Reporting cells * 4 is not the same as reporting native
-      pixels - Zork Zero's compass overlay is 45x40 and would round to 48x40,
-      which is exactly the snapping the refactor exists to remove. The Rect
-      placeholder sizes need the same treatment.
-  The flag is off by default and the default build was verified BYTE IDENTICAL
-  to the previous commit (assembled x16 testz6 PRG), so the partial state cannot
-  affect a shipped build. That check is worth repeating on every later part.
-  Verification to do once the rest is converted: hdrprobe-style test game to read
-  the reported header back, then Arthur's F2 map (the lattice arithmetic at the
-  top of this file predicts boxes at 18-unit spacing with 5-unit connectors),
-  then Zork Zero's compass, then re-check Journey and Shogun, which look
-  unrelated and are not.
+Phase 1 - report pixel units behind a build flag: DONE 2026-07-23, commits
+  "Phase 1, part 1: report art pixels behind Z6_PIXEL_UNITS" and "part 2: finish
+  the pixel-unit conversions". The flag is Z6_PIXEL_UNITS; Z6_UNIT_W /
+  Z6_UNIT_H (screen-z6.asm) are a character cell in art pixels, 4x8 at 80
+  columns and 8x8 at 40 where the art is not doubled, and both are 1 without the
+  flag so every converted site compiles back to what was there. The x
+  conversions are 16-bit: 320 does not fit a byte. Text stays on the cell grid,
+  so the text engine keeps counting cells and the opcodes convert at the
+  boundary; only pictures carry the remainder, which is what phases 0b and 4
+  taught the engines to draw.
+  Converted: the header ($22/$24 -> 320x200, $26/$27 -> 8x4, at all three write
+  sites); get_wind_prop and put_wind_prop properties 0-7 and 13; set_cursor and
+  get_cursor; move_window; window_size; set_margins; erase_line; scroll_window;
+  draw_picture / erase_picture via .pic_place_cursor; picture_data; read_mouse
+  and the mouse header-extension coordinates; and header word $30.
+  picture_data reports NATIVE art-pixel sizes, which needed pics2asm.py to emit
+  them (--pixel-units, passed by make.rb when the flag is set, so a normal
+  build's pictures.asm is unchanged). Cells * 4 would not do: Zork Zero's
+  compass overlay is 45x40 and would round to 48x40 - the snapping this whole
+  refactor exists to remove.
+  TWO THINGS WORTH REMEMBERING, both found by running rather than reading:
+  - Header word $30, the width of text measured through stream 3, is in UNITS
+    and is not a coordinate opcode at all. Arthur right-aligns its status line
+    by measuring the text and set_cursor'ing to (width - measured), so a count
+    left in cells put the line a quarter of the way across the screen. This is
+    exactly the "looks unrelated and is not" this plan warned about; assume
+    there are more like it, and drive the games rather than auditing the opcode
+    list.
+  - The X16/C128 header path computes the height at RUN TIME and inherited the
+    header offset in y from the preceding write_header_byte. The unit
+    conversion clobbers y, so the word landed at $20/$21 and the game was told
+    it had 200 columns and 0 rows. An implicit register hand-off across a call
+    is invisible until something is inserted between them.
+  Verified: a probe game built into Ozmoo reports cols 80 rows 25, units
+  320x200, font h 8 w 4, get_wind_prop 13 = 8x4 and picture_data in native
+  pixels. Arthur on the X16 boots, draws its frame with the scene composited
+  inside it, and lays its status line out correctly - one column left of the
+  cell build, which is the sub-cell precision landing. The default build was
+  checked BYTE IDENTICAL at each step (assembled x16 testz6 PRG), and the full
+  matrix and all five pictures builds pass with the flag both on and off.
+  NOT YET DONE, and this is phase 3's work: only Arthur has been driven with the
+  flag on, and only into its first room. Zork Zero's compass (the other
+  confirmed instance at the top of this file), Arthur's F2 map - the thing that
+  motivated the refactor, whose 18-unit lattice should now come out exact - and
+  Journey and Shogun all still need checking. Journey and Shogun look unrelated
+  and are not: see the $30 note above.
+
 Phase 2 - coordinate state:
   Decide how much internal state becomes 2-byte pixel. Recommended middle ground:
   a 2-byte pixel cursor X plus the picture layer in pixels; keep wrapping/scroll
