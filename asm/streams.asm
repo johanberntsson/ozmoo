@@ -15,6 +15,9 @@ streams_output_selected		!byte 0, 0, 0, 0
 streams_width_cur			!byte 0,0
 streams_width_max			!byte 0,0
 streams_width_stack			!fill 60, 0
+!ifdef Z6_PIXEL_UNITS {
+.swm_val					!byte 0,0	; the measured width while it is scaled into units
+}
 ; The v6 formatted table (a width operand on output_stream 3): the table
 ; gets the print_form format -- one record per line, a length word then the
 ; characters, ended by a zero word -- word-wrapped to the width. Arthur's
@@ -1098,6 +1101,21 @@ z_ins_output_stream
 	ldy #header_stream_3_width_units
 	lda streams_width_max + 1
 	ldx streams_width_max
+!ifdef Z6_PIXEL_UNITS {
+	; The count is characters; the header wants UNITS, and a unit is an art
+	; pixel with Z6_PIXEL_UNITS. Arthur right-aligns its status line by
+	; measuring the text here and then set_cursor'ing to (width - measured),
+	; so a count left in cells puts the line a quarter of the way across.
+	; The measured text can be wider than 255 units, so scale the whole word.
+	stx .swm_val
+	sta .swm_val + 1
+!for .i, 1, Z6_UNIT_W_SHIFT {
+	asl .swm_val
+	rol .swm_val + 1
+}
+	lda .swm_val + 1
+	ldx .swm_val
+}
 	jsr write_header_word
 !ifdef DEBUG_SCREENLOG {
 	lda #11

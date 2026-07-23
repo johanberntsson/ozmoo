@@ -1351,7 +1351,8 @@ update_screen_width_in_header
 	jsr cells_to_units_y	; rows -> art pixel rows; 200 still fits a byte
 	tax
 	lda #0
-	jsr write_header_word
+	ldy #header_screen_height_units	; the conversion clobbered the offset the
+	jsr write_header_word			; cell path inherits from write_header_byte
 } else {
 	ldy #header_screen_height_units
 	tax

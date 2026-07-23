@@ -370,6 +370,25 @@ z_ins_picture_data
 	ldx z_operand_value_low_arr
 	jsr .pic_find
 	bcc .pd_try_rect
+!ifdef Z6_PIXEL_UNITS {
+	; report the picture's NATIVE art-pixel size, not its size rounded up to
+	; whole text cells: Zork Zero's compass overlay is 45x40, and 48x40 is
+	; exactly the snapping the pixel model exists to remove. pics2asm emits
+	; these tables only when the flag is set (--pixel-units).
+	lda #<pic_px_width_lo
+	ldx #>pic_px_width_lo
+	jsr .pd_px_lookup
+	sta .pd_w
+	lda #<pic_px_width_hi
+	ldx #>pic_px_width_hi
+	jsr .pd_px_lookup
+	sta .pd_w + 1
+	lda #<pic_px_height
+	ldx #>pic_px_height
+	jsr .pd_px_lookup
+	sta .pd_h
+	jmp .pd_report_px
+}
 	jsr .pic_size ; sets .pic_w and .pic_h for the picture in .pic_index
 	jmp .pd_report
 .pd_try_rect
@@ -380,6 +399,15 @@ z_ins_picture_data
 	ldx z_operand_value_low_arr
 	jsr .rect_find
 	bcc +
+!ifdef Z6_PIXEL_UNITS {
+	lda rect_px_width_lo,y
+	sta .pd_w
+	lda rect_px_width_hi,y
+	sta .pd_w + 1
+	lda rect_px_height,y
+	sta .pd_h
+	jmp .pd_report_px
+}
 	lda rect_width,y
 	sta .pic_w
 	lda rect_height,y
@@ -395,6 +423,30 @@ z_ins_picture_data
 	lda .pic_w ; and the width word 1
 	jsr write_next_byte
 	jmp make_branch_true
+!ifdef Z6_PIXEL_UNITS {
+.pd_report_px
+	jsr .pd_set_array
+	lda #0
+	jsr write_next_byte
+	lda .pd_h ; the height is word 0; 200 fits a byte
+	jsr write_next_byte
+	lda .pd_w + 1 ; and the width word 1, which needs both bytes
+	jsr write_next_byte
+	lda .pd_w
+	jsr write_next_byte
+	jmp make_branch_true
+
+.pd_px_lookup
+	; a,x = the low and high byte of a table's address -> a = its entry for the
+	; picture in .pic_index. Both engines index their tables this way.
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
+	rts
+
+.pd_w !byte 0,0
+.pd_h !byte 0
+}
 +
 }
 	jmp make_branch_false
@@ -849,6 +901,9 @@ z_ins_set_margins
 	jmp start_buffering ; the buffer restarts at the (possibly moved) cursor
 +	rts
 
+!ifdef Z6_PIXEL_UNITS {
+.sc_tmp !byte 0		; set_cursor's column while it is converted out of units
+}
 .sm_left   !byte 0
 .sm_right  !byte 0
 .sm_window !byte 0
@@ -1134,6 +1189,13 @@ z_ins_get_wind_prop
 	jmp z_store_result
 
 .gwp_window !byte 0
+!ifdef Z6_PIXEL_UNITS {
+.rm_col !byte 0		; read_mouse's column while it is scaled into units
+}
+!ifdef Z6_PIXEL_UNITS {
+.gcur_row !byte 0	; get_cursor's answer while it is scaled into units
+.gcur_col !byte 0,0	; (.gc_* is the X16 tile-store collector's)
+}
 
 z_ins_scroll_window
 	; scroll_window window pixels
@@ -1157,6 +1219,9 @@ z_ins_scroll_window
 	lda #255
 	bne ++ ; always branch
 +	lda z_operand_value_low_arr + 1
+!ifdef Z6_PIXEL_UNITS {
+	jsr units_to_cells_y	; the count is pixel rows, not text rows
+}
 ++	ldx .swin_window
 	clc ; scroll up
 	jsr s_scroll_window
@@ -1173,6 +1238,9 @@ z_ins_scroll_window
 	lda #255
 	bne ++ ; always branch
 +	tya
+!ifdef Z6_PIXEL_UNITS {
+	jsr units_to_cells_y	; the count is pixel rows, not text rows
+}
 ++	ldx .swin_window
 	sec ; scroll down
 	jsr s_scroll_window
@@ -1293,6 +1361,35 @@ z_ins_read_mouse
 	lda #0
 	jsr write_next_byte
 !ifdef Z6_MOUSE {
+!ifdef Z6_PIXEL_UNITS {
+	; the pointer's cell, reported in units like every other coordinate. The
+	; cell is all the mouse layer tracks, so this is the cell's top left
+	; corner rather than the exact pixel under the pointer - good enough for
+	; the games, which only ever ask which cell was clicked.
+	lda mouse_cell_y
+	sec
+	sbc #1					; the stored cell is 1-based
+	jsr cells_to_units_y
+	clc
+	adc #1
+	jsr write_next_byte
+	lda mouse_cell_x
+	sec
+	sbc #1
+	jsr cells_to_units_x	; a = low, x = high
+	clc
+	adc #1
+	sta .rm_col
+	txa
+	adc #0
+	jsr write_next_byte		; the column's high byte
+	lda .rm_col
+	jsr write_next_byte
+	lda #0
+	jsr write_next_byte
+	lda mouse_button	; bit 0 = button one held
+	jsr write_next_byte ; buttons
+} else {
 	lda mouse_cell_y
 	jsr write_next_byte ; y coordinate
 	lda #0
@@ -1303,6 +1400,7 @@ z_ins_read_mouse
 	jsr write_next_byte
 	lda mouse_button	; bit 0 = button one held
 	jsr write_next_byte ; buttons
+}
 } else {
 	lda #1
 	jsr write_next_byte ; y coordinate
@@ -1364,6 +1462,56 @@ z_ins_put_wind_prop
 	adc .pwp_window
 	tay
 	lda z_operand_value_low_arr + 2
+!ifdef Z6_PIXEL_UNITS {
+	; Properties 0-7 are positions, sizes and margins in units; the arrays keep
+	; cells. The mirror of get_wind_prop's .gwp_scale: 0 and 1 are 1-based
+	; POSITIONS and need the bias removed, 2-5 are counts, 6 and 7 are both
+	; margins and both horizontal. Bit 0 picks the axis for 0-5. Everything
+	; from 8 up is stored exactly as it came.
+	sta .pwp_val
+	lda z_operand_value_high_arr + 2
+	sta .pwp_val + 1
+	lda z_operand_value_low_arr + 1
+	cmp #8
+	bcs .pwp_raw
+	cmp #6
+	bcs .pwp_x				; 6, 7: the margins
+	cmp #2
+	bcc .pwp_position		; 0, 1: 1-based positions
+	and #1
+	beq .pwp_y				; 2, 4
+	bne .pwp_x				; 3, 5
+.pwp_position
+	lda .pwp_val			; a zero means the same as a one - the top or left
+	ora .pwp_val + 1		; edge - so it must not borrow into a huge number
+	beq .pwp_zero
+	lda .pwp_val
+	sec
+	sbc #1
+	sta .pwp_val
+	lda .pwp_val + 1
+	sbc #0
+	sta .pwp_val + 1
+	lda z_operand_value_low_arr + 1
+	and #1
+	bne .pwp_x
+	beq .pwp_y				; always
+.pwp_zero
+	lda #0
+	jmp .pwp_scaled
+.pwp_y
+	lda .pwp_val
+	jsr units_to_cells_y
+	jmp .pwp_scaled
+.pwp_x
+	lda .pwp_val
+	ldx .pwp_val + 1
+	jsr units_to_cells_x
+	jmp .pwp_scaled
+.pwp_raw
+	lda .pwp_val
+.pwp_scaled
+}
 	sta window_y,y
 	lda z_operand_value_low_arr + 1
 	cmp #15
@@ -1383,6 +1531,9 @@ z_ins_put_wind_prop
 +	rts
 
 .pwp_window !byte 0
+!ifdef Z6_PIXEL_UNITS {
+.pwp_val !byte 0,0	; the value being converted out of units
+}
  
 z_ins_print_form
 	; print_form formatted-table
@@ -1671,7 +1822,11 @@ z_ins_erase_line
 	cpx #1
 	beq .el_clipped ; 1: all the way to the margin
 	dex
-	txa ; value - 1 cells wanted
+	txa ; value - 1 units wanted
+!ifdef Z6_PIXEL_UNITS {
+	ldx #0					; high byte: the 256-and-over case branched away
+	jsr units_to_cells_x
+}
 	cmp .el_count
 	bcs .el_clipped
 	sta .el_count
@@ -1963,6 +2118,32 @@ z_ins_get_cursor
 	pla
 	tax
 	inx ; In Z-machine, cursor has position 1+
+!ifdef Z6_PIXEL_UNITS {
+	; the same position in units: the cell scaled, then made 1-based again
+	dex
+	txa
+	jsr cells_to_units_y
+	sta .gcur_row
+	dey
+	tya
+	jsr cells_to_units_x	; a = low, x = high; a column can pass 255
+	clc
+	adc #1
+	sta .gcur_col
+	txa
+	adc #0
+	sta .gcur_col + 1
+	lda #0
+	jsr write_next_byte
+	lda .gcur_row
+	clc
+	adc #1
+	jsr write_next_byte
+	lda .gcur_col + 1
+	jsr write_next_byte
+	lda .gcur_col
+	jmp write_next_byte
+} else {
 	lda #0
 	jsr write_next_byte
 	txa
@@ -1971,6 +2152,7 @@ z_ins_get_cursor
 	jsr write_next_byte
 	tya
 	jmp write_next_byte
+}
 
 z_ins_set_cursor
 !ifdef DEBUG_SCREENLOG {
@@ -2009,13 +2191,25 @@ z_ins_set_cursor
 	bne +
 	jsr printchar_flush
 	ldy current_window
-+	ldx z_operand_value_low_arr ; line 1..
++
+!ifdef Z6_PIXEL_UNITS {
+	lda z_operand_value_low_arr ; the line, in units
+	beq +						; 0 is a mistake - they mean line 1
+	sec
+	sbc #1
+	jsr units_to_cells_y
++	clc
+	adc window_y,y
+	sta window_y_cursor,y
+} else {
+	ldx z_operand_value_low_arr ; line 1..
 	beq + ; If line is 0, it's a mistake - they mean line 1.
 	dex ; line 0..
 +	txa
 	clc
 	adc window_y,y
 	sta window_y_cursor,y
+}
 	; The column is a signed word, and a game can legitimately ask for one
 	; off the screen: Shogun centres each credit line with
 	; set_cursor row, (window_width - measured_width) / 2 + 1, which goes
@@ -2028,11 +2222,40 @@ z_ins_set_cursor
 	; screen instead - the line then starts at the left edge and wraps.
 	lda z_operand_value_high_arr + 1
 	bmi .sc_column_left ; negative: clamp to the window's left edge
+!ifdef Z6_PIXEL_UNITS {
+	; A column in units runs to 320, so unlike the cell model a high byte of 1
+	; is ordinary rather than out of range - only past the screen is. The
+	; clamps either side stay: Shogun centres its credit lines with
+	; set_cursor row, (width - measured) / 2 + 1 and legitimately asks for a
+	; negative column, which once printed through the 6502 stack (see below).
+	cmp #>(SCREEN_WIDTH * Z6_UNIT_W)
+	bcc .sc_col_units
+	bne .sc_column_right
+	lda z_operand_value_low_arr + 1
+	cmp #<(SCREEN_WIDTH * Z6_UNIT_W)
+	bcs .sc_column_right
+.sc_col_units
+	lda z_operand_value_low_arr + 1
+	ora z_operand_value_high_arr + 1
+	beq .sc_column_left		; column 0 is a mistake - they mean column 1
+	lda z_operand_value_low_arr + 1
+	sec
+	sbc #1
+	sta .sc_tmp
+	lda z_operand_value_high_arr + 1
+	sbc #0
+	tax
+	lda .sc_tmp
+	jsr units_to_cells_x
+	tax
+	jmp .sc_column_add
+} else {
 	bne .sc_column_right ; 256 or more: clamp to the right edge
 	ldx z_operand_value_low_arr + 1 ; column 1..
 	beq .sc_column_left ; column 0 is a mistake - they mean column 1
 	dex ; column 0..
 	jmp .sc_column_add
+}
 .sc_column_left
 	ldx #0
 .sc_column_add

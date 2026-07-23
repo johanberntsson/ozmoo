@@ -299,6 +299,7 @@ def pack_disks(sizes, disk_blocks, disk_files):
 
 def main():
     fcm_width, stats, x16, exomizer, args = 80, False, False, None, []
+    pixel_units = False
     keep_all = False
     argv, i = sys.argv[1:], 0
     while i < len(argv):
@@ -309,6 +310,8 @@ def main():
             keep_all = True
         elif a == "--x16":
             x16 = True
+        elif a == "--pixel-units":
+            pixel_units = True
         elif a == "--fcm-width" and i + 1 < len(argv):
             i += 1
             fcm_width = int(argv[i])
@@ -457,6 +460,7 @@ def main():
     # picture_data reports. Cells are ceil(pixels / 8), as for a real picture,
     # so on the 80-column screen a rect is twice as many cells wide.
     rw = 1 if fcm_width == 40 else 2
+    rects_px = sorted(rects)          # as the Blorb gives them, in art pixels
     rects = sorted((n, rw * ((w + 7) // 8), (h + 7) // 8) for n, w, h in rects)
 
     def lo(v): return v & 0xff
@@ -523,6 +527,28 @@ def main():
             f.write("rect_number_hi\t!byte " + ",".join(str(hi(n)) for n, _, _ in rr) + "\n")
             f.write("rect_width\t!byte " + ",".join(str(w) for _, w, _ in rr) + "\n")
             f.write("rect_height\t!byte " + ",".join(str(h) for _, _, h in rr) + "\n")
+            if pixel_units:
+                # Z6_PIXEL_UNITS reports picture_data in the art pixels the
+                # picture really is, not its size rounded up to whole text
+                # cells -- Zork Zero's compass overlay is 45x40, and 48x40 is
+                # exactly the snapping the pixel model exists to remove. A
+                # width needs a word (320 does not fit a byte); a height does
+                # not. Only emitted when asked for, so a normal build's
+                # pictures.asm is unchanged.
+                f.write("\n; native art-pixel sizes, for Z6_PIXEL_UNITS\n")
+                f.write("pic_px_width_lo\t!byte " +
+                        ",".join(str(lo(p['w'])) for _, p in pics) + "\n")
+                f.write("pic_px_width_hi\t!byte " +
+                        ",".join(str(hi(p['w'])) for _, p in pics) + "\n")
+                f.write("pic_px_height\t!byte " +
+                        ",".join(str(p['h']) for _, p in pics) + "\n")
+                rrp = rects_px or [(0, 0, 0)]
+                f.write("rect_px_width_lo\t!byte " +
+                        ",".join(str(lo(w)) for _, w, _ in rrp) + "\n")
+                f.write("rect_px_width_hi\t!byte " +
+                        ",".join(str(hi(w)) for _, w, _ in rrp) + "\n")
+                f.write("rect_px_height\t!byte " +
+                        ",".join(str(h) for _, _, h in rrp) + "\n")
 
     if x16:
         x16_total = sum(p['raw'] for _, p in pics)

@@ -136,6 +136,32 @@ mouse_write_header_coords
 	lda .mouse_ext + 1
 	adc #0
 	jsr set_z_address
+!ifdef Z6_PIXEL_UNITS {
+	; the click cell reported in units, like every other coordinate. The cell
+	; is all this layer tracks, so it is the cell's corner rather than the
+	; exact pixel; the games only ask which cell was clicked.
+	lda mouse_click_x
+	sec
+	sbc #1					; the stored cell is 1-based
+	jsr cells_to_units_x	; a = low, x = high
+	clc
+	adc #1
+	sta .mwhc_col
+	txa
+	adc #0
+	jsr write_next_byte		; word 1 high
+	lda .mwhc_col
+	jsr write_next_byte		; word 1 low = x
+	lda #0
+	jsr write_next_byte		; word 2 high
+	lda mouse_click_y
+	sec
+	sbc #1
+	jsr cells_to_units_y
+	clc
+	adc #1
+	jsr write_next_byte		; word 2 low = y
+} else {
 	lda #0
 	jsr write_next_byte		; word 1 high
 	lda mouse_click_x
@@ -144,8 +170,13 @@ mouse_write_header_coords
 	jsr write_next_byte		; word 2 high
 	lda mouse_click_y
 	jsr write_next_byte		; word 2 low = y
+}
 .mwhc_done
 	rts
+
+!ifdef Z6_PIXEL_UNITS {
+.mwhc_col !byte 0	; the click column while it is scaled into units
+}
 
 .mouse_register_click
 	; A press landed. If the mouse is confined to a window and the pointer is

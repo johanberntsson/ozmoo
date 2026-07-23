@@ -103,6 +103,9 @@ $GENERALFLAGS = [
 #	'UNDO', # Support UNDO (using REU)
 #	'X_FOR_EXAMINE', # Automatically change "x" (in a verb position) to "examine" in player input
 #	'DEBUG_PIC_GEN', # v6/X16: record the last generated draw's geometry in dbg_gen
+#	'Z6_PIXEL_UNITS', # v6: report the 320x200 art pixel space Infocom authored
+#	                  # for, instead of counting whole character cells. See
+#	                  # todo.txt; not finished, do not ship.
 #	'Z6_PIC_XSUB=2', # v6: shift every picture this many art pixels sideways, and
 #	'Z6_PIC_YSUB=2', # this many pixel rows down; either may be negative. An art
 #	                 # pixel is 1/320th of the screen width (2 physical pixels)
@@ -3477,12 +3480,17 @@ if picture_dir
 		puts "ERROR: -pics: no such directory or blorb file: #{picture_dir}"
 		exit 1
 	end
+	# Z6_PIXEL_UNITS reports picture_data in native art pixels, which needs two
+	# more tables in the index; without the flag the generated pictures.asm is
+	# unchanged, so a normal build is unaffected.
+	pixel_units = $GENERALFLAGS.any? { |f| f.split('=').first == 'Z6_PIXEL_UNITS' } ?
+	              ['--pixel-units'] : []
 	if $target == 'x16'
 		# The X16 draws pictures on a VERA tile layer behind the text and
 		# loads each from SD on demand: uncompressed loose files in the game
 		# directory, no picture disks. One 16x8-pixel tile per logical cell.
 		unless system($executables['PYTHON'], File.join(__dir__, 'tools', 'pics2asm.py'),
-		              '--x16', $TEMPDIR, picture_dir)
+		              '--x16', *pixel_units, $TEMPDIR, picture_dir)
 			puts "ERROR: -pics: tools/pics2asm.py failed."
 			exit 1
 		end
@@ -3498,7 +3506,7 @@ if picture_dir
 		# interpreter decrunches them into attic at boot, so pics2asm needs the
 		# cruncher.
 		unless system($executables['PYTHON'], File.join(__dir__, 'tools', 'pics2asm.py'),
-		              '--fcm-width', fcm_width.to_s,
+		              '--fcm-width', fcm_width.to_s, *pixel_units,
 		              '--exomizer', $executables['EXOMIZER'],
 		              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
 			puts "ERROR: -pics: tools/pics2asm.py failed."
