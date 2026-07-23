@@ -313,9 +313,17 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   - SHOGUN boots, plays and renders cleanly. This was the one to watch: its
     credits centre with set_cursor row, (width - measured) / 2 + 1 and once
     printed through the 6502 stack from a negative column, and phase 1 changed
-    that clamp. No crash, no garbage. Its text column and wrap differ (the
-    margins are units now), which is expected; which of the two is RIGHT is not
-    established - it wants an sfrotz comparison of the same screen.
+    that clamp. No crash, no garbage.
+    Its left margin is also now RIGHT, settled against sfrotz. Shogun sets its
+    margins around the border pictures, and the body text's left edge is a
+    fixed consequence of them - unlike the right edge, which depends on where
+    words happen to wrap and is not comparable between screens:
+        sfrotz (reference)   text starts at x 40, column 5
+        cell units           column 8   - three columns too far right
+        pixel units          column 5   - exact
+    So this is a THIRD thing the pixel model fixes, alongside the compass and
+    the map, and it was not on the list of known instances at the top of this
+    file. Worth assuming there are others nobody has looked for.
   - JOURNEY's title screen and command-menu header are the same in both, with
     the centred lines landing within one column. Fine.
   - TESTZ6 has been rewritten to work in CELLS and convert at the opcode
