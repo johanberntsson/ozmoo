@@ -76,6 +76,40 @@ PIC_PROGRESS_STEP = picture_crunched_pages / 30 + 1
 .pcf_newcode_hi !byte 0
 .pcf_buf     !fill 64, 0	; one tile being composited, a byte a pixel
 
+; Off-grid placement (.pic_gen_fill). A screen cell holds GEN_CELL_W art pixels
+; across - half an art cell on the 80-column screen, where the art is doubled,
+; and a whole one on the 40-column screen, where it is not - and its tile takes
+; GEN_TILE_BYTES in attic, two art pixels a byte.
+!ifdef Z6_FCM_40 {
+GEN_CELL_W = 8
+GEN_TILE_SHIFT = 5			; * 32 bytes
+} else {
+GEN_CELL_W = 4
+GEN_TILE_SHIFT = 4			; * 16 bytes
+}
+.pic_shift   !byte 0		; art pixels the picture starts INTO its first cell,
+.pic_shift_y !byte 0		; across and down (both zero: it is on the grid)
+.gen_mw      !byte 0		; cells it covers, across and down
+.gen_mh      !byte 0
+.gen_next    !byte 0,0		; the next unused tile of the reserved run
+.gen_base    !byte 0,0,0	; what .pic_seek offsets from
+.gen_tiles   !byte 0,0,0	; where the tile block starts in attic RAM
+.gen_buf     !fill 64, 0	; one source cell, unpacked to a byte an art pixel
+.gen_art     !fill 64, 0	; the cell being assembled, in the same form
+.gen_cx      !byte 0		; the source cell being fetched; $ff, or past
+.gen_cy      !byte 0		; .pic_w / .pic_h, means "off the picture"
+.gen_sr      !byte 0		; .gen_blit's rectangle
+.gen_sc      !byte 0
+.gen_dr      !byte 0
+.gen_dc      !byte 0
+.gen_nr      !byte 0
+.gen_nc      !byte 0
+.gen_rows    !byte 0
+.gen_cols    !byte 0
+.gen_si      !byte 0		; .gen_blit's running source and destination
+.gen_di      !byte 0		; indices (the X16 engine borrows zero page here)
+.pfo_m       !byte 0		; the fill's cell counter across a row
+
 ; Tile-store compaction (.pic_gc): a bit per tile for "a cell outside the
 ; incoming picture still shows this", the survivor count below each bitmap
 ; byte, and the byte-arithmetic helper tables.
@@ -102,6 +136,8 @@ PIC_PROGRESS_STEP = picture_crunched_pages / 30 + 1
 pic_next_tile  !byte 0,0
 pic_win_base   !fill 16, 0	; two bytes a window
 pic_win_count  !fill 16, 0
+pic_win_shift  !fill 8, 0	; the placement each window's run was built for
+							; (.pa_pack_shift), one byte a window
 pic_win_number !fill 16, $ff ; the picture index (a word, so two bytes a window)
 							; resident in each window's run; $ffff = none. A
 							; window's run may only be reused for the same picture;
@@ -929,6 +965,13 @@ pic_load_all
 	lda .pic_index + 1
 	cmp pic_win_number + 1,x
 	bne .pa_fresh
+	jsr .pa_pack_shift		; ...and placed the same way? A generated run holds
+	cmp pic_win_shift,y		; tiles that are only right at THAT position, so a
+	bne .pa_fresh			; redraw elsewhere must build its own - reusing it
+							; would rewrite the tiles the first placement's
+							; cells still point at. (Before the cells were
+							; generated this could not happen: a run held the
+							; picture's own tiles wherever it was put.)
 	lda pic_win_count,x		; and does the window's own run still fit it?
 	cmp .pic_ntiles
 	lda pic_win_count + 1,x
@@ -999,6 +1042,8 @@ pic_load_all
 	sta pic_win_number,x
 	lda .pic_index + 1
 	sta pic_win_number + 1,x
+	jsr .pa_pack_shift		; and where it was placed - see the reuse test
+	sta pic_win_shift,y
 	; give it the next palette bank, wrapping after the last one, which can only
 	; spoil the colours of a picture that is no longer the newest on screen
 	ldx pic_next_bank
@@ -1624,6 +1669,553 @@ pic_load_all
 	bne -
 	rts
 
+; ---------------------------------------------------------------------------
+; Off-grid placement, the MEGA65 half of phase 0b (see pictures-x16.asm for the
+; other and todo.txt for why). A screen cell is 8 pixel rows down and, across,
+; GEN_CELL_W art pixels - 4 on the 80-column screen, where the art is doubled
+; and a cell is half an art cell, and 8 on the 40-column one, where a cell is a
+; whole art cell. A picture whose corner does not land on that grid shows parts
+; of up to four source art cells in every cell it covers, so those cells are
+; GENERATED here, straight out of the picture in attic RAM, and .pic_copy_tiles
+; is skipped: the unshifted run is never copied at all.
+;
+; Note the 80-column screen never needed this before the pixel-units work: a
+; text column IS a map cell there, so any cell position was already on the grid.
+; What forces it now is that a game may ask for a position between them -
+; Arthur's map lattice is 18 art pixels, which lands 2 rows or 2 pixels into a
+; cell more often than not.
+
+.pic_seek
+	; Point the attic cursor .pic_att at .gen_base + the 16-bit offset in
+	; .pic_count. Attic is flat, so this is a plain 24-bit add; a picture is
+	; capped at 255 pages, so the offset always fits 16 bits.
+	lda .gen_base
+	clc
+	adc .pic_count
+	sta .pic_att
+	lda .gen_base + 1
+	adc .pic_count + 1
+	sta .pic_att + 1
+	lda .gen_base + 2
+	adc #0
+	sta .pic_att + 2
+	lda #$08				; attic RAM starts at $08000000
+	sta .pic_att + 3
+	rts
+
+.gen_load_cell
+	; Unpack source cell (.gen_cx, .gen_cy) into .gen_buf, a byte an art pixel
+	; and still a raw palette index - the window's bank is added later, when the
+	; assembled cell is expanded into store form. A cell off the edge of the
+	; picture, or one the file marks fully transparent ($ffff), reads as zeroes,
+	; which is what transparent means everywhere downstream.
+	lda .gen_cx
+	cmp #$ff
+	beq .glc_far
+	cmp .pic_w
+	bcs .glc_far
+	lda .gen_cy
+	cmp #$ff
+	beq .glc_far
+	cmp .pic_h
+	bcc .glc_inside
+.glc_far
+	jmp .glc_blank
+.glc_inside
+	lda #0					; cell map offset = (cy * w + cx) * 2
+	sta .pic_count
+	sta .pic_count + 1
+	ldx .gen_cy
+	beq .glc_addx
+-	lda .pic_count
+	clc
+	adc .pic_w
+	sta .pic_count
+	bcc +
+	inc .pic_count + 1
++	dex
+	bne -
+.glc_addx
+	lda .pic_count
+	clc
+	adc .gen_cx
+	sta .pic_count
+	bcc +
+	inc .pic_count + 1
++	asl .pic_count
+	rol .pic_count + 1
+	lda .pic_map			; .pic_draw kept the cell map's start
+	sta .gen_base
+	lda .pic_map + 1
+	sta .gen_base + 1
+	lda .pic_map + 2
+	sta .gen_base + 2
+	jsr .pic_seek
+	jsr .pic_att_next
+	sta .pic_count
+	jsr .pic_att_next
+	sta .pic_count + 1
+	cmp #$ff
+	bne .glc_have
+	lda .pic_count
+	cmp #$ff
+	beq .glc_blank
+.glc_have
+	ldx #GEN_TILE_SHIFT		; tile offset = index * GEN_TILE_BYTES
+-	asl .pic_count
+	rol .pic_count + 1
+	dex
+	bne -
+	lda .gen_tiles
+	sta .gen_base
+	lda .gen_tiles + 1
+	sta .gen_base + 1
+	lda .gen_tiles + 2
+	sta .gen_base + 2
+	jsr .pic_seek
+	ldy #0					; two art pixels a byte, high nybble first
+-	jsr .pic_att_next
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	sta .gen_buf,y
+	iny
+	pla
+	and #$0f
+	sta .gen_buf,y
+	iny
+	cpy #(GEN_CELL_W * 8)
+	bne -
+	rts
+.glc_blank
+	lda #0
+	ldy #(GEN_CELL_W * 8) - 1
+-	sta .gen_buf,y
+	dey
+	bpl -
+	rts
+
+.gen_blit
+	; Move the .gen_nr x .gen_nc rectangle at (.gen_sr, .gen_sc) in .gen_buf to
+	; (.gen_dr, .gen_dc) in .gen_art. Both are 8 rows of GEN_CELL_W.
+	lda .gen_nr
+	beq .gb_done
+	lda .gen_nc
+	beq .gb_done
+	lda .gen_sr
+	jsr .gb_rowbase
+	clc
+	adc .gen_sc
+	sta .gen_si			; running source index
+	lda .gen_dr
+	jsr .gb_rowbase
+	clc
+	adc .gen_dc
+	sta .gen_di		; running destination index
+	lda .gen_nr
+	sta .gen_rows
+.gb_row
+	ldx .gen_si
+	ldy .gen_di
+	lda .gen_nc
+	sta .gen_cols
+-	lda .gen_buf,x
+	sta .gen_art,y
+	inx
+	iny
+	dec .gen_cols
+	bne -
+	lda .gen_si
+	clc
+	adc #GEN_CELL_W
+	sta .gen_si
+	lda .gen_di
+	clc
+	adc #GEN_CELL_W
+	sta .gen_di
+	dec .gen_rows
+	bne .gb_row
+.gb_done
+	rts
+.gb_rowbase
+	; a = a row number -> its offset into a GEN_CELL_W-wide cell buffer
+	asl
+	asl
+!if GEN_CELL_W = 8 {
+	asl
+}
+	rts
+
+.gen_tile
+	; Build the cell at map position (.pfo_m, .pic_row) into .gen_art, out of
+	; the up to four source cells that can reach it, and return x = the count of
+	; transparent pixels in it. The picture's own cell always contributes; the
+	; one above only when the picture is shifted down, the one to the left only
+	; when it is shifted right, and the diagonal one only when it is both.
+	lda #0
+	ldy #(GEN_CELL_W * 8) - 1
+-	sta .gen_art,y
+	dey
+	bpl -
+
+	lda .pic_shift_y
+	beq .gt_bottom			; on the row grid: nothing from the row above
+	lda .pic_shift
+	beq .gt_topright
+	jsr .gt_left			; up and left
+	jsr .gt_above
+	jsr .gen_load_cell
+	jsr .gt_srtop
+	jsr .gt_scleft
+	lda #0
+	sta .gen_dr
+	sta .gen_dc
+	lda .pic_shift_y
+	sta .gen_nr
+	lda .pic_shift
+	sta .gen_nc
+	jsr .gen_blit
+.gt_topright
+	jsr .gt_right			; up
+	jsr .gt_above
+	jsr .gen_load_cell
+	jsr .gt_srtop
+	lda #0
+	sta .gen_sc
+	sta .gen_dr
+	lda .pic_shift
+	sta .gen_dc
+	lda .pic_shift_y
+	sta .gen_nr
+	jsr .gt_ncright
+	jsr .gen_blit
+.gt_bottom
+	lda .pic_shift
+	beq .gt_bottomright
+	jsr .gt_left			; left
+	jsr .gt_here
+	jsr .gen_load_cell
+	lda #0
+	sta .gen_sr
+	sta .gen_dc
+	jsr .gt_scleft
+	lda .pic_shift_y
+	sta .gen_dr
+	jsr .gt_nrbottom
+	lda .pic_shift
+	sta .gen_nc
+	jsr .gen_blit
+.gt_bottomright
+	jsr .gt_right			; the picture's own cell
+	jsr .gt_here
+	jsr .gen_load_cell
+	lda #0
+	sta .gen_sr
+	sta .gen_sc
+	lda .pic_shift_y
+	sta .gen_dr
+	lda .pic_shift
+	sta .gen_dc
+	jsr .gt_nrbottom
+	jsr .gt_ncright
+	jsr .gen_blit
+	ldx #0					; count the transparent pixels
+	ldy #0
+-	lda .gen_art,y
+	bne +
+	inx
++	iny
+	cpy #(GEN_CELL_W * 8)
+	bne -
+	rts
+
+.gt_left
+	ldx .pfo_m				; the source cell left of this one ($ff when there
+	dex						; is none - .gen_load_cell reads that as blank)
+	stx .gen_cx
+	rts
+.gt_right
+	lda .pfo_m
+	sta .gen_cx
+	rts
+.gt_above
+	ldx .pic_row
+	dex
+	stx .gen_cy
+	rts
+.gt_here
+	lda .pic_row
+	sta .gen_cy
+	rts
+.gt_srtop
+	lda #8					; the bottom .pic_shift_y rows of the cell above
+	sec
+	sbc .pic_shift_y
+	sta .gen_sr
+	rts
+.gt_scleft
+	lda #GEN_CELL_W			; the rightmost .pic_shift columns of the cell left
+	sec
+	sbc .pic_shift
+	sta .gen_sc
+	rts
+.gt_nrbottom
+	lda #8
+	sec
+	sbc .pic_shift_y
+	sta .gen_nr
+	rts
+.gt_ncright
+	lda #GEN_CELL_W
+	sec
+	sbc .pic_shift
+	sta .gen_nc
+	rts
+
+.gen_expand
+	; .gen_art -> .pcf_buf in the store's form: this window's palette bank added
+	; to every non-zero pixel, and on the 80-column screen each art pixel
+	; written twice, which is the doubling .pic_emit_pixel does for the copied
+	; path. A cell is 64 store pixels either way.
+	ldx #0
+	ldy #0
+.ge_loop
+	lda .gen_art,x
+	beq +
+	clc
+	adc .pic_pixel_base
++	sta .pcf_buf,y
+	iny
+!if GEN_CELL_W = 4 {
+	sta .pcf_buf,y
+	iny
+}
+	inx
+	cpy #64
+	bne .ge_loop
+	rts
+
+.gen_composite
+	; Where the generated cell is transparent, take the pixel of the tile that
+	; was already in the cell, so a picture drawn over a scene shows the scene
+	; through - the same thing .pcf_make_tile does for the copied path.
+	lda .pcf_under_lo
+	ldx .pcf_under_hi
+	jsr .pcf_code_addr		; .pic_dst -> the tile behind
+	ldy #0
+	ldz #0
+-	lda .pcf_buf,y
+	bne +
+	lda [.pic_dst],z
+	sta .pcf_buf,y
++	inz
+	iny
+	cpy #64
+	bne -
+	rts
+
+.gen_write_slot
+	; Write .pcf_buf into the next tile of the run .pic_alloc reserved and leave
+	; its screen code in .pcf_newcode. Unlike .pcf_make_tile's mid-draw
+	; allocation there is no way to run out, and nothing to wrap: the run was
+	; reserved for exactly the cells this picture covers.
+	lda .pic_slot
+	clc
+	adc .gen_next
+	sta .pcf_newcode_lo
+	lda .pic_slot + 1
+	adc .gen_next + 1
+	adc #FCM_TILE_CODE_HI
+	sta .pcf_newcode_hi
+	inc .gen_next
+	bne +
+	inc .gen_next + 1
++	lda .pcf_newcode_lo
+	ldx .pcf_newcode_hi
+	jsr .pcf_code_addr
+	ldy #0
+	ldz #0
+-	lda .pcf_buf,y
+	sta [.pic_dst],z
+	inz
+	iny
+	cpy #64
+	bne -
+	rts
+
+.pic_gen_fill
+	; The off-grid equivalent of .pic_fill_cells: build and write every cell the
+	; picture covers, .gen_mw across and .gen_mh down. Clipping, compositing and
+	; the screen-code write are the aligned path's; only where the pixels come
+	; from is different.
+	lda #0
+	sta .gen_next
+	sta .gen_next + 1
+	sta .pic_row
+	jsr .pic_point_at_row
+.pgf_row
+	lda .pic_row
+	clc
+	adc .pic_y
+	cmp #SCREEN_HEIGHT		; this row past the bottom edge? the rest are too
+	bcc +
+	jmp .pgf_done
++	lda .gen_mw
+	sta .pic_cols_left
+	lda .pic_x
+	asl
+	sta .pic_col2
+	lda #0
+	rol
+	sta .pic_col2_hi
+	sta .pfo_m
+.pgf_cell
+	jsr .gen_tile			; -> .gen_art, x = transparent pixels
+	cpx #(GEN_CELL_W * 8)
+	beq .pgf_advance		; nothing of the picture here: leave the cell alone
+	lda .pic_col2_hi		; past the right edge? drop the write
+	bne .pgf_advance
+	ldy .pic_col2
+	cpy #SCREEN_ROW_BYTES
+	bcs .pgf_advance
+	phx
+	jsr .gen_expand
+	plx
+	ldy .pic_col2
+	lda (.pic_ptr),y		; what is already in this cell?
+	sta .pcf_under_lo
+	iny
+	lda (.pic_ptr),y
+	sta .pcf_under_hi
+	beq .pgf_write			; text or nothing behind: our 0 pixels stay
+	cpx #0					; fully opaque: nothing to take from behind
+	beq .pgf_write
+	jsr .gen_composite
+.pgf_write
+	jsr .gen_write_slot
+	ldy .pic_col2
+	lda .pcf_newcode_lo
+	sta (.pic_ptr),y
+	iny
+	lda .pcf_newcode_hi
+	sta (.pic_ptr),y
+.pgf_advance
+	lda .pic_col2
+	clc
+	adc #2
+	sta .pic_col2
+	bcc +
+	inc .pic_col2_hi
++	inc .pfo_m
+	dec .pic_cols_left
+	beq +
+	jmp .pgf_cell
++	lda .pic_ptr
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta .pic_ptr
+	bcc +
+	inc .pic_ptr + 1
++	inc .pic_row
+	lda .pic_row
+	cmp .gen_mh
+	beq .pgf_done
+	jmp .pgf_row
+.pgf_done
+	rts
+
+.pic_map_pos
+	; Split the picture's art-pixel corner into the first cell and the offsets
+	; into it. A cell is GEN_CELL_W art pixels across and 8 rows down, so this
+	; is a divide and its remainder on each axis; the remainder is the natural
+	; one, "the picture starts this far in", because .gen_tile addresses source
+	; pixels directly.
+	lda .pic_px
+	and #GEN_CELL_W - 1
+	sta .pic_shift
+	lda .pic_px + 1
+	lsr
+	lda .pic_px
+	ror						; px >> 1, the ninth bit carried down
+	lsr
+!if GEN_CELL_W = 8 {
+	lsr
+}
+	sta .pic_x
+	lda .pic_py
+	and #7
+	sta .pic_shift_y
+	rts
+
+.pic_gen_size
+	; .gen_mw / .gen_mh: the cells the picture covers, one more than its own on
+	; an axis it is shifted along. .pic_ntiles becomes that product - the run
+	; .pic_alloc must reserve, since every covered cell gets a tile of its own.
+	; On the grid nothing is generated and the reservation stays the file's own
+	; tile count.
+	lda .pic_w
+	sta .gen_mw
+	lda .pic_h
+	sta .gen_mh
+	lda .pic_shift
+	ora .pic_shift_y
+	beq .pgs_done
+	lda .pic_shift
+	beq +
+	inc .gen_mw
++	lda .pic_shift_y
+	beq +
+	inc .gen_mh
++	lda #0					; .pic_count = mw * mh
+	sta .pic_count
+	sta .pic_count + 1
+	ldx .gen_mh
+	beq .pgs_fits
+-	lda .pic_count
+	clc
+	adc .gen_mw
+	sta .pic_count
+	bcc +
+	inc .pic_count + 1
++	dex
+	bne -
+.pgs_fits
+	; A picture needing more cells than the whole store cannot be generated.
+	; That is only the full-screen ones, which are drawn at the origin and never
+	; shifted, so they fall back to the cell grid.
+	lda .pic_count + 1
+	cmp #>PIC_MAX_TILES		; the store's low byte is zero
+	bcc .pgs_take
+	lda #0
+	sta .pic_shift
+	sta .pic_shift_y
+	lda .pic_w
+	sta .gen_mw
+	lda .pic_h
+	sta .gen_mh
+	rts
+.pgs_take
+	lda .pic_count
+	sta .pic_ntiles
+	lda .pic_count + 1
+	sta .pic_ntiles + 1
+.pgs_done
+	rts
+
+.pa_pack_shift
+	; The placement a run was built for, as one byte: the horizontal offset in
+	; the low nybble, the vertical in the high. y holds the window on entry and
+	; still does on exit.
+	lda .pic_shift_y
+	asl
+	asl
+	asl
+	asl
+	ora .pic_shift
+	rts
+
 .pic_draw
 	; Draw the picture in .pic_index with its top left cell at .pic_y, .pic_x.
 	; Only screen RAM is touched: a cell's colour bytes hold flags (zero) and
@@ -1637,6 +2229,9 @@ pic_load_all
 	sta .pic_ntiles
 	jsr .pic_att_next
 	sta .pic_ntiles + 1
+
+	jsr .pic_map_pos		; the first cell, and the offsets inside it
+	jsr .pic_gen_size		; how many cells it covers, and can they fit
 
 	jsr .pic_alloc			; picks the tile run and the palette bank to bake for
 	; An adaptive picture is baked into, and shown in, the last direct picture's
@@ -1692,8 +2287,22 @@ pic_load_all
 	bcc +
 	inc .pic_att + 2
 +
+	; .pic_att now points at the tile block. The aligned path streams it into
+	; the reserved run; the off-grid one never copies it, and reads the tiles it
+	; needs back out of attic as it builds each cell, so remember where it is.
+	lda .pic_att
+	sta .gen_tiles
+	lda .pic_att + 1
+	sta .gen_tiles + 1
+	lda .pic_att + 2
+	sta .gen_tiles + 2
+
+	lda .pic_shift
+	ora .pic_shift_y
+	bne +
 	jsr .pic_copy_tiles
 	jmp .pic_fill_cells
++	jmp .pic_gen_fill
 
 .pic_erase
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y, .pic_x,
@@ -1704,6 +2313,23 @@ pic_load_all
 	sta .pic_w
 	jsr .pic_att_next
 	sta .pic_h
+	; A picture drawn off the grid covers a cell more on each shifted axis, and
+	; those EDGE cells hold part of the picture beside part of whatever it was
+	; drawn over, so clearing them whole would strip that. Erase the interior
+	; only, as the X16 engine does.
+	jsr .pic_map_pos
+	lda .pic_shift
+	beq +
+	inc .pic_x
+	dec .pic_w
++	lda .pic_shift_y
+	beq +
+	inc .pic_y
+	dec .pic_h
++	lda .pic_w				; a picture one cell across or down has no interior
+	beq .pic_erase_done		; left, and a zero count would run .pic_start_row's
+	lda .pic_h				; counter all the way round
+	beq .pic_erase_done
 	jsr .pic_point_at_row
 	lda #0
 	sta .pic_row

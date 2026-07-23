@@ -480,10 +480,11 @@ z_ins_erase_picture
 
 .pic_pixel_pos
 	; .pic_px / .pic_py = the picture's top left corner in the 320x200 art pixel
-	; space. A character cell is 4 art pixels across and 8 down (80 x 25 cells =
-	; 320 x 200), and while the screen model reports character units that is all
-	; the resolution a game can ask for - so these are just .pic_x * 4 and
-	; .pic_y * 8. They exist because the games really place pictures in art
+	; space. A character cell is 8 art pixels down, and 320 / SCREEN_WIDTH
+	; across - 4 on an 80-column screen, 8 on a 40-column one, where the art is
+	; not doubled. While the screen model reports character units that is all
+	; the resolution a game can ask for, so these are just the cell position
+	; scaled. They exist because the games really place pictures in art
 	; pixels: a position can fall inside a cell on either axis, which the cell
 	; grid cannot express and which the picture engine can now draw (the X16
 	; generates the shifted tiles from the staged picture). Z6_PIC_XSUB and
@@ -499,6 +500,10 @@ z_ins_erase_picture
 	sta .pic_px + 1
 	asl .pic_px
 	rol .pic_px + 1
+!if SCREEN_WIDTH < 80 {
+	asl .pic_px				; a 40-column cell is 8 art pixels, not 4
+	rol .pic_px + 1
+}
 !ifdef Z6_PIC_XSUB {
 	lda .pic_px
 	clc
