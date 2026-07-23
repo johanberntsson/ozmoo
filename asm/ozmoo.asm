@@ -198,7 +198,7 @@
 	; so a z3/z5 game built with it left on would otherwise reach for constants
 	; and routines that live in screen-z6.asm and are not assembled at all.
 	; Everything outside screen-z6.asm keys off this instead.
-	!ifdef Z6_PIXELS {
+	!ifdef Z6_PIXEL_UNITS {
 		Z6_PIXELS = 1
 	}
 }
