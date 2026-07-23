@@ -472,22 +472,25 @@ z_ins_erase_picture
 	jmp ++
 +	lda window_x_cursor,y
 ++	sta .pic_x ; keep the absolute column: the picture blitter needs it too
-	jsr .pic_pixel_x
+	jsr .pic_pixel_pos
 	lda .pic_x
 	tay ; y = column
 	ldx .pic_y ; x = row
 	jmp set_cursor
 
-.pic_pixel_x
-	; .pic_px = the picture's left edge in 320-wide art pixels. A character cell
-	; is 4 of them (80 columns x 4 = 320), and while the screen model reports
-	; character units that is all the resolution a game can ask for - so this is
-	; just .pic_x * 4. It exists because the games really place pictures in art
-	; pixels: a position can fall 1, 2 or 3 pixels into a cell, which the cell
-	; grid cannot express and which the picture engines can now blit (the X16's
-	; boundary tiles). Z6_PIC_XSUB adds a fixed offset, positive or negative, so
-	; that sub-cell blit can be exercised before the reporting change that will
-	; make the games ask for it.
+.pic_pixel_pos
+	; .pic_px / .pic_py = the picture's top left corner in the 320x200 art pixel
+	; space. A character cell is 4 art pixels across and 8 down (80 x 25 cells =
+	; 320 x 200), and while the screen model reports character units that is all
+	; the resolution a game can ask for - so these are just .pic_x * 4 and
+	; .pic_y * 8. They exist because the games really place pictures in art
+	; pixels: a position can fall inside a cell on either axis, which the cell
+	; grid cannot express and which the picture engine can now draw (the X16
+	; generates the shifted tiles from the staged picture). Z6_PIC_XSUB and
+	; Z6_PIC_YSUB add a fixed offset, positive or negative, so that placement can
+	; be exercised before the reporting change that will make the games ask for
+	; it. Arthur's map is the one that needs BOTH axes: its 18-unit lattice puts
+	; rows and columns 2, 4 or 6 pixels into a cell (see todo.txt).
 	lda .pic_x
 	asl
 	sta .pic_px
@@ -508,6 +511,29 @@ z_ins_erase_picture
 	lda #0			; a negative test offset off the left edge: clamp to 0
 	sta .pic_px
 	sta .pic_px + 1
++
+}
+	lda .pic_y
+	sta .pic_py
+	lda #0
+	sta .pic_py + 1
+	ldx #3
+-	asl .pic_py
+	rol .pic_py + 1
+	dex
+	bne -
+!ifdef Z6_PIC_YSUB {
+	lda .pic_py
+	clc
+	adc #<Z6_PIC_YSUB
+	sta .pic_py
+	lda .pic_py + 1
+	adc #>Z6_PIC_YSUB
+	sta .pic_py + 1
+	bpl +
+	lda #0			; likewise off the top edge
+	sta .pic_py
+	sta .pic_py + 1
 +
 }
 	rts
@@ -564,7 +590,8 @@ z_ins_erase_picture
 
 .pic_y   !byte 0
 .pic_x   !byte 0
-.pic_px  !byte 0,0 ; the same column in 320-wide art pixels (see .pic_place_cursor)
+.pic_px  !byte 0,0 ; the same corner in 320x200 art pixels (see .pic_place_cursor)
+.pic_py  !byte 0,0
 .pic_num !byte 0,0
 .pic_rem !byte 0
 .pic_buf !byte 0,0,0,0,0 ; at most five digits

@@ -102,10 +102,13 @@ $GENERALFLAGS = [
 #	'TIMING', # Store the lowest word of the jiffy clock in 0-->2 in the Z-code header
 #	'UNDO', # Support UNDO (using REU)
 #	'X_FOR_EXAMINE', # Automatically change "x" (in a verb position) to "examine" in player input
-#	'Z6_PIC_XSUB=2', # v6: shift every picture this many art pixels (1/80th of the
-#	                 # screen width, 2 physical pixels) sideways, positive or
-#	                 # negative. A test hook for the sub-cell picture placement
-#	                 # the pixel-units screen model will ask for; see todo.txt.
+#	'DEBUG_PIC_GEN', # v6/X16: record the last generated draw's geometry in dbg_gen
+#	'Z6_PIC_XSUB=2', # v6: shift every picture this many art pixels sideways, and
+#	'Z6_PIC_YSUB=2', # this many pixel rows down; either may be negative. An art
+#	                 # pixel is 1/320th of the screen width (2 physical pixels)
+#	                 # and a row is 1/200th of its height. A test hook for the
+#	                 # sub-cell picture placement the pixel-units screen model
+#	                 # will ask for; see todo.txt.
 ]
 
 # For a production build, none of these flags should be enabled.

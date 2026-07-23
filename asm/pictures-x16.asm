@@ -25,12 +25,12 @@
 ; assembled-in pic_width/pic_height tables, because the picture it asks
 ; about is usually not the one staged.
 ;
-; A picture may be placed off the 16-pixel tile grid - at an odd text column
-; (Arthur centres scenes), or, once the screen model reports pixels, at any
-; art pixel inside a cell. .pic_shift holds that horizontal offset in art
-; pixels (0..7, one art pixel = one store byte = 2 physical pixels) and a
-; non-zero one is drawn through boundary tiles baked from the picture's own
-; store tiles (.pic_fill_cells_odd). See todo.txt.
+; A picture may be placed off the tile grid - at an odd text column (Arthur
+; centres scenes), or, once the screen model reports pixels, at any art pixel
+; inside a cell on either axis (Arthur's map lattice is 18 art pixels, so it
+; needs both). .pic_shift and .pic_shift_y hold those offsets in art pixels,
+; 0..7 each, and when either is non-zero the cells are generated from the
+; staged picture instead of copied - see .pic_gen_fill and todo.txt.
 
 ; --- zero page, borrowed from z_temp like the MEGA65 engine ---
 .pi_ptr  = z_temp			; 2 bytes, indexes the pic_* tables by .pic_index
@@ -52,15 +52,32 @@
 .pic_lx      !byte 0		; the picture's first layer 0 map column
 .pic_cols_left !byte 0		; cells left on the row being filled or erased
 .pic_vis     !byte 0		; how many of them are on screen (right clip)
-.pic_shift   !byte 0		; horizontal offset into the tile, in art pixels 0..7
-							; (non-zero: drawn through baked boundary tiles)
-.bd_left     !byte 0,0		; boundary tile source: left art cell's index ($ffff none)
-.bd_right    !byte 0,0		; and the right art cell's
-.bd_rowbase  !byte 0		; the bake's running row offset into .pcf_buf
-.bd_lmask    !byte 0		; which source halves reach the left text cell of a
-.bd_rmask    !byte 0		; boundary cell, and which the right (see .pic_shift)
-.pfo_m       !byte 0		; the odd fill's map cell counter, 0..cw
-.pfo_vis     !byte 0		; cells of the odd row still on screen
+.pic_shift   !byte 0		; art pixels the picture starts INTO its first map
+.pic_shift_y !byte 0		; cell, across and down (0..7 each; both zero means
+							; it lands on the tile grid and needs no generating)
+.gen_mw      !byte 0		; map cells the picture spans, across and down:
+.gen_mh      !byte 0		; cw + 1 and ch + 1 when shifted on that axis
+.gen_next    !byte 0,0		; the next unused tile of the reserved run
+.pic_ftiles  !byte 0,0		; the picture file's own (deduplicated) tile count,
+							; kept because .pic_ntiles becomes the reservation
+.gen_base    !byte 0,0,0	; what .pic_seek offsets from
+.gen_tiles   !byte 0,0,0	; where the tile block starts in the staging banks
+.gen_buf     !fill 64, 0	; one source art cell, unpacked to a byte a pixel
+.gen_cx      !byte 0		; the source art cell being fetched; $ff, or past
+.gen_cy      !byte 0		; .pic_cw / .pic_ch, means "off the picture"
+.gen_sr      !byte 0		; .gen_blit's rectangle: source row/column in
+.gen_sc      !byte 0		; .gen_buf, destination row/column in .pcf_buf,
+.gen_dr      !byte 0		; and how many rows and columns to move
+.gen_dc      !byte 0
+.gen_nr      !byte 0
+.gen_nc      !byte 0
+.gen_rows    !byte 0		; its counters
+.gen_cols    !byte 0
+dbg_gen     !fill 10, 0	; DEBUG_PIC_GEN: state of the last generated draw
+.gen_left    !byte 0		; does either text half of the cell just built have
+.gen_right   !byte 0		; an opaque pixel in it? (for blanking the text)
+.pfo_m       !byte 0		; the fill's map cell counter, 0..gen_mw
+.pfo_vis     !byte 0		; cells of the row still on screen
 .pic_map     !byte 0,0,0	; where the cell map starts in the staging banks
 .pic_count   !byte 0,0		; a general 16 bit counter
 .pfc_lo      !byte 0		; a cell's tile index low byte while drawing
@@ -112,6 +129,8 @@ pic_bank_pal !fill 15 * 32, 0
 pic_next_tile  !byte PIC_FIRST_TILE, 0
 pic_win_base   !fill 16, 0	; two bytes a window
 pic_win_count  !fill 16, 0
+pic_win_shift  !fill 8, 0	; the placement each window's run was built for
+							; (.pa_pack_shift), one byte a window
 pic_win_number !fill 16, $ff ; the picture index (a word, so two bytes a window)
 							; resident in each window's run; $ffff = none. A
 							; window's run may only be reused for the same picture;
@@ -431,6 +450,15 @@ pic_load_all
 	lda .pic_index + 1
 	cmp pic_win_number + 1,x
 	bne .pa_fresh
+	jsr .pa_pack_shift		; ...and placed the same way? A run generated for
+	cmp pic_win_shift,y		; an off-grid position holds tiles that are only
+	bne .pa_fresh			; right at THAT position, so a redraw at another
+							; one has to build its own - reusing the run would
+							; rewrite the tiles the first placement's cells are
+							; still pointing at. (Before the cells were
+							; generated this could not happen: a picture's run
+							; held the picture's own tiles wherever it was put,
+							; so rewriting it changed nothing.)
 	lda pic_win_count,x		; and does the window's own run still fit it?
 	cmp .pic_ntiles
 	lda pic_win_count + 1,x
@@ -480,6 +508,18 @@ pic_load_all
 	sta pic_next_tile
 	lda #0
 	sta pic_next_tile + 1
+.pa_pack_shift
+	; The placement a run was built for, as one byte: the horizontal offset in
+	; the low nybble and the vertical in the high. Both are 0..7. y must hold
+	; the window number on entry and still does on exit.
+	lda .pic_shift_y
+	asl
+	asl
+	asl
+	asl
+	ora .pic_shift
+	rts
+
 .pa_place
 	lda pic_next_tile
 	sta .pic_slot
@@ -501,6 +541,8 @@ pic_load_all
 	sta pic_win_number,x
 	lda .pic_index + 1
 	sta pic_win_number + 1,x
+	jsr .pa_pack_shift		; and where it was placed - see the reuse test
+	sta pic_win_shift,y
 	; give it the next palette bank, wrapping after the last one, which can only
 	; spoil the colours of a picture that is no longer the newest on screen
 	ldx pic_next_bank
@@ -1088,197 +1130,419 @@ pic_load_all
 	rts
 
 ; ---------------------------------------------------------------------------
-; Off-grid placement. A 16x8 tile spans two text columns and eight art pixels,
-; so a picture whose left edge is not on a tile boundary is drawn through
-; boundary tiles: each of the cw+1 map cells it now spans shows the tail of one
-; art cell beside the head of the next, split .pic_shift art pixels in. These
-; are baked fresh from the picture's own stored tiles, so no new picture data is
-; needed - only up to ~+1% more tiles than the aligned placement, since Arthur's
-; art repeats horizontally and the boundary patterns recur. A boundary cell with
-; an opaque tile behind it is composited exactly as the aligned path does.
+; ---------------------------------------------------------------------------
+; Off-grid placement. A map cell is 8 art pixels each way (16 physical across,
+; doubled), so a picture whose corner is not on that grid cannot use its own
+; tiles as they stand: every cell it covers shows parts of up to four of them.
 ;
-; One store byte is one art pixel (two identical nybbles - the pixel doubling),
-; so a shift of one byte is a shift of one art pixel = 2 physical pixels, which
-; is exactly sfrotz's horizontal granularity for these games. A shift of 4 is
-; the half-cell an odd text column asks for.
+; Those cells are GENERATED here, straight from the picture still sitting in the
+; staging banks, and the picture's own run is never copied into the store at all
+; - .pic_draw skips .pic_copy_tiles when either shift is non-zero. That is what
+; makes both axes affordable: baking instead, from a copied run, costs the run
+; PLUS a fresh tile per covered cell, which for Arthur peaks at 1676 tiles
+; against a 1023-tile store, while generating peaks at 925. tools/tilebudget.py
+; measures it over a whole blorb; the numbers for all four games are in todo.txt.
+;
+; It is also exactly accountable: the cell count is known before the draw, so
+; .pic_alloc reserves the run and every tile written comes out of it. Nothing is
+; allocated mid-draw, which is the class of bug that ate Arthur's frame.
+;
+; Source pixel (mx * 8 + c - dx, my * 8 + r - dy) goes to row r, column c of the
+; cell at map position (mx, my), with dx/dy the offsets in .pic_shift and
+; .pic_shift_y. So a cell is four rectangles taken from the four source art
+; cells around (mx, my) - fewer when a shift is zero, or when a neighbour is off
+; the edge of the picture and reads as transparent.
 
-.pic_bake_boundary_buf
-	; Build a 16x8 boundary tile in .pcf_buf from the store tiles
-	; .pic_slot+.bd_left and .pic_slot+.bd_right, split .pic_shift art pixels
-	; in: buf byte j of a row is left[j + shift] while that is still inside the
-	; row, and right[j + shift - 8] after it. A $ffff index means that source is
-	; transparent (zeroes). Returns x = the count of transparent (0) bytes, so
-	; the caller can skip compositing when the tile is fully opaque.
-	lda .bd_left + 1
+.pic_seek
+	; Point the staging cursor .pic_att at .gen_base + the 16-bit offset in
+	; .pic_count. A picture is loaded contiguously and is at most 32 KB, so the
+	; offset only has to be walked up through the 8 KB banked window.
+	lda .gen_base
+	clc
+	adc .pic_count
+	sta .pic_att
+	lda .gen_base + 1
+	adc .pic_count + 1
+	sta .pic_att + 1
+	lda .gen_base + 2
+	sta .pic_att + 2
+-	lda .pic_att + 1
+	cmp #$c0
+	bcc +
+	sbc #$20				; $c0.. -> $a0.., one bank up
+	sta .pic_att + 1
+	inc .pic_att + 2
+	bra -
++	rts
+
+.gen_load_cell
+	; Unpack source art cell (.gen_cx, .gen_cy) into .gen_buf, a byte a pixel,
+	; already doubled into the store's two-identical-nybbles form. A cell off
+	; the edge of the picture, or one the file marks fully transparent ($ffff),
+	; comes back as zeroes - which is what "transparent" means to everything
+	; downstream.
+	lda .gen_cx
 	cmp #$ff
-	bne .bbb_left
-	stz .bd_rowbase			; left source transparent: zero buf[row+0..7-shift]
-.bbb_lzero_row
-	ldy .bd_rowbase
-	ldx .pic_shift
-	cpx #8
-	beq .bbb_lzero_next		; nothing of the left source in this tile
-	lda #0
--	sta .pcf_buf,y
-	iny
-	inx
-	cpx #8
-	bne -
-.bbb_lzero_next
-	lda .bd_rowbase
-	clc
-	adc #8
-	sta .bd_rowbase
-	cmp #64
-	bne .bbb_lzero_row
-	beq .bbb_right			; always
-.bbb_left
-	lda .bd_left			; store tile = .pic_slot + .bd_left
-	clc
-	adc .pic_slot
-	sta .pic_tmp
-	lda .bd_left + 1
-	adc .pic_slot + 1
-	sta .pic_tmp + 1
-	lda .pic_tmp
-	ldx .pic_tmp + 1
-	ldy #0
-	jsr .pic_tile_addr		; port 0 -> the left source tile
-	stz .bd_rowbase
-.bbb_lrow
-	ldx .pic_shift			; skip the shift bytes we start past
-	beq .bbb_lstore
--	lda VERA_data0
-	dex
-	bne -
-.bbb_lstore
-	ldy .bd_rowbase			; the rest -> buf[row+0...]
-	ldx .pic_shift
-	cpx #8
-	beq .bbb_lnext
--	lda VERA_data0
-	sta .pcf_buf,y
-	iny
-	inx
-	cpx #8
-	bne -
-.bbb_lnext
-	lda .bd_rowbase
-	clc
-	adc #8
-	sta .bd_rowbase
-	cmp #64
-	bne .bbb_lrow
-.bbb_right
-	lda .bd_right + 1
+	beq .glc_far
+	cmp .pic_cw
+	bcs .glc_far
+	lda .gen_cy
 	cmp #$ff
-	bne .bbb_rtile
-	stz .bd_rowbase			; right source transparent: zero buf[row+8-shift..7]
-.bbb_rzero_row
-	jsr .bbb_right_offset	; y = row + 8 - shift, x = shift
-	beq .bbb_rzero_next		; shift 0: nothing of the right source here
-	lda #0
--	sta .pcf_buf,y
-	iny
-	dex
+	beq .glc_far
+	cmp .pic_ch
+	bcc .glc_inside
+.glc_far
+	jmp .glc_blank			; the fill is past the end of the routine
+.glc_inside
+	lda #0					; cell map offset = (cy * cw + cx) * 2
+	sta .pic_count
+	sta .pic_count + 1
+	ldx .gen_cy
+	beq .glc_addx
+-	lda .pic_count
+	clc
+	adc .pic_cw
+	sta .pic_count
+	bcc +
+	inc .pic_count + 1
++	dex
 	bne -
-.bbb_rzero_next
-	lda .bd_rowbase
+.glc_addx
+	lda .pic_count
 	clc
-	adc #8
-	sta .bd_rowbase
-	cmp #64
-	bne .bbb_rzero_row
-	beq .bbb_count			; always
-.bbb_rtile
-	lda .bd_right
-	clc
-	adc .pic_slot
+	adc .gen_cx
+	sta .pic_count
+	bcc +
+	inc .pic_count + 1
++	asl .pic_count
+	rol .pic_count + 1
+	lda .pic_map			; .pic_draw kept the cell map's start
+	sta .gen_base
+	lda .pic_map + 1
+	sta .gen_base + 1
+	lda .pic_map + 2
+	sta .gen_base + 2
+	jsr .pic_seek
+	jsr .pic_att_next
 	sta .pic_tmp
-	lda .bd_right + 1
-	adc .pic_slot + 1
+	jsr .pic_att_next
 	sta .pic_tmp + 1
+	cmp #$ff
+	bne .glc_have
 	lda .pic_tmp
-	ldx .pic_tmp + 1
-	ldy #0
-	jsr .pic_tile_addr		; port 0 -> the right source tile
-	stz .bd_rowbase
-.bbb_rrow
-	jsr .bbb_right_offset	; y = row + 8 - shift, x = shift
-	beq .bbb_rskip
--	lda VERA_data0			; its first shift bytes -> the tail of buf's row
-	sta .pcf_buf,y
-	iny
+	cmp #$ff
+	beq .glc_blank
+.glc_have
+	lda .pic_tmp			; tile offset = index * 32
+	sta .pic_count
+	lda .pic_tmp + 1
+	sta .pic_count + 1
+	ldx #5
+-	asl .pic_count
+	rol .pic_count + 1
 	dex
 	bne -
-.bbb_rskip
-	lda #8					; step over the rest of the source row
-	sec
-	sbc .pic_shift
+	lda .gen_tiles
+	sta .gen_base
+	lda .gen_tiles + 1
+	sta .gen_base + 1
+	lda .gen_tiles + 2
+	sta .gen_base + 2
+	jsr .pic_seek
+	ldy #0					; 32 packed bytes -> 64 doubled ones
+-	jsr .pic_att_next
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
 	tax
-	beq .bbb_rnext
--	lda VERA_data0
-	dex
+	lda .pic_dub,x
+	sta .gen_buf,y
+	iny
+	pla
+	and #$0f
+	tax
+	lda .pic_dub,x
+	sta .gen_buf,y
+	iny
+	cpy #64
 	bne -
-.bbb_rnext
-	lda .bd_rowbase
+	rts
+.glc_blank
+	lda #0
+	ldy #63
+-	sta .gen_buf,y
+	dey
+	bpl -
+	rts
+
+.gen_blit
+	; Move the .gen_nr x .gen_nc rectangle at (.gen_sr, .gen_sc) in .gen_buf to
+	; (.gen_dr, .gen_dc) in .pcf_buf. Both are 8x8 bytes.
+	lda .gen_nr
+	beq .gb_done
+	lda .gen_nc
+	beq .gb_done
+	lda .gen_sr
+	asl
+	asl
+	asl
+	clc
+	adc .gen_sc
+	sta .pic_tmp			; running source index
+	lda .gen_dr
+	asl
+	asl
+	asl
+	clc
+	adc .gen_dc
+	sta .pic_tmp + 1		; running destination index
+	lda .gen_nr
+	sta .gen_rows
+.gb_row
+	ldx .pic_tmp
+	ldy .pic_tmp + 1
+	lda .gen_nc
+	sta .gen_cols
+-	lda .gen_buf,x
+	sta .pcf_buf,y
+	inx
+	iny
+	dec .gen_cols
+	bne -
+	lda .pic_tmp
 	clc
 	adc #8
-	sta .bd_rowbase
-	cmp #64
-	bne .bbb_rrow
-	bra .bbb_count
-.bbb_right_offset
-	; y = .bd_rowbase + 8 - .pic_shift, x = .pic_shift (z set when it is 0):
-	; where the right source's bytes land in this row of .pcf_buf, and how many.
-	lda .bd_rowbase
+	sta .pic_tmp
+	lda .pic_tmp + 1
 	clc
 	adc #8
+	sta .pic_tmp + 1
+	dec .gen_rows
+	bne .gb_row
+.gb_done
+	rts
+
+.gen_tile
+	; Build the cell at map position (.pfo_m, .pic_row) into .pcf_buf, out of
+	; the four source art cells that can reach it. The picture's own cell
+	; (mx, my) always contributes; the cell above contributes only when the
+	; picture is shifted down, the cell to the left only when it is shifted
+	; right, and the one diagonally up-left only when it is shifted both ways.
+	lda #0
+	ldy #63
+-	sta .pcf_buf,y
+	dey
+	bpl -
+
+	lda .pic_shift_y
+	beq .gt_bottom			; on the row grid: nothing from the row above
+	lda .pic_shift
+	beq .gt_topright
+	jsr .gt_left			; up and left: rows 0..dy-1, columns 0..dx-1
+	jsr .gt_above
+	jsr .gen_load_cell
+	jsr .gt_srtop
+	jsr .gt_scleft
+	lda #0
+	sta .gen_dr
+	sta .gen_dc
+	lda .pic_shift_y
+	sta .gen_nr
+	lda .pic_shift
+	sta .gen_nc
+	jsr .gen_blit
+.gt_topright
+	jsr .gt_right			; up: rows 0..dy-1, columns dx..7
+	jsr .gt_above
+	jsr .gen_load_cell
+	jsr .gt_srtop
+	lda #0
+	sta .gen_sc
+	sta .gen_dr
+	lda .pic_shift
+	sta .gen_dc
+	lda .pic_shift_y
+	sta .gen_nr
+	jsr .gt_ncright
+	jsr .gen_blit
+.gt_bottom
+	lda .pic_shift
+	beq .gt_bottomright
+	jsr .gt_left			; left: rows dy..7, columns 0..dx-1
+	jsr .gt_here
+	jsr .gen_load_cell
+	lda #0
+	sta .gen_sr
+	sta .gen_dc
+	jsr .gt_scleft
+	lda .pic_shift_y
+	sta .gen_dr
+	jsr .gt_nrbottom
+	lda .pic_shift
+	sta .gen_nc
+	jsr .gen_blit
+.gt_bottomright
+	jsr .gt_right			; the picture's own cell: rows dy..7, columns dx..7
+	jsr .gt_here
+	jsr .gen_load_cell
+	lda #0
+	sta .gen_sr
+	sta .gen_sc
+	lda .pic_shift_y
+	sta .gen_dr
+	lda .pic_shift
+	sta .gen_dc
+	jsr .gt_nrbottom
+	jsr .gt_ncright
+	jmp .gen_blit
+
+.gt_left
+	ldx .pfo_m				; the source cell column left of this map cell
+	dex						; ($ff when there is none - .gen_load_cell blanks)
+	stx .gen_cx
+	rts
+.gt_right
+	lda .pfo_m
+	sta .gen_cx
+	rts
+.gt_above
+	ldx .pic_row
+	dex
+	stx .gen_cy
+	rts
+.gt_here
+	lda .pic_row
+	sta .gen_cy
+	rts
+.gt_srtop
+	lda #8					; the bottom .pic_shift_y rows of the cell above
+	sec
+	sbc .pic_shift_y
+	sta .gen_sr
+	rts
+.gt_scleft
+	lda #8					; the rightmost .pic_shift columns of the cell left
 	sec
 	sbc .pic_shift
-	tay
-	ldx .pic_shift
+	sta .gen_sc
 	rts
-.bbb_count
-	ldx #0					; count transparent (0) bytes
+.gt_nrbottom
+	lda #8
+	sec
+	sbc .pic_shift_y
+	sta .gen_nr
+	rts
+.gt_ncright
+	lda #8
+	sec
+	sbc .pic_shift
+	sta .gen_nc
+	rts
+
+.gen_scan
+	; Look over the cell just built: x comes back as the count of transparent
+	; (0) bytes, so 64 means "leave the cell alone" and 0 means "no compositing
+	; needed", and .gen_left / .gen_right say whether each of the two TEXT cells
+	; over this map cell has any opaque pixel under it. A text cell is 4 art
+	; pixels, so byte index bit 2 picks which half a pixel belongs to.
+	ldx #0
+	stz .gen_left
+	stz .gen_right
 	ldy #0
 -	lda .pcf_buf,y
-	bne +
+	bne .gs_opaque
 	inx
-+	iny
+	bra .gs_next
+.gs_opaque
+	tya
+	and #4
+	bne .gs_isright
+	lda #1
+	sta .gen_left
+	bra .gs_next
+.gs_isright
+	lda #1
+	sta .gen_right
+.gs_next
+	iny
 	cpy #64
 	bne -
 	rts
 
-.pic_fill_cells_odd
-	; The odd-placement equivalent of .pic_fill_cells: cw+1 boundary cells a row.
-	lda .pic_map
-	sta .pic_att
-	lda .pic_map + 1
-	sta .pic_att + 1
-	lda .pic_map + 2
-	sta .pic_att + 2
+.gen_write_slot
+	; Write .pcf_buf into the next tile of the run .pic_alloc reserved, and
+	; leave its map entry in .pcf_newcode. Unlike the mid-draw bakes this
+	; replaced there is no way to run out: the run was reserved for exactly the
+	; cells this picture spans, and a fully transparent cell does not take one.
+	lda .pic_slot
+	clc
+	adc .gen_next
+	sta .pic_tmp
+	lda .pic_slot + 1
+	adc .gen_next + 1
+	sta .pic_tmp + 1
+	lda .pic_tmp
+	sta .pcf_newcode_lo
+	lda .pic_tmp + 1
+	and #3
+	ora .pic_entry_hi
+	sta .pcf_newcode_hi
+	lda .pic_tmp
+	ldx .pic_tmp + 1
+	ldy #1
+	jsr .pic_tile_addr		; port 1 -> the tile
+	inc .gen_next
+	bne +
+	inc .gen_next + 1
++	ldy #0
+-	lda .pcf_buf,y
+	sta VERA_data1
+	iny
+	cpy #64
+	bne -
+	rts
+
+.pic_gen_fill
+	; The off-grid equivalent of .pic_fill_cells: build and write every map cell
+	; the picture covers, .gen_mw across and .gen_mh down. Compositing, the
+	; window-background fill and the text blanking are the same as the aligned
+	; path's - only where the cell's pixels come from is different.
+!ifdef DEBUG_PIC_GEN {
+	lda .pic_shift
+	sta dbg_gen
+	lda .pic_shift_y
+	sta dbg_gen + 1
+	lda .gen_mw
+	sta dbg_gen + 2
+	lda .gen_mh
+	sta dbg_gen + 3
+	lda .pic_lx
+	sta dbg_gen + 4
+	lda .pic_y
+	sta dbg_gen + 5
+	lda .pic_cw
+	sta dbg_gen + 6
+	lda .pic_ch
+	sta dbg_gen + 7
+	lda .pic_slot
+	sta dbg_gen + 8
+	lda .pic_slot + 1
+	sta dbg_gen + 9
+}
 	lda #0
+	sta .gen_next
+	sta .gen_next + 1
 	sta .pic_row
-.pfo_row
+.pgf_row
 	lda .pic_row
 	clc
 	adc .pic_y
 	cmp #SCREEN_HEIGHT
 	bcc +
-	jmp .pfo_done
-+	lda .pic_cw				; buffer this row's cw cell-map entries
-	asl
-	sta .pic_tmp
-	ldx #0
--	phx
-	jsr .pic_att_next
-	plx
-	sta .pfc_rowbuf,x
-	inx
-	cpx .pic_tmp
-	bne -
-	ldy #0					; port 0 reads what is there, port 1 writes anew
+	jmp .pgf_done
++	ldy #0					; port 0 reads what is there, port 1 writes anew
 	jsr .pic_map_row_addr
 	ldy #1
 	jsr .pic_map_row_addr
@@ -1286,119 +1550,84 @@ pic_load_all
 	sec
 	sbc .pic_lx				; cells from .pic_lx to the right edge
 	sta .pfo_vis
-	ldx #0					; x = 2 * m into .pfc_rowbuf
 	stz .pfo_m
-.pfo_cell
+.pgf_cell
 	lda .pfo_vis
 	bne +
-	jmp .pfo_rowdone
-+	dec .pfo_vis
-	lda .pfo_m				; left index = art cell m-1 (none when m = 0)
-	bne +
-	lda #$ff
-	sta .bd_left
-	sta .bd_left + 1
-	bra .pfo_getright
-+	lda .pfc_rowbuf - 2,x
-	sta .bd_left
-	lda .pfc_rowbuf - 1,x
-	sta .bd_left + 1
-.pfo_getright
-	lda .pfo_m				; right index = art cell m (none when m = cw)
-	cmp .pic_cw
+	jmp .pgf_rowdone
++	lda .pfo_m
+	cmp .gen_mw
 	bcc +
-	lda #$ff
-	sta .bd_right
-	sta .bd_right + 1
-	bra .pfo_have
-+	lda .pfc_rowbuf,x
-	sta .bd_right
-	lda .pfc_rowbuf + 1,x
-	sta .bd_right + 1
-.pfo_have
-	lda .bd_left + 1		; both halves transparent? leave the cell alone
-	and .bd_right + 1
-	cmp #$ff
-	bne .pfo_draw
-	ldy .pfo_m
-	lda #0
-	sta .pfo_drawn,y
-	lda VERA_data0			; keep what is under; both ports step
-	sta VERA_data1
-	lda VERA_data0
-	sta VERA_data1
-	jmp .pfo_next
-.pfo_draw
-	lda #0					; record which halves are opaque, for the text blank
-	ldy .bd_left + 1
-	cpy #$ff
-	beq +
-	ora #1					; left half opaque
-+	ldy .bd_right + 1
-	cpy #$ff
-	beq +
-	ora #2					; right half opaque
-+	ldy .pfo_m
-	sta .pfo_drawn,y
+	jmp .pgf_rowdone
++	dec .pfo_vis
 	lda VERA_data0			; what is behind, for compositing
 	sta .pcf_under_lo
 	lda VERA_data0
 	sta .pcf_under_hi
+	jsr .gen_tile			; -> .pcf_buf (staging only; VERA is untouched)
+	jsr .gen_scan
+	cpx #64
+	bne .pgf_draw
+	ldy .pfo_m				; nothing of the picture here: keep what is under
+	lda #0
+	sta .pfo_drawn,y
+	lda .pcf_under_lo
+	sta VERA_data1
+	lda .pcf_under_hi
+	sta VERA_data1
+	jmp .pgf_next
+.pgf_draw
+	lda #0					; record which text halves this cell covers
+	ldy .gen_left
+	beq +
+	ora #1
++	ldy .gen_right
+	beq +
+	ora #2
++	ldy .pfo_m
+	sta .pfo_drawn,y
 	phx
 	jsr .pfc_save_ports
-	jsr .pic_bake_boundary_buf	; -> .pcf_buf, x = transparent count
+	plx
 	cpx #0
-	beq .pfo_write			; fully opaque: no compositing
+	beq .pgf_write			; fully opaque: no compositing
 	lda .pcf_under_lo		; is there a tile behind? index != 0
 	sta .pic_tmp
 	lda .pcf_under_hi
 	and #3
 	ora .pic_tmp
-	beq .pfo_nothing_behind	; nothing behind
+	beq .pgf_nothing_behind
 	jsr .pcf_build_xlat
 	jsr .pcf_composite_under
-	bra .pfo_write
-.pfo_nothing_behind
+	bra .pgf_write
+.pgf_nothing_behind
 	lda pic_bg_index		; show the window background through our transparent
-	beq .pfo_write			; pixels (0 = none: leave them the backdrop)
+	beq .pgf_write			; pixels (0 = none: leave them the backdrop)
 	jsr .pcf_fill_bg
-.pfo_write
-	jsr .pcf_alloc_and_write	; -> .pcf_newcode
-	bcs +
-	lda .pcf_under_lo		; store full, nothing baked: keep what is behind,
-	sta .pcf_newcode_lo		; so the cell shows the frame rather than a stale
-	lda .pcf_under_hi		; index into tiles that belong to someone else
-	sta .pcf_newcode_hi
-+	jsr .pfc_restore_ports
-	plx
+.pgf_write
+	jsr .gen_write_slot
+	jsr .pfc_restore_ports
 	lda .pcf_newcode_lo
 	sta VERA_data1
 	lda .pcf_newcode_hi
 	sta VERA_data1
-.pfo_next
-	inx
-	inx
+.pgf_next
 	inc .pfo_m
-	lda .pfo_m
-	cmp .pic_cw
-	beq .pfo_celljmp		; m == cw: the final boundary cell is still valid
-	bcs .pfo_rowdone		; m > cw: the row is done
-.pfo_celljmp
-	jmp .pfo_cell
-.pfo_rowdone
-	jsr .pfo_blank_text
+	jmp .pgf_cell
+.pgf_rowdone
+	jsr .pgf_blank_text
 	inc .pic_row
-	lda .pic_ch
-	cmp .pic_row
-	beq .pfo_done
-	jmp .pfo_row
-.pfo_done
+	lda .pic_row
+	cmp .gen_mh
+	beq .pgf_done
+	jmp .pgf_row
+.pgf_done
 	rts
 
-.pfo_blank_text
-	; Blank the text over the odd row's drawn boundary cells (two text cells
-	; each), leaving fully-transparent cells' text; .pfo_drawn was filled by the
-	; fill pass. The mirror of .pfc_blank_text for the cw+1 boundary cells.
+.pgf_blank_text
+	; Blank the text over the row's drawn cells, two text cells to a map cell,
+	; leaving the text where the picture put nothing. .pfo_drawn was filled by
+	; the pass above: bit 0 is the left text cell, bit 1 the right.
 	lda #1
 	sta VERA_ctrl
 	jsr .pfc_text_addr
@@ -1409,53 +1638,51 @@ pic_load_all
 	sbc .pic_lx
 	sta .pfo_vis
 	stz .pfo_m
-.pfobt_cell
+.pgbt_cell
 	lda .pfo_vis
-	beq .pfobt_done
+	beq .pgbt_done
+	lda .pfo_m
+	cmp .gen_mw
+	bcs .pgbt_done
 	dec .pfo_vis
 	ldy .pfo_m
-	lda .pfo_drawn,y		; bit 0 = left source present, bit 1 = right source
+	lda .pfo_drawn,y
 	sta .pic_tmp
-	and .bd_lmask			; do either of them reach the left text cell?
-	beq .pfobt_lkeep
-	lda VERA_data0			; opaque half: blank (space, keep fg, clear bg)
+	and #1
+	beq .pgbt_lkeep
+	lda VERA_data0			; covered: blank (space, keep fg, clear bg)
 	lda #$20
 	sta VERA_data1
 	lda VERA_data0
 	and #$0f
 	sta VERA_data1
-	bra .pfobt_r
-.pfobt_lkeep
-	lda VERA_data0			; transparent half: keep the text background there
+	bra .pgbt_r
+.pgbt_lkeep
+	lda VERA_data0			; not covered: keep the text that is there
 	sta VERA_data1
 	lda VERA_data0
 	sta VERA_data1
-.pfobt_r
+.pgbt_r
 	lda .pic_tmp
-	and .bd_rmask			; and the right text cell?
-	beq .pfobt_rkeep
+	and #2
+	beq .pgbt_rkeep
 	lda VERA_data0
 	lda #$20
 	sta VERA_data1
 	lda VERA_data0
 	and #$0f
 	sta VERA_data1
-	bra .pfobt_next
-.pfobt_rkeep
+	bra .pgbt_next
+.pgbt_rkeep
 	lda VERA_data0
 	sta VERA_data1
 	lda VERA_data0
 	sta VERA_data1
-.pfobt_next
+.pgbt_next
 	inc .pfo_m
-	lda .pfo_m
-	cmp .pic_cw
-	beq +					; m == cw still valid
-	bcs .pfobt_done
-+	bra .pfobt_cell
-.pfobt_done
+	bra .pgbt_cell
+.pgbt_done
 	rts
-
 .pfo_drawn !fill 44, 0		; per-boundary-cell "was drawn" flags for one row
 
 .pfc_blank_text
@@ -2038,30 +2265,38 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 .pic_erase
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y,
 	; .pic_x: clear its layer 0 map cells back to the transparent tile 0.
-	; The text layer in front is left alone. An odd-column picture was drawn
-	; across cw+1 boundary cells (.pic_fill_cells_odd); its two EDGE cells each
-	; hold half the picture beside half of whatever it was drawn over (a frame
-	; border, for Arthur's scenes composited into the frame's hole), so clearing
-	; them whole would strip the frame - and it is never redrawn, so the gap
-	; persists. Erase only the cw-1 interior cells (fully the picture) and leave
-	; the two edges: the next scene re-composites its half over them, keeping
-	; the frame's half. A picture standing on plain background loses nothing
-	; from this - its edge halves are transparent there.
+	; The text layer in front is left alone. A picture drawn off the tile grid
+	; covers a cell more on each shifted axis (.pic_gen_fill), and those EDGE
+	; cells hold part of the picture beside part of whatever it was drawn over
+	; (a frame border, for Arthur's scenes composited into the frame's hole), so
+	; clearing them whole would strip the frame - and it is never redrawn, so
+	; the gap persists. Erase only the interior cells, which are fully the
+	; picture, and leave the edges: the next scene re-composites its part over
+	; them, keeping the frame's. A picture standing on plain background loses
+	; nothing from this - its edge parts are transparent there.
 	; The size comes from the assembled-in tables, so erasing never has to
 	; load the picture from disk.
 	jsr .pic_size
 	lda .pic_w
 	lsr
 	sta .pic_cw
-	jsr .pic_map_x			; .pic_lx, and the shift it was drawn with
+	lda .pic_h
+	sta .pic_ch
+	jsr .pic_map_pos		; .pic_lx, and the offsets it was drawn with
 	lda .pic_shift
 	beq +
-	inc .pic_lx				; skip the left edge cell...
-	dec .pic_cw				; ...and the right one: cw+1 spanned - 2 edges = cw-1
-+	lda .pic_h
-	sta .pic_ch
-	lda #0
+	inc .pic_lx				; skip the left edge column...
+	dec .pic_cw				; ...and the right: cw+1 spanned - 2 edges = cw-1
++	lda #0
 	sta .pic_row
+	lda .pic_shift_y
+	beq +
+	inc .pic_y				; and the same down the other axis. .pic_y is the
+	dec .pic_ch				; engine's own copy, reset on the next draw.
++	lda .pic_cw				; a picture only one cell across or down has no
+	beq .pic_erase_done		; interior once its edges are left alone - and a
+	lda .pic_ch				; zero cell count would run .pic_start_row's
+	beq .pic_erase_done		; counter all the way round
 .pic_erase_row
 	lda .pic_row			; clip to the screen, exactly as .pic_fill_cells does
 	clc
@@ -2122,12 +2357,14 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	jsr .pic_att_next
 	sta .pic_ch
 	jsr .pic_att_next
+	sta .pic_ftiles
 	sta .pic_ntiles
 	jsr .pic_att_next
+	sta .pic_ftiles + 1
 	sta .pic_ntiles + 1
 
-	jsr .pic_map_x			; the first map column, and the shift inside it
-	jsr .pic_boundary_masks
+	jsr .pic_map_pos		; the first map cell, and the offsets inside it
+	jsr .pic_gen_size		; how many cells the picture covers, and can it fit
 
 	; .pic_w/.pic_h in text cells (.pic_h is .pic_gc's rectangle height)
 	lda .pic_cw
@@ -2198,37 +2435,88 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	inc .pic_att + 2
 	bra -
 +
-	jsr .pic_copy_tiles
-	jsr .pic_compute_bg_index ; fill transparent pixels with the window background
-	lda .pic_shift
-	beq .dp_even
-	jsr .dp_odd_fits		; clears .pic_shift if the boundary tiles would overflow
-	lda .pic_shift
-	beq .dp_even
-	jmp .pic_fill_cells_odd
-.dp_even
-	jmp .pic_fill_cells
+	; .pic_att now points at the tile block. The aligned path streams it into
+	; the reserved run; the off-grid one never copies it, and reads the tiles it
+	; needs back out of staging as it builds each cell, so remember where it is.
+	lda .pic_att
+	sta .gen_tiles
+	lda .pic_att + 1
+	sta .gen_tiles + 1
+	lda .pic_att + 2
+	sta .gen_tiles + 2
 
-.pic_map_x
-	; Split the picture's art-pixel column .pic_px (0..319) into .pic_lx, the
-	; first layer 0 map column, and .pic_shift, the split the boundary bake
-	; needs. A tile is 8 art pixels wide (16 physical, doubled), so this is a
-	; divide by 8 and its remainder r.
+	lda .pic_shift
+	ora .pic_shift_y
+	bne .dp_generate
+	jsr .pic_copy_tiles		; also records pic_used as it goes
+	jsr .pic_compute_bg_index ; fill transparent pixels with the window background
+	jmp .pic_fill_cells
+.dp_generate
+	jsr .pic_scan_used		; what .pic_copy_tiles would have recorded
+	jsr .pic_compute_bg_index
+	jmp .pic_gen_fill
+
+.pic_scan_used
+	; Read the tile block for the palette indices the picture uses, without
+	; writing anything. The aligned path gets this free inside .pic_copy_tiles,
+	; but .pic_compute_bg_index has to run before the first generated cell is
+	; built, so the off-grid path pays for one pass over the block - still far
+	; less than the copy it is replacing.
+	ldx #15
+	lda #0
+-	sta pic_used,x
+	dex
+	bpl -
+	lda .pic_ftiles			; bytes = ntiles * 32
+	sta .pic_count
+	lda .pic_ftiles + 1
+	sta .pic_count + 1
+	ldx #5
+-	asl .pic_count
+	rol .pic_count + 1
+	dex
+	bne -
+	lda .pic_count
+	ora .pic_count + 1
+	beq .psc_done
+.psc_loop
+	jsr .pic_att_next
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda #$ff
+	sta pic_used,x
+	pla
+	and #$0f
+	tax
+	lda #$ff
+	sta pic_used,x
+	lda .pic_count
+	bne +
+	dec .pic_count + 1
++	dec .pic_count
+	lda .pic_count
+	ora .pic_count + 1
+	bne .psc_loop
+.psc_done
+	rts
+
+.pic_map_pos
+	; Split the picture's art-pixel corner (.pic_px 0..319, .pic_py 0..199) into
+	; the first layer 0 map cell and the offsets inside it. A map cell is 8 art
+	; pixels each way, so this is a divide by 8 and its remainder on both axes -
+	; and the remainder is the natural one, "the picture starts this far into
+	; the cell", because .gen_tile addresses source pixels directly.
 	;
-	; .pic_shift is 8 - r, not r: the bake reads FORWARD (buf byte j is source
-	; byte j + shift), so a bigger shift moves the picture LEFT, while a bigger
-	; r means it starts further right inside the tile. r = 4, an odd text
-	; column, is its own complement, which is why the half-cell case reads the
-	; same either way - and why getting this backwards is invisible until an
-	; offset that is not half a cell is tried.
+	; Only the column is worked out here: the row is already .pic_y, which
+	; .pic_place_cursor set and .pic_py was derived from, so .pic_py >> 3 would
+	; only give it back.
 	lda .pic_px
 	and #7
-	beq +					; r = 0: on the tile grid, no boundary tiles
 	sta .pic_shift
-	lda #8
-	sec
-	sbc .pic_shift
-+	sta .pic_shift
 	lda .pic_px + 1
 	lsr
 	lda .pic_px
@@ -2236,64 +2524,67 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	lsr
 	lsr
 	sta .pic_lx
+	lda .pic_py
+	and #7
+	sta .pic_shift_y
 	rts
 
-.pic_boundary_masks
-	; Which of a boundary cell's two source art cells can put pixels in its left
-	; text cell (buf bytes 0-3) and which in its right (bytes 4-7), given
-	; .pic_shift: buf byte j comes from the left source while j + shift < 8 and
-	; from the right after that. .pfo_blank_text ANDs these over "left source
-	; present" (bit 0) and "right source present" (bit 1) to decide whether the
-	; text under each half has to be blanked. At the half-cell shift of 4 this
-	; is the plain one-source-each split; off it, one text cell straddles both.
-	lda #1					; the left source always reaches the left text cell
-	ldx .pic_shift
-	cpx #5
-	bcc +
-	ora #2					; shift >= 5: the right source reaches it too
-+	sta .bd_lmask
-	lda #2					; the right source always reaches the right one
-	cpx #4
-	bcs +
-	ora #1					; shift <= 3: so does the left source
-+	sta .bd_rmask
-	rts
-
-.dp_odd_fits
-	; The odd path bakes up to (cw+1)*ch boundary tiles above the picture's own
-	; copied run (pic_next_tile is now just past it). If they would run off the
-	; end of the 1024-tile store they must not wrap - that would overwrite the
-	; source tiles the bake reads and the frame under the picture - so a picture
-	; too big for a boundary redraw falls back to even placement, which reuses
-	; the copied tiles at the rounded column (an 8px shift, invisible on the
-	; full-screen frames that hit this). Small centred scenes fit and stay exact.
-	lda #0
+.pic_gen_size
+	; .gen_mw / .gen_mh: the map cells the picture covers, one more than its own
+	; art cells on an axis it is shifted along. .pic_ntiles becomes that product
+	; - the run .pic_alloc must reserve, since every covered cell is generated
+	; into a tile of its own - while .pic_ftiles keeps the file's own count for
+	; .pic_scan_used. On the tile grid nothing is generated and the reservation
+	; stays the file's count.
+	lda .pic_cw
+	sta .gen_mw
+	lda .pic_ch
+	sta .gen_mh
+	lda .pic_shift
+	ora .pic_shift_y
+	beq .pgs_done
+	lda .pic_shift
+	beq +
+	inc .gen_mw
++	lda .pic_shift_y
+	beq +
+	inc .gen_mh
++	lda #0					; .pic_count = mw * mh
 	sta .pic_count
 	sta .pic_count + 1
-	ldx .pic_ch
-	beq .dof_done
-	lda .pic_cw
-	clc
-	adc #1					; cw + 1 boundary cells a row (<= 41, one byte)
-	sta .pic_tmp
+	ldx .gen_mh
+	beq .pgs_fits
 -	lda .pic_count
 	clc
-	adc .pic_tmp
+	adc .gen_mw
 	sta .pic_count
 	bcc +
 	inc .pic_count + 1
 +	dex
 	bne -
-	lda pic_next_tile		; pic_next_tile + (cw+1)*ch >= PIC_MAX_TILES ?
-	clc
-	adc .pic_count
-	lda pic_next_tile + 1
-	adc .pic_count + 1
-	cmp #>PIC_MAX_TILES		; the store's high byte; low byte is 0
-	bcc .dof_done			; sum's high byte < it: fits
-	lda #0
-	sta .pic_shift			; would overflow: snap to the tile grid instead
-.dof_done
+.pgs_fits
+	; A picture needing more cells than the whole store cannot be generated at
+	; all. That is only the full-screen ones (40x25 -> 1066 cells against 1023
+	; tiles), which every game draws at the origin and never shifts, so this
+	; falls back to the tile grid - an error of under half a text cell on a
+	; picture that covers the screen. tools/tilebudget.py has the numbers.
+	lda .pic_count + 1
+	cmp #>PIC_MAX_TILES		; the store's high byte; its low byte is zero
+	bcc .pgs_take
+	lda #0					; too big: snap to the grid and copy as usual
+	sta .pic_shift
+	sta .pic_shift_y
+	lda .pic_cw
+	sta .gen_mw
+	lda .pic_ch
+	sta .gen_mh
+	rts
+.pgs_take
+	lda .pic_count
+	sta .pic_ntiles
+	lda .pic_count + 1
+	sta .pic_ntiles + 1
+.pgs_done
 	rts
 
 ; ---------------------------------------------------------------------------
