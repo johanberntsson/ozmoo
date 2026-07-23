@@ -1,17 +1,29 @@
 Known bugs
 ----------
-DESIGN / MAJOR REFACTOR (IN PROGRESS on branch z6-pixel since 2026-07-23; phase 0
-DONE, phases 1-4 not started): switch the z6 screen model from CHARACTER units to
-PIXEL units. Below: the problem, two confirmed instances, the corrected geometry
-model, and a staged plan.
+DESIGN / MAJOR REFACTOR: DONE on branch z6-pixel, 2026-07-23/24 - the z6 screen
+model counts PIXEL units rather than CHARACTER units, and that is now the
+DEFAULT for v6 builds. -pu:0 reverts to character cells; the whole model is one
+build flag, Z6_PIXEL_UNITS, which make.rb pushes for v6.
+
+WHAT IT BOUGHT, all measured against sfrotz in the same coordinate space rather
+than eyeballed (details under phase 3 below):
+  Zork Zero's compass   13 physical pixels off  ->  1 (half an art pixel, the
+                                                    finest the screen can hold)
+  Shogun's left margin  3 columns off           ->  exact
+  Arthur's map          connectors 6 px short of the room boxes, and leaving
+                        them off-centre         ->  touching, on both axes
+The Shogun one was not on the list of known instances when this started, so
+assume there are others nobody has looked for.
 
 BRANCH: this work is on z6-pixel, branched from z6. z6 itself stays as it is,
-working, both to limit the risk and so the two models can be compared side by
-side when this is done. Nothing merges back until then, and z6 must keep
-building.
+working, so the two models can be compared side by side. Nothing merges back
+without Johan's say-so, and z6 must keep building.
 
-THE PROBLEM
-Ozmoo counts screen units in whole character cells: it reports the screen as
+Below: the problem, the two originally confirmed instances, the corrected
+geometry model, and the staged plan as it was carried out.
+
+THE PROBLEM (as it was; -pu:0 still behaves this way)
+Ozmoo counted screen units in whole character cells: it reports the screen as
 80x25 chars, font size (property 13) as 1x1, and picture_data in cells. This is a
 deliberate simplification ("a v6 unit is a character cell here and a real pixel
 in sfrotz" - see the unit bullet in CLAUDE.md and the sfrotz-visual-reference
