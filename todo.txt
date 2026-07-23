@@ -1,10 +1,14 @@
 Known bugs
 ----------
-DESIGN / MAJOR REFACTOR (planned, NOT started - July 2026): switch the z6 screen
-model from CHARACTER units to PIXEL units. This is a large, deliberate change to
-be scheduled later (Johan to discuss with a co-developer first); written down
-here so it can be picked up cold. Below: the problem, two confirmed instances,
-the corrected geometry model, and a staged plan.
+DESIGN / MAJOR REFACTOR (IN PROGRESS on branch z6-pixel since 2026-07-23; phase 0
+DONE, phases 1-4 not started): switch the z6 screen model from CHARACTER units to
+PIXEL units. Below: the problem, two confirmed instances, the corrected geometry
+model, and a staged plan.
+
+BRANCH: this work is on z6-pixel, branched from z6. z6 itself stays as it is,
+working, both to limit the risk and so the two models can be compared side by
+side when this is done. Nothing merges back until then, and z6 must keep
+building.
 
 THE PROBLEM
 Ozmoo counts screen units in whole character cells: it reports the screen as
@@ -80,15 +84,46 @@ SCOPE / CONTAINMENT
   remainder.
 
 STAGED PLAN (each phase independently useful / verifiable)
-Phase 0 - horizontal sub-cell blit (de-risk first, no reporting change):
-  Generalise the X16 odd-column boundary-tile bake (.pic_fill_cells_odd /
-  .pic_bake_boundary_buf) from a fixed half-cell (8 px) shift to an arbitrary
-  art-pixel (2-physical-px) horizontal offset, and let .pic_place_cursor carry a
-  sub-cell remainder. Test against a HARDCODED offset on zorkzero-pics-x16 (make
-  the compass line up) before any units change. Gate on picture size - every
-  boundary cell is a freshly baked, un-deduped tile (the same store pressure
-  behind the tile-store wrap bug), fine for a 45x40 overlay, not for a full
-  screen.
+Phase 0 - horizontal sub-cell blit (de-risk first, no reporting change): DONE
+  2026-07-23, commit "Pixel refactor phase 0: place X16 pictures at any art
+  pixel". The X16 boundary-tile bake takes an arbitrary art-pixel (2-physical-px)
+  horizontal offset instead of the fixed half-cell an odd text column asks for.
+  .pic_place_cursor computes .pic_px, the picture's left edge in 320-wide art
+  pixels (still just column * 4 - nothing reports pixels yet), and .pic_map_x
+  splits it into the first layer 0 map column and the bake's .pic_shift.
+  What phase 1 has to know about it:
+  - .pic_shift is 8 - (px mod 8), NOT px mod 8. The bake reads forward (buf byte
+    j is source byte j + shift), so a bigger shift moves the picture LEFT, while
+    a bigger remainder means it starts further right inside the tile. 4 is its
+    own complement, so the old half-cell case cannot tell the two conventions
+    apart - the inverted version rendered perfectly until an offset that was not
+    half a cell was tried. Do not "simplify" this.
+  - A boundary cell's two TEXT cells no longer take one source art cell each: at
+    any shift but 4 one of them straddles both. .pic_boundary_masks works that
+    out once per picture into .bd_lmask/.bd_rmask for .pfo_blank_text.
+  - .pic_gc's incoming rectangle now comes from .pic_lx/.pic_cw/.pic_shift; the
+    old text-column arithmetic only agreed at shifts 0 and 4.
+  - Testing: 'Z6_PIC_XSUB=n' in make.rb's $GENERALFLAGS (a flag entry may now
+    carry its own value) shifts every picture n art pixels, positive or
+    negative. testz6 draws picture 4 a second time at an odd column so the
+    boundary path runs without playing a commercial game to a scene. Verified by
+    dumping VRAM from x16 testz6 and rendering layer 0: no offset is
+    pixel-identical to the pre-refactor engine, odd column included, and
+    XSUB 1/2/3 move both the aligned and the odd-column picture exactly 2
+    physical pixels per art pixel with their colour runs intact - between the
+    two pictures that covers every shift 0..7.
+  Not done in phase 0, and still open: the plan called for gating on picture
+  size, because every boundary cell is a freshly baked un-deduped tile (the same
+  store pressure behind the tile-store wrap bug). The existing .dp_odd_fits
+  check still applies unchanged - a picture too big falls back to grid-aligned
+  placement - so a big picture degrades rather than corrupts, but nothing new
+  was added for the arbitrary-offset case, and the "accounting for baked tiles"
+  item further down this file is the proper fix.
+  Also not done: the compass was NOT made to line up. That was the plan's
+  suggested phase 0 test, but with the screen model still reporting cells the
+  game asks for a cell column, so the offset needed is not a sub-cell remainder
+  of the same number - it only becomes one once phase 1 flips the reporting.
+  The blit was verified against measured offsets on testz6 instead.
 Phase 1 - report pixel units behind a build flag (e.g. Z6_PIXEL_UNITS):
   Report 320x200 + font 4x8 + native picture_data as above. Convert pixel->cell at
   the boundary for the text engine (X/4, Y/8). get_cursor/set_cursor and the
@@ -109,7 +144,9 @@ Phase 4 - port the sub-cell blit to the MEGA65 engine (it has no boundary-tile
   mechanism today; add an equivalent bake path). More store headroom there
   (2048 tiles).
 
-OPEN QUESTIONS for the co-developer discussion:
+OPEN QUESTIONS (still open after phase 0 - none of them blocked it, but the
+first one is worth settling BEFORE phase 1, which is the step that re-derives
+every commercial game's layout):
 - Exactly what does sfrotz report for these games (screen units, font w/h)? Worth
   confirming empirically to be sure 320x200 / 4x8 matches, so coordinates are
   truly portable.
