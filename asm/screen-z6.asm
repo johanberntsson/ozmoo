@@ -6,6 +6,34 @@
 ;   +2 -> window_y + 1, bare -> s_screen_height
 ; - implementations/stubs for the z6 opcodes (draw_picture, move_window, ...)
 
+; --- the unit the screen model counts in -------------------------------------
+; Ozmoo has always counted in whole character cells: the header says the screen
+; is SCREEN_WIDTH x SCREEN_HEIGHT units and a character is 1 x 1, so a v6 game's
+; layout arithmetic happens in cells and every picture snaps to the cell grid.
+; Z6_PIXEL_UNITS reports the 320x200 art pixel space Infocom authored for
+; instead, with a character cell 320 / SCREEN_WIDTH pixels wide (4 at 80
+; columns, 8 at 40, where the art is not doubled) and 8 tall.
+;
+; The conversions are shifts, and both shifts are zero without the flag, so
+; every site below reduces to the code that was there. Text stays on the cell
+; grid - a game only ever moves the cursor in font-size steps - so the text
+; engine keeps counting cells and the opcodes convert at the boundary. Only
+; PICTURES carry the remainder, which is what the two picture engines can now
+; place (see .pic_place_cursor and todo.txt).
+!ifdef Z6_PIXEL_UNITS {
+	!if SCREEN_WIDTH = 80 {
+Z6_UNIT_W_SHIFT = 2
+	} else {
+Z6_UNIT_W_SHIFT = 3
+	}
+Z6_UNIT_H_SHIFT = 3
+} else {
+Z6_UNIT_W_SHIFT = 0
+Z6_UNIT_H_SHIFT = 0
+}
+Z6_UNIT_W = 1 << Z6_UNIT_W_SHIFT
+Z6_UNIT_H = 1 << Z6_UNIT_H_SHIFT
+
 ; screen update routines
 
 !macro init_screen_model {
@@ -438,7 +466,9 @@ z_ins_erase_picture
 	; Put the live cursor where the picture belongs. y and x are 1-based and
 	; relative to the current window; zero, or a missing operand, means "the
 	; cursor's own y or x" (see the draw_picture entry in the spec).
-	;
+!ifdef Z6_PIXEL_UNITS {
+	jmp .ppc_units
+}
 	jsr printchar_flush ; anything buffered belongs on screen first
 	jsr save_cursor
 	lda #0
@@ -473,10 +503,90 @@ z_ins_erase_picture
 +	lda window_x_cursor,y
 ++	sta .pic_x ; keep the absolute column: the picture blitter needs it too
 	jsr .pic_pixel_pos
+.ppc_placed
 	lda .pic_x
 	tay ; y = column
 	ldx .pic_y ; x = row
 	jmp set_cursor
+
+!ifdef Z6_PIXEL_UNITS {
+.ppc_units
+	; The same, with the operands read as ART PIXELS rather than cells. This is
+	; where the whole refactor pays off: the position keeps its sub-cell part
+	; all the way to the picture engine, which can now draw it (phases 0b/4).
+	; .pic_x / .pic_y are still derived, in cells, because the cursor and the
+	; "pic:N" note on the targets that draw no pictures live on the cell grid.
+	jsr printchar_flush
+	jsr save_cursor
+	ldy current_window
+	; --- the row: units, one byte, 0..199
+	lda #0
+	sta .pic_py + 1
+	ldx z_operand_count
+	cpx #2
+	bcc .ppcu_cursor_y
+	lda z_operand_value_low_arr + 1
+	ora z_operand_value_high_arr + 1
+	beq .ppcu_cursor_y		; 0 means "the cursor's own row"
+	lda z_operand_value_low_arr + 1
+	sec
+	sbc #1					; 1-based to 0-based, in units
+	pha
+	lda window_y,y
+	jsr cells_to_units_y	; the window's own top, in units
+	sta .pic_py
+	pla
+	clc
+	adc .pic_py
+	sta .pic_py
+	jmp .ppcu_column
+.ppcu_cursor_y
+	lda window_y_cursor,y
+	jsr cells_to_units_y
+	sta .pic_py
+.ppcu_column
+	; --- the column: units, a word, 0..319
+	lda #0
+	sta .pic_px
+	sta .pic_px + 1
+	ldx z_operand_count
+	cpx #3
+	bcc .ppcu_cursor_x
+	lda z_operand_value_low_arr + 2
+	ora z_operand_value_high_arr + 2
+	beq .ppcu_cursor_x
+	lda z_operand_value_low_arr + 2
+	sec
+	sbc #1
+	sta .pic_px
+	lda z_operand_value_high_arr + 2
+	sbc #0
+	sta .pic_px + 1
+	lda window_x,y
+	jsr cells_to_units_x	; a = low, x = high
+	clc
+	adc .pic_px
+	sta .pic_px
+	txa
+	adc .pic_px + 1
+	sta .pic_px + 1
+	jmp .ppcu_cells
+.ppcu_cursor_x
+	lda window_x_cursor,y
+	jsr cells_to_units_x
+	sta .pic_px
+	stx .pic_px + 1
+.ppcu_cells
+	; the cell the picture starts in, for the cursor and the note path
+	lda .pic_py
+	jsr units_to_cells_y
+	sta .pic_y
+	lda .pic_px
+	ldx .pic_px + 1
+	jsr units_to_cells_x
+	sta .pic_x
+	jmp .ppc_placed
+}
 
 .pic_pixel_pos
 	; .pic_px / .pic_py = the picture's top left corner in the 320x200 art pixel
@@ -597,6 +707,52 @@ z_ins_erase_picture
 .pic_x   !byte 0
 .pic_px  !byte 0,0 ; the same corner in 320x200 art pixels (see .pic_place_cursor)
 .pic_py  !byte 0,0
+
+!if Z6_UNIT_W_SHIFT > 0 {
+.unit_tmp !byte 0,0
+
+cells_to_units_x
+	; a = a column or a width in cells -> a,x = it in units, a word because
+	; 320 does not fit a byte. Only assembled with Z6_PIXEL_UNITS: without it a
+	; unit IS a cell and every caller is compiled out.
+	sta .unit_tmp
+	lda #0
+	sta .unit_tmp + 1
+!for .i, 1, Z6_UNIT_W_SHIFT {
+	asl .unit_tmp
+	rol .unit_tmp + 1
+}
+	lda .unit_tmp
+	ldx .unit_tmp + 1
+	rts
+
+units_to_cells_x
+	; a,x = a column or a width in units -> a = it in cells, rounded down. A
+	; game that asks for a text position between cells gets the cell it starts
+	; in; only pictures carry the remainder.
+	sta .unit_tmp
+	stx .unit_tmp + 1
+!for .i, 1, Z6_UNIT_W_SHIFT {
+	lsr .unit_tmp + 1
+	ror .unit_tmp
+}
+	lda .unit_tmp
+	rts
+
+cells_to_units_y
+	; a = a row or a height in cells -> a in units; 200 fits a byte
+	asl
+	asl
+	asl
+	rts
+
+units_to_cells_y
+	; a = a row or a height in units -> a in cells, rounded down
+	lsr
+	lsr
+	lsr
+	rts
+}
 .pic_num !byte 0,0
 .pic_rem !byte 0
 .pic_buf !byte 0,0,0,0,0 ; at most five digits
@@ -645,10 +801,22 @@ z_ins_set_margins
 	bcc +
 	ldx #2
 	jsr window_from_operand
-+	lda z_operand_value_low_arr
++
+!ifdef Z6_PIXEL_UNITS {
+	lda z_operand_value_low_arr
+	ldx z_operand_value_high_arr
+	jsr units_to_cells_x
+	sta window_left_margin,y
+	lda z_operand_value_low_arr + 1
+	ldx z_operand_value_high_arr + 1
+	jsr units_to_cells_x
+	sta window_right_margin,y
+} else {
+	lda z_operand_value_low_arr
 	sta window_left_margin,y
 	lda z_operand_value_low_arr + 1
 	sta window_right_margin,y
+}
 	; "If the cursor is overtaken and now lies outside the margins
 	; altogether, move it back to the left margin of the current line."
 	sty .sm_window
@@ -698,6 +866,35 @@ z_ins_move_window
 }
 	ldx #0
 	jsr window_from_operand
+!ifdef Z6_PIXEL_UNITS {
+	; y and x are 1-based positions in units. A zero means the same as a one -
+	; the top or left edge - so it must still be stored, not skipped.
+	lda z_operand_value_low_arr + 1
+	beq .mw_row_zero
+	sec
+	sbc #1					; 1-based units to 0-based
+	jsr units_to_cells_y
+.mw_row_zero
+	sta window_y,y
+	sta window_y_cursor,y
+	lda z_operand_value_low_arr + 2
+	ldx z_operand_value_high_arr + 2
+	bne .mw_col			; a column of 256 or more is certainly not zero
+	cmp #0
+	beq .mw_col_zero
+.mw_col
+	sec
+	sbc #1					; the word minus one, borrowing into the high byte
+	bcs +
+	dex
++	jsr units_to_cells_x
+	jmp .mw_store_col
+.mw_col_zero
+	lda #0
+.mw_store_col
+	sta window_x,y
+	sta window_x_cursor,y
+} else {
 	ldx z_operand_value_low_arr + 1
 	beq +
 	dex ; z-machine uses 1-based coordinates, we use 0-based
@@ -710,6 +907,7 @@ z_ins_move_window
 +	txa
 	sta window_x,y
 	sta window_x_cursor,y
+}
 	cpy current_window
 	bne +
 	jsr restore_cursor ; the current window moved: update the live cursor
@@ -728,10 +926,20 @@ z_ins_window_size
 }
 	ldx #0
 	jsr window_from_operand
+!ifdef Z6_PIXEL_UNITS {
+	lda z_operand_value_low_arr + 1		; a height in units
+	jsr units_to_cells_y
+	sta window_y_size,y
+	lda z_operand_value_low_arr + 2		; a width in units, a word
+	ldx z_operand_value_high_arr + 2
+	jsr units_to_cells_x
+	sta window_x_size,y
+} else {
 	lda z_operand_value_low_arr + 1
 	sta window_y_size,y
 	lda z_operand_value_low_arr + 2
 	sta window_x_size,y
+}
 	rts
  
 z_ins_window_style
@@ -802,11 +1010,12 @@ z_ins_get_wind_prop
 	bne +
 	; Property 13 is the font size: height in the high byte, width in the low
 	; one. It is the only property that is a real word, so it cannot live in
-	; the byte-per-window arrays below. The header tells the game a character
-	; is one unit wide and one unit high, so the answer is always 1,1.
-	; Arthur takes the height from here and divides by it, so a zero is fatal.
-	lda #1
-	ldx #1
+	; the byte-per-window arrays below. It must agree with what the header
+	; says a unit is - a character cell without Z6_PIXEL_UNITS, an art pixel
+	; with it. Arthur takes the height from here and divides by it, so a zero
+	; is fatal, and both are non-zero either way.
+	lda #Z6_UNIT_H
+	ldx #Z6_UNIT_W
 !ifdef DEBUG_SCREENLOG {
 	jsr screenlog_extra
 }
@@ -830,11 +1039,15 @@ z_ins_get_wind_prop
 	cmp #2
 	bcs +
 	inx ; property 0/1 (y/x position): 1-based
-	bne .gwp_store ; Always branch
+	bne .gwp_scale ; Always branch
 +	cmp #4
 	beq .gwp_cursor_y
 	cmp #5
 	beq .gwp_cursor_x
+!if Z6_UNIT_W_SHIFT > 0 {
+	cmp #8
+	bcc .gwp_scale ; 2/3 are sizes and 6/7 margins: counts, so no 1-based bias
+}
 	cmp #11
 	bne +
 	; property 11 is the colour pair (8.8.3.2.4): the background in the
@@ -873,7 +1086,7 @@ z_ins_get_wind_prop
 	sbc window_x,y
 	tax
 	inx
-	bne .gwp_store ; Always branch
+	bne .gwp_scale ; Always branch
 .gwp_cursor_y
 	; property 4 (y cursor): stored absolute, return window-relative 1-based;
 	; live in zp for the current window, as above
@@ -885,6 +1098,33 @@ z_ins_get_wind_prop
 	sbc window_y,y
 	tax
 	inx
+.gwp_scale
+	; Properties 0-7 are positions, sizes and margins, all in units: they are
+	; kept in cells, so scale on the way out. Which axis a property counts
+	; along alternates - 0 y, 1 x, 2 y size, 3 x size, 4 y cursor, 5 x cursor,
+	; 6 and 7 margins, which are horizontal - so bit 0 picks it, except for the
+	; two margins, which are both across.
+!if Z6_UNIT_W_SHIFT > 0 {
+	lda z_operand_value_low_arr + 1
+	cmp #6
+	bcs .gwp_across			; 6 and 7: both margins are horizontal
+	and #1
+	bne .gwp_across
+	txa					; a y coordinate, size or cursor row
+	jsr cells_to_units_y
+	tax
+	jmp .gwp_store		; 'bra' would do, but this file builds for the 6510 too
+.gwp_across
+	txa
+	jsr cells_to_units_x	; a = low, x = high; a column can pass 255
+	tay
+	txa
+	pha
+	tya
+	tax
+	pla
+	jmp .gwp_store_high_in_a
+}
 .gwp_store
 	lda #0
 .gwp_store_high_in_a

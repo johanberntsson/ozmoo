@@ -1296,16 +1296,36 @@ calc_z6_z7_offsets
 }
 
 !ifdef Z4PLUS {
+!ifdef Z6_PIXEL_UNITS {
+.hdr_units_x
+	; a = the width in columns -> the header's width in units, a word: at 80
+	; columns 320 does not fit a byte, which is the whole reason the screen
+	; model needed 16-bit coordinates.
+	jsr cells_to_units_x	; a = low, x = high
+	pha
+	txa
+	tay
+	pla
+	tax						; write_header_word wants a = high, x = low
+	tya
+	ldy #header_screen_width_units
+	jmp write_header_word
+}
+
 !ifdef TARGET_C128 {
 update_screen_width_in_header
 	lda s_screen_width
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
+!ifdef Z6_PIXEL_UNITS {
+	jsr .hdr_units_x
+} else {
 	ldy #header_screen_width_units
 	tax
 	lda #0
 	jsr write_header_word
+}
 }
 	rts
 } else ifdef TARGET_X16 {
@@ -1314,19 +1334,30 @@ update_screen_width_in_header
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
+!ifdef Z6_PIXEL_UNITS {
+	jsr .hdr_units_x
+} else {
 	ldy #header_screen_width_units
 	tax
 	lda #0
 	jsr write_header_word
 }
+}
 	lda s_screen_height
 	ldy #header_screen_height_lines
 	jsr write_header_byte
 !ifdef Z5PLUS {
+!ifdef Z6_PIXEL_UNITS {
+	jsr cells_to_units_y	; rows -> art pixel rows; 200 still fits a byte
+	tax
+	lda #0
+	jsr write_header_word
+} else {
 	ldy #header_screen_height_units
 	tax
 	lda #0
 	jsr write_header_word
+}
 }
 	rts
 }
@@ -1872,10 +1903,18 @@ z_init
 	ldy #header_screen_height_lines
 	jsr write_header_byte
 !ifdef Z5PLUS {
+!ifdef Z6_PIXEL_UNITS {
+	lda #<(25 * Z6_UNIT_H)	; 200 art pixel rows
+	tax
+	lda #>(25 * Z6_UNIT_H)
+	ldy #header_screen_height_units
+	jsr write_header_word
+} else {
 	ldy #header_screen_height_units
 	tax
 	lda #0
 	jsr write_header_word
+}
 }
 !ifdef TARGET_C128 {
 	jsr update_screen_width_in_header
@@ -1886,10 +1925,18 @@ z_init
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
+!ifdef Z6_PIXEL_UNITS {
+	lda #<(SCREEN_WIDTH * Z6_UNIT_W)	; 320 art pixels across
+	tax
+	lda #>(SCREEN_WIDTH * Z6_UNIT_W)
+	ldy #header_screen_width_units
+	jsr write_header_word
+} else {
 	ldy #header_screen_width_units
 	tax
 	lda #0
 	jsr write_header_word
+}
 }
 } ; End not TARGET_C128
 } ; End Z4PLUS
@@ -1899,11 +1946,23 @@ z_init
 	jsr write_header_word
 
 !ifdef Z5PLUS {
+!ifdef Z6_PIXEL_UNITS {
+	; BEWARE the v6 swap: byte $26 is the font HEIGHT and $27 the WIDTH, the
+	; other way round from v5, which is what the constant names describe. It
+	; has never mattered because both were 1; it matters the moment they differ.
+	lda #Z6_UNIT_H
+	ldy #header_font_width_units	; $26 - the HEIGHT in v6
+	jsr write_header_byte
+	lda #Z6_UNIT_W
+	ldy #header_font_height_units	; $27 - the WIDTH in v6
+	jsr write_header_byte
+} else {
 	lda #1
 	ldy #header_font_width_units
 	jsr write_header_byte
 	ldy #header_font_height_units
 	jsr write_header_byte
+}
 	; TODO: Store default background and foreground colour in 2c, 2d (or comply to game's wish?)
 	
 	; Copy alphabet pointer from header, or default
