@@ -197,10 +197,39 @@ Phase 0b - SUB-CELL PLACEMENT ON BOTH AXES, generated from staging: DONE
   right but now applies on two axes - worth a look when phase 1 makes real
   offsets appear.
 
-Phase 1 - report pixel units behind a build flag (e.g. Z6_PIXEL_UNITS):
-  Report 320x200 + font 4x8 + native picture_data as above. Convert pixel->cell at
-  the boundary for the text engine (X/4, Y/8). get_cursor/set_cursor and the
-  window position/size properties in pixels. Header dims in pixels.
+Phase 1 - report pixel units behind a build flag: STARTED 2026-07-23, PART DONE,
+  commit "Phase 1, part 1: report art pixels behind Z6_PIXEL_UNITS". The flag is
+  Z6_PIXEL_UNITS; Z6_UNIT_W / Z6_UNIT_H (screen-z6.asm) are a character cell in
+  art pixels, 4x8 at 80 columns and 8x8 at 40 where the art is not doubled, and
+  both are 1 without the flag so every converted site compiles back to what was
+  there. The x conversions are 16-bit: 320 does not fit a byte. Text stays on the
+  cell grid, so the text engine keeps counting cells and the opcodes convert at
+  the boundary; only pictures carry the remainder.
+  DONE: the header ($22/$24 -> 320x200 and $26/$27 -> 8x4, at all three write
+  sites including the C128/X16 run-time ones); get_wind_prop property 13 and
+  properties 0-7; .pic_place_cursor, so draw_picture and erase_picture keep the
+  sub-cell part all the way to .pic_px/.pic_py - the payoff phases 0b and 4 built
+  the engines for; move_window; window_size; set_margins.
+  NOT DONE, and the flag build is NOT usable until they are:
+    - put_wind_prop, the inverse of get_wind_prop's properties 0-7
+    - set_cursor and get_cursor (set_cursor's column is a SIGNED word with an
+      existing clamp - see the Shogun note below; the clamp has to survive)
+    - erase_line (value-1 units -> cells) and scroll_window (pixels -> rows)
+    - the mouse: the header extension coordinates and read_mouse
+    - picture_data, which needs work in pics2asm.py first: the pic_width /
+      pic_height tables it emits, and the MEGA65 file header it writes, are in
+      whole TEXT CELLS. Reporting cells * 4 is not the same as reporting native
+      pixels - Zork Zero's compass overlay is 45x40 and would round to 48x40,
+      which is exactly the snapping the refactor exists to remove. The Rect
+      placeholder sizes need the same treatment.
+  The flag is off by default and the default build was verified BYTE IDENTICAL
+  to the previous commit (assembled x16 testz6 PRG), so the partial state cannot
+  affect a shipped build. That check is worth repeating on every later part.
+  Verification to do once the rest is converted: hdrprobe-style test game to read
+  the reported header back, then Arthur's F2 map (the lattice arithmetic at the
+  top of this file predicts boxes at 18-unit spacing with 5-unit connectors),
+  then Zork Zero's compass, then re-check Journey and Shogun, which look
+  unrelated and are not.
 Phase 2 - coordinate state:
   Decide how much internal state becomes 2-byte pixel. Recommended middle ground:
   a 2-byte pixel cursor X plus the picture layer in pixels; keep wrapping/scroll
