@@ -307,9 +307,36 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   the flag, and check the build log says so.
 
   BOTH CONFIRMED INSTANCES AT THE TOP OF THIS FILE ARE NOW FIXED AND MEASURED.
-  STILL TO DO: testz6, Journey and Shogun have not been run with the flag at
-  all, and the full target matrix has not been re-verified per game as this
-  phase's plan asks. Also worth doing before the flag becomes the default, from
+
+  THE OTHER GAMES, run on x16 -pics with the flag on and compared against the
+  same drive with it off:
+  - SHOGUN boots, plays and renders cleanly. This was the one to watch: its
+    credits centre with set_cursor row, (width - measured) / 2 + 1 and once
+    printed through the 6502 stack from a negative column, and phase 1 changed
+    that clamp. No crash, no garbage. Its text column and wrap differ (the
+    margins are units now), which is expected; which of the two is RIGHT is not
+    established - it wants an sfrotz comparison of the same screen.
+  - JOURNEY's title screen and command-menu header are the same in both, with
+    the centred lines landing within one column. Fine.
+  - TESTZ6 runs and draws, but its pictures land somewhere else, and that is
+    the test game's fault rather than the interpreter's: testz6.inf passes CELL
+    coordinates (@draw_picture 4 1 1 means row 1 column 1), which under the
+    pixel model means art pixel (1,1). When the flag becomes the default,
+    testz6 needs its coordinates rewritten in units - or a second test that
+    covers both - or it stops being a regression check.
+
+  FIXED along the way: building a z3/z5 game with the flag left on failed to
+  assemble at all, because $GENERALFLAGS is global and ozmoo.asm reached for
+  constants that only exist in screen-z6.asm. ozmoo.asm now keys off Z6_PIXELS,
+  derived only when Z6 is defined. Nothing but running the whole matrix WITH
+  THE FLAG ON would have found that, so do that on every later change.
+
+  STILL TO DO: the per-game matrix re-verification this phase's plan asks for
+  (the matrix has been run whole with the flag on and off, which is not the
+  same as re-verifying it per game as each is brought over), and an sfrotz
+  comparison for Shogun's opening screen to settle whether its new margins are
+  right. Phase 2 (how much internal state becomes 2-byte pixel) has not been
+  needed by anything so far. Also worth doing before the flag becomes the default, from
   what the ring showed: six of the map's seven other draws are GENERATED under
   the pixel model where they were copied before, each taking a fresh tile run
   AND a fresh palette bank. There are only 14 banks. Reusing a picture's bank
