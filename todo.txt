@@ -32,12 +32,27 @@ shared screen-z6 layer, not the target picture engines):
    320x34 pic 5 at (1,1) and lands identically in both): sfrotz +5.5, x16 +10.5 =
    ~5 px = ~0.6 cell. Reproduce on zorkzero-pics-x16; the compass draws at boot.
 2. Arthur online map (press F2 in game; z6games/arthur-map-{sfrotz,x16}.png).
-   FUNCTIONAL, not just cosmetic: the room boxes are placed at n x
-   picture-measured spacing and the connecting line segments at half-steps, so
-   with cell snapping the boxes and connectors land on inconsistent cells and the
-   connectors no longer touch the boxes - the map graph reads as broken. Same root
-   cause as (1) but it degrades a real feature, which is what tips this from
-   "cosmetic, leave it" to "worth the refactor".
+   FUNCTIONAL, not just cosmetic: the room boxes and the connecting segments no
+   longer touch, and the map graph reads as broken. Same root cause as (1) but it
+   degrades a real feature, which is what tips this from "cosmetic, leave it" to
+   "worth the refactor".
+   The exact arithmetic, read off txd (routines 187ec / 1892c / 18da4 / 18e68 and
+   the helpers 18c10 / 18c20) and confirmed by measuring the sfrotz screenshot:
+     spacing = picture 107's size   (18 x 18 units, native)
+     offset  = picture 105's size   (5 x 5)
+     box     = picture 106 or 108   (13 x 13; 13 + 5 = 18 exactly)
+     y = (row - 1) * 18 + 1 + 5,  x = (col - 1) * 18 + 1 + 5
+   for BOTH the boxes and the connector segments - they share one lattice. NOTE
+   this corrects an earlier description here: there are NO half-steps. There is
+   no division by 2 anywhere in the map's coordinate arithmetic (every DIV in
+   that code is table-record arithmetic, or the /2 that centres the "Mapping is
+   not available for this area." message). So there is no odd/even parity
+   hazard, and nothing here needs finer than one unit.
+   What actually breaks it today is that picture_data is CELL-ROUNDED: the game
+   is told the 18-unit spacing is 2 or 3 cells, the 13-unit box is 2 cells and
+   the 5-unit connector is 1 cell, so it lays a 24-px lattice under 13-px box
+   art and 5-px connector art. The error accumulates along each row and column,
+   which is why the connectors drift off the boxes.
 
 CORRECTED GEOMETRY MODEL (settled in discussion)
 - Infocom authored these v6 games for a 320x200 PIXEL space. sfrotz's window is
@@ -57,10 +72,18 @@ CORRECTED GEOMETRY MODEL (settled in discussion)
       (write once, place identically on Ozmoo and sfrotz).
 - Nice consequence of 320x200 (vs the 640x400 first floated in discussion):
   VERTICALLY Ozmoo is already native. The framebuffer is 640x200, so 200 units ->
-  200 rows, 1:1 - no vertical scaling, no vertical precision loss. ALL the
-  doubling, and therefore all the sub-cell placement work, is HORIZONTAL ONLY. One
-  native X pixel = 2 framebuffer px, which is exactly sfrotz's own granularity
-  (1 source px = 2 display px), so matching it is exact, not approximate.
+  200 rows, 1:1 - no vertical SCALING, no vertical precision loss. One native X
+  pixel = 2 framebuffer px, which is exactly sfrotz's own granularity (1 source
+  px = 2 display px), so matching it is exact, not approximate.
+  CORRECTION (2026-07-23): this bullet used to go on to conclude that all the
+  sub-cell placement work is therefore HORIZONTAL ONLY. That is wrong, and it
+  cost phase 0 half its usefulness. No vertical scaling does NOT mean no
+  vertical sub-cell placement: the scale is 1:1, but the placement GRID is still
+  a cell, 8 pixel rows tall, on both picture engines. A picture asked for at
+  y = 6 needs to start 6 pixel rows into a cell, which neither engine can do.
+  Arthur's map needs exactly that - see instance 2 below, whose 18-unit lattice
+  puts rows at y = 6, 24, 42, 60, 78, ... i.e. 6, 0, 2, 4 mod 8. So sub-cell
+  placement is needed on BOTH axes; see phase 0b in the staged plan.
 - SEPARATE issue, do NOT conflate with the above: the framebuffer is 640x200, so
   a picture is doubled horizontally but not vertically and comes out ~2x
   wide/squat vs sfrotz's square doubling (measured on Arthur's rose: W/H ~1.3 on
@@ -124,6 +147,25 @@ Phase 0 - horizontal sub-cell blit (de-risk first, no reporting change): DONE
   game asks for a cell column, so the offset needed is not a sub-cell remainder
   of the same number - it only becomes one once phase 1 flips the reporting.
   The blit was verified against measured offsets on testz6 instead.
+Phase 0b - VERTICAL sub-cell blit (added 2026-07-23; not started). The mirror of
+  phase 0 on the other axis, and it is not optional: Arthur's map lattice is 18
+  units, so most of its rows land 2, 4 or 6 pixel rows into a cell, and with
+  vertical snapping the boxes and connectors detach again - the very thing the
+  refactor is for. Both engines place a picture on whole cell rows today
+  (.pic_y is a screen row), so both need the equivalent of the boundary bake
+  worked down the other axis: a cell showing the bottom of one art row band
+  above the top of the next.
+  Costs more than phase 0 did. On the X16 a boundary tile already costs one
+  freshly baked un-deduped tile per cell; doing it on both axes at once means
+  every cell of the picture is baked, (cw+1) * (ch+1) of them, against a
+  1024-tile store - so the .dp_odd_fits gate matters much more, and the
+  "accounting for baked tiles" item below stops being optional. The MEGA65 has
+  2048 tiles and no bake path at all yet (phase 4).
+  Cheaper alternative worth costing first: vertical shifting does not need a
+  bake at all if the tile data is re-read from the staging area at a row offset,
+  since a tile's rows are just bytes - the staging-read follow-up already listed
+  below would give this for free, and would also halve phase 0's horizontal
+  cost. Do that measurement before writing a second bake path.
 Phase 1 - report pixel units behind a build flag (e.g. Z6_PIXEL_UNITS):
   Report 320x200 + font 4x8 + native picture_data as above. Convert pixel->cell at
   the boundary for the text engine (X/4, Y/8). get_cursor/set_cursor and the
@@ -197,6 +239,12 @@ and cross-checked against its source.
   target itself may still be the right one, but it has to be chosen on its own
   merits now. The two candidates:
 
+  DECIDED 2026-07-23 (Johan): report 320x200 - option A. There is no reason to
+  copy sfrotz's 640x400; that is just a display scaling, and A is the only one
+  exactly reachable on Ozmoo's own grid. The parity worry that option B was
+  hedging against turned out not to exist - Arthur's map has no half-steps at
+  all (see instance 2), so nothing wanted the finer numbers.
+
   A. 320x200, font 4x8, native picture_data (the plan as written).
      + Matches Ozmoo's own grid exactly: 1 unit X = 2 physical px (one art
        pixel, the placement granularity phase 0 just built), 1 unit Y = 1 row.
@@ -215,9 +263,8 @@ and cross-checked against its source.
        unrepresentable. NOTE this costs no real precision - the achievable
        granularity is 2 physical px across and 1 row down either way - so B
        buys nothing but bigger numbers and rounding.
-     Worth checking before deciding: whether Arthur's F2 map half-steps come
-     out odd in 640-space, since that is the one place a lost odd unit could
-     show.
+     (This was the option the "check Arthur's F2 map half-steps" question was
+     about. Answered: there are no half-steps, so B had nothing to buy.)
 
   TRAP for whichever is chosen: in v6 header byte $26 is the font HEIGHT and
   $27 the font WIDTH - swapped from v5. constants-header.asm names them the v5
