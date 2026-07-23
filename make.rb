@@ -107,8 +107,10 @@ $GENERALFLAGS = [
 #	                 # covered, tile slot, next tile, position) and the last
 #	                 # generated draw in dbg_gen
 #	'Z6_PIXEL_UNITS', # v6: report the 320x200 art pixel space Infocom authored
-#	                  # for, instead of counting whole character cells. See
-#	                  # todo.txt; not finished, do not ship.
+#	                  # for, instead of counting whole character cells. ON BY
+#	                  # DEFAULT for v6 now - this entry only forces it on for a
+#	                  # non-v6 build, which does nothing. Use -pu:0 to turn it
+#	                  # off.
 #	'Z6_PIC_XSUB=2', # v6: shift every picture this many art pixels sideways, and
 #	'Z6_PIC_YSUB=2', # this many pixel rows down; either may be negative. An art
 #	                 # pixel is 1/320th of the screen width (2 physical pixels)
@@ -2524,7 +2526,7 @@ end
 def print_usage
 	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
-	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-sl[:0|1]] [-vo[:0|1]] [-s] " 
+	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-pu[:0|1]] [-sl[:0|1]] [-vo[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-um[:0|1]] [-in:[n]]"
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-fgcol:<colourname>] [-bgcol:<colourname>] [-bordercol:<colourname>]"
@@ -2546,6 +2548,8 @@ def print_usage
 	puts "  -cf: read preload config (see -c) + fill up with best-guess vmem blocks"
 	puts "  -bm: Build interpreter in Benchmark Mode. There must be a valid walkthrough in benchmarks.json."
 	puts "  -sp: Use the specified number of pages for stack (2-64, default is 4)."	
+	puts "  -pu: v6 screen units. Default is art pixels (320x200), as the games expect;"
+	puts "       -pu:0 counts whole character cells instead, rounding pictures to the grid."
 	puts "  -re: Perform all checks for runtime errors, making code slightly bigger and slower."
 	puts "  -sl: Remove some optimizations for speed. This saves ~100 bytes smaller."
 	puts "  -vo: Continuous virtual memory optimization (C64/C128 only). Enabled by defult. Disabling saves ~500 bytes."
@@ -2661,6 +2665,7 @@ $scrollback_ram_pages = nil
 $delete_zip_files = nil
 reserve_dir_track = nil
 check_errors = nil
+pixel_units = nil
 dark_mode = nil
 smooth_scroll = nil
 ecm_mode = nil
@@ -2841,6 +2846,12 @@ begin
 			$cursor_shape = $1
 		elsif arg =~ /^-cb:([1-9]|[1-9][0-9])$/ then
 			$cursor_blink = $1
+		elsif arg =~ /^-pu(?::([0-1]))?$/ then
+			if $1 == nil
+				pixel_units = 1
+			else
+				pixel_units = $1.to_i
+			end
 		elsif arg =~ /^-re(?::([0-1]))?$/ then
 			if $1 == nil
 				check_errors = 1
@@ -3432,6 +3443,13 @@ if x_for_examine == 1
 end	
 
 if $zcode_version == 6
+	# The v6 screen model counts in the 320x200 art pixels Infocom authored
+	# for, which is what the games' own layout arithmetic assumes: it is what
+	# puts Zork Zero's compass and Shogun's margins where the reference
+	# interpreter puts them, and what makes Arthur's map connectors meet its
+	# room boxes. -pu:0 goes back to counting whole character cells, which
+	# rounds every picture to the cell grid. See todo.txt.
+	$GENERALFLAGS.push('Z6_PIXEL_UNITS') unless $GENERALFLAGS.include?('Z6_PIXEL_UNITS')
 	# Dark mode doesn't work well in z6 games, so it is off by default and
 	# can't be enabled.
 	if dark_mode == 1
@@ -3441,6 +3459,15 @@ if $zcode_version == 6
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
 elsif dark_mode == 0
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
+end
+
+# -pu overrides the v6 default above, so it has to come after it. Putting it
+# with the other flag overrides further up did not work: the push had not
+# happened yet and the delete did nothing.
+if pixel_units == 0
+	$GENERALFLAGS.delete('Z6_PIXEL_UNITS') if $GENERALFLAGS.include?('Z6_PIXEL_UNITS')
+elsif pixel_units == 1
+	$GENERALFLAGS.push('Z6_PIXEL_UNITS') unless $GENERALFLAGS.include?('Z6_PIXEL_UNITS')
 end
 
 if smooth_scroll == 1
@@ -3486,14 +3513,14 @@ if picture_dir
 	# Z6_PIXEL_UNITS reports picture_data in native art pixels, which needs two
 	# more tables in the index; without the flag the generated pictures.asm is
 	# unchanged, so a normal build is unaffected.
-	pixel_units = $GENERALFLAGS.any? { |f| f.split('=').first == 'Z6_PIXEL_UNITS' } ?
-	              ['--pixel-units'] : []
+	px_arg = $GENERALFLAGS.any? { |f| f.split('=').first == 'Z6_PIXEL_UNITS' } ?
+	         ['--pixel-units'] : []
 	if $target == 'x16'
 		# The X16 draws pictures on a VERA tile layer behind the text and
 		# loads each from SD on demand: uncompressed loose files in the game
 		# directory, no picture disks. One 16x8-pixel tile per logical cell.
 		unless system($executables['PYTHON'], File.join(__dir__, 'tools', 'pics2asm.py'),
-		              '--x16', *pixel_units, $TEMPDIR, picture_dir)
+		              '--x16', *px_arg, $TEMPDIR, picture_dir)
 			puts "ERROR: -pics: tools/pics2asm.py failed."
 			exit 1
 		end
@@ -3509,7 +3536,7 @@ if picture_dir
 		# interpreter decrunches them into attic at boot, so pics2asm needs the
 		# cruncher.
 		unless system($executables['PYTHON'], File.join(__dir__, 'tools', 'pics2asm.py'),
-		              '--fcm-width', fcm_width.to_s, *pixel_units,
+		              '--fcm-width', fcm_width.to_s, *px_arg,
 		              '--exomizer', $executables['EXOMIZER'],
 		              $TEMPDIR, picture_dir, pic_disk_blocks.to_s, pic_disk_files.to_s)
 			puts "ERROR: -pics: tools/pics2asm.py failed."
