@@ -270,56 +270,32 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   status line, one column left of the cell build, which is the sub-cell
   precision landing.
 
-  ARTHUR'S F2 MAP (instance 2): REGRESSED - the map's paper background renders
-  BLACK except for small patches around the room box, the connector and the
-  compass. It is correct in the cell build. What is known so far, from the VRAM
-  dump:
-    - It is NOT that the picture is missing: layer 0 rows 0-11 are fully
-      populated with tiles in both builds (480 cells vs 492).
-    - It is NOT tile-store exhaustion in the obvious sense: all 1023 tiles are
-      non-blank in both.
-    - The paper's tiles render transparent, so the generated tiles are mostly
-      zero pixels. The patches that DO show paper are exactly the cells another
-      picture was composited over - which is what compositing does, so the
-      paper's pixels were available at that moment.
-    - The palette banks differ between the builds (bank 9/10 hold the paper's
-      colours in the cell build and a copy of banks 7/8 in the pixel build),
-      but bank 10 index 1 is white there, not black, so that alone does not
-      explain it.
-  DIAGNOSED 2026-07-23 with DEBUG_PIC_GEN's new dbg_ring (every draw, not just
-  the last). It is NOT the generator and NOT the tile store. The paper is
-  picture 137, 320x96 px = 40x12 art cells, and the ring shows it drawn with a
-  shift of 0,0 - so it goes down the COPIED path, exactly as in the cell build,
-  19 tiles at slot 704, palette bank 10. The difference is in the tile
-  contents, compared cell for cell at (5,20):
-      cell units   tile 654, bank  4, pixel values $22 and $33
-                   -> palette 2 = #fc8 and 3 = #a40, the paper
-      pixel units  tile 711, bank 10, pixel value $88 throughout
-                   -> palette 8 = #000, black
-  A uniform $88 is the doubled form of palette index 8, and index 8 is what
-  .pic_compute_bg_index INJECTS: the cell is entirely background fill, meaning
-  its source art read as fully transparent, and the injected entry is black
-  rather than the screen background. Bank 10 holds real colours only in 0..7;
-  8..15 are all zero.
-  So the question to answer next is why that cell is transparent under the
-  pixel model when it has art under the cell model - the picture, its position
-  (lx 0, y 0, full width, top 12 rows) and its path are all the same. Suspects,
-  in order: x16_screen_bg / .pic_compute_bg_index picking index 8 and writing
-  black into it; and pic_used, which decides which index is free, being wrong
-  for this draw. Both are on the copied path, which phases 0b and 4 did not
-  touch, so this is most likely phase 1 changing WHEN things are drawn rather
-  than how.
-  Ruled out along the way, so do not re-run these: the picture is drawn (rows
-  0-11 fully populated, 492 cells), the tiles exist (all 1023 non-blank in both
-  builds), and it is not the generator (this draw is not generated).
-  Still worth knowing for later: under the pixel model almost every OTHER
-  picture is off-grid and therefore generated rather than copied - the ring
-  shows six of the seven map draws generated, each taking a fresh run and a
-  fresh palette bank. tilebudget.py costed one picture at a time, not a
-  screenful, so both the store and the 14 palette banks are under much more
-  pressure than that analysis suggested. The runtime dedup recorded as
-  "headroom, nothing needs it" in phase 0b, and reusing a picture's palette
-  bank when only its placement changed, are both worth doing.
+  ARTHUR'S F2 MAP (instance 2): FIXED. This entry previously said REGRESSED,
+  with a diagnosis attached; both were WRONG, and the reason is worth keeping.
+  The capture behind them was taken while the map was being REDRAWN - the drive
+  script pressed F2 twice, and the dump caught the screen with a later picture
+  part-way through loading its palette into bank 10. The paper's cells still
+  pointed at bank 10, so they rendered against a half-loaded palette and came
+  out black. Nothing was wrong with the interpreter. A mid-redraw dump looks
+  exactly like a real rendering bug and the tell is a palette bank holding
+  another picture's colours in 0..7 and zeros above; check the bank a suspect
+  cell uses before believing what it renders as.
+  With a clean capture (F2 once) the map is correct, and it is BETTER than the
+  cell build in exactly the way instance 2 predicted. Measured on the scan line
+  through the room box, which is 13 art pixels = 26 physical across in both:
+      cell units    box x 288..313, connector run (320, 329) at y=42
+                    -> a 6 px (3 art pixel) GAP, and the connector leaves the
+                       box below its centre (box y 32..44, centre 38)
+      pixel units   box x 214..239, connector run (238, 249) at y=29
+                    -> the connector MERGES with the box's right border, gap 0,
+                       and leaves it at the exact vertical centre (box y 23..35)
+  So the connectors touch the boxes now, on both axes. That is the functional
+  breakage this whole refactor was for.
+  The ring diff also settled the other question it was run for: the two builds
+  issue the SAME 16 draws in the same order, so the game is not choosing
+  different pictures - only their positions differ. The paper (picture 137,
+  40x12 art cells) is drawn with no shift at all in both, down the copied path,
+  and its 19 tiles and its palette bank are BYTE IDENTICAL between the builds.
 
   How to drive it: Arthur's mode keys are physical F2 = the map and F3 = the
   inventory (z-codes 134 and 135; the dispatch is at 18353 in txd, on G32).
@@ -330,9 +306,16 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   rebuilt with the flag off in between. ALWAYS rebuild the game after changing
   the flag, and check the build log says so.
 
+  BOTH CONFIRMED INSTANCES AT THE TOP OF THIS FILE ARE NOW FIXED AND MEASURED.
   STILL TO DO: testz6, Journey and Shogun have not been run with the flag at
   all, and the full target matrix has not been re-verified per game as this
-  phase's plan asks.
+  phase's plan asks. Also worth doing before the flag becomes the default, from
+  what the ring showed: six of the map's seven other draws are GENERATED under
+  the pixel model where they were copied before, each taking a fresh tile run
+  AND a fresh palette bank. There are only 14 banks. Reusing a picture's bank
+  when only its PLACEMENT changed is both correct (the colours do not depend on
+  where it lands) and most of the saving; runtime tile dedup is the other half.
+  Neither is needed for anything that has been run so far.
 Phase 4 - the same off-grid generator on the MEGA65 engine: DONE 2026-07-23,
   commit "Phase 4: the same off-grid generator for the MEGA65 engine". Not a
   bake path, as this line used to say - the same generate-from-the-picture
