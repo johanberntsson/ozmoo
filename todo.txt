@@ -147,82 +147,56 @@ Phase 0 - horizontal sub-cell blit (de-risk first, no reporting change): DONE
   game asks for a cell column, so the offset needed is not a sub-cell remainder
   of the same number - it only becomes one once phase 1 flips the reporting.
   The blit was verified against measured offsets on testz6 instead.
-Phase 0b - SUB-CELL PLACEMENT ON BOTH AXES, generated from staging (added
-  2026-07-23; costed, not started). Vertical sub-cell placement is not optional:
-  Arthur's map lattice is 18 units, so most of its rows land 2, 4 or 6 pixel
-  rows into a cell, and with vertical snapping the boxes and connectors detach
-  again - the very thing the refactor is for. Both engines place a picture on
-  whole cell rows today (.pic_y is a screen row).
+Phase 0b - SUB-CELL PLACEMENT ON BOTH AXES, generated from staging: DONE
+  2026-07-23, commit "Phase 0b: generate off-grid picture cells from staging, on
+  both axes". The X16 engine builds the cells a picture covers straight from the
+  staged picture data and never copies its unshifted run into the store, which
+  is what made the vertical axis affordable; the boundary bake phase 0 added is
+  gone with it. It was needed because Arthur's map lattice is 18 art pixels, so
+  its rows land 2, 4 or 6 pixels into a cell (see instance 2 above) - vertical
+  sub-cell placement is not optional, and the geometry model's claim that all
+  the work was horizontal was wrong.
+  The costing that chose this over a second bake path (tools/tilebudget.py, all
+  four games; the store is 1023 tiles):
+    bake, horizontal (what phase 0 did)  max 1605-1711   over in 21 pictures
+    bake, both axes                      max 1640-1752   over in 22
+    generate from staging                max 1025-1066   over in 12
+    ...plus a runtime dedup              max  676- 832   over in none
+  The dozen still over are 40x25 full-screen pictures, which every game draws at
+  the origin and never shifts; .pic_gen_size falls those back to the tile grid.
+  Runtime dedup is unbuilt headroom - it needs a hash table to avoid an O(n^2)
+  compare and nothing needs it.
+  What it left standing from phase 0: .pic_px (now with .pic_py beside it),
+  .pic_map_pos, the Z6_PIC_XSUB test hook (Z6_PIC_YSUB joins it) and the
+  VRAM-dump/render verification harness. What it removed: .pic_bake_boundary_buf,
+  .pic_fill_cells_odd, .pic_boundary_masks, .dp_odd_fits, and the 8 - r shift
+  convention - .pic_shift is now the natural remainder, because .gen_tile
+  addresses source pixels directly instead of reading forward from a tile.
+  THE BUG THIS TURNED UP, worth remembering because it is a class and not a
+  typo: .pic_alloc reused a window's tile run whenever the SAME PICTURE was
+  redrawn into it. That was sound for as long as a run held the picture's own
+  tiles wherever it was put - rewriting it changed nothing. A generated run is
+  only correct at the position it was generated for, so redrawing the same
+  picture at a different offset rewrote the tiles the first placement's cells
+  were still pointing at. Reuse now also requires the placement to match
+  (pic_win_shift, .pa_pack_shift). Generalise: when a cache key stops covering
+  everything the cached thing depends on, the failure is silent corruption of
+  something drawn earlier, somewhere else on the screen.
+  It also retires the "account for baked tiles" item further down this file:
+  the cell count is known before the draw, so .pic_alloc reserves it exactly and
+  nothing is allocated mid-draw any more.
+  Verified: on x16 testz6, aligned placement is pixel-identical to the
+  pre-refactor engine (odd column included), Z6_PIC_XSUB 2 and 3 move a picture
+  exactly 2 physical pixels per art pixel, Z6_PIC_YSUB 1, 3 and 7 exactly one
+  row per unit, and (3, 5) does both at once. On the real thing, Arthur's first
+  room on the X16 - recolouring frame, scene composited inside it, the
+  tile-store allocator - renders pixel-identical to the pre-refactor build on
+  both the picture and the text layer.
+  STILL TO DO here: the MEGA65 engine has none of this (phase 4), and .pic_gc's
+  rectangle still treats a shifted picture's edge cells as outside, which is
+  right but now applies on two axes - worth a look when phase 1 makes real
+  offsets appear.
 
-  MEASURED 2026-07-23: do NOT write a second bake path. Generate the shifted
-  tiles straight from the staged picture data instead, replacing the copy-then-
-  bake structure phase 0 built rather than adding to it.
-
-  Why - the tile budget, over every picture of all four games (the X16 store is
-  1023 tiles; scratch/tilebudget.py, which re-uses pics2asm's own converter):
-
-                        max tiles needed     pictures over the store
-    bake, horizontal      1605 - 1711        Arthur 5/137, Shogun 5/42,
-      (what we do now)                       Journey 1/134, Zork Zero 10/396
-    bake, both axes       1640 - 1752        the same, slightly worse
-    generate from staging 1025 - 1066        Arthur 0/137, Shogun 1/42,
-                                             Journey 1/134, Zork Zero 10/396
-    ...+ runtime dedup     676 -  832        none, in any game
-
-  The bake needs the picture's own N deduplicated tiles in the store AND a fresh
-  un-deduplicated tile per spanned cell. Generating from staging never copies
-  the unshifted run at all, so it costs only the spanned cells - roughly half,
-  and it makes every Arthur picture placeable at an arbitrary offset on both
-  axes where the bake cannot even manage horizontal for the five biggest.
-  The handful still over the store are all 40x25 FULL-SCREEN pictures (plus
-  Shogun's picture 1), which are drawn at the origin and never need shifting,
-  so the existing "does not fit -> snap to the grid" gate would essentially
-  never fire. Runtime dedup would clear even those, but it needs a hash table
-  to avoid an O(n^2) compare, and nothing needs it yet - note it as headroom.
-
-  Why it is straightforward, having read the format and the staging code:
-  - The picture is LOADed contiguously into banks from PIC_STAGING_BANK through
-    the $a000-$bfff window and is capped at 32 KB, so a linear offset seeks
-    with pure arithmetic: bank = PIC_STAGING_BANK + (offset >> 13),
-    addr = $a000 + (offset & $1fff). ~20 bytes of code. .pic_att is a
-    sequential cursor only (.pic_att_next), so this is the one thing that has
-    to be added.
-  - Nothing needs saving: the layout is 2 bytes (cw, ch) + 2 (ntiles) + 32
-    (palette) + cw*ch*2 (cell map) + ntiles*32 (tiles), so both bases are
-    computed from cw and ch. Adaptive pictures skip the palette when reading
-    but their layout is identical, so the arithmetic is the same.
-  - An output tile IS an art cell (8x8 art pixels either way), so output tile
-    (mx,my) row r, col c is source pixel (mx*8 + c - dx, my*8 + r - dy), which
-    touches at most a 2x2 neighbourhood of source cells. Walk a row band with a
-    sliding window of two source-cell columns, as .pic_fill_cells_odd already
-    buffers its cell-map row.
-  - Emitting is the work .pic_copy_tiles already does - read 4 packed bytes,
-    emit 8 doubled store bytes - so the only new per-pixel work is picking the
-    right nybble for an odd dx. Unpack a source row into an 8-byte scratch once
-    and index it.
-  - It is also FASTER: today a 17x9 scene costs ~4.9k staging reads + ~9.7k
-    VRAM writes for the copy, plus ~20.7k VRAM reads+writes for the bake;
-    generating costs ~5.4k + ~10.9k and no bake at all.
-  - Bonus, and it retires the "accounting for baked tiles" item below: the tile
-    count is known BEFORE drawing (mw * mh), so .pic_alloc can reserve exactly
-    it. There is then no unaccounted mid-draw allocation left - which is the
-    class of bug that destroyed Arthur's frame.
-
-  What carries over from phase 0: .pic_px, .pic_map_x, the shift convention
-  (8 - r, and the reason), .pic_boundary_masks' logic for which source cell
-  reaches which text half, the Z6_PIC_XSUB test hook, testz6's odd-column draw,
-  and the VRAM-dump/render verification harness. What is superseded:
-  .pic_bake_boundary_buf and the copy-then-bake structure around it.
-
-  Still to settle before writing it: compositing still reads the underlying
-  tile back from VRAM (unchanged, and still needed); and pic_used, which
-  .pic_copy_tiles fills for .pic_compute_bg_index, now needs a cheap pre-pass
-  over the tile block, since the background index has to be known before the
-  first tile is generated.
-
-  The MEGA65 (phase 4) has 2048 tiles, the same file layout, and its pictures
-  in attic rather than banked RAM - so the same generator applies there, with
-  attic reads in place of the bank window.
 Phase 1 - report pixel units behind a build flag (e.g. Z6_PIXEL_UNITS):
   Report 320x200 + font 4x8 + native picture_data as above. Convert pixel->cell at
   the boundary for the text engine (X/4, Y/8). get_cursor/set_cursor and the
@@ -460,11 +434,13 @@ with the same wrap because it has 2048 tiles and half the per-room cost.
 Related: the odd path's 2x cost is what fills the store in the first place, so
 the staging-read follow-up below (bake boundary tiles straight from the staging
 banks, without copying a run first) would relieve the same pressure.
-SUPERSEDED 2026-07-23 by phase 0b of the pixel refactor at the top of this file:
-generating the shifted tiles from staging makes the picture's tile need exactly
-mw * mh, known BEFORE the draw, so .pic_alloc can reserve it outright and there
-is no mid-draw unaccounted allocation left to estimate. The tight-estimate work
-described above is then unnecessary. Measured budgets are in phase 0b.
+DONE 2026-07-23, by phase 0b of the pixel refactor at the top of this file
+rather than by the estimate described above: generating the shifted tiles from
+staging makes the picture's tile need exactly mw * mh, known BEFORE the draw, so
+.pic_alloc reserves it outright. Nothing is allocated mid-draw any more, so
+there is no unaccounted bake left to estimate and .pcf_alloc_and_write's
+saturate-and-degrade path is now unreachable from the off-grid draw. Measured
+budgets are in phase 0b.
 NOTE: PIC_MAX_TILES must keep a zero low byte - .dp_odd_fits compares
 #>PIC_MAX_TILES alone. 768 and 1024 are fine; something like 800 is not.
 
