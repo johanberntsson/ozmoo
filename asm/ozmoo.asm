@@ -194,6 +194,13 @@
 	Z5PLUS = 1
 	Z6PLUS = 1
 	Z6_Z7 = 1
+	; Z6_PIXEL_UNITS is a v6-only screen model, but it is a global build flag,
+	; so a z3/z5 game built with it left on would otherwise reach for constants
+	; and routines that live in screen-z6.asm and are not assembled at all.
+	; Everything outside screen-z6.asm keys off this instead.
+	!ifdef Z6_PIXELS {
+		Z6_PIXELS = 1
+	}
 }
 !ifdef Z7 {
 	ZMACHINEVERSION = 7
@@ -1296,7 +1303,7 @@ calc_z6_z7_offsets
 }
 
 !ifdef Z4PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 .hdr_units_x
 	; a = the width in columns -> the header's width in units, a word: at 80
 	; columns 320 does not fit a byte, which is the whole reason the screen
@@ -1318,7 +1325,7 @@ update_screen_width_in_header
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 	jsr .hdr_units_x
 } else {
 	ldy #header_screen_width_units
@@ -1334,7 +1341,7 @@ update_screen_width_in_header
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 	jsr .hdr_units_x
 } else {
 	ldy #header_screen_width_units
@@ -1347,7 +1354,7 @@ update_screen_width_in_header
 	ldy #header_screen_height_lines
 	jsr write_header_byte
 !ifdef Z5PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 	jsr cells_to_units_y	; rows -> art pixel rows; 200 still fits a byte
 	tax
 	lda #0
@@ -1904,7 +1911,7 @@ z_init
 	ldy #header_screen_height_lines
 	jsr write_header_byte
 !ifdef Z5PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 	lda #<(25 * Z6_UNIT_H)	; 200 art pixel rows
 	tax
 	lda #>(25 * Z6_UNIT_H)
@@ -1926,7 +1933,7 @@ z_init
 	ldy #header_screen_width_chars
 	jsr write_header_byte
 !ifdef Z5PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 	lda #<(SCREEN_WIDTH * Z6_UNIT_W)	; 320 art pixels across
 	tax
 	lda #>(SCREEN_WIDTH * Z6_UNIT_W)
@@ -1947,7 +1954,7 @@ z_init
 	jsr write_header_word
 
 !ifdef Z5PLUS {
-!ifdef Z6_PIXEL_UNITS {
+!ifdef Z6_PIXELS {
 	; BEWARE the v6 swap: byte $26 is the font HEIGHT and $27 the WIDTH, the
 	; other way round from v5, which is what the constant names describe. It
 	; has never mattered because both were 1; it matters the moment they differ.
