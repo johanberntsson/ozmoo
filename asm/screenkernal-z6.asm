@@ -903,7 +903,13 @@ s_set_text_colour
 ; the glyph colour is the requested background. Cleared when set_colour puts
 ; the background back. (ECM has no reversed glyphs; it never sets this.)
 s_colour_swap	!byte 0
-s_bg_zcolour	!byte 0	; the screen background as a z-colour number
+; The screen's own pair as z-colour numbers - the colours a window that is NOT
+; swapped prints in. A swap is measured against these two and nothing else: a
+; window's pair is a swap when it is exactly their reverse. They must not be
+; taken from the window's PREVIOUS pair, which is where this went wrong - see
+; s_track_colours.
+s_bg_zcolour	!byte 0
+s_fg_zcolour	!byte 0
 ; One entry per window, indexed by current_window. The non-z6 screen model has
 ; three windows and constants*.asm reserves three zero page bytes for it, with
 ; s_reverse immediately after; z6 has eight, so windows 3-7 wrote past the end.
@@ -2708,8 +2714,6 @@ s_track_colours
 	ldx current_window
 	lda window_colour,x
 	sta .stc_pair
-	and #$0f
-	sta .stc_old_fg
 	lda z_operand_value_low_arr
 	beq .stc_fg_done	; 0: keep the foreground
 	cmp #$ff
@@ -2746,8 +2750,21 @@ s_track_colours
 	sta window_colour,x
 !ifndef Z6_ECM_MODE {
 !ifndef Z6_WINDOW_BG {
-	; a swap must be exact: the new foreground is the screen background
-	; and the new background is the old foreground
+	; A swap must be exact: the window's pair is the reverse of the SCREEN's
+	; pair - its foreground is the screen background, its background is the
+	; screen foreground. Both of those come from s_bg_zcolour/s_fg_zcolour,
+	; the colours a window that is not swapped prints in.
+	;
+	; The background used to be compared against this WINDOW's own previous
+	; foreground, which made the answer depend on where the window had just
+	; been rather than on what was being asked for - so asking twice gave two
+	; different answers. Shogun sets its status window with the same
+	; "set_colour 9 2" twice in a row (measured with DEBUG_SCREENLOG): the
+	; first was a swap, and the second found the previous foreground already
+	; swapped to 9, called it a real colour change, cancelled the swap and
+	; applied black as the real screen background. The whole screen went black
+	; with white glyphs - status window and text window alike - where the X16,
+	; which has per-cell backgrounds and never runs this test, was right.
 	and #$0f
 	cmp s_bg_zcolour
 	bne .stc_normal		; the foreground is a real colour: no swap
@@ -2758,7 +2775,7 @@ s_track_colours
 	lsr
 	cmp s_bg_zcolour
 	beq .stc_normal		; both are the screen background: not a swap
-	cmp .stc_old_fg
+	cmp s_fg_zcolour
 	bne .stc_normal		; some other background: a real colour change
 	tax
 	lda zcolours,x
@@ -2769,7 +2786,8 @@ s_track_colours
 .stc_normal
 	lda #0
 	sta s_colour_swap
-	; the background is about to be applied for real: remember it
+	; the pair is about to be applied for real: it becomes the screen's own,
+	; which every later swap is measured against
 	lda z_operand_value_low_arr + 1
 	beq +
 	lda .stc_pair
@@ -2778,6 +2796,11 @@ s_track_colours
 	lsr
 	lsr
 	sta s_bg_zcolour
++	lda z_operand_value_low_arr
+	beq +
+	lda .stc_pair
+	and #$0f
+	sta s_fg_zcolour
 +
 .stc_store_swap
 	; keep this window's swap state so a window switch can restore it
@@ -2789,17 +2812,26 @@ s_track_colours
 	rts
 .stc_pair	!byte 0
 .stc_nybble	!byte 0
-.stc_old_fg	!byte 0
 }
 
 z_ins_set_colour
 	; set_colour foreground background [window]
 	; (in ECM mode the background is set per window, otherwise the window
 	; operand is not used in Ozmoo)
+!ifdef DEBUG_SCREENLOG {
+	lda #13
+	jsr screenlog_hook
+}
 	jsr printchar_flush
 
 !ifdef Z6 {
 	jsr s_track_colours	; the window's colour pair (property 11)
+!ifdef DEBUG_SCREENLOG {
+	; what the tracking made of it: byte 6 the operand count, byte 7 the swap
+	lda s_colour_swap
+	ldx z_operand_count
+	jsr screenlog_extra
+}
 !ifdef Z6_WINDOW_BG {
 	; per-cell hardware backgrounds: apply the window's real fg/bg (both from
 	; window_colour, resolved by s_track_colours) and let every cell carry it,

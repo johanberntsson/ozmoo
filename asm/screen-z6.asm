@@ -2289,6 +2289,8 @@ init_window_colours
 	sta s_colour_swap
 	lda #BGCOL
 	sta s_bg_zcolour
+	lda #FGCOL
+	sta s_fg_zcolour	; the screen's own pair; a swap is its exact reverse
 !ifndef Z6_WINDOW_BG {
 	lda #0
 	ldx #7
