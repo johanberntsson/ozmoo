@@ -460,10 +460,41 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   costs 5 banks, the first map 7 more (12 of 14), the second room 2 - and the
   second map costs NOTHING, every picture already loaded. Before, one map draw
   consumed about 16 on its own.
-  STILL TRUE: the round robin still spoils the oldest bank once a genuinely new
-  picture appears past the fourteenth. The ceiling is now "distinct pictures on
-  screen" rather than "draws", which no v6 game seems to exceed, but it is a
-  ceiling. Freeing a bank when its picture is erased would remove it.
+  THE CEILING: FIXED 2026-07-24, the follow-up this entry asked for. A bank is
+  given back once no cell on screen still shows it (.pa_reclaim_banks), so the
+  fourteen no longer just fill up and stay full. It runs only when a new
+  picture finds all of them claimed.
+  The two engines source the same answer differently, and that is the whole
+  cost of it: the X16 reads the live set straight off the layer 0 map, where
+  every entry carries its cell's palette-offset nybble, while the MEGA65 bakes
+  ABSOLUTE indices (bank * 16 + colour) into the tile pixels, so the only
+  record of a cell's bank is the pixels themselves - and a composite tile
+  legitimately mixes two pictures' banks, so the first opaque pixel will not
+  do. That engine therefore reads every byte of every tile a cell shows, up to
+  80 * 25 * 64, which is affordable only because it runs on exhaustion rather
+  than per draw.
+  Two things it has to do besides clearing the entry, both found by reasoning
+  about the reuse paths rather than by a failure:
+  - never free pic_direct_bank / pic_direct_base: the next adaptive picture
+    draws in it and may have no cells of its own yet;
+  - clear pic_win_number for any window whose run was built for a freed bank.
+    .pic_alloc's reuse path takes the window's remembered bank straight from
+    pic_win_bank, and would reload the picture's palette into a bank that now
+    belongs to something else (X16) or render tiles baked for the old bank's
+    indices (MEGA65). The run is dead anyway - its picture is off screen,
+    which is why the bank was freed.
+  Verified by shrinking PIC_PAL_BANKS to 6 on the MEGA65, which makes Arthur's
+  first map exhaust them every time - the same trick as shrinking PIC_MAX_TILES
+  to prove .pic_gc. Measured over the uartmon: in the first room the six banks
+  hold pictures 0,1,2,3,4 with one free; after F2 they hold the MAP's pictures
+  (93, 96, 95, 112, 121, 114) - the room's banks were recycled once its
+  pictures left the screen, rather than the map's live ones being eaten - and
+  the map still draws. At the shipped fourteen, Arthur's rooms and maps never
+  reach exhaustion at all, and the turn-2 map renders pixel-identically to the
+  build before this change.
+  WHAT IS LEFT of it: past fourteen distinct pictures ON SCREEN AT ONCE it
+  still steals the oldest, which is all that can be done with fourteen banks.
+  No v6 game has been seen anywhere near that.
   Runtime tile dedup (the other half of the old entry) is still unbuilt and
   still not needed by anything.
 Phase 4 - the same off-grid generator on the MEGA65 engine: DONE 2026-07-23,

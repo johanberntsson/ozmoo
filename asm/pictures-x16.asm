@@ -592,43 +592,34 @@ pic_load_all
 	ldy .pab_win
 	rts
 .pab_direct
-	ldx #0					; x = (bank - 1) * 2
-	ldy #PIC_PAL_BANKS
-.pab_look
-	lda pic_bank_pic,x
-	cmp .pic_index
-	bne .pab_next
-	lda pic_bank_pic + 1,x
-	cmp .pic_index + 1
-	beq .pab_found
-.pab_next
-	inx
-	inx
-	dey
-	bne .pab_look
-	; nowhere yet: take the next bank round robin and record what is in it.
-	; Overwriting the entry is right - whatever was there has just lost its
-	; colours, exactly as before, only now it happens per picture rather than
-	; per draw.
+	jsr .pab_find			; already loaded somewhere?
+	bcs .pab_found
+	jsr .pab_free_slot		; a bank nobody has claimed?
+	bcs .pab_claim
+	jsr .pa_reclaim_banks	; none: give back the ones the screen has finished with
+	jsr .pab_free_slot
+	bcs .pab_claim
+	; all fourteen are still on screen at once. Take the next one round, as
+	; before, and spoil it - there is nothing else left to do.
 	lda pic_next_bank
 	sec
 	sbc #1
 	asl
 	tax
+.pab_claim
+	; x = (bank - 1) * 2: record what is now in the bank and hand it back
 	lda .pic_index
 	sta pic_bank_pic,x
 	lda .pic_index + 1
 	sta pic_bank_pic + 1,x
-	ldx pic_next_bank
-	inc pic_next_bank
-	lda pic_next_bank
+	txa						; keep the round robin moving past it, so a forced
+	lsr						; steal cycles instead of sticking on one bank
+	clc
+	adc #2
 	cmp #PIC_PAL_BANKS + 1
 	bcc +
 	lda #1
-	sta pic_next_bank
-+	ldy .pab_win
-	txa
-	rts
++	sta pic_next_bank
 .pab_found
 	txa						; (bank - 1) * 2 -> bank
 	lsr
@@ -637,6 +628,130 @@ pic_load_all
 	ldy .pab_win
 	rts
 .pab_win !byte 0
+
+.pab_find
+	; carry set and x = (bank - 1) * 2 if .pic_index's palette is in a bank
+	ldx #0
+	ldy #PIC_PAL_BANKS
+-	lda pic_bank_pic,x
+	cmp .pic_index
+	bne +
+	lda pic_bank_pic + 1,x
+	cmp .pic_index + 1
+	beq .pab_hit
++	inx
+	inx
+	dey
+	bne -
+	clc
+	rts
+
+.pab_free_slot
+	; carry set and x = (bank - 1) * 2 for the first bank holding no picture
+	ldx #0
+	ldy #PIC_PAL_BANKS
+-	lda pic_bank_pic,x
+	and pic_bank_pic + 1,x
+	cmp #$ff				; $ffff = free
+	beq .pab_hit
+	inx
+	inx
+	dey
+	bne -
+	clc
+	rts
+.pab_hit
+	sec
+	rts
+
+.pab_live !fill 16, 0		; per bank: does a cell on screen still show it?
+
+.pa_reclaim_banks
+	; Hand back every bank the screen has finished with. Without this the
+	; fourteen only ever fill up: a bank was held for as long as the game ran,
+	; so Arthur's map (7 pictures) plus two rooms exhausted them and the next
+	; new picture spoiled a live one. A bank is dead when no cell on layer 0
+	; shows it, which the map says directly - each entry carries the palette
+	; offset nybble the cell renders with.
+	ldx #15
+	lda #0
+-	sta .pab_live,x
+	dex
+	bpl -
+	lda pic_direct_bank		; never free this one: the next adaptive picture
+	tax						; draws in it and may have no cells of its own yet
+	lda #1
+	sta .pab_live,x
+	lda #0
+	sta .gc_row
+.parb_row
+	jsr .gc_row_port0		; port 0 -> this map row, column 0
+	ldy #SCREEN_WIDTH / 2
+.parb_cell
+	lda VERA_data0			; tile index low
+	sta .pic_tmp
+	lda VERA_data0			; palette offset in the top nybble, index high in 0-1
+	tax
+	and #3
+	ora .pic_tmp
+	beq .parb_next			; tile 0 = nothing here
+	txa
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda #1
+	sta .pab_live,x
+.parb_next
+	dey
+	bne .parb_cell
+	inc .gc_row
+	lda .gc_row
+	cmp #SCREEN_HEIGHT
+	bcc .parb_row
+	; free the banks nothing is showing
+	ldx #0					; x = (bank - 1) * 2
+	ldy #1					; y = bank
+.parb_free
+	lda .pab_live,y
+	bne +
+	lda #$ff
+	sta pic_bank_pic,x
+	sta pic_bank_pic + 1,x
+	phx						; .pab_drop_runs needs both registers
+	phy
+	tya
+	jsr .pab_drop_runs		; and no window may reuse a run drawn for it
+	ply
+	plx
++	inx
+	inx
+	iny
+	cpy #PIC_PAL_BANKS + 1
+	bne .parb_free
+	rts
+
+.pab_drop_runs
+	; a = a bank just freed. A window whose run was built for it must not reuse
+	; that run: .pic_alloc's reuse path takes the window's remembered bank
+	; straight from pic_win_bank, and would reload the picture's palette into a
+	; bank that now belongs to something else. The run is dead anyway - its
+	; picture is off screen, which is why the bank was freed.
+	ldy #7
+-	cmp pic_win_bank,y
+	bne +
+	pha
+	tya
+	asl
+	tax
+	lda #$ff
+	sta pic_win_number,x
+	sta pic_win_number + 1,x
+	pla
++	dey
+	bpl -
+	rts
 
 .pa_pack_shift
 	; The placement a run was built for, as one byte: the horizontal offset in
