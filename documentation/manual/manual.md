@@ -584,6 +584,15 @@ they show it. They assume 80 columns: Zork Zero's layout comes apart at 40 and
 Journey is unplayable, so on the MEGA65 and the X16, where the graphics are, the
 screen is 80 columns wide.
 
+They also place things more finely than a character. A version 6 game asks the
+interpreter how big the screen is and how big a character is, and works out where
+to put its pictures and margins from the answer, so the interpreter's choice of
+unit decides how precisely the game can aim. Ozmoo measures the screen in the
+320x200 pixel grid Infocom drew the art in, which is the one the games' own
+arithmetic assumes; the pictures then land where the game means them to, down to
+the pixel, rather than being rounded to the nearest character. See -pu below if
+you want the older behaviour for comparison.
+
 ## Switches
 
     -pics <blorb or directory>
@@ -608,6 +617,17 @@ of the eight windows can have its own background colour. The chip charges a pric
 for it: only 64 characters are available, so capitals are printed as lowercase and
 reverse video is not available. It is a trade, not an improvement, and it is off
 by default.
+
+    -pu[:0|1]
+
+Version 6 only. Choose what the interpreter tells the game a screen "unit" is.
+The default is the 320x200 pixel grid Infocom drew the art in, which is what the
+games do their own layout arithmetic in; -pu:0 counts whole character cells
+instead, as Ozmoo did until July 2026. Counting cells rounds every position a
+game works out to the nearest character, which put Zork Zero's compass rose half
+a character out, Shogun's text three columns too far in, and left the connecting
+lines of Arthur's map not reaching its room boxes. There is no reason to build a
+game with -pu:0 except to compare the two.
 
 ## What to expect
 

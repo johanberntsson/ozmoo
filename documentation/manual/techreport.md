@@ -324,6 +324,50 @@ screen.asm and screenkernal.asm when the Z6 flag is set. They are meant to stay
 close to the files they were forked from; when the originals change, it is better
 to fork them again than to patch the copies by hand.
 
+## What a unit is
+
+Version 6 measures the screen in "units" and lets the interpreter decide what a
+unit is. Ozmoo counts the **320x200 pixel space Infocom drew the art in**. The
+header reports a screen of 320 by 200 units, a font 4 units wide and 8 tall, and
+get_wind_prop answers the same 4x8 for property 13; picture_data returns a
+picture's size in those same units, which is its native size in the artwork. On
+the 40-column full colour screen, where the pictures are not doubled, a character
+cell is 8 units wide instead of 4, and everything else follows.
+
+This matters because the games do their own layout arithmetic in whatever the
+interpreter tells them. Ozmoo used to count whole character cells — an 80x25
+screen, a font of 1x1, picture sizes rounded up to cells — and every position a
+game computed was rounded to the cell grid with it. Three things were visibly
+wrong because of it, and are right now: Zork Zero's compass rose sat about half a
+character to the right of where the reference interpreter puts it; Shogun's body
+text began three columns too far in, because the margins it sets around its
+border pictures were rounded; and Arthur's on-screen map, whose room boxes and
+connecting segments share an 18-unit lattice, was told that 18 units was two
+cells here and three there, so the connectors drifted off the boxes and the map
+read as broken. That last one is a feature not working rather than a cosmetic
+slip, and is what made the change worth making.
+
+Text does not need the finer measure — a game only ever moves the cursor in
+whole characters — so the text engine still counts cells, and the opcodes convert
+at the boundary (cells\_to\_units\_x and units\_to\_cells\_x and their vertical
+counterparts; Z6\_UNIT\_W and Z6\_UNIT\_H are a cell's size in units). Only
+pictures carry the part of a position that falls inside a cell, and both picture
+engines can draw it: see "Placing a picture between cells" below. The conversion
+a portable game should use is the font size, property 13 — units are cells times
+that — and any arithmetic that mixes units with a row or column count is wrong by
+construction, which is the trap to watch for when reading this code.
+
+The switch -pu:0 (which clears Z6\_PIXEL\_UNITS) goes back to counting cells. It
+exists to compare the two models, not because a game wants it.
+
+One caution when comparing against SDL Frotz, which is the natural reference for
+these games: it reports 640x400 with a 16x8 font and doubles picture\_data to
+match, because its window is Infocom's 320x200 art scaled by two on both axes.
+Its numbers are exactly twice Ozmoo's on both axes. The *model* is the same one —
+positions divide out identically — but the absolute figures do not match, so a
+game that hardcodes either interpreter's numbers rather than deriving them from
+what it is told will be wrong on the other.
+
 ## The window model
 
 The eight windows are held in the property arrays the standard describes
@@ -335,8 +379,12 @@ convert to and from the 1-based coordinates the Z-machine uses.
 Property 13, the font size, is the only property that is a real 16-bit word:
 the height in the high byte and the width in the low one. It cannot live in the
 byte-per-window arrays with the others, so get_wind_prop answers it directly,
-with 1 and 1, because the header tells the game that a character is one unit wide
-and one unit high. A game may divide by it, so it must never be zero.
+with the same figures the header gives — 8 tall and 4 wide on the 80-column
+screens, 8 and 8 on the 40-column one (see "What a unit is"). A game may divide
+by it, so it must never be zero, and it must agree with the header: if the two
+ever disagree the geometry collapses rather than merely shifting, and a game that
+divides the screen size by it ends up with windows a fraction of the size it
+meant.
 
 Printing, wrapping, scrolling, the cursor, the MORE prompt and erasing are all
 per window: text wraps at the window's right margin, a window scrolls its own
@@ -586,19 +634,8 @@ erase_picture already did, so a picture behind erased text goes with it. Both
 touch whole map cells only and only VERA's write port, so the screen layer's
 port 0 is left as it found it.
 
-A picture cell is two text columns wide, and a game may place a picture at an
-odd text column — Arthur centres its scenes. VERA's tile map is a 10-bit index,
-so the MEGA65's trick of storing each half-cell as its own 8-pixel tile would
-need more than the 1024 tiles the map can address. Instead an odd placement is
-drawn with **boundary tiles**: .pic_fill_cells_odd spans one more map cell than
-the picture is wide, and bakes each as the right half of one art cell beside the
-left half of the next (.pic_bake_boundary_buf), from the picture's own stored
-tiles. A picture whose copied run plus its boundary tiles would overflow the
-store falls back to even placement — an eight-pixel shift, invisible on a
-full-screen frame. Erasing an odd picture clears only the interior cells and
-leaves the two shared edge cells, each of which holds half the picture beside
-half of whatever it was composited over (a frame border), so the border survives
-a room change and the next scene re-composites its half over it.
+Off-grid placement is described under "Placing a picture between cells" below;
+both engines do it the same way, and this is the layer it is drawn on.
 
 One more thing separates the two layers. On the MEGA65 a picture and the text
 share one plane, so a transparent picture pixel shows the screen background
@@ -734,7 +771,7 @@ all.
 A blorb holds more than PNGs. Its Rect resources are placeholders with no image,
 only a width and height; a game reads those sizes with picture_data to lay real
 pictures out, and Arthur's whole room frame is built that way, so pics2asm.py
-emits a table of them (in cells, ceil(pixels/8)) that picture_data answers from
+emits a table of them, in the units picture_data reports, that it answers from
 and draw_picture treats as invisible. Its APal chunk lists the adaptive-palette
 pictures (see below). Reading the blorb directly rather than a hand-extracted PNG
 directory is what makes both of these available.
@@ -778,37 +815,68 @@ cells outright. A cell that is transparent through and through is the exception:
 pics2asm.py writes it into the cell map as \$ffff, and pic_fill_cells leaves such
 a cell untouched, so a frame with a hole drawn over a scene shows the scene
 through the hole. That is how Arthur composites — it draws the scene, then draws
-the frame, whose middle is a transparent window onto the scene behind. A partly
-transparent cell is still one opaque tile, and its transparent pixels show the
-screen background rather than the picture behind. Drawing is clipped to the
+the frame, whose middle is a transparent window onto the scene behind. A cell
+that is only *partly* transparent is composited pixel by pixel instead: before
+writing it, pic_fill_cells reads what the cell already shows, and if that is a
+picture tile it bakes a fresh tile taking its own pixel where it is opaque and
+the tile underneath's where it is not (.pcf\_make\_tile). A cell over nothing but
+text or blank screen keeps the simpler behaviour, its transparent pixels showing
+the screen background, so a picture drawn on an empty screen is unaffected.
+Drawing is clipped to the
 screen: pic_fill_cells and pic_erase stop at the last row and column, so a picture
 placed partly, or from a bad coordinate wholly, off screen cannot scribble past
 screen RAM into the interpreter.
 
 picture_data is what makes a picture land in the right place. It reports a
 picture's height and width, which the game halves against the window's size to
-centre it. The standard calls those two words pixels, but a pixel here is whatever
-unit the rest of the screen model counts in, and Ozmoo counts characters: the
-header advertises an 80x25 screen (40x25 under -fcm:40) and get_wind_prop answers
-1x1 for the font size, so the size must come back in cells. On the 80-column
-screen the blob header and the Rect tables already carry the doubled widths, so
-the game lays everything out in the 80-wide grid without any conversion.
+centre it, and it must answer in the units the rest of the screen model counts
+in — so it reports the picture's **native size in the artwork**, the same 320x200
+space the header describes (see "What a unit is"). Zork Zero's compass overlay is
+45 by 40 units because that is what the PNG measures; rounding it up to whole
+cells, which is what Ozmoo did before, would make it 48 by 40 and put every arrow
+half a character out. pics2asm.py emits those native sizes as their own tables
+(pic\_px\_width\_lo/\_hi and pic\_px\_height) alongside the cell dimensions the
+drawing code uses, because the two are no longer the same number.
 
-Each drawn picture gets its own run of the tile store and its own palette bank,
-allocated together and reused together. The bank is `16 * bank`, bank running
-1 to 14 (bank 15 is skipped, because its top colour would be pixel value 255,
-which Full Colour Mode takes from colour RAM). A per-picture bank, rather than
-the one-bank-per-window arrangement it replaced, is needed because a window holds
-several pictures at once — Arthur's frame and two side bars all live in window 7
-— and a shared bank had them overwrite each other's colours. A picture's pixels
-are its palette indices straight, so the tile copy adds the bank's base to each
-non-zero pixel as it goes, leaving a 0 alone because it is transparent. The DMA
-engine can neither add nor expand a nybble, so that copy is done by the CPU; at
-40 MHz even a full screen picture is a blink.
+Each drawn picture gets its own run of the tile store. The bank is `16 * bank`,
+bank running 1 to 14 (bank 15 is skipped, because its top colour would be pixel
+value 255, which Full Colour Mode takes from colour RAM). A per-picture bank,
+rather than the one-bank-per-window arrangement it replaced, is needed because a
+window holds several pictures at once — Arthur's frame and two side bars all live
+in window 7 — and a shared bank had them overwrite each other's colours. A
+picture's pixels are its palette indices straight, so the tile copy adds the
+bank's base to each non-zero pixel as it goes, leaving a 0 alone because it is
+transparent. The DMA engine can neither add nor expand a nybble, so that copy is
+done by the CPU; at 40 MHz even a full screen picture is a blink.
 
-The bank travels with the tile run: the allocator reuses a window's run, and its
-bank, only when the same picture is redrawn into it; a different picture takes a
-fresh run and bank, bumped from where the last one ended. The store holds 2048
+A bank belongs to a **picture**, not to a draw. A picture's colours do not depend
+on where it is put, so a picture drawn again — at any position, into any window —
+gets back the bank it is already in (pic\_bank\_pic records which picture is in
+each), and only a picture whose palette is in no bank takes a new one. Adaptive
+pictures take none at all, since they draw in another picture's palette anyway.
+This is not an optimisation but a correctness requirement, and the case that
+proves it is Arthur's on-screen map: it redraws the same handful of pictures — the
+paper, the room boxes, the connecting segments — a dozen and more times a screen,
+and a bank per draw ran the allocator round the fourteen and back onto banks the
+paper's own cells were using, so on the second turn most of the map came back
+black.
+
+Banks are also given back. When a new picture finds all fourteen claimed, the
+engine works out which banks a cell on the screen still shows and frees the rest,
+so the fourteen do not simply fill up and stay full. Finding that set is cheap on
+the X16, where a map entry names its cell's bank, and dear here, because this
+engine bakes the bank into the pixels: the only record of what a cell's colours
+are is the pixels themselves, and a composite tile may legitimately mix two
+pictures' banks, so every byte of every tile a cell shows has to be looked at.
+That is affordable only because it happens when the banks run out rather than on
+every draw. Two things it must not do: free the bank the adaptive pictures draw
+in, which may have no cells of its own yet, and leave a window's remembered run
+pointing at a bank that has been given away. Past fourteen pictures on the screen
+*at once* the oldest bank is still taken, which is all fourteen banks allow.
+
+The tile run is reused only when the same picture is redrawn into the same window
+at the same position; anything else takes a fresh run, bumped from where the last
+one ended. The store holds 2048
 tiles in a Z6_PICTURES build, which is what Arthur's interface needs: it keeps a
 border, a scene and a status panel on the screen together, and they came to 1063
 tiles the first time all three were live. With the old store of 1024 the allocator
@@ -831,17 +899,18 @@ with cells outside (Arthur's borders repeat), the sharing marks them survivors i
 any case. The sweep works from a bitmap of live tiles, a per-byte prefix count of
 the survivors below it and a popcount table. Only if the survivors plus the new
 picture still do not fit does the old wrap-to-zero happen, which can then only
-spoil a picture that is no longer the newest on screen. The palette allocator
-still simply wraps, with the same consequence.
+spoil a picture that is no longer the newest on screen.
 
 Not every tile a draw consumes comes out of that run, and the difference is worth
 spelling out, because it cost a long hunt. The allocator reserves a picture's own
-tiles and nothing more, but both draw paths then bake further tiles from
-pic_next_tile as they go — a composite where a partly transparent cell falls over
-an existing picture, and on the X16 a boundary tile per cell of an odd-column
-placement. Those belong to no window's run, so the store can genuinely run out in
-the middle of a draw, where there is no opportunity to compact: the picture's own
-run is already placed and half its cells are written. The X16's baker therefore
+tiles and nothing more, but the aligned draw path then bakes further tiles from
+pic_next_tile as it goes: a composite wherever a partly transparent cell falls
+over an existing picture. Those belong to no window's run, so the store can
+genuinely run out in the middle of a draw, where there is no opportunity to
+compact — the picture's own run is already placed and half its cells are written.
+(The off-grid path has no such problem: it knows before it starts exactly how
+many cells it will build, so the allocator reserves them all. See "Placing a
+picture between cells".) The X16's baker therefore
 *saturates* rather than wrapping (.pcf_alloc_and_write): pic_next_tile stops at
 PIC_MAX_TILES and the bake reports failure, and the caller degrades for the cells
 it could not bake — the even paths keep their own un-composited tile, the odd
@@ -874,6 +943,44 @@ skips loading a palette and bakes the tiles into that bank. Because the indices 
 never compacted, the frame's index 5 means the same colour as the scene's index 5,
 and the borrowed palette lands right.
 
+### Placing a picture between cells
+
+Both engines draw a picture on a grid of cells, and once the screen model counts
+art pixels rather than characters (see "What a unit is") a game will ask for a
+position that is not on it. Arthur's map lattice is 18 units, so its rows land 2,
+4 or 6 pixel rows into a cell and its columns likewise; Arthur centres its scenes
+on an odd text column. Neither engine could express that.
+
+The obvious answer — bake the shifted cells out of the picture's own copied tiles
+— was measured and rejected. It costs the picture's run *plus* a freshly baked
+tile for every cell it covers, which for Arthur peaks at about 1676 tiles against
+the X16's store of 1023. Building the covered cells straight from the staged
+picture instead, and never copying the unshifted run at all, costs only the cells:
+about 925 for the same worst case. tools/tilebudget.py measures this over a whole
+blorb. So that is what both engines do.
+
+.pic\_place\_cursor works out the picture's corner in art pixels, .pic\_map\_pos
+splits each axis into a first cell and the offset into it, and when either offset
+is non-zero .pic\_gen\_fill builds every covered cell out of the up to four source
+art cells that reach it, reading the picture where it is staged — from Attic RAM
+on the MEGA65, from the staging banks on the X16 — and expanding each pixel into
+the store's own form as it goes. The picture's own tiles are never copied. A
+picture needing more cells than the whole store falls back to the cell grid, which
+in practice means only the full-screen ones, and no game shifts those.
+
+Two consequences are worth having in mind. Erasing such a picture leaves the
+shared edge cells on both axes, because each holds part of the picture beside
+part of whatever it was drawn over — a frame border, for a scene composited into a
+frame's hole — and clearing them whole would strip the frame, which is never
+redrawn. And a generated run is only correct at the position it was generated
+for, so the allocator's reuse test takes the placement into account as well as the
+picture: redrawing the same picture two pixels over must build a new run, or it
+would rewrite the tiles the first placement's cells are still pointing at.
+
+For testing this without playing a game to the right screen, Z6\_PIC\_XSUB and
+Z6\_PIC\_YSUB shift every picture by a fixed number of art pixels, positive or
+negative.
+
 ### What the X16 does differently
 
 The X16 shares all of the above: the same converter, the same index, the same
@@ -902,8 +1009,9 @@ runs on.
   and no disk swapping — Zork Zero's 396 pictures simply sit in the directory. The cost is
   that picture_data cannot read a size out of the staged picture, because it is
   usually asked about a picture that is not the staged one, so pics2asm.py
-  assembles the sizes in as pic_width and pic_height tables (in text cells, as
-  the MEGA65 reports them).
+  assembles the sizes in as pic_width and pic_height tables. (The MEGA65 has the
+  same tables, and both engines answer picture_data from the native-size tables
+  beside them.)
 - **The text is a layer in front, so drawing must blank it**, and erasing must put
   it back. On the MEGA65 the text and the picture share one plane, and a tile
   simply replaces a character.
@@ -1483,6 +1591,25 @@ MEGA65 and version 6 only. Use the VIC-IV's Full Colour Mode, with 16-bit
 character codes, giving an 80x25 screen on a 640x200 (H640) canvas, or the
 legacy 320x200, 40x25 one with -fcm:40. Set by make.rb's -fcm
 switch. See "Version 6".
+
+    Z6_PIXEL_UNITS
+
+Version 6 only, and on by default: report the screen in the 320x200 pixel units
+Infocom drew the art in, rather than in whole character cells. See "What a unit
+is". make.rb's -pu:0 switch turns it off, which is worth doing only to compare
+the two models. Z6\_UNIT\_W and Z6\_UNIT\_H, a character cell's size in units,
+are 1 when it is off, so every converted site compiles back to what was there
+before. ozmoo.asm derives Z6\_PIXELS from it for the header writes, which is a
+separate name only because ozmoo.asm is shared with the versions that have no
+screen model of this kind.
+
+    Z6_PIC_XSUB=n
+    Z6_PIC_YSUB=n
+
+Version 6 with pictures only. Shift every picture by n art pixels horizontally
+or vertically, positive or negative. A test hook for the off-grid drawing
+described in "Placing a picture between cells", so that it can be exercised
+without playing a game to a screen that happens to ask for it.
 
     Z6_PICTURES
 

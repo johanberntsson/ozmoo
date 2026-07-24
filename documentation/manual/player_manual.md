@@ -80,7 +80,7 @@ On the MEGA65 each of the four games is a single disk: the pictures are packed s
 
 Arthur and Zork Zero can also be played with a mouse on the MEGA65: plug a 1351 or Amiga mouse into control port 2, and a pointer appears. Zork Zero's on-screen controls can be clicked, and Arthur lets you click to dismiss a [MORE] prompt.
 
-On the Commander X16 the pictures are ordinary files that live beside the game, and it reads each one from the SD card as it draws it, so keep them together when you copy the game.
+On the Commander X16 the pictures are ordinary files that live beside the game, and it reads each one from the SD card as it draws it, so keep them together when you copy the game. The mouse works here too, with whatever pointer the X16 already uses.
 
 # Copying
 An Ozmoo game stores data directly onto the floppy disk in addition to files. Because of this, it is not possible to copy a game to a new floppy by just copying files. If you want to make a copy you need to use a copy program that copies the whole disk, sectors by sector.
