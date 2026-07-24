@@ -15,9 +15,11 @@ than eyeballed (details under phase 3 below):
 The Shogun one was not on the list of known instances when this started, so
 assume there are others nobody has looked for.
 
-BRANCH: this work is on z6-pixel, branched from z6. z6 itself stays as it is,
-working, so the two models can be compared side by side. Nothing merges back
-without Johan's say-so, and z6 must keep building.
+BRANCH: this work was done on z6-pixel, branched from z6 so the two models
+could be compared side by side. MERGED INTO z6 on 2026-07-24, at Johan's word
+and as a fast-forward - z6 had gained nothing meanwhile, so the two are the
+same commit and z6-pixel stays put as the record of the work. master is
+deliberately untouched and still tracks upstream.
 
 Below: the problem, the two originally confirmed instances, the corrected
 geometry model, and the staged plan as it was carried out.
