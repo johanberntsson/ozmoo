@@ -439,13 +439,33 @@ Phase 3 - bring games over one at a time: STARTED 2026-07-23, one instance
   though note the flag is global rather than per game, so running the whole
   matrix with it on and off (which has been done, repeatedly) covers the same
   ground. Phase 2 (how much internal state becomes 2-byte pixel) has not been
-  needed by anything so far. Also worth doing before the flag becomes the default, from
-  what the ring showed: six of the map's seven other draws are GENERATED under
-  the pixel model where they were copied before, each taking a fresh tile run
-  AND a fresh palette bank. There are only 14 banks. Reusing a picture's bank
-  when only its PLACEMENT changed is both correct (the colours do not depend on
-  where it lands) and most of the saving; runtime tile dedup is the other half.
-  Neither is needed for anything that has been run so far.
+  needed by anything so far.
+  THE PALETTE BANKS: DONE 2026-07-24, and it had stopped being theoretical.
+  This entry used to say a bank per draw was "worth doing" and "not needed for
+  anything that has been run so far". Play-testing found it: press F2 for the
+  map, walk east, press F2 again, and on both targets most of the map's brown
+  paper came back BLACK (z6games/arthur-map-turn{1,2}.png; sfrotz keeps it
+  brown). The allocator had wrapped round the 14 banks onto the ones the
+  paper's own cells were using. The black patches differ between MEGA65 and X16
+  because the two engines consume banks at slightly different rates - the same
+  bug, not two.
+  The fix went further than this entry proposed, and is simpler for it: the
+  bank is keyed on the PICTURE, not the draw. pic_bank_pic records which
+  picture's palette is in each bank and .pa_pick_bank hands back the bank a
+  picture is already in - any placement, any window - so only a picture whose
+  palette is nowhere takes the next bank round. Adaptive pictures claim no bank
+  at all now, since they draw in the last direct picture's palette anyway;
+  Arthur's frame and two side bars were costing three banks a room for nothing.
+  Measured on the MEGA65 over the uartmon (pic_bank_pic read directly): a room
+  costs 5 banks, the first map 7 more (12 of 14), the second room 2 - and the
+  second map costs NOTHING, every picture already loaded. Before, one map draw
+  consumed about 16 on its own.
+  STILL TRUE: the round robin still spoils the oldest bank once a genuinely new
+  picture appears past the fourteenth. The ceiling is now "distinct pictures on
+  screen" rather than "draws", which no v6 game seems to exceed, but it is a
+  ceiling. Freeing a bank when its picture is erased would remove it.
+  Runtime tile dedup (the other half of the old entry) is still unbuilt and
+  still not needed by anything.
 Phase 4 - the same off-grid generator on the MEGA65 engine: DONE 2026-07-23,
   commit "Phase 4: the same off-grid generator for the MEGA65 engine". Not a
   bake path, as this line used to say - the same generate-from-the-picture

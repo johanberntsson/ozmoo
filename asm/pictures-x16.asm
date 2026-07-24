@@ -154,6 +154,16 @@ pic_win_number !fill 16, $ff ; the picture index (a word, so two bytes a window)
 PIC_PAL_BANKS = 14
 pic_next_bank  !byte 1
 pic_win_bank   !fill 8, 0
+; Which picture's palette each bank currently holds ($ffff = none), entry
+; (bank - 1). A picture drawn again gets the bank it is already in, wherever
+; and however it is placed and whatever window it goes to: a picture's palette
+; is a property of the picture, so this is always right, and it is what keeps
+; the fourteen banks from running out. Arthur's F2 map is the case that needs
+; it - it redraws the same handful of pictures (paper, room boxes, connectors)
+; dozens of times, and one bank per DRAW wrapped the allocator round onto banks
+; the paper's own cells were still pointing at, which turned the map's brown
+; background black on the second turn.
+pic_bank_pic   !fill PIC_PAL_BANKS * 2, $ff
 ; The palette bank an adaptive picture (Blorb APal) draws in: that of the
 ; last direct picture drawn. Seeded with bank 1 in case an adaptive picture
 ; is somehow drawn before any direct one.
@@ -547,16 +557,8 @@ pic_load_all
 	sta pic_win_number + 1,x
 	jsr .pa_pack_shift		; and where it was placed - see the reuse test
 	sta pic_win_shift,y
-	; give it the next palette bank, wrapping after the last one, which can only
-	; spoil the colours of a picture that is no longer the newest on screen
-	ldx pic_next_bank
-	inc pic_next_bank
-	lda pic_next_bank
-	cmp #PIC_PAL_BANKS + 1
-	bcc +
-	lda #1
-	sta pic_next_bank
-+	txa
+	; give it the bank its palette is already in, or the next one round
+	jsr .pa_pick_bank
 	sta pic_win_bank,y
 	; fall through to .pa_set_bank
 
@@ -570,6 +572,71 @@ pic_load_all
 	asl
 	sta .pic_entry_hi
 	rts
+
+.pa_pick_bank
+	; a = the palette bank for the picture in .pic_index: the one it is already
+	; loaded into if there is one, else the next bank round, which it claims.
+	; y holds the window on entry and still does on exit.
+	;
+	; Reusing the bank across placements and windows is what a per-DRAW bank
+	; could not do. A picture's palette does not depend on where it is drawn,
+	; so this is exact, not an approximation - and it is the difference between
+	; needing a bank per draw and needing one per distinct picture on screen.
+	sty .pab_win
+	lda #<pic_adaptive		; an adaptive picture is drawn in the last direct
+	ldx #>pic_adaptive		; picture's bank (.pic_draw sets it again below), so
+	jsr .pic_addr			; it needs no bank of its own and must not claim
+	lda (.pi_ptr)			; one - Arthur's frame and side bars are adaptive,
+	beq .pab_direct			; and they were costing three banks a room
+	lda pic_direct_bank
+	ldy .pab_win
+	rts
+.pab_direct
+	ldx #0					; x = (bank - 1) * 2
+	ldy #PIC_PAL_BANKS
+.pab_look
+	lda pic_bank_pic,x
+	cmp .pic_index
+	bne .pab_next
+	lda pic_bank_pic + 1,x
+	cmp .pic_index + 1
+	beq .pab_found
+.pab_next
+	inx
+	inx
+	dey
+	bne .pab_look
+	; nowhere yet: take the next bank round robin and record what is in it.
+	; Overwriting the entry is right - whatever was there has just lost its
+	; colours, exactly as before, only now it happens per picture rather than
+	; per draw.
+	lda pic_next_bank
+	sec
+	sbc #1
+	asl
+	tax
+	lda .pic_index
+	sta pic_bank_pic,x
+	lda .pic_index + 1
+	sta pic_bank_pic + 1,x
+	ldx pic_next_bank
+	inc pic_next_bank
+	lda pic_next_bank
+	cmp #PIC_PAL_BANKS + 1
+	bcc +
+	lda #1
+	sta pic_next_bank
++	ldy .pab_win
+	txa
+	rts
+.pab_found
+	txa						; (bank - 1) * 2 -> bank
+	lsr
+	clc
+	adc #1
+	ldy .pab_win
+	rts
+.pab_win !byte 0
 
 .pa_pack_shift
 	; The placement a run was built for, as one byte: the horizontal offset in
