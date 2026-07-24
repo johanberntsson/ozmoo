@@ -1854,10 +1854,25 @@ z_init
 ; check_undo
 	ldy #header_flags_2 + 1
 	jsr read_header_word
-!ifdef Z6_MOUSE {
-	and #(255 - 8) ; no pictures bit, but this screen has a mouse
+	; Clear the "feature available" bits this build cannot honour: bit 3
+	; pictures, bit 5 mouse. z-spec 11.1: the interpreter clears bit 3 only
+	; when pictures are NOT available, so a Z6_PICTURES build leaves the game's
+	; request bit alone - otherwise the flag says "no pictures" while
+	; picture_data and draw_picture happily draw them. (A missing bit means the
+	; game did not ask; we never force it on.)
+	; One masked AND, the mask chosen at assembly time, so this is the same size
+	; as before (the C64 -ecm build has no bytes to spare).
+!ifndef Z6_PICTURES {
+	!ifndef Z6_MOUSE {
+	and #(255 - 8 - 32) ; neither pictures nor mouse available
+	} else {
+	and #(255 - 8) ; no pictures, but this screen has a mouse
+	}
 } else {
-	and #(255 - 8 - 32) ; pictures and mouse never available
+	!ifndef Z6_MOUSE {
+	and #(255 - 32) ; pictures available, no mouse
+	}
+	; Z6_PICTURES and Z6_MOUSE both set: clear neither, leave A as read
 }
 !ifdef UNDO {
 	bit reu_bank_for_undo
