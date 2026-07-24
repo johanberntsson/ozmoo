@@ -619,6 +619,59 @@ STILL OPEN:
   while Ozmoo's 640x200 framebuffer doubles only across. Reporting B would not
   change that either - it is a framebuffer question, not a units question.)
 
+PLAY-TEST BUG RUN, 2026-07-24 (all FIXED and committed; the detailed writeups
+are the matching bullets in CLAUDE.md's "Watch out for"). Recorded here so the
+known-bugs list stays honest about what the pixel model's first real play
+sessions turned up:
+  - X16: Arthur's intro pictures had a corrupt bottom row (a band of screen
+    background with stray pixels across the frame border). .pic_seek added a
+    16-bit offset to a $a000 banked-RAM cursor and let the sum pass $ffff with
+    the carry lost; every source tile past ($ffff - .gen_tiles)/32 came from the
+    wrong bank. Only pictures over ~24.5 KB reach it, and only down the off-grid
+    path, so the pixel model was needed to expose it. Split the offset into
+    banks + remainder before adding. (commit "Fix the X16 staging seek ...")
+  - .pic_gc's incoming rectangle treated a vertically shifted picture's TOP edge
+    row as interior on the X16 (the x axis had the guard, y did not), and had it
+    on NEITHER axis on the MEGA65; both now mirror .gc_x0/.gc_y0 against
+    .pic_shift/.pic_shift_y. (commits "Give the MEGA65 compactor ..." and the
+    seek fix)
+  - Shogun's whole screen went black-on-white glyphs after "Start the game" on
+    every reverse-glyph target (C64/C128/Plus4/MEGA65-fcm; the X16 has per-cell
+    backgrounds and was right). The colour-swap test compared the requested
+    background against the WINDOW's previous foreground, so it was not
+    idempotent, and Shogun issues the same set_colour twice. It now measures
+    against the SCREEN's own pair (s_bg_zcolour/s_fg_zcolour). (commit "Make the
+    z6 colour-swap test idempotent")
+  - Arthur's F2 map lost its brown paper background on the second turn, on both
+    targets, because each drawn picture took the next of only 14 palette banks
+    and the map redraws a dozen+ pictures a screen, wrapping the allocator onto
+    live banks. The bank is now keyed on the PICTURE (pic_bank_pic), and banks
+    are reclaimed once no cell on screen shows them (.pa_reclaim_banks).
+    (commits "Key the palette bank on the picture ..." and "Give a palette bank
+    back ...")
+  - Clicking to dismiss a [MORE] prompt sprayed decoded garbage on both graphics
+    targets. The click's header-extension write walks the table with
+    set_z_address/read_next_byte/write_next_byte - the same z_address print_addr
+    holds its position in - and [MORE] fires mid-print. mouse_write_header_coords
+    now saves and restores z_address. (commit "Keep z_address across the mouse
+    click's header write")
+  - The MEGA65 composite bake still WRAPPED pic_next_tile when the store ran out
+    mid-draw, the same defect that ate Arthur's frame on the X16; it now
+    saturates and degrades. Hard to reach in play (Arthur's frame-over-scene
+    uses $ffff holes, not partly-transparent composites), so this is a
+    mechanical port of the proven X16 path. (commit "Saturate the MEGA65
+    composite bake ...")
+  - z_init kept clearing Flags 2 bit 3 ("pictures available") even on -pics
+    builds, disagreeing with picture_data. It now keeps the bit set under
+    Z6_PICTURES (the old-plan TODO further down this file, now done), verified
+    on Arthur MEGA65 (flags_2 $78, was $70). The other three -pics games see
+    the bit now too and are worth a play spot-check. (commit "Keep the
+    'pictures available' header bit set ...")
+  Docs: the manuals and PDFs were brought onto the pixel model the same day
+  (commit "Document the pixel-unit model ..."), and the wyrmward v6 example's
+  ext_z6graphics.h comments were corrected (its code needed no change - it
+  derives everything from the font size, so the pixel model just works).
+
 FIXED (July 2026): in Arthur on the C64 and MEGA65, the LAST character of every
 line of a parser message came out as the next screen code up - typing a bad word
 gave 'You don't need to use the word "aaaa.#' for the closing quote, and the line
@@ -1796,13 +1849,12 @@ Screen size, and why 320x200
      16 colours. The measurements that settled that are in the git history: the
      137 PNGs hold 110 distinct palettes of at most 14 colours, and forcing them
      onto one palette is measurably lossy.
-   - picture_data must start reporting real sizes and branching true, and
+   - picture_data must start reporting real sizes and branching true (DONE), and
      z_init must stop clearing the "pictures available" bit in header_flags_2
-     (see "and #(255 - 8 - 32) ; pictures and mouse never available"). Both have
-     to change together, and that is what flips Arthur onto code paths no
-     interpreter of ours has ever run. Expect a second round of the sort of bug
-     the Z7PLUS/Z6PLUS mix-up caused: the C64 and the MEGA65 will no longer be
-     playing the same game.
+     (DONE 2026-07-24 - it now keeps bit 3 set under Z6_PICTURES; see the
+     play-test bug run near the top of this file). Both changed, and that is what
+     flipped Arthur onto code paths no interpreter of ours had run. The second
+     round of bugs this warned of duly arrived - the whole 2026-07-24 run above.
    - erase_picture blanks the picture's rectangle with spaces. It should
      arguably restore the window's background instead, once windows have one.
    - Nothing sets a per window background colour yet, which is the remaining
