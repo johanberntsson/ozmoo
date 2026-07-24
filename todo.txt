@@ -737,8 +737,18 @@ partly-transparent cells per picture (it already classifies cells: it emits
 $ffff for fully transparent ones) and assemble that count into the picture
 index beside pic_width/pic_height, so the interpreter can reserve exactly what
 the bake will use. Note the store cap is a hard VERA limit (a tile map entry is
-a 10-bit index), so it cannot simply be raised; and the MEGA65 only gets away
-with the same wrap because it has 2048 tiles and half the per-room cost.
+a 10-bit index), so it cannot simply be raised.
+  UPDATE 2026-07-24: the MEGA65's composite bake now saturates like the X16's
+  (.pmt_full), so this is no longer a latent wrap - it degrades gracefully
+  (shows the un-composited overlay tile) when the store is full, same as the
+  X16. The bake is HARD to reach in Arthur's opening: its frame-over-scene uses
+  fully-transparent $ffff holes, not partly-transparent composites, so
+  .pcf_make_tile is not exercised there at all (proven: at a forced bake cap of
+  256, the intro and first room render byte-identically to the 2048 build - no
+  composite occurred). The saturate change is therefore a mechanical port of
+  the proven X16 path, not a play-tested one. The tight-bake-estimate idea
+  above would still make the degradation never trigger, but the graceful
+  degrade removes the urgency.
 Related: the odd path's 2x cost is what fills the store in the first place, so
 the staging-read follow-up below (bake boundary tiles straight from the staging
 banks, without copying a run first) would relieve the same pressure.

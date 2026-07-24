@@ -1641,8 +1641,7 @@ pic_load_all
 	; A fully opaque cell hides what is behind it completely, so the composite
 	; would be a copy of our own tile: use it directly and allocate nothing.
 	; Without this, a full-screen picture drawn over another (Arthur's intro)
-	; bakes a composite for every cell, wraps pic_next_tile into its own run
-	; and overwrites source tiles that later, deduplicated cells still need.
+	; bakes a composite for every cell and burns through the store for nothing.
 	cpx #0
 	bne +
 	rts
@@ -1659,25 +1658,43 @@ pic_load_all
 	iny
 	cpy #64
 	bne -
+	; This composite belongs to no window's run - .pic_alloc reserved only the
+	; picture's own tiles - so the store can genuinely run out here, mid-draw,
+	; with half the picture's cells already written and no chance to compact.
+	; SATURATE rather than wrap. Everything below pic_next_tile is live: the
+	; picture's own run and the frame, which is drawn once at boot and never
+	; redrawn, so it sits at the very bottom - exactly where a wrap lands. Worse,
+	; a wrap leaves pic_next_tile low, which convinces .pic_alloc the store is
+	; nearly empty, so .pic_gc never runs again and the allocator marches back up
+	; through the frame. That was the Arthur *X16* bug (see .pcf_alloc_and_write
+	; there); this engine had the same wrap and got away with it only for having
+	; 2048 tiles and half the X16's per-picture cost. Saturating is
+	; self-correcting: a full pic_next_tile fails .pic_alloc's fit check above,
+	; so the next picture compacts the store and the bakes have room again.
+	lda pic_next_tile + 1
+	cmp #>PIC_MAX_TILES
+	bcc .pmt_have
+	bne .pmt_full
+	lda pic_next_tile
+	cmp #<PIC_MAX_TILES
+	bcc .pmt_have
+.pmt_full
+	rts						; nothing baked. .pcf_newcode still holds OUR own
+							; tile from the seed at the top of this routine, so
+							; the cell shows us un-composited - it loses only the
+							; show-through of what was behind, a cosmetic cost
+							; confined to a nearly-full store. Do not seed
+							; .pcf_newcode any later than that top.
+.pmt_have
 	lda pic_next_tile		; allocate a fresh tile for the composite
 	sta .pcf_newcode_lo
 	lda pic_next_tile + 1
 	clc
 	adc #FCM_TILE_CODE_HI	; its screen code
 	sta .pcf_newcode_hi
-	inc pic_next_tile
+	inc pic_next_tile		; at most PIC_MAX_TILES now; never wraps
 	bne +
 	inc pic_next_tile + 1
-+	lda pic_next_tile + 1	; wrap at the end of the store, as .pic_alloc does
-	cmp #>PIC_MAX_TILES
-	bcc +
-	bne ++
-	lda pic_next_tile
-	cmp #<PIC_MAX_TILES
-	bcc +
-++	lda #0
-	sta pic_next_tile
-	sta pic_next_tile + 1
 +	lda .pcf_newcode_lo		; write the buffer out to the fresh tile
 	ldx .pcf_newcode_hi
 	jsr .pcf_code_addr

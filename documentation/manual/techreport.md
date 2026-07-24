@@ -929,9 +929,9 @@ event. And the wrap disabled the compactor that would have saved it: it left
 pic_next_tile low, so the fit check always passed and .pic_gc never ran again.
 The lesson generalises past this engine — an allocator that wraps onto live data
 is a bug rather than a fallback, and a wrap that erases the "store is full"
-signal takes the recovery path down with it. The MEGA65's baker still wraps: it
-has 2048 tiles and half the X16's per-picture cost, so it has not bitten, but the
-defect is the same one and the fix to port is the X16's.
+signal takes the recovery path down with it. The MEGA65's composite baker had the
+same wrap and took the same fix; it never bit there only because that engine has
+2048 tiles and half the X16's per-picture cost.
 
 Some pictures do not carry their own colours. The blorb's APal chunk lists the
 "adaptive" pictures — Arthur's frame and side bars — which are drawn in the
