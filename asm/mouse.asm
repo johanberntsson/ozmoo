@@ -114,6 +114,35 @@ mouse_write_header_coords
 	; Put the click cell into words 1 and 2 of the header extension table, if the
 	; game supplied a table of at least two words (z-spec 10.3.2). Coordinates
 	; are in the screen's units, which for Ozmoo are 1-based character cells.
+	;
+	; z_address IS SAVED ACROSS THIS, and must be. The click that gets here often
+	; arrives at a [MORE] prompt, and a [MORE] prompt happens in the middle of a
+	; print: print_addr keeps its position in the string in z_address, and
+	; set_z_address / read_next_byte / write_next_byte below are the very
+	; routines it walks the string with. Without this the print resumed from the
+	; header extension table and the game spat decoded garbage all over the
+	; screen - clicking to dismiss [MORE] did that on both graphics targets,
+	; while pressing a key (which touches none of this) was fine. print_addr's
+	; own abbreviation path saves the same bytes for the same reason.
+	lda z_address
+	pha
+	lda z_address + 1
+	pha
+	lda z_address + 2
+	pha
+	jsr .mwhc_body
+	pla
+	sta z_address + 2
+	pla
+	sta z_address + 1
+	pla
+	sta z_address
+!ifdef TARGET_X16 {
+	jsr x16_bank_z_address	; the banked-RAM pointer is derived from z_address
+}
+	rts
+
+.mwhc_body
 	ldy #header_header_extension_table
 	jsr read_header_word	; a = high, x = low of the table's byte address
 	sta .mouse_ext + 1
