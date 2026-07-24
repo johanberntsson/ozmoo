@@ -100,6 +100,15 @@ plus4_vic_colours
 .vera_background !byte 0
 vera_composite_colour !byte 0
 !ifdef Z6_PICTURES {
+; VERA renders palette index 0 as transparent, so text drawn in z-colour 2
+; (black), which zcolours maps to VERA colour 0, has see-through ink: over a
+; picture the letters show the picture instead of being black, and a black
+; field is transparent edge to edge. Text therefore takes an opaque black of
+; its own - an ordinary palette entry we set to $000 in vera_gfx_init - and
+; index 0 is left to mean what the hardware means by it, which is exactly what
+; a transparent background wants. The entry costs the C64 dark grey Ozmoo's
+; non-standard z-colour 19 maps to; nothing else in the low sixteen is free.
+X16_TEXT_BLACK = 11
 ; The screen background pictures show through their transparent pixels (the X16
 ; stand-in for the MEGA65's global $d021): the last set_colour background, as a
 ; VERA colour. set_window does not change it, so an inset drawn into a throwaway
@@ -294,6 +303,17 @@ vera_gfx_init
 	dex
 	bne -
 
+	; Give the text an opaque black to print in (see X16_TEXT_BLACK): palette
+	; entry X16_TEXT_BLACK * 2 in VERA order, GGGGBBBB then 0000RRRR.
+	lda #$11				; stride 1, address bit 16 ($1fa00 is in bank 1)
+	sta VERA_addr_bank
+	lda #$fa
+	sta VERA_addr_high
+	lda #X16_TEXT_BLACK * 2
+	sta VERA_addr_low
+	stz VERA_data0
+	stz VERA_data0
+
 	; leave port 0 selected with stride 1, as the screen code expects
 	lda #$11
 	sta VERA_addr_bank
@@ -318,12 +338,31 @@ vera_gfx_restore
 	lda VERA_dc_video		; layer 0 off
 	and #$ef
 	sta VERA_dc_video
+	; Put the palette entry we took for the text's opaque black back to the
+	; kernal's dark grey ($333): quit drops into BASIC without a reset, so
+	; nothing else restores it.
+	lda #$11
+	sta VERA_addr_bank
+	lda #$fa
+	sta VERA_addr_high
+	lda #X16_TEXT_BLACK * 2
+	sta VERA_addr_low
+	lda #$33				; GB
+	sta VERA_data0
+	lda #$03				; 0R
+	sta VERA_data0
 	; The kernal's charset copy at VRAM_CHARSET is intact, and BASIC keeps
 	; using it through our L1 tilebase, so it does not need moving back.
 	rts
 } ; Z6_PICTURES
 
 VERASetBackgroundColour
+!ifdef Z6_PICTURES {
+	cmp #0			; black must not be VERA colour 0 (see X16_TEXT_BLACK)
+	bne +
+	lda #X16_TEXT_BLACK
++
+}
 	pha
     asl
     asl
@@ -335,7 +374,24 @@ VERASetBackgroundColour
 	pla
     rts
 
+!ifdef Z6_TRANSPARENT_BG {
+VERASetTransparentBackground
+	; The see-through background z-colour 15 asks for: nybble 0, which is the
+	; one VERA does not draw, so the picture on layer 0 shows behind the text.
+	; The foreground is applied after this, and rebuilds the composite colour.
+	stz .vera_background
+	lda s_colour
+	sta vera_composite_colour
+	rts
+}
+
 VERASetForegroundColour
+!ifdef Z6_PICTURES {
+	cmp #0			; likewise: black ink would otherwise be see-through
+	bne +
+	lda #X16_TEXT_BLACK
++
+}
     sta s_colour
 	ora .vera_background
 	sta vera_composite_colour
@@ -371,9 +427,16 @@ x16_apply_window_colour
 	lsr
 	lsr
 	tax
+!ifdef Z6_TRANSPARENT_BG {
+	cpx #15			; z-colour 15: transparent, so the pictures show through
+	bne +
+	jsr VERASetTransparentBackground
+	bra ++
++
+}
 	lda zcolours,x		; z-colour -> VERA colour
 	jsr VERASetBackgroundColour
-	ldx current_window
+++	ldx current_window
 	lda window_colour,x
 	and #$0f
 	tax
@@ -2731,11 +2794,28 @@ s_track_colours
 	lda z_operand_value_low_arr + 1
 	beq .stc_bg_done	; 0: keep the background
 	cmp #$ff
+!ifndef Z6_TRANSPARENT_BG {
 	beq .stc_bg_done	; -1: the colour under the cursor -- keep
+} else {
+	; -1 asks for the colour of the pixel under the cursor, which is how the
+	; Infocom v6 games write their status line over a picture: Zork Zero's
+	; room name and score sit on its banner, Arthur's and Shogun's likewise.
+	; A text cell's background is four bits, so a picture's colour cannot be
+	; named there at all - but transparency says the same thing and says it
+	; for a picture that is not a flat colour, so take z-colour 15 instead.
+	bne .stc_bg_number
+	lda #15
+	bne .stc_bg_pack	; always
+.stc_bg_number
+}
 	cmp #1
 	bne +
 	lda #BGCOL		; 1: the default
-+	and #$0f
++
+!ifdef Z6_TRANSPARENT_BG {
+.stc_bg_pack
+}
+	and #$0f
 	asl
 	asl
 	asl
@@ -2846,6 +2926,10 @@ z_ins_set_colour
 	beq +
 	cmp #$ff
 	beq +
+!ifdef Z6_TRANSPARENT_BG {
+	cmp #15			; transparent is not a colour to show through either
+	beq +
+}
 	lda .vera_background	; the just-applied background, high nybble
 	lsr
 	lsr

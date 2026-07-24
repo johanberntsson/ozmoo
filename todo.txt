@@ -2107,7 +2107,11 @@ values it reads back from the interpreter, and five of them were wrong:
   graphics on every interpreter, see above).
 
 X16 pics: text drawn in colour 0 is TRANSPARENT, so it cannot cover a
-picture. VERA renders palette index 0 as transparent on a layer, and
+picture. FIXED 2026-07-24, exactly as prescribed at the end of this entry -
+X16_TEXT_BLACK in screenkernal-z6.asm. See the transparent-background entry
+below, which is what forced it: making a window's background see-through is
+no use while the ink is see-through too.
+VERA renders palette index 0 as transparent on a layer, and
 zcolours maps z-colour 2 (black) to VERA colour 0 - the commonest text
 colour there is. Every cell Ozmoo prints with black as its foreground
 therefore has transparent ink, and a reverse-video field (drawn entirely
@@ -2130,3 +2134,64 @@ the problem.
   is opaque and text covers layer 0 the way it covers tiles on the
   MEGA65. Do it behind Z6_PICTURES so the text-only X16 build, which is
   verified and has no layer 0, is untouched.
+  Done that way: index 11 (Ozmoo's non-standard z-colour 19, C64 dark grey
+  - the only spare in the low sixteen, which is all a text cell's colour
+  nybbles can reach). vera_gfx_init writes $000 into it and
+  vera_gfx_restore puts $333 back, because quit drops into BASIC without a
+  reset. The substitution is inside VERASetForegroundColour and
+  VERASetBackgroundColour, so every route to a colour goes through it -
+  set_colour, darkmode, the swap fallback - rather than only zcolours.
+
+MEGA65 pics: text written over a picture is drawn in a box of the window's
+background colour, where sfrotz lets the picture show around the letters.
+NOT A BUG IN THE OPCODE LAYER - that part is fixed and works on the X16
+(see below); it is the VIC-IV that cannot express it.
+  What the games ask for: "set_colour fg, -1" - background = the colour of
+  the pixel under the cursor (z-spec 1.1's colour list, "-1 = sample").
+  Zork Zero's room name / moves / score sit on its banner that way
+  (routine eb60 in txd; the sampling branch is taken for interpreter 6
+  with colours and graphics available, which is our pics build), and
+  Arthur's and Shogun's status lines do the same. The 1.1 spec also
+  defines background colour 15 as "transparent", which is the same intent
+  expressed in a way that works over art that is not a flat colour.
+  Fixed on the X16 2026-07-24 (Z6_TRANSPARENT_BG): -1 becomes z-colour 15
+  in the window's pair, and a cell background nybble of 0 is the one VERA
+  does not draw, so layer 0 shows through. One flag, no new per-window
+  state, and property 11 reads back 15 so a game that saves and restores
+  its pair round-trips. Verified in play on zorkzero-pics-x16: the status
+  line is black on the banner, like sfrotz.
+  On the MEGA65 there is nothing equivalent. Under FCM a text cell's
+  background is the global $d021 - one register for the whole screen - and
+  the VIC-IV has no per-cell background byte to make see-through (that is
+  the same reason -fcm still uses the reversed-glyph swap for property 11
+  where the X16 uses Z6_WINDOW_BG). The only route to sfrotz's look is to
+  bake the glyph into the tile: for each cell printed over a picture,
+  allocate a tile, copy the picture tile beneath it, and write the ROM
+  glyph's set pixels into it in the foreground colour. That is:
+    - a text ink palette. The store bakes ABSOLUTE palette indices and a
+      tile pixel of 0 is transparent, so text needs entries of its own;
+      240-254 are free (bank 15 is skipped because pixel 255 comes from
+      colour RAM), which is enough for the sixteen text colours.
+    - a per-cell composite in the hottest text path, and in BOTH sites -
+      s_printchar and print_line_from_buffer, the one that carries most
+      text (see the FCM-cell section of CLAUDE.md).
+    - tile budget. Zork Zero's status line is ~45 cells redrawn every turn;
+      Arthur's worst live set already measures 1894 of 2048. The tiles
+      belong to no window's run, which is the class .pcf_alloc_and_write
+      had to be taught to saturate rather than wrap, so the accounting
+      item further up this file becomes load-bearing rather than polish.
+  Deliberately left as it is: Johan's call was that a partial fix is worth
+  having and a large one is not. Worth revisiting only together with the
+  baked-tile accounting.
+  Also open on BOTH targets, and NOT the same thing: the status text sits
+  one text row higher than sfrotz. Zork Zero asks for it at art row 7 -
+  seven-eighths of a cell below the banner's top - and sfrotz, a bitmap
+  interpreter, puts it exactly there; Ozmoo's text lives on the cell grid,
+  so units_to_cells_y floors it to row 0. Measured off the two
+  screenshots: banner top at art row 0 in both, text 7 art pixels down in
+  sfrotz and 0 in ours. Rounding the cursor to the NEAREST cell would land
+  within one art pixel, but units_to_cells_y also converts heights and
+  window origins, and rounding up in a window only as tall as its own text
+  would clamp two lines onto one row - so it needs a separate
+  cursor-only conversion and a play-test of all four games, not a one-line
+  change. Cosmetic; Johan rated it less important than the box.

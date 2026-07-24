@@ -2178,6 +2178,8 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	stz pic_bg_index
 	lda x16_screen_bg		; the screen background as a VERA colour 0..15
 	beq .pcbi_done			; 0 = black = the backdrop already: nothing to do
+	cmp #X16_TEXT_BLACK		; and so is the opaque black text prints in, which
+	beq .pcbi_done			; is where a black background now lands
 	asl						; N * 2 -> the base palette entry ($1fa00 + N*2)
 	tay
 	stz VERA_ctrl

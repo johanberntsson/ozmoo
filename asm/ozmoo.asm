@@ -118,6 +118,13 @@
 !ifdef Z6 {
 	!ifdef TARGET_X16 {
 		Z6_WINDOW_BG = 1
+		; ...and one of them can also make a cell background see-through, which
+		; is what z-spec 1.1's colour 15 (and the "sample the pixel under the
+		; cursor" colour -1 the Infocom games actually use) asks for: on VERA a
+		; background nybble of 0 lets layer 0 - the pictures - show through.
+		!ifdef Z6_PICTURES {
+			Z6_TRANSPARENT_BG = 1
+		}
 	}
 }
 
