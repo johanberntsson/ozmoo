@@ -716,6 +716,28 @@ init_mega65
 	sta zp_colourline
 	lda #>FCM_COLOUR_OFFSET
 	sta zp_colourline + 1
+!ifdef Z6_FCM_TEXT_BAKE {
+	; Text-ink palette bank: entries 240-255 duplicate the 16 text colours at
+	; palette indices 0-15. When text is baked into a picture tile (s_bake_char),
+	; a set glyph pixel is written as 240 + s_colour rather than the bare colour
+	; index, because a tile pixel of 0 means transparent - the text's own black
+	; would vanish. 240-255 is palette bank 15, which the picture allocator
+	; already skips (a picture pixel is at most bank 14, index 239), so nothing
+	; else uses it. Index 255 renders from colour RAM, not the palette, so
+	; s_bake_char also puts s_colour in the cell's colour byte for the one text
+	; colour (15) whose ink lands on 255.
+	jsr mega65io
+	ldx #15
+-	lda $d100,x		; red
+	sta $d100 + 240,x
+	lda $d200,x		; green
+	sta $d200 + 240,x
+	lda $d300,x		; blue
+	sta $d300 + 240,x
+	dex
+	bpl -
+	jsr bake_shadow_clear	; drop any stale clean-background tile codes
+}
 }
 	rts
 	
@@ -994,6 +1016,24 @@ s_ignore_next_linebreak	!byte 0,0,0,0,0,0,0,0
 ; has hardware backgrounds - neither uses this.)
 window_swap		!byte 0,0,0,0,0,0,0,0
 
+!ifdef Z6_FCM_TEXT_BAKE {
+; Non-zero when this window's background is the transparent / "sample under the
+; cursor" colour (z-colour 15). Text printed into such a window over a picture
+; is baked into the picture tile (s_bake_char) instead of drawn in a coloured
+; box. Set by s_track_colours; read by the two text write sites.
+window_bake		!byte 0,0,0,0,0,0,0,0
+; Text lives on the cell grid, but a v6 game can position a window (or its
+; cursor) at a sub-cell art-pixel row - Zork Zero puts its banner text seven
+; pixels down, so units_to_cells_y floored it up onto the cell above. These
+; carry the low three bits it discards: window_y_sub is the window origin's
+; remainder, text_y_sub the current text baseline's (origin + cursor line).
+; s_bake_char paints the glyph text_y_sub rows down, splitting it across the
+; cell below - which only a baked (transparent-over-picture) cell can do, since
+; ordinary text is one glyph in one cell.
+window_y_sub	!byte 0,0,0,0,0,0,0,0
+text_y_sub		!byte 0,0,0,0,0,0,0,0
+}
+
 !ifndef Z6_ECM_MODE {
 !ifndef Z6_WINDOW_BG {
 apply_window_swap
@@ -1239,6 +1279,23 @@ s_printchar
 	; lda s_colour
 	; jsr VERAPrintColourAfterChar
 } else {
+!ifdef Z6_FCM_TEXT_BAKE {
+	; If this is a transparent window and a picture tile is under the cell, bake
+	; the glyph into the picture instead of drawing a coloured box over it.
+	pha
+	ldx current_window
+	lda window_bake,x
+	beq .nc_no_bake
+	iny						; the cell's tile-select (high) byte
+	lda (zp_screenline),y
+	dey
+	beq .nc_no_bake			; no picture here: ordinary text
+	pla						; a = screen code, y = 2 * column
+	jsr s_bake_char			; writes character, tile-select and colour bytes
+	jmp .nc_baked
+.nc_no_bake
+	pla
+}
 	sta (zp_screenline),y
 	+clear_cell_high_byte
 !ifdef Z6_FCM_MODE {
@@ -1258,6 +1315,9 @@ s_printchar
 	!ifdef TARGET_MEGA65 {
 		jsr colour1k
 	}
+}
+!ifdef Z6_FCM_TEXT_BAKE {
+.nc_baked
 }
 }
 	; y is a byte offset under FCM, so step the column itself and reload
@@ -2775,6 +2835,26 @@ s_track_colours
 	; (see s_colour_swap). ECM keeps the tracking for get_wind_prop but
 	; never swaps: it has no reversed glyphs.
 	ldx current_window
+!ifdef Z6_FCM_TEXT_BAKE {
+	; Track, separately from the colour pair and the reverse-video swap, whether
+	; this window wants text drawn transparently over a picture - a background of
+	; -1 ("sample the pixel under the cursor", how the Infocom v6 games write on
+	; their status banners). Kept apart on purpose: it must not touch the pair or
+	; the swap, or it would break the swap+erase_line bars Journey and Shogun draw
+	; (which this used to regress). The bake itself (s_bake_char) only fires when
+	; window_bake is set AND a picture is actually under the cell.
+	lda z_operand_value_low_arr + 1
+	beq +				; 0: background unchanged, so leave window_bake alone
+	cmp #$ff
+	beq .stc_bake_on
+	lda #0				; a real colour, or 1 (the default): opaque
+	sta window_bake,x
+	jmp +
+.stc_bake_on
+	lda #$80
+	sta window_bake,x
++
+}
 	lda window_colour,x
 	sta .stc_pair
 	lda z_operand_value_low_arr

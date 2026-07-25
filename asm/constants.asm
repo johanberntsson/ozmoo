@@ -133,6 +133,24 @@ FCM_CHARSET           = $2d800
 FCM_TILE_STORE        = $40000
 FCM_TILE_CODE_HI      = $10		; $40000 / 64 = $1000
 PIC_MAX_TILES         = 2048	; 128 KB of banks 4 and 5, at 64 bytes a tile
+!ifdef Z6_FCM_TEXT_BAKE {
+; Per-cell clean-background shadow for baked transparent text. When text is
+; drawn over a picture (s_bake_char), the cell's ORIGINAL picture tile must
+; survive so that redrawing the same field (Zork Zero's room name and moves on a
+; room change) composites onto clean art, not the previous turn's baked glyph.
+; One tile code (2 bytes) per screen cell, captured at the first bake, in attic
+; RAM clear of the pictures ($08300000 up) and the undo buffer ($08600000).
+; SCREEN_ROW_BYTES * SCREEN_HEIGHT = 160 * 25 = 4000 bytes. This is only the
+; "has this cell been baked yet" flag now; the clean PIXELS live below.
+BAKE_SHADOW_ADDR      = $085f0000
+; The clean picture pixels for baked cells - the actual text-free art, 64 bytes
+; (one tile) per screen cell, indexed (row * 80 + col) * 64. Storing the pixels
+; rather than a tile code makes the shadow immune to .pic_gc, which compacts the
+; tile store and MOVES tiles: a stored code would go stale (the corrupt Moves
+; field after many turns), but pixels in this fixed buffer never move. 80 * 25 *
+; 64 = 128000 bytes, clear of the pictures below and the undo buffer above.
+BAKE_PIXELS_ADDR      = $08580000
+}
 } else {
 ; Bank 1 is untouched in a build without pictures, so the store can live there
 ; and leave the sound and undo buffers where every other target has them.

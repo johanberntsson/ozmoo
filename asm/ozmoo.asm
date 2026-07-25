@@ -126,6 +126,19 @@
 			Z6_TRANSPARENT_BG = 1
 		}
 	}
+	; The MEGA65 full colour screen has no per-cell background register (one
+	; global $d021), so it cannot make a text cell see-through the X16 way.
+	; Instead, when a window's background is the "sample under the cursor" /
+	; transparent colour, text printed over a picture is BAKED into a copy of
+	; the picture tile beneath it, so the art shows around the letters like
+	; sfrotz. See s_bake_char in pictures-mega65.asm.
+	!ifdef TARGET_MEGA65 {
+		!ifdef Z6_FCM_MODE {
+			!ifdef Z6_PICTURES {
+				Z6_FCM_TEXT_BAKE = 1
+			}
+		}
+	}
 }
 
 !ifdef TARGET_C64 {

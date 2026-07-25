@@ -75,6 +75,23 @@ PIC_PROGRESS_STEP = picture_crunched_pages / 30 + 1
 .pcf_newcode_lo !byte 0		; the composited tile's screen code
 .pcf_newcode_hi !byte 0
 .pcf_buf     !fill 64, 0	; one tile being composited, a byte a pixel
+!ifdef Z6_FCM_TEXT_BAKE {
+.bk_char     !byte 0		; s_bake_char: the glyph's screen code (0..127)
+.bk_yoff     !byte 0		; the cell's even-byte offset in the row (2 * column)
+.bk_ink      !byte 0		; 240 + s_colour: the text ink palette index
+.bk_glyph    !fill 8, 0		; the 8 ROM font bytes for this glyph
+.bk_bits     !byte 0		; the row byte being shifted out, MSB first
+.bk_bitcnt   !byte 0
+.bk_sub      !byte 0		; sub-cell y: pixel rows the glyph is shifted down
+.bk_first_grow !byte 0		; .bk_one_cell: first glyph row of this slice
+.bk_first_prow !byte 0		; where it lands in the tile (pixel row)
+.bk_nrows    !byte 0		; how many rows of the glyph this cell takes
+.bk_rowsleft !byte 0
+.bk_bufidx   !byte 0		; running .pcf_buf index (pixel row * 8)
+.bk_fallback_ok !byte 0		; 1 = draw a plain glyph box if the store is full
+.bk_cellrow  !byte 0		; the screen row of the cell being baked (for the shadow)
+.bk_firstbake !byte 0		; 1 = this cell's first bake ever (allocate a tile)
+}
 
 ; Off-grid placement (.pic_gen_fill). A screen cell holds GEN_CELL_W art pixels
 ; across - half an art cell on the 80-column screen, where the art is doubled,
@@ -1707,6 +1724,451 @@ pic_load_all
 	cpy #64
 	bne -
 	rts
+
+!ifdef Z6_FCM_TEXT_BAKE {
+s_bake_char
+	; Draw a character over a picture the way sfrotz does - the art shows around
+	; the letter instead of in a coloured box. Under FCM a text cell's background
+	; is the one global $d021 register, so a transparent window (background
+	; z-colour 15, from "set_colour fg, -1") cannot be made see-through the way
+	; the X16 does it. Instead bake a fresh tile that is a COPY of the picture
+	; tile under this cell with the glyph's set pixels painted in the text ink,
+	; and point the cell at it.
+	;
+	; Text lives on the cell grid, but a v6 game can ask for it a few pixel rows
+	; INTO a cell (Zork Zero's banner is seven pixels down). text_y_sub carries
+	; that offset; when it is non-zero the glyph is split across the cell below,
+	; which is why this is worth doing only for a baked cell - the picture is
+	; there to composite the two slices onto.
+	;
+	; in:  a = screen code (glyph, reverse bits ignored), y = 2 * column (the
+	;      cell's even-byte offset in the row), zp_screenline = the row base,
+	;      s_colour = the foreground colour. The cell's high byte is non-zero (a
+	;      picture tile is under it) - the caller has checked.
+	; out: the cell's character, tile-select and colour bytes all written.
+	;      Clobbers a/x/y/z and .pic_dst; y comes back as the passed 2 * column.
+	and #$7f
+	sta .bk_char
+	sty .bk_yoff
+	lda #240
+	clc
+	adc s_colour			; ink = 240 + s_colour, in the text-ink palette bank
+	sta .bk_ink
+
+	; read this glyph's 8 ROM font bytes. FCM_CHARSET is a linear address, so a
+	; 32-bit pointer reads it the same bytes the VIC-IV fetches. Borrow .pic_att,
+	; which is idle outside a picture draw.
+	lda .bk_char
+	sta .pic_att
+	lda #0
+	sta .pic_att + 1
+	asl .pic_att			; char * 8 (the glyph is 8 bytes)
+	rol .pic_att + 1
+	asl .pic_att
+	rol .pic_att + 1
+	asl .pic_att
+	rol .pic_att + 1
+	lda .pic_att
+	clc
+	adc #<FCM_CHARSET
+	sta .pic_att
+	lda .pic_att + 1
+	adc #>FCM_CHARSET
+	sta .pic_att + 1
+	lda #^FCM_CHARSET
+	sta .pic_att + 2
+	lda #0
+	sta .pic_att + 3
+	ldy #0
+-	tya
+	taz
+	lda [.pic_att],z
+	sta .bk_glyph,y
+	iny
+	cpy #8
+	bne -
+
+	ldx current_window
+	lda text_y_sub,x
+	sta .bk_sub
+
+	; cell A - the cursor's own cell. Glyph rows 0 .. 7-sub land at pixel rows
+	; sub .. 7. When sub is 0 this is the whole glyph and there is no cell B.
+	lda zp_screenrow
+	sta .bk_cellrow
+	lda #0
+	sta .bk_first_grow
+	lda .bk_sub
+	sta .bk_first_prow
+	lda #8
+	sec
+	sbc .bk_sub
+	sta .bk_nrows
+	lda #1					; on a full store, cell A degrades to a plain box
+	sta .bk_fallback_ok
+	jsr .bk_one_cell
+
+	lda .bk_sub
+	beq .bk_done			; aligned: cell A held the whole glyph
+
+	; cell B - the cell one row below, taking the glyph's bottom sub rows at
+	; pixel rows 0 .. sub-1. Skip it at the bottom of the screen.
+	lda zp_screenrow
+	clc
+	adc #1
+	cmp #SCREEN_HEIGHT
+	bcs .bk_done
+	sta .bk_cellrow			; the row below, for the shadow
+	lda zp_screenline		; step both pointers down one row and restore after
+	pha
+	lda zp_screenline + 1
+	pha
+	lda zp_colourline
+	pha
+	lda zp_colourline + 1
+	pha
+	lda zp_screenline
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta zp_screenline
+	bcc +
+	inc zp_screenline + 1
++	lda zp_colourline
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta zp_colourline
+	bcc +
+	inc zp_colourline + 1
++	lda #8
+	sec
+	sbc .bk_sub
+	sta .bk_first_grow		; first glyph row of the bottom slice
+	lda #0
+	sta .bk_first_prow
+	lda .bk_sub
+	sta .bk_nrows
+	lda #0					; cell B has no plain-box fallback: skip if it can't bake
+	sta .bk_fallback_ok
+	jsr .bk_one_cell
+	pla
+	sta zp_colourline + 1
+	pla
+	sta zp_colourline
+	pla
+	sta zp_screenline + 1
+	pla
+	sta zp_screenline
+.bk_done
+	ldy .bk_yoff
+	rts
+
+.bk_one_cell
+	; Bake one cell's tile from the current .bk_ glyph slice.
+	; in:  zp_screenline/zp_colourline point at the cell's row, .bk_yoff = 2*col,
+	;      .bk_first_grow/.bk_first_prow/.bk_nrows describe the slice,
+	;      .bk_fallback_ok = 1 to draw a plain glyph box when the store is full.
+	; Does nothing if the cell has no picture tile under it.
+	ldy .bk_yoff
+	iny
+	lda (zp_screenline),y	; tile-select high byte of the current cell
+	bne +					; no picture here: nothing to composite onto
+	rts
++	sta .pcf_under_hi		; the CURRENT tile: clean art plus any text already
+	dey						; here, including an adjacent line's slice in the
+	lda (zp_screenline),y	; rows this glyph does not touch - it must survive
+	sta .pcf_under_lo
+
+	; The cell's CLEAN (text-free) picture tile is kept in the shadow so that a
+	; redraw lands on fresh art, not last turn's glyph. Captured at the first
+	; bake, when the cell still shows the picture.
+	; The glyph's clear pixels take their colour from the cell's CLEAN (text-free)
+	; picture, kept in .gen_buf, so old text in this glyph's rows is erased rather
+	; than composited onto (a space erases to bare picture). The clean pixels are
+	; saved in BAKE_PIXELS_ADDR at the first bake and read back on every redraw -
+	; stored as pixels, not a tile code, so .pic_gc moving the store cannot make
+	; them stale.
+	jsr .bk_shadow_ptr		; the per-cell "already baked" flag
+	ldz #1
+	lda [.pic_att],z
+	bne .boc_reuse_clean
+	; first bake of this cell: the current tile is the clean picture. Flag it,
+	; unpack it into .gen_buf, and save those pixels for later redraws.
+	lda #1
+	sta .bk_firstbake
+	lda .pcf_under_lo
+	ldz #0
+	sta [.pic_att],z
+	lda .pcf_under_hi
+	ldz #1
+	sta [.pic_att],z
+	lda .pcf_under_lo
+	ldx .pcf_under_hi
+	jsr .pcf_code_addr
+	ldy #0
+	ldz #0
+-	lda [.pic_dst],z
+	sta .gen_buf,y
+	inz
+	iny
+	cpy #64
+	bne -
+	jsr .bk_pixels_ptr		; save the clean pixels
+	ldy #0
+	ldz #0
+-	lda .gen_buf,y
+	sta [.pic_att],z
+	inz
+	iny
+	cpy #64
+	bne -
+	jmp .boc_clean_have
+.boc_reuse_clean
+	lda #0
+	sta .bk_firstbake
+	jsr .bk_pixels_ptr		; read the saved clean pixels back
+	ldy #0
+	ldz #0
+-	lda [.pic_att],z
+	sta .gen_buf,y
+	inz
+	iny
+	cpy #64
+	bne -
+.boc_clean_have
+
+	; Choose the tile to write. On a RE-bake the cell already owns a unique baked
+	; tile - its current tile - so rewrite that IN PLACE. This is essential, not
+	; an optimisation: allocating a fresh tile per redraw makes pic_next_tile
+	; climb every turn (Zork Zero reprints its banner constantly), and once a
+	; compass draw finds the store full .pic_gc compacts it, MOVING the clean
+	; tiles the shadow points at by code - stale codes then read garbage (the
+	; corrupt Moves field after several turns). Reusing the cell's own tile keeps
+	; the store flat so gc never runs. On the FIRST bake the current tile is the
+	; shared picture tile, which other cells still show, so it must not be
+	; overwritten: allocate a fresh one there.
+	lda .bk_firstbake
+	beq .boc_reuse
+	; allocate a fresh tile, saturating (a full store degrades to a plain box)
+	lda pic_next_tile + 1
+	cmp #>PIC_MAX_TILES
+	bcc +
+	bne .boc_full
+	lda pic_next_tile
+	cmp #<PIC_MAX_TILES
+	bcc +
+.boc_full
+	jmp .boc_store_full		; too far for a direct branch
++	lda pic_next_tile
+	sta .pcf_newcode_lo
+	lda pic_next_tile + 1
+	clc
+	adc #FCM_TILE_CODE_HI
+	sta .pcf_newcode_hi
+	inc pic_next_tile
+	bne .boc_have_target
+	inc pic_next_tile + 1
+	jmp .boc_have_target
+.boc_reuse
+	lda .pcf_under_lo		; rewrite the cell's own baked tile in place
+	sta .pcf_newcode_lo
+	lda .pcf_under_hi
+	sta .pcf_newcode_hi
+.boc_have_target
+
+	; base the new tile on the CURRENT cell, so rows this glyph does not touch
+	; (an adjacent banner line's slice, or the picture) are kept
+	lda .pcf_under_lo
+	ldx .pcf_under_hi
+	jsr .pcf_code_addr		; .pic_dst -> the current tile in the store
+	ldy #0
+	ldz #0
+-	lda [.pic_dst],z
+	sta .pcf_buf,y
+	inz
+	iny
+	cpy #64
+	bne -
+
+	; paint the glyph slice. Every pixel of the glyph's rows is rewritten: a set
+	; bit (MSB = leftmost) takes the ink, a clear bit takes the CLEAN picture
+	; pixel - so this line's own old text in these rows is wiped. Rows outside
+	; the slice keep the current-cell base. Row r lands at .pcf_buf index
+	; (.bk_first_prow + r) * 8 + column.
+	ldx .bk_first_grow
+	lda .bk_first_prow
+	asl
+	asl
+	asl
+	sta .bk_bufidx
+	lda .bk_nrows
+	sta .bk_rowsleft
+.boc_row
+	lda .bk_glyph,x
+	sta .bk_bits
+	ldy .bk_bufidx
+	lda #8
+	sta .bk_bitcnt
+.boc_bit
+	asl .bk_bits
+	bcs .boc_ink
+	lda .gen_buf,y			; clear bit: the clean picture pixel
+	bra .boc_put
+.boc_ink
+	lda .bk_ink
+.boc_put
+	sta .pcf_buf,y
+	iny
+	dec .bk_bitcnt
+	bne .boc_bit
+	lda .bk_bufidx
+	clc
+	adc #8
+	sta .bk_bufidx
+	inx
+	dec .bk_rowsleft
+	bne .boc_row
+
+	; write the painted buffer out to the fresh tile
+	lda .pcf_newcode_lo
+	ldx .pcf_newcode_hi
+	jsr .pcf_code_addr
+	ldy #0
+	ldz #0
+-	lda .pcf_buf,y
+	sta [.pic_dst],z
+	inz
+	iny
+	cpy #64
+	bne -
+
+	; point the cell at the new tile
+	ldy .bk_yoff
+	lda .pcf_newcode_lo
+	sta (zp_screenline),y
+	iny
+	lda .pcf_newcode_hi
+	sta (zp_screenline),y
+	jmp .boc_colour
+
+.boc_store_full
+	lda .bk_fallback_ok
+	beq .boc_skip			; cell B, no fallback: leave what is there
+	; cell A: draw the plain glyph box, the pre-bake behaviour
+	ldy .bk_yoff
+	lda .bk_char
+	sta (zp_screenline),y
+	iny
+	lda #0
+	sta (zp_screenline),y
+.boc_colour
+	; The colour byte is only read for pixel value 255, which is the ink of text
+	; colour 15 (240 + 15); set it to s_colour so that one colour renders too.
+	; Harmless for every other ink. zp_colourline carries the +1 bias.
+	lda .bk_yoff
+	taz
+	lda s_colour
+	sta [zp_colourline],z
+.boc_skip
+	rts
+
+.bk_shadow_ptr
+	; .pic_att -> BAKE_SHADOW_ADDR + .bk_cellrow * SCREEN_ROW_BYTES + .bk_yoff.
+	; The base's low 16 bits are zero, so the row/column offset (at most 3998)
+	; fills the low word and never carries into the bank bytes.
+	lda #0
+	sta .pic_att
+	sta .pic_att + 1
+	ldx .bk_cellrow
+	beq .bsp_add_col
+.bsp_row
+	lda .pic_att
+	clc
+	adc #SCREEN_ROW_BYTES
+	sta .pic_att
+	bcc +
+	inc .pic_att + 1
++	dex
+	bne .bsp_row
+.bsp_add_col
+	lda .pic_att
+	clc
+	adc .bk_yoff
+	sta .pic_att
+	bcc +
+	inc .pic_att + 1
++	lda #^BAKE_SHADOW_ADDR
+	sta .pic_att + 2
+	lda #(BAKE_SHADOW_ADDR >> 24)
+	sta .pic_att + 3
+	rts
+
+.bk_pixels_ptr
+	; .pic_att -> BAKE_PIXELS_ADDR + (.bk_cellrow * 80 + col) * 64, where col is
+	; .bk_yoff / 2. The clean tile's 64 pixels for this cell live there.
+	lda #0
+	sta .pic_att			; build the cell index in .pic_att low word
+	sta .pic_att + 1
+	ldx .bk_cellrow
+	beq .bpp_add_col
+.bpp_row
+	lda .pic_att
+	clc
+	adc #80
+	sta .pic_att
+	bcc +
+	inc .pic_att + 1
++	dex
+	bne .bpp_row
+.bpp_add_col
+	lda .bk_yoff
+	lsr						; col
+	clc
+	adc .pic_att
+	sta .pic_att
+	bcc +
+	inc .pic_att + 1
++	; offset = cell index * 64, a 22-bit value across three bytes
+	lda #0
+	sta .pic_att + 2
+	ldx #6
+-	asl .pic_att
+	rol .pic_att + 1
+	rol .pic_att + 2
+	dex
+	bne -
+	lda .pic_att + 2		; add the base (low 16 bits are zero)
+	clc
+	adc #^BAKE_PIXELS_ADDR
+	sta .pic_att + 2
+	lda #(BAKE_PIXELS_ADDR >> 24)
+	sta .pic_att + 3
+	rts
+
+bake_shadow_clear
+	; Zero the whole shadow (16 pages covers the 4000 bytes). Runs at every boot,
+	; including a restart - the shadow is in attic and would otherwise survive
+	; with stale tile codes from the previous run.
+	lda #0
+	sta .pic_att
+	sta .pic_att + 1
+	lda #^BAKE_SHADOW_ADDR
+	sta .pic_att + 2
+	lda #(BAKE_SHADOW_ADDR >> 24)
+	sta .pic_att + 3
+	ldx #16
+	ldz #0
+	tza
+.bsc_page
+	ldy #0
+-	sta [.pic_att],z
+	inz
+	iny
+	bne -
+	inc .pic_att + 1
+	dex
+	bne .bsc_page
+	rts
+}
 
 ; ---------------------------------------------------------------------------
 ; Off-grid placement, the MEGA65 half of phase 0b (see pictures-x16.asm for the
