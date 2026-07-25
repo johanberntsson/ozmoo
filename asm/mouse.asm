@@ -38,6 +38,21 @@ MOUSE_Y_MAX     = SCREEN_HEIGHT * 8 - 1
 MOUSE_POTX      = $d620		; port 2 pot X / Y, MEGA65 direct-read registers
 MOUSE_POTY      = $d621
 MOUSE_BUTTON    = $dc00		; port 2: bit 4 clear = left button down
+; A joystick in control port 1 is an alternative to the mouse (either, or both,
+; moves the pointer and clicks). Port 1 is $dc01, whose lines are shared with the
+; keyboard matrix, so it is read with the columns deselected (JOY_COLUMNS in
+; $dc00) - a held key would otherwise look like a direction or a click. Bits, all
+; active low: 0 up, 1 down, 2 left, 3 right, 4 fire.
+JOY_PORT1       = $dc01
+JOY_COLUMNS     = $dc00		; keyboard column select; $ff = none, for a clean read
+JOY_UP          = %00000001
+JOY_DOWN        = %00000010
+JOY_LEFT        = %00000100
+JOY_RIGHT       = %00001000
+JOY_FIRE        = %00010000
+JOY_DIRS        = %00001111
+JOY_STEP        = 6			; pixels the pointer moves per jiffy while a way is held
+JOY_STEP_NEG    = 256 - JOY_STEP
 SPRITE_ENABLE   = $d015
 SPRITE0_X       = $d000
 SPRITE0_Y       = $d001
@@ -322,6 +337,10 @@ mouse_disable
 
 mouse_prev_potx !byte 0			; the pot readings the last poll, to difference
 mouse_prev_poty !byte 0
+.joy_bits       !byte $ff		; the joystick bits read this poll ($ff = idle)
+.joy_last_jiffy !byte 0			; the jiffy the pointer last stepped for the joystick
+.joy_was_held   !byte 0			; nonzero if the joystick was held the previous poll,
+								; so one more keyboard flush catches a late phantom key
 
 mouse_init
 	; Point the sprite hardware at our arrow, colour it, and show it. The FCM
@@ -389,14 +408,93 @@ mouse_enable
 	stx mouse_prev_poty
 	jsr .mouse_add_y
 
+	; --- a joystick in control port 1 moves the pointer too ---
+	jsr .mouse_read_joy
 	jsr .mouse_place_sprite
 
+	; the button is down if either the mouse's (port 2 fire) or the joystick's
+	; (port 1 fire, in .joy_bits) is pressed
 	lda MOUSE_BUTTON
 	and #$10				; bit 4 = fire; clear means pressed
-	beq +
-	lda #0					; up
+	beq .mouse_btn_down
+	lda .joy_bits
+	and #JOY_FIRE
+	beq .mouse_btn_down
+	lda #0					; neither: up
 	rts
-+	lda #1
+.mouse_btn_down
+	lda #1
+	rts
+
+.read_joy_bits
+	; A = the joystick's bits ($dc01, active low: 0 up 1 down 2 left 3 right
+	; 4 fire). $dc00 selects keyboard columns, so deselect them all around the
+	; read - with a column live, a held key on that column would read as a
+	; direction or a click - and keep interrupts off so the keyboard scan cannot
+	; reselect one between the two writes. NOTE this cleans OUR read only; the
+	; KERNAL's own scan still sees the joystick and turns it into phantom keys,
+	; which getchar_and_maybe_toggle_darkmode discards (see mouse_joystick_held).
+	php
+	sei
+	lda JOY_COLUMNS
+	pha
+	lda #$ff
+	sta JOY_COLUMNS
+	lda JOY_PORT1
+	tax
+	pla
+	sta JOY_COLUMNS
+	plp
+	txa
+	rts
+
+mouse_joystick_held
+	; A/z: nonzero if any direction or fire is held (0 = idle). getchar uses this
+	; to drop the phantom keys the KERNAL scan makes from the joystick.
+	jsr .read_joy_bits
+	eor #$ff				; active low -> a set bit now means "held"
+	and #(JOY_DIRS | JOY_FIRE)
+	rts
+
+.mouse_read_joy
+	; Read the joystick and step the pointer once per jiffy for each direction
+	; held. Leaves the raw bits (fire included) in .joy_bits for the button test.
+	jsr .read_joy_bits
+	sta .joy_bits
+
+	and #JOY_DIRS
+	cmp #JOY_DIRS
+	beq .mrj_done			; no direction held (all bits set)
+
+	; rate-limit to one step per jiffy, so the speed does not depend on how fast
+	; the input-wait loop polls (kernal_readtime returns the jiffy low byte in a)
+	jsr kernal_readtime
+	cmp .joy_last_jiffy
+	beq .mrj_done
+	sta .joy_last_jiffy
+
+	lda .joy_bits
+	and #JOY_LEFT
+	bne +
+	lda #JOY_STEP_NEG
+	jsr .mouse_add_x
++	lda .joy_bits
+	and #JOY_RIGHT
+	bne +
+	lda #JOY_STEP
+	jsr .mouse_add_x
++	lda .joy_bits
+	and #JOY_UP
+	bne +
+	lda #JOY_STEP_NEG
+	jsr .mouse_add_y
++	lda .joy_bits
+	and #JOY_DOWN
+	bne +
+	lda #JOY_STEP
+	jsr .mouse_add_y
++
+.mrj_done
 	rts
 
 .mouse_signed6

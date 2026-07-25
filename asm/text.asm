@@ -1085,10 +1085,35 @@ getchar_and_maybe_toggle_darkmode
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
+!ifdef Z6_MOUSE {
+!ifdef TARGET_MEGA65 {
+	; The joystick alternative is MEGA65-only (the X16 uses the KERNAL mouse). A
+	; joystick shares the CIA keyboard-matrix lines, so while it is held the
+	; KERNAL keyboard scan (which runs in the IRQ, outside our control) drops
+	; phantom keys into the buffer - seen on real hardware, not in xemu. While the
+	; joystick is, or was just, held, flush those and go straight to the pointer
+	; path instead of returning a phantom key. Nothing plugged in -> the read is
+	; idle and this is a no-op.
+	lda mouse_active
+	beq .gmd_keyboard
+	jsr mouse_joystick_held
+	tax							; remember held-now
+	ora .joy_was_held			; flush for one more poll after release, to catch a
+	php							; phantom key an IRQ made between the last flush and it
+	stx .joy_was_held
+	plp
+	beq .gmd_keyboard
+	lda #0
+	sta keyboard_buff_len		; drop the phantom keys the joystick produced
+	beq .gmd_mouse				; always (a = 0): take the pointer path
+.gmd_keyboard
+}
+}
 	jsr kernal_getchar
 	cmp #0
 	bne +
 !ifdef Z6_MOUSE {
+.gmd_mouse
 	; no key was waiting: move the pointer, and turn a click into input code 254
 	lda mouse_active
 	beq ++
