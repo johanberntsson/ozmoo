@@ -610,10 +610,21 @@ the clean (text-free) picture** and composites onto that:
   a plain glyph box.
 
 All of this is behind Z6_FCM_TEXT_BAKE (the MEGA65 full colour picture build).
-The one case it does not cover is a picture *redrawn* under live transparent text:
-the clean pixels are captured once and not refreshed, which is right for a status
-banner drawn once with text on top — what every shipped game does — but would show
-the original background if a game painted a new picture beneath text already there.
+
+When a picture is *redrawn* under a cell that has been baked, the shadow's
+"captured" flag has to be cleared, or the re-bake would rewrite the freshly drawn
+tile in place — and that tile is shared, so the whole banner corrupts. This is
+not hypothetical: Zork Zero's `map` command redraws the banner picture on return
+from the map, and the banner came back as garbage until it was fixed. So
+pic\_fill\_cells and the off-grid generator clear a cell's flag as they write it
+(only cells they actually draw — a fully transparent \$ffff cell is left, so a
+picture that shows baked text through it does not disturb the shadow). The next
+bake is then a first bake again: it re-captures the clean pixels from the new
+picture and allocates a fresh tile. This is why the flag is a separate byte in
+BAKE\_SHADOW\_ADDR rather than folded into the pixels — it can be cleared at draw
+time, and it is gc-safe because that happens before any compaction. An ordinary
+turn does not redraw the banner picture (only the compass overlays, away from the
+text), so the rewrite-in-place path is unaffected there.
 
 ## Font 3
 

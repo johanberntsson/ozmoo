@@ -2202,10 +2202,25 @@ every other build (checked X16-pics / mega65-no-pics / c64 with git stash + cmp)
   Moves counter crossing to two digits). Arthur / Shogun / Journey confirmed by
   Johan in play. Design writeup: CLAUDE.md's -1 bullet and techreport's "Text
   over a picture".
-  STILL OPEN, small: the clean pixels are captured once and NOT refreshed if a
-  picture is later redrawn UNDER live transparent text. Correct for a status
-  banner (drawn once, text on top), which is all the shipped games do; a game
-  that painted a new picture beneath text already there would show the old
-  background. Would need shadow invalidation when pic_fill_cells writes a baked
-  cell. Also remote: BAKE_PIXELS_ADDR at $08580000 assumes the staged archive at
-  $08510000 stays under 448 KB (every shipped archive is far smaller).
+  FIXED 2026-07-26: the clean pixels used to be captured once and NOT refreshed
+  when a picture was redrawn under a cell that had been baked. This DID bite a
+  shipped game: Zork Zero's "map" command (map + enter, yes + enter, then enter
+  to return) draws a full-screen map and, on return, REDRAWS the banner picture
+  - and the banner came back as garbage (z6games/zorkzero-aftermap.png). Because
+  the "captured" flag was still set from boot, the re-bake thought each cell
+  still owned its private baked tile and rewrote it in place; but the cell now
+  showed the freshly drawn - and SHARED - banner tile, so the glyph was baked
+  into the shared tile and every cell showing it turned to garbage. Fixed by
+  .pfc_invalidate_bake: pic_fill_cells (and the off-grid .pic_gen_fill) clear the
+  cell's captured flag (BAKE_SHADOW_ADDR) as they write it, so the next bake is a
+  first bake again - it re-captures the clean pixels from the new picture and
+  allocates a fresh tile instead of clobbering the shared one. gc-safe (the flag
+  is cleared at draw time, before any compaction). Only cells the picture
+  actually writes are cleared (not $ffff show-through or clipped cells), so a
+  transparent picture over baked text leaves the shadow alone. Verified in xemu:
+  the map round-trip banner is clean, and the e/n/s stress run is still clean
+  (the banner picture is not redrawn on an ordinary turn - only the compass
+  overlays are, away from the text cells - so rewrite-in-place still applies
+  there).
+  Also remote and still open: BAKE_PIXELS_ADDR at $08580000 assumes the staged
+  archive at $08510000 stays under 448 KB (every shipped archive is far smaller).

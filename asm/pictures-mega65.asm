@@ -1582,6 +1582,9 @@ pic_load_all
 	adc .pic_slot + 1
 	adc #FCM_TILE_CODE_HI	; screen code high; carry clear, never reaches $4000
 	sta (.pic_ptr),y
+!ifdef Z6_FCM_TEXT_BAKE {
+	jsr .pfc_invalidate_bake
+}
 	jmp .pfc_advance
 .pfc_composite
 	jsr .pcf_make_tile		; bake a fresh tile of us over what was behind
@@ -1591,6 +1594,9 @@ pic_load_all
 	iny
 	lda .pcf_newcode_hi
 	sta (.pic_ptr),y
+!ifdef Z6_FCM_TEXT_BAKE {
+	jsr .pfc_invalidate_bake
+}
 .pfc_advance
 	jsr .pic_step_cell
 	beq +
@@ -2168,6 +2174,39 @@ bake_shadow_clear
 	dex
 	bne .bsc_page
 	rts
+
+.pfc_invalidate_bake
+	; Clear the baked-text "captured" flag for the cell pic_fill_cells just wrote
+	; (.pic_ptr + .pic_col2). A redrawn picture cell must be re-captured before
+	; text is baked over it again: without this the re-bake sees the stale flag,
+	; thinks the cell still owns its private baked tile, and rewrites the freshly
+	; drawn - and shared - picture tile in place, corrupting it for every cell
+	; that shows it (Zork Zero's banner came back as garbage after its map). The
+	; clean PIXELS are left alone; the next bake re-captures them from the new
+	; picture. Uses .pic_dst so .pic_att, the cell-map read pointer, is untouched.
+	lda .pic_ptr
+	sec
+	sbc #<SCREEN_ADDRESS
+	sta .pic_dst
+	lda .pic_ptr + 1
+	sbc #>SCREEN_ADDRESS
+	sta .pic_dst + 1		; .pic_dst = .pic_ptr - SCREEN_ADDRESS = row * 160
+	lda .pic_dst
+	clc
+	adc .pic_col2
+	sta .pic_dst
+	bcc +
+	inc .pic_dst + 1
++	lda #^BAKE_SHADOW_ADDR
+	sta .pic_dst + 2
+	lda #(BAKE_SHADOW_ADDR >> 24)
+	sta .pic_dst + 3
+	lda #0
+	ldz #0
+	sta [.pic_dst],z
+	ldz #1
+	sta [.pic_dst],z
+	rts
 }
 
 ; ---------------------------------------------------------------------------
@@ -2602,6 +2641,9 @@ bake_shadow_clear
 	iny
 	lda .pcf_newcode_hi
 	sta (.pic_ptr),y
+!ifdef Z6_FCM_TEXT_BAKE {
+	jsr .pfc_invalidate_bake	; a redrawn cell must be re-captured before baking
+}
 .pgf_advance
 	lda .pic_col2
 	clc
