@@ -1034,14 +1034,38 @@ class D81_image < Disk_image
 		@add_to_dir.push dir_entry
 		
 		puts "Added file #{filename} to disk." if $verbose
-		
+
 		return last_sector_used
 	end
 
-	
+	# The free block count as the drive would report it, read from the BAM in
+	# @contents. Unlike the @free_blocks counter (which only add_story_data
+	# maintains), this reflects what add_file has allocated, so it is the count to
+	# use when deciding whether a further file - the pictures - still fits. The
+	# 1581 BAM keeps a free-sector byte per track at $10 + 6*((track-1)%40) in the
+	# BAM sector (40:01 for tracks 1-40, 40:02 for 41-80, addressed with +$100);
+	# the directory track 40 is not counted, as the drive does not.
+	def bam_free_blocks
+		base = (@track_offset[40] + 1) * 256
+		total = 0
+		(1..@tracks).each do |track|
+			next if track == 40
+			index1 = (track > 40 ? 0x100 : 0) + 0x10 + 6 * ((track - 1) % 40)
+			total += @contents[base + index1]
+		end
+		total
+	end
+
+	# Write the directory again, so files added since the last write (add_file
+	# queues a directory entry but only add_story_data flushes it) get their
+	# entry. Their sectors are already allocated in the BAM; this only appends the
+	# queued entries, leaving those already written in place.
+	def flush_directory
+		add_directory()
+	end
 
 	private
-	
+
 	def allocate_sector(track, sector)
 		print "*" if $PRINT_DISK_MAP
 		index1 = (track > 40 ? 0x100: 0) + 0x10 +  6 * ((track - 1) % 40)
@@ -2309,9 +2333,10 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			last_sector = disk.add_file(tf, file_contents);
 		end
 
-		# Pictures no longer go on the boot disk; they get their own picture
-		# disk(s), built after this one (build_picture_disks). The boot disk
-		# holds only the interpreter, the story and the sound.
+		# The story goes on the boot disk here; the pictures are added lower down,
+		# after the boot file is sized, so they take the same $i81 interleave as
+		# the story and sound. The interpreter (written by c1541 after save) fills
+		# the sectors that remain.
 		dynbytes = $dynmem_blocks * $VMEM_BLOCKSIZE
 		disk.add_file('zcode', $story_file_data)
 		disk.add_story_data(max_story_blocks: 0, add_at_end: false)
@@ -2367,7 +2392,20 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 			end
 		end
 	end
-	
+
+	# Put the pictures on the boot disk (with interleave) when they fit, before
+	# the image is saved. The boot file c1541 appends is the C64-mode wrapper plus
+	# the exomizer-crunched interpreter ($good_zip_file, built by build_boot_file
+	# above); it takes the sectors the pictures leave free, so reserve them. Read
+	# the free count from the BAM (disk.bam_free_blocks) rather than the loose
+	# free_blocks / disk.free_blocks accounting - add_file allocates in the BAM but
+	# does not touch that counter, so it still reads the whole disk here and would
+	# ignore the space the story already took.
+	if $target == "mega65" and $picture_disks and not $picture_disks.empty?
+		interpreter_blocks = ((File.size($wrapper_file) + File.size($good_zip_file)) / 254.0).ceil
+		add_pictures_to_boot_disk(disk, disk.bam_free_blocks - interpreter_blocks, diskfilename)
+	end
+
 	disk.save()
 
 	# Add picture loader
@@ -2390,62 +2428,56 @@ def build_81(storyname, diskimage_filename, config_data, vmem_data, vmem_content
 	nil # Signal success
 end
 
-# How many blocks a d81 has left, as the drive itself counts them. The boot
-# disk is finished by other tools (c1541 writes the interpreter and the loader,
-# and the D81_image class the story), so adding up what we wrote ourselves
-# would not answer this - read it back from the BAM instead.
-def d81_blocks_free(diskimage_filename)
-	c1541_cmd = "#{$executables['C1541']} -attach \"#{diskimage_filename}\" -dir"
-	puts c1541_cmd if $verbose
-	output = `#{c1541_cmd} 2>&1`
-	output =~ /^\s*(\d+) blocks free/ ? $1.to_i : nil
-end
-
 # Put the pictures on the boot disk, if they fit, so the whole game is a single
-# d81. Since the pictures became one exomizer archive per picture disk, every
-# v6 game we build needs just one archive, and the story plus the interpreter
-# leave room for it on all four (Journey by only a dozen blocks). A set that
-# needs more than one archive, or one that does not fit in what is left, falls
-# back to its own picture disk(s) below.
+# d81. They are added to the disk IMAGE (disk.add_file) before it is saved, not
+# written onto the finished disk with c1541 -write, so they get the $i81
+# interleave the story and sound do - c1541 -write ignores it and lays the
+# sectors down sequentially, which loads slowly on real MEGA65 hardware.
 #
-# The interpreter needs no telling which it got: pic_load_all looks for PICS<n>
-# on the boot drive first, then the second drive, and only then asks for a swap.
-def add_pictures_to_boot_disk()
+# Since the pictures became one exomizer archive per picture disk, every v6 game
+# we build needs just one archive, and the story plus the interpreter leave room
+# for it on all four (Journey by only a dozen blocks). A set that needs more than
+# one archive, or one that does not fit in what the interpreter leaves, falls back
+# to its own picture disk(s) (build_picture_disks). The interpreter needs no
+# telling which it got: pic_load_all looks for PICS<n> on the boot drive first,
+# then the second drive, and only then asks for a swap.
+#
+#   disk           - the D81_image being assembled, before save()
+#   free_for_pics  - blocks left after the interpreter (and any loader) are placed
+#   diskfilename   - the finished boot disk's name, for retiring a stale pics disk
+# Returns true if the pictures went on the boot disk.
+def add_pictures_to_boot_disk(disk, free_for_pics, diskfilename)
 	return false unless $picture_disks.length == 1
 	files = $picture_disks[$picture_disks.keys.first]
 	needed = files.inject(0) { |sum, file| sum + (File.size(file) / 254.0).ceil }
-	free = d81_blocks_free($bootdiskname)
-	return false if free.nil?
-	if needed > free
-		puts "Pictures need #{needed} blocks and the boot disk has #{free} free: using a separate picture disk."
+	if needed > free_for_pics
+		puts "Pictures need #{needed} blocks and #{free_for_pics} are free after the interpreter: using a separate picture disk."
 		return false
 	end
 	files.each do |file|
-		# pics1.bin becomes "PICS1", a SEQ file like the one a picture disk
-		# holds - the interpreter opens it the same way either way. The name
-		# must be given to c1541 in LOWER case: it converts ASCII to PETSCII,
-		# so "pics1" is stored as $50 $49 $43 $53 $31, the unshifted letters
-		# the interpreter's !text "PICS1" assembles to, while "PICS1" would be
-		# stored shifted ($d0 $c9 ...) and never found.
-		name = File.basename(file, '.bin').downcase
-		c1541_cmd = "#{$executables['C1541']} -attach \"#{$bootdiskname}\" -write \"#{file}\" \"#{name},s\""
-		puts c1541_cmd if $verbose
-		`#{c1541_cmd}`
+		# pics1.bin becomes "PICS1", a SEQ file like the one a picture disk holds
+		# - the interpreter opens it the same way either way. add_file runs the
+		# name through name_to_c64, which uppercases the ASCII to $50 $49 $43 $53
+		# $31, exactly the bytes the interpreter's !text "PICS1" assembles to, so
+		# the basename is passed as-is (the c1541 path this replaced had to be
+		# handed the name in lower case to reach the same bytes through its own
+		# ASCII-to-PETSCII conversion).
+		disk.add_file(File.basename(file, '.bin'), IO.binread(file))
 	end
-	left = d81_blocks_free($bootdiskname)
-	if left != free - needed
-		puts "ERROR: Failed to write the pictures to the boot disk."
-		exit 1
-	end
+	# add_story_data already wrote the directory (with zcode) before this runs, so
+	# the pictures' add_file queued a directory entry that must now be flushed -
+	# their sectors are allocated in the BAM, but without this second flush there
+	# would be no directory entry pointing at them.
+	disk.flush_directory
 	$pictures_on_boot_disk = true
 	# A picture disk left over from an earlier build of this game is stale now,
 	# and it still holds a PICS<n> the interpreter would accept if it were ever
 	# put in the second drive. Take it away rather than leave it looking current.
-	Dir.glob($bootdiskname.sub(/\.d81$/, '_pics_*.d81')).each do |stale|
+	Dir.glob(diskfilename.sub(/\.d81$/, '_pics_*.d81')).each do |stale|
 		File.delete(stale)
 		puts "Removed the now unneeded picture disk #{stale}."
 	end
-	puts "Pictures written to the boot disk, #{left} blocks free. No picture disk needed."
+	puts "Pictures written to the boot disk (#{needed} blocks, interleaved). No picture disk needed."
 	true
 end
 
@@ -2455,7 +2487,7 @@ end
 # is inserted. add_story_data with no story blocks just flushes the directory.
 def build_picture_disks(storyname)
 	return unless $picture_disks and not $picture_disks.empty?
-	return if add_pictures_to_boot_disk()
+	return if $pictures_on_boot_disk # already placed on the boot disk in build_81
 	$picture_disks.keys.sort.each do |disknum|
 		diskfilename = "#{$target}_#{storyname}_pics_#{disknum}.d81"
 		imagefilename = File.join($TEMPDIR, "pics#{disknum}.d81")
