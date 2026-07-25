@@ -225,6 +225,8 @@ A version 6 game built with Z6_PICTURES also carries its pictures, as one Exomiz
 | \$08300000-\$083000ff | 0.25 | Picture restart signature (version 6, Z6_PICTURES) |
 | \$08300100- | | Pictures, decrunched (version 6, Z6_PICTURES) |
 | \$08510000- | | One disk's crunched archive, staged while it is decrunched (Z6_PICTURES) |
+| \$08580000-\$0859f3ff | 128 | Clean-background pixels for baked text (Z6_FCM_TEXT_BAKE) |
+| \$085f0000-\$085f0f9f | 4 | Per-cell "already baked" flags (Z6_FCM_TEXT_BAKE) |
 | \$08600000- | | Undo buffer (Z6_PICTURES) |
 | \$0ff80000-\$0ff807ff | 2 | Colour RAM |
 | \$0ff80800-\$0ff817ff | 4 | Colour RAM for scrollback mode|
@@ -519,6 +521,99 @@ How that pair reaches the screen depends on what the hardware can do:
   an explicit choice; a non-swap window keeps the global (and darkmode) colour.
 - ECM keeps its four-register scheme (above); the reversed-glyph fake and
   Z6_WINDOW_BG both stand down on that target.
+
+## Text over a picture
+
+A version 6 game writes its status line straight onto a picture. Zork Zero's
+room name, moves and score sit on its banner; Arthur's and Shogun's status lines
+do the same. The game asks for it with `set_colour foreground, -1`: a background
+of -1 means "sample the pixel under the cursor" (standard section 1.1) — let the
+letters land on whatever art is behind them rather than in a box of the window's
+own colour. (The same section's colour 15, "transparent", is the better-behaved
+version of the same intent, and Ozmoo treats the two alike.) Read literally as
+"keep the current background", -1 painted a coloured box over the art; the two
+picture targets each remove it, by different means.
+
+On the **X16** the text is a separate VERA layer over the pictures, so a
+transparent background is free. Under Z6_TRANSPARENT_BG the window's stored
+background becomes z-colour 15, and x16_apply_window_colour gives such a cell a
+background nybble of 0 — the one value VERA draws as transparent — so layer 0
+shows through. The pair round-trips (property 11 reads back 15) and nothing is
+baked. This needed one prior fix: black text and a black field must be *opaque*,
+so X16_TEXT_BLACK is a palette index of its own (set to \$000) that colour 0
+substitutes for, leaving index 0 free to mean transparent.
+
+The **MEGA65 has one plane**. A full colour cell's only background is the global
+\$d021 register; there is no per-cell background to make see-through. So the
+letters are shown against the art by **baking the glyph into the picture**: for
+each character printed into a transparent window over a picture, s_bake_char
+takes a copy of the picture tile already in the cell, paints the glyph's set
+pixels into it in a text-ink colour, and points the cell at the result. The rest
+of the tile keeps the picture, so the art shows around the letter as it does on
+the X16 and in sfrotz. A few things make that work:
+
+- **A text-ink palette bank.** The store holds absolute palette indices and a
+  pixel of 0 is transparent, so text cannot be drawn in the ordinary colours —
+  black would vanish. Palette entries 240 to 255 are set to copies of the 16 text
+  colours (bank 15, which the picture allocator already skips because a pixel
+  value of 255 is taken from colour RAM), and a set glyph pixel is written as
+  240 + colour.
+
+- **Which windows bake.** window_bake records, per window, whether its background
+  is the -1/transparent colour; s_track_colours sets it from the set_colour
+  operand alone, touching neither the colour pair nor the reverse-video swap, so
+  the swapped-glyph status bands of Journey and Shogun are unaffected. A glyph is
+  baked only when its window's window_bake is set *and* a picture is actually
+  under the cell; otherwise it prints normally. Both text write paths — s_printchar
+  and print_line_from_buffer — go through the same test.
+
+- **Sub-cell vertical placement.** Text lives on the cell grid, but a game can ask
+  for its status line a few pixel rows into a cell — Zork Zero's banner text sits
+  seven rows down. units_to_cells floors that to the grid, so the discarded
+  remainder is carried separately (window_y_sub and text_y_sub, captured at
+  move_window and set_cursor) and handed to the bake, which draws the glyph that
+  many rows down and splits it across the cell below. Only a baked cell can do
+  this — the picture is there for the two slices to composite onto — so a plain
+  text cell still holds exactly one glyph.
+
+The hard part is the redraw. The game does not erase or redraw the banner between
+turns; it overwrites the old text in place, padding a shorter room name with
+spaces. On the X16 that is enough — a text-layer cell is simply replaced, and a
+space is transparent again. On the MEGA65 the picture under the old text was baked
+away, so a naive re-bake would composite the new glyph onto the old one and the
+two would accumulate. Ozmoo therefore keeps, for every baked cell, a **shadow of
+the clean (text-free) picture** and composites onto that:
+
+- The clean picture is captured at a cell's **first** bake, while it still shows
+  the art, and every later bake takes the glyph's *clear* pixels from it. A redraw
+  thus wipes this line's old text (a space erases to bare picture), and a bake
+  resets only the pixel rows its own glyph occupies — the rows an adjacent banner
+  line contributes to the same cell, under the sub-cell split, are left untouched,
+  so the two lines coexist.
+
+- The shadow stores the clean **pixels**, not a tile code, in a fixed Attic buffer
+  (BAKE_PIXELS_ADDR, 128 KB, one tile per screen cell; a small BAKE_SHADOW_ADDR
+  array flags which cells have been captured). Storing pixels is what makes it
+  robust. The tile store fills as pictures are drawn, and when it does .pic_gc
+  compacts it and **moves** tiles; a stored tile *code* would then point at moved
+  data, which showed as a corrupt strip in the Moves field after enough turns.
+  Pixels in a fixed buffer never move, and .pic_gc already repoints each cell's
+  own tile, so both the base (the cell's current tile) and the clean source stay
+  valid however often gc runs.
+
+- A re-bake **rewrites the cell's own tile in place** rather than allocating a
+  fresh one. A cell that has been baked owns a unique tile, so overwriting it costs
+  nothing and, more importantly, stops pic_next_tile climbing every turn — Zork
+  Zero reprints its banner constantly — which is what keeps the store from filling
+  and forcing gc in the first place. Only a cell's first bake allocates (the tile
+  there is the shared picture and must not be clobbered); a full store degrades to
+  a plain glyph box.
+
+All of this is behind Z6_FCM_TEXT_BAKE (the MEGA65 full colour picture build).
+The one case it does not cover is a picture *redrawn* under live transparent text:
+the clean pixels are captured once and not refreshed, which is right for a status
+banner drawn once with text on top — what every shipped game does — but would show
+the original background if a game painted a new picture beneath text already there.
 
 ## Font 3
 

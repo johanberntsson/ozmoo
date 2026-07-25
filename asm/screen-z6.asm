@@ -933,6 +933,22 @@ z_ins_move_window
 .mw_row_zero
 	sta window_y,y
 	sta window_y_cursor,y
+!ifdef Z6_FCM_TEXT_BAKE {
+	; the window origin's sub-cell y remainder, for baked transparent text; the
+	; cursor sits at the origin, so text_y_sub takes it too (additive, so a
+	; non-bake pixel build is byte-identical above)
+	lda z_operand_value_low_arr + 1
+	beq .mw_sub_zero
+	sec
+	sbc #1
+	and #7
+	jmp .mw_sub_store
+.mw_sub_zero
+	lda #0
+.mw_sub_store
+	sta window_y_sub,y
+	sta text_y_sub,y
+}
 	lda z_operand_value_low_arr + 2
 	ldx z_operand_value_high_arr + 2
 	bne .mw_col			; a column of 256 or more is certainly not zero
@@ -2198,10 +2214,39 @@ z_ins_set_cursor
 	beq +						; 0 is a mistake - they mean line 1
 	sec
 	sbc #1
+!ifdef Z6_FCM_TEXT_BAKE {
+	pha							; keep the 0-based line in units for its remainder
+}
 	jsr units_to_cells_y
 +	clc
 	adc window_y,y
 	sta window_y_cursor,y
+!ifdef Z6_FCM_TEXT_BAKE {
+	; the text baseline's sub-cell y = the window origin's remainder plus this
+	; line's own, carrying a full cell down into the cursor row when they sum to
+	; eight or more (units_to_cells_y floored each separately)
+	lda z_operand_value_low_arr
+	beq .sc_sub_origin			; line 0/1: sits at the window origin's remainder
+	pla
+	and #7
+	clc
+	adc window_y_sub,y
+	cmp #8
+	bcc .sc_sub_store
+	sec
+	sbc #8					; carried a full cell: the text is one row lower
+	pha
+	lda window_y_cursor,y
+	clc
+	adc #1
+	sta window_y_cursor,y	; (no inc abs,y on the 6502)
+	pla
+	jmp .sc_sub_store
+.sc_sub_origin
+	lda window_y_sub,y
+.sc_sub_store
+	sta text_y_sub,y
+}
 } else {
 	ldx z_operand_value_low_arr ; line 1..
 	beq + ; If line is 0, it's a mistake - they mean line 1.
@@ -2295,6 +2340,11 @@ init_window_colours
 	lda #0
 	ldx #7
 -	sta window_swap,x ; every window starts un-swapped
+!ifdef Z6_FCM_TEXT_BAKE {
+	sta window_bake,x ; ...and opaque, until a game asks for transparent text
+	sta window_y_sub,x ; ...on the cell grid, no sub-cell y offset yet
+	sta text_y_sub,x
+}
 	dex
 	bpl -
 }
@@ -2938,10 +2988,29 @@ print_line_from_buffer
 		asl
 		tay
 		pla
+!ifdef Z6_FCM_TEXT_BAKE {
+		; transparent window over a picture? bake the glyph into the tile
+		pha
+		ldx current_window
+		lda window_bake,x
+		beq .plb_no_bake
+		iny						; the cell's tile-select (high) byte
+		lda (zp_screenline),y
+		dey
+		beq .plb_no_bake		; no picture here: ordinary text
+		pla						; a = screen code, y = 2 * column
+		jsr s_bake_char
+		jmp .plb_baked
+.plb_no_bake
+		pla
+}
 		sta (zp_screenline),y
 		+clear_cell_high_byte
 		lda s_colour
 		+sta_colour_ram ; the colour pointer is biased by one
+!ifdef Z6_FCM_TEXT_BAKE {
+.plb_baked
+}
 		tya
 		lsr
 		tay

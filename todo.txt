@@ -2144,56 +2144,68 @@ the problem.
   VERASetBackgroundColour, so every route to a colour goes through it -
   set_colour, darkmode, the swap fallback - rather than only zcolours.
 
-MEGA65 pics: text written over a picture is drawn in a box of the window's
-background colour, where sfrotz lets the picture show around the letters.
-NOT A BUG IN THE OPCODE LAYER - that part is fixed and works on the X16
-(see below); it is the VIC-IV that cannot express it.
-  What the games ask for: "set_colour fg, -1" - background = the colour of
-  the pixel under the cursor (z-spec 1.1's colour list, "-1 = sample").
-  Zork Zero's room name / moves / score sit on its banner that way
-  (routine eb60 in txd; the sampling branch is taken for interpreter 6
-  with colours and graphics available, which is our pics build), and
-  Arthur's and Shogun's status lines do the same. The 1.1 spec also
-  defines background colour 15 as "transparent", which is the same intent
-  expressed in a way that works over art that is not a flat colour.
-  Fixed on the X16 2026-07-24 (Z6_TRANSPARENT_BG): -1 becomes z-colour 15
-  in the window's pair, and a cell background nybble of 0 is the one VERA
-  does not draw, so layer 0 shows through. One flag, no new per-window
-  state, and property 11 reads back 15 so a game that saves and restores
-  its pair round-trips. Verified in play on zorkzero-pics-x16: the status
-  line is black on the banner, like sfrotz.
-  On the MEGA65 there is nothing equivalent. Under FCM a text cell's
-  background is the global $d021 - one register for the whole screen - and
-  the VIC-IV has no per-cell background byte to make see-through (that is
-  the same reason -fcm still uses the reversed-glyph swap for property 11
-  where the X16 uses Z6_WINDOW_BG). The only route to sfrotz's look is to
-  bake the glyph into the tile: for each cell printed over a picture,
-  allocate a tile, copy the picture tile beneath it, and write the ROM
-  glyph's set pixels into it in the foreground colour. That is:
-    - a text ink palette. The store bakes ABSOLUTE palette indices and a
-      tile pixel of 0 is transparent, so text needs entries of its own;
-      240-254 are free (bank 15 is skipped because pixel 255 comes from
-      colour RAM), which is enough for the sixteen text colours.
-    - a per-cell composite in the hottest text path, and in BOTH sites -
-      s_printchar and print_line_from_buffer, the one that carries most
-      text (see the FCM-cell section of CLAUDE.md).
-    - tile budget. Zork Zero's status line is ~45 cells redrawn every turn;
-      Arthur's worst live set already measures 1894 of 2048. The tiles
-      belong to no window's run, which is the class .pcf_alloc_and_write
-      had to be taught to saturate rather than wrap, so the accounting
-      item further up this file becomes load-bearing rather than polish.
-  Deliberately left as it is: Johan's call was that a partial fix is worth
-  having and a large one is not. Worth revisiting only together with the
-  baked-tile accounting.
-  Also open on BOTH targets, and NOT the same thing: the status text sits
-  one text row higher than sfrotz. Zork Zero asks for it at art row 7 -
-  seven-eighths of a cell below the banner's top - and sfrotz, a bitmap
-  interpreter, puts it exactly there; Ozmoo's text lives on the cell grid,
-  so units_to_cells_y floors it to row 0. Measured off the two
-  screenshots: banner top at art row 0 in both, text 7 art pixels down in
-  sfrotz and 0 in ours. Rounding the cursor to the NEAREST cell would land
-  within one art pixel, but units_to_cells_y also converts heights and
-  window origins, and rounding up in a window only as tall as its own text
-  would clamp two lines onto one row - so it needs a separate
-  cursor-only conversion and a play-test of all four games, not a one-line
-  change. Cosmetic; Johan rated it less important than the box.
+DONE (2026-07-25, z6-pixel): MEGA65 pics text over a picture. This used to be
+"text is drawn in a box of the window's background colour, where sfrotz lets the
+picture show around the letters - deliberately left, the VIC-IV cannot express
+it". It now bakes the text into the picture, like sfrotz, AND at the correct
+sub-cell row. Behind Z6_FCM_TEXT_BAKE (MEGA65 -fcm -pics); byte-identical on
+every other build (checked X16-pics / mega65-no-pics / c64 with git stash + cmp).
+  WHAT THE GAMES ASK: "set_colour fg, -1" - background = the pixel under the
+  cursor (z-spec 1.1, "-1 = sample"; colour 15 is the same intent as
+  "transparent"). Zork Zero's room name/moves/score on its banner, Arthur's and
+  Shogun's status lines. Read as "keep the current background" it painted a box.
+  The X16 fix (2026-07-24, Z6_TRANSPARENT_BG) is unchanged: -1 -> z-colour 15,
+  cell background nybble 0, layer 0 shows through. On the MEGA65 there is one
+  plane and no per-cell background, so:
+  THE BAKE (s_bake_char, pictures-mega65.asm): for a character printed into a
+  transparent window over a picture, copy the picture tile in the cell, paint the
+  glyph's set pixels in a text ink, point the cell at the new tile. Reached from
+  BOTH text paths (s_printchar and print_line_from_buffer).
+    - text ink = palette bank 15 (240-255, copies of the 16 text colours; the
+      allocator already skips bank 15 because pixel 255 is taken from colour
+      RAM). A glyph pixel is 240 + colour, so black text is a real pixel, not 0.
+    - window_bake, per window, says "wants transparent text". s_track_colours
+      sets it from the -1 operand ALONE - it does NOT touch the colour pair or
+      the reverse-video swap. An earlier version remapped -1 to 15 there and
+      forced s_colour_swap off, which killed Journey's and Shogun's swap+
+      erase_line status bars; keeping window_bake orthogonal is what fixed that.
+    - sub-cell y: text_y_sub / window_y_sub carry the low 3 bits units_to_cells_y
+      discards (captured at set_cursor / move_window). The bake draws the glyph
+      that many rows down and splits it across the cell below, so Zork Zero's
+      banner lands on art row 7 like sfrotz instead of one row high. Only a baked
+      cell splits; plain text stays on the cell grid.
+  THE REDRAW, which is the whole difficulty. The games do NOT erase or redraw the
+  banner between turns - measured off DEBUG_SCREENLOG, the sequence is just
+  set_cursor / set_colour(-1) / print / set_colour, overwriting in place and
+  padding a shorter name with spaces. On the X16 that just works (a text-layer
+  cell is replaced; a space is transparent). On the MEGA65 the picture under the
+  old text was baked away, so a naive re-bake composites new-on-old and
+  accumulates ("Kitchen" printed over "Banquet Hall"). So Ozmoo keeps a per-cell
+  SHADOW of the clean picture and composites onto that:
+    - captured at a cell's FIRST bake (it still shows the art then). Every later
+      bake takes the glyph's CLEAR pixels from the shadow and resets only the
+      rows the glyph occupies - so a space erases to bare picture, and an
+      adjacent banner line sharing the cell under the sub-cell split is kept.
+    - the shadow stores clean PIXELS, not a tile code, in a fixed attic buffer
+      (BAKE_PIXELS_ADDR, 128 KB, one tile per cell; BAKE_SHADOW_ADDR, 4 KB, the
+      "captured" flags). This is the load-bearing choice. A stored code goes
+      stale when .pic_gc compacts and MOVES the store - which is what produced
+      the corrupt strip in Zork Zero's Moves field after several turns (its
+      e/n/s reprints far more than a compound e.n.s, because of the MORE prompts
+      and input lines). Pixels never move, and gc already repoints each cell's
+      own tile, so base and clean source both stay valid however often gc runs.
+    - a re-bake REWRITES the cell's own tile in place instead of allocating, so
+      pic_next_tile does not climb every turn and gc rarely fires at all. Only a
+      cell's first bake allocates (its current tile is the shared picture and
+      must not be clobbered); a full store degrades to a plain glyph box.
+  Verified clean through 18 Zork Zero moves (gc firing, room name changes, the
+  Moves counter crossing to two digits). Arthur / Shogun / Journey confirmed by
+  Johan in play. Design writeup: CLAUDE.md's -1 bullet and techreport's "Text
+  over a picture".
+  STILL OPEN, small: the clean pixels are captured once and NOT refreshed if a
+  picture is later redrawn UNDER live transparent text. Correct for a status
+  banner (drawn once, text on top), which is all the shipped games do; a game
+  that painted a new picture beneath text already there would show the old
+  background. Would need shadow invalidation when pic_fill_cells writes a baked
+  cell. Also remote: BAKE_PIXELS_ADDR at $08580000 assumes the staged archive at
+  $08510000 stays under 448 KB (every shipped archive is far smaller).
