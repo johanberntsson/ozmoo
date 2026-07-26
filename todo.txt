@@ -1,5 +1,33 @@
 Known bugs
 ----------
+AWAITING HARDWARE CHECK (2026-07-26, Johan to test on a real MEGA65 next
+session) - three mouse/joystick changes that xemu cannot verify:
+1. Joystick pointer speed. It was one JOY_STEP (6 px) per jiffy, which flies
+   across the screen next to the mouse; now one step every JOY_JIFFIES jiffies,
+   4 by default, i.e. a quarter of that. Both constants are at the top of
+   mouse.asm and JOY_JIFFIES takes -DJOY_JIFFIES=n from $GENERALFLAGS. If the
+   motion looks steppy rather than slow, JOY_STEP 2 / JOY_JIFFIES 1 is about a
+   third speed and moves every jiffy instead.
+2. Click debounce. MOUSE_DEBOUNCE (6 jiffies, overridable, 0 disables) ignores
+   presses for a tenth of a second after an accepted click. This came from a
+   second-hand report of the fire button double-clicking, which nobody here has
+   reproduced - holding the button provably cannot repeat (the press edge tests
+   mouse_button, written only in .mouse_poll_body), so the candidates are contact
+   bounce, the phantom below, or simply an autofire joystick, which is a fire
+   button that pulses by design and would produce genuine repeated edges. Watch
+   whether ordinary clicking still feels immediate.
+3. Phantom clicks from $dc00. That register is the keyboard column-select port
+   as well as port 2, so reading it bare returned a column the KERNAL's IRQ scan
+   was driving low: with column 4 selected ($ef) bit 4 reads as a pressed button.
+   ~25 cycles a jiffy, but the input loop polls thousands of times a second, so
+   it should have delivered a click nobody made every few seconds - worst with no
+   port 2 device at all, which is this hardware (both mouse and joystick in port
+   1, real button on $dc01). Now read inside .read_joy_bits' sei + columns-
+   deselected window. THIS ONE IS A PREDICTION, not an observed fix: if stray
+   clicks at a prompt were happening before, they should now be gone; if they
+   were never happening, the reasoning above is wrong somewhere and worth
+   re-examining rather than filing as done.
+
 DESIGN / MAJOR REFACTOR: DONE on branch z6-pixel, 2026-07-23/24 - the z6 screen
 model counts PIXEL units rather than CHARACTER units, and that is now the
 DEFAULT for v6 builds. -pu:0 reverts to character cells; the whole model is one
