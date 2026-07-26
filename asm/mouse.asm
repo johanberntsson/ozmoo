@@ -37,7 +37,9 @@ MOUSE_Y_MAX     = SCREEN_HEIGHT * 8 - 1
 } else {
 MOUSE_POTX      = $d620		; port 2 pot X / Y, MEGA65 direct-read registers
 MOUSE_POTY      = $d621
-MOUSE_BUTTON    = $dc00		; port 2: bit 4 clear = left button down
+JOY_PORT2       = $dc00		; port 2: bit 4 clear = left button / fire down.
+							; Read through .read_joy_bits, never directly: this
+							; is also the keyboard column-select port (below).
 ; A joystick in control port 1 is an alternative to the mouse (either, or both,
 ; moves the pointer and clicks). Port 1 is $dc01, whose lines are shared with the
 ; keyboard matrix, so it is read with the columns deselected (JOY_COLUMNS in
@@ -81,6 +83,19 @@ MOUSE_X_MAX     = 639
 MOUSE_Y_MAX     = 199
 }
 
+; A press is only a click if the button was seen released first (the edge test in
+; .mouse_poll_body), so holding the button down cannot repeat. What can repeat is
+; a momentary *release*: contact bounce on a joystick's fire button lasts a few
+; milliseconds and the input loop polls far faster than that, so the settling
+; chatter of one press reads as press-release-press. MOUSE_DEBOUNCE jiffies after
+; an accepted click, presses are therefore ignored; 6 is a tenth of a second,
+; slower than any bounce and faster than anyone clicks twice on purpose. It also
+; thins out an autofire joystick, which is a fire button that pulses by design.
+; 0 turns it off; -DMOUSE_DEBOUNCE=n from $GENERALFLAGS overrides it.
+!ifndef MOUSE_DEBOUNCE {
+MOUSE_DEBOUNCE  = 6
+}
+
 ; pointer pixel position, starting mid-screen; X is 0..MOUSE_X_MAX (two bytes)
 mouse_px        !byte <((MOUSE_X_MAX + 1) / 2), >((MOUSE_X_MAX + 1) / 2)
 mouse_py        !byte (MOUSE_Y_MAX + 1) / 2		; Y is 0..MOUSE_Y_MAX
@@ -93,6 +108,8 @@ mouse_click_y   !byte 1
 mouse_window    !byte $ff		; window the mouse is confined to, $ff = free
 mouse_active    !byte 0			; 1 once a game asks for the mouse (Flags 2 bit 5)
 .mouse_temp     !byte 0
+.click_timer    !byte 0			; jiffies left of the debounce window, 0 = open
+.click_jiffy    !byte 0			; the jiffy that window last counted down on
 .mouse_ext      !byte 0, 0		; address of the header extension table
 .mouse_save_x   !byte 0			; caller's registers, kept across a poll
 .mouse_save_y   !byte 0
@@ -112,6 +129,7 @@ mouse_poll
 .mouse_poll_body
 	lda #0
 	sta mouse_clicked		; only a press this poll sets it again
+	jsr .mouse_debounce
 	jsr .mouse_read			; a = the buttons held now, one bit each
 	pha
 	jsr .mouse_update_cells
@@ -123,6 +141,8 @@ mouse_poll
 	ldx mouse_button		; held now — was anything held before?
 	sta mouse_button
 	bne .mouse_done			; yes: not a new press
+	lda .click_timer		; a press this soon after a click is bounce, not a
+	bne .mouse_done			; second click - drop it, but keep the held state
 	jsr .mouse_register_click
 	lda mouse_clicked
 	rts
@@ -131,6 +151,20 @@ mouse_poll
 .mouse_done
 	lda mouse_clicked
 	rts
+
+.mouse_debounce
+	; Count the window after a click down, one jiffy at a time. Timing it in
+	; jiffies rather than polls keeps it independent of how fast the input loop
+	; runs, and counting down (rather than differencing kernal_readtime against
+	; the click) means the jiffy byte's wrap needs no handling.
+	lda .click_timer
+	beq +					; no window open: nothing to do, and no KERNAL call
+	jsr kernal_readtime		; jiffy low byte in a
+	cmp .click_jiffy
+	beq +
+	sta .click_jiffy
+	dec .click_timer
++	rts
 
 mouse_write_header_coords
 	; Put the click cell into words 1 and 2 of the header extension table, if the
@@ -261,6 +295,10 @@ mouse_write_header_coords
 	sta mouse_click_y
 	lda #1
 	sta mouse_clicked
+	lda #MOUSE_DEBOUNCE		; and shut the door on the bounce behind it
+	sta .click_timer
+	jsr kernal_readtime
+	sta .click_jiffy
 .mouse_click_out
 	rts
 
@@ -344,7 +382,8 @@ mouse_disable
 
 mouse_prev_potx !byte 0			; the pot readings the last poll, to difference
 mouse_prev_poty !byte 0
-.joy_bits       !byte $ff		; the joystick bits read this poll ($ff = idle)
+.joy_bits       !byte $ff		; port 1's bits read this poll ($ff = idle)
+.joy_port2      !byte $ff		; and port 2's, for the mouse button
 .joy_last_jiffy !byte 0			; the jiffy the pointer last stepped for the joystick
 .joy_was_held   !byte 0			; nonzero if the joystick was held the previous poll,
 								; so one more keyboard flush catches a late phantom key
@@ -420,8 +459,9 @@ mouse_enable
 	jsr .mouse_place_sprite
 
 	; the button is down if either the mouse's (port 2 fire) or the joystick's
-	; (port 1 fire, in .joy_bits) is pressed
-	lda MOUSE_BUTTON
+	; (port 1 fire, in .joy_bits) is pressed. Both readings come from
+	; .read_joy_bits just above, taken with the keyboard columns deselected.
+	lda .joy_port2
 	and #$10				; bit 4 = fire; clear means pressed
 	beq .mouse_btn_down
 	lda .joy_bits
@@ -441,12 +481,23 @@ mouse_enable
 	; reselect one between the two writes. NOTE this cleans OUR read only; the
 	; KERNAL's own scan still sees the joystick and turns it into phantom keys,
 	; which getchar_and_maybe_toggle_darkmode discards (see mouse_joystick_held).
+	;
+	; The port 2 lines ($dc00) are read here too, into .joy_port2, and for the same
+	; reason: $dc00 IS the column-select port, so a read of it returns a driven
+	; column low, not just what a device pulls low. While the KERNAL's scan has
+	; column 4 selected ($ef) bit 4 reads 0 - indistinguishable from the mouse
+	; button being down. That is ~25 cycles a jiffy, but the input loop polls
+	; thousands of times a second, so it lands in the window every few seconds and
+	; delivers a click nobody made. Reading it with all the columns deselected is
+	; the same fix the port 1 read already had.
 	php
 	sei
 	lda JOY_COLUMNS
 	pha
 	lda #$ff
 	sta JOY_COLUMNS
+	lda JOY_PORT2			; port 2's own lines now, undriven by the scan
+	sta .joy_port2
 	lda JOY_PORT1
 	tax
 	pla
