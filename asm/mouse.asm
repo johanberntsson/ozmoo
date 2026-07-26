@@ -51,8 +51,15 @@ JOY_LEFT        = %00000100
 JOY_RIGHT       = %00001000
 JOY_FIRE        = %00010000
 JOY_DIRS        = %00001111
-JOY_STEP        = 6			; pixels the pointer moves per jiffy while a way is held
+JOY_STEP        = 6			; pixels the pointer moves per step while a way is held
 JOY_STEP_NEG    = 256 - JOY_STEP
+; ...and one step every JOY_JIFFIES jiffies, which is the pointer's speed: a
+; joystick is all-or-nothing, so without a divider it crosses the screen far
+; faster than the mouse does. 1 is the old speed (a step every jiffy), 4 is a
+; quarter of it. Overridable with -DJOY_JIFFIES=n from make.rb's $GENERALFLAGS.
+!ifndef JOY_JIFFIES {
+JOY_JIFFIES     = 4
+}
 SPRITE_ENABLE   = $d015
 SPRITE0_X       = $d000
 SPRITE0_Y       = $d001
@@ -466,12 +473,17 @@ mouse_joystick_held
 	cmp #JOY_DIRS
 	beq .mrj_done			; no direction held (all bits set)
 
-	; rate-limit to one step per jiffy, so the speed does not depend on how fast
-	; the input-wait loop polls (kernal_readtime returns the jiffy low byte in a)
+	; rate-limit to one step per JOY_JIFFIES jiffies, so the speed does not depend
+	; on how fast the input-wait loop polls (kernal_readtime returns the jiffy low
+	; byte in a). The difference is taken mod 256, so the wrap needs no handling:
+	; the worst a stale .joy_last_jiffy can do is delay one step.
 	jsr kernal_readtime
-	cmp .joy_last_jiffy
-	beq .mrj_done
-	sta .joy_last_jiffy
+	tax						; keep the reading; the subtraction destroys it
+	sec
+	sbc .joy_last_jiffy
+	cmp #JOY_JIFFIES
+	bcc .mrj_done
+	stx .joy_last_jiffy
 
 	lda .joy_bits
 	and #JOY_LEFT
