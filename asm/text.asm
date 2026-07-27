@@ -1800,8 +1800,15 @@ read_text
 }
 
 	pla ; the terminating character, usually newline
-	beq +
-	jmp s_printchar; print terminating char unless 0 (0 indicates timer abort)
+	beq + ; 0 indicates timer abort: print nothing
+	; Echo it only if it is a printable character, i.e. only Enter. Every other
+	; terminator a game can ask for is a function key code (129-154, or the
+	; mouse clicks 252-254, z-spec 10.5.2.1), which has no glyph: printing 254
+	; put a stray quarter-block on the line every time a click ended the read
+	; (Zork Zero's compass), where the reference interpreters print nothing.
+	cmp #128
+	bcs +
+	jmp s_printchar
 +	rts
 
 !ifdef X_FOR_EXAMINE {
