@@ -145,6 +145,15 @@ GEN_TILE_SHIFT = 4			; * 16 bytes
 .gc_y1       !byte 0		; cells it covers COMPLETELY die with it, so a
 .gc_x0       !byte 0		; shifted picture's shared edge row and column are
 .gc_x1       !byte 0		; outside it
+; Is the incoming rectangle allowed to die? Only as a last resort. "The picture
+; is about to overwrite these cells" is not true of all of them: a fully
+; transparent cell is left showing what is behind it (.pfc_advance, .pgf_advance)
+; and a partly transparent one composites against the tile behind it, so both
+; still need that tile after the sweep. Reclaiming it leaves the cell pointing
+; into the compacted store at whatever moved there - Zork Zero's compass rose
+; came back with pieces of other pictures in it every few turns, because the
+; game builds the rose from eight overlapping mostly-transparent petals.
+.gc_excl     !byte 0
 .gc_next     !byte 0,0		; the compacted store's next free tile
 .gc_old      !byte 0,0		; the survivor being moved
 .gc_byi      !byte 0		; bitmap byte index being walked
@@ -1031,6 +1040,30 @@ pic_load_all
 	; sword picture, whose frame stays visible), compact the survivors to
 	; the bottom of the store and try again. x still indexes the window
 	; tables, and the sweep needs every register.
+	;
+	; Two tiers. The first keeps EVERY tile a cell still shows: that is always
+	; safe, and is what the store can normally afford. Only if the picture still
+	; will not fit does the second let the cells the incoming picture covers die
+	; with it - which reclaims far more, but assumes the draw overwrites every
+	; one of them, and it does not (see .gc_excl).
+	lda #0
+	sta .gc_excl
+	phx
+	jsr .pic_gc
+	plx
+	lda pic_next_tile
+	clc
+	adc .pic_ntiles
+	tay
+	lda pic_next_tile + 1
+	adc .pic_ntiles + 1
+	cmp #>PIC_MAX_TILES
+	bcc .pa_place
+	bne +
+	cpy #<PIC_MAX_TILES
+	bcc .pa_place
++	lda #1					; tier two: let the incoming rectangle die
+	sta .gc_excl
 	phx
 	jsr .pic_gc
 	plx
@@ -1099,9 +1132,11 @@ pic_load_all
 	; copy the survivors to the bottom of the store in ascending index order
 	; (safe in place: a survivor can only move down), and repoint their
 	; cells. pic_next_tile comes back as the survivor count, so the caller's
-	; run and the composites baked over it land above them. Cells the new
-	; picture covers completely are left alone: it is about to overwrite them,
-	; and if their tiles are shared with cells outside (Arthur's borders
+	; run and the composites baked over it land above them. With .gc_excl set
+	; - the last resort, when keeping everything left no room - cells the new
+	; picture covers completely are left to die with it, on the assumption that
+	; it overwrites them; see .gc_excl for why that is only an approximation.
+	; If their tiles are shared with cells outside (Arthur's borders
 	; repeat) the sharing marks them survivors anyway. A cell the picture only
 	; half covers - a shifted placement's edge row and column - counts as
 	; outside: the draw still has to composite against what is there. Tiles
@@ -1146,6 +1181,8 @@ pic_load_all
 	lda #0
 	sta .gc_col
 .gc_mark_cell
+	lda .gc_excl			; tier one keeps every tile a cell still shows
+	beq .gc_mark_keep
 	lda .gc_row
 	cmp .gc_y0
 	bcc .gc_mark_keep		; above the rectangle
@@ -2667,6 +2704,40 @@ bake_shadow_clear
 	beq .pgf_done
 	jmp .pgf_row
 .pgf_done
+	; Hand back the tail of the run we did not use. .pic_alloc has to reserve a
+	; tile for every cell the picture covers, but a cell the picture is fully
+	; transparent in is skipped (.pgf_advance) and never takes one - and most of
+	; a small overlay is transparent. Zork Zero builds its compass rose from
+	; eight 13x5 petals a turn, reserving 65 tiles each and using a fraction, so
+	; the store filled every few turns and the compaction that followed is
+	; visible on screen while it moves the tiles. The tail is only ours to give
+	; back if nothing has been allocated since, which for a freshly placed run
+	; means it is still the topmost one.
+	lda .pic_slot
+	clc
+	adc .pic_ntiles
+	tay
+	lda .pic_slot + 1
+	adc .pic_ntiles + 1
+	cmp pic_next_tile + 1
+	bne .pgf_keep
+	cpy pic_next_tile
+	bne .pgf_keep
+	lda .pic_slot			; pic_next_tile = .pic_slot + .gen_next
+	clc
+	adc .gen_next
+	sta pic_next_tile
+	lda .pic_slot + 1
+	adc .gen_next + 1
+	sta pic_next_tile + 1
+	lda current_window		; and the window's run is that much shorter, so a
+	asl						; redraw's reuse test measures against what is
+	tax						; really there (two bytes a window)
+	lda .gen_next
+	sta pic_win_count,x
+	lda .gen_next + 1
+	sta pic_win_count + 1,x
+.pgf_keep
 	rts
 
 .pic_map_pos

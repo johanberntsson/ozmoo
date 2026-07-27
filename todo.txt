@@ -1,5 +1,54 @@
 Known bugs
 ----------
+FIXED 2026-07-27: Zork Zero's banner and compass rose came back with pieces of
+other pictures in them every few turns on the MEGA65 (z6games/zorkzero-turn3.png
+is the report: start, [More], e, n, s - the rose breaks on the third move, every
+time). The cause was .pic_gc's incoming rectangle. The sweep marks the tiles a
+cell still shows and reclaims the rest, and it excluded the cells the incoming
+picture covers "because it is about to overwrite them" - which is not true of
+all of them: a fully transparent cell is left showing what is behind it
+(.pfc_advance, .pgf_advance) and a partly transparent one composites against the
+tile behind it. Both still need that tile, and reclaiming it left the cell
+pointing at whatever the compaction moved into its slot. Zork Zero walks into
+this because it builds its compass out of eight overlapping, mostly transparent
+petals, drawn over each other in the same 12x5 box.
+
+  Measured, not reasoned: dump screen RAM and flag every cell whose tile index
+  is >= pic_next_tile. Those cells are exactly the corrupt ones, and they were
+  exactly the rose. A ring buffer of every .pic_alloc (picture, position, shift,
+  pic_next_tile, jiffy) then showed the game's draw sequence and the moment the
+  store filled - worth rebuilding if this area is ever touched again.
+
+TWO CHANGES, both in .pic_alloc/.pic_gc, both engines:
+  - Compaction is now two tiers (.gc_excl). The first keeps EVERY tile a cell
+    still shows, which can never dangle; only if the picture still will not fit
+    does the second fall back to the old rule and let the incoming rectangle
+    die. That second tier is still an approximation, and Arthur's intro reaches
+    it (measured: picture 2 of the intro needs it) - the store genuinely cannot
+    hold two full-screen pictures at once. Doing it exactly would need a
+    per-cell "the picture is opaque here" bit, which the cell map does not
+    carry: $ffff means fully transparent and nothing distinguishes fully opaque
+    from partly. If tier two ever produces a visible fault, that bit in
+    pics2asm.py's map is the fix.
+  - The generated (off-grid) path hands back the tail of the run it did not
+    use. .pic_alloc must reserve a tile per covered cell, but a cell the picture
+    is fully transparent in never takes one, and most of a small overlay is
+    transparent: a Zork Zero petal reserved 65 tiles and used 7. Three turns
+    used to leave pic_next_tile at 2037 of 2048 and force a compaction; they now
+    leave it at 843 and force none. The window's pic_win_count shrinks with it,
+    so a redraw's reuse test measures the run that is really there (it then
+    fails and allocates afresh, which is fine now that afresh is cheap).
+
+STILL OPEN, the other half of the same report: the banner BLINKS on the turn the
+store is compacted. That is .pic_gc itself - pass 2 physically moves every
+survivor tile while the screen is still pointing at the old indices, and pass 3
+only repoints the cells afterwards, so the whole screen shows moved tiles for
+the ~60 ms the sweep takes. The tail-return above makes it rare rather than
+every few turns, but it is still visible when it happens. To make it invisible
+the sweep would have to compact into a scratch buffer (attic has room for a
+128 KB copy), then DMA the store back and blit the new screen codes - two DMAs,
+a few ms, under a frame. Not attempted.
+
 HARDWARE CHECK DONE (2026-07-27, Johan on a real MEGA65): the three
 mouse/joystick changes of 2026-07-26 that xemu could not verify are all good.
 The joystick pointer moves at a reasonable speed (JOY_STEP 6 every JOY_JIFFIES

@@ -125,6 +125,14 @@ pic_bank_pal !fill 15 * 32, 0
 .gc_y1       !byte 0		; only cells it covers completely die with it
 .gc_x0       !byte 0
 .gc_x1       !byte 0
+; Is the incoming rectangle allowed to die? Only as a last resort. "The picture
+; is about to overwrite these cells" is not true of all of them: a fully
+; transparent cell is left showing what is behind it and a partly transparent
+; one composites against the tile behind it, so both still need that tile after
+; the sweep. Reclaiming it leaves the cell pointing into the compacted store at
+; whatever moved there - on the MEGA65 that put pieces of other pictures into
+; Zork Zero's compass rose every few turns.
+.gc_excl     !byte 0
 .gc_next     !byte 0,0		; the compacted store's next free tile
 .gc_old      !byte 0,0		; the survivor being moved
 .gc_byi      !byte 0		; bitmap byte index being walked
@@ -508,6 +516,29 @@ pic_load_all
 	; point at, compact the survivors to the bottom of the store and try
 	; again. x still indexes the window tables, and the sweep needs every
 	; register.
+	;
+	; Two tiers, as the MEGA65 engine has: the first keeps every tile a cell
+	; still shows, which is always safe; only if the picture still will not fit
+	; does the second let the cells the incoming picture covers die with it.
+	; See .gc_excl for why that second rule is only an approximation.
+	lda #0
+	sta .gc_excl
+	phx
+	jsr .pic_gc
+	plx
+	lda pic_next_tile
+	clc
+	adc .pic_ntiles
+	tay
+	lda pic_next_tile + 1
+	adc .pic_ntiles + 1
+	cmp #>PIC_MAX_TILES
+	bcc .pa_place
+	bne +
+	cpy #<PIC_MAX_TILES
+	bcc .pa_place
++	lda #1					; tier two: let the incoming rectangle die
+	sta .gc_excl
 	phx
 	jsr .pic_gc
 	plx
@@ -828,9 +859,11 @@ pic_load_all
 	; copy the survivors to the bottom of the store in ascending index order
 	; (safe in place: a survivor can only move down), and repoint their
 	; cells. pic_next_tile comes back as the survivor count, so the caller's
-	; run and the composites baked over it land above them. Cells the new
-	; picture covers completely are left alone: it is about to overwrite
-	; them, and if their tiles are shared with cells outside the sharing
+	; run and the composites baked over it land above them. With .gc_excl set
+	; - the last resort, when keeping everything left no room - cells the new
+	; picture covers completely are left to die with it, on the assumption
+	; that it overwrites them; see .gc_excl for why that is only an
+	; approximation. If their tiles are shared with cells outside the sharing
 	; marks them survivors anyway. A cell the picture only half covers (a
 	; shifted placement's two edge cells) counts as outside: its tile must
 	; survive.
@@ -876,6 +909,8 @@ pic_load_all
 	sta .gc_t2
 	lda VERA_data0
 	sta .gc_t
+	lda .gc_excl			; tier one keeps every tile a cell still shows
+	beq .gc_mark_keep
 	lda .gc_row
 	cmp .gc_y0
 	bcc .gc_mark_keep		; above the rectangle
