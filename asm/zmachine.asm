@@ -1044,20 +1044,9 @@ z_ins_quit
 	ora #$80
 	sta $d05d
 !ifdef Z6_FCM_MODE {
-	; Leaving the full colour screen: the C64 reset below never touches the
-	; VIC-IV mode register, so clear CHR16 and FCLRHI ($d054 bits 0 and 2) or
-	; BASIC comes up in 16-bit-character full-colour mode and is unreadable.
-	; Turn the mouse sprite off too, so no red arrow is left on the BASIC screen.
-	lda $d054
-	and #%11111010
-	sta $d054
-	lda $d015
-	and #$fe
-	sta $d015
-	; put the colour RAM offset back where BASIC expects it
-	lda #0
-	sta $d064
-	sta $d065
+	; Leaving the full colour screen for the C64 reset below, which does not
+	; touch any of it (z_ins_restart does the same before its reboot).
+	jsr leave_fcm_mode
 }
 }
 !ifdef TARGET_X16 {

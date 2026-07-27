@@ -597,7 +597,15 @@ z_ins_restart
 	lda $d05d
 	ora #$80
 	sta $d05d
-	
+
+!ifdef Z6_FCM_MODE {
+	; Leave the full colour screen before the reboot below, exactly as quitting
+	; does: the reset and the reload that follow run on whatever screen setup we
+	; hand them, and in 16-bit full colour mode that is a screenful of tiles and
+	; stray colour for the seconds a restart takes.
+	jsr leave_fcm_mode
+}
+
 	lda #$0
 	sta $d02f
 	sta $d02f

@@ -740,7 +740,33 @@ init_mega65
 }
 }
 	rts
-	
+
+!ifdef Z6_FCM_MODE {
+leave_fcm_mode
+	; Undo the parts of init_mega65's full colour setup that a machine reset
+	; leaves alone, so the screen underneath is a plain one again. Both ways out
+	; of the interpreter need this: quit drops into BASIC, and restart reboots
+	; and reloads from disk - and a reboot spent in 16-bit full colour mode,
+	; with the colour RAM offset still moved, is the mess of tiles and stray
+	; colour that used to show for the seconds a restart takes.
+	jsr mega65io
+	; 16-bit character codes (CHR16) and full colour for codes >= 256 (FCLRHI):
+	; $d054 bits 0 and 2. The C64 reset never touches this register, so BASIC
+	; would come up in full colour mode and be unreadable.
+	lda $d054
+	and #%11111010
+	sta $d054
+	; the mouse pointer, so no red arrow is left behind
+	lda $d015
+	and #$fe
+	sta $d015
+	; and the colour RAM offset, back where BASIC expects it
+	lda #0
+	sta $d064
+	sta $d065
+	rts
+}
+
 colour2k
 	; start mapping 2nd KB of colour RAM to $DC00-$DFFF
 	sei
