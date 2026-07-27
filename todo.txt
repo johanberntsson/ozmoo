@@ -5,12 +5,16 @@ on any MEGA65 configuration, with or without pictures. sound-wav.asm's parser
 writes "ldq [sound_file_target]" in five places and acme rejects every one with
 "CPU does not support this addressing mode for this mnemonic" - the 45GS02's
 32-bit indirect load is the Z-indexed form, which everything else in the tree
-writes as "lda [ptr],z" (sound-aiff.asm does, ten times). So the WAV path has
-presumably never been built. -asa (AIFF) assembles and runs; that is the format
-the sound notes point at anyway, since Infocom's converted assets are AIFF.
-Found while moving the sound buffer (below) and left alone: fixing it means
-writing five instructions nobody can test against a real WAV-using game, and it
-is upstream's code, so master wants the same fix.
+writes as "lda [ptr],z" (sound-aiff.asm does, ten times). It is NOT that the WAV
+path never worked: Johan wrote it and tested it playing sound. So this is a
+change underneath it - the likeliest candidate being the acme version, since a
+bare "ldq [zp]" is the sort of form an assembler can stop accepting. Whoever
+picks it up should establish that before rewriting the five instructions; the
+build may want an acme version check rather than a source change. Meanwhile -asa
+(AIFF) assembles and runs, and that is the format the sound notes point at
+anyway, since Infocom's converted assets are AIFF. Found while moving the sound
+buffer (below) and deliberately left: it is upstream's code, so master wants
+whatever the answer turns out to be. Revisit after the z6 -> master merge.
 
 DONE 2026-07-27: the sound effect being played no longer sits where CBDOS can
 reach it. It is DMA'd into a bank of chip RAM and played from there, and on a

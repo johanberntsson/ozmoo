@@ -214,7 +214,8 @@ A version 6 game built with Z6_PICTURES also carries its pictures, as one Exomiz
 | **Address range** | **KB** |  **Usage** |
 | -- |  - | ---- |
 | \$0000-\$ffff | 64 | System RAM, screen RAM, interpreter |
-| \$10000-\$1ffff | 64 | Picture tile store (version 6, Z6_FCM_MODE without pictures); current sound effect (Z6_PICTURES) |
+| \$10000-\$1ffff | 64 | Picture tile store (version 6, Z6_FCM_MODE without pictures) |
+| \$18000-\$1f7ff | 30 | Current sound effect (Z6_PICTURES) |
 | \$40000-\$40fff | 4 | Screen RAM for scrollback mode |
 | \$40000-\$4ffff | 64 | Current sound effect; picture tile store (Z6_PICTURES) |
 | \$50000-\$5ffff | 64 | Undo buffer; picture tile store (Z6_PICTURES) |
@@ -242,8 +243,16 @@ interface as pictures — a border, a scene and a status panel are all live
 together, over a thousand tiles — so a build with Z6_PICTURES moves the store to
 \$40000-\$5ffff, giving 2048 tiles, and moves the two things that lived there out
 of the way. The current sound effect goes down into bank 1, which the tile store
-has vacated; it has to stay in fast RAM because the audio DMA's stop address is
-only 16 bits wide, so a sample must sit at the foot of a bank. The undo buffer
+has vacated; it has to stay in fast RAM, because the audio DMA cannot play from
+Attic RAM and its stop address is only 16 bits wide, so a sample may not straddle
+a bank boundary. It does *not* have to sit at the foot of the bank, though — the
+DMA's base address is a full 24 bits — and in bank 1 it must not. Bank 1's foot
+is CBDOS' buffers and variable state, and its top 2 KB is the colour RAM window
+at \$1f800 (the same mapping that FCM_COLOUR_OFFSET steers the screen's colours
+around, below). The sample therefore starts SOUND_FASTRAM_OFFSET, \$8000, into
+the bank and plays from \$18000-\$1f7ff. make.rb refuses a sound file larger than
+that span rather than let the DMA run into the colour RAM: 30 KB with pictures,
+64 KB without, where bank 4 is Ozmoo's whole. The undo buffer
 goes to Attic RAM at \$08600000, well clear of the decrunched pictures, because
 it is only ever reached by DMA and so can live anywhere. Banks 2 and 3,
 \$20000-\$3ffff, are the ROM and can never be used for any of this: the C64 font
@@ -996,16 +1005,40 @@ another and keep both: Arthur draws the Merlin scene centred inside the sword
 picture, whose gold frame stays visible around it, and the two together are more
 than the store holds. So when a fresh run will not fit, the allocator compacts
 the store rather than wrapping over it (.pic_gc). It marks every tile that a cell
-*outside* the incoming picture's rectangle still shows, moves those survivors down
+still shows, moves those survivors down
 to the bottom of the store in ascending order — a survivor can only move down, so
 the copy is safe in place — and repoints the cells that show them; the new run
-then lands above the survivors. Cells the new picture is about to cover are not
-marked, since it is about to overwrite them anyway, and if their tiles are shared
-with cells outside (Arthur's borders repeat), the sharing marks them survivors in
-any case. The sweep works from a bitmap of live tiles, a per-byte prefix count of
-the survivors below it and a popcount table. Only if the survivors plus the new
-picture still do not fit does the old wrap-to-zero happen, which can then only
-spoil a picture that is no longer the newest on screen.
+then lands above the survivors. The sweep works from a bitmap of live tiles, a
+per-byte prefix count of the survivors below it and a popcount table.
+
+The sweep runs in two tiers, and the reason is worth stating, because the second
+tier was for a long time the only one and it corrupted a shipped game. Marking
+every tile a cell shows is the safe rule but not the thorough one: it keeps the
+tiles of the picture the incoming one is about to bury. The thorough rule is to
+skip the cells inside the incoming picture's rectangle, on the grounds that the
+draw is about to overwrite them, and it reclaims far more — enough that Arthur's
+intro, which puts one full-screen picture over another, cannot do without it.
+
+But "it is about to overwrite them" is not true of every cell in the rectangle. A
+*fully* transparent cell is deliberately left alone, so that a frame's hole shows
+the scene behind it, and a *partly* transparent one is composited against the tile
+already there. Both still need that tile after the sweep, and reclaiming it leaves
+the cell pointing at whatever the compaction moved into the slot. Zork Zero
+suffers this reproducibly: it builds its compass rose out of eight overlapping,
+mostly transparent petals drawn one over another into the same 12x5 box, and every
+few turns the rose came back with fragments of unrelated pictures in it. (The
+diagnosis is easy once framed right — dump screen RAM and flag every cell whose
+tile index is at or above pic_next_tile. Those point above the compacted store,
+and they were exactly the damaged cells.)
+
+So the allocator tries the safe rule first, which is what the store can normally
+afford, and only falls back to the thorough one when the picture still will not
+fit. The fallback remains an approximation; making it exact would need a per-cell
+"the picture is opaque here" flag, which the cell map does not carry — \$ffff
+marks a fully transparent cell and nothing distinguishes a fully opaque one from a
+partly transparent one. Only if the survivors plus the new
+picture still do not fit after the second tier does the old wrap-to-zero happen,
+which can then only spoil a picture that is no longer the newest on screen.
 
 Not every tile a draw consumes comes out of that run, and the difference is worth
 spelling out, because it cost a long hunt. The allocator reserves a picture's own
@@ -1073,6 +1106,27 @@ on the MEGA65, from the staging banks on the X16 — and expanding each pixel in
 the store's own form as it goes. The picture's own tiles are never copied. A
 picture needing more cells than the whole store falls back to the cell grid, which
 in practice means only the full-screen ones, and no game shifts those.
+
+The allocator has to reserve a tile for every cell the picture covers, but a cell
+the picture turns out to be fully transparent in is skipped and never takes one —
+and most of a small overlay is transparent. So the fill hands the unused tail of
+the run back when it is done, which it may do whenever nothing has been allocated
+since, i.e. whenever the run is still the topmost one. The saving is not marginal:
+each of Zork Zero's compass petals reserves 65 tiles and uses about seven. Three
+turns of play used to leave pic_next_tile at 2037 of 2048 and force a compaction;
+they now leave it at 843 and force none.
+
+That matters for more than memory, because **a compaction is visible while it
+runs**. The sweep moves every surviving tile while the screen is still displaying
+the store and the cells still point at the old indices; only the third pass
+repoints them. For the tens of milliseconds in between, the screen shows tiles
+that have moved out from under it — a full-screen flicker, once every few turns in
+a game that churns the store as Zork Zero does. Returning the unused tail makes it
+rare rather than routine. Making it invisible would mean compacting into a scratch
+buffer and copying the result back by DMA, with the new screen codes staged and
+blitted after it; Attic RAM has room for the 128 KB copy and both transfers are
+DMA, so the inconsistent window would be a few milliseconds rather than tens. That
+has not been attempted.
 
 Two consequences are worth having in mind. Erasing such a picture leaves the
 shared edge cells on both axes, because each holds part of the picture beside
@@ -1164,6 +1218,36 @@ the full colour screen is picture and text data. There is no hardware that makes
 a sprite follow the mouse; the MEGA65 KERNAL moves it in an interrupt and so does
 Ozmoo, from mouse_poll. On quit the sprite is switched off along with the full
 colour mode bits, so no arrow is left on the BASIC screen.
+
+A joystick moves the same pointer, so a player without a mouse can still use the
+mouse-driven interface. It is read from \$dc01, rate-limited to one step of
+JOY_STEP pixels every JOY_JIFFIES jiffies — a joystick is all or nothing, so
+without a divider it crosses the screen several times faster than a mouse does.
+Both ports have to be read carefully, and for the same reason: \$dc00 is not only
+port 2, it *is* the keyboard column select, so a read of either port returns the
+column the KERNAL's scan is driving low as well as what a device pulls low. A
+held key can therefore read as a joystick direction, and while column 4 is
+selected \$dc00 bit 4 reads exactly like the mouse button being down — which at
+this poll rate delivers a click nobody made every few seconds, worst of all with
+*no* port 2 device attached, when that bit is nothing but the column latch. Both
+ports are read with interrupts off and every column deselected.
+
+That deselect is skipped unless it is needed, because it is not free. Deselecting
+the columns means setting every bit of CIA1 port A, and bits 6 and 7 of that port
+are also the SID's paddle select — so each write moves the pot multiplexer, a few
+instructions from the pot reads. A real MEGA65 does not care, since \$d620 to
+\$d623 are sampled independently of the CIA, but the write is pointless when
+nothing is held: a false direction or a false button can only come from a line
+pulled *low*, so both ports are read raw first and the guarded read runs only if a
+bit that matters is low. Ordinary mouse movement, with no joystick held and no key
+down, never touches \$dc00 at all.
+
+One thing this section should not be read as claiming: the emulated pointer in
+xemu is slow and jerky, and none of the above is why. It is equally jerky in
+builds predating any of this work, and on real hardware the mouse is fine. It has
+not been diagnosed further, partly because it cannot be: xemu's mouse is only
+grabbed from a real window, so a headless harness cannot tell a good build from a
+bad one.
 
 ### The X16's mouse
 
@@ -1440,7 +1524,9 @@ For legacy reason AIFF is also supported, using sound-aiff.asm, and the `-asa pa
 
 When compiled with extended sound support, Ozmoo will preload all sound files during startup into the MEGA65's attic memory, and then copy each sound effect into fast memory on demand when the `@sound_effect` command is used in the game code. 
 
-The effect being played must live in fast RAM, at the foot of a bank: the audio DMA's stop address is only 16 bits wide, so a sample cannot straddle a bank boundary and cannot be played from Attic RAM at all. Which bank that is depends on the build, and is the constant SOUND_FASTRAM_BANK. It is bank 4 everywhere except a version 6 build with pictures, where the tile store needs banks 4 and 5 and the sound effect moves down into bank 1.
+The effect being played must live in fast RAM: the audio DMA cannot play from Attic RAM at all, and its stop address is only 16 bits wide, so a sample cannot straddle a bank boundary. Its *base* address is a full 24 bits, though, so within a bank the sample may start anywhere — SOUND_FASTRAM_BANK says which bank and SOUND_FASTRAM_OFFSET how far into it.
+
+It is bank 4 at offset 0 everywhere except a version 6 build with pictures, where the tile store needs banks 4 and 5 and the sound effect moves down into bank 1. Bank 1 is not free end to end: its foot is CBDOS' buffers and variable state, and its top 2 KB is the colour RAM window at \$1f800. So there the offset is \$8000 and the sample plays from \$18000-\$1f7ff. make.rb refuses a sound file bigger than the span it will be copied into — 30 KB with pictures, 64 KB without — rather than let the DMA discover it, which in bank 1 would mean writing over the screen's colours.
 
 # Smooth Scrolling
 This feature adds smooth scrolling support for the c64 target. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience. The user can toggle whether smooth scrolling is active using the F2 key during the game. 
