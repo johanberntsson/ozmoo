@@ -490,6 +490,32 @@ mouse_enable
 	; thousands of times a second, so it lands in the window every few seconds and
 	; delivers a click nobody made. Reading it with all the columns deselected is
 	; the same fix the port 1 read already had.
+	;
+	; BUT the deselect is only worth doing when there is something to
+	; disambiguate, and usually there is not. $ff in JOY_COLUMNS deselects the
+	; columns by setting every bit of CIA1 port A - and bits 6 and 7 of that port
+	; are also the SID's PADDLE SELECT, so writing it puts the pot multiplexer
+	; into its "both ports" state a few instructions away from the pot reads at
+	; the top of .mouse_read. A real MEGA65 does not care (its $d620-$d623 are
+	; direct and sampled independently of the CIA), but an emulator taking the
+	; C64 path for them does, and xemu's pointer went jerky and hard to steer -
+	; worst across, which is the axis the pot ADC converts first. So: a false
+	; direction or a false button can only appear when something is pulling a
+	; line LOW. Read both ports raw first, and if every bit we care about is
+	; high, nothing is held, there is nothing a driven column could be forging,
+	; and we return without touching $dc00 at all. Moving the mouse with no
+	; joystick and no key down - the whole of ordinary play - takes that path.
+	lda JOY_PORT1
+	and #(JOY_DIRS | JOY_FIRE)
+	cmp #(JOY_DIRS | JOY_FIRE)
+	bne .rjb_guarded		; something is down on port 1: find out what
+	lda JOY_PORT2
+	and #$10				; port 2's button bit; a driven column reads low here
+	beq .rjb_guarded		; too, so it also needs the guarded read
+	lda #$ff				; both ports idle
+	sta .joy_port2
+	rts
+.rjb_guarded
 	php
 	sei
 	lda JOY_COLUMNS
