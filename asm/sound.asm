@@ -798,10 +798,12 @@ stop_sound_effect_sub
     sta dma_count
 	lda sound_length_pages,x
 	sta dma_count + 1
-    ; copy to the foot of SOUND_FASTRAM_BANK
-    lda #$00
+    ; copy to SOUND_FASTRAM_OFFSET in SOUND_FASTRAM_BANK
+    lda #<SOUND_FASTRAM_OFFSET
     sta dma_dest_address
+    lda #>SOUND_FASTRAM_OFFSET
     sta dma_dest_address + 1
+    lda #$00
     sta dma_dest_address_top
     lda #SOUND_FASTRAM_BANK
     sta dma_dest_bank_and_flags

@@ -143,10 +143,13 @@
     rts
 
 .init_fastRAM_base
-    ; init sound file address pointer
-	lda #0
+    ; init sound file address pointer, to where .copy_effect_to_fastram put the
+    ; sample: SOUND_FASTRAM_OFFSET into SOUND_FASTRAM_BANK
+	lda #<SOUND_FASTRAM_OFFSET
 	sta sound_file_target
+	lda #>SOUND_FASTRAM_OFFSET
 	sta sound_file_target + 1
+	lda #0
 	sta sound_file_target + 3
 	lda #SOUND_FASTRAM_BANK
 	sta sound_file_target + 2

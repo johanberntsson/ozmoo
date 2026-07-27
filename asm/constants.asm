@@ -164,18 +164,32 @@ CELL_BYTES            = 1
 }
 SCREEN_ROW_BYTES      = SCREEN_WIDTH * CELL_BYTES
 
-; Where the sound effect being played and the undo state live. A sound effect
-; is played by the audio DMA, whose stop address is only 16 bits wide, so it
-; has to sit at the foot of a bank of chip RAM; undo is reached by DMA and can
-; go anywhere. When the tile store takes banks 4 and 5 they both move: sound
-; into bank 1, which the tile store has vacated, and undo into attic RAM, well
-; clear of the pictures decompressed at $8300000.
+; Where the sound effect being played and the undo state live. A sound effect is
+; played by the audio DMA; its base address is 24 bits ($d721-$d723) but its
+; STOP address is only 16 ($d727-$d728), so the sample may sit anywhere in a
+; bank of chip RAM as long as it does not cross the bank's top. Undo is reached
+; by DMA and can go anywhere. When the tile store takes banks 4 and 5 they both
+; move: sound into bank 1, which the tile store has vacated, and undo into attic
+; RAM, well clear of the pictures decompressed at $8300000.
+;
+; Bank 1 is not free end to end, though. Its foot is CBDOS' buffers and variable
+; state, and its top 2 KB is the colour RAM window ($1f800-$1fffff, the same
+; mapping whose CBDOS scribbling FCM_COLOUR_OFFSET works around). The MEGA65
+; Book's chip RAM map calls $1.0000-$1.1fff unsafe; a MEGA65 allocator (Johan's
+; Hexgame) arrived at $18000 empirically, which is the more conservative of the
+; two, so the sample goes there and the safe span is $18000-$1f7ff. That
+; allocator's figures transfer: like Ozmoo's MEGA65 build it runs in C64 mode,
+; so it is the same CBDOS and the same C64 KERNAL scribbling in bank 1, not the
+; MEGA65 ROM's. make.rb refuses a sound file bigger than the span rather than
+; let one run into the colour RAM.
 !ifdef Z6_PICTURES {
 SOUND_FASTRAM_BANK    = $01
+SOUND_FASTRAM_OFFSET  = $8000	; ...and this far into it; must be page aligned
 UNDO_BANK             = $00
 UNDO_ADDRESS_TOP      = $86		; attic RAM, 6 MB in
 } else {
-SOUND_FASTRAM_BANK    = $04
+SOUND_FASTRAM_BANK    = $04		; bank 4 is ours whole, so the foot is fine
+SOUND_FASTRAM_OFFSET  = $0000
 UNDO_BANK             = $05
 UNDO_ADDRESS_TOP      = $00
 }

@@ -3597,6 +3597,26 @@ if picture_dir
 	end
 end
 
+# A sound effect is DMA'd into a bank of chip RAM and played from there, so it
+# has to fit the span the interpreter reserves for it (SOUND_FASTRAM_BANK /
+# SOUND_FASTRAM_OFFSET in constants.asm). Without pictures that is the whole of
+# bank 4. With them the tile store owns banks 4 and 5 and the sample moves to
+# $18000 in bank 1, whose foot is CBDOS' workspace and whose top 2 KB is the
+# colour RAM window - 30 KB, and running past it would scribble on the screen's
+# colours. Check it here rather than let the DMA find out.
+unless $sound_files.empty?
+	sound_limit = $GENERALFLAGS.include?('Z6_PICTURES') ? 0x7800 : 0x10000
+	$sound_files.each do |file|
+		size = File.size(file)
+		next if size <= sound_limit
+		puts "ERROR: #{File.basename(file)} is #{size} bytes; the largest sound effect " +
+			"this build can play is #{sound_limit} bytes" +
+			($GENERALFLAGS.include?('Z6_PICTURES') ?
+				" (with -pics the tile store takes banks 4 and 5, so the sample plays from the 30 KB of bank 1 that CBDOS and the colour RAM window leave free)" : "") + "."
+		exit 1
+	end
+end
+
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number
 	# Turn off features that don't work properly in BZ anyway

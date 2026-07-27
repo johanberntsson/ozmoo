@@ -20,11 +20,12 @@
 .chunk_header_size !byte 8,0,0,0 ; the ID and size are 4 bytes each
 
 .parse_wav
-    ; parses the WAV at the foot of the sound effect's bank of fast RAM
-    lda #0
-    tax
+    ; parses the WAV where .copy_effect_to_fastram put it: SOUND_FASTRAM_OFFSET
+    ; into SOUND_FASTRAM_BANK
+    lda #<SOUND_FASTRAM_OFFSET
+    ldx #>SOUND_FASTRAM_OFFSET
     ldy #SOUND_FASTRAM_BANK
-    taz
+    ldz #0
     stq sound_file_target
 !ifdef VERIFY_WAV_CHUNK_ID {
     ldq [sound_file_target]
@@ -32,9 +33,12 @@
     cmp #82 ; 'R'?
     bne .bad_parse_wav
 }
-    ; skip the RIFF header
-    lda #$0c
+    ; skip the RIFF header. Both bytes, so this does not depend on the base
+    ; offset's low byte being zero.
+    lda #<(SOUND_FASTRAM_OFFSET + $0c)
     sta sound_file_target
+    lda #>(SOUND_FASTRAM_OFFSET + $0c)
+    sta sound_file_target + 1
     ; iterate over chunks
 .parse_chunk
     ldz #4

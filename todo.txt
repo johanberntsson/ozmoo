@@ -1,5 +1,40 @@
 Known bugs
 ----------
+OPEN, and it predates this branch: -asw (WAV sound effects) DOES NOT ASSEMBLE,
+on any MEGA65 configuration, with or without pictures. sound-wav.asm's parser
+writes "ldq [sound_file_target]" in five places and acme rejects every one with
+"CPU does not support this addressing mode for this mnemonic" - the 45GS02's
+32-bit indirect load is the Z-indexed form, which everything else in the tree
+writes as "lda [ptr],z" (sound-aiff.asm does, ten times). So the WAV path has
+presumably never been built. -asa (AIFF) assembles and runs; that is the format
+the sound notes point at anyway, since Infocom's converted assets are AIFF.
+Found while moving the sound buffer (below) and left alone: fixing it means
+writing five instructions nobody can test against a real WAV-using game, and it
+is upstream's code, so master wants the same fix.
+
+DONE 2026-07-27: the sound effect being played no longer sits where CBDOS can
+reach it. It is DMA'd into a bank of chip RAM and played from there, and on a
+-pics build (where the tile store owns banks 4 and 5) that bank is 1 - whose
+foot is CBDOS' buffers and variable state and whose top 2 KB is the colour RAM
+window, the same mapping FCM_COLOUR_OFFSET already works around. The sample now
+goes to SOUND_FASTRAM_OFFSET ($8000) into the bank, so it plays from
+$18000-$1f7ff, the span Johan's Hexgame allocator arrives at empirically - and
+that allocator's figures transfer, since like Ozmoo's MEGA65 build it runs in
+C64 mode, so it is the same CBDOS and the same C64 KERNAL. Only the base moves;
+the audio DMA's stop address is 16-bit but its base is 24, so a sample may sit
+anywhere in a bank as long as it does not cross the top (the old comment said it
+had to be at the foot, which is not so). make.rb now refuses a sound file larger
+than the span rather than let the DMA discover it: 30 KB with pictures, 64 KB
+without, where bank 4 is still ours whole.
+  Verified: the assembled binary sets the DMA destination to $01:8000 and the
+  AIFF parser's base to $01:8000; a Zork Zero -pics -asa build boots, preloads
+  and plays into the game; the oversized file is rejected with pictures and
+  accepted without; and a build with no sound at all is BYTE IDENTICAL to the
+  same build before the change. NOT verified: a sound actually sounding. No v6
+  blorb we have carries sound (all four are Pict-only, checked), testz6 has no
+  @sound_effect, and headless xemu has no audio - so the playback path is
+  reasoned and statically checked, not heard.
+
 FIXED 2026-07-27: Zork Zero's banner and compass rose came back with pieces of
 other pictures in them every few turns on the MEGA65 (z6games/zorkzero-turn3.png
 is the report: start, [More], e, n, s - the rose breaks on the third move, every
