@@ -14,6 +14,16 @@ The branch's purpose is adding Z-machine **version 6** support. The window model
 
 Required: `acme`, `exomizer` (expected at `exomizer/src/exomizer` on Linux — a local checkout, not in git), VICE (`x64`, `x64sc`, `x128`, `xplus4`, `c1541`), `ruby`, and `inform` + `frotz`/`dfrotz` for the v6 test game. Tool paths are hardcoded at the top of `make.rb` (separate Windows/Linux sections).
 
+**Acme 0.97 as released changed the syntax of one MEGA65 instruction.** The 32-bit
+indirect quad load is now `ldq [zp],z`; the 2021/2022 development snapshots (and
+acme's own `docs/cputypes/cpu m65.txt`, which was not updated) wanted `ldq [zp]`,
+and the release rejects that with "CPU does not support this addressing mode for
+this mnemonic". `ldq` is the only mnemonic affected — `stq`/`orq`/`andq`/`eorq`/
+`adcq`/`cpq`/`sbcq` still take the bare `[zp]` and *reject* a `,z`. Both spellings
+assemble to the same `42 42 ea b2 <zp>`, so this is syntax only. It bit the WAV
+sound parser (`-asw`) in July 2026, which is the only place in the tree using it;
+the AIFF parser (`-asa`) uses plain `lda [zp],z` and was never affected.
+
 The real games use a consistent grid: `<game>-<platform>` for text, and
 `<game>-pics-<platform>` for the graphics build on the platforms that draw
 pictures (mega65, x16). Games are `arthur shogun journey zorkzero` (plus

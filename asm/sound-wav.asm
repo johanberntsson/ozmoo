@@ -10,6 +10,14 @@
 ; - Save the file
 ;
 ; use mediainfo or exiftool to check the WAV metadata
+;
+; Note on syntax: the 32-bit indirect quad load is written "ldq [zp],z" here.
+; Acme 0.97 as released (1 May 2026) insists on the ",z" for ldq, while the
+; 2021/2022 development snapshots insisted on its absence ("ldq [zp]", which is
+; also what docs/cputypes/cpu m65.txt still says). Both spellings assemble to
+; the same 42 42 ea b2 <zp>, and the hardware does use z as the index, which is
+; why the loads below set it first. "stq [zp]" is unchanged - acme wants no ,z
+; on that one either way.
 
 !ifdef SOUND_WAV_ENABLED {
 
@@ -28,7 +36,7 @@
     ldz #0
     stq sound_file_target
 !ifdef VERIFY_WAV_CHUNK_ID {
-    ldq [sound_file_target]
+    ldq [sound_file_target],z
     ; is this a WAV file (should start with RIFF)
     cmp #82 ; 'R'?
     bne .bad_parse_wav
@@ -42,26 +50,26 @@
     ; iterate over chunks
 .parse_chunk
     ldz #4
-    ldq [sound_file_target]
+    ldq [sound_file_target],z
     stq .chunk_size
     ldz #0
-    ldq [sound_file_target]
+    ldq [sound_file_target],z
     cpz #$20
     bne +
     ; fmt chunk
     ; channels
     ldz #$08 
-    ldq [sound_file_target]
+    ldq [sound_file_target],z
     cpy #1 ; 1 channel?
     bne .bad_parse_wav
     ; sample rate
     ldz #$0c
-    ldq [sound_file_target]
+    ldq [sound_file_target],z
     stx .sample_rate + 1
     sta .sample_rate + 0
     ; bits/sample
     ldz #$14
-    ldq [sound_file_target]
+    ldq [sound_file_target],z
     cpy #8 ; 8 bits?
     bne .bad_parse_wav
     jmp .next_chunk
