@@ -1,6 +1,13 @@
 all: z6
 
 # ---------------------------------------------------------------------------
+# sound: sound test. Since we don't have any z6 with sound we'll use Sherlock.
+# ---------------------------------------------------------------------------
+
+sound:
+	ruby make.rb  -v -ch -t:mega65 -asw soundgame/sherlock soundgame/sherlock.z5
+
+# ---------------------------------------------------------------------------
 # testz6: the v6 test game (grown opcode by opcode, compared against frotz).
 # These are the development targets; the real games are the grid further down.
 # ---------------------------------------------------------------------------

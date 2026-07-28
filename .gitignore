@@ -1,6 +1,9 @@
 # Future unrelated plans
 /apple-plan/
 
+# Testing sound support
+/soundgame/
+
 # I'm converting an old game of mine to z6 for testing, but I probably don't want
 # the source code in the ozmoo repository. That's to decide later. For now I keep
 # it here (but uncommitted) for easy of debugging and testing
