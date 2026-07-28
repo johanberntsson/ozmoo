@@ -742,6 +742,23 @@ init_mega65
 	rts
 
 !ifdef Z6_FCM_MODE {
+; The VIC-IV registers init_mega65 takes over, with the values a MEGA65 boots
+; with. They were read off a plain xemu boot sitting at the BASIC prompt, and
+; xemu runs the real ROM, so they are the ROM's own choices rather than an
+; emulator's. Saving them at init_mega65 time instead would be no better and is
+; in fact worse: Ozmoo's own loader has already moved CHARPTR to the lower case
+; font and, under -fcm, the colour offset to FCM_COLOUR_OFFSET by then, so the
+; "original" it would capture is not the one BASIC wants back.
+;
+; SCNPTR ($d060) is deliberately not in the list. Ours is $0800, which is where
+; BASIC has it anyway, and the restart path picks its own screen address just
+; before calling us.
+BASIC_D054      = $40			; no CHR16, no FCLRHI, no FCLRLO
+BASIC_LINESTEP  = 80			; bytes a row: one byte a cell, not two
+BASIC_CHRCOUNT  = 80			; cells a row
+BASIC_CHARPTR   = $001000		; the character generator BASIC prints with
+BASIC_SPRPTRADR = $000ff8		; sprite pointers, 8-bit (bit 23 clear)
+
 leave_fcm_mode
 	; Undo the parts of init_mega65's full colour setup that a machine reset
 	; leaves alone, so the screen underneath is a plain one again. Both ways out
@@ -749,21 +766,50 @@ leave_fcm_mode
 	; and reloads from disk - and a reboot spent in 16-bit full colour mode,
 	; with the colour RAM offset still moved, is the mess of tiles and stray
 	; colour that used to show for the seconds a restart takes.
+	;
+	; Every one of them is put back explicitly. Relying on the reset - or on the
+	; hot registers the quit and restart paths re-enable just before calling us,
+	; which are meant to make a VIC-II write recompute the VIC-IV side - is what
+	; made this emulator-only: under xemu the reset brings CHARPTR, LINESTEP and
+	; CHRCOUNT back to their boot values, so BASIC came up perfect, while a real
+	; MEGA65 keeps ours and draws the BASIC screen in the picture font at twice
+	; the row stride (z6games/after-quit.png).
 	jsr mega65io
 	; 16-bit character codes (CHR16) and full colour for codes >= 256 (FCLRHI):
 	; $d054 bits 0 and 2. The C64 reset never touches this register, so BASIC
 	; would come up in full colour mode and be unreadable.
-	lda $d054
-	and #%11111010
+	lda #BASIC_D054
 	sta $d054
 	; the mouse pointer, so no red arrow is left behind
 	lda $d015
 	and #$fe
 	sta $d015
-	; and the colour RAM offset, back where BASIC expects it
+	; the colour RAM offset, back where BASIC expects it
 	lda #0
 	sta $d064
 	sta $d065
+	; the row stride and the cells per row: two bytes a cell is ours, not BASIC's
+	lda #<BASIC_LINESTEP
+	sta $d058
+	lda #>BASIC_LINESTEP
+	sta $d059
+	lda #BASIC_CHRCOUNT
+	sta $d05e
+	; the character generator, without which every glyph BASIC prints - a space
+	; included - comes out of our full colour font address
+	lda #<BASIC_CHARPTR
+	sta $d068
+	lda #>BASIC_CHARPTR
+	sta $d069
+	lda #^BASIC_CHARPTR
+	sta $d06a
+	; and the sprite pointer list, which mouse_init moved and switched to 16-bit
+	lda #<BASIC_SPRPTRADR
+	sta $d06c
+	lda #>BASIC_SPRPTRADR
+	sta $d06d
+	lda #^BASIC_SPRPTRADR
+	sta $d06e
 	rts
 }
 

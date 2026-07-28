@@ -580,6 +580,9 @@ z_ins_restart
 !ifdef TARGET_MEGA65 {
 	; ; reset will autoboot the game again from disk
 	; jmp kernal_reset
+	; knock first: everything below writes VIC-IV registers, which only answer
+	; while they are in I/O mode
+	jsr mega65io
 	lda #$00
 	ldx #$04
 	sta $d060

@@ -1039,11 +1039,24 @@ z_ins_quit
 		; sta reg_screen_char_mode
 	; }
 
-	; enable VIC-II/VIC-III hot registers
+	; enable VIC-II/VIC-III hot registers. The hypervisor call above may well
+	; have taken the VIC-IV registers back out of I/O mode on real hardware -
+	; xemu leaves them unlocked - and a $d05d write that lands nowhere is one
+	; explanation for the reset not recomputing anything there (see
+	; leave_fcm_mode), so knock again first. It costs four bytes.
+	jsr mega65io
 	lda $d05d
 	ora #$80
 	sta $d05d
 !ifdef Z6_FCM_MODE {
+	; Hand BASIC back its own 80-column screen: H640 with 8-bit colour
+	; attributes, and the same $d016 the 80-column text build leaves. This is
+	; the pair the hot registers derive the rest from, so it goes before
+	; leave_fcm_mode puts those back by hand.
+	lda #$e0
+	sta $d031
+	lda #$c9
+	sta $d016
 	; Leaving the full colour screen for the C64 reset below, which does not
 	; touch any of it (z_ins_restart does the same before its reboot).
 	jsr leave_fcm_mode
