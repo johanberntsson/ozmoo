@@ -5,7 +5,9 @@ all: z6
 # ---------------------------------------------------------------------------
 
 sound:
-	ruby make.rb  -v -ch -t:mega65 -asw soundgame/sherlock soundgame/sherlock.z5
+	ruby make.rb -v -ch -t:mega65 -asw soundgame/sherlock soundgame/sherlock.z5
+	# SDL/xmega65 doesn't play nice with pipewire
+	SDL_AUDIODRIVER=pulseaudio xemu-xmega65 -8 mega65_sherlock.d81
 
 # ---------------------------------------------------------------------------
 # testz6: the v6 test game (grown opcode by opcode, compared against frotz).
