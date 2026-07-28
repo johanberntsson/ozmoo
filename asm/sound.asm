@@ -87,6 +87,15 @@ reset_sound_dir_ptr
 	rts
 
 read_sound_dir_char
+	; z must be set here, not once before the loop: under Z6_FCM_MODE every
+	; colour write goes through "sta [zp_colourline],z" (the sta_colour_ram
+	; macro in screenkernal-z6.asm), so s_printchar leaves z holding a colour
+	; byte index. This routine and the directory copy below both print while
+	; walking the buffer -- the "$" per sound file and the delete that rubs it
+	; out again -- and a stale z shifts every following access by that many
+	; bytes. That desynced the parse after the first file, so only sound 3 was
+	; ever registered and every other effect played silently.
+	ldz #0
 	lda [sound_dir_ptr],z
 	inq sound_dir_ptr
 	rts
@@ -163,6 +172,7 @@ read_sound_files
 
 	ldx #0 ; Status for sound counter
 -	jsr kernal_readchar
+	ldz #0 ; s_printchar below may have left z holding a colour byte index
 	sta [sound_dir_ptr],z
 	inq sound_dir_ptr
 
