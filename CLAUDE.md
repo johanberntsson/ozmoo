@@ -134,12 +134,24 @@ So "does this code run?" always depends on which `!ifdef` blocks are active for 
 `gen_testpics.py` (the pictures `testz6` draws, ours, in `tools/testpics`),
 `png2fcm.py` (the reference for the tile format) and `fcm-prototype.asm` (a
 standalone prg, the only place the working VIC-IV register setup is written out).
-`make_blorb.py` builds a v6 picture **Blorb** from a folder of source images
-described by a YAML `contents.yaml` (top-level `blorb`/`outdir`/`srcdir` plus a
-`pictures:` list, each `id`/`file` with optional `name`/`location`/`width`/`height`
+`make_blorb.py` builds a v6 **Blorb** from a folder of source files described by
+a YAML `contents.yaml` (top-level `blorb`/`outdir`/`srcdir` plus a `pictures:`
+list, each `id`/`file` with optional `name`/`location`/`width`/`height`
 per-picture size caps; run as `make_blorb.py <folder>` or `<contents.yaml>`) —
 the front end that feeds `-pics <blorb>`. `examples/wyrmward/` (gitignored) keeps
-its own copy for that side project.
+its own copy for that side project. It also takes an optional **`sounds:`** list
+(`id`/`file`, `id` 3..255 since the Z-machine's sounds 1 and 2 are the bleeps),
+so one Blorb carries a game's pictures and its sound effects and sfrotz can play
+what Ozmoo plays. Two things to know there: **Blorb has no WAV chunk** — the
+spec's sound types are AIFF (`FORM`), `OGGV`, `MP3 ` and `MOD `/`SONG`, and
+`WAV ` exists only in ADRIFT blorbs — so a listed `.wav` is converted to AIFF on
+the way in (hand-rolled: Python 3.13 removed both `aifc` and `audioop`, and the
+result is byte-identical to `sox`'s own conversion, which is the regression
+check; `.aiff` sources are embedded verbatim). And the sounds are for the *other*
+interpreter only: Ozmoo's MEGA65 build still reads the wavs straight off the
+source folder via `-asw`, which is why the same 8-bit mono wav can feed both.
+`pics2asm.py` skips any non-`Pict` index entry and walks an embedded AIFF as an
+opaque `FORM` chunk, so adding sounds leaves the built disks **byte-identical**.
 
 ## The z6 screen model
 
@@ -319,6 +331,6 @@ cd x16_testz6 && ../x16-emulator46/x16emu -prg TESTZ6.PRG -run -warp -zeroram -s
 ## References
 
 - The Z-machine standard, version 1.0/1.1 — essential for v6 window and opcode semantics, and worth checking rather than trusting memory. Not in the repo; it is easy to find online (`z-spec10.pdf`). Keep a copy in the working directory when doing v6 work: `pdftotext z-spec10.pdf -` makes it greppable.
-- Two reference interpreters, for different questions: `dfrotz -h 25 -w 40` (or `-w 80`) for line-for-line text comparison, and **sfrotz** (SDL Frotz, windowed) for how a v6 game *presents* — colours, reverse-video message boxes, pictures. Both parser-message bugs of July 2026 (a spurious [More], a missing reverse-video band) were invisible in dfrotz text and obvious next to sfrotz. Note sfrotz's grey background is its default scheme, not the game's doing. **sfrotz doubles pictures for Infocom's four v6 games only, and decides by story ID** — its screen is always 640x400, and `os_init_screen` sets the 2x graphics scale inside `if (sf_IsInfocomV6())`, a `switch (story_id)` over ARTHUR/JOURNEY/SHOGUN/ZORK_ZERO (`src/sdl/sf_resource.c`). So Infocom's 320-wide art fills sfrotz's screen just as it fills Ozmoo's pixel-doubled 640-pixel one, but *any other* v6 game's 320-wide picture covers only the left half there, which reads as a bug in the game or in the blorb and is neither. Run such a game as `sfrotz --xscale 2 --yscale 2 <story>` to compare like with like. A blorb `Reso` chunk does not help (sfrotz uses it only to enlarge the window, never for per-picture ratios), and neither does the `Display / Infocom V6 Scaling X` config key, which is read but applied only inside that same story-ID branch.
+- Two reference interpreters, for different questions: `dfrotz -h 25 -w 40` (or `-w 80`) for line-for-line text comparison, and **sfrotz** (SDL Frotz, windowed) for how a v6 game *presents* — colours, reverse-video message boxes, pictures. Both parser-message bugs of July 2026 (a spurious [More], a missing reverse-video band) were invisible in dfrotz text and obvious next to sfrotz. Note sfrotz's grey background is its default scheme, not the game's doing. **sfrotz doubles pictures for Infocom's four v6 games only, and decides by story ID** — its screen is always 640x400, and `os_init_screen` sets the 2x graphics scale inside `if (sf_IsInfocomV6())`, a `switch (story_id)` over ARTHUR/JOURNEY/SHOGUN/ZORK_ZERO (`src/sdl/sf_resource.c`). So Infocom's 320-wide art fills sfrotz's screen just as it fills Ozmoo's pixel-doubled 640-pixel one, but *any other* v6 game's 320-wide picture covers only the left half there, which reads as a bug in the game or in the blorb and is neither. Run such a game as `sfrotz --xscale 2 --yscale 2 <story>` to compare like with like. A blorb `Reso` chunk does not help (sfrotz uses it only to enlarge the window, never for per-picture ratios), and neither does the `Display / Infocom V6 Scaling X` config key, which is read but applied only inside that same story-ID branch. **sfrotz also plays the Blorb's sound effects, which makes it the reference for a game with sound too** (July 2026) — but only with `SDL_AUDIODRIVER=pulseaudio`, exactly like xemu: SDL does not get on with pipewire on Fedora/KDE and sfrotz otherwise comes up silent with no error. `tools/make_blorb.py` now writes those sounds (see below); Ozmoo's own MEGA65 build still takes the wavs off the source folder through `-asw`, so one folder feeds both. To check a sound headlessly, set `SDL_AUDIODRIVER=disk` and `SDL_DISKAUDIOFILE=<path>`: SDL writes the mixed stream (S16LE stereo 44100) to that file, and correlating its non-silent runs against the source wavs proves *which* effect played and when — that is how both of Wyrmward's were verified without a speaker.
 - `documentation/techreport_15.pdf` — Ozmoo's internal design. **The PDFs are generated, and both they and their sources are in git.** The sources are `documentation/manual/{techreport,manual,player_manual}.md` and the `Makefile` beside them builds all three with pandoc (`cd documentation/manual && make all`, or `make techreport` alone), writing `../<name>_$(VERSION).pdf`. So editing a `.md` is only half the job — rebuild, or the shipped PDF still says the old thing. `VERSION` in that Makefile is the major version from `version.txt` (15 now, so `techreport_15.pdf`) and has to be bumped in step with it. The LaTeX "requested release 2026/06/01" and "float too large" warnings are pre-existing noise.
 - `todo.txt` — known bugs and remaining v6 work.

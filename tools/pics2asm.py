@@ -260,6 +260,11 @@ def load_blorb(filepath):
     for i in range(struct.unpack(">I", ridx[:4])[0]):
         off = 4 + i*12
         if ridx[off:off+4] != b"Pict":
+            # 'Snd ' (and 'Exec') resources are not ours: a Blorb may carry the
+            # game's sound effects beside its pictures -- tools/make_blorb.py
+            # writes both, so sfrotz can play a game Ozmoo drives through -asw --
+            # and the loop above already walked their chunks (an AIFF is an
+            # opaque 'FORM') without needing to understand them.
             continue
         num = struct.unpack(">I", ridx[off+4:off+8])[0]
         start = struct.unpack(">I", ridx[off+8:off+12])[0]
