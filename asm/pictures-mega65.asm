@@ -50,6 +50,17 @@ PIC_PROGRESS_STEP = picture_crunched_pages / 30 + 1
 ; PIC_MAX_TILES, FCM_TILE_STORE and FCM_TILE_CODE_HI are in constants.asm:
 ; where the store can live depends on what else is in the target's fast RAM.
 
+; ---------------------------------------------------------------------------
+; The exomizer decruncher: a faithful port of exomizer's reference decoder
+;
+; This has to be defined before being used to avoid an ACME warning.
+;
+; The zero-page pointers borrow the z-machine operand-value arrays, free during
+; boot (pic_load_all runs before the interpreter's main loop). Each is a 32-bit
+; attic pointer for the 45GS02's [zp],z addressing.
+.exo_cr  = z_operand_value_high_arr			; $16, crunched read (forwards)
+.exo_src = z_operand_value_low_arr			; $1e, back-reference read
+
 .pic_ptr = z_temp			; 2 bytes, the screen row being written
 .pic_att = z_temp + 2		; 4 bytes, a 32 bit pointer into attic RAM
 .pic_dst = z_temp + 6		; 4 bytes, a 32 bit pointer into the tile store
@@ -594,7 +605,7 @@ pic_load_all
 	rts
 .swap_msg  !pet 13,"insert picture disk ",0
 .swap_msg2 !pet " and press a key ",0
-.loading_msg !pet "loading graphics",0
+.loading_msg !pet "loading pictures",0
 .unpacking_msg !pet "unpacking pictures",0
 
 .pic_store
@@ -620,12 +631,6 @@ pic_load_all
 ;   .exo_src ($1e) reads a back-reference from the plaintext already written
 ;   .pic_att is the running output pointer (.pic_store advances it)
 ;
-; The zero-page pointers borrow the z-machine operand-value arrays, free during
-; boot (pic_load_all runs before the interpreter's main loop). Each is a 32-bit
-; attic pointer for the 45GS02's [zp],z addressing.
-.exo_cr  = z_operand_value_high_arr			; $16, crunched read (forwards)
-.exo_src = z_operand_value_low_arr			; $1e, back-reference read
-
 .exo_bitbuf   !byte 0
 .exo_bits_lo  !byte 0		; get_bits result, low
 .exo_bits_hi  !byte 0		; get_bits result, high (lengths/offsets are 16 bit)
