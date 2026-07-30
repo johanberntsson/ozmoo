@@ -421,7 +421,13 @@ init_sound
     cli
     jmp read_sound_files
 
+} ; ifdef TARGET_MEGA65
+
+; Shared: z_ins_sound_effect and .stop_sound_effect both test this, so it
+; belongs to the opcode layer, not to either engine. Bit 7 set = playing.
 sound_is_playing !byte 0
+
+!ifdef TARGET_MEGA65 {
 
 .sound_callback
     lda sound_is_playing
@@ -485,6 +491,23 @@ sound_is_playing !byte 0
     asl $d019 ; acknowledge irq
     jmp $ea31  ; finish irq
 
+} ; ifdef TARGET_MEGA65
+
+; ---------------------------------------------------------------------------
+; The target-independent layer. Everything from here to .play_next_sound below
+; is the z-machine's own bookkeeping for @sound_effect - the command queue
+; z_ins_sound_effect fills, the argument defaults the spec asks for, the
+; routine-callback queue text.asm drains - with no sound hardware in it. It
+; used to sit inside the TARGET_MEGA65 ifdef, which is why adding a second
+; engine (sound-x16.asm, sourced at the foot of this file) moved the ifdef
+; boundaries rather than the code: not one line here has moved, so the MEGA65
+; build is byte identical to before the X16 port.
+;
+; An engine must provide: init_sound (carry set = no sounds available),
+; .play_sound_effect (x = sound number - 3), stop_sound_effect_sub,
+; .play_sample, and it must set sound_is_playing's bit 7 while a sound runs.
+; ---------------------------------------------------------------------------
+
 sound_start_input_counter !byte 0
 
 ; This is set by z_ins_sound_effect
@@ -512,16 +535,23 @@ sound_routine_queue_high !byte 0,0,0,0,0,0,0,0
 sound_routine_queue_count !byte 0
 SOUND_ROUTINE_QUEUE_SIZE = 8
 
+!ifdef TARGET_MEGA65 {
 ; This is set by sound-aiff or sound-wav
-sample_rate_hz !byte 0,0 
+sample_rate_hz !byte 0,0
 sample_is_signed !byte 0 ; 0 if sample data is unsigned, $ff if signed
 sample_start_address !byte 0,0,0,0 ; 32 bit pointer
 sample_stop_address !byte 0,0,0,0 ; 32 bit pointer
+} ; ifdef TARGET_MEGA65
 
+; Shared: .stop_sound_effect compares the number it is asked to stop against
+; the one an engine has loaded.
 .current_effect !byte $ff
+
+!ifdef TARGET_MEGA65 {
 .bad_audio_format_msg !pet "[unsupported audio format]", 13, 0
 .sample_clock_dummy !byte 0 ; A dummy byte just before sample_clock, needed for the calculations for conversion from sample rate
 .sample_clock !byte 0,0,0
+} ; ifdef TARGET_MEGA65
 
 pop_sound_command_queue
 	lda sound_command_queue_pointer
@@ -593,6 +623,13 @@ sound_effect
 	ror
 	clc
 	ror
+!ifdef TARGET_X16 {
+	; ...and VERA's PCM volume is a [0,15] nybble in AUDIO_CTRL, so two more.
+	clc
+	ror
+	clc
+	ror
+}
 	sta sound_arg_volume
 !ifdef Z5PLUS {
 	lda sound_command_queue + 5 ; repeats
@@ -620,6 +657,8 @@ sound_effect
     beq .stop_sound_effect
 .return
     rts
+
+!ifdef TARGET_MEGA65 {
 
 stop_sound_effect_sub
     lda #$00
@@ -679,6 +718,12 @@ stop_sound_effect_sub
 +   ; play the sample
     jmp .play_sample;
 
+} ; ifdef TARGET_MEGA65
+
+; Shared again: stopping a sound is queue bookkeeping plus the engine's own
+; stop_sound_effect_sub. Reached only from sound_effect, i.e. from the opcode,
+; never from an interrupt - the X16 engine relies on that, because starting the
+; next queued sound there would load a file from SD (see sound-x16.asm).
 .stop_sound_effect
 	bit sound_is_playing
 	bpl .play_next_sound
@@ -697,6 +742,18 @@ stop_sound_effect_sub
 	beq +
 	jmp sound_effect
 +   rts
+
+; The X16's engine: VERA has no audio DMA, so it streams the sample into the PCM
+; FIFO from an interrupt. Same entry points as the MEGA65 code above. It is
+; sourced *here*, rather than at the foot of the file, because the effect
+; dispatch above reaches .play_sound_effect with a branch, and that has to be
+; within 127 bytes - which is why the X16 file leads with that routine and keeps
+; its tables at the end.
+!ifdef TARGET_X16 {
+!source "sound-x16.asm"
+}
+
+!ifdef TARGET_MEGA65 {
 
 .calculate_sample_clock
     ; frequency (assuming CPU running at 40.5 MHz)

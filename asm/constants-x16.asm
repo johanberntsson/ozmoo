@@ -41,6 +41,26 @@ PIC_UNDO_BANK         = PIC_STAGING_BANK + 4
 } else {
 SCREEN_HEIGHT         = 60
 }
+
+; The sound effect being played, when the build has any: SOUND_BANK and
+; SOUND_BANKS come from make.rb, which stacks the banked RAM as story, picture
+; staging, undo, then sound, and sizes the sound reservation from the largest
+; wav in the build (one effect is resident at a time - sound-x16.asm). The
+; checks below are tripwires for that arithmetic getting out of step with this
+; file, because an overlap would be silent: a sound would quietly overwrite the
+; staged picture or the undo state.
+!ifdef SOUND_BANK {
+!ifdef Z6_PICTURES {
+	!if SOUND_BANK < PIC_STAGING_BANK + 4 {
+		!error "SOUND_BANK overlaps the picture staging banks"
+	}
+!ifdef UNDO {
+	!if SOUND_BANK <= PIC_UNDO_BANK {
+		!error "SOUND_BANK overlaps the undo banks"
+	}
+}
+}
+}
 SCREEN_WIDTH          = 80
 SCREEN_ADDRESS        = $0000
 COLOUR_ADDRESS        = $0000

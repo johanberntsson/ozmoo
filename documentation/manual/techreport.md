@@ -1509,7 +1509,7 @@ virtual memory model.
 
 # Sound
 
-While several Infocom games would play high and low-pitched beeps, a few games had extended sound support using sample playback. Ozmoo supports the basic sound effects (beeps) on all platforms, and extended sounds on the MEGA65.
+While several Infocom games would play high and low-pitched beeps, a few games had extended sound support using sample playback. Ozmoo supports the basic sound effects (beeps) on all platforms, and extended sounds on the MEGA65 and the Commander X16.
 
 Sound support is implemented in sound.asm. Extended sounds also use sound-wav.asm to parse sample files stored in the WAV format. The WAV files need to be 8 bit, mono. Audacity can be used to export wav files in the correct format:
 
@@ -1527,6 +1527,16 @@ When compiled with extended sound support, Ozmoo will preload all sound files du
 The effect being played must live in fast RAM: the audio DMA cannot play from Attic RAM at all, and its stop address is only 16 bits wide, so a sample cannot straddle a bank boundary. Its *base* address is a full 24 bits, though, so within a bank the sample may start anywhere — SOUND_FASTRAM_BANK says which bank and SOUND_FASTRAM_OFFSET how far into it.
 
 It is bank 4 at offset 0 everywhere except a version 6 build with pictures, where the tile store needs banks 4 and 5 and the sound effect moves down into bank 1. Bank 1 is not free end to end: its foot is CBDOS' buffers and variable state, and its top 2 KB is the colour RAM window at \$1f800. So there the offset is \$8000 and the sample plays from \$18000-\$1f7ff. make.rb refuses a sound file bigger than the span it will be copied into — 30 KB with pictures, 64 KB without — rather than let the DMA discover it, which in bank 1 would mean writing over the screen's colours.
+
+## Sound on the Commander X16
+
+The X16 uses the same opcode layer and the same command and callback queues, and its own engine in sound-x16.asm, chosen with the same `!ifdef TARGET_X16` split that gives the two targets their own picture engines. Three things about the hardware make it a different job from the MEGA65's.
+
+VERA has no audio DMA. It has a 4 KB PCM FIFO (AUDIO_CTRL at \$9F3B, AUDIO_RATE at \$9F3C, AUDIO_DATA at \$9F3D) which the CPU has to keep fed, so `init_sound` installs a handler on \$0314 in front of the kernal's own and pushes up to 1 KB of samples per interrupt. VERA's AFLOW interrupt (ISR bit 3, asserted while the FIFO holds less than 1 KB) is the prompt wake-up, and the kernal's 60 Hz vsync interrupt, which arrives through the same vector, tops the FIFO up between times. Playing a sound therefore costs a few percent of the CPU, and the handler must always chain to the kernal's, which is what scans the keyboard and moves the mouse pointer on this target.
+
+Because the FIFO holds up to half a second of audio, the moment the last sample byte has been *pushed* is not the moment the sound *ends*. The engine waits for the FIFO-empty flag before handing the game's routine argument to the main loop, while a repeat is seeded as soon as the pushing finishes, so a looping effect plays without a gap.
+
+There is no preload and no equivalent of the picture disks: make.rb converts each wav at build time — 8-bit mono PCM only, every sample XORed with \$80 because 8-bit wav is unsigned and VERA's PCM is signed — writes it into the game folder as \[S003\] and so on, and assembles in a small index of lengths and AUDIO_RATE bytes. The interpreter LOADs one effect from SD when the game plays it, into banked RAM above the story, the picture staging area and the undo state; SOUND_BANK and SOUND_BANKS come from make.rb, which sizes the reservation from the largest wav in the build because only one effect is resident at a time. The queue of further sounds is advanced from `sound_poll`, called on every input wait, rather than from the interrupt, since loading the next effect means calling the kernal.
 
 # Smooth Scrolling
 This feature adds smooth scrolling support for the c64 target. When active, text is scrolled up one pixel (raster line) per frame rather than an entire character (text row) at a time, providing a "smooth" visual experience. The user can toggle whether smooth scrolling is active using the F2 key during the game. 

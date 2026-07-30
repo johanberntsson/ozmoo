@@ -19,6 +19,7 @@ VERA_data0			= $9f23
 VERA_data1			= $9f24
 VERA_ctrl			= $9f25
 VERA_ien			= $9f26
+VERA_isr			= $9f27
 VERA_scanline_l		= $9f28
 VERA_dc_video		= $9f29
 VERA_dc_hscale		= $9f2a
@@ -30,6 +31,18 @@ VERA_L0_tilebase	= $9f2f
 VERA_L1_config		= $9f34
 VERA_L1_mapbase		= $9f35
 VERA_L1_tilebase	= $9f36
+
+; The PCM audio FIFO (sound-x16.asm). Plain registers, not multiplexed by
+; VERA_ctrl's DCSEL and unrelated to the data ports, so touching them cannot
+; disturb the screen code's "port 0 selected, stride 1" invariant.
+; audio_ctrl  write: bit7 reset FIFO, bit6 (with bit7) loop, bit5 16-bit,
+;                    bit4 stereo, bits3-0 volume
+;             read:  bit7 FIFO full, bit6 FIFO empty
+; audio_rate  0-128; the sample rate is rate * 25 MHz / 512 / 128 = rate * 381.47 Hz
+; audio_data  write-only FIFO port, one sample byte per write, SIGNED 8-bit
+VERA_audio_ctrl		= $9f3b
+VERA_audio_rate		= $9f3c
+VERA_audio_data		= $9f3d
 
 ;VRAM_layer1_map   = $1B000
 ;VRAM_layer0_map   = $00000

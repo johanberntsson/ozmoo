@@ -1,0 +1,60 @@
+! testsound.inf - a minimal test game for @sound_effect, in the spirit of
+! testz6.inf: no library, one routine, and it exercises the opcode rather than a
+! commercial game. Sherlock is the only game we have with sound, and it plays
+! its effects deep in the story; this plays them on demand, in the orders that
+! have historically gone wrong.
+!
+!   inform -v5 testsound.inf
+!   ruby make.rb -t:x16 -asw soundgame/sherlock testsound.z5
+!
+! Press a key at each prompt to move on. Each step says what should be heard.
+
+
+Global finished = 0;
+
+[ Done;
+    ! The routine argument (z-spec 9): the interpreter calls this when the sound
+    ! has finished, from its input loop, not from an interrupt.
+    finished = finished + 1;
+    print "[routine called, ", finished, " so far]^";
+];
+
+[ main c;
+    print "sound test^^";
+
+    print "1: the interpreter's high beep^";
+    @sound_effect 1;
+    @read_char 1 -> c;
+
+    print "3: once, loudest (longer than the X16's 4 KB FIFO)^";
+    @sound_effect 3 2 255;
+    @read_char 1 -> c;
+
+    print "5: twice, volume 4, with a routine argument^";
+    @sound_effect 5 2 $0204 Done;
+    @read_char 1 -> c;
+    print "   (routine calls so far: ", finished, ")^";
+
+    ! The stop arrives in the same input cycle as the start, so the interpreter
+    ! queues it behind the sound rather than acting on it (sound.asm's
+    ! z_ins_sound_effect): one pass is heard, and the stop then applies to
+    ! nothing. Both engines do this - it is not an X16 quirk.
+    print "5: started then stopped in the same turn - one pass is heard^";
+    @sound_effect 5 2 255;
+    @sound_effect 5 3;
+    @read_char 1 -> c;
+
+    print "3 then 5, queued: 3 should be heard, then 5^";
+    @sound_effect 3 2 255;
+    @sound_effect 5 2 255;
+    @read_char 1 -> c;
+
+    print "6: for ever, until a key is pressed^";
+    @sound_effect 6 2 $ff01;
+    @read_char 1 -> c;
+    @sound_effect 6 3;
+
+    print "^that is all. routine calls: ", finished, "^";
+    @read_char 1 -> c;
+    @quit;
+];

@@ -4,10 +4,29 @@ all: z6
 # sound: sound test. Since we don't have any z6 with sound we'll use Sherlock.
 # ---------------------------------------------------------------------------
 
-sound:
+sound-sherlock-mega65:
 	ruby make.rb -v -ch -t:mega65 -asw soundgame/sherlock soundgame/sherlock.z5
 	# SDL/xmega65 doesn't play nice with pipewire
 	SDL_AUDIODRIVER=pulseaudio xemu-xmega65 -8 mega65_sherlock.d81
+
+# The same on the X16, where the sample is streamed into VERA's PCM FIFO from
+# banked RAM (sound-x16.asm). Sherlock again: no v6 game we have has sound.
+sound-sherlock-x16:
+	ruby make.rb -v -ch -t:x16 -asw soundgame/sherlock soundgame/sherlock.z5
+	cd x16_sherlock && SDL_AUDIODRIVER=pulseaudio ../x16-emulator46/x16emu -prg SHERLOCK.PRG -run  -dump RV -debug -zeroram
+
+# testsound: plays the effects on demand, in the orders that have gone wrong
+# (repeats, stop, two queued, loop for ever), and reports the routine argument
+# being called. Works on any target that has sound; compare the two.
+testsound-x16:
+	inform -v5 testsound.inf
+	ruby make.rb -v -ch -t:x16 -asw soundgame/sherlock testsound.z5
+	cd x16_testsound && SDL_AUDIODRIVER=pulseaudio ../x16-emulator46/x16emu -prg TESTSOUND.PRG -run  -dump RV -debug -zeroram
+
+testsound-mega65:
+	inform -v5 testsound.inf
+	ruby make.rb -v -ch -t:mega65 -asw soundgame/sherlock testsound.z5
+	SDL_AUDIODRIVER=pulseaudio xemu-xmega65 -8 mega65_testsound.d81
 
 # ---------------------------------------------------------------------------
 # testz6: the v6 test game (grown opcode by opcode, compared against frotz).

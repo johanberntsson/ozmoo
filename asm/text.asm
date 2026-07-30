@@ -1085,6 +1085,11 @@ getchar_and_maybe_toggle_darkmode
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
+!ifdef TARGET_X16 {
+!ifdef SOUND {
+	jsr sound_poll			; start the next queued sound effect, if any: the
+}						; X16 engine cannot do it from its interrupt
+}
 !ifdef Z6_MOUSE {
 !ifdef TARGET_MEGA65 {
 	; The joystick alternative is MEGA65-only (the X16 uses the KERNAL mouse). A

@@ -1077,6 +1077,11 @@ z_ins_quit
 	jsr mouse_disable
 	jsr vera_gfx_restore
 }
+!ifdef SOUND {
+	; Silence the PCM FIFO and give the kernal its interrupt vector back: we
+	; chained onto $0314 to feed the FIFO, and BASIC comes back without a reset.
+	jsr snd_shutdown
+}
 ; New method - put NEW and clearscreen in kbd buffer, then have Ozmoo restore Basic ZP area and return
 	ldx #0
 -	lda .quit_keys,x

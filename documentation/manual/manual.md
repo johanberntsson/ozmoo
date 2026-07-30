@@ -526,7 +526,7 @@ To see all the licensing details for each font, read the corresponding license f
 
 # Sound
 
-While several Infocom games had high and low-pitched beeps, a few games had extended sound support using sample playback. Ozmoo supports the basic sound effects (beeps) on all platforms, and extended sounds on the MEGA65, using the sound_effect opcode.
+While several Infocom games had high and low-pitched beeps, a few games had extended sound support using sample playback. Ozmoo supports the basic sound effects (beeps) on all platforms, and extended sounds on the MEGA65 and the Commander X16, using the sound_effect opcode.
 
 ## Sample format
 
@@ -546,6 +546,8 @@ Add Sounds: Enable extended sound support and add all .wav files in path
 Add Sounds: Enable extended sound support and add all .aiff files in path
 
 If extended sound is to be used, then make.rb should be called with the `-asw path` (or `-asa path`) switch. If set, then all .wav (or .aiff files) in `path` will be added to the .d81 floppy created for the MEGA65, and the SOUND assembly flag will be set when building Ozmoo.
+
+On the Commander X16 the same `-asw path` switch is used, and the sound files are put in the game folder beside the story file, where the interpreter reads one from the SD card each time the game plays it. Only WAV is supported there, and only 8 bit mono, since the samples are converted for VERA's audio hardware while the game is built rather than when it is played. How large a single sound effect may be depends on how much banked RAM the story leaves free: make.rb reserves room for the largest one in the folder and says so if it does not fit.
 
 Since sound effect 1 and 2 are reserved for beeps, the sample based sound effects start from position 3, and the files should be named 003.wav, 004.wav and so on. All files found using this pattern are added, and skips are allowed. For example, if there is no sound effect 5, then no 005.wav needs to be added, and instead 006.wav is added next, if available. The highest sound effect number that can be used is 255.
 

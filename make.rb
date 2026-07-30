@@ -1291,26 +1291,52 @@ def build_interpreter()
 		optionalsettings += " -DUSE_HISTORY=#{$use_history}"
 	end
 
-	if $target == 'x16' and $GENERALFLAGS.include?('Z6_PICTURES')
-		# A picture is LOADed from SD on demand into a staging area of banked
-		# RAM, placed just above the story (whose first 8 KB live in low RAM
-		# at $7f00 - X16_STORY_BASE in constants-x16.asm - and whose banked
-		# part starts at bank 1). With undo, the undo state follows above the
-		# staging area (it normally lives in VRAM, which the tile store owns
-		# in a pictures build).
+	if $target == 'x16' and ($GENERALFLAGS.include?('Z6_PICTURES') or not $sound_files.empty?)
+		# What lives in banked RAM, in order, counted so banks_needed is one past
+		# the highest bank used. The story's first 8 KB live in low RAM at $7f00
+		# (X16_STORY_BASE in constants-x16.asm) and its banked part starts at
+		# bank 1.
 		story_banks = [($story_file_data.length - 8192 + 8191) / 8192, 0].max
-		staging_bank = 1 + story_banks
-		banks_needed = staging_bank + 4
-		if $undo and $undo > 0
-			undo_bytes = $dynmem_blocks * $VMEM_BLOCKSIZE + ($stack_pages + 1) * 256
-			banks_needed += (undo_bytes + 8191) / 8192
+		banks_needed = 1 + story_banks
+		if $GENERALFLAGS.include?('Z6_PICTURES')
+			# A picture is LOADed from SD on demand into a staging area just
+			# above the story. With undo, the undo state follows above that (it
+			# normally lives in VRAM, which the tile store owns in a pictures
+			# build).
+			staging_bank = banks_needed
+			banks_needed += 4
+			if $undo and $undo > 0
+				undo_bytes = $dynmem_blocks * $VMEM_BLOCKSIZE + ($stack_pages + 1) * 256
+				banks_needed += (undo_bytes + 8191) / 8192
+			end
+			optionalsettings += " -DPIC_STAGING_BANK=#{staging_bank}"
+		end
+		unless $sound_files.empty?
+			# The sound effect being played is LOADed from SD into the banks
+			# above everything else and streamed into VERA's PCM FIFO from
+			# there, one effect resident at a time - so the reservation is the
+			# size of the largest sound in the build, not their total.
+			sound_bank = banks_needed
+			sound_banks = ($x16_sound_max_bytes + 8191) / 8192
+			banks_needed += sound_banks
+			if banks_needed > 64
+				free_banks = [64 - sound_bank, 0].max
+				puts "ERROR: the largest sound effect is #{$x16_sound_max_bytes} bytes and " +
+				     "needs #{sound_banks} banks of banked RAM, but the story#{
+				     $GENERALFLAGS.include?('Z6_PICTURES') ? ", picture staging and undo" : ""
+				     } leave only #{free_banks} (#{free_banks * 8192} bytes) of the 512 KB free."
+				exit 1
+			end
+			optionalsettings += " -DSOUND_BANK=#{sound_bank} -DSOUND_BANKS=#{sound_banks}" +
+			                    " -DSND_COUNT=#{$x16_sound_count} -DSND_HIGHEST_NUMBER=#{$x16_sound_highest}"
+			puts "Sound effects play from banks #{sound_bank}-#{sound_bank + sound_banks - 1}; " +
+			     "#{64 - banks_needed} banks free." if $verbose
 		end
 		if banks_needed > 64
 			puts "ERROR: -pics: story, picture staging and undo need #{banks_needed} " +
 			     "banks, more than the 512 KB of banked RAM."
 			exit 1
 		end
-		optionalsettings += " -DPIC_STAGING_BANK=#{staging_bank}"
 	end
 
 	# A flag is normally just switched on (-DNAME=1), but an entry may carry its
@@ -2506,6 +2532,93 @@ def build_picture_disks(storyname)
 	end
 end
 
+# The X16's sound effects, prepared for an interpreter that has no audio parser
+# of its own. The MEGA65 puts the wav files on the d81 as they are and walks the
+# RIFF chunks at runtime (sound-wav.asm, with 45GS02 quad loads); VERA's PCM FIFO
+# instead wants a bare stream of SIGNED 8-bit samples at a rate expressed as a
+# register byte, so both conversions happen here:
+#
+#  - 8-bit wav samples are unsigned and VERA's are signed, so every byte is
+#    XORed with $80 (the same asymmetry tools/make_blorb.py's wav_to_aiff has to
+#    deal with going the other way);
+#  - a sample is consumed every 128/rate output samples at 25 MHz/512, so the
+#    AUDIO_RATE byte is hz / 381.47, which saves the interpreter a divide it has
+#    no hardware multiplier to help with.
+#
+# Writes temp/s003.bin etc (the payload build_zip copies into the game folder as
+# [S003]) and temp/sounds.asm, the index the interpreter assembles in - the same
+# division of labour as pics2asm.py and temp/pictures.asm.
+def prepare_x16_sounds()
+	$x16_sound_blobs = []
+	index = {}
+	$sound_files.each do |file|
+		number = File.basename(file)[/^([0-9]{3})/, 1].to_i
+		blob = IO.binread(file)
+		unless blob[0, 4] == 'RIFF' and blob[8, 4] == 'WAVE'
+			puts "ERROR: #{File.basename(file)} is not a RIFF/WAVE file."
+			exit 1
+		end
+		fmt = data = nil
+		pos = 12
+		while pos + 8 <= blob.length
+			chunk_id = blob[pos, 4]
+			chunk_size = blob[pos + 4, 4].unpack('V')[0]
+			body = blob[pos + 8, chunk_size]
+			fmt = body if chunk_id == 'fmt ' and fmt.nil?
+			data = body if chunk_id == 'data' and data.nil?
+			pos += 8 + chunk_size + (chunk_size & 1) # chunks are word aligned
+		end
+		if fmt.nil? or fmt.length < 16 or data.nil?
+			puts "ERROR: #{File.basename(file)} has no usable fmt/data chunk."
+			exit 1
+		end
+		tag, channels, rate, _byte_rate, _align, bits = fmt.unpack('vvVVvv')
+		unless tag == 1 and channels == 1 and bits == 8
+			puts "ERROR: #{File.basename(file)} is #{channels}-channel #{bits}-bit " +
+				"(format tag #{tag}); the Commander X16 plays 8-bit mono PCM only. " +
+				"Export it from Audacity as \"Unsigned 8-bit PCM\", mono."
+			exit 1
+		end
+		rate_byte = (rate / 381.4697265625).round
+		rate_byte = 1 if rate_byte < 1
+		if rate_byte > 128
+			puts "WARNING: #{File.basename(file)} is #{rate} Hz; VERA's highest " +
+				"rate is 48828 Hz, so it will play slower than it was recorded."
+			rate_byte = 128
+		end
+		samples = data.unpack('C*').map { |b| b ^ 0x80 }.pack('C*')
+		outfile = File.join($TEMPDIR, "s%03d.bin" % number)
+		IO.binwrite(outfile, samples)
+		$x16_sound_blobs << [number, outfile]
+		index[number] = [samples.length, rate_byte]
+		puts "Sound #{number}: #{samples.length} bytes, #{rate} Hz (AUDIO_RATE #{rate_byte})" if $verbose
+	end
+	# The tables are indexed by (sound number - 3) and run only as far as the
+	# highest number this build has, so a game using sounds 3-17 pays for 15
+	# entries, not 253. A rate of 0 means "not in this build" - a real rate is
+	# never 0, so no separate present table is needed.
+	# SND_COUNT and SND_HIGHEST_NUMBER go to acme as -D defines rather than into
+	# the file below, because sound-x16.asm tests them with !if before the file
+	# is read (the tables have to come last there - see the note at its top).
+	$x16_sound_count = index.length
+	$x16_sound_highest = index.keys.max
+	highest = $x16_sound_highest
+	entries = (3..highest)
+	File.open(File.join($TEMPDIR, 'sounds.asm'), 'w') do |f|
+		f.puts "; Generated by make.rb from #{$sound_path} - do not edit."
+		['snd_len_lo', 'snd_len_mid', 'snd_len_hi', 'snd_rate'].each_with_index do |name, i|
+			values = entries.map do |number|
+				entry = index[number]
+				next 0 if entry.nil?
+				i == 3 ? entry[1] : (entry[0] >> (8 * i)) & 0xff
+			end
+			f.puts "#{name}"
+			values.each_slice(16) { |slice| f.puts "\t!byte " + slice.join(',') }
+		end
+	end
+	$x16_sound_max_bytes = index.values.map { |entry| entry[0] }.max
+end
+
 def build_zip(storyname, diskimage_filename, config_data, vmem_data,
               vmem_contents, preload_max_vmem_blocks)
     # create folder if needed, and clear old contents, if any
@@ -2525,6 +2638,13 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
 		$picture_disks.values.flatten.each do |file|
 			IO.binwrite(foldername + "/[" + File.basename(file, '.bin').upcase + "]",
 			            IO.binread(file))
+		end
+	end
+	# Add the sound effects, if any: temp/s003.bin becomes [S003], which the
+	# interpreter LOADs the first time the game plays sound 3.
+	if $x16_sound_blobs
+		$x16_sound_blobs.each do |number, file|
+			IO.binwrite(foldername + ("/[S%03d]" % number), IO.binread(file))
 		end
 	end
 
@@ -3213,8 +3333,15 @@ if $font_filename
 end
 
 if $sound_path
-	if $target != 'mega65'
-		puts "ERROR: Sound is only supported for the MEGA65 target platform."
+	if $target != 'mega65' and $target != 'x16'
+		puts "ERROR: Sound is only supported for the MEGA65 and Commander X16 target platforms."
+		exit 1
+	end
+	if $target == 'x16' and $sound_format != 'wav'
+		# The X16 has no runtime audio parser at all: make.rb reads the wav
+		# header here and writes raw samples plus a rate byte (see
+		# prepare_x16_sounds), so there is nothing for -asa to hook into.
+		puts "ERROR: -asa (AIFF) is not supported for the Commander X16 target. Use -asw with wav files."
 		exit 1
 	end
 	$sound_path = $sound_path.gsub(/\\/, '/');
@@ -3231,10 +3358,14 @@ if $sound_path
 	end
 	$sound_files.sort!
 	$GENERALFLAGS.push('SOUND')
-	if $sound_format == 'wav'
-		$GENERALFLAGS.push('SOUND_WAV_ENABLED')
-	else
-		$GENERALFLAGS.push('SOUND_AIFF_ENABLED')
+	# SOUND_WAV_ENABLED / SOUND_AIFF_ENABLED pick the MEGA65's runtime parser.
+	# The X16 needs neither: its samples are parsed and converted at build time.
+	if $target != 'x16'
+		if $sound_format == 'wav'
+			$GENERALFLAGS.push('SOUND_WAV_ENABLED')
+		else
+			$GENERALFLAGS.push('SOUND_AIFF_ENABLED')
+		end
 	end
 #	puts $sound_files
 end
@@ -3604,7 +3735,7 @@ end
 # $18000 in bank 1, whose foot is CBDOS' workspace and whose top 2 KB is the
 # colour RAM window - 30 KB, and running past it would scribble on the screen's
 # colours. Check it here rather than let the DMA find out.
-unless $sound_files.empty?
+if $target == 'mega65' and not $sound_files.empty?
 	sound_limit = $GENERALFLAGS.include?('Z6_PICTURES') ? 0x7800 : 0x10000
 	$sound_files.each do |file|
 		size = File.size(file)
@@ -3616,6 +3747,11 @@ unless $sound_files.empty?
 		exit 1
 	end
 end
+
+# The X16's samples are converted here rather than at runtime, and the bank the
+# resident one plays from is sized to the largest of them (in build_interpreter,
+# which is where the story, staging and undo banks are counted).
+prepare_x16_sounds() if $target == 'x16' and not $sound_files.empty?
 
 if is_beyondzork
 	$interpreter_number = 2 unless $interpreter_number

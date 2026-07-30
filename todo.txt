@@ -16,6 +16,55 @@ anyway, since Infocom's converted assets are AIFF. Found while moving the sound
 buffer (below) and deliberately left: it is upstream's code, so master wants
 whatever the answer turns out to be. Revisit after the z6 -> master merge.
 
+DONE 2026-07-30: the Commander X16 plays @sound_effect samples too, through
+VERA's PCM FIFO (asm/sound-x16.asm, -asw on -t:x16, any z-version). No preload
+and no picture-disk equivalent: make.rb converts each wav at build time and the
+interpreter LOADs one effect from SD when the game plays it, into banked RAM
+above the story (and above the picture staging and undo banks in a -pics build),
+one resident at a time. What the port had to solve, since none of it is like the
+MEGA65's fire-and-forget audio DMA:
+  - VERA has a 4 KB FIFO the CPU must keep fed, so the engine chains $0314 in
+    front of the kernal's handler and pushes up to 1 KB per interrupt (AFLOW as
+    the prompt wake-up, the kernal's 60 Hz vsync as the backstop). Costs a few
+    percent of the CPU while a sound plays. The X16 kernal's interrupt really
+    does run through $0314 - measured, .old_irq reads $eacb - and the keyboard
+    and mouse keep working in front of it.
+  - "The sample has all been pushed" is not "the sound has finished": the FIFO
+    still holds up to half a second. The engine therefore waits for the
+    FIFO-empty flag before firing the game's routine argument, and re-seeds a
+    repeat at push-exhaustion instead, so a loop is gapless (verified: sound 6
+    loops for 9 s with no silence between passes).
+  - The queue is advanced from sound_poll (called from
+    getchar_and_maybe_toggle_darkmode), not from the interrupt, because the next
+    sound needs a kernal LOAD. A sound queued behind another therefore starts at
+    the next input wait rather than the instant the first ends.
+  - 8-bit wav samples are unsigned and VERA's are signed, so make.rb XORs every
+    byte with $80 and writes the AUDIO_RATE byte into the assembled-in index -
+    no runtime parser, and no divide the X16 has no multiplier to help with.
+  Verified headlessly with the new testsound.z5 (see testsound.inf, and the
+  testsound-x16 / sound-sherlock-x16 Makefile targets) by recording the emulator's own
+  audio: x16emu -wav out.wav,auto under SDL_AUDIODRIVER=dummy and Xvfb, NOT under
+  -warp (the recorder is driven by the render path, which the audio device
+  throttles in real time). Measured against the source wavs: 2000 bytes at
+  8000 Hz played 0.255 s, repeats=2 played twice contiguously, volume,
+  stop, two queued sounds and an endless loop all behaved, and the routine
+  argument was called once. Sherlock's 33 KB / 15360 Hz effect 3 measured
+  2.19 s against 2.18 s expected. Arthur's -pics -asw build still draws its
+  title picture and boots to its restore prompt, and MEGA65 builds are byte
+  identical to before the port (the sound.asm split only moves ifdef
+  boundaries).
+  Then confirmed by Johan playing it: Sherlock and testsound on the X16, and a
+  version 6 game of his own with sound effects, which sounds the same there as
+  its MEGA65 build does. Note x16emu is as fussy as xemu about the audio driver -
+  SDL_AUDIODRIVER=pulseaudio, or it is silent with no error - which is why the
+  Makefile's sound targets set it.
+  What is left, none of it a bug in a shipped game: only one effect is resident,
+  so a game alternating two large effects reloads from SD each time (a second
+  bank window would fix it); the sound banks assume a 512 KB machine like the
+  rest of make.rb's arithmetic, so a 2 MB X16's headroom is unused; and there is
+  no error-channel probe, only the length check - a game folder whose [S###]
+  files do not match the build is refused, but silently.
+
 DONE 2026-07-27: the sound effect being played no longer sits where CBDOS can
 reach it. It is DMA'd into a bank of chip RAM and played from there, and on a
 -pics build (where the tile store owns banks 4 and 5) that bank is 1 - whose
