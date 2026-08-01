@@ -9,6 +9,11 @@
 # it here (but uncommitted) for easy of debugging and testing
 /examples/wyrmward/
 
+# A minimal PunyInform game plus a local copy of the ext_menu extension, kept
+# here to reproduce library-level v6 problems against sfrotz (see the
+# split_window bullet in CLAUDE.md). Not ours to commit.
+/examples/helptest/
+
 # Commercial story files and their resources. Never commit these: the story
 # files and graphics of Infocom's games are not ours to distribute. The freely
 # distributable test games in examples/ and test/ are tracked as usual.

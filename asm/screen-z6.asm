@@ -2003,7 +2003,35 @@ start_buffering
 
 z_ins_split_window
 	; split_window lines
+!ifdef DEBUG_SCREENLOG {
+	lda #14
+	jsr screenlog_hook
+}
+!ifdef Z6_PIXEL_UNITS {
+	; z-spec, split_window: in Version 6 "the line count is in units rather than
+	; lines". All three v6 games that use the opcode compute it that way -
+	; Arthur and Journey multiply a line count by the font height they read from
+	; the header, Zork Zero passes a picture's height in pixels - so the count
+	; has to be divided back down to rows here. Left as a row count, an ordinary
+	; ten-line split asked for the whole screen: window 1 took all 25 rows,
+	; window 0's top row landed on the screen height, and print_line_from_buffer
+	; then found "no free line to print on" and threw every buffered line away.
+	; Round up, because a size must contain what was asked for, and because a
+	; game written to the v5 model (PunyInform's status line asks for 1) would
+	; otherwise get no window at all.
+	ldx s_screen_height			; more units than the screen holds
+	lda z_operand_value_high_arr
+	bne +
+	lda z_operand_value_low_arr
+	clc
+	adc #Z6_UNIT_H - 1
+	bcs +
+	jsr units_to_cells_y
+	tax
++
+} else {
 	ldx z_operand_value_low_arr
+}
 ;    jmp split_window ; Not needed since split_window follows
 
 split_window
@@ -2876,8 +2904,16 @@ printchar_flush
 
 print_line_from_buffer
 	; Prints the text from first_buffered_column to last_break_char_buffer_pos
-	ldx window_y
-	cpx s_screen_height
+	; "Is there a line to print on?" is a question about the window being
+	; printed into, not about window 0. Inherited from the non-z6 screen model,
+	; where window 0 is the only place buffered text ever goes, this read
+	; window_y - i.e. window 0's top row - whatever window was current, so a
+	; window 1 that filled the screen (the spec notes Journey makes one) silently
+	; swallowed everything printed into it. Window 0 is index 0, so its own
+	; behaviour is unchanged.
+	ldx current_window
+	lda window_y,x
+	cmp s_screen_height
 	bcc +
 	; There is no free line to print on, return with carry set
 	rts
