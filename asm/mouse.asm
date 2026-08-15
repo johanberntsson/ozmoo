@@ -96,6 +96,17 @@ MOUSE_Y_MAX     = 199
 MOUSE_DEBOUNCE  = 6
 }
 
+; The pointer hides itself when the mouse has not moved for MOUSE_IDLE_JIFFIES,
+; and comes back the moment it moves again (.mouse_autohide), so an arrow does
+; not sit on top of the game's text while the player is typing. The kernal jiffy
+; clock ticks 60 times a second whatever the TV standard (the CIA timer is set
+; for it), on both machines, so 300 is five seconds. 0 turns the autohide off and
+; leaves the pointer up for as long as the game asks for it;
+; -DMOUSE_IDLE_JIFFIES=n from $GENERALFLAGS overrides it.
+!ifndef MOUSE_IDLE_JIFFIES {
+MOUSE_IDLE_JIFFIES = 300
+}
+
 ; pointer pixel position, starting mid-screen; X is 0..MOUSE_X_MAX (two bytes)
 mouse_px        !byte <((MOUSE_X_MAX + 1) / 2), >((MOUSE_X_MAX + 1) / 2)
 mouse_py        !byte (MOUSE_Y_MAX + 1) / 2		; Y is 0..MOUSE_Y_MAX
@@ -107,6 +118,10 @@ mouse_click_x   !byte 1			; cell the last click landed in
 mouse_click_y   !byte 1
 mouse_window    !byte $ff		; window the mouse is confined to, $ff = free
 mouse_active    !byte 0			; 1 once a game asks for the mouse (Flags 2 bit 5)
+mouse_visible   !byte 0			; 1 while the pointer sprite is actually shown
+.mouse_last_px  !byte 0, 0		; where the pointer was when it last moved, and
+.mouse_last_py  !byte 0			; the jiffy clock then, for the idle timeout
+.mouse_idle     !byte 0, 0
 .mouse_temp     !byte 0
 .click_timer    !byte 0			; jiffies left of the debounce window, 0 = open
 .click_jiffy    !byte 0			; the jiffy that window last counted down on
@@ -133,6 +148,7 @@ mouse_poll
 	jsr .mouse_read			; a = the buttons held now, one bit each
 	pha
 	jsr .mouse_update_cells
+	jsr .mouse_autohide
 	pla
 
 	; --- press-edge detection: a button going down is a click ---
@@ -165,6 +181,75 @@ mouse_poll
 	sta .click_jiffy
 	dec .click_timer
 +	rts
+
+!if MOUSE_IDLE_JIFFIES > 0 {
+.mouse_autohide
+	; Take the pointer away once the mouse has sat still for MOUSE_IDLE_JIFFIES,
+	; and put it back the instant it moves. Only the position is watched, so a
+	; player who holds the button without moving still loses the arrow, and gets
+	; it back with the smallest nudge.
+	;
+	; The idle time is measured against the jiffy clock rather than counted in
+	; polls, because polling only happens while the game waits for input: a turn
+	; that takes the interpreter two seconds to print must still count towards the
+	; five. Two bytes of the clock are enough - the difference is only ever looked
+	; at while the pointer is up, which is at most MOUSE_IDLE_JIFFIES plus one
+	; poll's worth of jiffies after the stamp, nowhere near the 16-bit wrap.
+	lda mouse_active
+	beq .mah_done			; no game asked for a pointer: nothing to hide
+	lda mouse_px
+	cmp .mouse_last_px
+	bne .mah_moved
+	lda mouse_px + 1
+	cmp .mouse_last_px + 1
+	bne .mah_moved
+	lda mouse_py
+	cmp .mouse_last_py
+	bne .mah_moved
+
+	lda mouse_visible		; still. Already hidden -> nothing to time, and no
+	beq .mah_done			; KERNAL call on the common path
+	jsr kernal_readtime		; a = jiffy low byte, x = the next one up
+	sec
+	sbc .mouse_idle
+	tay						; y/a = jiffies since the pointer last moved
+	txa
+	sbc .mouse_idle + 1
+	cmp #>MOUSE_IDLE_JIFFIES
+	bcc .mah_done
+	bne .mah_hide
+	cpy #<MOUSE_IDLE_JIFFIES
+	bcc .mah_done
+.mah_hide
+	jmp .mouse_hide
+
+.mah_moved
+	lda mouse_px
+	sta .mouse_last_px
+	lda mouse_px + 1
+	sta .mouse_last_px + 1
+	lda mouse_py
+	sta .mouse_last_py
+	jsr .mouse_mark_active
+	lda mouse_visible
+	bne .mah_done
+	jmp .mouse_show
+.mah_done
+	rts
+
+.mouse_mark_active
+	; Stamp the idle timer with the clock now, i.e. "the mouse moved at this
+	; moment". Also used when the game first asks for the pointer, so an untouched
+	; mouse hides five seconds later rather than never.
+	jsr kernal_readtime		; a = low, x = middle byte of the jiffy clock
+	sta .mouse_idle
+	stx .mouse_idle + 1
+	rts
+} else {
+.mouse_autohide
+.mouse_mark_active
+	rts
+}
 
 mouse_write_header_coords
 	; Put the click cell into words 1 and 2 of the header extension table, if the
@@ -342,21 +427,40 @@ mouse_enable
 	ldy #SCREEN_HEIGHT
 	lda #1					; 1 = show the default pointer
 	jsr kernal_mouse_config
-	; the pointer is a sprite, so the sprite layer has to be on
-	stz VERA_ctrl
-	lda VERA_dc_video
-	ora #$40
-	sta VERA_dc_video
-	rts
+	jsr .mouse_show
+	jmp .mouse_mark_active	; start the idle clock from here
 
 mouse_disable
 	; The quit path: hide the pointer again (which also puts the SMC back to
 	; sending key codes only), so BASIC comes up without an arrow on it.
 	lda #0
 	sta mouse_active
+	sta mouse_visible
 	ldx #0
 	ldy #0
 	jsr kernal_mouse_config
+	rts
+
+.mouse_show
+	; The pointer is a sprite, so showing and hiding it is the sprite layer.
+	; Going through the KERNAL (mouse_config 0) would do it too, but that stops
+	; the mouse being scanned at all, and then nothing would notice the movement
+	; that is meant to bring the pointer back. Sprite 0 is the only sprite Ozmoo
+	; uses on this target, so the layer bit is ours alone.
+	lda #1
+	sta mouse_visible
+	stz VERA_ctrl
+	lda VERA_dc_video
+	ora #$40				; sprites on
+	sta VERA_dc_video
+	rts
+
+.mouse_hide
+	stz mouse_visible
+	stz VERA_ctrl
+	lda VERA_dc_video
+	and #$ff - $40			; sprites off
+	sta VERA_dc_video
 	rts
 
 .mouse_read
@@ -416,9 +520,26 @@ mouse_enable
 	; pointer. Called from z_init, once the header has been read.
 	lda #1
 	sta mouse_active
+	jsr .mouse_show
+	jmp .mouse_mark_active	; start the idle clock from here
+
+.mouse_show
+	; Sprite 0 is the pointer; the pots are still read while it is hidden, so a
+	; movement is noticed and .mouse_autohide can bring it straight back.
+	lda #1
+	sta mouse_visible
 	jsr mega65io
 	lda SPRITE_ENABLE
 	ora #1					; sprite 0 on
+	sta SPRITE_ENABLE
+	rts
+
+.mouse_hide
+	lda #0
+	sta mouse_visible
+	jsr mega65io
+	lda SPRITE_ENABLE
+	and #$fe				; sprite 0 off
 	sta SPRITE_ENABLE
 	rts
 
