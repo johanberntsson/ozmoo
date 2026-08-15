@@ -39,12 +39,11 @@ drive LED on real hardware; the LED was the least of it.
   file, so a genuine failure was silent. DEBUG_DISK_STATUS in $DEBUGFLAGS also
   prints it before the save, to tell a latched error apart from a fresh one.
 
-OPEN 2026-08-15: still to explain - the MEGA65's drive LED was reported blinking
-after a save in arthur-pics-mega65 too, and Arthur's disk has three files, so it
-cannot be the BAM bug above (its drive status reads "00, OK" both before and
-after the save, on hardware). Either that observation was Wyrmward's, or a pics
-build leaves the LED lit some other way; the SD-card setup it was seen on is
-worth checking against a real floppy.
+  The Arthur half of the original report did not survive re-testing: with the
+  diagnostic build arthur-pics-mega65 neither blinks nor reports an error, so
+  that observation was a testing artifact (or a d81 already written to). The BAM
+  bug above is the whole of it, and Wyrmward on real hardware is clean now - no
+  error message, no stray lamp.
 
 DONE 2026-07-30: the Commander X16 plays @sound_effect samples too, through
 VERA's PCM FIFO (asm/sound-x16.asm, -asw on -t:x16, any z-version). No preload
