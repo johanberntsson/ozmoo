@@ -138,6 +138,8 @@ $DEBUGFLAGS = [
 #	'TRACE_TOKENISE',
 #	'TRACE_HISTORY',
 #	'DEBUG_SCREENLOG',
+#	'DEBUG_DISK_STATUS', # MEGA65: show the drive's error channel after every save,
+                         # not only when it reports an error
 ]
 
 $CACHE_PAGES = 4 # Should normally be 2-8. Use 4 unless you have a good reason not to. One page will be added automatically if it would otherwise be wasted due to vmem alignment issues.
@@ -1071,13 +1073,22 @@ class D81_image < Disk_image
 		index1 = (track > 40 ? 0x100: 0) + 0x10 +  6 * ((track - 1) % 40)
 		index2 = index1 + 1 + (sector / 8)
 
+		# A sector claimed twice would decrement the free count twice while the
+		# bitmap bit only goes clear once, and a BAM whose count disagrees with
+		# its own bitmap is what CBDOS calls "71,BAM CORRUPTED". Say so and keep
+		# the two in step rather than skewing the count silently.
+		if sector_allocated?(track, sector)
+			puts "SECTOR ALLOCATED TWICE: #{track}, #{sector}"
+			return
+		end
+
 		# adjust number of free sectors
 
 		free = @contents[(@track_offset[40] + 1) * 256 + index1]
 		if free < 1 or free > 40
 			puts "BAD FREE TRACK SPACE: #{track}, #{sector}"
 		end
-		
+
 		@contents[(@track_offset[40] + 1) * 256 + index1] = free - 1
 		# allocate sector
 		index3 = 255 - 2**(sector % 8)
@@ -1179,7 +1190,19 @@ class D81_image < Disk_image
 				if entry > 7
 					block_data[0] = 40
 					block_data[1] = sector + 1
-					allocate_sector(40, sector + 1)
+					# ...but only claim the next directory sector once. A pictures
+					# build calls add_directory TWICE - add_story_data writes the
+					# directory, then flush_directory adds the picture archive's
+					# entry - and the second pass walks the whole directory again,
+					# so it reaches this overflow a second time. The bitmap bit is
+					# already clear by then, but the free count was decremented
+					# again: the BAM said one block fewer free on track 40 than its
+					# own bitmap did, and CBDOS answers a save on such a disk with
+					# "71,BAM CORRUPTED,40,03" (seen on a real MEGA65 with
+					# Wyrmward, whose nine files spill the directory into 40/4;
+					# Arthur has three and never overflows, which is why only a
+					# game with sound AND pictures showed it).
+					allocate_sector(40, sector + 1) unless sector_allocated?(40, sector + 1)
 					add_files_to_dir(sector + 1, 0)
 				else
 					dir_entry = @add_to_dir[0]

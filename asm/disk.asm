@@ -461,6 +461,103 @@ close_io
 
 	jmp kernal_clrchn ; call CLRCHN
 
+!ifdef TARGET_MEGA65 {
+!zone drive_status {
+; Read the drive's error channel, and say so if the drive is unhappy.
+;
+; Ozmoo has never looked at the DOS status after writing a save file, so a
+; genuine failure - disk full, write protect, a bad block - was silent. It also
+; matters for a symptom seen on a real MEGA65: a Commodore drive latches an
+; error and BLINKS its LED until the status is read or another command starts,
+; and after saving from a z6 graphics build the MEGA65's drive light blinks
+; until the next disk access (a restore clears it). Reading the channel here
+; both names the error and clears the latch. None of this can be seen in xemu,
+; which does not model the LED at all ($d080 never moves).
+DRIVE_STATUS_MAX = 40
+.drive_status     !fill DRIVE_STATUS_MAX, 0
+.drive_status_len !byte 0
+.drive_status_idx !byte 0
+
+read_drive_status
+	; Read the error channel of the save device into .drive_status, without the
+	; trailing carriage return. Carry set if it could not be read at all.
+	lda #0
+	sta .drive_status_len
+	jsr kernal_setnam		; length 0: the command channel itself
+	lda #15
+	ldx disk_info + 4		; device# for the save disk
+	tay						; secondary address 15
+	jsr kernal_setlfs
+	jsr kernal_open
+	bcs .rds_fail
+	ldx #15
+	jsr kernal_chkin
+	bcs .rds_fail
+.rds_char
+	jsr kernal_readst
+	bne .rds_done
+	jsr kernal_readchar
+	cmp #13					; the message ends with a carriage return
+	beq .rds_done
+	ldy .drive_status_len
+	cpy #DRIVE_STATUS_MAX
+	bcs .rds_char			; longer than the buffer: read the rest and drop it
+	sta .drive_status,y
+	inc .drive_status_len
+	bne .rds_char			; always
+.rds_done
+	jsr .rds_close
+	clc
+	rts
+.rds_fail
+	jsr .rds_close
+	sec
+	rts
+.rds_close
+	lda #15
+	jsr kernal_close
+	jmp kernal_clrchn
+
+check_drive_status
+	; Called after a save. "00, OK,00,00" means the drive is happy and nothing is
+	; printed; anything else is shown and waits for a key, because save_game
+	; erases the window immediately afterwards.
+	jsr read_drive_status
+	bcs .cds_done
+!ifndef DEBUG_DISK_STATUS {
+	lda .drive_status
+	cmp #'0'
+	bne .cds_report
+	lda .drive_status + 1
+	cmp #'0'
+	beq .cds_done
+}
+.cds_report
+	lda #>.drive_status_msg
+	ldx #<.drive_status_msg
+	jsr printstring_raw
+	lda #0
+	sta .drive_status_idx
+.cds_print
+	ldy .drive_status_idx
+	cpy .drive_status_len
+	bcs .cds_printed
+	lda .drive_status,y
+	jsr s_printchar			; y is not ours to keep across this
+	inc .drive_status_idx
+	bne .cds_print			; always
+.cds_printed
+	lda #13
+	jsr s_printchar
+	jsr printchar_flush
+-	jsr kernal_getchar
+	beq -
+.cds_done
+	rts
+
+.drive_status_msg !pet 13,"drive: ",0
+} ; !zone drive_status
+} ; TARGET_MEGA65
 
 !zone disk_messages {
 print_insert_disk_msg
@@ -1280,6 +1377,13 @@ save_game
 
 	jsr .insert_save_disk
 
+!ifdef DEBUG_DISK_STATUS {
+	; ...and what the drive thinks before we have written anything, so a latched
+	; error from earlier (the picture loader opens and closes files of its own at
+	; boot) can be told apart from one the save itself causes
+	jsr check_drive_status
+}
+
 	; List files on disk
 	jsr list_save_files
 	beq .restore_failed
@@ -1346,6 +1450,11 @@ save_game
 	bcc +
 	jmp .restore_failed    ; if carry set, a save error has happened
 +
+!ifdef TARGET_MEGA65 {
+	; ...and ask the drive what it thinks: do_save only sees the KERNAL's view,
+	; which is happy even when the DOS is not (see check_drive_status)
+	jsr check_drive_status
+}
 !ifdef TARGET_C128 {
 	jsr restore_2mhz
 }

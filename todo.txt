@@ -1,6 +1,51 @@
 Known bugs
 ----------
 
+DONE 2026-08-15: a MEGA65 disk whose directory spilled past eight entries AND
+whose pictures went on the boot disk shipped with a BAM the DOS rejects, and
+every save onto it silently overwrote the one before. Found through a blinking
+drive LED on real hardware; the LED was the least of it.
+  make.rb's D81 writer calls add_directory TWICE in such a build - add_story_data
+  writes the directory, then flush_directory adds the picture archive's entry -
+  and each pass walks the whole directory, so it reaches the eight-entries-full
+  overflow twice and called allocate_sector(40, 4) twice. The second call found
+  the bitmap bit already clear (so no change there) but decremented the track's
+  free count again: the BAM said 34 free on track 40 where its own bitmap said
+  35. CBDOS answers a save on such a disk with "71,BAM CORRUPTED,40,03", and
+  then STOPS MAINTAINING THE BAM: the file's blocks and directory entry are
+  written correctly - which is why the save appeared to work and restored fine -
+  but its blocks stay marked free, so the next save is allocated over the top of
+  it. Measured: two saves in a row both start at block 19/2, i.e. slot 1 is
+  written straight onto slot 0.
+  It needed BOTH a spilled directory and the second flush, which is why only
+  Wyrmward showed it (nine files: autoboot, six wavs, ZCODE, PICS1) and none of
+  the four commercial v6 games did (three files each, one directory sector).
+  Sherlock's sixteen files spill to three directory sectors but in a single
+  pass, so it was always fine. D64/D71 have no equivalent path - only the D81
+  writer has the second flush.
+  Fixed by claiming the next directory sector only when it is not already
+  claimed, plus a guard in allocate_sector itself so any future double claim
+  says "SECTOR ALLOCATED TWICE" instead of skewing the count silently. The
+  rebuilt Wyrmward image differs from the old one in exactly one byte (track 40
+  sector 1 byte $fa, 34 -> 35).
+  Reproduced and verified end to end in xemu, which does run the real ROM's
+  CBDOS: with the bad byte the save prints "drive: 71,bam corrupted,40,03", with
+  it fixed the save is clean and the DOS allocates the blocks properly. What
+  xemu does NOT model is the LED itself ($d080, whose bit 6 is the LED, sits at
+  $08 through a whole boot), which is why this needed hardware to notice at all.
+  The diagnostic that caught it is now permanent: check_drive_status (disk.asm,
+  MEGA65) reads the drive's error channel after every save and prints it unless
+  it is "00, OK" - Ozmoo had never looked at the DOS status after writing a save
+  file, so a genuine failure was silent. DEBUG_DISK_STATUS in $DEBUGFLAGS also
+  prints it before the save, to tell a latched error apart from a fresh one.
+
+OPEN 2026-08-15: still to explain - the MEGA65's drive LED was reported blinking
+after a save in arthur-pics-mega65 too, and Arthur's disk has three files, so it
+cannot be the BAM bug above (its drive status reads "00, OK" both before and
+after the save, on hardware). Either that observation was Wyrmward's, or a pics
+build leaves the LED lit some other way; the SD-card setup it was seen on is
+worth checking against a real floppy.
+
 DONE 2026-07-30: the Commander X16 plays @sound_effect samples too, through
 VERA's PCM FIFO (asm/sound-x16.asm, -asw on -t:x16, any z-version). No preload
 and no picture-disk equivalent: make.rb converts each wav at build time and the
