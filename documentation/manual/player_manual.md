@@ -78,9 +78,11 @@ On the Commodore 64, the 128 and the Plus/4 you can play these games from beginn
 
 On the MEGA65 each of the four games is a single disk: the pictures are packed small enough to share it with the game itself. Start it and the pictures load by themselves, under a "loading graphics" line — there is nothing to insert, and no second drive is needed. (Should a picture set ever be too big to share a disk, it gets a picture disk of its own, and Ozmoo asks for it: `insert picture disk 1`, and you change disks and press a key. None of these four games needs that.)
 
-Arthur and Zork Zero can also be played with a mouse on the MEGA65: plug a 1351 or Amiga mouse into control port 2, and a pointer appears. Zork Zero's on-screen controls can be clicked, and Arthur lets you click to dismiss a [MORE] prompt.
+Arthur and Zork Zero can also be played with a mouse on the MEGA65: plug in a 1351 or Amiga mouse and a pointer appears. On a real MEGA65 use control port 1, which is where a mouse and a joystick both work. A joystick moves the same pointer and its fire button clicks, so you can use the mouse-driven parts of these games without a mouse. Zork Zero's on-screen controls can be clicked, and Arthur lets you click to dismiss a [MORE] prompt.
 
-On the Commander X16 the pictures are ordinary files that live beside the game, and it reads each one from the SD card as it draws it, so keep them together when you copy the game. The mouse works here too, with whatever pointer the X16 already uses.
+The pointer takes itself out of the way: leave the mouse alone for five seconds and it disappears, so no arrow sits in the middle of the text while you type. Move the mouse — or nudge the joystick — and it is back where you left it.
+
+On the Commander X16 the pictures are ordinary files that live beside the game, and it reads each one from the SD card as it draws it, so keep them together when you copy the game. The mouse works here too, with whatever pointer the X16 already uses, and it hides itself in the same way.
 
 # Copying
 An Ozmoo game stores data directly onto the floppy disk in addition to files. Because of this, it is not possible to copy a game to a new floppy by just copying files. If you want to make a copy you need to use a copy program that copies the whole disk, sectors by sector.

@@ -1,6 +1,23 @@
 Known bugs
 ----------
 
+DONE 2026-08-15: the mouse pointer hides itself after five seconds of stillness
+and comes back on the first movement, on both graphics targets (.mouse_autohide
+in asm/mouse.asm). An arrow parked in the middle of the text is a distraction
+while the player types. The position is compared exactly, so the smallest nudge
+brings it back; a click does not, since nobody aims a pointer they cannot see.
+Idle time is measured against the jiffy clock rather than counted in polls,
+because polling only happens while the game waits for input - a turn the
+interpreter spends two seconds printing must still count towards the five.
+Hiding is the sprite, not the driver: the MEGA65 clears $d015 bit 0 and the X16
+clears VERA's sprite layer, rather than mouse_config 0, which would stop the
+kernal scanning the mouse and so stop it ever noticing the movement that should
+bring the pointer back. MOUSE_IDLE_JIFFIES is 300 and -DMOUSE_IDLE_JIFFIES=0
+turns it off. Verified headlessly on the X16 (idle hides the arrow, xdotool
+mousemove brings it back), on the MEGA65 over the uartmon with a faked pot
+movement (a real-time run had the pointer up at 4 s and gone at 5), and by Johan
+in play on both machines.
+
 DONE 2026-08-15: a MEGA65 disk whose directory spilled past eight entries AND
 whose pictures went on the boot disk shipped with a BAM the DOS rejects, and
 every save onto it silently overwrote the one before. Found through a blinking

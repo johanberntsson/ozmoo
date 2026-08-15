@@ -282,6 +282,19 @@ The story file is read piece by piece by mapping the program counter to the corr
 
 disk.asm also contains save and restore functionality. The main functions are do_save and do_restore. The save files are normal files that contain some important internal variables such as the program counter, the Z-machine stack, and the dynmem part of the RAM.
 
+On the MEGA65 the drive is asked what it thought of the write (check_drive_status,
+disk.asm): the error channel is read after every save, and anything other than
+"00, OK" is printed and waits for a key, since save_game erases the window
+straight afterwards. Ozmoo had never looked at the DOS status after writing a
+save file, so a real failure — disk full, write protect, a BAM the drive rejects
+— was silent. That is not hypothetical: a disk built with one block miscounted in
+its BAM drew "71,BAM CORRUPTED" from CBDOS, which then stopped maintaining the
+BAM altogether, so each save was written over the one before while appearing to
+work perfectly. make.rb now verifies every d81 against itself before writing it
+(verify\_image), and the DEBUG\_DISK\_STATUS flag prints the drive's answer
+before the save as well as after, which tells a latched error apart from a fresh
+one.
+
 # Undo
 
 If extra memory is available then it can be used to support undo for games that probe for this functionality. This is currently supported for C64 and C128 with a RAM Expansion Unit (REU), and for the MEGA65. To enable undo support the make.rb script should be called with the -u switch. If undo is enabled and the header has the undo flag set, then Ozmoo checks for available memory. If not found, then the undo header flag is cleared, and an error message is shown.
@@ -1195,11 +1208,30 @@ window the mouse is confined to. Only reading the hardware and moving the
 pointer differ, and that is one routine, mouse_read, which mouse_poll calls and
 which returns the button mask with the pointer's pixel position updated.
 
+The pointer also hides itself, which is shared as well (mouse_autohide). An
+arrow parked in the middle of the text is a distraction while the player types,
+so a pointer that has not moved for MOUSE_IDLE_JIFFIES — 300, and the kernal
+jiffy is a sixtieth of a second whatever the TV standard — is taken away, and
+the first movement brings it back. The position is compared exactly, so the
+smallest nudge is enough; a click is not, which costs nothing, since nobody aims
+a pointer they cannot see. The idle time is measured against the jiffy clock
+rather than counted in polls, because polling only happens while the game waits
+for input: a turn the interpreter spends two seconds printing must still count
+towards the five. Hiding is the sprite and not the driver — the MEGA65 clears
+\$d015 bit 0, and the X16 clears VERA's sprite layer rather than calling
+mouse_config 0, which would stop the kernal scanning the mouse and so stop it
+ever noticing the movement that is meant to bring the pointer back.
+
 ### The MEGA65's mouse
 
-The pointer is the 1351 or Amiga mouse on control port 2. The MEGA65 exposes its
+The pointer is the 1351 or Amiga mouse. The MEGA65 exposes its
 paddle lines directly at \$d620 and \$d621, with no SID or CIA multiplexing to
-arrange, and the button is the port 2 fire line, \$dc00 bit 4. Port 2 is the
+arrange, and the button is a fire line, \$dc00 bit 4 or \$dc01 bit 4. On a real
+MEGA65 those paddle registers and \$dc01 all read physical control port 1, and a
+mouse and a joystick both work there while port 2 gives nothing — tested on
+hardware, and worth knowing because xemu maps its emulated mouse to what it
+calls port 2, so the register-to-port mapping differs between the two. Trust the
+hardware. Port 2 is the
 clean joystick port; port 1 shares its lines with the keyboard matrix, so its
 fire bit \$dc01 bit 4 reads keyboard row 4 as well and cannot tell a click from
 a SPACE. The paddle value is a six bit counter that wraps, so mouse_poll cannot
