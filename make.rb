@@ -480,6 +480,7 @@ class Disk_image
 	end
 	
 	def save
+		verify_image
 		begin
 			diskimage_file = File.open(@diskimage_filename, "wb")
 		rescue
@@ -492,6 +493,12 @@ class Disk_image
 
 	def get_track_length(track)
 		@track_length[track]
+	end
+
+	# Check the finished image against itself, just before it is written. Only
+	# the D81 writer implements it so far, which is where the second directory
+	# flush lives; the D64 and D71 writers have no such path.
+	def verify_image
 	end
 
 	def get_reserved_sectors(track)
@@ -1064,6 +1071,113 @@ class D81_image < Disk_image
 	# queued entries, leaving those already written in place.
 	def flush_directory
 		add_directory()
+	end
+
+	# Check the image against itself before it goes to disk. A d81 can pass every
+	# eye test and still carry a one-byte accounting error that a real DOS treats
+	# as corruption: CBDOS answers a save on a disk whose BAM free count
+	# disagrees with its own bitmap with "71,BAM CORRUPTED" and then stops
+	# maintaining the BAM at all, so every save is written over the one before.
+	# That shipped once - the directory's overflow sector was claimed twice (see
+	# add_files_to_dir) - and the only outward symptom was a blinking drive LED
+	# on real hardware. This is arithmetic on what we have just built, so it
+	# costs nothing, and a bad image now fails the build instead of a save.
+	def verify_image
+		problems = []
+		base = (@track_offset[40] + 1) * 256
+
+		# Every track's free count must agree with its own bitmap. This is the
+		# one the DOS itself checks.
+		(1..@tracks).each do |track|
+			index1 = (track > 40 ? 0x100 : 0) + 0x10 + 6 * ((track - 1) % 40)
+			free = @contents[base + index1]
+			bits = (1..5).inject(0) { |sum, i| sum + @contents[base + index1 + i].to_s(2).count('1') }
+			if free != bits
+				problems.push "track #{track}: the BAM says #{free} blocks free, its own bitmap says #{bits}"
+			end
+			if free > @track_length[track]
+				problems.push "track #{track}: the BAM says #{free} blocks free of #{@track_length[track]}"
+			end
+		end
+
+		# ...and every chain on the disk must stay on the disk, end, and run
+		# through blocks that are allocated to it alone.
+		owner = {}
+		walk = lambda do |name, track, sector|
+			blocks = 0
+			until track == 0
+				if track > @tracks or track < 1 or sector >= get_track_length(track)
+					problems.push "#{name}: the chain leaves the disk at #{track}/#{sector}"
+					break
+				end
+				key = [track, sector]
+				if owner[key] == name
+					problems.push "#{name}: the chain loops at #{track}/#{sector}"
+					break
+				end
+				if owner[key]
+					problems.push "#{name}: block #{track}/#{sector} also belongs to #{owner[key]}"
+					break
+				end
+				unless sector_allocated?(track, sector)
+					problems.push "#{name}: block #{track}/#{sector} is marked free in the BAM"
+				end
+				owner[key] = name
+				blocks += 1
+				offset = (@track_offset[track] + sector) * 256
+				track = @contents[offset]
+				sector = @contents[offset + 1]
+			end
+			blocks
+		end
+
+		# The directory chain, checked the same way and read for its entries as it
+		# goes (walk cannot do both, since it follows the links itself)
+		entries = []
+		track = @contents[@track_offset[40] * 256]
+		sector = @contents[@track_offset[40] * 256 + 1]
+		until track == 0
+			if track > @tracks or track < 1 or sector >= get_track_length(track)
+				problems.push "directory: the chain leaves the disk at #{track}/#{sector}"
+				break
+			end
+			key = [track, sector]
+			if owner[key]
+				problems.push "directory: block #{track}/#{sector} appears twice in the chain"
+				break
+			end
+			unless sector_allocated?(track, sector)
+				problems.push "directory: block #{track}/#{sector} is marked free in the BAM"
+			end
+			owner[key] = "directory"
+			offset = (@track_offset[track] + sector) * 256
+			8.times do |entry|
+				e = offset + 32 * entry
+				# type 0 is an unused slot; $85 is a partition, whose track and
+				# sector say where it starts and are not a chain to follow
+				next if @contents[e + 2] == 0 or @contents[e + 2] == 0x85
+				name = @contents[e + 5, 16].reject { |c| c == 0xa0 }.pack("C*")
+				entries.push [name, @contents[e + 3], @contents[e + 4],
+							  @contents[e + 30] + 256 * @contents[e + 31]]
+			end
+			track = @contents[offset]
+			sector = @contents[offset + 1]
+		end
+
+		entries.each do |name, track, sector, claimed|
+			blocks = walk.call(name, track, sector)
+			if blocks != claimed
+				problems.push "#{name}: the directory claims #{claimed} blocks, the chain has #{blocks}"
+			end
+		end
+
+		unless problems.empty?
+			puts "ERROR: #{@diskimage_filename} is not a consistent disk image:"
+			problems.first(12).each { |problem| puts "  #{problem}" }
+			puts "  ...and #{problems.length - 12} more" if problems.length > 12
+			puts "Refusing to write it: a drive would call this disk corrupt, and saves onto it can overwrite each other."
+			exit 1
+		end
 	end
 
 	private

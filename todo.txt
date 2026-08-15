@@ -44,6 +44,18 @@ drive LED on real hardware; the LED was the least of it.
   that observation was a testing artifact (or a d81 already written to). The BAM
   bug above is the whole of it, and Wyrmward on real hardware is clean now - no
   error message, no stray lamp.
+  A d81 is now checked against itself before it is written (verify_image, called
+  from Disk_image#save and implemented by the D81 writer): every track's free
+  count against its own bitmap, and every chain - the directory's and each
+  file's - for leaving the disk, looping, sharing a block with another file,
+  running through a block marked free, or disagreeing with the block count in
+  its directory entry. Partition entries (type $85, the C64 -81 story data) name
+  a start, not a chain, and are skipped. A bad image fails the build with exit 1
+  rather than being written. Proved both ways: with the double-claim put back it
+  reports "track 40: the BAM says 34 blocks free, its own bitmap says 35" and
+  refuses to write, and every image we build passes it - the four v6 pics games,
+  Sherlock's sounds, testz6, dejavu, and the -81 builds for C64, C128 and Plus/4
+  whose story lives in partitions rather than files.
 
 DONE 2026-07-30: the Commander X16 plays @sound_effect samples too, through
 VERA's PCM FIFO (asm/sound-x16.asm, -asw on -t:x16, any z-version). No preload
