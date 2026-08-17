@@ -2055,24 +2055,26 @@ wait_a_sec
 	rts
 } else {
 !ifdef TARGET_MEGA65 {
-kernal_delay_1ms
-	pha
-	txa
-	pha
-	tya
-	pha
-	ldy #40 ; 40 MHz
--	ldx #$b8 ; 1 ms for 1 MHz
---	dex
-	bne --
-	dey
-	bne -
-	pla
-	tay
-	pla
-	tax
-	pla
-	rts
+; Not used for MEGA65
+; kernal_delay_1ms
+	; pha
+	; txa
+	; pha
+	; tya
+	; pha
+	; ldy #40 ; 40 MHz
+; -	ldx #$68 ; 1 ms for 1 MHz
+; --	lda ($02,x)
+	; dex
+	; bne --
+	; dey
+	; bne -
+	; pla
+	; tay
+	; pla
+	; tax
+	; pla
+	; rts
 }
 
 !ifdef TARGET_X16 {
@@ -2106,13 +2108,34 @@ wait_a_sec
 	ldy #5
 
 wait_yx_ms
+	; Input (ms + 256) in y,x
+!ifdef TARGET_MEGA65 {
+	pha
+	stx .temp
+	dey
+	sty .temp + 1
+.wait_one_more_jiffy
+	jsr wait_a_jiffy
+	lda .temp
+	sec
+	sbc #20
+	sta .temp
+	lda .temp + 1
+	sbc #0
+	sta .temp + 1
+	bcs .wait_one_more_jiffy
+	pla
+	rts
+
+.temp !byte 0,0
+} else {
 -	jsr kernal_delay_1ms
 	dex
 	bne -
 	dey
 	bne -
 	rts
-
+}
 wait_an_interval
 ;	inc reg_bordercolour
 	; Used for scrolling
@@ -2121,6 +2144,14 @@ wait_an_interval
 	jmp wait_yx_ms
 }
 
+!ifdef TARGET_MEGA65 {
+wait_a_jiffy
+-	bit $d011
+	bmi -
+-	bit $d011
+	bpl -
+	rts
+} else {
 wait_a_jiffy
 	pha
 	lda #17
@@ -2132,10 +2163,8 @@ wait_a_jiffy
 	bne -
 	pla
 	rts
+}
 
-
-
-	
 
 !ifndef UNDO {
 z_ins_save_undo

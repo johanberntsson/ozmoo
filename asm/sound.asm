@@ -360,7 +360,7 @@ read_sound_files
 .end_of_dir
 	jsr close_io
 
-	jsr wait_a_sec
+;	jsr wait_a_sec
 	jsr wait_a_sec
 
 	ldx #$ff
