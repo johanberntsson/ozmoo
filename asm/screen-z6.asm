@@ -3131,6 +3131,14 @@ printchar_buffered
 	sta .buffer_left
 	jsr s_window_right_edge
 	sta .buffer_edge
+	; Does this window wrap? Without the attribute (windows 1-7 start without
+	; it, z-spec 8.8.3.3) a line that fills the window is not carried onto the
+	; next one: the text that does not fit is dropped, exactly as it is in an
+	; unbuffered window, since buffering only decides *where* a wrapped line
+	; breaks (8.8.3.1.2.2).
+	lda window_attributes,x
+	and #WIN_WRAPPING
+	sta .buffer_wrap
 	lda .buffer_char
 	; add this char to the buffer
 	cmp #$0d
@@ -3148,7 +3156,7 @@ printchar_buffered
 .check_break_char
 	ldy buffer_index
 	cpy .buffer_edge
-	bcs .add_char ; Don't register break chars on last position of buffer.
+	bcs .buffer_is_full ; Don't register break chars on last position of buffer.
 	cmp #$20 ; Space
 	beq .break_char
 	cmp #$2d ; -
@@ -3156,6 +3164,13 @@ printchar_buffered
 .break_char
 	; update index to last break character
 	sty last_break_char_buffer_pos
+	jmp .add_char
+.buffer_is_full
+	; the line reaches the window's right margin: a wrapping window carries
+	; the overflow onto the next line (below), a non-wrapping one ignores it
+	ldx .buffer_wrap
+	bne .add_char
+	jmp .printchar_done
 .add_char
 	ldx .buffer_edge
 	sta print_buffer,y
@@ -3164,8 +3179,12 @@ printchar_buffered
 	sta print_buffer2,y
 	iny
 	sty buffer_index
+	lda .buffer_wrap ; x still holds .buffer_edge for max_chars_on_line below
+	bne .may_break_line
+	jmp .printchar_done ; no wrapping: the line is never broken, only filled
+.may_break_line
 	cpy .buffer_edge ; right edge of the current window
-	beq ++ 
+	beq ++
 	bcs + ; Clear case - always print a line
 
 -	jmp .printchar_done
@@ -3295,6 +3314,7 @@ anything_printed       !byte 0
 .buffer_char       !byte 0
 .buffer_left       !byte 0
 .buffer_edge       !byte 0
+.buffer_wrap       !byte 0 ; WIN_WRAPPING for the window being buffered
 ; print_buffer            !fill 41, 0
 .save_x			   !byte 0
 .save_y			   !byte 0

@@ -28,8 +28,9 @@
 
 ; Kept as close to screenkernal.asm as possible; differences:
 ; - window_start_row replaced by the window_y array (window_y,w = top row of window w)
-; - no bounds/overflow checks in .normal_char, and no auto-expansion of window 1
-;   (in z6, window positions and sizes are controlled by the game)
+; - no auto-expansion of window 1 (in z6, window positions and sizes are
+;   controlled by the game); the bounds check in .normal_char is against the
+;   current window's right margin rather than the screen width
 ;
 ; replacement for these C64 kernal routines and their variables:
 ; printchar $ffd2
@@ -1307,8 +1308,25 @@ s_printchar
 	jmp .printchar_end ; Always jump
 	
 .normal_char
-	; Reset ignore next linebreak setting
 	ldx current_window
+	; A non-wrapping window parks its cursor on its right margin once the
+	; line is full (see the WIN_WRAPPING check below): everything printed
+	; from there is ignored, rather than written past the margin or on top
+	; of the last column that did fit. A wrapping window is left alone - its
+	; cursor is always inside the window, and where it isn't (a game setting
+	; the cursor past the margin) the old spill-and-wrap behaviour stands.
+	pha
+	lda window_attributes,x
+	and #WIN_WRAPPING
+	bne +
+	jsr s_window_right_edge
+	lda zp_screencolumn
+	cmp .window_edge
+	bcc +
+	pla
+	jmp .printchar_end
++	pla
+	; Reset ignore next linebreak setting
 	ldy s_ignore_next_linebreak,x
 	bpl .resume_printing_normal_char
 	inc s_ignore_next_linebreak,x
@@ -1403,9 +1421,12 @@ s_printchar
 	lda window_attributes,x
 	and #WIN_WRAPPING
 	bne +
-	; wrapping disabled: park the cursor on the window's last column
+	; Wrapping disabled (z-spec 8.8.3.1.1): characters are printed until no
+	; more fit, then "the cursor will move to the right margin and stay
+	; there, so that any further text will be ignored". Park it *on* the
+	; margin - one past the last column - and .normal_char drops everything
+	; printed from there until a newline or a cursor move.
 	ldy .window_edge
-	dey
 	sty zp_screencolumn
 	jmp .printchar_end
 +	dec s_ignore_next_linebreak,x ; Goes from 0 to $ff

@@ -1,6 +1,50 @@
 Known bugs
 ----------
 
+DONE 2026-08-17: a z6 window without the wrapping attribute now truncates its
+lines instead of wrapping them (z-spec 8.8.3.1.1). Windows 1-7 start with
+buffering on and wrapping OFF (8.8.3.3), and the spec is explicit about what
+that means: "characters will be printed until no more can be fitted in without
+hitting the right margin, at which point the cursor will move to the right
+margin and stay there, so that any further text will be ignored". Ozmoo's z6
+print path carried the overflow onto the next line regardless of the attribute,
+and in a one-row window "the next line" is the row it is already on, so the tail
+of a long line came back written over its own head. Johan's testscreen1.inf is
+the case (split_window 1, set_window 1, one line too wide for the screen and
+then "hello" and "bye"): the z5 build of the same program prints the first 40
+characters and drops the rest, the z6 build printed
+"byelow screenuld be truncated on a".
+  Two places had to know about the attribute:
+  - printchar_buffered (screen-z6.asm) reads WIN_WRAPPING into .buffer_wrap
+    beside the window's left and right edges. When it is clear, a character
+    arriving with the buffer already at the right margin is dropped, and the
+    line is never broken and carried - the buffer just fills and is flushed
+    where it stands. Buffering only decides WHERE a wrapped line breaks
+    (8.8.3.1.2.2), so a non-wrapping window now renders the same buffered or
+    not, which is what the spec's own example table shows.
+  - s_printchar (screenkernal-z6.asm) parks the cursor ON the right margin
+    rather than one column short of it - parking short meant every further
+    character overwrote the last one that fitted - and .normal_char drops
+    anything printed while the cursor sits there, until a newline or a cursor
+    move brings it back inside.
+  The .normal_char check is deliberately gated on the window NOT wrapping. A
+  wrapping window's cursor is normally inside its margins anyway, but testz6
+  puts one outside on purpose (it draws its "pic:4" note at column 12 of a
+  9-column window 0), and clipping that would have been a behaviour change with
+  no spec behind it. With the gate, testz6's screen is byte-identical to before
+  on the C64.
+  Trap worth remembering: .add_char carries .buffer_edge in X all the way to
+  "stx max_chars_on_line", so the new flag has to be tested through A. Testing
+  it with LDX moved every wrap point in testz6 ("needs to / be" became "needs /
+  to be") and read like the truncation fix having broken word wrapping.
+  What z5 does past the BOTTOM of the window is not a model for z6, and the
+  remaining difference between the two screenshots is that: non-z6 Ozmoo grows
+  window 1 when text is printed below it (.outside_current_window in
+  screenkernal.asm), so testscreen1's "hello" and "bye" walk down the screen
+  there. z6 clamps to the window's last row instead, and so does sfrotz - the
+  same program under sfrotz also prints its second and third lines back over the
+  first. Verified against sfrotz on both axes.
+
 DONE 2026-08-15: the mouse pointer hides itself after five seconds of stillness
 and comes back on the first movement, on both graphics targets (.mouse_autohide
 in asm/mouse.asm). An arrow parked in the middle of the text is a distraction
