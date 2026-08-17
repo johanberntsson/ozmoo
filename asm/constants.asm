@@ -381,7 +381,7 @@ zp_more_colour        = $e1 ; 4 bytes: the current window's [More] colour cell
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 }
 cursor_row			  = $f7 ; 2 bytes
-cursor_column		  = $f9 ; 2 bytes
+;cursor_column		  = $f9 ; 2 bytes
 
 print_buffer		  = $100 ; SCREEN_WIDTH + 1 bytes
 print_buffer2         = $200 ; SCREEN_WIDTH + 1 bytes

@@ -1,5 +1,7 @@
 ; screen update routines
 
+cursor_column !byte 0,0,0
+
 !macro init_screen_model {
     lda #147 ; clear screen
     jsr s_printchar
