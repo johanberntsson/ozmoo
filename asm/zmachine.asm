@@ -267,10 +267,10 @@ dumptovice
 }
 
 	; ldy z_pc + 2
-	; cpy #$f5
+	; cpy #$f4
 	; bne +
 	; ldy z_pc + 1
-	; cpy #$3a
+	; cpy #$44
 	; bne +
 	; ldy z_pc
 	; cpy #$00
@@ -2172,6 +2172,8 @@ z_ins_art_shift
 
 z_ins_set_font
 	ldy current_window
+	lda z_operand_count
+	beq .set_font_check_status
 	lda z_operand_value_low_arr
 	beq .set_font_check_status
 	cmp #1

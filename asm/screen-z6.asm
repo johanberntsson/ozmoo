@@ -2146,6 +2146,7 @@ z_ins_get_cursor
 	; get_cursor array
 	; returns the cursor position of the current window,
 	; window-relative and 1-based
+	jsr printchar_flush ; pending text belongs on screen before reading cursor position
 	ldx z_operand_value_low_arr
 	lda z_operand_value_high_arr
 	jsr set_z_address
