@@ -1,20 +1,40 @@
 Known bugs
 ----------
 
-testz6scroll writes $f0 into `darkmode` (MEGA65 -fcm), about four seconds into
-the run. Pre-existing - it happens identically on the commit before the
-set_colour work of 2026-08-24 - and so far only this program reproduces it:
-testz6 and testbufferings leave darkmode 0 throughout. It matters because
-darkmode is an INDEX: bgcol,x / fgcol,x / bordercol,x / cursorcol,x are all
-two-byte tables, so the next thing to read one takes a byte 240 past it. That is
-what made the same program's screen come out in BASIC's blue ($d020/$d021 = $0e
-/$06) on one build and white on the next - the corruption is in all of them, and
-only the timing of the next colour read differs. Found by probing the byte over
-xemu's uartmon once a second (scripts in the session notes): darkmode at
-zcolours + 24, and nothing writes it except the two `eor #1` toggles, so this is
-a wild store rather than an array overrun - and nothing else lives just below
-it. The scroll test is the one program that fills window 0 and scrolls it
-repeatedly, which points at the scroll or scrollback path.
+DONE 2026-08-24: a window with no rows on screen no longer scrolls the rest of
+memory. testz6scroll was writing $f0 into `darkmode` a few seconds in, on the
+MEGA65 -fcm - and darkmode is an INDEX, into the two-byte bgcol / fgcol /
+bordercol / cursorcol tables, so the next colour operation read a byte 240 past
+one of them: the same program's screen came out in BASIC's blue ($d020/$d021 =
+$0e/$06) on one build and white on the next, purely by whether anything read a
+colour table afterwards.
+  The store was a SCROLL running off the end of the screen. `.calc_window_rect`
+  clamps a window's bottom to the screen and then subtracts one, so a window
+  with no height comes back with .win_bottom ABOVE .win_top - and all three row
+  loops walk from top to bottom by equality, which such a rectangle never
+  reaches:
+  - `.s_scroll` (the automatic scroll when text reaches a window's bottom, and
+    the one that fired here) takes `.win_bottom - .win_top` as its row count,
+    which wrapped to 255;
+  - `.sw_up_one` / `.sw_down_one` (the scroll_window opcode, and the VDC and
+    VERA scrolls, which share them) compare the moving row against the bottom
+    with `beq`, so they walked to 255 and wrapped;
+  - `s_scroll_window`'s own "clamp the count to the window's height" produced
+    zero, and `dec` / `bne` then ran the whole thing 256 times.
+  Each copies SCREEN_ROW_BYTES bytes a row, so the damage was a 160-byte-per-row
+  march through whatever follows screen RAM: dumping $2380-$24ff before and
+  after showed ten bytes moved up by exactly $a0 twice over, with '#' characters
+  written in - a scroll, not a stray store, which is what identified it. All
+  three now check that the rectangle has at least one row (`.sw_has_rows`).
+  The test program was ALSO at fault, and that is why the case arose at all: it
+  was written in character cells (`window_size 1 6 20`), and under the pixel
+  unit model that is a window six PIXELS tall - no rows. It now reads the font
+  size from property 13 and converts, as testz6.inf does, so it draws the same
+  screen under `-pu:0` and under the pixel model (verified pixel-identical), and
+  the C64, MEGA65 -fcm and X16 builds all draw it the same way again.
+  Worth keeping: a degenerate window is not a theoretical case - a game only has
+  to ask for a window shorter than one line, or move one off the bottom of the
+  screen, and the clamped rectangle inverts.
 
 DONE 2026-08-24: a window background colour on the MEGA65 full colour screen.
 The VIC-IV in FCM has one global background register, so a text cell is a ROM

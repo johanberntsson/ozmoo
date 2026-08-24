@@ -10,11 +10,29 @@
 ! test; printing then goes straight to the screen, which is the path the
 ! window's own scrolling hangs off.
 
+! A v6 unit is whatever the interpreter says a character cell is worth
+! (property 13): a cell under the old model, an art pixel under the pixel one.
+! So the layout below is written in CELLS and converted, exactly as testz6.inf
+! does - passing cell counts raw made window 1 six PIXELS tall on a pixel-unit
+! interpreter, which is no rows at all, and a window with no rows is not a
+! scrolling test.
+Global fw = 1;
+Global fh = 1;
+[ ux c; return (c - 1) * fw + 1; ];   ! 1-based cell column -> 1-based units
+[ uy r; return (r - 1) * fh + 1; ];   ! 1-based cell row    -> 1-based units
+[ cw n; return n * fw; ];             ! a width or count in cells -> units
+[ ch n; return n * fh; ];
+
 [main i j w h;
 #iftrue (#version_number == 6);
+	@get_wind_prop 0 13 -> i;   ! height in the high byte, width in the low
+	fh = i / 256;
+	fw = i % 256;
+	if (fw == 0) fw = 1;
+	if (fh == 0) fh = 1;
 	@erase_window (-1);
-	w = $22-->0; ! screen width in units; a unit is a character here
-	h = $24-->0; ! screen height in units
+	w = $21->0; ! screen width in characters
+	h = $20->0; ! screen height in characters
 
 	@window_style 0 8 2; ! clear bit 3 (buffered): no [MORE] prompts
 	@window_style 1 8 2;
@@ -29,9 +47,12 @@
 		for (j = 1: j <= w: j++) { print "#"; }
 	}
 
-	! A small window in the middle of the pattern.
-	@window_size 1 6 20;
-	@move_window 1 9 11;
+	! A small window in the middle of the pattern: six rows by twenty columns,
+	! at row 9, column 11.
+	i = ch(6); j = cw(20);
+	@window_size 1 i j;
+	i = uy(9); j = ux(11);
+	@move_window 1 i j;
 	@set_window 1;
 	@erase_window 1;
 

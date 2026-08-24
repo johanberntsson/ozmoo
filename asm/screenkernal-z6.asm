@@ -1931,6 +1931,10 @@ s_scrolled_lines !byte 0
 	lda .win_bottom
 	sec
 	sbc .win_top
+	bcc .done_scrolling	; .win_bottom is ABOVE .win_top: the window has no
+						; rows on screen, so there is nothing to scroll. The
+						; subtraction would otherwise wrap to 255 and copy 255
+						; rows up through whatever follows screen RAM.
 	tax
 	beq .done_scrolling
 	clc
@@ -2120,6 +2124,9 @@ s_scroll_window
 	lda .sw_count
 	beq .sw_return
 	jsr .calc_window_rect_x
+	jsr .sw_has_rows
+	bcc .sw_return	; no rows on screen: the height below would underflow to
+					; zero and the count loop would run 256 times
 	; Scrolling a window by its own height blanks it, and scrolling it by
 	; more than that cannot blank it any further, so clamp the count. That
 	; also keeps the row counters inside the window.
@@ -2159,6 +2166,8 @@ s_scroll_window
 
 .sw_up_one
 	; every line takes the contents of the one below it; the last goes blank
+	jsr .sw_has_rows
+	bcc .sw_no_rows
 	lda .win_top
 	sta .sw_dst
 	clc
@@ -2176,6 +2185,8 @@ s_scroll_window
 
 .sw_down_one
 	; every line takes the contents of the one above it; the first goes blank
+	jsr .sw_has_rows
+	bcc .sw_no_rows
 	lda .win_bottom
 	sta .sw_dst
 	sec
@@ -2190,6 +2201,21 @@ s_scroll_window
 	jmp -
 +	lda .win_top
 	jmp .sw_blank_row
+
+.sw_has_rows
+	; Carry set if the window's rectangle has at least one row on screen.
+	; .calc_window_rect clamps the bottom to the screen and then subtracts one,
+	; so a window with no height (or one that starts below the screen) comes
+	; back with .win_bottom ABOVE .win_top - and the row loops below walk from
+	; top to bottom by equality, which such a rectangle never reaches: they run
+	; off the end of the screen and copy rows through the interpreter's own
+	; variables. testz6scroll does it with window_size 1 6 20, six PIXELS being
+	; no rows at all under the pixel unit model.
+	lda .win_bottom
+	cmp .win_top
+	rts
+.sw_no_rows
+	rts
 
 .sw_copy_row
 	; copy the window's columns from row .sw_src to row .sw_dst
