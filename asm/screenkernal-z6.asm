@@ -4,11 +4,23 @@
 ; even one; the odd one selects a full colour tile when it is non-zero, so
 ; every character written over a picture has to put it back to zero.
 !ifdef Z6_FCM_MODE {
+!ifdef Z6_FCM_WINDOW_BG {
+; Every text write site calls this straight after storing the character, which
+; makes it the one hook a per-window background needs: it writes the cell's odd
+; (tile select) byte, zero for an ordinary ROM glyph, or points the whole cell
+; at a baked full colour tile when the current window has a background of its
+; own. See textbg-mega65.asm. a holds the screen code just stored (dead at every
+; call site), y the cell's even byte in the row.
+!macro clear_cell_high_byte {
+	jsr fcm_write_cell_high
+}
+} else {
 !macro clear_cell_high_byte {
 	iny
 	lda #0
 	sta (zp_screenline),y
 	dey
+}
 }
 ; Colour RAM is CPU-visible only 2 KB at a time through $d800, which the
 ; 80-column screen's 4000 colour bytes outgrow. Under FCM zp_colourline is
@@ -723,7 +735,7 @@ init_mega65
 	sta zp_colourline
 	lda #>FCM_COLOUR_OFFSET
 	sta zp_colourline + 1
-!ifdef Z6_FCM_TEXT_BAKE {
+!ifdef Z6_FCM_WINDOW_BG {
 	; Text-ink palette bank: entries 240-255 duplicate the 16 text colours at
 	; palette indices 0-15. When text is baked into a picture tile (s_bake_char),
 	; a set glyph pixel is written as 240 + s_colour rather than the bare colour
@@ -743,7 +755,10 @@ init_mega65
 	sta $d300 + 240,x
 	dex
 	bpl -
+!ifdef Z6_FCM_TEXT_BAKE {
 	jsr bake_shadow_clear	; drop any stale clean-background tile codes
+}
+	jsr fcm_text_reset		; no window-background tiles are baked yet
 }
 }
 	rts
@@ -1166,8 +1181,12 @@ apply_window_swap
 	and #$0f
 	tax
 	jsr zcolour_to_hw_fg
-	jmp s_set_text_colour	; sets s_colour
-+	rts
+	jsr s_set_text_colour	; sets s_colour
++
+!ifdef Z6_FCM_WINDOW_BG {
+	jmp fcm_update_paper	; ...and its background, which is a tile here
+}
+	rts
 .aws_swapped
 	; swapped: the reversed glyph's field takes the window's background
 	; (property 11 high nybble) - an explicit colour, so darkmode-independent.
@@ -1178,7 +1197,11 @@ apply_window_swap
 	lsr
 	tax
 	jsr zcolour_to_hw_bg
-	jmp s_set_text_colour ; sets s_colour
+	jsr s_set_text_colour ; sets s_colour
+!ifdef Z6_FCM_WINDOW_BG {
+	jmp fcm_update_paper	; a swapped window needs no background tiles
+}
+	rts
 }
 }
 
@@ -1581,6 +1604,13 @@ s_window_right_edge
 .window_edge !byte 0
 
 s_erase_window
+!ifdef Z6_FCM_WINDOW_BG {
+	; The screen is about to be filled with spaces, so nothing can still be
+	; showing a window-background tile: drop them all and let the current
+	; window claim a slot again for the fill.
+	jsr fcm_text_reset
+	jsr fcm_update_paper
+}
 	lda #0
 	sta zp_screenrow
 -   jsr s_erase_line
@@ -2107,6 +2137,10 @@ s_scroll_window
 	ldx .sw_window
 	jsr ecm_set_bits_for_window
 }
+!ifdef Z6_FCM_WINDOW_BG {
+	ldx .sw_window		; ...the same on the full colour screen, where the
+	jsr fcm_paper_for_window ; background is a baked tile
+}
 -	lda .sw_downwards
 	beq +
 	jsr .sw_down_one
@@ -2116,6 +2150,9 @@ s_scroll_window
 	bne -
 !ifdef Z6_ECM_MODE {
 	jsr ecm_update_bits
+}
+!ifdef Z6_FCM_WINDOW_BG {
+	jsr fcm_update_paper	; back to the current window's own background
 }
 .sw_return
 	rts
@@ -2966,6 +3003,10 @@ toggle_darkmode
 
 !ifdef Z5PLUS {
 
+!ifdef Z6_FCM_WINDOW_BG {
+!source "textbg-mega65.asm"
+}
+
 !ifdef Z6 {
 s_track_colours
 	; Keep the target window's colour pair (property 11: background in
@@ -3178,6 +3219,9 @@ z_ins_set_colour
 	tax
 +	stx set_colour_window
 	jsr s_track_colours	; the window's colour pair (property 11)
+!ifdef Z6_FCM_WINDOW_BG {
+	jsr fcm_update_paper	; ...which decides how its cells are drawn here
+}
 !ifdef DEBUG_SCREENLOG {
 	; what the tracking made of it: byte 6 the operand count, byte 7 the swap
 	lda s_colour_swap

@@ -137,6 +137,11 @@
 			!ifdef Z6_PICTURES {
 				Z6_FCM_TEXT_BAKE = 1
 			}
+			; ...and a window whose background is a colour of its own (not the
+			; swap of the screen's pair, which reverse video already draws) has
+			; its cells baked into full colour tiles too - the only per-cell
+			; background this screen has. See textbg-mega65.asm.
+			Z6_FCM_WINDOW_BG = 1
 		}
 	}
 }

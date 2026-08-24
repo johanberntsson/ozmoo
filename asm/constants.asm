@@ -158,6 +158,16 @@ FCM_TILE_STORE        = $10000
 FCM_TILE_CODE_HI      = 4		; $10000 / 64 = $0400
 PIC_MAX_TILES         = 1024
 }
+!ifdef Z6_FCM_WINDOW_BG {
+; The tiles that give a window a background colour of its own (textbg-mega65.asm)
+; live in bank 1 in either build: $14000-$17fff, 256 tiles. Below is the
+; picture-less build's own store at $10000 (which stops at $14000 once this is
+; carved out of it, and it draws nothing anyway) and CBDOS' unsafe foot; above
+; is where a picture build puts the sound sample ($18000). $14000 / 64 = $0500,
+; so a tile's index is its screen code's low byte and the high byte never moves.
+FCM_TEXT_TILE_STORE   = $14000
+FCM_TEXT_TILE_CODE_HI = $05
+}
 } else {
 SCREEN_WIDTH          = 80
 CELL_BYTES            = 1
@@ -377,6 +387,14 @@ zp_colourline         = $e5 ; 4 bytes (see above)
 zp_colour_src         = $d9 ; 4 bytes: colour row being read while scrolling
 zp_colour_dst         = $dd ; 4 bytes: colour row being written while scrolling
 zp_more_colour        = $e1 ; 4 bytes: the current window's [More] colour cell
+!ifdef Z6_FCM_WINDOW_BG {
+; 32-bit pointer for baking a window-background tile: the ROM font while the
+; glyph is read, then the tile store while it is written (textbg-mega65.asm).
+; $e9-$f2 is the rest of the kernal line-link table region that the four
+; pointers above live in - free, and not touched by the keyboard scan the way
+; $f5/$f6 is.
+zp_fcm_tile           = $e9 ; 4 bytes
+}
 } else {
 zp_colourline         = $f3 ; 2 bytes current line (pointer to colour memory)
 }

@@ -1791,6 +1791,14 @@ erase_window
 	ldx .rect_win
 +
 }
+!ifdef Z6_FCM_WINDOW_BG {
+	; the same on the full colour screen, where the background is a baked tile
+	cpx current_window
+	beq +
+	jsr fcm_paper_for_window
+	ldx .rect_win
++
+}
 	lda window_y_size,x
 	beq .rect_done
 	sta .rect_rows_left
@@ -1826,6 +1834,13 @@ erase_window
 	cmp current_window
 	beq +
 	jmp x16_apply_window_colour ; back to the current window's own pair
++
+}
+!ifdef Z6_FCM_WINDOW_BG {
+	lda .rect_win
+	cmp current_window
+	beq +
+	jmp fcm_update_paper ; back to the current window's own background
 +
 }
 	rts

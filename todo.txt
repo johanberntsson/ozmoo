@@ -1,6 +1,61 @@
 Known bugs
 ----------
 
+testz6scroll writes $f0 into `darkmode` (MEGA65 -fcm), about four seconds into
+the run. Pre-existing - it happens identically on the commit before the
+set_colour work of 2026-08-24 - and so far only this program reproduces it:
+testz6 and testbufferings leave darkmode 0 throughout. It matters because
+darkmode is an INDEX: bgcol,x / fgcol,x / bordercol,x / cursorcol,x are all
+two-byte tables, so the next thing to read one takes a byte 240 past it. That is
+what made the same program's screen come out in BASIC's blue ($d020/$d021 = $0e
+/$06) on one build and white on the next - the corruption is in all of them, and
+only the timing of the next colour read differs. Found by probing the byte over
+xemu's uartmon once a second (scripts in the session notes): darkmode at
+zcolours + 24, and nothing writes it except the two `eor #1` toggles, so this is
+a wild store rather than an array overrun - and nothing else lives just below
+it. The scroll test is the one program that fills window 0 and scrolls it
+repeatedly, which points at the scroll or scrollback path.
+
+DONE 2026-08-24: a window background colour on the MEGA65 full colour screen.
+The VIC-IV in FCM has one global background register, so a text cell is a ROM
+glyph in the colour RAM's foreground colour on $d021 and there is no per-cell
+background to write. The reverse-video swap (s_colour_swap) fakes one for the
+exact swap of the screen's pair, which is all Infocom's four games ask for;
+anything else printed on the screen background, so testbufferings.inf's black-
+on-cyan and yellow-on-red windows came out on blue. This was the todo item
+"arbitrary non-swap window backgrounds on the reverse-glyph targets", and the
+answer is the one the note predicted: full colour tiles (asm/textbg-mega65.asm,
+Z6_FCM_WINDOW_BG).
+  - Such a cell becomes a 64-byte tile of the glyph's own bitmap: a set pixel is
+    palette index 255, which the VIC-IV takes from the cell's own colour RAM
+    byte, and a clear pixel is 240 + the window's background out of the text-ink
+    palette bank init_mega65 already builds for the picture text bake. Because
+    the ink comes from colour RAM, ONE tile serves every foreground colour, and
+    a reversed glyph (code + $80, which the C64 font holds as a reversed copy)
+    comes out as reverse video in the window's own two colours for free.
+  - The tiles are baked on demand into a store of their own, $14000-$17fff in
+    bank 1 (256 tiles), which is free in both build types: below it is the
+    picture-less build's own store at $10000 and CBDOS' unsafe foot, above it
+    the sound sample a picture build puts at $18000. So this never competes with
+    the picture engine, and the picture engine's cell scans (.pic_gc, the bank
+    reclaim) already reject a code below FCM_TILE_CODE_HI as "text".
+  - Two backgrounds at a time (FCM_TEXT_SLOTS), 128 glyphs each; a third window
+    background degrades to the old behaviour, and everything is dropped when the
+    screen is cleared, which is the only moment no cell can still show a tile.
+  - The hook is the +clear_cell_high_byte macro, which every text write site
+    already calls right after storing the character - one place, rather than the
+    eight sites CLAUDE.md warns about. The paper follows the window: it is
+    recomputed on set_colour and on every window switch (apply_window_swap), and
+    set aside for the window an erase_window or scroll_window names when that is
+    not the current one, the way ECM already did for its background registers.
+  - Not baked: a background of hardware colour 15, whose palette index would be
+    the 255 that means "the colour RAM byte".
+  Regression evidence: the four commercial games' opening screens are
+  pixel-identical before and after on the MEGA65 -fcm, as is Zork Zero -pics in
+  its first room, and none of them can reach the new path anyway (they only ever
+  ask for the screen pair or its exact swap). testz6 gains the magenta window 1
+  the X16 has always drawn, which is what sfrotz shows.
+
 DONE 2026-08-24: set_colour's window operand is honoured. In v6 the opcode is
 "set_colour foreground background [window]" and the window is optional,
 defaulting to the current one; Ozmoo ignored it everywhere except ECM, so a
