@@ -1771,11 +1771,25 @@ erase_window
 
 .erase_window_rect
 	; erase the screen rectangle of window x (fills it with spaces
-	; in the current colours, using s_delete_cursor so all targets work)
+	; using s_delete_cursor so all targets work), in that window's own
+	; colours - erase_window can name a window that is not the current one
 	stx .rect_win
 !ifdef Z6_ECM_MODE {
 	jsr ecm_set_bits_for_window ; fill with this window's background colour
 	ldx .rect_win
+}
+!ifdef Z6_WINDOW_BG {
+	; per-cell backgrounds: erase_window can name a window that is not the
+	; current one (a game dressing a window before showing it, which is what
+	; set_colour's window operand is for), and it must be filled with its own
+	; background, not with whatever the current window prints in. The current
+	; window's own pair is already live, so only another window needs this -
+	; and .rect_done hands the live colours back.
+	cpx current_window
+	beq +
+	jsr x16_apply_colour_for_window
+	ldx .rect_win
++
 }
 	lda window_y_size,x
 	beq .rect_done
@@ -1806,6 +1820,13 @@ erase_window
 .rect_done
 !ifdef Z6_ECM_MODE {
 	jmp ecm_update_bits ; back to the current window's background colour
+}
+!ifdef Z6_WINDOW_BG {
+	lda .rect_win
+	cmp current_window
+	beq +
+	jmp x16_apply_window_colour ; back to the current window's own pair
++
 }
 	rts
 
@@ -2369,6 +2390,7 @@ init_window_colours
 	lda #0
 	ldx #7
 -	sta window_swap,x ; every window starts un-swapped
+	sta window_fg_set,x ; ...and with no foreground colour of its own
 !ifdef Z6_FCM_TEXT_BAKE {
 	sta window_bake,x ; ...and opaque, until a game asks for transparent text
 	sta window_y_sub,x ; ...on the cell grid, no sub-cell y offset yet

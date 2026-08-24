@@ -1,6 +1,58 @@
 Known bugs
 ----------
 
+DONE 2026-08-24: set_colour's window operand is honoured. In v6 the opcode is
+"set_colour foreground background [window]" and the window is optional,
+defaulting to the current one; Ozmoo ignored it everywhere except ECM, so a
+game that coloured a window it was not printing in had the colours land on the
+current window instead. Johan's testbufferings.inf does exactly that (window 2
+black on cyan, window 3 yellow on red, both set while window 0 is current, the
+natural way to dress a window before showing it): sfrotz drew two coloured
+boxes, the MEGA65 drew the whole screen in the LAST pair set - red everywhere,
+every window's text yellow - and the X16 got the boxes right only because each
+erase_window happened to follow its own set_colour, while the text inside them
+came out in whichever pair had been set last.
+  - z_ins_set_colour now resolves the third operand through
+    window_from_operand (so -3 is the current window, like everywhere else in
+    the window model) into set_colour_window, which s_track_colours writes the
+    pair, the swap flag and window_bake through. When that window is not the
+    current one, the pair is RECORDED and the hardware is left alone: the live
+    colours belong to the window being printed in, and the recorded ones are
+    applied when it becomes current (set_window) or is erased.
+  - erase_window fills a window with ITS OWN background on the X16, where the
+    background is per cell; it used to fill with whatever the current window
+    printed in. .erase_window_rect switches the pair only when the window
+    erased is not the current one, and hands the live colours back at
+    .rect_done, so the common case is unchanged instruction for instruction.
+  - On the reverse-glyph targets (C64, C128, Plus/4, MEGA65 -fcm) there is one
+    global background register, so a window's background still cannot follow
+    it - but the FOREGROUND is per cell, so apply_window_swap now makes a
+    window's own foreground live when it becomes current. Only for a window
+    the game has actually given a colour (window_fg_set, set from a real
+    colour operand, not 0 "keep" or 1 "the default"), because forcing FGCOL on
+    a default-colour window would undo darkmode. testbufferings on the MEGA65
+    now prints each window's text in its own colour on the one shared
+    background, which is as close to sfrotz as FCM can get.
+  - Applying a stored pair also has to resolve a z-colour this target has no
+    entry for. zcolours answers $ff for colours 10-15 (and for "the default"),
+    which z_ins_set_colour's own path turns into the story's default colour by
+    reading the header - but x16_apply_window_colour and apply_window_swap
+    wrote the $ff straight into the hardware, where its low nybble came out as
+    light grey. zcolour_to_hw_fg / zcolour_to_hw_bg do the header lookup for
+    them. testz6 asks for z-colour 11 (medium grey) and now gets black text on
+    its green window 0, on the C64, -fcm:40 and -fcm alike; mapping 10/11/12 to
+    the three real greys the C64 palette has is a separate, easy improvement
+    nobody has needed yet.
+  Regression evidence: none of the four commercial games passes the third
+  operand (every SET_COLOUR in txd's disassembly of all four is two-operand),
+  so the resolution is inert for them, and their opening screens are
+  pixel-identical before and after - Arthur, Shogun, Journey and Zork Zero on
+  the MEGA65 -fcm, Zork Zero -pics on the MEGA65, and Arthur, Journey and Zork
+  Zero on the X16 pics builds. testz6 changes on purpose (it does use the
+  operand, "set_colour 8 7 1"): window 1 keeps its cyan-on-magenta and window 0
+  keeps the green background the earlier call gave it, where the window-1 call
+  used to repaint the whole screen. C64 and -fcm:40 still agree line for line.
+
 DONE 2026-08-17: a z6 window without the wrapping attribute now truncates its
 lines instead of wrapping them (z-spec 8.8.3.1.1). Windows 1-7 start with
 buffering on and wrapping OFF (8.8.3.3), and the spec is explicit about what

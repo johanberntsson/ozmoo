@@ -422,6 +422,11 @@ x16_apply_window_colour
 	; changes, so every cell printed or erased carries that window's own
 	; background - the per-window background the reverse-video fake stood in for.
 	ldx current_window
+x16_apply_colour_for_window
+	; ...and this entry takes the window in x, for erase_window, which erases
+	; a window that need not be the current one and must fill it with its own
+	; background rather than with whatever the current window prints in.
+	stx .awc_win
 	lda window_colour,x
 	lsr
 	lsr
@@ -435,14 +440,15 @@ x16_apply_window_colour
 	bra ++
 +
 }
-	lda zcolours,x		; z-colour -> VERA colour
+	jsr zcolour_to_hw_bg	; z-colour -> VERA colour
 	jsr VERASetBackgroundColour
-++	ldx current_window
+++	ldx .awc_win
 	lda window_colour,x
 	and #$0f
 	tax
-	lda zcolours,x
+	jsr zcolour_to_hw_fg
 	jmp VERASetForegroundColour
+.awc_win	!byte 0
 }
 
 ; VERAPrintColour
@@ -1053,6 +1059,31 @@ s_set_text_colour
 	rts
 }
 
+!ifdef Z6 {
+; A window keeps the z-colour a game asked for (property 11), so the code that
+; makes a window's pair live has to do what z_ins_set_colour's own path does
+; with a colour this target has no entry for (zcolours $ff, which also means
+; "the default"): fall back to the story's default colour. Writing the $ff
+; itself into the hardware would land on an arbitrary colour - testz6 asks for
+; z-colour 11, medium grey, and got light grey through the low nybble.
+; x = the z-colour on the way in, a = the hardware colour on the way out.
+zcolour_to_hw_fg
+	lda zcolours,x
+	bpl +
+	ldy #header_default_fg_colour - 1
+	jsr read_header_word	; x = the story's default foreground z-colour
+	lda zcolours,x
++	rts
+
+zcolour_to_hw_bg
+	lda zcolours,x
+	bpl +
+	ldy #header_default_bg_colour - 1
+	jsr read_header_word	; x = the story's default background z-colour
+	lda zcolours,x
++	rts
+}
+
 ; The game swapped its foreground and background around (Arthur does it for
 ; every parser message, boxing the text like its status line): no target has
 ; per-window hardware backgrounds, but a swapped pair is exactly what the
@@ -1088,6 +1119,13 @@ s_ignore_next_linebreak	!byte 0,0,0,0,0,0,0,0
 ; window becomes current again. (X16 has real backgrounds, Z6_WINDOW_BG; ECM
 ; has hardware backgrounds - neither uses this.)
 window_swap		!byte 0,0,0,0,0,0,0,0
+; Non-zero once set_colour has given this window a foreground colour of its own
+; (a real colour, not 0 "keep" or 1 "the default"). apply_window_swap makes that
+; colour live when the window becomes current: the background here is one global
+; register, but the foreground is per cell, so this much of a v6 window's colour
+; pair the hardware can keep. A window without one is left to the global /
+; darkmode colour, which is what a default-colour window wants.
+window_fg_set	!byte 0,0,0,0,0,0,0,0
 
 !ifdef Z6_FCM_TEXT_BAKE {
 ; Non-zero when this window's background is the transparent / "sample under the
@@ -1114,10 +1152,22 @@ apply_window_swap
 	lda window_swap,x
 	sta s_colour_swap
 	bne .aws_swapped
-	; not swapped: leave s_colour to the global/darkmode state. The game sets
-	; a real colour before printing to a non-swap window; forcing the window's
-	; stored foreground here would undo darkmode for default-colour windows.
-	rts
+	; Not swapped: give the window its own foreground, if a game has set one.
+	; These targets have a single global background register, so a window's
+	; background cannot follow it - but the FOREGROUND is per cell (colour
+	; RAM), so this much of the v6 colour pair the hardware can show, and a
+	; game that colours a window it is not printing in (set_colour's window
+	; operand) gets its text colour when the window becomes current.
+	; A window the game has not given a colour of its own is left to the
+	; global/darkmode state: forcing FGCOL here would undo darkmode.
+	lda window_fg_set,x
+	beq +
+	lda window_colour,x
+	and #$0f
+	tax
+	jsr zcolour_to_hw_fg
+	jmp s_set_text_colour	; sets s_colour
++	rts
 .aws_swapped
 	; swapped: the reversed glyph's field takes the window's background
 	; (property 11 high nybble) - an explicit colour, so darkmode-independent.
@@ -1127,7 +1177,7 @@ apply_window_swap
 	lsr
 	lsr
 	tax
-	lda zcolours,x
+	jsr zcolour_to_hw_bg
 	jmp s_set_text_colour ; sets s_colour
 }
 }
@@ -2918,16 +2968,21 @@ toggle_darkmode
 
 !ifdef Z6 {
 s_track_colours
-	; Keep the current window's colour pair (property 11: background in
+	; Keep the target window's colour pair (property 11: background in
 	; the high nybble, foreground in the low, as z-colour numbers) in step
 	; with set_colour's operands -- 0 keeps a colour, 1 means the default.
+	; The window is set_colour_window, which z_ins_set_colour resolves from
+	; the opcode's optional third operand (v6; the current window by
+	; default). A window that is not the current one has its pair recorded
+	; and nothing else: the screen's live colours belong to the window being
+	; printed in, and this window's are applied when it becomes current.
 	; Then decide whether the pair has become a swap of the screen
 	; colours: the new foreground is the screen background while the new
 	; background is not. If so, switch on reverse-video rendering with the
 	; new background as the glyph colour and leave the real colours alone
 	; (see s_colour_swap). ECM keeps the tracking for get_wind_prop but
 	; never swaps: it has no reversed glyphs.
-	ldx current_window
+	ldx set_colour_window
 !ifdef Z6_FCM_TEXT_BAKE {
 	; Track, separately from the colour pair and the reverse-video swap, whether
 	; this window wants text drawn transparently over a picture - a background of
@@ -2954,10 +3009,21 @@ s_track_colours
 	beq .stc_fg_done	; 0: keep the foreground
 	cmp #$ff
 	beq .stc_fg_done	; -1: the colour under the cursor -- keep
+	ldy #$80		; a real colour: the window keeps one of its own
 	cmp #1
 	bne +
-	lda #FGCOL		; 1: the default
-+	and #$0f
+	lda #FGCOL		; 1: the default - follow the global/darkmode state
+	ldy #0
++
+!ifndef Z6_ECM_MODE {
+!ifndef Z6_WINDOW_BG {
+	pha			; (sty has no absolute,x mode on a 6502)
+	tya
+	sta window_fg_set,x	; read by apply_window_swap on a window switch
+	pla
+}
+}
+	and #$0f
 	sta .stc_nybble
 	lda .stc_pair
 	and #$f0
@@ -3030,14 +3096,22 @@ s_track_colours
 	beq .stc_normal		; both are the screen background: not a swap
 	cmp s_fg_zcolour
 	bne .stc_normal		; some other background: a real colour change
-	tax
-	lda zcolours,x
-	jsr s_set_text_colour	; the field takes the requested background
+	tax			; the requested background, which the field takes
 	lda #$80
+	sta .stc_swap
+	ldy set_colour_window
+	cpy current_window
+	bne .stc_store_swap	; another window: record the swap, don't apply it
 	sta s_colour_swap
+	jsr zcolour_to_hw_bg
+	jsr s_set_text_colour	; the field takes the requested background
 	jmp .stc_store_swap
 .stc_normal
 	lda #0
+	sta .stc_swap
+	ldx set_colour_window
+	cpx current_window
+	bne .stc_store_swap	; another window: the screen's own pair stays put
 	sta s_colour_swap
 	; the pair is about to be applied for real: it becomes the screen's own,
 	; which every later swap is measured against
@@ -3057,20 +3131,35 @@ s_track_colours
 +
 .stc_store_swap
 	; keep this window's swap state so a window switch can restore it
-	ldx current_window
-	lda s_colour_swap
+	ldx set_colour_window
+	lda .stc_swap
 	sta window_swap,x
 }
 }
 	rts
 .stc_pair	!byte 0
 .stc_nybble	!byte 0
+!ifndef Z6_ECM_MODE {
+!ifndef Z6_WINDOW_BG {
+.stc_swap	!byte 0
+}
+}
+; The window set_colour is talking about: its optional third operand in v6,
+; the current window when it is left out (z-spec, set_colour). Resolved by
+; z_ins_set_colour, read by s_track_colours and by the hardware paths below,
+; which only apply the colours when this IS the current window.
+set_colour_window	!byte 0
 }
 
 z_ins_set_colour
 	; set_colour foreground background [window]
-	; (in ECM mode the background is set per window, otherwise the window
-	; operand is not used in Ozmoo)
+	; In v6 the window operand is optional and names the window whose colours
+	; are to be changed, defaulting to the current window (z-spec, set_colour).
+	; It used to be ignored outside ECM, so a game that coloured a window it
+	; was not printing in - Z6SetColour(fg, bg, w), the natural way to dress a
+	; window before showing it - had the colours land on the current window
+	; instead: the last set_colour won everywhere, and the text printed into
+	; each window came out in whatever pair had been set last.
 !ifdef DEBUG_SCREENLOG {
 	lda #13
 	jsr screenlog_hook
@@ -3078,6 +3167,16 @@ z_ins_set_colour
 	jsr printchar_flush
 
 !ifdef Z6 {
+	; which window is being coloured (the third operand, or the current one;
+	; -3 also means the current one, as everywhere else in the window model)
+	ldx current_window
+	lda z_operand_count
+	cmp #3
+	bcc +
+	ldx #2
+	jsr window_from_operand
+	tax
++	stx set_colour_window
 	jsr s_track_colours	; the window's colour pair (property 11)
 !ifdef DEBUG_SCREENLOG {
 	; what the tracking made of it: byte 6 the operand count, byte 7 the swap
@@ -3089,7 +3188,13 @@ z_ins_set_colour
 	; per-cell hardware backgrounds: apply the window's real fg/bg (both from
 	; window_colour, resolved by s_track_colours) and let every cell carry it,
 	; instead of the reverse-video swap fake. The cursor follows the foreground.
-	jsr x16_apply_window_colour
+	; Only the current window's colours go live; another window's are applied
+	; when it becomes current (set_window) or is erased (erase_window).
+	lda set_colour_window
+	cmp current_window
+	beq +
+	rts
++	jsr x16_apply_window_colour
 	lda s_colour
 	sta current_cursor_colour
 !ifdef Z6_PICTURES {
@@ -3117,6 +3222,10 @@ z_ins_set_colour
 	lda s_colour_swap
 	beq +
 	rts	; swap mode: reverse video does the work, the colours stay put
++	lda set_colour_window
+	cmp current_window
+	beq +
+	rts	; another window: its pair is recorded, the screen's colours stay put
 +
 }
 }
@@ -3141,17 +3250,11 @@ z_ins_set_colour
 	lda zcolours,x
 +
 !ifdef Z6_ECM_MODE {
-	; give the window its own background register
+	; give the window its own background register (set_colour_window is the
+	; third operand, or the current window when it is left out or is -3)
 	sty zp_temp
-	ldx current_window
-	ldy z_operand_count
-	cpy #3
-	bcc +
-	ldx z_operand_value_low_arr + 2
-	cpx #8
-	bcc +
-	ldx current_window ; window -3/-2/-1 (and anything odd): use the current one
-+	jsr ecm_set_window_bg
+	ldx set_colour_window
+	jsr ecm_set_window_bg
 	ldy zp_temp
 	; the border follows background register 0 only
 	ldx current_window
@@ -3166,6 +3269,17 @@ z_ins_set_colour
 	bne .current_background
 	+SetBorderColour
 .current_background
+!ifdef Z6_ECM_MODE {
+	; ECM has a background register per window, so a set_colour naming another
+	; window has just moved that window's background for real - but the
+	; foreground is one global colour, and it belongs to the window being
+	; printed in, so stop here for any window but the current one.
+	lda set_colour_window
+	cmp current_window
+	beq +
+	rts
++
+}
 
 ; Set foreground colour
 	ldx z_operand_value_low_arr
