@@ -779,6 +779,27 @@ cells_to_units_x
 	ldx .unit_tmp + 1
 	rts
 
+units_to_cells_x_up
+	; a,x = a 0-based column in units -> a = the first cell at or after it: the
+	; position is rounded UP to a character boundary, not down.
+	;
+	; Text lives on the cell grid and only a picture can carry the sub-cell
+	; remainder, so a position part-way into a cell has to be snapped to a cell
+	; edge - and the edge to snap to is the one that keeps the text INSIDE the
+	; rectangle the game asked for. Flooring puts it up to a whole cell to the
+	; left of the window's own left edge: a window moved to unit 160, the
+	; middle of a 320 pixel screen and where the games put things, began at
+	; column 19 - eight pixels outside itself - and its text with it
+	; (fredrik.inf). Rounding up gives 158 and 160 column 20, and 162 column
+	; 21. The canonical cell * font-width + 1 coordinates the commercial games
+	; compute have no remainder and are unchanged.
+	;
+	; Sizes still round down (z_ins_window_size), so both edges move inwards
+	; and a window can only ever lose the odd part cell, never claim one.
+	clc
+	adc #Z6_UNIT_W - 1
+	bcc units_to_cells_x
+	inx					; the carry belongs in the high byte
 units_to_cells_x
 	; a,x = a column or a width in units -> a = it in cells, rounded down. A
 	; game that asks for a text position between cells gets the cell it starts
@@ -799,6 +820,11 @@ cells_to_units_y
 	asl
 	rts
 
+units_to_cells_y_up
+	; a = a 0-based row in units -> a = the first row at or after it. The y
+	; axis of units_to_cells_x_up; 199 + a cell still fits a byte.
+	clc
+	adc #Z6_UNIT_H - 1
 units_to_cells_y
 	; a = a row or a height in units -> a in cells, rounded down
 	lsr
@@ -929,7 +955,11 @@ z_ins_move_window
 	beq .mw_row_zero
 	sec
 	sbc #1					; 1-based units to 0-based
-	jsr units_to_cells_y
+!ifdef Z6_FCM_TEXT_BAKE {
+	jsr units_to_cells_y	; floor: the remainder below is drawn, not lost
+} else {
+	jsr units_to_cells_y_up
+}
 .mw_row_zero
 	sta window_y,y
 	sta window_y_cursor,y
@@ -959,7 +989,7 @@ z_ins_move_window
 	sbc #1					; the word minus one, borrowing into the high byte
 	bcs +
 	dex
-+	jsr units_to_cells_x
++	jsr units_to_cells_x_up
 	jmp .mw_store_col
 .mw_col_zero
 	lda #0
@@ -1110,8 +1140,13 @@ z_ins_get_wind_prop
 	lda z_operand_value_low_arr + 1
 	cmp #2
 	bcs +
+!if Z6_UNIT_W_SHIFT > 0 {
+	jmp .gwp_scale ; property 0/1 (y/x position): .gwp_scale adds the 1-based
+					; bias in UNITS, after scaling
+} else {
 	inx ; property 0/1 (y/x position): 1-based
 	bne .gwp_scale ; Always branch
+}
 +	cmp #4
 	beq .gwp_cursor_y
 	cmp #5
@@ -1157,8 +1192,12 @@ z_ins_get_wind_prop
 	sec
 	sbc window_x,y
 	tax
+!if Z6_UNIT_W_SHIFT > 0 {
+	jmp .gwp_scale ; the 1-based bias is a unit, added after scaling
+} else {
 	inx
 	bne .gwp_scale ; Always branch
+}
 .gwp_cursor_y
 	; property 4 (y cursor): stored absolute, return window-relative 1-based;
 	; live in zp for the current window, as above
@@ -1169,7 +1208,9 @@ z_ins_get_wind_prop
 	sec
 	sbc window_y,y
 	tax
+!if Z6_UNIT_W_SHIFT = 0 {
 	inx
+}
 .gwp_scale
 	; Properties 0-7 are positions, sizes and margins, all in units: they are
 	; kept in cells, so scale on the way out. Which axis a property counts
@@ -1177,6 +1218,20 @@ z_ins_get_wind_prop
 	; 6 and 7 margins, which are horizontal - so bit 0 picks it, except for the
 	; two margins, which are both across.
 !if Z6_UNIT_W_SHIFT > 0 {
+	; The four POSITIONS (0, 1, 4, 5) are 1-based, and once a cell is more
+	; than one unit "1-based" means cell * font-size + 1, not the (cell + 1)
+	; * font-size that biasing in cells produced: the first row of a window
+	; is unit 1, not unit 8. It has to be this way round for the position to
+	; survive a round trip, since units_to_cells_*_up takes the bias off again
+	; - Shogun reads the cursor row back with get_wind_prop 4 and hands it
+	; straight to set_cursor for every centred line of its title screen, and
+	; the old pair of conventions cancelled out only while positions were
+	; floored. Bit 1 of the property number separates them: clear for the four
+	; positions, set for the two sizes and the two margins, which are counts
+	; and carry no bias.
+	lda z_operand_value_low_arr + 1
+	and #2
+	sta .gwp_bias			; 0 = a position, 2 = a count
 	lda z_operand_value_low_arr + 1
 	cmp #6
 	bcs .gwp_across			; 6 and 7: both margins are horizontal
@@ -1184,12 +1239,22 @@ z_ins_get_wind_prop
 	bne .gwp_across
 	txa					; a y coordinate, size or cursor row
 	jsr cells_to_units_y
-	tax
+	ldx .gwp_bias
+	bne +					; a count: no bias
+	clc
+	adc #1					; 199 + 1 still fits a byte
++	tax
 	jmp .gwp_store		; 'bra' would do, but this file builds for the 6510 too
 .gwp_across
 	txa
 	jsr cells_to_units_x	; a = low, x = high; a column can pass 255
-	tay
+	ldy .gwp_bias
+	bne +
+	clc
+	adc #1
+	bcc +
+	inx
++	tay
 	txa
 	pha
 	tya
@@ -1206,6 +1271,9 @@ z_ins_get_wind_prop
 	jmp z_store_result
 
 .gwp_window !byte 0
+!if Z6_UNIT_W_SHIFT > 0 {
+.gwp_bias !byte 0	; 0 while a 1-based position is being scaled, 2 for a count
+}
 !ifdef Z6_PIXEL_UNITS {
 .rm_col !byte 0		; read_mouse's column while it is scaled into units
 }
@@ -1511,8 +1579,22 @@ z_ins_put_wind_prop
 	sta .pwp_val + 1
 	lda z_operand_value_low_arr + 1
 	and #1
-	bne .pwp_x
-	beq .pwp_y				; always
+	bne .pwp_pos_x
+	; a position, like move_window's: round up to a cell boundary rather than
+	; down, so it stays inside the window (see units_to_cells_x_up)
+!ifdef Z6_FCM_TEXT_BAKE {
+	lda .pwp_val
+	jsr units_to_cells_y
+} else {
+	lda .pwp_val
+	jsr units_to_cells_y_up
+}
+	jmp .pwp_scaled
+.pwp_pos_x
+	lda .pwp_val
+	ldx .pwp_val + 1
+	jsr units_to_cells_x_up
+	jmp .pwp_scaled
 .pwp_zero
 	lda #0
 	jmp .pwp_scaled
@@ -2281,8 +2363,10 @@ z_ins_set_cursor
 	sbc #1
 !ifdef Z6_FCM_TEXT_BAKE {
 	pha							; keep the 0-based line in units for its remainder
+	jsr units_to_cells_y	; floor: the remainder below is drawn, not lost
+} else {
+	jsr units_to_cells_y_up
 }
-	jsr units_to_cells_y
 +	clc
 	adc window_y,y
 	sta window_y_cursor,y
@@ -2357,7 +2441,7 @@ z_ins_set_cursor
 	sbc #0
 	tax
 	lda .sc_tmp
-	jsr units_to_cells_x
+	jsr units_to_cells_x_up
 	tax
 	jmp .sc_column_add
 } else {
