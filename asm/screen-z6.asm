@@ -2583,11 +2583,6 @@ vera_show_more
 	lda #$2a + 128
 	bne .vera_common_more ; Always branch
 
-vera_hide_more
-	sty .vera_more_temp
-	lda .vera_more_row
-	sta zp_screenline + 1
-	lda #32
 .vera_common_more
 	ldy .vera_more_col
 	jsr VERAPrintChar
@@ -2597,6 +2592,49 @@ vera_hide_more
 	sta zp_screenline + 1
 	ldy .vera_more_temp
 	rts
+
+vera_save_more_cell
+	; Remember the prompt cell's character AND its colour byte. The colour is
+	; the point: over a picture, pic_fill_cells leaves the cell's background
+	; nybble at 0 - the transparent one that lets layer 0 show through - and
+	; VERAPrintChar always writes vera_composite_colour, so the prompt turned
+	; the cell into an opaque box of the window's background. Writing a space
+	; when the prompt was done left that box behind, which is how Shogun's ship
+	; lost the cell the [More] prompt had used.
+	jsr .vera_more_address
+	lda VERA_data0			; port 0 is selected with stride 1 throughout
+	sta .vera_more_char
+	lda VERA_data0
+	sta .vera_more_colour
+	rts
+
+vera_hide_more
+	; The other half of the blink, and the last thing the prompt does: put the
+	; cell back exactly as it was, so a picture behind it reappears.
+	jsr .vera_more_address
+	lda .vera_more_char
+	sta VERA_data0
+	lda .vera_more_colour
+	sta VERA_data0
+	rts
+
+.vera_more_address
+	; Point port 0 at the prompt's cell. A VERA text cell is two bytes and a
+	; row is 256 whatever the width, so the row is the address high byte and
+	; the column never carries into it (the same arithmetic
+	; .convert_screenline_y_to_vera_address does, which is local to
+	; screenkernal-z6.asm). The screen code's standing convention leaves port 0
+	; selected with stride 1, so the bank register is already right.
+	lda .vera_more_col
+	asl
+	sta VERA_addr_low
+	lda .vera_more_row
+	adc #$b0				; the carry is clear after the asl
+	sta VERA_addr_high
+	rts
+
+.vera_more_char   !byte 0
+.vera_more_colour !byte 0
 }
 
 
@@ -2771,6 +2809,23 @@ show_more_prompt
 .more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
 	sta .more_text_char
+!ifdef Z6_FCM_MODE {
+	; A cell is two bytes here, and over a picture the high byte points into
+	; the tile store: writing the '*' screen code into the low byte alone left
+	; the cell pointing at some OTHER tile, which is the static white box the
+	; prompt showed on Shogun's ship - and why the colour blink below could not
+	; make it flash, a full colour tile taking its pixels from the store rather
+	; than from colour RAM. Save both bytes and the colour, and flash the whole
+	; cell between the prompt and whatever was behind it. Over text this is the
+	; same blink as before: the cell alternates with a space rather than with
+	; the background colour.
+.more_access1b
+	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+	sta .more_text_high
+	ldz #0
+	lda [zp_more_colour],z
+	sta .more_text_colour
+}
 !ifdef Z6_ECM_MODE {
 	; bit 7 selects a background register in ECM, so no reverse video
 	lda #$2a ; screen code for "*"
@@ -2782,7 +2837,11 @@ show_more_prompt
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
 } else {
-	lda $8000
+	jsr vera_save_more_cell	; the X16 keeps its cell's character AND colour
+}
+!ifdef Z6_FCM_MODE {
+	jsr .more_fcm_show		; ...and the high byte with it, so the store above
+							; cannot leave a stale tile code on screen
 }
 
 	; wait for ENTER
@@ -2810,6 +2869,9 @@ show_more_prompt
 } else ifdef TARGET_X16 {
 	jsr vera_hide_more
 	jmp ++
+} else ifdef Z6_FCM_MODE {
+	jsr .more_fcm_hide
+	jmp ++
 } else {
 	ldx reg_backgroundcolour
 }
@@ -2821,15 +2883,11 @@ show_more_prompt
 	jsr vdc_show_more
 } else ifdef TARGET_X16 {
 	jsr vera_show_more
+} else ifdef Z6_FCM_MODE {
+	jsr .more_fcm_show
 }
 ++
-!ifdef Z6_FCM_MODE {
-	; the prompt cell's colour goes through the 32-bit pointer that
-	; .set_more_prompt_pos points at the current window's bottom-right cell
-	txa
-	ldz #0
-	sta [zp_more_colour],z
-} else {
+!ifndef Z6_FCM_MODE {
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
@@ -2869,14 +2927,51 @@ show_more_prompt
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
 } else {
-	lda $8000
-	jsr vera_hide_more
+	jsr vera_hide_more		; ...which puts the saved cell back
+}
+!ifdef Z6_FCM_MODE {
+	lda .more_text_high
+.more_access4b
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
+	lda .more_text_colour
+	ldz #0
+	sta [zp_more_colour],z
 }
 .increase_num_rows_done
 	rts
 
 .more_text_char !byte 0
 .more_blink_phase !byte 0
+
+!ifdef Z6_FCM_MODE {
+.more_text_high   !byte 0	; the cell's high byte: nonzero means a picture tile
+.more_text_colour !byte 0
+.more_fcm_show
+	; the prompt: the '*' as an ordinary glyph, so the high byte must go to
+	; zero, in the text colour rather than whatever a tile left in colour RAM
+	lda #128 + $2a
+.more_access5
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+	lda #0
+.more_access6
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+	lda s_colour
+	ldz #0
+	sta [zp_more_colour],z
+	rts
+.more_fcm_hide
+	; ...and the other half of the blink is the cell exactly as it was
+	lda .more_text_char
+.more_access7
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+	lda .more_text_high
+.more_access8
+	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+	lda .more_text_colour
+	ldz #0
+	sta [zp_more_colour],z
+	rts
+}
 
 .set_more_prompt_pos
 	; Point the [More] prompt at the bottom right cell of the current
@@ -2950,11 +3045,28 @@ show_more_prompt
 	sta .more_access1 + 1
 	sta .more_access2 + 1
 	sta .more_access4 + 1
+!ifdef Z6_FCM_MODE {
+	sta .more_access5 + 1
+	sta .more_access7 + 1
+	ora #1					; the cell's high byte. A row's start is a multiple
+	sta .more_access1b + 1	; of the row width and the cell offset is a column
+	sta .more_access4b + 1	; doubled, so this is an even address and the +1
+	sta .more_access6 + 1	; cannot carry into the page
+	sta .more_access8 + 1
+}
 	lda zp_screenline + 1
 	adc #0
 	sta .more_access1 + 2
 	sta .more_access2 + 2
 	sta .more_access4 + 2
+!ifdef Z6_FCM_MODE {
+	sta .more_access1b + 2
+	sta .more_access4b + 2
+	sta .more_access5 + 2
+	sta .more_access6 + 2
+	sta .more_access7 + 2
+	sta .more_access8 + 2
+}
 !ifndef BENCHMARK {
 !ifdef Z6_FCM_MODE {
 	; zp_colourline holds the row's colour RAM offset, already biased to the
