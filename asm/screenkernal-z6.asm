@@ -434,6 +434,22 @@ x16_apply_window_colour
 	; changes, so every cell printed or erased carries that window's own
 	; background - the per-window background the reverse-video fake stood in for.
 	ldx current_window
+	jsr x16_apply_colour_for_window
+	; The input cursor follows the current window's foreground. z_ins_set_colour
+	; already does this for the window it colours, but a WINDOW SWITCH changes
+	; the live foreground too and used to leave current_cursor_colour behind:
+	; Shogun gives its status window white on black and then prints the body
+	; black on white, so the cursor stayed white and vanished into the page -
+	; a read prompt with no block on it. A build that pinned the cursor to a
+	; colour of its own (cursorcol other than the magic 1) keeps that colour.
+	ldx darkmode
+	ldy cursorcol,x
+	cpy #1
+	bne +
+	lda s_colour			; VERASetForegroundColour left it there
+	sta current_cursor_colour
++	rts
+
 x16_apply_colour_for_window
 	; ...and this entry takes the window in x, for erase_window, which erases
 	; a window that need not be the current one and must fill it with its own
