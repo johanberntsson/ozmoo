@@ -3078,6 +3078,13 @@ pic_scroll_win_up
 	jsr .psu_edge
 .psu_done
 	stz VERA_ctrl			; leave port 0 selected, as the screen code expects
+	lda #$11				; ...and pointing at bank 1 with stride 1, which is
+	sta VERA_addr_bank		; the other half of that convention: .psu_edge reads
+							; the tile store through .pic_tile_addr, and that
+							; leaves port 0 on bank 0. VERAPrintChar sets only
+							; the address low and high bytes, so a cursor or a
+							; character printed after the scroll would go into
+							; the tile store instead of the screen.
 	rts
 
 .psu_edge
