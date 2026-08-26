@@ -2975,7 +2975,27 @@ pic_scroll_win_up
 	; window move - the same boundary rule pic_erase_win_rect keeps for an
 	; odd-column window.
 	ldx current_window
-	lda window_x,x
+	; The rows come first, so a window too narrow to hold one whole map cell
+	; still gets its shared edge cells scrolled below.
+	lda window_y_size,x
+	bne +
+	jmp .psu_done			; a window with no height: the row below would
++							; borrow past zero and walk the whole map
+	lda window_y,x
+	sta .psu_top			; the window's top row
+	sta .psu_dst
+	clc
+	adc window_y_size,x
+	cmp s_screen_height		; clamp the bottom edge to the screen
+	bcc +
+	lda s_screen_height
++	sec
+	sbc #1
+	sta .psu_bottom			; the window's last (on-screen) row
+	cmp .psu_top
+	bcs +
+	jmp .psu_done			; no rows on screen: nothing to scroll
++	lda window_x,x
 	clc
 	adc #1
 	lsr						; first whole map column inside the window
@@ -2986,22 +3006,14 @@ pic_scroll_win_up
 	cmp s_screen_width		; clamp the right edge to the screen
 	bcc +
 	lda s_screen_width
-+	lsr						; first map column past the window
++	sta .psu_right			; the first text column past the window
+	lsr						; first map column past the window
 	sec
 	sbc .psu_col0
-	beq .psu_done			; no whole cells inside: nothing to scroll
-	bcc .psu_done
-	sta .psu_cw				; whole map cells across the window
-	lda window_y,x
-	sta .psu_dst			; the window's top row
-	clc
-	adc window_y_size,x
-	cmp s_screen_height		; clamp the bottom edge to the screen
-	bcc +
-	lda s_screen_height
-+	sec
-	sbc #1
-	sta .psu_bottom			; the window's last (on-screen) row
+	bcs +
+	lda #0					; the window is inside one map cell
++	sta .psu_cw				; whole map cells across the window
+	beq .psu_edges			; none: only the shared halves to do
 	lda #0
 	sta .pic_y				; .pic_map_row_addr adds .pic_y to .pic_row
 	lda .psu_col0
@@ -3040,14 +3052,297 @@ pic_scroll_win_up
 	sta VERA_data1
 	dex
 	bne -
+.psu_edges
+	; A map cell is two text columns wide, so a window that starts or ends on an
+	; ODD text column shares its edge cell with what lies outside it, and until
+	; August 2026 that cell was simply left alone - which stranded the window's
+	; own first (or last) text column on layer 0. Zork Zero's window 0 starts at
+	; text column 11, its border picture being 43 art pixels wide, so its
+	; drop-cap initial left a stale four-pixel sliver behind every line that
+	; scrolled. .psu_edge rebuilds those cells half by half.
+	ldx current_window
+	lda window_x,x
+	lsr						; window_x / 2, carry = the odd bit
+	bcc .psu_right_edge		; an even left edge shares no cell
+	sta .pic_lx
+	lda #0					; the outside half is the first four bytes
+	sta .psu_edge_half
+	jsr .psu_edge
+.psu_right_edge
+	lda .psu_right
+	lsr
+	bcc .psu_done			; an even right edge shares no cell
+	sta .pic_lx
+	lda #4					; the outside half is the last four bytes
+	sta .psu_edge_half
+	jsr .psu_edge
 .psu_done
 	stz VERA_ctrl			; leave port 0 selected, as the screen code expects
 	rts
 
-.psu_col0   !byte 0
-.psu_cw     !byte 0
-.psu_dst    !byte 0
-.psu_bottom !byte 0
+.psu_edge
+	; Scroll the shared cell column .pic_lx up one row. .psu_edge_half names the
+	; half that lies OUTSIDE the window - 0 for the first four bytes of each
+	; pixel row, 4 for the last - and that half must stand still: it belongs to
+	; whatever is beside the window, and a picture drawn into an odd-column
+	; window puts its background fill there, because the draw blanks the text
+	; cell outside the window as well as the one inside it. Scrolling the cell
+	; whole would drag that with it; leaving the cell alone strands the window's
+	; own column, which is what Zork Zero's drop-cap initial did - a stale
+	; four-pixel sliver left behind by every line that scrolled.
+	;
+	; So each cell is rebuilt from its own outside half and the inside half of
+	; the cell below it. Nothing is baked when the two cells' outside halves
+	; already agree, which is the case all the way through a picture's own run:
+	; the cell below IS the composite, so its entry is simply copied. Only the
+	; leading and trailing edges of a moving picture need a tile, and a cell
+	; that ends up empty goes back to the transparent tile 0. If the store is
+	; full the bake fails and the cell is left as it was, as it always was.
+	lda .pic_entry_hi
+	pha						; the draw path's bank; the bakes below borrow it
+	lda #0
+	sta .pic_y
+	lda .psu_top
+	sta .psu_dst
+.pse_row
+	lda .psu_dst
+	sta .pic_row
+	jsr .psu_read_entry
+	jsr .psu_load_dst		; the whole cell -> .pcf_buf, its colour -> .psu_dcol
+	lda .psu_dst
+	cmp .psu_bottom
+	bcs .pse_from_nothing
+	clc
+	adc #1
+	sta .pic_row
+	jsr .psu_read_entry		; the cell below supplies the inside half
+	jmp .pse_inside
+.pse_from_nothing
+	lda #0					; the new last row takes a blank inside half
+	sta .psu_ent
+	sta .psu_ent + 1
+.pse_inside
+	jsr .psu_load_src
+	lda .psu_changed
+	beq .pse_next			; the inside half is already what it should be
+	lda .psu_out_same
+	beq .pse_check_empty
+	lda .psu_out_any
+	beq +					; a transparent outside half has no colour to keep
+	lda .psu_scol			; ...one with pixels in it must keep its bank too,
+	eor .psu_dcol			; or the same indices would come out another colour
+	and #$f0
+	bne .pse_check_empty
++	lda .psu_ent			; the cell below is the composite: take its entry
+	sta .pcf_newcode_lo
+	lda .psu_scol			; ...with the colour nybbles .psu_load_src masked off
+	sta .pcf_newcode_hi
+	jmp .pse_write
+.pse_check_empty
+	lda .psu_in_any
+	ora .psu_out_any
+	bne .pse_bake
+	lda #0					; nothing left in the cell: the transparent tile
+	sta .pcf_newcode_lo
+	sta .pcf_newcode_hi
+	jmp .pse_write
+.pse_bake
+	lda .psu_in_any
+	beq +
+	lda .psu_scol			; the moving half decides the palette
+	jmp ++
++	lda .psu_dcol
+++	and #$f0
+	sta .pic_entry_hi
+	jsr .pcf_alloc_and_write
+	bcc .pse_next			; the store is full: leave the cell as it was
+.pse_write
+	lda .psu_dst
+	sta .pic_row
+	ldy #1
+	jsr .pic_map_row_addr
+	lda .pcf_newcode_lo
+	sta VERA_data1
+	lda .pcf_newcode_hi
+	sta VERA_data1
+.pse_next
+	lda .psu_dst
+	cmp .psu_bottom
+	bcs .pse_done
+	inc .psu_dst
+	jmp .pse_row			; always (rows are well under 256)
+.pse_done
+	pla
+	sta .pic_entry_hi
+	rts
+
+.psu_read_entry
+	; The map entry at (.pic_row + .pic_y, .pic_lx) -> .psu_ent.
+	ldy #0
+	jsr .pic_map_row_addr
+	lda VERA_data0
+	sta .psu_ent
+	lda VERA_data0
+	sta .psu_ent + 1
+	rts
+
+.psu_load_dst
+	; .psu_ent = the destination cell. Copy its whole tile into .pcf_buf, keep
+	; its colour nybbles in .psu_dcol, and set .psu_out_any if any pixel of the
+	; outside half is not transparent. Tile 0 is the reserved transparent one.
+	lda .psu_ent + 1
+	sta .psu_dcol
+	and #3					; the tile index's high bits
+	sta .psu_ent + 1
+	lda #0
+	sta .psu_out_any
+	lda .psu_ent
+	ora .psu_ent + 1
+	bne .pld_tile
+	ldy #63
+	lda #0
+-	sta .pcf_buf,y
+	dey
+	bpl -
+	rts
+.pld_tile
+	lda .psu_ent
+	ldx .psu_ent + 1
+	ldy #0
+	jsr .pic_tile_addr
+	ldy #0
+-	lda VERA_data0
+	sta .pcf_buf,y
+	iny
+	cpy #64
+	bne -
+	ldy .psu_edge_half		; four bytes of every eight are the outside half
+.pld_row
+	ldx #4
+-	lda .pcf_buf,y
+	ora .psu_out_any
+	sta .psu_out_any
+	iny
+	dex
+	bne -
+	tya
+	clc
+	adc #4
+	tay
+	cpy #64
+	bcc .pld_row
+	rts
+
+.psu_load_src
+	; .psu_ent = the cell below (or 0 for the new last row). Its inside half
+	; replaces .pcf_buf's, and its outside half is compared with the one
+	; already there. Sets .psu_in_any (the new inside half has a pixel),
+	; .psu_changed (it differs from what it replaces) and .psu_out_same (the
+	; two outside halves are identical, so the source tile IS the composite).
+	lda .psu_edge_half
+	eor #4
+	sta .psu_h				; where the inside half starts in a pixel row
+	lda #0
+	sta .psu_in_any
+	sta .psu_changed
+	lda #1
+	sta .psu_out_same
+	lda .psu_ent + 1
+	sta .psu_scol			; the colour nybbles, before the mask below
+	and #3
+	sta .psu_ent + 1
+	lda .psu_ent
+	ora .psu_ent + 1
+	bne .pls_tile
+	; no tile below: the inside half becomes transparent, and an all-transparent
+	; outside half is the only one that matches
+	ldy .psu_h
+.pls_zrow
+	ldx #4
+-	lda .pcf_buf,y
+	beq +
+	sta .psu_changed
+	lda #0
+	sta .pcf_buf,y
++	iny
+	dex
+	bne -
+	tya
+	clc
+	adc #4
+	tay
+	cpy #64
+	bcc .pls_zrow
+	lda .psu_out_any
+	beq +
+	lda #0
+	sta .psu_out_same
++	rts
+.pls_tile
+	lda .psu_ent
+	ldx .psu_ent + 1
+	ldy #0
+	jsr .pic_tile_addr
+	ldy #0
+.pls_row
+	lda .psu_h
+	beq .pls_inside_first
+	jsr .pls_outside4		; the outside half comes first
+	jsr .pls_inside4
+	jmp .pls_next
+.pls_inside_first
+	jsr .pls_inside4
+	jsr .pls_outside4
+.pls_next
+	cpy #64
+	bcc .pls_row
+	rts
+.pls_inside4
+	ldx #4
+-	lda VERA_data0
+	sta .psu_b
+	cmp .pcf_buf,y
+	beq +
+	lda #$ff
+	sta .psu_changed
++	lda .psu_b
+	sta .pcf_buf,y
+	ora .psu_in_any
+	sta .psu_in_any
+	iny
+	dex
+	bne -
+	rts
+.pls_outside4
+	ldx #4
+-	lda VERA_data0
+	cmp .pcf_buf,y
+	beq +
+	pha
+	lda #0
+	sta .psu_out_same
+	pla
++	iny
+	dex
+	bne -
+	rts
+
+.psu_col0      !byte 0
+.psu_cw        !byte 0
+.psu_dst       !byte 0
+.psu_top       !byte 0
+.psu_bottom    !byte 0
+.psu_right     !byte 0
+.psu_edge_half !byte 0	; the byte offset of the half outside the window
+.psu_h         !byte 0	; ...and of the half inside it
+.psu_ent       !byte 0,0
+.psu_dcol      !byte 0	; the destination entry's colour nybbles
+.psu_scol      !byte 0	; ...and the source's
+.psu_b         !byte 0
+.psu_in_any    !byte 0
+.psu_out_any   !byte 0
+.psu_out_same  !byte 0
+.psu_changed   !byte 0
 
 pic_clear_map_rows
 	; a = first text row, x = the row past the last. Clear the layer 0 map
