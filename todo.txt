@@ -1812,6 +1812,29 @@ the worst single picture) renders clean; quit lands in a readable BASIC.
 The text-only X16 build and the whole non-X16 matrix are unchanged.
 
 Still open for the X16 pictures screen:
+- The ERASE paths still skip a shared edge cell. A VERA layer 0 tile is 16
+  pixels wide - two text columns - so a window that starts or ends on an odd
+  text column shares its edge cell with what lies beside it, and
+  pic_erase_win_rect and pic_erase_line_cells only touch the whole cells
+  inside the window. So an erase_window in an odd-column window leaves that
+  column's artwork behind. pic_scroll_win_up had the same hole and was fixed
+  in August 2026 (.psu_edge rebuilds the cell from its own outside half and
+  the inside half of the cell below), so the machinery is there: an erase
+  wants the same thing with a transparent inside half, and the same "nothing
+  is baked unless the cell actually changes" rule. Zork Zero's window 0 sits
+  at text column 11 and Shogun's window is odd-ended too, so both can reach
+  it; nobody has reported it, which is only because an erase is usually
+  followed by a redraw of the same picture.
+- 8-pixel tiles would retire the whole class. The shared-edge problem exists
+  only because a map cell is two text cells wide. VERA can do 8x8 tiles: at
+  4bpp that is 32 bytes each, so bank 0 holds 2048 of them against a
+  requirement that exactly doubles (one art cell becomes two tiles), and the
+  map grows to 128 columns x 32 rows = 8 KB, which fits below the text layer
+  at $1b000. Then a map cell IS a text cell: no boundary halves in erase, in
+  scroll, in erase_line or in .pic_erase, and .pic_gen_fill's x axis gets
+  simpler too. It is a rewrite of the engine's cell arithmetic rather than a
+  patch, which is why it has not been done - but it is the right shape, and
+  every shared-edge workaround above is a down payment on it.
 - Odd text columns: mostly done (July 2026). A picture placed at an odd text
   column used to round down to the even tile grid, landing 8px left (Arthur
   centres scenes at odd columns). The MEGA65's 8px-halves model can't be
