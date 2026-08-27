@@ -121,7 +121,7 @@ vmap_used_entries     = $96 ; ### OK C128
 vmap_quick_index_match= $97 ; ### OK C128
 
 cursor_row            = $9b ; 2 bytes ### OK C128
-cursor_column         = $a6 ; 2 bytes ### OK C128
+;cursor_column         = $a6 ; 2 bytes ### OK C128 (now declared in screen.asm)
 
 
 window_start_row      = $a8 ; 4 bytes ### OK C128

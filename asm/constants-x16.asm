@@ -179,7 +179,7 @@ zp_screencolumn       = $eb ; current cursor column
 zp_screenrow          = $ec ; current cursor row
 zp_colourline         = $ed ; 2 bytes current line (pointer to colour memory)
 cursor_row			  = $ef ; 2 bytes
-cursor_column		  = $f1 ; 2 bytes
+;cursor_column		  = $f1 ; 2 bytes (now declared in screen.asm)
 
 x16_z_address_bank    = $f3
 x16_z_adress_pointer  = $f4 ; 2 bytes
