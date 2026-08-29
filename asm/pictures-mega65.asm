@@ -3147,6 +3147,118 @@ bake_shadow_clear
 	jmp .pic_fill_cells
 +	jmp .pic_gen_fill
 
+!ifdef Z6_PIXEL_UNITS {
+.pe_wpx  !byte 0, 0			; the picture's real size in art pixels
+.pe_hpx  !byte 0
+.pe_tmp  !byte 0, 0
+
+.pe_interior
+	; .pic_x / .pic_w and .pic_y / .pic_h = the whole cells that lie entirely
+	; inside the picture's rectangle: first = ceil(corner / cell), one past the
+	; last = floor((corner + size) / cell). A cell the picture only partly
+	; covers holds part of whatever it was drawn over - the frame border round
+	; Arthur's room scenes - and blanking it strips that for good, because
+	; .pic_draw then leaves the cell alone (it has nothing of its own to put
+	; there) and the frame is never redrawn.
+	;
+	; This has to work from the picture's REAL pixel size, not the cell counts
+	; in its file, which are the size rounded UP to whole cells: the churchyard
+	; is 130 pixels wide and stored 136 wide, so the old rectangle reached a
+	; column and a half past the art. That was the white stripe beside the room
+	; picture on the second and every later turn - the first turn escaped only
+	; because nothing was there to erase yet. Measuring the real rectangle also
+	; subsumes the shift adjustment this replaces: a cell an off-grid picture
+	; only half covers is not inside it either.
+	lda #<pic_px_width_lo
+	ldx #>pic_px_width_lo
+	jsr .pe_lookup
+	sta .pe_wpx
+	lda #<pic_px_width_hi
+	ldx #>pic_px_width_hi
+	jsr .pe_lookup
+	sta .pe_wpx + 1
+	lda #<pic_px_height
+	ldx #>pic_px_height
+	jsr .pe_lookup
+	sta .pe_hpx
+	lda .pic_px				; the first whole cell across
+	clc
+	adc #GEN_CELL_W - 1
+	sta .pe_tmp
+	lda .pic_px + 1
+	adc #0
+	sta .pe_tmp + 1
+	jsr .pe_div_w
+	lda .pe_tmp
+	sta .pic_x
+	lda .pic_px				; and one past the last
+	clc
+	adc .pe_wpx
+	sta .pe_tmp
+	lda .pic_px + 1
+	adc .pe_wpx + 1
+	sta .pe_tmp + 1
+	jsr .pe_div_w
+	sec
+	lda .pe_tmp
+	sbc .pic_x
+	bcs +
+	lda #0					; narrower than a cell: no interior at all
++	sta .pic_w
+	lda .pic_py				; the same down the other axis, where a cell is
+	clc						; always 8 art rows
+	adc #7
+	sta .pe_tmp
+	lda #0
+	adc #0
+	sta .pe_tmp + 1
+	jsr .pe_div_h
+	lda .pe_tmp
+	sta .pic_y
+	lda .pic_py
+	clc
+	adc .pe_hpx
+	sta .pe_tmp
+	lda #0
+	adc #0
+	sta .pe_tmp + 1
+	jsr .pe_div_h
+	sec
+	lda .pe_tmp
+	sbc .pic_y
+	bcs +
+	lda #0
++	sta .pic_h
+	rts
+
+.pe_lookup
+	; a,x = a table's address -> a = its byte for the picture in .pic_index
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
+	rts
+
+.pe_div_w
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+!if GEN_CELL_W = 8 {
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+}
+	rts
+
+.pe_div_h
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	rts
+}
+
 .pic_erase
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y, .pic_x,
 	; by putting a space in every cell it covered. s_printchar would do it, but
@@ -3156,10 +3268,13 @@ bake_shadow_clear
 	sta .pic_w
 	jsr .pic_att_next
 	sta .pic_h
-	; A picture drawn off the grid covers a cell more on each shifted axis, and
-	; those EDGE cells hold part of the picture beside part of whatever it was
-	; drawn over, so clearing them whole would strip that. Erase the interior
-	; only, as the X16 engine does.
+	; Only the cells the picture really covers may be blanked; see
+	; .pe_interior. Without the pixel unit model a cell IS the unit, so the
+	; picture's own cell count is its rectangle and only the shared edge cells
+	; an off-grid draw adds have to be kept back.
+!ifdef Z6_PIXEL_UNITS {
+	jsr .pe_interior
+} else {
 	jsr .pic_map_pos
 	lda .pic_shift
 	beq +
@@ -3169,7 +3284,9 @@ bake_shadow_clear
 	beq +
 	inc .pic_y
 	dec .pic_h
-+	lda .pic_w				; a picture one cell across or down has no interior
++
+}
+	lda .pic_w				; a picture one cell across or down has no interior
 	beq .pic_erase_done		; left, and a zero count would run .pic_start_row's
 	lda .pic_h				; counter all the way round
 	beq .pic_erase_done

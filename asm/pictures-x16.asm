@@ -2527,6 +2527,105 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	rts
 
 ; ---------------------------------------------------------------------------
+!ifdef Z6_PIXEL_UNITS {
+.pe_wpx  !byte 0, 0			; the picture's real size in art pixels
+.pe_hpx  !byte 0
+.pe_tmp  !byte 0, 0
+
+.pe_interior
+	; .pic_lx / .pic_cw and .pic_y / .pic_ch = the whole map cells that lie
+	; entirely inside the picture's rectangle: first = ceil(corner / 8), one
+	; past the last = floor((corner + size) / 8), a map cell being 8 art pixels
+	; each way. A cell the picture only partly covers holds part of whatever it
+	; was drawn over - the frame border round Arthur's room scenes - and
+	; blanking it strips that for good, since .pic_draw leaves such a cell
+	; alone when it has nothing of its own to put there and the frame is never
+	; redrawn.
+	;
+	; The real pixel size is what decides this, not the cell counts, which are
+	; the picture rounded UP to whole cells: the churchyard is 130 pixels wide
+	; and stored 136 wide, so the old rectangle reached past the art and blanked
+	; a column of frame. It also subsumes the shift adjustment it replaces - a
+	; cell an off-grid picture only half covers is not inside it either.
+	lda #<pic_px_width_lo
+	ldx #>pic_px_width_lo
+	jsr .pe_lookup
+	sta .pe_wpx
+	lda #<pic_px_width_hi
+	ldx #>pic_px_width_hi
+	jsr .pe_lookup
+	sta .pe_wpx + 1
+	lda #<pic_px_height
+	ldx #>pic_px_height
+	jsr .pe_lookup
+	sta .pe_hpx
+	lda .pic_px				; the first whole cell across
+	clc
+	adc #7
+	sta .pe_tmp
+	lda .pic_px + 1
+	adc #0
+	sta .pe_tmp + 1
+	jsr .pe_div8
+	lda .pe_tmp
+	sta .pic_lx
+	lda .pic_px				; and one past the last
+	clc
+	adc .pe_wpx
+	sta .pe_tmp
+	lda .pic_px + 1
+	adc .pe_wpx + 1
+	sta .pe_tmp + 1
+	jsr .pe_div8
+	sec
+	lda .pe_tmp
+	sbc .pic_lx
+	bcs +
+	lda #0					; narrower than a cell: no interior at all
++	sta .pic_cw
+	lda .pic_py				; the same down the other axis
+	clc
+	adc #7
+	sta .pe_tmp
+	lda #0
+	adc #0
+	sta .pe_tmp + 1
+	jsr .pe_div8
+	lda .pe_tmp
+	sta .pic_y
+	lda .pic_py
+	clc
+	adc .pe_hpx
+	sta .pe_tmp
+	lda #0
+	adc #0
+	sta .pe_tmp + 1
+	jsr .pe_div8
+	sec
+	lda .pe_tmp
+	sbc .pic_y
+	bcs +
+	lda #0
++	sta .pic_ch
+	rts
+
+.pe_lookup
+	; a,x = a table's address -> a = its byte for the picture in .pic_index
+	jsr .pic_addr
+	ldy #0
+	lda (.pi_ptr),y
+	rts
+
+.pe_div8
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	lsr .pe_tmp + 1
+	ror .pe_tmp
+	rts
+}
+
 .pic_erase
 	; Blank the rectangle the picture in .pic_index occupies at .pic_y,
 	; .pic_x: clear its layer 0 map cells back to the transparent tile 0.
@@ -2541,6 +2640,11 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	; nothing from this - its edge parts are transparent there.
 	; The size comes from the assembled-in tables, so erasing never has to
 	; load the picture from disk.
+!ifdef Z6_PIXEL_UNITS {
+	jsr .pe_interior		; the cells the picture really covers
+	lda #0
+	sta .pic_row
+} else {
 	jsr .pic_size
 	lda .pic_w
 	lsr
@@ -2558,7 +2662,9 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	beq +
 	inc .pic_y				; and the same down the other axis. .pic_y is the
 	dec .pic_ch				; engine's own copy, reset on the next draw.
-+	lda .pic_cw				; a picture only one cell across or down has no
++
+}
+	lda .pic_cw				; a picture only one cell across or down has no
 	beq .pic_erase_done		; interior once its edges are left alone - and a
 	lda .pic_ch				; zero cell count would run .pic_start_row's
 	beq .pic_erase_done		; counter all the way round

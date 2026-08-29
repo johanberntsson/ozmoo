@@ -1,6 +1,26 @@
 Known bugs
 ----------
 
+DONE 2026-08-29: erase_picture blanked cells the picture does not cover, which
+left a white stripe beside Arthur's room scene on the second and every later
+turn, on both graphics targets. A picture file stores whole cells, so a picture
+whose size is not a multiple of the cell size is stored rounded UP with the
+slack transparent - the room scenes are 130x72 art pixels and stored 136 wide -
+and `.pic_erase` took its rectangle from that stored cell count. It therefore
+reached a column and a half past the art and blanked cells of the frame the
+scene sits in; `.pic_draw` then left them alone, because a cell it is fully
+transparent in is skipped by design. Both engines now measure the rectangle from
+the picture's real pixel size (`.pe_interior`, off the pic_px_width/height
+tables): first cell = ceil(corner / cell), one past the last = floor((corner +
+size) / cell), which also subsumes the `.pic_shift` edge adjustment it replaces.
+
+  Still to do: an edge cell the picture only PARTLY covers is now never blanked,
+  so erasing a picture that stands on bare background can leave a sliver of up
+  to one cell of it behind. Doing that properly means rebuilding the edge tile
+  pixel by pixel, keeping the outside part and blanking the picture's - which is
+  what `.psu_edge` already does for the X16's window scroll. No game we ship
+  erases a picture standing on bare background, so this is polish.
+
 DONE 2026-08-24: a window with no rows on screen no longer scrolls the rest of
 memory. testz6scroll was writing $f0 into `darkmode` a few seconds in, on the
 MEGA65 -fcm - and darkmode is an INDEX, into the two-byte bgcol / fgcol /
