@@ -11,7 +11,7 @@ Written by Johan Berntsson and Fredrik Ramsberg in 2018-2026
 
 ## Status
 
-Update 2024-Aug-30: Release 16 with Z6 screen model, and support for graphics on MEGA65 and Commander X16.
+Update 2026-Aug-30: Release 16 with Z6 screen model, and support for graphics on MEGA65 and Commander X16.
 
 Update 2026-Feb-22: Release 15 with continuous virtual memory optimization for C64 and C128.
 
@@ -68,6 +68,8 @@ There are some other implementations, but they have their limitations:
 ## What games can Ozmoo run?
 
 The simple answer: Ozmoo should be able to run most Z-code games, regardless of size (A Z-code game can be up to 512 KB in size).
+
+![Shogun running on MEGA65](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/shogun-mega65.png)
 
 The longer answer:
 * Ozmoo supports version 1 - 8 of Z-code. For version 6 the level of support depends on the target platform. All targets support the eight window screen model, but only MEGA65 and Commander X16 supports graphics and mouse controls.
