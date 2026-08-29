@@ -12,9 +12,9 @@ if $is_windows then
 	# Paths on Windows. Comment out X16 and/or MEGA65 if you don't have them installed.
 	$executables = {
 		'X16' => "C:\\ProgramsWoInstall\\x16emu\\x16emu",
-		'X64' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -autostart-warp", # -autostart-delay-random"
-		'X128' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -80 -autostart-delay-random",
-		'XPLUS4' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -autostart-delay-random",
+		'X64' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -silent -autostart-warp", # -autostart-delay-random"
+		'X128' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -silent -80 -autostart-delay-random",
+		'XPLUS4' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -silent -autostart-delay-random",
 		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
 		'C1541' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe",
 		'EXOMIZER' => "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
@@ -29,9 +29,9 @@ else
 	# one: play() cd's in there so the emulator finds [ZCODE] and the pictures.
 	$executables = {
 		'X16' => "../x16-emulator46/x16emu",
-		'X64' => "x64 -autostart-delay-random",
-		'X128' => "x128 -autostart-delay-random",
-		'XPLUS4' => "xplus4 -autostart-delay-random",
+		'X64' => "x64 -silent -autostart-delay-random",
+		'X128' => "x128 -silent -autostart-delay-random",
+		'XPLUS4' => "xplus4 -silent -autostart-delay-random",
 		'MEGA65' => "xemu-xmega65 -besure",
 		'C1541' => "c1541",
 		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
@@ -2823,7 +2823,7 @@ def print_usage
 	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
 	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]] [-fcm[:0|1|40|80]]"
-	puts "         [-cb:[n]] [-cs:[b|u|l]]"
+	puts "         [-pics <blorbfile|picturedir>] [-cb:[n]] [-cs:[b|u|l]]"
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
 	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
@@ -2847,7 +2847,8 @@ def print_usage
 	puts "  -f: Embed the specified font with the game. See docs for details."
 	puts "  -cm: Use the specified character map (sv, da, de, it, es or fr)"
 	puts "  -um: Enable the default unicode map, e.g. Ä is printed as A. Enabled by default. Takes up 83 bytes."
-	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 8 for other games."
+	puts "  -in: Set the interpreter number (0-19). Default is 2 for Beyond Zork, 6 for an"
+	puts "       80-column v6 pictures build, 8 for other games."
 	puts "  -i: Add a loader using the specified image (Koala Multicolor for C64 and C128, Multibotticelli for Plus/4, IFF for MEGA65)"
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
@@ -2864,12 +2865,19 @@ def print_usage
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
 	puts "  -ecm: Use Extended Color Mode, giving each z6 window its own background"
-	puts "  -fcm: MEGA65 only. Use Full Colour Mode: an 80x25 z6 screen (640x200) with"
-	puts "        graphics kept at 320-wide scale. -fcm:40 gives the old 40x25 screen."
-	puts "  -pics: draw the numbered PNGs in the given directory. Needs -fcm."
 	puts "        colour (C64, z6 only). Only the first 64 characters of the charset"
 	puts "        can be used, so text is lowercase only and reverse video is lost."
-	puts "  -cb: Set cursor blink frequency (1-99, where 1 is fastest)."
+	puts "  -fcm: Use Full Colour Mode, the MEGA65's z6 graphics screen (MEGA65, z6"
+	puts "        only): 80x25 characters on a 640x200 display, with pictures pixel-"
+	puts "        doubled so they keep the 320-wide scale their art was drawn at."
+	puts "  -fcm:40 gives the legacy 40x25 (320x200) screen instead. The ROM"
+	puts "        font is used, so -f cannot be combined with this."
+	puts "  -pics: draw the game's pictures, taken from the given blorb file or from a"
+	puts "        directory of numbered PNGs. MEGA65 (where it needs -fcm) and X16"
+	puts "        only. On the MEGA65 the pictures are compressed onto the boot disk,"
+	puts "        or onto separate picture disks if they do not fit there, and are"
+	puts "        loaded into attic RAM at startup; on the X16 they are put in the"
+	puts "        game directory and loaded from SD as they are drawn."
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  -dt: Set the disk title to the specified text."
 	puts "  -rd: Reserve the entire directory track, typically for directory art."

@@ -1,6 +1,6 @@
 # The major version the built PDFs are named after. Keep it in step with
 # $major_version in make.rb, which is what the interpreter reports.
-VERSION = 15
+VERSION = 16
 
 all: manual techreport playermanual
 

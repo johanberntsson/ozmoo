@@ -51,7 +51,7 @@ You need to install:
 - The xemu-xmega65 emulator if you want to test MEGA65 builds on virtual hardware
 - A zip program if you want to build games for X16
 - The Commander X16 emulator if you want to test X16 builds on virtual hardware
-- Python and its PIL package if you want Z6 games with graphics (X16 and MEGA65 only)
+- Python and its PIL package if you want Z6 games with graphics (X16 and MEGA65 only), plus PyYAML if you want to build a Blorb for a game of your own
 
 #### Windows
 
@@ -72,7 +72,7 @@ The Commander X16 emulator is available at [https://github.com/X16Community/x16-
 The z6 picture support tools require python along with the Pillow image library. First open PowerShell or Command Prompt and run the following commands:
 
     > winget install Python.Python.3.12
-    > python -m pip install Pillow
+    > python -m pip install Pillow PyYAML
 `
 ####  Linux
 
@@ -103,7 +103,7 @@ The Commander X16 emulator is available at [https://github.com/X16Community/x16-
 
 The z6 picture support tools require python along with the Pillow image library. For Debian, use this command:
 
-    > sudo apt install python3 python3-pil
+    > sudo apt install python3 python3-pil python3-yaml
 
 ## Customizing the make script
 
@@ -177,6 +177,73 @@ You can build a version 6 game without -pics, on any target, and it will play
 with a short "pic:N" note wherever a picture belongs. See
 [Version 6 games](#version-6-games) for the details, and for the switches that
 control the version 6 screen.
+
+## Make a Blorb file for your own game
+
+The four Infocom games come with a Blorb of their own, but a version 6 game you
+write yourself needs one built. `tools/make_blorb.py` does that: point it at a
+folder holding the pictures, the sound effects and an index file called
+contents.yaml, and it writes the Blorb that -pics then reads. It needs Python
+with the Pillow and PyYAML packages.
+
+    > python3 tools/make_blorb.py resources
+    > python3 tools/make_blorb.py resources/contents.yaml
+
+The pictures are ordinary PNG files and the sounds are 8 bit mono WAV files, as
+described under [Sound](#sound). contents.yaml says what goes in the Blorb:
+
+    blorb:  mygame.blb          # the Blorb to write
+    outdir: pics                # where to leave the converted pictures
+
+    pictures:
+      - id: 1                   # the number the game's @draw_picture uses
+        file: title.png         # the source image, in this folder
+        name: title             # optional: used in the converted file's name
+        height: 180             # optional: cap this picture's size
+        location: Introduction  # optional note, only printed in the report
+
+      - id: 2
+        file: dragon.png
+        height: 120
+
+    sounds:                     # optional
+      - id: 3                   # the @sound_effect number
+        file: 003.wav
+
+Only the blorb line, and each picture's id and file, have to be there. The paths
+are relative to the folder holding contents.yaml, unless a srcdir line says the
+images live somewhere else.
+
+Each picture is scaled to fit inside its width x height box, keeping its aspect
+ratio, and the size is rounded down to a whole number of 8 pixel character cells.
+It is then reduced to at most 15 colours, because Ozmoo's version 6 screen keeps
+palette entry 0 for transparency and leaves the picture the other 15. The result
+can therefore look a little different from the original, so the converted PNGs
+are left in outdir for you to look at: that is what the game will draw. A picture
+that gives no width or height of its own is fitted to the whole 320x200 version 6
+screen, or to the max_width and max_height given at the top of the file if there
+are any. A title picture usually wants the whole screen; a room picture printed
+above the text wants a height that leaves room for the text and the [More] prompt
+below it.
+
+The sounds are there for interpreters that play them out of the Blorb, which is
+what makes one a useful reference while you work. Ozmoo does not read them from
+there: it takes the WAV files straight out of the same folder with the -asw
+switch, so one folder feeds both. Since the Blorb format has no chunk type for
+WAV, a .wav listed here is converted to AIFF on the way in; a .aiff file is
+copied in unchanged. Sound effects 1 and 2 are the Z-machine's own beeps, so a
+game's own sounds start at 3.
+
+With the Blorb built you can play the game on a PC to check the pictures and
+sounds, for example with sfrotz:
+
+    > sfrotz mygame.z6 mygame.blb
+
+and then build it for the real machines, adding -asw for the sound effects if the
+game has any:
+
+    > ruby make.rb -t:mega65 -asw resources -fcm -pics mygame.blb mygame.z6
+    > ruby make.rb -t:x16 -asw resources -pics mygame.blb mygame.z6
 
 ## Build a game with optimized preloaded virtual memory data
 

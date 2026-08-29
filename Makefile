@@ -149,7 +149,7 @@ dejavu-c128:
 	ruby make.rb -s -t:c128 examples/dejavu.z3
 dejavu-c128-80:
 	ruby make.rb -t:c128 examples/dejavu.z3
-	x128 -80col -8 c128_dejavu.d71
+	x128 -silent -80col -8 c128_dejavu.d71
 dejavu-plus4:
 	ruby make.rb -s -t:plus4 examples/dejavu.z3
 dejavu-mega65:
