@@ -10,7 +10,7 @@ in the Ozmoo manual.
 
 ## pics2asm.py
 
-Converts a game's pictures — a Blorb, or a directory of numbered PNGs — into
+Converts a game's pictures - a Blorb, or a directory of numbered PNGs - into
 the files a `-pics` build needs, plus the `pictures.asm` index Ozmoo assembles
 in. `make.rb` runs it; it is not normally run by hand.
 
@@ -37,7 +37,7 @@ their pictures in completely different ways:
   `picture_data` must answer for a picture that is not loaded.
 
 `picdisks.txt` names the files to put on each picture disk (for the X16, all
-"disk 1" — the manifest of files to copy into the game directory).
+"disk 1" - the manifest of files to copy into the game directory).
 
 Other options: `--pixel-units` adds the native-art-pixel size tables
 `Z6_PIXEL_UNITS` builds report from `picture_data`; `--stats` measures and
@@ -53,7 +53,7 @@ written from the MEGA65's point of view and predates the archives);
 ## make_blorb.py
 
 Builds a v6 Blorb of pictures and sounds from a folder, described by a YAML
-`contents.yaml` — the front end that feeds `-pics <blorb>`, and the way to get
+`contents.yaml` - the front end that feeds `-pics <blorb>`, and the way to get
 a new game's resources into a form both Ozmoo and sfrotz can read.
 
 ```sh
@@ -67,7 +67,7 @@ The YAML gives top-level `blorb` / `outdir` / `srcdir` and optional
 `sounds:` list (`id` 3..255, since the Z-machine's sounds 1 and 2 are the
 interpreter's bleeps). Each picture is scaled to fit its box preserving aspect
 ratio, snapped down to a multiple of 8 pixels, and quantised to at most 15
-colours at indices 1..15 — index 0 is Ozmoo's transparent one. A `.wav` sound
+colours at indices 1..15 - index 0 is Ozmoo's transparent one. A `.wav` sound
 is converted to AIFF on the way in, because **Blorb has no WAV chunk type**;
 an `.aiff` source is embedded verbatim. The sounds are for the *other*
 interpreter: Ozmoo's own build reads the wavs off the source folder with
@@ -86,9 +86,9 @@ python3 tools/gen_testpics.py tools/testpics
 
 ## tilebudget.py
 
-Costs the X16 tile store for placing pictures off the tile grid — baking
+Costs the X16 tile store for placing pictures off the tile grid - baking
 boundary tiles against generating the covered cells straight from the staged
-picture — over a whole blorb. A design tool, not part of the build: it is what
+picture - over a whole blorb. A design tool, not part of the build: it is what
 decided phase 0b of the pixel-units refactor in favour of generating.
 
 ```sh

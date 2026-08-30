@@ -1691,6 +1691,15 @@ calc_dynmem_size
 	rts
 }
 
+!ifdef HAS_SID {
+init_sid_randomization
+	lda #$ff
+	sta $d40e
+	sta $d40f
+	ldx #$80
+	stx $d412
+	rts
+}
 	
 program_end
 
@@ -3141,13 +3150,7 @@ init_sid
 	lda #$f2
 	sta $d406
 
-	; Init randomization
-	lda #$ff
-	sta $d40e
-	sta $d40f
-	ldx #$80
-	stx $d412
-	rts
+	jmp init_sid_randomization
 }
 
 
