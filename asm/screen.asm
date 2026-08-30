@@ -459,12 +459,28 @@ vdc_set_more_colour_address
     ldy #$0f ; high
     jmp VDCSetAddress
 
-vdc_show_more
-	; character
+vdc_save_more_cell
+	; Remember what the prompt covers, character and attribute. This must NOT
+	; be part of vdc_show_more, which is where it used to live: the blink loop
+	; calls show on every other pass, so a second call saved the '*' it had
+	; written itself, the prompt stopped blinking, and vdc_hide_more put an
+	; asterisk back when the key was pressed. It only ever worked here because
+	; the blink phase is whatever y happened to hold on entry, so which of show
+	; and hide runs first is luck. (The VIC-II targets save the cell once,
+	; outside the loop, and alternate only the colour; the VDC is the one
+	; target where showing the prompt reads the screen.)
 	jsr vdc_set_more_char_address
 	ldx #VDC_DATA
 	jsr VDCReadReg
 	sta .more_text_char
+	jsr vdc_set_more_colour_address
+	ldx #VDC_DATA
+	jsr VDCReadReg
+	sta .vdc_more_text_colour
+	rts
+
+vdc_show_more
+	; character
 	jsr vdc_set_more_char_address
 	lda #128 + $2a ; screen code for reversed "*"
 	ldx #VDC_DATA
@@ -477,10 +493,19 @@ vdc_show_more
 	jmp VDCWriteReg
 
 vdc_hide_more
+	; the other half of the blink, and the last thing the prompt does: the cell
+	; exactly as it was, attribute included - vdc_show_more overwrote that with
+	; the text colour
 	jsr vdc_set_more_char_address
 	lda .more_text_char
 	ldx #VDC_DATA
+	jsr VDCWriteReg
+	jsr vdc_set_more_colour_address
+	lda .vdc_more_text_colour
+	ldx #VDC_DATA
 	jmp VDCWriteReg
+
+.vdc_more_text_colour !byte 0
 }
 
 !ifdef TARGET_X16 {
@@ -531,6 +556,7 @@ show_more_prompt
     bit COLS_40_80
     bpl +
     ; 80 columns
+	jsr vdc_save_more_cell
 	jsr vdc_show_more
 	jmp .alternate_colours
     ; 40 columns

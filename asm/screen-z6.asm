@@ -2535,22 +2535,46 @@ clear_num_rows
 	rts
 
 !ifdef TARGET_C128 {
+; The VDC's screen RAM is not in the CPU's address space, so the addresses
+; .set_more_prompt_pos patches into .more_access1-4 are useless in 80 columns:
+; these two hold the same cell's VDC addresses instead, characters at $0000 and
+; attributes at $0800. They are set from the current window's bottom right cell
+; by .set_more_prompt_pos; the defaults are the bottom right of the screen.
+.vdc_more_char_addr   !byte $cf, $07
+.vdc_more_colour_addr !byte $cf, $0f
+.vdc_more_text_colour !byte 0
+
 vdc_set_more_char_address
-    lda #$cf ; low
-    ldy #$07 ; high
+    lda .vdc_more_char_addr
+    ldy .vdc_more_char_addr + 1
     jmp VDCSetAddress
 
 vdc_set_more_colour_address
-    lda #$cf ; low
-    ldy #$0f ; high
+    lda .vdc_more_colour_addr
+    ldy .vdc_more_colour_addr + 1
     jmp VDCSetAddress
 
-vdc_show_more
-	; character
+vdc_save_more_cell
+	; Remember what the prompt covered, character and attribute. This must NOT
+	; be part of vdc_show_more, which is where it used to live: the blink calls
+	; show on every other pass, so the second call saved the '*' it had written
+	; itself. The prompt then "blinked" between the asterisk and the asterisk,
+	; and vdc_hide_more put an asterisk back when the key was pressed - which is
+	; the '*' left in the corner of Arthur's screen on the C128's 80 column
+	; screen. (The other targets save the cell once, outside the loop, and the
+	; VIC-II ones alternate only the colour.)
 	jsr vdc_set_more_char_address
 	ldx #VDC_DATA
 	jsr VDCReadReg
 	sta .more_text_char
+	jsr vdc_set_more_colour_address
+	ldx #VDC_DATA
+	jsr VDCReadReg
+	sta .vdc_more_text_colour
+	rts
+
+vdc_show_more
+	; character
 	jsr vdc_set_more_char_address
 	lda #128 + $2a ; screen code for reversed "*"
 	ldx #VDC_DATA
@@ -2563,8 +2587,15 @@ vdc_show_more
 	jmp VDCWriteReg
 
 vdc_hide_more
+	; the other half of the blink, and the last thing the prompt does: the cell
+	; exactly as it was, attribute included - vdc_show_more overwrote that with
+	; the text colour
 	jsr vdc_set_more_char_address
 	lda .more_text_char
+	ldx #VDC_DATA
+	jsr VDCWriteReg
+	jsr vdc_set_more_colour_address
+	lda .vdc_more_text_colour
 	ldx #VDC_DATA
 	jmp VDCWriteReg
 }
@@ -2801,6 +2832,7 @@ show_more_prompt
     bit COLS_40_80
     bpl +
     ; 80 columns
+	jsr vdc_save_more_cell
 	jsr vdc_show_more
 	jmp .alternate_colours
     ; 40 columns
@@ -3087,6 +3119,31 @@ show_more_prompt
 	adc #0
 	sta .more_access3 + 2
 }
+}
+!ifdef TARGET_C128 {
+	; ...and the same cell in the VDC's own memory, which none of the writes
+	; above can reach: the VDC keeps characters at $0000 and attributes at
+	; $0800, while zp_screenline and zp_colourline are the VIC-II ones, so only
+	; the base differs. Without this the 80 column prompt was nailed to the
+	; bottom right of the screen rather than of the current window.
+	lda zp_screenline
+	clc
+	adc .more_cell_offset
+	sta .vdc_more_char_addr
+	lda zp_screenline + 1
+	adc #0
+	sec
+	sbc #>$0400
+	sta .vdc_more_char_addr + 1
+	lda zp_colourline
+	clc
+	adc .more_cell_offset
+	sta .vdc_more_colour_addr
+	lda zp_colourline + 1
+	adc #0
+	sec
+	sbc #>($d800 - $0800)
+	sta .vdc_more_colour_addr + 1
 }
 	; put the cursor back where the text is being printed
 	ldx .more_saved_row
