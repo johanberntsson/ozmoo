@@ -38,10 +38,10 @@ The simple answer: Ozmoo should be able to run most Z-code games, regardless of 
 ![Shogun running on MEGA65](https://github.com/johanberntsson/ozmoo/blob/master/screenshots/shogun-mega65.png)
 
 The longer answer:
-* Ozmoo supports version 1 - 8 of Z-code. For version 6 the level of support depends on the target platform. All targets support the eight window screen model, but only MEGA65 and Commander X16 supports graphics and mouse controls.
+* Ozmoo supports version 1 - 8 of Z-code. For version 6 the level of support depends on the target platform. All targets support the eight window screen model, but only MEGA65 and Commander X16 support graphics and mouse controls.
 * A Z-code file always starts with a section called dynamic memory. On C64, C128 and Plus/4, Ozmoo can handle games with up to roughly 35 KB of dynamic memory. It differs a bit depending on platform. On the MEGA65, there is no limitation.
 * If you want to run Ozmoo on a system with a single 1541 drive (or an emulation of one), the part of the game file that is not dynamic memory can be no larger than 170 KB. This typically means the game file can be about 190 KB in size.
-* When using the C64, C128 or Plus/4, most Inform 6 games and all Inform 7 games are too slow to be any fun on Ozmoo. Inform 7 games can also be expected to crash at any time because they expect a much bigger stack than Ozmoo can offer. The games that perform well are typically PunyInform games, ZIL games, Infocom games and Inform 5 games. Early Inform 6 games (using library 6/1 or 6/2) may also be fast enough. On the MEGA65, pretty much any Inform 6 game should work well, and you can even create a huge stack with option `-sp:64` to support Inform 7 games. Less demanding Inform 7 games can work pretty well on the MEGA65.
+* When using a C64, C128 or Plus/4, most Inform 6 games and all Inform 7 games are too slow to be any fun on Ozmoo. Inform 7 games can also be expected to crash at any time because they expect a much bigger stack than Ozmoo can offer. The games that perform well are typically PunyInform games, ZIL games, Infocom games and Inform 5 games. Early Inform 6 games (using library 6/1 or 6/2) may also be fast enough. On the MEGA65, pretty much any Inform 6 game should work well, and you can even create a huge stack with option `-sp:64` to support Inform 7 games. Less demanding Inform 7 games can work pretty well on the MEGA65.
 
 ## Nice-to-have features
 
