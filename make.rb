@@ -11,14 +11,14 @@ $executables = nil
 if $is_windows then
 	# Paths on Windows. Comment out X16 and/or MEGA65 if you don't have them installed.
 	$executables = {
-		'X16' => "C:\\ProgramsWoInstall\\x16emu\\x16emu",
-		'X64' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x64sc.exe -silent -autostart-warp", # -autostart-delay-random"
-		'X128' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\x128.exe -silent -80 -autostart-delay-random",
-		'XPLUS4' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\xplus4.exe -silent -autostart-delay-random",
+		'X16' => "C:\\WoInstall\\x16emu\\x16emu",
+		'X64' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\x64sc.exe -silent -autostart-warp", # -autostart-delay-random"
+		'X128' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\x128.exe -silent -80 -autostart-delay-random",
+		'XPLUS4' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\xplus4.exe -silent -autostart-delay-random",
 		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
-		'C1541' => "C:\\ProgramsWoInstall\\GTK3VICE-3.7.1-win64\\bin\\c1541.exe",
-		'EXOMIZER' => "C:\\ProgramsWoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
-		'ACME' => "C:\\ProgramsWoInstall\\acme0.97win\\acme\\acme.exe",
+		'C1541' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\c1541.exe",
+		'EXOMIZER' => "C:\\WoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
+		'ACME' => "C:\\WoInstall\\acme0.97win\\acme\\acme.exe",
 		'ZIP' => "\"C:\\Program Files\\7-Zip\\7z.exe\" a -bso0 -bse0",
 		'PYTHON' => 'python',
 	}
