@@ -2147,6 +2147,20 @@ deletable_init_start
 }
 
 !ifdef TARGET_X16 {
+!ifdef Z6 {
+	; A v6 game is laid out for the default 80x60 text screen (and the
+	; pictures build reshapes exactly that mode into its 80x25 fat rows in
+	; vera_gfx_init), but the machine keeps whatever mode it was left in: a
+	; SCREEN 3 before RUN would hand s_init a 40x30 screen and lay the whole
+	; game out at the wrong size, with the pictures drawn on a display the
+	; engine has no geometry for. Non-z6 Ozmoo adapts to any mode and is left
+	; alone; here we ask the kernal for mode 0 before anything reads the
+	; screen size. Carry comes back set if the mode was refused, which we
+	; cannot do anything about - s_init reads back what we really got.
+	clc
+	lda #0
+	jsr kernal_screen_mode
+}
     lda #$0e ; Set font = lower case / upper case
     jsr $ffd2
     lda #$08 ; Lock font selection

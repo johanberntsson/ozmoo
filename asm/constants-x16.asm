@@ -229,6 +229,7 @@ kernal_save           = $ffd8 ; save file
 kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
+kernal_screen_mode    = $ff5f ; c=1: get mode (a=mode, x=width, y=height); c=0: set mode in a
 kernal_mouse_config   = $ff68 ; a = pointer shape (0 = hide), x/y = bounds in 8px
 kernal_mouse_get      = $ff6b ; x = zp address to fill with the position
 
