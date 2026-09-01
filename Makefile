@@ -183,5 +183,20 @@ amfv:
 	ruby make.rb -81 amfvUnprotected.z4
 	x64 -drive8type 1581 c64_amfvUnprotected.d81
 
+# ---------------------------------------------------------------------------
+# Apple II: the spike -- a standalone boot sector
+# This target is to prove that the toolchain, the boot chain, the
+# interleaved text page and both video encodings exists.
+# ---------------------------------------------------------------------------
+
+# Boot it in a window (AppleWin's SDL front end, sa2).
+apple2-spike:
+	ruby tools/apple2-spike.rb --run
+
+# The headless check: boot it in applen, type a key, dump the text page out of
+# a save state and say whether the screen is what it should be.
+apple2-spike-dump:
+	ruby tools/apple2-spike.rb --dump --keys z
+
 clean:
-	rm -rf *d64 *d71 *d81 x16_*
+	rm -rf *d64 *d71 *d81 x16_* apple2_spike.dsk

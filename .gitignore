@@ -1,5 +1,6 @@
 # Future unrelated plans
 /apple-plan/
+/AppleWin/
 
 # Testing sound support
 /soundgame/
@@ -61,3 +62,4 @@
 /plus4_*.d81
 /x16_*.zip
 /x16_*/
+/apple2_spike.dsk

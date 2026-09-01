@@ -1,6 +1,6 @@
 # tools
 
-Support scripts for the v6 graphics work.
+Support scripts for the v6 graphics and Apple II development work.
 
 Only `pics2asm.py` is run by the build: `make.rb -pics` invokes it. The rest
 are development and design tools that are not part of a normal build. The
@@ -134,3 +134,37 @@ xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
 
 It is kept because it is the only place the working VIC-IV register setup is
 written down. It is not part of Ozmoo and nothing sources it.
+
+## apple2-prototype.asm, apple2-spike.rb, apple2-disk.rb
+
+`apple2-prototype.asm` is a single 256-byte boot sector. The Disk II boot PROM
+at `$C600` reads track 0 sector 0 into `$0800` and jumps to `$0801`, and what
+runs there fills all 24 rows of the interleaved text page - row 0 with 'A' up
+to row 23 with 'X', even rows normal and odd rows inverse - writes two banners
+over that in source lower case (the II+ has no lower case glyphs, so a-z is
+folded to A-Z), and echoes every key into the bottom right cell. It proves the
+toolchain (ACME `--cpu 6502 --format plain`), the boot chain, the row
+interleave `$400 + (row & 7) * $80 + (row >> 3) * $28`, both video encodings
+(normal is `ASCII | $80`, inverse is `ASCII & $3F`) and the keyboard at
+`$C000`/`$C010`, all before `-t:apple2` exists.
+
+`apple2-disk.rb` writes the `.dsk`: 35 tracks x 16 sectors x 256 bytes, no
+filesystem, sectors addressed by *physical* number with the DOS 3.3 order
+mapping applied on the way into the file. It is the sketch of the
+`AppleDiskImage` class that make.rb gains at step 2.
+
+`apple2-spike.rb` assembles it, builds the image and runs it.
+
+```sh
+ruby tools/apple2-spike.rb --run            # boot it in a window (sa2)
+ruby tools/apple2-spike.rb --ncurses        # boot it in this terminal (applen)
+ruby tools/apple2-spike.rb --dump --keys z  # headless: print the text page
+make apple2-spike                           # the same as --run
+make apple2-spike-dump                      # the same as --dump --keys z
+```
+
+`--dump` is the headless check. It drives AppleWin's ncurses front end inside
+a pty, presses F11 to write a save state, decodes the text page out of the
+save state's memory dump and says whether the screen is what it should be.
+See the Apple II debugging section of `CLAUDE.md` for why it reads a save
+state rather than the terminal, and for what it cannot see.
