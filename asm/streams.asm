@@ -1189,6 +1189,16 @@ translate_zscii_to_petscii
 	dey
 	bpl -
 .no_match
+!ifdef Z6 {
+	; $0b is sentence space in v6
+	cmp #$0b
+	beq ++
+	cmp #$09
+	bne +
+++	lda #$20
+	bne .ldy_and_return ; Always branch
++
+}
 !ifndef NO_DEFAULT_UNICODE_MAP {
 	cmp #155
 	bcc .no_mapping

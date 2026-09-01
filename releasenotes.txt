@@ -1,6 +1,14 @@
 RELEASE NOTES
 
-Upcoming release
+Upcoming release:
+
+- Fixed: Special characters Sentence space and Tab in v6 games weren't printed.
+
+================================================
+Release 16: 30 Aug 2026
+
+- Support for version 6 games with graphics on MEGA65 and Commander X16.
+- Support for version 6 games without graphics on C64, C128 and Plus/4.
 - Fixed incorrect text in usage screen in make.rb, saying values 0 and 1 mean background and foreground for -bordecol etc, when it's actually values bg and fg now.
 - Disabled run/stop key in image loader program, on C64.
 - Fixed garbage showing on top screen row when enabling darkmode at first MORE prompt in z1-z4 game with initial text longer than a screenful, on Plus/4 build with virtual memory.
