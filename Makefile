@@ -156,6 +156,12 @@ dejavu-mega65:
 	ruby make.rb -s -t:mega65 examples/dejavu.z3
 dejavu-x16:
 	ruby make.rb -s -t:x16 examples/dejavu.z3
+dejavu-apple2:
+	ruby make.rb -s -t:apple2 examples/dejavu.z3
+dejavu-apple2e:
+	ruby make.rb -s -t:apple2e examples/dejavu.z3
+dejavu-apple2gs:
+	ruby make.rb -s -t:apple2gs examples/dejavu.z3
 
 advent-mega65:
 	ruby make.rb -s -t:mega65 examples/advent_punyinform.z5

@@ -2827,7 +2827,7 @@ def print_usage
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
 	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
+	puts "  -t: specify target machine. Available targets are c64, c128, plus4, mega65, x16, apple2, apple2e and apple2gs."
 	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
@@ -3005,7 +3005,7 @@ begin
 		elsif arg =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16)$/ then
+		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16|apple2|appl2e|apple2gs)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    # $start_address = 0x1001
@@ -3026,6 +3026,15 @@ begin
 				$unbanked_ram_end_address = 0xc000
 				$normal_ram_end_address = $memory_end_address
 				$CACHE_PAGES = 4 # Cache is static size on C128
+			elsif $target == "apple2" then
+				puts "apple2 isn't implemented yet"
+				exit 1
+			elsif $target == "apple2e" then
+				puts "apple2e isn't implemented yet"
+				exit 1
+			elsif $target == "apple2gs" then
+				puts "apple2gs isn't implemented yet"
+				exit 1
 			end
 		elsif arg =~ /^-ZIP$/ then
 			mode = MODE_ZIP
