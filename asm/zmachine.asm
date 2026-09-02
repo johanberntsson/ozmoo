@@ -944,6 +944,19 @@ z_rnd_init_random
 	; in: Nothing
 !ifdef TARGET_X16 {
 	jsr kernal_entropy_get
+} else ifdef TARGET_APPLE2 {
+	; Apple has no SID nor CIA for randomness, instead we use entropy (a running counter that
+	; that apple2-kernal.asm's getchar bumps on every poll.
+	jsr kernal_readtime
+	pha
+	lda a2_entropy
+	eor z_rnd_a
+	tay
+	lda a2_entropy + 1
+	eor z_rnd_b
+	tax
+	pla
+	eor z_rnd_c
 } else ifdef TARGET_PLUS4 {
 	jsr kernal_readtime
 	pha
