@@ -1396,10 +1396,18 @@ def build_interpreter()
 		necessarysettings +=  " --cpu 65c02"
 	elsif $target == 'mega65' then
 		necessarysettings +=  " --cpu m65"
+	elsif $target == 'apple2' then
+		necessarysettings +=  " --cpu 6502"
 	else
 		necessarysettings +=  " --cpu 6510"
 	end
-	necessarysettings +=  " --format cbm"
+	# Everything CBM wants a two byte load address in front of the binary; but the
+	# Apple II has no such convention.
+	if $target == 'apple2' then
+		necessarysettings +=  " --format plain"
+	else
+		necessarysettings +=  " --format cbm"
+	end
 	necessarysettings +=  " -DMAJOR_VERSION_NO=#{$major_version} -DMINOR_VERSION_NO=#{$minor_version}"
 
 	optionalsettings = ""
@@ -4264,6 +4272,22 @@ end
 if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
 	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
 	preload_max_vmem_blocks = vmem_data[3]
+end
+
+# Step 2 of apple-plan/apple-phase1.md stops here. The interpreter above now
+# assembles for the Apple II - NMOS 6502, and a plain binary with no CBM load
+# address in front of it - but every build mode below writes a CBM disk image
+# through exomizer and c1541, and both of those read that missing load address
+# as the first two bytes of the code. Left to run, they produce a d64 that
+# looks like a game disk and is not one, which is worse than an error. MODE_A2
+# and its AppleDiskImage (tools/apple2-disk.rb, boot chain + config track +
+# story at skew 3) are the next step.
+if $target == 'apple2'
+	puts "Interpreter assembled: #{$program_end_address - $start_address} bytes, " +
+		"$#{$start_address.to_s(16)}-$#{$program_end_address.to_s(16)}, " +
+		"story from $#{$storystart.to_s(16)}."
+	puts "ERROR: the Apple II disk build (MODE_A2) is not implemented yet."
+	exit 1
 end
 
 case mode
