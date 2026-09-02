@@ -198,5 +198,29 @@ apple2-spike:
 apple2-spike-dump:
 	ruby tools/apple2-spike.rb --dump --keys z
 
+# The same check under MAME, which reads the text page out of the running
+# machine rather than out of a save state.
+apple2-spike-mame:
+	ruby tools/apple2-spike.rb --mame
+
+# Boot it in a window (AppleWin's SDL front end, sa2).
+apple2-rwts:
+	ruby tools/apple2-rwts-spike.rb --run
+
+# The headless check: read the payload under MAME, time it, and say whether
+# every byte of it is right.
+apple2-rwts-mame:
+	ruby tools/apple2-rwts-spike.rb --mame
+
+# ...and under AppleWin, which is the check that the RWTS is not simply
+# agreeing with one emulator's idea of a disk.
+apple2-rwts-dump:
+	ruby tools/apple2-rwts-spike.rb --applen
+
+# Every interleave, measured: sectors a second and address fields per sector
+# for each skew, which is how the story data's layout gets chosen at step 2.
+apple2-rwts-sweep:
+	ruby tools/apple2-rwts-spike.rb --sweep
+
 clean:
-	rm -rf *d64 *d71 *d81 x16_* apple2_spike.dsk
+	rm -rf *d64 *d71 *d81 x16_* apple2_spike.dsk apple2_rwts.dsk
