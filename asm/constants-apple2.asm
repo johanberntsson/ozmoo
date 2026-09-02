@@ -150,8 +150,9 @@ zp_temp               = $b2 ; 5 bytes
 ; this machine, so the jiffy count is made by the input loop counting its own
 ; passes; a2_entropy is free running and sampled when a key is pressed.
 a2_jiffy              = $b7 ; 3 bytes, as RDTIM's a/x/y
-a2_jiffy_sub          = $ba ; polls so far towards the next jiffy
-a2_entropy            = $bb ; 2 bytes
+a2_jiffy_sub          = $ba ; 2 bytes: polls left until the next jiffy, which
+                            ; is more than 256, so this is a word
+a2_entropy            = $bc ; 2 bytes
 
 ; --- buffers ----------------------------------------------------------------
 ; $0100-$01ff is the 6502 stack, which print_buffer shares with it exactly as

@@ -181,22 +181,31 @@ module Apple2Emu
   #   watch:   a symbol name whose byte is polled every frame; each new value
   #            is timestamped, which is how a program times its own phases.
   #   until:   the watch value that means "finished" (the run then ends).
-  #   symbols: name -> [address, byte length], read once at the end.
+  #   symbols: name -> byte length, read once at the end.
+  #   samples: name -> byte length, read every frame and timestamped, which is
+  #            how a variable's *rate* is measured (the software clock's, say)
+  #            rather than just its final value.
   #   labels:  an ACME symbol table, so watch/symbols can be given by name.
   #
   # Returns { phases: [[value, seconds], ...], symbols: {name => value},
+  #           samples: [[seconds, {name => value}], ...],
   #           screen: [24 strings], seconds: <emulated seconds run> }.
   # keys: a list of [seconds, "text"] pairs typed into the machine as it runs.
   # MAME's emu.keypost() puts the text through the emulated keyboard, so the
   # program sees it exactly as a player's typing; "\n" is Return.
   def mame_run(image, labels: {}, watch: nil, until_value: nil, symbols: {},
-               seconds: 120, keys: [], lua_path: nil, result_path: nil)
+               samples: {}, seconds: 120, keys: [], lua_path: nil,
+               result_path: nil)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
     File.delete(result_path) if File.exist?(result_path)
 
     watch_addr = watch ? (labels[watch] or abort("no label #{watch}")) : nil
     reads = symbols.map do |name, width|
+      addr = labels[name] or abort("no label #{name}")
+      "  {\"#{name}\", 0x#{addr.to_s(16)}, #{width}},"
+    end.join("\n")
+    sampled = samples.map do |name, width|
       addr = labels[name] or abort("no label #{name}")
       "  {\"#{name}\", 0x#{addr.to_s(16)}, #{width}},"
     end.join("\n")
@@ -213,6 +222,9 @@ module Apple2Emu
       reads = {
       #{reads}
       }
+      sampled = {
+      #{sampled}
+      }
       last = -1
       armed = false
       finished = false
@@ -222,11 +234,15 @@ module Apple2Emu
       }
       next_key = 1
 
+      function read_var(r)
+        local v = 0
+        for i = r[3] - 1, 0, -1 do v = v * 256 + mem:read_u8(r[2] + i) end
+        return v
+      end
+
       function report()
         for _, r in ipairs(reads) do
-          local v = 0
-          for i = r[3] - 1, 0, -1 do v = v * 256 + mem:read_u8(r[2] + i) end
-          out:write(string.format("sym %s %d\\n", r[1], v))
+          out:write(string.format("sym %s %d\\n", r[1], read_var(r)))
         end
         for row = 0, 23 do
           local base = 0x400 + (row % 8) * 0x80 + math.floor(row / 8) * 0x28
@@ -244,6 +260,9 @@ module Apple2Emu
         while next_key <= #keys and keys[next_key][1] <= now do
           emu.keypost(keys[next_key][2])
           next_key = next_key + 1
+        end
+        for _, r in ipairs(sampled) do
+          out:write(string.format("sample %.6f %s %d\\n", now, r[1], read_var(r)))
         end
         if watch_addr then
           local v = mem:read_u8(watch_addr)
@@ -279,11 +298,16 @@ module Apple2Emu
   end
 
   def parse_mame_result(path)
-    result = { phases: [], symbols: {}, screen: Array.new(ROWS, ' ' * COLS), seconds: nil }
+    result = { phases: [], symbols: {}, samples: [],
+               screen: Array.new(ROWS, ' ' * COLS), seconds: nil }
     File.foreach(path) do |line|
       case line
       when /^phase (\d+) ([\d.]+)/  then result[:phases] << [$1.to_i, $2.to_f]
       when /^sym (\S+) (\d+)/       then result[:symbols][$1] = $2.to_i
+      when /^sample ([\d.]+) (\S+) (\d+)/
+        t = $1.to_f
+        result[:samples] << [t, {}] if result[:samples].empty? || result[:samples].last[0] != t
+        result[:samples].last[1][$2] = $3.to_i
       when /^ran ([\d.]+)/          then result[:seconds] = $1.to_f
       when /^screen (\d+) ([0-9A-F]+)/
         row = $1.to_i
