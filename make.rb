@@ -4313,6 +4313,10 @@ if $target == 'c128' and $interpreter_number == nil
 	$interpreter_number = 7
 end
 
+if $target =~ /^apple2/ and $interpreter_number == nil
+	$interpreter_number = 2
+end
+
 
 # get dynmem size (in vmem blocks)
 $dynmem_blocks = ($static_mem_start.to_f / $VMEM_BLOCKSIZE).ceil
