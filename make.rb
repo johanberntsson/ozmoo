@@ -181,6 +181,8 @@ $loader_labels_file = File.join($TEMPDIR, 'acme_labels_loader.txt')
 $loader_file = File.join($TEMPDIR, 'loader')
 $loader_zip_file = File.join($TEMPDIR, 'loader_zip')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
+$a2_boot_file = File.join($TEMPDIR, 'a2boot')
+$a2_boot_labels_file = File.join($TEMPDIR, 'a2boot_labels.txt')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
@@ -2950,6 +2952,40 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     nil # Signal success
 end
 
+# Assemble the Apple II boot chain: track 0 sector 0's PROM-loaded stage 2,
+# which is also the resident RWTS the interpreter reads sectors through for the
+# rest of the session. It has to be told where the interpreter is on the disk, which
+# is only known once the interpreter has been assembled, so this runs from build_A2
+# rather than beside build_interpreter.
+def build_a2_boot(terp_track, terp_sectors)
+	if terp_sectors > 255
+		puts "ERROR: The interpreter is #{terp_sectors} sectors; the boot chain counts them in a byte."
+		exit 1
+	end
+	settings = " --cpu 6502 --format plain" +
+		" -DTERP_TRACK=#{terp_track} -DTERP_SECTORS=#{terp_sectors}" +
+		" -DTERP_LOAD=#{$start_address} -DA2_INTERLEAVE=#{$a2_interleave}"
+	cmd = "#{$executables['ACME']}#{settings} -l \"#{$a2_boot_labels_file}\" " +
+		"--outfile \"#{$a2_boot_file}\" apple2-rwts.asm"
+	puts cmd if $verbose
+	Dir.chdir $SRCDIR
+	ret = system(cmd)
+	Dir.chdir $EXECDIR
+	unless ret
+		puts "ERROR: There was a problem calling Acme"
+		exit 1
+	end
+	boot = IO.binread($a2_boot_file).unpack("C*")
+	# Byte 0 is the number of sectors the Disk II PROM loads before it jumps to
+	# $0801, so it has to agree with how long the file actually is.
+	sectors = (boot.length + 255) / 256
+	if boot.length % 256 != 0 or boot[0] != sectors
+		puts "ERROR: The boot chain is #{boot.length} bytes but its sector count byte says #{boot[0]}."
+		exit 1
+	end
+	boot
+end
+
 # The Apple II disk, laid out by make.rb itself since there is no filesystem on
 # it and nothing to be compatible with. The layout is the one in
 # apple-plan/apple-phase1.md:
@@ -2966,6 +3002,11 @@ end
 #                           sectors on a track or all sixteen, and nothing in
 #                           between.
 #   everything else         story data, at the disk's interleave.
+#
+# The boot chain on track 0 is asm/apple2-rwts.asm, assembled by
+# build_a2_boot above and resident at $0800 for the whole session: it is both
+# the loader that brings the interpreter in and the sector reader the
+# interpreter calls afterwards.
 def build_A2(storyname, diskimage_filename, config_data, vmem_data,
              vmem_contents, preload_max_vmem_blocks)
 	diskfilename = "#{$target}_#{storyname}.dsk"
@@ -2996,6 +3037,16 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 
 	terp_sectors = disk.write_blob(interpreter_tracks.first, 0, interpreter)
 
+	# Track 0: the boot chain. The PROM reads its sectors in plain ascending
+	# physical order into $0800 and up, so there is no interleave here.
+	boot = build_a2_boot(interpreter_tracks.first, terp_sectors)
+	boot_sectors = boot.length / 256
+	if boot_sectors > AppleDiskImage::SECTORS_PER_TRACK
+		puts "ERROR: The boot chain is #{boot_sectors} sectors and track 0 holds 16."
+		exit 1
+	end
+	boot_sectors.times { |s| disk.write_sector(0, s, boot[s * 256, 256]) }
+
 	# Nothing is preloaded into the boot chain yet. Phase one loads the
 	# interpreter uncompressed and pages the story in on demand, so the tricks
 	# the CBM builders play with the boot file - exomizer, vmem blocks carried
@@ -3024,7 +3075,7 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 
 	if $verbose
 		puts "Apple II disk layout:"
-		puts "  track  0     boot chain (not written yet)"
+		puts "  track  0     boot chain + resident RWTS, #{boot.length} bytes in #{boot_sectors} sectors"
 		puts "  track  #{$CONFIG_TRACK}     config track, sectors 0-1"
 		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   interpreter, #{interpreter.length} bytes in " +
 			"#{terp_sectors} sectors, loads at $#{$start_address.to_s(16)}"
@@ -3034,8 +3085,6 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 
 	$bootdiskname = "#{diskfilename}"
 	puts "Successfully built game as #{$bootdiskname}"
-	puts "NOTE: track 0 has no boot chain on it yet (asm/apple2-rwts.asm is not written), " +
-		"so this disk does not boot."
 	nil # Signal success
 end
 
