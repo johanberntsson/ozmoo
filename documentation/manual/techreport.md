@@ -34,11 +34,17 @@ These source files are located in the asm dictory. The table also shows the most
 | zmachine.asm | implements the Z-machine |
 | &nbsp;&nbsp;&nbsp;_z\_execute_ | execute the Z-machine program | 
 |  |  |
+| apple2-kernal.asm | stands in for the KERNAL on the Apple II: keyboard, software clock, RNG entropy |
+|  |  |
+| apple2-rwts.asm | the Apple II boot chain and the resident sector reader (assembled on its own, not sourced by ozmoo.asm) |
+|  |  |
 | c65toc64wrapper.asm | code to go to C64 mode on the MEGA65 |
 |  |  |
 | constants.asm | zero page allocations and kernal labels |
 |  |  |
 | constants-c128.asm | C128 zero page allocations and kernal labels |
+|  |  |
+| constants-apple2.asm | Apple II zero page allocations, screen and hardware labels |
 |  |  |
 | constants-header.asm | labels to access the header part of a story file |
 |  |  |
@@ -275,6 +281,113 @@ begin at \$40000. Opening the scrollback while a sound is playing therefore
 corrupts the first 4000 bytes of the sample. It repairs itself, because the next
 @sound_effect copies the sample from Attic RAM again. Version 6 games never have
 a scrollback buffer, so this does not collide with the tile store.
+
+## Apple II builds
+
+Apple II support is being added. Three targets are planned: `-t:apple2`, a 48 KB
+Apple II or II+; `-t:apple2e`, a 128 KB IIe with 80 columns, mixed case and
+version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound. Only
+the first exists today — the other two refuse the build — and everything below
+describes it.
+
+`-t:apple2` is deliberately the smallest thing that can run a game: 48 KB, the
+40-column uppercase text page, no colour, no sound and no version 6. Unlike the
+MEGA65 and X16 builds, it is a virtual memory build, like the C64's: the machine
+has no banked or expansion RAM to hold a whole story file in, so the story is
+paged in from disk as it is needed, and sectors 0 and 1 of track 1 hold the same
+configuration blocks described under "Configuration blocks". Save and restore
+are not implemented yet, and `do_save` and `do_restore` report a file error.
+
+Two things stand in for machinery the other targets get from their ROMs. There
+is no KERNAL, so `apple2-kernal.asm` exports the names the shared code already
+calls: the keyboard at \$C000/\$C010, a jiffy clock that the input loop counts
+out for itself (this machine has no timer and no readable vertical blank), and
+an entropy counter sampled when a key is pressed. And the text page is
+interleaved — a row begins at `$400 + (row & 7) * $80 + (row >> 3) * $28` —
+so screenkernal.asm reaches a row through a lookup table where every other
+target multiplies the row number by the screen width.
+
+### Apple II memory map
+
+| **Address range** | **KB** |  **Usage** |
+| -- |  - | ---- |
+| \$0000-\$00ff | 0.25 | Zero page, all of it Ozmoo's (constants-apple2.asm) |
+| \$0100-\$01ff | 0.25 | 6502 stack, shared with print_buffer as on the C64 |
+| \$0200-\$02ff | 0.25 | print_buffer2 and the input buffer |
+| \$0300-\$03ff | 0.25 | Virtual memory page table (vmap) |
+| \$0400-\$07ff | 1 | Screen RAM: text page 1, rows interleaved |
+| \$0800-\$0aff | 0.75 | Boot chain and resident RWTS (apple2-rwts.asm) |
+| \$0b00-\$0dff | 0.75 | Free, reserved for the RWTS write path |
+| \$0e00-\$0e55 | | RWTS nibble buffer |
+| \$0f00-\$0fff | 0.25 | 6-and-2 decode table, built at run time |
+| \$1000- | about 12 | Interpreter, then the z-stack and the vmem cache |
+| storystart-\$bfff | about 31 | Dynamic memory, then virtual memory |
+| \$c000-\$cfff | 4 | Card I/O |
+| \$d000-\$ffff | 12 | BASIC and monitor ROM |
+
+The interpreter starts at \$1000 rather than at the foot of RAM because
+\$0800-\$0FFF belongs to the boot chain, which stays resident for the whole
+session (below). A typical build leaves the story starting around \$4000-\$4400
+and about 62 blocks of 512 bytes between there and \$C000 for dynamic memory and
+the virtual memory cache together. Colour writes are pointed at \$D000, inside
+the ROM, where a 48 KB machine discards them: the machine has no colour memory,
+and this way it costs neither RAM nor a conditional at each of the thirty-odd
+places that write a colour beside a character.
+
+### The disk, and why it is a plain sector image
+
+The Apple II has no DOS in ROM. The Disk II controller card carries a 256-byte
+boot PROM and nothing else, and the drive behind it is a motor, a stepper and a
+read head — there is no intelligent drive to send commands to, as there is on a
+1541. Everything is the host CPU's job: moving the head a half-track at a time,
+recognising a sector's address field as it goes past, and decoding 6-and-2 GCR
+in a loop that has to take a byte every 32 cycles. Ozmoo therefore carries its
+own RWTS (`asm/apple2-rwts.asm`), which the boot PROM loads to \$0800 and which
+stays there for the rest of the session — it is both the loader that brings the
+interpreter in and the sector reader the interpreter calls afterwards. make.rb
+lays the sectors out itself rather than handing the image to a filesystem tool,
+the way it hands a d64 to c1541.
+
+What is standard here is the disk *format*, not a filesystem: 35 tracks of 16
+sectors of 256 bytes in the same 6-and-2 GCR encoding DOS 3.3 uses, with the
+usual D5 AA 96 and D5 AA AD field markers. That is public, and it is what every
+emulator, every SD-card drive replacement and every modern flux tool reads and
+writes. So the image is a `.dsk` (also written `.do`): 143,360 bytes of plain
+sector data with no header at all, the most widely supported form the format
+has. Two consequences are worth stating. A `.dsk` stores each track's sectors in
+DOS 3.3 *logical* order, while the address field written on the track — and so
+our own RWTS — names the *physical* one; the permutation between the two is
+applied when the image is written out, so everything above that addresses a
+sector the way the drive names it. And renaming an image to `.po` does not
+convert it: ProDOS order is a different permutation, and the story would be read
+from the wrong physical sectors.
+
+There is no filesystem on the disk because there is nothing to be compatible
+with. No DOS is loaded before us, nothing else has to find our files, and a disk
+that is almost entirely story sectors has no use for a catalog — the same
+reasoning that puts story data outside the CBM filesystem on the C64 builds. The
+layout is make.rb's own:
+
+| **Track** | **Usage** |
+| -- | ---- |
+| 0 | The boot chain and the resident RWTS |
+| 1 | The two config blocks in sectors 0 and 1; story data in the rest of the track |
+| 2 to n | The interpreter and dynamic memory, in whole tracks |
+| the rest | Story data |
+
+The interpreter takes whole tracks because `add_story_data` understands a track
+with 0, 2, 4 or 6 reserved sectors on it, or one reserved entirely, and nothing
+in between. Story data is laid down three sectors apart: the 6-and-2 unpack
+costs about half a sector time, so the sector after the one just read is always
+missed and the one after that is the first that can be caught. Measured over ten
+tracks, that interleave reads them in 8.5 s where reading them in address-field
+order takes 34.7 s. The value is written into the config block, so the
+interpreter walks a track the same way make.rb filled it.
+
+Since such a disk has no catalog, `tools/apple2-cat.rb` is the way to look
+inside one: it prints the boot chain, the config track decoded, a per-track map
+of every physical sector, and — with `--extract` — the story file reassembled
+out of the disk and checked against the checksum in its own header.
 
 ## Save and Restore
 
