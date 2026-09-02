@@ -158,6 +158,14 @@ dejavu-x16:
 	ruby make.rb -s -t:x16 examples/dejavu.z3
 dejavu-apple2:
 	ruby make.rb -s -t:apple2 examples/dejavu.z3
+# The conformance test games; "make apple2-conformance"
+# runs them headlessly and checks them against dfrotz.
+czech-apple2:
+	ruby make.rb -s -t:apple2 test/czech.z5
+praxix-apple2:
+	ruby make.rb -s -t:apple2 test/praxix.z5
+etude-apple2:
+	ruby make.rb -s -t:apple2 test/etude.z5
 dejavu-apple2e:
 	ruby make.rb -s -t:apple2e examples/dejavu.z3
 dejavu-apple2gs:
@@ -236,6 +244,11 @@ apple2-cat:
 STORY ?= examples/dejavu.z3
 apple2-clock:
 	ruby tools/apple2-clock.rb --story $(STORY) $(OPTS)
+
+# The conformance games under MAME, their transcripts taken out of the running
+# machine and compared with dfrotz. Name one (czech, praxix) to run just it.
+apple2-conformance:
+	ruby tools/apple2-conformance.rb $(OPTS)
 
 clean:
 	rm -rf *d64 *d71 *d81 x16_* apple2_*.dsk

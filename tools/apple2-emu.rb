@@ -50,20 +50,20 @@ module Apple2Emu
   # $00-$3F inverse, $40-$7F flashing, $80-$FF normal, and inverse covers only
   # $20-$5F, which is why the II+ cannot show lower case.
   #
-  # Within a mode the character generator holds 64 glyphs in ASCII order from
-  # $40: codes $00-$1F are @ A-Z [ \ ] ^ _ and codes $20-$3F are space ! " ...
-  # ?.  So a cell can carry a letter two ways round - $C1 is 'A' as ASCII|$80,
-  # and so is $81, which is the same letter as a six bit code with bit 7 on.
-  # Ozmoo writes the second form (its screen codes are six bits, which is also
-  # what folds both cases of a letter onto the one glyph), the step 0 spike
-  # wrote the first, and both look identical on screen - so this has to fold
-  # the low range up rather than assume ASCII.
+  # The character generator holds 64 glyphs, in ASCII order from $40, and
+  # the low SIX bits of the cell choose one: codes $00-$1F are @ A-Z [ \ ] ^ _
+  # and codes $20-$3F are space ! " ... ?. Bit 6 is part of the mode, not part
+  # of the glyph, so $EF and $AF draw the same '/' - which is why this masks to
+  # six bits rather than seven A letter can therefore reach a cell two ways round
+  # $C1 is 'A' as ASCII|$80, and so is $81, the same letter as a six bit code with
+  # bit 7 on.
   def decode_cell(byte)
-    fold = ->(code) { code < 0x20 ? code + 0x40 : code }
+    code = byte & 0x3f
+    char = code < 0x20 ? code + 0x40 : code
     case byte
-    when 0x80..0xff then [fold[byte & 0x7f], :normal]
-    when 0x40..0x7f then [fold[byte & 0x3f], :flash]
-    else                 [fold[byte & 0x3f], :inverse]
+    when 0x80..0xff then [char, :normal]
+    when 0x40..0x7f then [char, :flash]
+    else                 [char, :inverse]
     end
   end
 
@@ -185,6 +185,29 @@ module Apple2Emu
   #   samples: name -> byte length, read every frame and timestamped, which is
   #            how a variable's *rate* is measured (the software clock's, say)
   #            rather than just its final value.
+  #   tap:     a symbol to watch the machine *call*: MAME's read tap fires on
+  #            the opcode fetch at that address, so the accumulator is the
+  #            argument the routine was called with.  A tap on
+  #            streams_print_output is the whole transcript of what a game
+  #            printed, which is what the conformance games are read with.
+  #   auto_more: answer [More] prompts by posting Return whenever the bottom
+  #            right cell holds the prompt's '*'.  A headless run stops at the
+  #            first one otherwise, exactly as it does under xemu and VICE.
+  #   commands: lines to type at the game's prompts.  Each is posted when the
+  #            tap has been quiet for command_idle seconds - i.e. when the game
+  #            has stopped printing and is waiting for something - which is far
+  #            more robust than guessing when a prompt will appear.  A [More]
+  #            prompt is answered inside a quarter of a second by auto_more, so
+  #            it never looks like a prompt to this.  Not before idle_after
+  #            either: the splash screen prints a few characters of its own and
+  #            then the disk loads in silence, which otherwise looks exactly
+  #            like a game waiting at a prompt - and a line typed then is
+  #            simply lost, since this machine latches one key and no more.
+  #   idle_exit: end the run when the tap has been quiet this many emulated
+  #            seconds - i.e. when the game has stopped printing, which is
+  #            where a transcript ends.  Not considered before idle_after,
+  #            because the splash screen prints a little of its own and the
+  #            silence behind it is only the disk loading.
   #   labels:  an ACME symbol table, so watch/symbols can be given by name.
   #
   # Returns { phases: [[value, seconds], ...], symbols: {name => value},
@@ -194,13 +217,15 @@ module Apple2Emu
   # MAME's emu.keypost() puts the text through the emulated keyboard, so the
   # program sees it exactly as a player's typing; "\n" is Return.
   def mame_run(image, labels: {}, watch: nil, until_value: nil, symbols: {},
-               samples: {}, seconds: 120, keys: [], lua_path: nil,
-               result_path: nil)
+               samples: {}, tap: nil, auto_more: false, idle_exit: nil,
+               idle_after: 25, commands: [], command_idle: 1.5,
+               seconds: 120, keys: [], lua_path: nil, result_path: nil)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
     File.delete(result_path) if File.exist?(result_path)
 
     watch_addr = watch ? (labels[watch] or abort("no label #{watch}")) : nil
+    tap_addr = tap ? (labels[tap] or abort("no label #{tap}")) : nil
     reads = symbols.map do |name, width|
       addr = labels[name] or abort("no label #{name}")
       "  {\"#{name}\", 0x#{addr.to_s(16)}, #{width}},"
@@ -215,7 +240,8 @@ module Apple2Emu
       -- with the chunk, and a notifier whose subscription is collected stops
       -- firing, so everything here is a global on purpose.
       mach = manager.machine
-      mem = mach.devices[":maincpu"].spaces["program"]
+      cpu = mach.devices[":maincpu"]
+      mem = cpu.spaces["program"]
       out = io.open("#{result_path}", "w")
       watch_addr = #{watch_addr ? "0x#{watch_addr.to_s(16)}" : 'nil'}
       until_value = #{until_value.nil? ? 'nil' : until_value}
@@ -228,6 +254,19 @@ module Apple2Emu
       last = -1
       armed = false
       finished = false
+      tap_addr = #{tap_addr ? "0x#{tap_addr.to_s(16)}" : 'nil'}
+      idle_exit = #{idle_exit.nil? ? 'nil' : idle_exit}
+      idle_after = #{idle_after}
+      command_idle = #{command_idle}
+      commands = {
+      #{commands.map { |c| "  #{c.inspect}," }.join("
+")}
+      }
+      next_command = 1
+      auto_more = #{auto_more ? 'true' : 'false'}
+      tap_last = nil
+      tap_bytes = {}
+      more_last = -1
       keys = {
       #{keys.map { |at, text| "  {#{'%.3f' % at}, #{text.inspect}}," }.join("
 ")}
@@ -240,7 +279,28 @@ module Apple2Emu
         return v
       end
 
+      -- The read tap fires on the opcode fetch at the routine's first byte, so
+      -- the accumulator still holds the argument it was called with.  It also
+      -- fires on any *data* read of that byte, though - the RWTS reads back the
+      -- memory it loaded, for one - so the program counter has to agree that
+      -- this is an instruction being executed and not a byte being looked at.
+      if tap_addr then
+        tapper = mem:install_read_tap(tap_addr, tap_addr, "ozmoo_tap", function(offset, data, mask)
+          if cpu.state["PC"].value == tap_addr then
+            tap_bytes[#tap_bytes + 1] = string.format("%02X", cpu.state["A"].value)
+            tap_last = mach.time:as_double()
+          end
+          return data
+        end)
+      end
+
       function report()
+        if #tap_bytes > 0 then
+          -- in chunks: one enormous line is slower to write and to read back
+          for i = 1, #tap_bytes, 512 do
+            out:write("tap ", table.concat(tap_bytes, "", i, math.min(i + 511, #tap_bytes)), "\\n")
+          end
+        end
         for _, r in ipairs(reads) do
           out:write(string.format("sym %s %d\\n", r[1], read_var(r)))
         end
@@ -260,6 +320,30 @@ module Apple2Emu
         while next_key <= #keys and keys[next_key][1] <= now do
           emu.keypost(keys[next_key][2])
           next_key = next_key + 1
+        end
+        -- The [More] prompt is a '*' in the bottom right cell of the screen -
+        -- $7f7, the last cell of the interleaved row 23.  It blinks, so this
+        -- sees it every other pass; posting a Return once every few frames is
+        -- enough and cannot run away.
+        if auto_more and mem:read_u8(0x7f7) == 0xaa and now - more_last > 0.25 then
+          emu.keypost("\\r")
+          more_last = now
+        end
+        -- The game has stopped printing: it is waiting for us, so type the
+        -- next line.  tap_last is pushed forward so the next command waits for
+        -- the game to fall silent again rather than following straight on.
+        if next_command <= #commands and tap_last and now > idle_after
+           and now - tap_last > command_idle then
+          emu.keypost(commands[next_command])
+          next_command = next_command + 1
+          tap_last = now
+        end
+        if idle_exit and tap_last and now > idle_after and next_command > #commands
+           and now - tap_last > idle_exit then
+          finished = true
+          report()
+          mach:exit()
+          return
         end
         for _, r in ipairs(sampled) do
           out:write(string.format("sample %.6f %s %d\\n", now, r[1], read_var(r)))
@@ -298,12 +382,13 @@ module Apple2Emu
   end
 
   def parse_mame_result(path)
-    result = { phases: [], symbols: {}, samples: [],
+    result = { phases: [], symbols: {}, samples: [], tap: +''.b,
                screen: Array.new(ROWS, ' ' * COLS), seconds: nil }
     File.foreach(path) do |line|
       case line
       when /^phase (\d+) ([\d.]+)/  then result[:phases] << [$1.to_i, $2.to_f]
       when /^sym (\S+) (\d+)/       then result[:symbols][$1] = $2.to_i
+      when /^tap ([0-9A-F]+)/     then result[:tap] << [$1].pack('H*')
       when /^sample ([\d.]+) (\S+) (\d+)/
         t = $1.to_f
         result[:samples] << [t, {}] if result[:samples].empty? || result[:samples].last[0] != t
