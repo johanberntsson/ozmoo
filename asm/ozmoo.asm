@@ -268,10 +268,19 @@
 }
 
 !ifndef BGCOL {
-	BGCOL = 9
+!ifdef TARGET_APPLE2 {
+	; This screen is white on black and cannot be anything else
+	BGCOL = 2 ; black
+} else {
+	BGCOL = 9 ; white
+}
 }
 !ifndef FGCOL {
-	FGCOL = 2
+!ifdef TARGET_APPLE2 {
+	FGCOL = 9 ; white
+} else {
+	FGCOL = 2 ; black
+}
 }
 !ifndef INPUTCOL {
 	INPUTCOL = FGCOL
@@ -1917,7 +1926,13 @@ z_init
 	ldy #header_flags_1
 	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
+!ifdef TARGET_APPLE2 {
+	; No colour on this machine, so bit 0 has to be clear
+	and #(255 - 1)
+	ora #(16 + 128) ; Fixed-space style, timed input available
+} else {
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
+}
 	jsr write_header_byte
 
 ; check_undo
@@ -1991,7 +2006,11 @@ z_init
 	lda #(64 + MAJOR_VERSION_NO) ; "N" = release 14
 	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
 	jsr write_header_byte
+!ifdef TARGET_APPLE2 {
+	lda #SCREEN_HEIGHT
+} else {
 	lda #25
+}
 	ldy #header_screen_height_lines
 	jsr write_header_byte
 !ifdef Z5PLUS {
