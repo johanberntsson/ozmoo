@@ -3027,8 +3027,14 @@ begin
 				$normal_ram_end_address = $memory_end_address
 				$CACHE_PAGES = 4 # Cache is static size on C128
 			elsif $target == "apple2" then
-				puts "apple2 isn't implemented yet"
-				exit 1
+				# $0800-$0FFF belongs to the boot chain and our own RWTS (the
+				# Disk II PROM loads a stage 2 of up to a track into $0800 and
+				# jumps there), so the interpreter starts just above it. RAM
+				# ends at $C000, where the card I/O and the ROM begin.
+				$start_address = 0x1000
+				$memory_end_address = 0xc000
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
 			elsif $target == "apple2e" then
 				puts "apple2e isn't implemented yet"
 				exit 1
