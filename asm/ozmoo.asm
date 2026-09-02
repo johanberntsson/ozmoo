@@ -93,6 +93,16 @@
 	}
 }
 
+!ifdef TARGET_APPLE2 {
+	; A 48K Apple II / II+. Flat memory: RAM to $bfff, then the card I/O and
+	; the ROM, and nothing banked - so no REU-alike, and VMEM stops where the
+	; I/O starts. No colour, no raster to read, no KERNAL: what stands in for
+	; the last of those is asm/apple2-kernal.asm.
+	TARGET_ASSIGNED = 1
+	SUPPORT_REU = 0
+	VMEM_END_PAGE = $c0
+}
+
 !ifndef TARGET_ASSIGNED {
 	; No target given. C64 is the default target
 	TARGET_C64 = 1
@@ -957,6 +967,8 @@ c128_border_phase1
 
 } else ifdef TARGET_X16 {
 !source "constants-x16.asm"
+} else ifdef TARGET_APPLE2 {
+!source "constants-apple2-kernal.asm"
 } else {
 !source "constants.asm"
 }
@@ -1165,7 +1177,11 @@ game_id		!byte 0,0,0,0
 
 	jsr deletable_screen_init_2
 
-!ifndef TARGET_X16 {
+!ifdef TARGET_X16 {
+} else ifdef TARGET_APPLE2 {
+	; No keyboard buffer: a key sits in the hardware until $C010 is touched,
+	; and apple2-kernal.asm's getchar drains that at init.
+} else {
 	lda #0
 	sta keyboard_buff_len
 }
@@ -1247,6 +1263,11 @@ game_id		!byte 0,0,0,0
 }
 	; stz 1
 	; jmp ($fffc)
+} else ifdef TARGET_APPLE2 {
+	; Quitting reboots. There is nothing to go back to on this machine - no
+	; BASIC waiting in ROM with a program in memory - so the reset vector is
+	; the honest exit, and the autostart ROM boots the disk still in the drive.
+	jmp ($fffc)
 } else {
 	; Back to normal memory banks
 	lda #%00110111
@@ -1269,6 +1290,9 @@ statmem_reu_banks !byte 0
 !source "scrollback.asm"
 }
 !source "disk.asm"
+!ifdef TARGET_APPLE2 {
+!source "apple2-kernal.asm"
+}
 !ifdef Z6 {
 !source "screenkernal-z6.asm"
 !source "screen-z6.asm"
@@ -2217,7 +2241,11 @@ deletable_init_start
 	jsr init_mega65
 }
 
-!ifndef TARGET_X16 { ; For X16, this is done by printing a character at the start of deletable_init_start
+!ifdef TARGET_X16 { ; For X16, this is done by printing a character at the start of deletable_init_start
+} else ifdef TARGET_APPLE2 {
+	; One character generator, 64 glyphs, upper case only - there is no second
+	; charset to lock out.
+} else {
 	lda #$80
 	sta charset_switchable
 }
@@ -2243,7 +2271,17 @@ m65_x16_statmem_already_loaded !byte 0
 deletable_init
 	cld
 
-!ifndef TARGET_X16 {
+!ifdef TARGET_APPLE2 {
+	; The clock, the entropy counter and the screen mode: everything the shim
+	; that stands in for a KERNAL needs set up before anything reads a key or
+	; asks the time (asm/apple2-kernal.asm).
+	jsr a2_init
+}
+
+!ifdef TARGET_X16 {
+} else ifdef TARGET_APPLE2 {
+	; The REPT key is the keyboard's own business on this machine.
+} else {
 	; Set only space, del, cursor to repeat
 	lda #0
 	sta key_repeat
@@ -2256,7 +2294,12 @@ deletable_init
 ; Moved pointer init for MEGA65 from here
 
 ; Read and parse config from boot disk
-!ifndef TARGET_X16 {
+!ifdef TARGET_APPLE2 {
+	; One drive, and the boot chain already knows which slot it booted from
+	; ($2b, which asm/apple2-rwts.asm keeps). Nothing to pick.
+	lda #0
+	sta boot_device
+} else ifndef TARGET_X16 {
 	ldy CURRENT_DEVICE
 	cpy #8
 	bcc .pick_default_boot_device
