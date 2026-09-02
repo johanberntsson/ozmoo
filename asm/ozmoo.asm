@@ -981,7 +981,7 @@ c128_border_phase1
 }
 !source "constants-header.asm"
 !ifndef SPACE_SCREENCODE {
-    : the normal space character (Apple is different)
+    ; the normal space character (Apple is different)
     SPACE_SCREENCODE = $20
 }
 
