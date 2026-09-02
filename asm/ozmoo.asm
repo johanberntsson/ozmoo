@@ -361,7 +361,14 @@
 }
 
 !ifndef CURSORCHAR {
+!ifdef TARGET_APPLE2 {
+	; An inverse space. A screen byte's top two bits are its video mode on this
+	; machine, and $00-$3f is inverse - so $20 is a solid block, where the C64's
+	; 224 would alias onto '@'.
+	CURSORCHAR = $20
+} else {
 	CURSORCHAR = 224
+}
 }
 
 !ifndef SPLASHWAIT {
@@ -968,11 +975,15 @@ c128_border_phase1
 } else ifdef TARGET_X16 {
 !source "constants-x16.asm"
 } else ifdef TARGET_APPLE2 {
-!source "constants-apple2-kernal.asm"
+!source "constants-apple2.asm"
 } else {
 !source "constants.asm"
 }
 !source "constants-header.asm"
+!ifndef SPACE_SCREENCODE {
+    : the normal space character (Apple is different)
+    SPACE_SCREENCODE = $20
+}
 
 !if SUPPORT_REU = 1 {
 progress_reu = parse_array

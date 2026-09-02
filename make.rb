@@ -16,6 +16,7 @@ if $is_windows then
 		'X128' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\x128.exe -silent -80 -autostart-delay-random",
 		'XPLUS4' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\xplus4.exe -silent -autostart-delay-random",
 		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
+		'APPLE2' => "C:\\WoInstall\\AppleWin\\Applewin.exe",
 		'C1541' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\c1541.exe",
 		'EXOMIZER' => "C:\\WoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
 		'ACME' => "C:\\WoInstall\\acme0.97win\\acme\\acme.exe",
@@ -33,6 +34,10 @@ else
 		'X128' => "x128 -silent -autostart-delay-random",
 		'XPLUS4' => "xplus4 -silent -autostart-delay-random",
 		'MEGA65' => "xemu-xmega65 -besure",
+		# AppleWin's SDL front end (audetto's Linux port), which is the
+		# interactive Apple II emulator. MAME's apple2p is the headless one and
+		# is driven from tools/apple2-emu.rb, not from here.
+		'APPLE2' => __dir__ + "/AppleWin/build/sa2",
 		'C1541' => "c1541",
 		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
 		'ACME' => "acme",
@@ -1939,12 +1944,24 @@ def play(filename, storyname)
 			exit 0
 		end
 	elsif $target == "apple2" then
-		# Nothing to launch yet: the disk has no boot chain on it, so it does
-		# not boot. When asm/apple2-rwts.asm puts one there, this is where MAME
-		# (mame apple2p -sl6 diskiing -flop1 <dsk> -noautosave) and AppleWin's
-		# sa2 go - tools/apple2-emu.rb already drives both for the spikes.
-		puts "Not starting an emulator: the Apple II disk does not boot yet."
-		return
+		if $executables.has_key?('APPLE2')
+			# AppleWin defaults to an enhanced //e, and we currently target a 48K
+			# II+ - so the machine is spelled out in a config of our own rather
+			# than taken from ~/.config/applewin. Slot 0 empty is "no language
+			# card", which is what makes it 48K; slot 6 is the Disk II.
+			config = File.join($TEMPDIR, 'apple2.yaml')
+			File.write(config, "Configuration:\n" +
+				"  Apple2 Type: 1\n" +
+				"Configuration\\Slot 0:\n" +
+				"  Card type: 0\n" +
+				"Configuration\\Slot 6:\n" +
+				"  Card type: 1\n")
+			command = "#{$executables['APPLE2']} --conf #{$commandline_quotemark}#{config}#{$commandline_quotemark}" +
+				" --d1 #{$commandline_quotemark}#{filename}#{$commandline_quotemark}"
+		else
+			puts "Location of Apple II emulator unknown. Please set APPLE2 executable location at start of make.rb"
+			exit 0
+		end
 	elsif $target == "plus4" then
 	    command = "#{$executables['XPLUS4']} \"#{filename}\""
 	elsif $target == "c128" then
@@ -3014,9 +3031,25 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	# The interpreter is a plain binary that the boot chain will read into
 	# $start_address, so it needs whole tracks of its own. It is the assembled
 	# file in full, not just up to program_end: the bytes above that are the
-	# vmem cache and the z-stack, and loading them costs nine sectors and leaves
-	# the machine in the state the CBM builds reach by decrunching.
+	# vmem cache and the z-stack, and loading them costs a few sectors and
+	# leaves the machine in the state the CBM builds reach by decrunching.
+	#
+	# The story's dynamic memory rides along behind it. ACME pads the output to
+	# $storystart, so appending the first $dynmem_blocks blocks of the story
+	# makes one contiguous image that the boot chain loads in a single sweep -
+	# which is what build_boot_file does for the CBM targets by handing
+	# exomizer the same bytes as a second file at $storystart. Without it the
+	# interpreter comes up and reads its dictionary out of whatever was in RAM.
 	interpreter = IO.binread($ozmoo_file).unpack("C*")
+	if $VMEM
+		dynmem = vmem_contents[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
+		if interpreter.length != $storystart - $start_address
+			puts "ERROR: the interpreter is #{interpreter.length} bytes but story_start is " +
+				"#{$storystart - $start_address} above it; dynamic memory would land in the wrong place."
+			exit 1
+		end
+		interpreter += dynmem.unpack("C*")
+	end
 	terp_tracks_needed = (interpreter.length + A2_TRACK_BYTES - 1) / A2_TRACK_BYTES
 	interpreter_tracks = (0...terp_tracks_needed).map { |i| A2_FIRST_TERP_TRACK + i }
 	if interpreter_tracks.last >= AppleDiskImage::TRACKS
@@ -3077,8 +3110,8 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 		puts "Apple II disk layout:"
 		puts "  track  0     boot chain + resident RWTS, #{boot.length} bytes in #{boot_sectors} sectors"
 		puts "  track  #{$CONFIG_TRACK}     config track, sectors 0-1"
-		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   interpreter, #{interpreter.length} bytes in " +
-			"#{terp_sectors} sectors, loads at $#{$start_address.to_s(16)}"
+		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   interpreter + dynmem, #{interpreter.length} bytes in " +
+			"#{terp_sectors} sectors, loads at $#{$start_address.to_s(16)} (story from $#{$storystart.to_s(16)})"
 		puts "  story        #{last_block_plus_1} sectors at interleave #{disk.interleave}, " +
 			"#{free_blocks} sectors free"
 	end

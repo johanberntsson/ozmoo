@@ -13,6 +13,12 @@ SCREEN_ADDRESS        = $0400
 COLOUR_ADDRESS        = $d000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
+; A screen byte's top two bits are its video mode: 
+; - $00-$3f inverse, 
+; - $40-$7f flashing
+; - $80-$ff normal. So a blank cell is $a0, not $20, and the cursor is
+SPACE_SCREENCODE      = $a0
+
 ; --- hardware ---------------------------------------------------------------
 KEYBOARD              = $C000   ; bit 7 = a key is waiting, bits 0-6 = ASCII
 KEYBOARD_STROBE       = $C010   ; any access clears the strobe
