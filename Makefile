@@ -228,5 +228,9 @@ apple2-rwts-dump:
 apple2-rwts-sweep:
 	ruby tools/apple2-rwts-spike.rb --sweep
 
+IMAGE ?= apple2_dejavu.dsk
+apple2-cat:
+	ruby tools/apple2-cat.rb $(OPTS) $(IMAGE)
+
 clean:
 	rm -rf *d64 *d71 *d81 x16_* apple2_*.dsk
