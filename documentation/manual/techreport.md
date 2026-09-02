@@ -297,6 +297,9 @@ has no banked or expansion RAM to hold a whole story file in, so the story is
 paged in from disk as it is needed, and sectors 0 and 1 of track 1 hold the same
 configuration blocks described under "Configuration blocks". Save and restore
 are not implemented yet, and `do_save` and `do_restore` report a file error.
+Undo is compiled out as well: 48K leaves no room for the buffer. The standard
+conformance games both pass on this target — czech reports 406 of its tests
+passed and none failed, and praxix reports that all of its do.
 
 Two things stand in for machinery the other targets get from their ROMs. There
 is no KERNAL, so `apple2-kernal.asm` exports the names the shared code already
@@ -315,6 +318,15 @@ does not advance at all while the game is printing or paging from disk. And the 
 interleaved — a row begins at `$400 + (row & 7) * $80 + (row >> 3) * $28` —
 so screenkernal.asm reaches a row through a lookup table where every other
 target multiplies the row number by the screen width.
+
+The character generator holds 64 glyphs — ASCII \$20-\$5f — so the display is
+upper case only, and a screen byte's top two bits choose normal, inverse or
+flashing video rather than a colour. Ozmoo folds both cases of a letter onto
+the one glyph and uses inverse video where another target would use reverse
+video. The three characters PETSCII draws with graphics because it lacks them,
+`_`, `\` and `|`, are handled by a target-specific output
+translation table: the first two exist here and pass through unchanged, and the
+third, which does not, prints as `!`.
 
 ### Apple II memory map
 
