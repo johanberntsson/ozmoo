@@ -340,6 +340,16 @@ $d81interleave = [
 
 $i81 = $d81interleave[1] # Optimal scheme for MEGA65, as far as we can tell. File copying is not done in make.rb for other platforms.
 
+# Sectors between one story block and the next on an Apple II track. 
+# tools/apple2-rwts-spike.rb --sweep reads ten tracks in 8.5 s at 3, 10.7 s
+# at 5, 14.7 s at 7 and 34.7 s at 1, because the 6-and-2 unpack costs
+# about half a sector time and the sector after the one just read is always
+# missed. Must be odd, or the walk does not visit all sixteen sectors.
+$a2_interleave = 3
+
+A2_TRACK_BYTES      = 16 * 256   # one Apple II track
+A2_FIRST_TERP_TRACK = 2          # track 0 is the boot chain, track 1 the config track
+
 class Disk_image
 	def base_initialize
 		@reserve_dir_track = nil
@@ -1359,6 +1369,123 @@ class D81_image < Disk_image
 	
 end # class D81_image
 
+# ---------------------------------------------------------------------------
+# The Apple II 5.25" disk: 35 tracks x 16 sectors x 256 bytes, and no
+# filesystem on it at all. There is no DOS in ROM on this machine, so there is
+# nothing to be compatible with: make.rb lays the sectors out and our own RWTS
+# reads them back, which is why this class writes the image itself where the
+# CBM ones hand the job to c1541.
+class AppleDiskImage < Disk_image
+	TRACKS            = 35
+	SECTORS_PER_TRACK = 16
+	SECTOR_SIZE       = 256
+	IMAGE_SIZE        = TRACKS * SECTORS_PER_TRACK * SECTOR_SIZE  # 143_360
+
+	# Physical sector -> index within the track in the file. This is not
+	# folklore: AppleWin's NibblizeTrack() walks physical sectors 0..15 in
+	# order and takes each one's data from file index ms_SectorNumber[DOS
+	# order][physical], which is this table. MAME does the same.
+	DOS33 = [0, 7, 14, 6, 13, 5, 12, 4, 11, 3, 10, 2, 9, 1, 8, 15]
+
+	def initialize(diskimage_filename:, is_boot_disk:, reserved_tracks: [])
+		puts "Creating Apple II disk image..." if $verbose
+		@diskimage_filename = diskimage_filename
+		@is_boot_disk = is_boot_disk
+		@tracks = TRACKS - 1                 # the highest track number, 34
+		@track_length = Array.new(TRACKS, SECTORS_PER_TRACK)
+
+		base_initialize()
+
+		# Consecutive story blocks land three sectors apart, which
+		# tools/apple2-rwts-spike.rb --sweep measured as the fastest of the
+		# eight possible skews: 8.5 s against 34.7 s at skew 1 and 14.7 s at
+		# skew 7, for the same ten tracks. The interpreter reads this value
+		# back out of the config track (config_data[5]) and walks the track the
+		# same way add_story_data does.
+		@interleave = $a2_interleave
+
+		@reserved_sectors[0] = SECTORS_PER_TRACK      # track 0: the boot chain
+		@reserved_sectors[@config_track] = 2 if @is_boot_disk and @config_track
+		reserved_tracks.each { |track| @reserved_sectors[track] = SECTORS_PER_TRACK }
+
+		calculate_initial_free_blocks()
+	end
+
+	# No BAM and no directory: there is no filesystem to keep up to date.
+	def allocate_sector(track, sector)
+	end
+
+	def add_directory()
+	end
+
+	# Write one 256 byte sector, addressed by physical track and sector. Short
+	# data is zero padded.
+	def write_sector(track, sector, bytes)
+		unless (0...TRACKS).cover?(track) and (0...SECTORS_PER_TRACK).cover?(sector)
+			puts "ERROR: sector #{track}/#{sector} is outside the disk."
+			exit 1
+		end
+		if bytes.length > SECTOR_SIZE
+			puts "ERROR: sector #{track}/#{sector} is #{bytes.length} bytes."
+			exit 1
+		end
+		offset = (@track_offset[track] + sector) * SECTOR_SIZE
+		padded = bytes.dup + Array.new(SECTOR_SIZE - bytes.length, 0)
+		@contents[offset, SECTOR_SIZE] = padded
+	end
+
+	# Write a blob across a track at the disk's own interleave, exactly as the
+	# story data is laid down, and carry on to the next track when this one is
+	# full. Returns the number of sectors used.
+	def write_blob(track, sector, bytes)
+		seen = {}
+		used = 0
+		(0...bytes.length).step(SECTOR_SIZE) do |i|
+			if track >= TRACKS
+				puts "ERROR: the interpreter runs off the end of the disk."
+				exit 1
+			end
+			write_sector(track, sector, bytes[i, SECTOR_SIZE])
+			used += 1
+			seen[sector] = true
+			sector = (sector + @interleave) % SECTORS_PER_TRACK
+			if seen[sector]
+				track += 1
+				sector = 0
+				seen = {}
+			end
+		end
+		used
+	end
+
+	def verify_image
+		if @contents.length != IMAGE_SIZE
+			puts "ERROR: the disk image is #{@contents.length} bytes, not #{IMAGE_SIZE}."
+			exit 1
+		end
+	end
+
+	def save
+		verify_image
+		image = Array.new(IMAGE_SIZE, 0)
+		TRACKS.times do |track|
+			SECTORS_PER_TRACK.times do |sector|
+				from = (track * SECTORS_PER_TRACK + sector) * SECTOR_SIZE
+				to   = (track * SECTORS_PER_TRACK + DOS33[sector]) * SECTOR_SIZE
+				image[to, SECTOR_SIZE] = @contents[from, SECTOR_SIZE]
+			end
+		end
+		begin
+			diskimage_file = File.open(@diskimage_filename, "wb")
+		rescue
+			puts "ERROR: Can't open #{@diskimage_filename} for writing"
+			exit 1
+		end
+		diskimage_file.write image.pack("C*")
+		diskimage_file.close
+	end
+end # class AppleDiskImage
+
 ################################## END Disk image classes
 
 def filename_to_title(name, remove_the_if_longer_than)
@@ -1809,6 +1936,13 @@ def play(filename, storyname)
 			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
 			exit 0
 		end
+	elsif $target == "apple2" then
+		# Nothing to launch yet: the disk has no boot chain on it, so it does
+		# not boot. When asm/apple2-rwts.asm puts one there, this is where MAME
+		# (mame apple2p -sl6 diskiing -flop1 <dsk> -noautosave) and AppleWin's
+		# sa2 go - tools/apple2-emu.rb already drives both for the spikes.
+		puts "Not starting an emulator: the Apple II disk does not boot yet."
+		return
 	elsif $target == "plus4" then
 	    command = "#{$executables['XPLUS4']} \"#{filename}\""
 	elsif $target == "c128" then
@@ -2816,20 +2950,93 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     nil # Signal success
 end
 
-# The Apple II disk: 35 tracks x 16 sectors x 256 bytes of raw sector data with
-# no filesystem on it at all, written by make.rb itself the way the d64 builders
-# write theirs through c1541 - track 0 the boot chain (byte 0 of the boot sector
-# is the count of further sectors the Disk II PROM loads into $0800 before it
-# jumps there), then the config track CONF_TRK, then the story laid down at
-# skew 3, the interleave tools/apple2-rwts-spike.rb --sweep measured as the
-# fastest. The class to build it from is tools/apple2-disk.rb.
+# The Apple II disk, laid out by make.rb itself since there is no filesystem on
+# it and nothing to be compatible with. The layout is the one in
+# apple-plan/apple-phase1.md:
+#
+#   track 0                 the boot chain. Byte 0 of sector 0 is the number of
+#                           sectors the Disk II PROM loads into $0800 and up
+#                           before it jumps to $0801, so the whole stage 2 -
+#                           our RWTS - arrives without a loader of our own.
+#   track 1 (CONF_TRK)      sectors 0 and 1 are the config track the
+#                           interpreter reads at boot; the rest of the track is
+#                           story data, exactly as on a d64.
+#   tracks 2..n             the interpreter, in whole tracks, because
+#                           add_story_data understands 0, 2, 4 or 6 reserved
+#                           sectors on a track or all sixteen, and nothing in
+#                           between.
+#   everything else         story data, at the disk's interleave.
 def build_A2(storyname, diskimage_filename, config_data, vmem_data,
              vmem_contents, preload_max_vmem_blocks)
-	puts "Interpreter assembled: #{$program_end_address - $start_address} bytes, " +
-		"$#{$start_address.to_s(16)}-$#{$program_end_address.to_s(16)}, " +
-		"story from $#{$storystart.to_s(16)}."
-	puts "ERROR: the Apple II disk build (MODE_A2) is not implemented yet."
-	exit 1
+	diskfilename = "#{$target}_#{storyname}.dsk"
+
+	# The interpreter is a plain binary that the boot chain will read into
+	# $start_address, so it needs whole tracks of its own. It is the assembled
+	# file in full, not just up to program_end: the bytes above that are the
+	# vmem cache and the z-stack, and loading them costs nine sectors and leaves
+	# the machine in the state the CBM builds reach by decrunching.
+	interpreter = IO.binread($ozmoo_file).unpack("C*")
+	terp_tracks_needed = (interpreter.length + A2_TRACK_BYTES - 1) / A2_TRACK_BYTES
+	interpreter_tracks = (0...terp_tracks_needed).map { |i| A2_FIRST_TERP_TRACK + i }
+	if interpreter_tracks.last >= AppleDiskImage::TRACKS
+		puts "ERROR: The interpreter needs #{terp_tracks_needed} tracks and does not fit."
+		exit 1
+	end
+
+	disk = AppleDiskImage.new(diskimage_filename: diskimage_filename,
+		is_boot_disk: true, reserved_tracks: interpreter_tracks)
+
+	disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
+	if $story_file_cursor < $story_file_data.length
+		puts "ERROR: The whole story doesn't fit on the disk."
+		exit 1
+	end
+	free_blocks = disk.free_blocks()
+	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
+
+	terp_sectors = disk.write_blob(interpreter_tracks.first, 0, interpreter)
+
+	# Nothing is preloaded into the boot chain yet. Phase one loads the
+	# interpreter uncompressed and pages the story in on demand, so the tricks
+	# the CBM builders play with the boot file - exomizer, vmem blocks carried
+	# inside it - have no counterpart here.
+	vmem_data[3] = 0
+
+	# Config data about the boot / story disk, in the same shape build_S1 uses:
+	# bytes used, device# = 0 (auto), last story sector + 1 (word), tracks with
+	# an entry, the per-track map, then the disk's name.
+	disk_info_size = 11 + disk.config_track_map.length
+	last_block_plus_1 = 0
+	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
+	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256,
+		disk.config_track_map.length] + disk.config_track_map
+	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]
+	config_data[4] += disk_info_size
+
+	if $VMEM
+		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+	end
+	config_data += vmem_data
+
+	disk.set_config_data(config_data)
+	disk.save()
+	FileUtils.cp(diskimage_filename, diskfilename)
+
+	if $verbose
+		puts "Apple II disk layout:"
+		puts "  track  0     boot chain (not written yet)"
+		puts "  track  #{$CONFIG_TRACK}     config track, sectors 0-1"
+		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   interpreter, #{interpreter.length} bytes in " +
+			"#{terp_sectors} sectors, loads at $#{$start_address.to_s(16)}"
+		puts "  story        #{last_block_plus_1} sectors at interleave #{disk.interleave}, " +
+			"#{free_blocks} sectors free"
+	end
+
+	$bootdiskname = "#{diskfilename}"
+	puts "Successfully built game as #{$bootdiskname}"
+	puts "NOTE: track 0 has no boot chain on it yet (asm/apple2-rwts.asm is not written), " +
+		"so this disk does not boot."
+	nil # Signal success
 end
 
 def print_usage_and_exit

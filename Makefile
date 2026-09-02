@@ -229,4 +229,4 @@ apple2-rwts-sweep:
 	ruby tools/apple2-rwts-spike.rb --sweep
 
 clean:
-	rm -rf *d64 *d71 *d81 x16_* apple2_spike.dsk apple2_rwts.dsk
+	rm -rf *d64 *d71 *d81 x16_* apple2_*.dsk
