@@ -17,6 +17,28 @@
 
 !zone screenkernal {
 
+!ifdef TARGET_APPLE2 {
+; The text page is not laid out in rows. It is three interleaved blocks of
+; eight, so a row's base is $400 + (row & 7) * $80 + (row >> 3) * $28 - which
+; is why .update_screenpos below has a table where every other target has a
+; multiply, why .s_scroll cannot walk from one row to the next by adding the
+; screen width, and why the [More] prompt's cell is not SCREEN_ADDRESS plus
+; width times height (see init_screen_colours in screen.asm).
+;
+; The four "screen holes" in each 128 byte block ($478-$47f and friends) belong
+; to peripheral cards and are not on screen; a 40 column row never reaches
+; them.
+a2_row_lo
+	!for .r, 0, SCREEN_HEIGHT - 1 {
+		!byte <(SCREEN_ADDRESS + (.r & 7) * $80 + (.r >> 3) * $28)
+	}
+a2_row_hi
+	!for .r, 0, SCREEN_HEIGHT - 1 {
+		!byte >(SCREEN_ADDRESS + (.r & 7) * $80 + (.r >> 3) * $28)
+	}
+}
+
+
 !ifdef TARGET_X16 {
 colour_petscii !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 }
@@ -515,7 +537,7 @@ s_delete_cursor
 !ifdef TARGET_MEGA65 {
 	jsr colour2k
 }
-	lda #$20 ; blank space
+	lda #SPACE_SCREENCODE ; blank space
 !ifdef TARGET_C128 {
 	bit COLS_40_80
 	bpl +
@@ -587,7 +609,7 @@ s_printchar
 	lda s_screen_width_minus_one ; #SCREEN_WIDTH-1
 	sta zp_screencolumn
 ++  jsr .update_screenpos
-	lda #$20
+	lda #SPACE_SCREENCODE
 	ldy zp_screencolumn
 !ifdef TARGET_C128 {
 	bit COLS_40_80
@@ -662,7 +684,18 @@ s_printchar
 	bcs .outside_current_window
 .resume_printing_normal_char	
 	jsr convert_petscii_to_screencode
+!ifdef TARGET_APPLE2 {
+	; A screen byte's top two bits are its video mode on this machine: bit 7
+	; set is normal, clear is inverse. convert_petscii_to_screencode leaves a
+	; six bit code, which IS the inverse form, so normal video is that with bit
+	; 7 on - and s_reverse, $80 when reverse video is asked for, flips it back
+	; off. The same six bit codes also fold both cases of a letter onto the one
+	; upper case glyph, which is all the character generator has.
+	ora #$80
+	eor s_reverse
+} else {
 	ora s_reverse
+}
 	pha
 	jsr .update_screenpos
 	pla
@@ -820,6 +853,18 @@ s_erase_window
     lda #0
 	sta zp_screenline
 	sta zp_colourline
+} else ifdef TARGET_APPLE2 {
+	; Interleaved rows, so the base comes straight out of the table rather than
+	; from row * width.
+	lda a2_row_lo,x
+	sta zp_screenline
+	clc
+	adc #<COLOUR_ADDRESS_DIFF
+	sta zp_colourline
+	lda a2_row_hi,x
+	sta zp_screenline + 1
+	adc #>COLOUR_ADDRESS_DIFF
+	sta zp_colourline + 1
 } else ifdef TARGET_MEGA65 {
 	; calculate zp_screenline = zp_current_screenpos_row * 40
 	; Use MEGA65's hardware multiplier
@@ -977,6 +1022,33 @@ s_scrolled_lines !byte 0
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
+!ifdef TARGET_APPLE2 {
+	; One row at a time out of the row table: the rows are interleaved, so the
+	; two pointers cannot be walked forward by the screen width the way the
+	; generic path below walks them. x is the row being written to, and it
+	; reads from the row under it, up to and including the last one.
+	ldx window_start_row + 1 ; how many top lines to protect
+.a2_scroll_row
+	cpx s_screen_height_minus_one
+	bcs .done_scrolling
+	lda a2_row_lo + 1,x
+	sta .a2_scroll_load + 1
+	lda a2_row_hi + 1,x
+	sta .a2_scroll_load + 2
+	lda a2_row_lo,x
+	sta .a2_scroll_store + 1
+	lda a2_row_hi,x
+	sta .a2_scroll_store + 2
+	ldy s_screen_width_minus_one
+.a2_scroll_load
+	lda $8000,y ; This address is modified above
+.a2_scroll_store
+	sta $8000,y ; This address is modified above
+	dey
+	bpl .a2_scroll_load
+	inx
+	bne .a2_scroll_row ; Always branch
+} else {
 	ldx window_start_row + 1 ; how many top lines to protect
 	inx
 	stx zp_screenrow
@@ -1126,6 +1198,7 @@ s_scrolled_lines !byte 0
 	; inc .scroll_load_colour + 2
 ; }	
 	bne - ; Always branch
+} ; not TARGET_APPLE2
 
 .done_scrolling
 ;	cli
@@ -1260,7 +1333,7 @@ s_erase_line
 -	cpy s_screen_width
 	bcs .done_erasing
 	; set character
-	lda #$20
+	lda #SPACE_SCREENCODE
 !ifdef TARGET_X16 {
     sta VERA_data0
 } else {

@@ -29,7 +29,31 @@ init_screen_colours
 	; calculate the position for the more prompt
 	; (self modifying code since we don't want to
 	; ZP space is limited)
-!ifndef TARGET_X16 {
+!ifdef TARGET_APPLE2 {
+	; The rows are interleaved, so the bottom right cell is not SCREEN_ADDRESS
+	; plus width times height: it comes out of the row table like any other row
+	; (see a2_row_lo in screenkernal.asm).
+	ldx s_screen_height_minus_one
+	lda a2_row_lo,x
+	clc
+	adc s_screen_width_minus_one
+	sta .more_access1 + 1
+	sta .more_access2 + 1
+	sta .more_access4 + 1
+	!ifndef BENCHMARK {
+	sta .more_access3 + 1
+	}
+	lda a2_row_hi,x
+	adc #0
+	sta .more_access1 + 2
+	sta .more_access2 + 2
+	sta .more_access4 + 2
+	!ifndef BENCHMARK {
+	clc
+	adc #>COLOUR_ADDRESS_DIFF
+	sta .more_access3 + 2
+	}
+} else ifndef TARGET_X16 {
 	lda s_screen_size + 1
 	clc
 	adc #>SCREEN_ADDRESS
@@ -824,7 +848,12 @@ print_line_from_buffer
 		bcs ++
 		lda print_buffer,y
 		jsr convert_petscii_to_screencode
+	!ifdef TARGET_APPLE2 {
+		ora #$80        ; normal video; see .normal_char in screenkernal.asm
+		eor print_buffer2,y
+	} else {
 		ora print_buffer2,y
+	}
 		sta (zp_screenline),y
 	!ifdef COLOURFUL_LOWER_WIN {
 	!ifdef TARGET_PLUS4 {
