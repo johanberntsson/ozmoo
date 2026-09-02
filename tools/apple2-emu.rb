@@ -49,13 +49,21 @@ module Apple2Emu
   # One screen cell -> [character, video mode].  Bits 7-6 pick the mode:
   # $00-$3F inverse, $40-$7F flashing, $80-$FF normal, and inverse covers only
   # $20-$5F, which is why the II+ cannot show lower case.
+  #
+  # Within a mode the character generator holds 64 glyphs in ASCII order from
+  # $40: codes $00-$1F are @ A-Z [ \ ] ^ _ and codes $20-$3F are space ! " ...
+  # ?.  So a cell can carry a letter two ways round - $C1 is 'A' as ASCII|$80,
+  # and so is $81, which is the same letter as a six bit code with bit 7 on.
+  # Ozmoo writes the second form (its screen codes are six bits, which is also
+  # what folds both cases of a letter onto the one glyph), the step 0 spike
+  # wrote the first, and both look identical on screen - so this has to fold
+  # the low range up rather than assume ASCII.
   def decode_cell(byte)
+    fold = ->(code) { code < 0x20 ? code + 0x40 : code }
     case byte
-    when 0x80..0xff then [byte & 0x7f, :normal]
-    when 0x40..0x7f then [(byte & 0x3f) | 0x40, :flash]
-    else
-      code = byte & 0x3f
-      [code < 0x20 ? code + 0x40 : code, :inverse]
+    when 0x80..0xff then [fold[byte & 0x7f], :normal]
+    when 0x40..0x7f then [fold[byte & 0x3f], :flash]
+    else                 [fold[byte & 0x3f], :inverse]
     end
   end
 
@@ -178,8 +186,11 @@ module Apple2Emu
   #
   # Returns { phases: [[value, seconds], ...], symbols: {name => value},
   #           screen: [24 strings], seconds: <emulated seconds run> }.
+  # keys: a list of [seconds, "text"] pairs typed into the machine as it runs.
+  # MAME's emu.keypost() puts the text through the emulated keyboard, so the
+  # program sees it exactly as a player's typing; "\n" is Return.
   def mame_run(image, labels: {}, watch: nil, until_value: nil, symbols: {},
-               seconds: 120, lua_path: nil, result_path: nil)
+               seconds: 120, keys: [], lua_path: nil, result_path: nil)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
     File.delete(result_path) if File.exist?(result_path)
@@ -205,6 +216,11 @@ module Apple2Emu
       last = -1
       armed = false
       finished = false
+      keys = {
+      #{keys.map { |at, text| "  {#{'%.3f' % at}, #{text.inspect}}," }.join("
+")}
+      }
+      next_key = 1
 
       function report()
         for _, r in ipairs(reads) do
@@ -224,6 +240,11 @@ module Apple2Emu
 
       sub = emu.add_machine_frame_notifier(function()
         if finished then return end
+        local now = mach.time:as_double()
+        while next_key <= #keys and keys[next_key][1] <= now do
+          emu.keypost(keys[next_key][2])
+          next_key = next_key + 1
+        end
         if watch_addr then
           local v = mem:read_u8(watch_addr)
           if v ~= last then
