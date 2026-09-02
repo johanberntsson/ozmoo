@@ -78,6 +78,7 @@ plus4_enable_rom = $ff3e
 !ifdef TARGET_PLUS4 {
 ;	sta plus4_enable_ram
 } else ifdef TARGET_X16 {
+} else ifdef TARGET_APPLE2 { ; flat memory: nothing to bank
 } else {
 	sta zero_processorports
 }
@@ -87,6 +88,7 @@ plus4_enable_rom = $ff3e
 !macro set_memory_no_basic {
 	!ifdef TARGET_PLUS4 {
     } else ifdef TARGET_X16 {
+    } else ifdef TARGET_APPLE2 { ; flat memory: nothing to bank
 	} else {
 			pha
 		!ifdef TARGET_C128 {
@@ -103,6 +105,7 @@ plus4_enable_rom = $ff3e
 !macro set_memory_no_basic_unsafe {
 	!ifdef TARGET_PLUS4 {
     } else ifdef TARGET_X16 {
+    } else ifdef TARGET_APPLE2 { ; flat memory: nothing to bank
 	} else {
 		!ifdef TARGET_C128 {
 			lda #%00001110 ; 48K RAM0 (0-$c000)
@@ -117,6 +120,7 @@ plus4_enable_rom = $ff3e
 !macro set_memory_normal {
 	!ifdef TARGET_PLUS4 {
     } else ifdef TARGET_X16 {
+    } else ifdef TARGET_APPLE2 { ; flat memory: nothing to bank
 	} else {
 			pha
 		!ifdef TARGET_C128 {
@@ -1247,11 +1251,20 @@ SETBORDERMACRO_DEFINED = 1
 }
 
 !ifndef SETBORDERMACRO_DEFINED {
+!ifdef TARGET_APPLE2 {
+; The first target with no colour at all: no border, no background, no colour
+; memory. The macros keep their names so the call sites stay as they are.
+!macro SetBorderColour {
+}
+!macro SetBackgroundColour {
+}
+} else {
 !macro SetBorderColour {
 	sta reg_bordercolour
 }
 !macro SetBackgroundColour {
 	sta reg_backgroundcolour
+}
 }
 }
 

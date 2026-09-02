@@ -328,6 +328,24 @@ read_track_sector
 	stx .sector
 	sty .device
 .have_set_device_track_sector
+!ifdef TARGET_APPLE2 {
+	; There is no DOS to talk to on this machine: the sector reader is our own,
+	; resident at $0800 since the boot chain put it there (asm/apple2-rwts.asm),
+	; and its arguments are three fixed bytes below its entry point. The
+	; destination is a page, which is all readblocks_mempos ever holds - the
+	; shared code walks it with inc readblocks_mempos + 1.
+	lda .track
+	sta A2_TRACK
+	lda .sector
+	sta A2_SECTOR
+	lda readblocks_mempos + 1
+	sta A2_DEST
+	jsr A2_READ_SECTOR
+	bcc +
+	lda #$05 ; the nearest BASIC error code: the drive did not answer
+	jmp disk_error
++	rts
+} else {
 	lda .track
 	jsr convert_byte_to_two_digits
 	stx .uname_track
@@ -439,6 +457,7 @@ is_error
 	; most likely errors:
 	; A = $05 (DEVICE NOT PRESENT)
 	jmp disk_error
+} ; not TARGET_APPLE2
 
 
 .track  !byte 0
@@ -453,6 +472,10 @@ is_error
 } ; End of !ifdef VMEM
 
 close_io
+!ifdef TARGET_APPLE2 {
+	; Nothing was opened: the RWTS reads a sector and returns.
+	rts
+} else {
 	lda #$0F      ; filenumber 15
 	jsr kernal_close ; call CLOSE
 
@@ -460,6 +483,7 @@ close_io
 	jsr kernal_close ; call CLOSE
 
 	jmp kernal_clrchn ; call CLRCHN
+} ; not TARGET_APPLE2
 
 !ifdef TARGET_MEGA65 {
 !zone drive_status {
@@ -642,6 +666,11 @@ insert_msg_3
 
 !ifdef RESTART_SUPPORTED {
 z_ins_restart
+!ifdef TARGET_APPLE2 {
+	; The Apple's restart is the boot chain over again. $0801 is the stage 2
+	; the Disk II PROM loaded at power-on
+	jmp $0801
+} else {
 	; insert device# for boot disk in LOAD command
 	lda disk_info + 4 + 8 ; Device# for story disk (typically 8)
 	jsr convert_byte_to_two_digits
@@ -844,6 +873,7 @@ z_ins_restart
 }
 
 .restart_code_end
+} ; not TARGET_APPLE2
 
 }
 
@@ -892,7 +922,9 @@ z_ins_save
 	lda #0
 	sta .inputlen
 	cli
+!ifndef TARGET_APPLE2 {
 	jsr kernal_clrchn
+}
 -	jsr kernal_getchar
 	beq -
 	cmp #$14 ; delete
@@ -975,6 +1007,15 @@ disk_error
 .list_save_files_zp = z_operand_value_low_arr + 6 ; 2 bytes
 	
 list_save_files
+!ifdef TARGET_APPLE2 {
+	; There is no filesystem on an Apple II disk of ours and so no directory to parse
+	ldx disk_info + 1 ; # of save slots
+	lda #0
+-	sta .occupied_slots - 1,x
+	dex
+	bne -
+	rts
+} else {
 	lda #13
 	jsr s_printchar
 	ldx	first_unavailable_save_slot_charcode
@@ -1157,6 +1198,7 @@ list_save_files
 	
 	lda #1 ; Signal success
 	rts
+} ; not TARGET_APPLE2
 
 directory_name
 	!pet "$"
@@ -1421,6 +1463,10 @@ save_game
 }
 
 	; Erase old file, if any
+!ifdef TARGET_APPLE2 {
+	; A save slot is a fixed range of tracks here, overwritten in place, so
+	; there is no old file to delete.
+} else {
 !ifdef TARGET_C128 {
 	lda #$00
 	tax
@@ -1438,7 +1484,8 @@ save_game
 	bcs .restore_failed  ; if carry set, the file could not be opened
 	lda #$0f      ; filenumber 15
 	jsr kernal_close
-	
+} ; not TARGET_APPLE2
+
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
 !ifdef TARGET_C128 {
@@ -1480,7 +1527,11 @@ do_restore
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_APPLE2 {
+	; TODO: Not written yet.
+	sec
+	rts
+} else ifdef TARGET_MEGA65 {
 	jsr close_io
 
 	lda #3
@@ -1667,7 +1718,11 @@ do_save
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
-!ifdef TARGET_MEGA65 {
+!ifdef TARGET_APPLE2 {
+	; TODO: Not written yet
+	sec
+	rts
+} else ifdef TARGET_MEGA65 {
 	jsr close_io
 
 	ldx .inputlen
