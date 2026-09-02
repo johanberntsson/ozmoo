@@ -596,6 +596,9 @@ show_more_prompt
 } else ifdef TARGET_X16 {
 	jsr vera_hide_more
 	jmp ++
+} else ifdef TARGET_APPLE2 {
+	; The original apple2 has no colours
+	ldx #0
 } else {
 	ldx reg_backgroundcolour
 }

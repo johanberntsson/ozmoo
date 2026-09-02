@@ -1011,7 +1011,9 @@ s_scrolled_lines !byte 0
 +
 }
 
-!ifndef TARGET_X16 {
+!ifdef TARGET_APPLE2 {
+; No raster on Apple, so no slowdown
+} else ifndef TARGET_X16 {
 ; ----------- Delay for slower scrolling
 
 	ldx scroll_delay

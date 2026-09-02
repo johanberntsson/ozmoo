@@ -1179,7 +1179,9 @@ getchar_and_maybe_toggle_darkmode
 }
 	jmp .did_something
 +
-!ifndef TARGET_X16 {
+!ifdef TARGET_APPLE2 {
+	; The apple keyboard handles repeat
+} else ifndef TARGET_X16 {
 	cmp #11 ; Ctrl-K for key repeating
 	bne +
 	; Toggle key repeat (People using fast emulators want to turn it off)
