@@ -155,6 +155,7 @@ MODE_71 = 6
 MODE_71D = 7
 MODE_81 = 8
 MODE_ZIP = 9
+MODE_A2 = 10
 
 DISKNAME_BOOT = 128
 DISKNAME_STORY = 129
@@ -2815,13 +2816,29 @@ def build_zip(storyname, diskimage_filename, config_data, vmem_data,
     nil # Signal success
 end
 
+# The Apple II disk: 35 tracks x 16 sectors x 256 bytes of raw sector data with
+# no filesystem on it at all, written by make.rb itself the way the d64 builders
+# write theirs through c1541 - track 0 the boot chain (byte 0 of the boot sector
+# is the count of further sectors the Disk II PROM loads into $0800 before it
+# jumps there), then the config track CONF_TRK, then the story laid down at
+# skew 3, the interleave tools/apple2-rwts-spike.rb --sweep measured as the
+# fastest. The class to build it from is tools/apple2-disk.rb.
+def build_A2(storyname, diskimage_filename, config_data, vmem_data,
+             vmem_contents, preload_max_vmem_blocks)
+	puts "Interpreter assembled: #{$program_end_address - $start_address} bytes, " +
+		"$#{$start_address.to_s(16)}-$#{$program_end_address.to_s(16)}, " +
+		"story from $#{$storystart.to_s(16)}."
+	puts "ERROR: the Apple II disk build (MODE_A2) is not implemented yet."
+	exit 1
+end
+
 def print_usage_and_exit
 	print_usage
 	exit 1
 end
 
 def print_usage
-	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP] -v"
+	puts "Usage: make.rb [-t:target] [-S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP|-A2] -v"
 	puts "         [-p:[n]] [-b] [-o] [-c <preloadfile>] [-cf <preloadfile>]"
 	puts "         [-bm] [-sp:[n]] [-re[:0|1]] [-pu[:0|1]] [-sl[:0|1]] [-vo[:0|1]] [-s] " 
 	puts "         [-fn:<name>] [-f <fontfile>] [-cm:[xx]] [-um[:0|1]] [-in:[n]]"
@@ -2836,7 +2853,7 @@ def print_usage
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
 	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64, c128, plus4, mega65, x16, apple2, apple2e and apple2gs."
-	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
+	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP|-A2: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16, A2 for Apple II). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
@@ -3052,6 +3069,8 @@ begin
 			end
 		elsif arg =~ /^-ZIP$/ then
 			mode = MODE_ZIP
+		elsif arg =~ /^-A2$/ then
+			mode = MODE_A2
 		elsif arg =~ /^-P$/ then
 			mode = MODE_P
 			$CACHE_PAGES = 2 # We're not actually using the cache, but there may be a splash screen in it
@@ -3422,6 +3441,8 @@ unless mode
 		mode = MODE_ZIP
 	elsif $target == 'mega65'
 		mode = MODE_81
+	elsif $target == 'apple2'
+		mode = MODE_A2
 	else 
 		mode = MODE_S1
 	end
@@ -3453,6 +3474,19 @@ end
 
 if mode == MODE_ZIP and $target != 'x16'
 	puts "ERROR: Build mode ZIP is not supported on this target platform."
+	exit 1
+end
+
+# A2 is a 140 KB Apple 5.25" .dsk with no filesystem on it, written sector by
+# sector by make.rb itself, so it pairs with the apple2 target exactly as ZIP
+# pairs with the X16: neither makes sense anywhere else.
+if mode != MODE_A2 and $target == 'apple2'
+	puts "ERROR: Only build mode A2 is supported on this target platform."
+	exit 1
+end
+
+if mode == MODE_A2 and $target != 'apple2'
+	puts "ERROR: Build mode A2 is not supported on this target platform."
 	exit 1
 end
 
@@ -4274,22 +4308,6 @@ if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] 
 	preload_max_vmem_blocks = vmem_data[3]
 end
 
-# Step 2 of apple-plan/apple-phase1.md stops here. The interpreter above now
-# assembles for the Apple II - NMOS 6502, and a plain binary with no CBM load
-# address in front of it - but every build mode below writes a CBM disk image
-# through exomizer and c1541, and both of those read that missing load address
-# as the first two bytes of the code. Left to run, they produce a d64 that
-# looks like a game disk and is not one, which is worse than an error. MODE_A2
-# and its AppleDiskImage (tools/apple2-disk.rb, boot chain + config track +
-# story at skew 3) are the next step.
-if $target == 'apple2'
-	puts "Interpreter assembled: #{$program_end_address - $start_address} bytes, " +
-		"$#{$start_address.to_s(16)}-$#{$program_end_address.to_s(16)}, " +
-		"story from $#{$storystart.to_s(16)}."
-	puts "ERROR: the Apple II disk build (MODE_A2) is not implemented yet."
-	exit 1
-end
-
 case mode
 when MODE_P
 	sizediff = $story_size - $zmachine_memory_size
@@ -4329,6 +4347,9 @@ when MODE_81
 when MODE_ZIP
 	diskimage_filename = File.join($TEMPDIR, "temp1.zip")
 	error = build_zip(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
+when MODE_A2
+	diskimage_filename = File.join($TEMPDIR, "temp1.dsk")
+	error = build_A2(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
 else
 	puts "Unsupported build mode."
 	exit 1
