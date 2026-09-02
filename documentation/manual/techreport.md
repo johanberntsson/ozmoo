@@ -302,7 +302,16 @@ Two things stand in for machinery the other targets get from their ROMs. There
 is no KERNAL, so `apple2-kernal.asm` exports the names the shared code already
 calls: the keyboard at \$C000/\$C010, a jiffy clock that the input loop counts
 out for itself (this machine has no timer and no readable vertical blank), and
-an entropy counter sampled when a key is pressed. And the text page is
+an entropy counter sampled when a key is pressed. The clock is a poll count —
+one jiffy every `A2_POLLS_PER_JIFFY` passes through the keyboard poll — so the
+constant is a property of the loop those polls are made from, and it is
+measured rather than reasoned about: `tools/apple2-clock.rb` walks the counter
+forward under MAME and reports what it should be. It is set from the loop a
+read with a timer running uses, since timed input is the only way a game can
+observe the clock's rate, and a timed read then fires within one per cent of
+the second it asked for. The corollary is that time only passes while the
+interpreter is waiting for input: it all but stops at a `[More]` prompt and
+does not advance at all while the game is printing or paging from disk. And the text page is
 interleaved — a row begins at `$400 + (row & 7) * $80 + (row >> 3) * $28` —
 so screenkernal.asm reaches a row through a lookup table where every other
 target multiplies the row number by the screen width.
