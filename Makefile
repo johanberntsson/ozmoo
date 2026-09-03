@@ -241,6 +241,9 @@ IMAGE ?= apple2_dejavu.dsk
 apple2-cat:
 	ruby tools/apple2-cat.rb $(OPTS) $(IMAGE)
 
+apple2-nib:
+	dsk2nib/dsk2nib $(IMAGE) $(IMAGE:.dsk=.nib)
+
 # Measure the software clock under MAME and say what A2_POLLS_PER_JIFFY should be
 STORY ?= examples/dejavu.z3
 apple2-clock:
@@ -252,4 +255,4 @@ apple2-conformance:
 	ruby tools/apple2-conformance.rb $(OPTS)
 
 clean:
-	rm -rf *d64 *d71 *d81 x16_* apple2_*.dsk
+	rm -rf *d64 *d71 *d81 x16_* apple2_*.dsk apple2_*.nib

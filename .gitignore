@@ -1,6 +1,7 @@
 # Future unrelated plans
 /apple-plan/
 /AppleWin/
+/dsk2nib/
 
 # Testing sound support
 /soundgame/
@@ -63,3 +64,4 @@
 /x16_*.zip
 /x16_*/
 /apple2_*.dsk
+/apple2_*.nib
