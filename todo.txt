@@ -1,9 +1,13 @@
-Apple 2 bugs and ideas
-----------------------
+Apple 2 open bugs and ideas
+---------------------------
 
-- the statusline has mixed case that appears as blinking characters
 - for now the saves are on the game disk itself, but it should be possible to
   have a separate save disk, either in the same drive, or on a second drive.
+
+Apple 2 closed bugs and ideas
+---------------------------
+
+= the status line's capital letters appears as blinking. 
 
 Known bugs
 ----------

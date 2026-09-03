@@ -433,6 +433,14 @@ s_screen_size !byte 0, 0
 s_x16_screen_mode	!byte 0
 }
 
+!ifdef TARGET_APPLE2 {
+convert_petscii_to_screencode
+	; A screen code on this machine is always SIX bits plus two bits for video mode
+	cmp #$40
+	bcc +     ; digits and punctuation are six bits already
+	and #%00111111
++	rts
+} else {
 convert_petscii_to_screencode
    ; convert from pet ascii to screen code
 	cmp #$40
@@ -450,6 +458,7 @@ convert_petscii_to_screencode
 	eor #%11000000
 +	and #%01111111
 ++ 	rts
+}
 
 s_init
 	; set up screen_width and screen_width_minus_one
