@@ -295,11 +295,21 @@ describes it.
 MEGA65 and X16 builds, it is a virtual memory build, like the C64's: the machine
 has no banked or expansion RAM to hold a whole story file in, so the story is
 paged in from disk as it is needed, and sectors 0 and 1 of track 1 hold the same
-configuration blocks described under "Configuration blocks". Save and restore
-are not implemented yet, and `do_save` and `do_restore` report a file error.
-Undo is compiled out as well: 48K leaves no room for the buffer. The standard
-conformance games both pass on this target — czech reports 406 of its tests
-passed and none failed, and praxix reports that all of its do.
+configuration blocks described under "Configuration blocks". Undo is compiled
+out: 48K leaves no room for the buffer. The standard conformance games both
+pass on this target — czech reports 406 of its tests passed and none failed,
+and praxix reports that all of its do.
+
+Saved games go in the free tail of the boot disk, behind the story. There is no
+filesystem, so a save is not a file: the interpreter is told at boot where the
+save area begins and how many sectors a slot is, and slot *n* is simply the
+*n*th run of that many sectors. The first sector of the area is a directory of
+ten fourteen-character comments and a flag each, which is what the game's save
+and restore listings print. Writing a sector is our own 6-and-2 encoder feeding
+the drive a byte every 32 cycles, and every sector written is read back and
+compared before the save is called done — where a write begins on the track is
+not under the program's control to better than a bit cell, and at some phases
+the sector that results cannot be read again.
 
 Two things stand in for machinery the other targets get from their ROMs. There
 is no KERNAL, so `apple2-kernal.asm` exports the names the shared code already
@@ -337,9 +347,9 @@ third, which does not, prints as `!`.
 | \$0200-\$02ff | 0.25 | print_buffer2 and the input buffer |
 | \$0300-\$03ff | 0.25 | Virtual memory page table (vmap) |
 | \$0400-\$07ff | 1 | Screen RAM: text page 1, rows interleaved |
-| \$0800-\$0aff | 0.75 | Boot chain and resident RWTS (apple2-rwts.asm) |
-| \$0b00-\$0dff | 0.75 | Free, reserved for the RWTS write path |
-| \$0e00-\$0e55 | | RWTS nibble buffer |
+| \$0800-\$0d50 | 1.3 | Boot chain and resident RWTS (apple2-rwts.asm) |
+| \$0d51-\$0dff | 0.2 | A data field's header nibbles, and the read path's aux buffer |
+| \$0e00-\$0eff | 0.25 | The 256 encoded data nibbles of a sector being written |
 | \$0f00-\$0fff | 0.25 | 6-and-2 decode table, built at run time |
 | \$1000- | about 12 | Interpreter, then the z-stack and the vmem cache |
 | storystart-\$bfff | about 31 | Dynamic memory, then virtual memory |
