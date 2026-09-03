@@ -116,6 +116,7 @@ end
 def run_apple(image, labels, commands)
   result = Apple2Emu.mame_run(image, labels: labels, tap: 'printchar_buffered',
                               auto_more: true, idle_exit: 12, idle_after: 25,
+                              ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
                               commands: commands.map { |c| c + "\n" }, seconds: 400)
   [from_petscii(result[:tap]), result]
 end

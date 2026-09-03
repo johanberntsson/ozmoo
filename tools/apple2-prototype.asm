@@ -64,6 +64,12 @@ start
         ldx $2b
         lda MOTOROFF,x
 
+        ; ...and it leaves whatever it likes in the keyboard latch, bit 7 and
+        ; all. Clear the strobe before the echo below believes it: without this
+        ; the bottom right cell shows a character nobody typed, and which one
+        ; varies with the emulator's mood.
+        lda KBDSTRB
+
         ; Fill row n with the letter 'A' + n, inverse on odd rows.  The screen
         ; is never cleared first, deliberately: the 24 rows cover all 960
         ; visible cells between them, so anything the boot PROM left behind

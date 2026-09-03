@@ -59,7 +59,7 @@ labels = Apple2Emu.read_labels(LABELS)
 def play(labels, commands, seconds: 900)
   Apple2Emu.mame_run(IMAGE, labels: labels, tap: 'printchar_buffered',
                      auto_more: true, idle_after: 25, idle_exit: 90,
-                     command_idle: 3.0, ready_flag: 's_cursorswitch',
+                     command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
                      commands: commands.map { |c| c + "\n" }, seconds: seconds)
 end
 

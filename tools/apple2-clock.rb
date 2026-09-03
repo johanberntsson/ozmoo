@@ -152,9 +152,13 @@ def measure_timed(labels, build)
   end
 
   # The polling rate on its own: only the stretches with no interrupt in them,
-  # so the game's own printing is not averaged into the loop's cost.
+  # so the game's own printing is not averaged into the loop's cost - and only
+  # between the first firing and the last, because outside that the game is at
+  # an ordinary read prompt, whose loop is 40 cycles a pass lighter. Measuring
+  # across the two gives a number that is neither.
+  first_fire, last_fire = groups.first.first, groups.last.first
   rates = []
-  samples.each_cons(2) do |(t0, a), (t1, b)|
+  samples.select { |t, _| t >= first_fire && t <= last_fire }.each_cons(2) do |(t0, a), (t1, b)|
     next if a['zp_screencolumn'] != b['zp_screencolumn']
     rates << (poll_count(b, n) - poll_count(a, n)) / (t1 - t0)
   end

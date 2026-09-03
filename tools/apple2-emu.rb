@@ -197,6 +197,12 @@ module Apple2Emu
   #            typed - s_cursorswitch, which Ozmoo sets while it is waiting for
   #            input. Without it, a line typed while the game is saving or
   #            paging is simply lost (this machine latches one key).
+  #   echo_flag: a symbol that changes when the game has taken a character -
+  #            zp_screencolumn, which moves as the input is echoed. The next
+  #            character waits for it rather than for a fixed delay, which is
+  #            what makes typing reliable: without it a character posted while
+  #            the game happened not to be looking is simply gone, and the line
+  #            arrives with a hole in it.
   #   commands: lines to type at the game's prompts.  Each is posted when the
   #            tap has been quiet for command_idle seconds - i.e. when the game
   #            has stopped printing and is waiting for something - which is far
@@ -227,7 +233,7 @@ module Apple2Emu
   def mame_run(image, labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
                idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
-               dump_range: nil,
+               echo_flag: nil, dump_range: nil,
                seconds: 120, keys: [], lua_path: nil, result_path: nil)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
@@ -236,6 +242,7 @@ module Apple2Emu
     watch_addr = watch ? (labels[watch] or abort("no label #{watch}")) : nil
     tap_addr = tap ? (labels[tap] or abort("no label #{tap}")) : nil
     ready_addr = ready_flag ? (labels[ready_flag] or abort("no label #{ready_flag}")) : nil
+    echo_addr = echo_flag ? (labels[echo_flag] or abort("no label #{echo_flag}")) : nil
     if dump_range
       dump_addr = dump_range[0].is_a?(String) ? (labels[dump_range[0]] or abort("no label #{dump_range[0]}")) : dump_range[0]
       dump_len = dump_range[1]
@@ -281,6 +288,8 @@ module Apple2Emu
       pending_i = 1
       last_char = -1
       ready_addr = #{ready_addr ? "0x#{ready_addr.to_s(16)}" : 'nil'}
+      echo_addr = #{echo_addr ? "0x#{echo_addr.to_s(16)}" : 'nil'}
+      echo_was = nil
       auto_more = #{auto_more ? 'true' : 'false'}
       tap_last = nil
       tap_bytes = {}
@@ -375,13 +384,22 @@ module Apple2Emu
           next_command = next_command + 1
           out:write(string.format("typed %.3f %s", now, pending))
         end
-        if pending and (not ready_addr or mem:read_u8(ready_addr) ~= 0)
-           and now - last_char > 0.2 then
-          emu.keypost(pending:sub(pending_i, pending_i))
-          pending_i = pending_i + 1
-          last_char = now
-          tap_last = now
-          if pending_i > #pending then pending = nil end
+        -- One character at a time, and the next one only when the game has
+        -- taken the last (the echo moves the cursor column) or a second has
+        -- gone by without it.
+        if pending and (not ready_addr or mem:read_u8(ready_addr) ~= 0) then
+          local taken = true
+          if echo_addr and echo_was and now - last_char < 1.0 then
+            taken = mem:read_u8(echo_addr) ~= echo_was
+          end
+          if taken and now - last_char > 0.1 then
+            emu.keypost(pending:sub(pending_i, pending_i))
+            pending_i = pending_i + 1
+            last_char = now
+            tap_last = now
+            if echo_addr then echo_was = mem:read_u8(echo_addr) end
+            if pending_i > #pending then pending = nil end
+          end
         end
         if idle_exit and tap_last and now > idle_after and next_command > #commands
            and now - tap_last > idle_exit then
