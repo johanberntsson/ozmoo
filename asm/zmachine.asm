@@ -1797,8 +1797,11 @@ z_ins_random
 	bcc - ; Branch unless the mask is now > $ffff (which can't happen)
 .random_found_mask
 ; Draw highbyte, or skip it
--	ldy zp_temp + 3
+-	
+!ifndef BENCHMARK {
+	ldy zp_temp + 3
 	beq +
+}
 	jsr z_rnd_number
 	and zp_temp + 3
 	tay
