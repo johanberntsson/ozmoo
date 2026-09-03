@@ -2822,7 +2822,7 @@ def print_usage
 	puts "         [-statuscol:<colourname>] [-inputcol:<colourname>] [-cursorcol:<colourname>]"
 	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
 	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
-	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]] [-fcm[:0|1|40|80]]"
+	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-rs[:0|1]] [-ecm[:0|1]] [-fcm[:0|1|40|80]]"
 	puts "         [-pics <blorbfile|picturedir>] [-cb:[n]] [-cs:[b|u|l]]"
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
@@ -2864,6 +2864,7 @@ def print_usage
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
 	puts "  -smooth: Enable smooth-scrolling support (C64, C128)."
+	puts "  -rs: Enable the raster split for the three-field graphics screen (C64)."
 	puts "  -ecm: Use Extended Color Mode, giving each z6 window its own background"
 	puts "        colour (C64, z6 only). Only the first 64 characters of the charset"
 	puts "        can be used, so text is lowercase only and reverse video is lost."
@@ -2965,6 +2966,7 @@ check_errors = nil
 pixel_units = nil
 dark_mode = nil
 smooth_scroll = nil
+raster_split = nil
 ecm_mode = nil
 fcm_mode = nil
 fcm_width = 80
@@ -3187,6 +3189,12 @@ begin
 			else
 				smooth_scroll = $1.to_i
 			end
+		elsif arg =~ /^-rs(?::([01]))?$/ then
+			if $1 == nil
+				raster_split = 1
+			else
+				raster_split = $1.to_i
+			end
 		elsif arg =~ /^-ecm(?::([01]))?$/ then
 			if $1 == nil
 				ecm_mode = 1
@@ -3317,6 +3325,18 @@ if smooth_scroll == nil
 end
 if $target !~ /^(c64|c128)$/ and smooth_scroll == 1
 	puts "ERROR: Smooth scroll is not supported for this target platform." 
+	exit 1
+end
+
+if raster_split == nil
+	raster_split = 0
+end
+if $target != 'c64' and raster_split == 1
+	puts "ERROR: The raster split is only supported on the C64."
+	exit 1
+end
+if raster_split == 1 and smooth_scroll == 1
+	puts "ERROR: The raster split and smooth scrolling can't both use the IRQ vector."
 	exit 1
 end
 
@@ -3780,6 +3800,10 @@ end
 
 if smooth_scroll == 1
 	$GENERALFLAGS.push('SMOOTHSCROLL') unless $GENERALFLAGS.include?('SMOOTHSCROLL')
+end
+
+if raster_split == 1
+	$GENERALFLAGS.push('RASTERSPLIT') unless $GENERALFLAGS.include?('RASTERSPLIT')
 end
 
 if ecm_mode == 1

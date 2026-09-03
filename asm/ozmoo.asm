@@ -1225,7 +1225,14 @@ game_id		!byte 0,0,0,0
 	ldy #0
 	jsr stack_call_routine
 }
+
+!ifdef RASTERSPLIT {
+	jsr raster_init
+}
 	jsr z_execute
+!ifdef RASTERSPLIT {
+	jsr raster_off
+}
 
 !ifdef TARGET_C128 {
 	jmp c128_reset_to_basic
@@ -1263,6 +1270,9 @@ statmem_reu_banks !byte 0
 ; include other assembly files
 !ifdef SMOOTHSCROLL {
 !source "smoothscroll.asm"
+}
+!ifdef RASTERSPLIT {
+!source "raster-c64.asm"
 }
 !source "utilities.asm"
 !ifdef SCROLLBACK {

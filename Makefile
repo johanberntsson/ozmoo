@@ -145,6 +145,12 @@ $(eval $(call game_targets,zorkzero,zork0-r393-s890714))
 # so it has no pictures and fits the default disk of every platform.
 dejavu-c64:
 	ruby make.rb -s examples/dejavu.z3
+# ...and the same game with the raster split (-rs) that the three-field
+# graphics screen will be built on. For now the split only paints the border
+# black over text rows 2-12 and white elsewhere, so that any IRQ delayed by
+# disk activity shows as a ragged edge. Compare against plain dejavu-c64.
+dejavu-c64-rs:
+	ruby make.rb -s -rs examples/dejavu.z3
 dejavu-c128:
 	ruby make.rb -s -t:c128 examples/dejavu.z3
 dejavu-c128-80:
