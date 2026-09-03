@@ -193,6 +193,10 @@ module Apple2Emu
   #   auto_more: answer [More] prompts by posting Return whenever the bottom
   #            right cell holds the prompt's '*'.  A headless run stops at the
   #            first one otherwise, exactly as it does under xemu and VICE.
+  #   ready_flag: a symbol whose byte must be non-zero before a character is
+  #            typed - s_cursorswitch, which Ozmoo sets while it is waiting for
+  #            input. Without it, a line typed while the game is saving or
+  #            paging is simply lost (this machine latches one key).
   #   commands: lines to type at the game's prompts.  Each is posted when the
   #            tap has been quiet for command_idle seconds - i.e. when the game
   #            has stopped printing and is waiting for something - which is far
@@ -203,6 +207,10 @@ module Apple2Emu
   #            then the disk loads in silence, which otherwise looks exactly
   #            like a game waiting at a prompt - and a line typed then is
   #            simply lost, since this machine latches one key and no more.
+  #   dump_range: [address, length] of memory to write out when the run ends,
+  #            returned as a binary string in result[:dump] - the analogue of
+  #            xemu's -dumpmem, for the times a few named bytes are not enough
+  #            (a track's worth of raw nibbles, say).
   #   idle_exit: end the run when the tap has been quiet this many emulated
   #            seconds - i.e. when the game has stopped printing, which is
   #            where a transcript ends.  Not considered before idle_after,
@@ -218,7 +226,8 @@ module Apple2Emu
   # program sees it exactly as a player's typing; "\n" is Return.
   def mame_run(image, labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
-               idle_after: 25, commands: [], command_idle: 1.5,
+               idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
+               dump_range: nil,
                seconds: 120, keys: [], lua_path: nil, result_path: nil)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
@@ -226,6 +235,11 @@ module Apple2Emu
 
     watch_addr = watch ? (labels[watch] or abort("no label #{watch}")) : nil
     tap_addr = tap ? (labels[tap] or abort("no label #{tap}")) : nil
+    ready_addr = ready_flag ? (labels[ready_flag] or abort("no label #{ready_flag}")) : nil
+    if dump_range
+      dump_addr = dump_range[0].is_a?(String) ? (labels[dump_range[0]] or abort("no label #{dump_range[0]}")) : dump_range[0]
+      dump_len = dump_range[1]
+    end
     reads = symbols.map do |name, width|
       addr = labels[name] or abort("no label #{name}")
       "  {\"#{name}\", 0x#{addr.to_s(16)}, #{width}},"
@@ -263,10 +277,16 @@ module Apple2Emu
 ")}
       }
       next_command = 1
+      pending = nil
+      pending_i = 1
+      last_char = -1
+      ready_addr = #{ready_addr ? "0x#{ready_addr.to_s(16)}" : 'nil'}
       auto_more = #{auto_more ? 'true' : 'false'}
       tap_last = nil
       tap_bytes = {}
       more_last = -1
+      dump_addr = #{dump_range ? "0x#{dump_addr.to_s(16)}" : 'nil'}
+      dump_len = #{dump_range ? dump_len : 'nil'}
       keys = {
       #{keys.map { |at, text| "  {#{'%.3f' % at}, #{text.inspect}}," }.join("
 ")}
@@ -304,6 +324,17 @@ module Apple2Emu
         for _, r in ipairs(reads) do
           out:write(string.format("sym %s %d\\n", r[1], read_var(r)))
         end
+        if dump_addr then
+          local chunk = {}
+          for i = 0, dump_len - 1 do
+            chunk[#chunk + 1] = string.format("%02X", mem:read_u8(dump_addr + i))
+            if #chunk == 512 then
+              out:write("dump ", table.concat(chunk), "\\n")
+              chunk = {}
+            end
+          end
+          if #chunk > 0 then out:write("dump ", table.concat(chunk), "\\n") end
+        end
         for row = 0, 23 do
           local base = 0x400 + (row % 8) * 0x80 + math.floor(row / 8) * 0x28
           local bytes = {}
@@ -330,13 +361,27 @@ module Apple2Emu
           more_last = now
         end
         -- The game has stopped printing: it is waiting for us, so type the
-        -- next line.  tap_last is pushed forward so the next command waits for
-        -- the game to fall silent again rather than following straight on.
-        if next_command <= #commands and tap_last and now > idle_after
-           and now - tap_last > command_idle then
-          emu.keypost(commands[next_command])
+        -- next line - one character at a time, a fifth of a second apart.
+        -- This machine latches ONE key: anything typed while the game is
+        -- printing or paging from disk is lost but for the last of it, so a
+        -- line posted in one go arrives with its head bitten off.  tap_last is
+        -- pushed forward as we type, so the next command waits for the game to
+        -- fall silent again rather than following straight on.
+        if not pending and next_command <= #commands and tap_last
+           and (not ready_addr or mem:read_u8(ready_addr) ~= 0)
+           and now > idle_after and now - tap_last > command_idle then
+          pending = commands[next_command]
+          pending_i = 1
           next_command = next_command + 1
+          out:write(string.format("typed %.3f %s", now, pending))
+        end
+        if pending and (not ready_addr or mem:read_u8(ready_addr) ~= 0)
+           and now - last_char > 0.2 then
+          emu.keypost(pending:sub(pending_i, pending_i))
+          pending_i = pending_i + 1
+          last_char = now
           tap_last = now
+          if pending_i > #pending then pending = nil end
         end
         if idle_exit and tap_last and now > idle_after and next_command > #commands
            and now - tap_last > idle_exit then
@@ -382,13 +427,15 @@ module Apple2Emu
   end
 
   def parse_mame_result(path)
-    result = { phases: [], symbols: {}, samples: [], tap: +''.b,
+    result = { phases: [], symbols: {}, samples: [], tap: +''.b, dump: +''.b, typed: [],
                screen: Array.new(ROWS, ' ' * COLS), seconds: nil }
     File.foreach(path) do |line|
       case line
       when /^phase (\d+) ([\d.]+)/  then result[:phases] << [$1.to_i, $2.to_f]
       when /^sym (\S+) (\d+)/       then result[:symbols][$1] = $2.to_i
+      when /^typed ([\d.]+) (.*)/ then result[:typed] << [$1.to_f, $2]
       when /^tap ([0-9A-F]+)/     then result[:tap] << [$1].pack('H*')
+      when /^dump ([0-9A-F]+)/    then result[:dump] << [$1].pack('H*')
       when /^sample ([\d.]+) (\S+) (\d+)/
         t = $1.to_f
         result[:samples] << [t, {}] if result[:samples].empty? || result[:samples].last[0] != t

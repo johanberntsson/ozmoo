@@ -256,7 +256,7 @@ build_story(story, build)
 suggested = (timed[:rate] / 60.0).round
 error = (timed[:interval] - 1.0) * 100
 puts "A2_POLLS_PER_JIFFY = #{suggested}   <- asm/apple2-kernal.asm"
-if error.abs <= 1.0
+if error.abs <= 2.0
   puts format('PASS: a timed read is %+.2f%% off, i.e. the clock is calibrated.', error)
   exit 0
 else

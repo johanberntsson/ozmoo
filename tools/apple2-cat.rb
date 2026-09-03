@@ -98,24 +98,27 @@ class BootChain
   end
 
   # boot loads the interpreter with
-  #     lda #TERP_TRACK / sta a2_track ($0807)
-  #     lda #>TERP_LOAD / sta a2_dest  ($0809)
+  #     lda #TERP_TRACK / sta a2_track    ($0807)
+  #     lda #>TERP_LOAD / sta a2_dest     ($0809)
+  #     lda #<TERP_LOAD / sta a2_dest_lo  ($080A)
   #     lda #0          / sta .index
   #     lda #TERP_SECTORS
-  # so the two stores to the fixed parameter bytes anchor the whole run. If the
-  # boot code is ever rearranged this simply reports nothing rather than
+  # so the three stores to the fixed parameter bytes anchor the whole run. If
+  # the boot code is ever rearranged this simply reports nothing rather than
   # guessing.
   def find_interpreter
-    (0..(@image.length - 20)).each do |i|
+    (0..(@image.length - 24)).each do |i|
       next unless @image[i] == 0xa9 and @image[i + 2] == 0x8d and
                   @image[i + 3] == 0x07 and @image[i + 4] == 0x08
       next unless @image[i + 5] == 0xa9 and @image[i + 7] == 0x8d and
                   @image[i + 8] == 0x09 and @image[i + 9] == 0x08
-      next unless @image[i + 10] == 0xa9 and @image[i + 11] == 0x00 and @image[i + 12] == 0x8d
-      next unless @image[i + 15] == 0xa9
+      next unless @image[i + 10] == 0xa9 and @image[i + 12] == 0x8d and
+                  @image[i + 13] == 0x0a and @image[i + 14] == 0x08
+      next unless @image[i + 15] == 0xa9 and @image[i + 16] == 0x00 and @image[i + 17] == 0x8d
+      next unless @image[i + 20] == 0xa9
       @terp_track   = @image[i + 1]
-      @terp_load    = @image[i + 6] << 8
-      @terp_sectors = @image[i + 16]
+      @terp_load    = (@image[i + 6] << 8) | @image[i + 11]
+      @terp_sectors = @image[i + 21]
       return
     end
   end
@@ -144,6 +147,7 @@ class ConfigTrack
 
   attr_reader :bytes, :build_id, :info_len, :interleave, :save_slots, :disks
   attr_reader :vmem_suggested, :vmem_preloaded, :vmem_high, :vmem_low, :problems
+  attr_reader :save_track, :save_slot_sectors
 
   def initialize(disk, track)
     @bytes    = disk.sector(track, 0) + disk.sector(track, 1)
@@ -154,6 +158,11 @@ class ConfigTrack
     @info_len   = @bytes[4]
     @interleave = @bytes[5]
     @save_slots = @bytes[6]
+    # The last four bytes of the config block are the save area: where it
+    # starts and how long a slot is. They are not part of the disk entries,
+    # because a save here is not a file - see build_A2 and disk.asm.
+    @save_track        = @bytes[508]
+    @save_slot_sectors = @bytes[509]
     @disks      = []
     parse_disks
     parse_vmem
@@ -397,6 +406,34 @@ def report(disk, boot, conf, opts)
   puts
 end
 
+# The save area, and what is in it. A slot is a fixed run of sectors in the free
+# tail of the disk; the first sector of the area is a directory of ten fourteen
+# character comments and a flag each, which is what the game's save and restore
+# listings print.
+def report_saves(disk, conf)
+  puts "Save slots"
+  if conf.save_track.nil? or conf.save_track.zero? or conf.save_slots.zero?
+    field "area", "none: the story leaves no room on this disk"
+    puts
+    return
+  end
+  sectors = conf.save_slots * conf.save_slot_sectors + 1
+  last = conf.save_track + (sectors + SECTORS_PER_TRACK - 1) / SECTORS_PER_TRACK - 1
+  field "area", "tracks #{conf.save_track}-#{last}, #{conf.save_slots} slots of " \
+                "#{conf.save_slot_sectors} sectors"
+  field "directory", "track #{conf.save_track}, physical sector 0"
+  dir = disk.sector(conf.save_track, 0)
+  used = 0
+  conf.save_slots.times do |i|
+    next if dir[140 + i].zero?
+    used += 1
+    name = dir[i * 14, 14].take_while { |c| c != 0 }.map(&:chr).join
+    field "  slot #{i}", name.strip.empty? ? "(in use, no comment)" : name
+  end
+  field "in use", "none" if used.zero?
+  puts
+end
+
 def report_story_data(conf, map, boot)
   puts "Story data"
   field "blocks", "#{map.total} sectors, #{map.total * SECTOR_SIZE} bytes, at interleave #{conf.interleave}"
@@ -539,6 +576,7 @@ abort "the config track names no disk with story data on it" unless sd
 map  = StoryMap.new(sd.track_map, conf.interleave)
 
 report(disk, boot, conf, opts)
+report_saves(disk, conf)
 report_story_data(conf, map, boot)
 
 if boot.skew and boot.skew != conf.interleave
