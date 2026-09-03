@@ -19,7 +19,7 @@
 # files and graphics of Infocom's games are not ours to distribute. The freely
 # distributable test games in examples/ and test/ are tracked as usual.
 /z6games/
-/amfvUnprotected.z4
+/infocom/
 
 # Local checkout of a build tool, not part of Ozmoo. It may be a symlink, so
 # this must not end in a slash.
