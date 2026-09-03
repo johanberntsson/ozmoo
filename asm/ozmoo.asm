@@ -2546,7 +2546,15 @@ deletable_init
 	sta disk_info - 1,x
 	dex
 	bne -
-	
+
+!ifdef TARGET_APPLE2 {
+	; noting where the save slots are
+	lda config_load_address + 508
+	sta a2_save_track
+	lda config_load_address + 509
+	sta a2_save_slot_sectors
+}
+
 	jsr auto_disk_config
 ;	jsr init_screen_colours
 } else { ; End of !ifdef VMEM

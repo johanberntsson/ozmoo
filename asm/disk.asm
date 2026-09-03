@@ -12,6 +12,252 @@ ask_for_save_device !byte $ff
 nonstored_pages			!byte 0
 }
 
+!ifdef TARGET_APPLE2 {
+; ---------------------------------------------------------------------------
+; The save slots.
+;
+; There is no filesystem on an Apple II disk of ours, so a save is not a file:
+; the free tail of the boot disk behind the story is divided into slots of a
+; fixed number of sectors, and make.rb tells the interpreter where that area
+; begins and how long a slot is (build_A2, read at boot in ozmoo.asm). Sector 0
+; of the area is the directory - the same ten fourteen-character comments the
+; other targets keep in a disk directory, plus a flag byte each - and slot n
+; begins at sector 1 + n * a2_save_slot_sectors.
+;
+; Saving to the boot disk rather than a disk of its own is what a single drive
+; machine wants: no swapping, and nothing to insert. The cost is that a disk
+; with no room left has no slots at all (make.rb says so at build time), and
+; that the disk must not be write protected.
+; ---------------------------------------------------------------------------
+A2_DIR_FLAGS = 140          ; ten flags, after the ten fourteen-byte comments
+A2_DIR_MARK  = $a2          ; ...in a slot that is in use
+
+a2_save_track       !byte 0 ; first track of the save area, 0 = there is none
+a2_save_slot_sectors !byte 0
+directory_buffer    !fill 256, 0 ; a whole sector: the directory as it is on disk
+
+a2_lin              !byte 0, 0  ; sector number within the save area
+a2_count            !byte 0     ; sectors still to move
+a2_tmp              !byte 0
+
+; ---------------------------------------------------------------------------
+; The routines below are deliberately not in zones of their own: they reach the
+; save slot number, the input buffer and the multiplier, all of which are local
+; labels of the disk zone, so their own labels carry an a2_ prefix instead.
+; ---------------------------------------------------------------------------
+
+; a2_set_save_sector: turn the linear sector number in a2_lin into the track
+; and physical sector the driver wants. Carry set if this disk has no save area.
+a2_set_save_sector
+	lda a2_save_track
+	beq a2_no_save_area
+
+	; track = a2_save_track + a2_lin / 16
+	lda a2_lin
+	lsr
+	lsr
+	lsr
+	lsr
+	sta a2_tmp
+	lda a2_lin + 1
+	asl
+	asl
+	asl
+	asl
+	ora a2_tmp
+	clc
+	adc a2_save_track
+	cmp #35
+	bcs a2_no_save_area         ; past the end of the disk
+	sta A2_TRACK
+
+	; ...and the sector is the index within the track, taken round the track at
+	; the interleave: the same walk add_story_data makes when it lays the story
+	; down, so a run of save sectors moves at the same rate as everything else.
+	lda a2_lin
+	and #15
+	tax
+	lda #0
+	beq +
+-	clc
+	adc disk_info               ; the interleave, from the config track
+	and #15
++	dex
+	bpl -
+	sta A2_SECTOR
+	clc
+	rts
+a2_no_save_area
+	sec
+	rts
+
+; a2_next_sector: the next sector of the save, and the next page of memory.
+a2_next_sector
+	inc A2_DEST                 ; the buffer walks a page at a time; its low
+	inc a2_lin                  ; byte was set once and never changes
+	bne +
+	inc a2_lin + 1
++	rts
+
+; a2_slot_start: a2_lin = the first sector of the slot named by .saveslot (a
+; character code, '0' upwards), one directory sector past the start of the
+; area. Carry set if the slot number is not one this disk has.
+a2_slot_start
+	lda a2_save_track
+	beq a2_bad_slot
+	lda a2_saveslot
+	sec
+	sbc #$30
+	cmp disk_info + 1           ; # of save slots
+	bcs a2_bad_slot
+	tax
+	lda #1                      ; sector 0 of the area is the directory
+	sta a2_lin
+	lda #0
+	sta a2_lin + 1
+	cpx #0
+	beq a2_slot_done
+-	lda a2_lin
+	clc
+	adc a2_save_slot_sectors
+	sta a2_lin
+	bcc +
+	inc a2_lin + 1
++	dex
+	bne -
+a2_slot_done
+	clc
+	rts
+a2_bad_slot
+	sec
+	rts
+
+; a2_block_sectors: how many sectors a save is - the zero page block, the
+; z-stack and dynamic memory, which lie next to each other in that order and
+; are written as one run of bytes.
+a2_block_sectors
+	lda #<(zp_bytes_to_save + stack_size)
+	clc
+	adc dynmem_size
+	sta a2_tmp
+	lda #>(zp_bytes_to_save + stack_size)
+	adc dynmem_size + 1
+	sta a2_count
+	lda a2_tmp
+	beq +
+	inc a2_count                ; a part sector still needs a sector
++	rts
+
+; a2_save_block / a2_restore_block: move the save between memory and the slot.
+; The block begins at stack_start - zp_bytes_to_save and is contiguous from
+; there, so only the buffer's high byte changes as the sectors go by.
+a2_save_block
+	lda #<A2_WRITE_SECTOR
+	sta a2_move_call + 1
+	lda #>A2_WRITE_SECTOR
+	bne a2_move                 ; always
+a2_restore_block
+	lda #<A2_READ_SECTOR
+	sta a2_move_call + 1
+	lda #>A2_READ_SECTOR
+a2_move
+	sta a2_move_call + 2
+	jsr a2_slot_start
+	bcs a2_move_failed
+	jsr a2_block_sectors
+	lda #<(stack_start - zp_bytes_to_save)
+	sta A2_DEST_LO
+	lda #>(stack_start - zp_bytes_to_save)
+	sta A2_DEST
+a2_move_next
+	jsr a2_set_save_sector
+	bcs a2_move_failed
+a2_move_call
+	jsr A2_READ_SECTOR          ; patched to the read or the write above
+	bcs a2_move_failed
+	jsr a2_next_sector
+	dec a2_count
+	bne a2_move_next
+	clc
+	rts
+a2_move_failed
+	sec
+	rts
+
+; a2_read_directory / a2_write_directory: sector 0 of the save area, into and
+; out of directory_buffer. A disk that has never been saved to reads back as
+; zeros, which is exactly "no slots in use".
+a2_read_directory
+	jsr a2_dir_sector
+	bcs +
+	jmp A2_READ_SECTOR
++	rts
+
+a2_write_directory
+	jsr a2_dir_sector
+	bcs +
+	jmp A2_WRITE_SECTOR
++	rts
+
+a2_dir_sector
+	lda #0
+	sta a2_lin
+	sta a2_lin + 1
+	jsr a2_set_save_sector
+	bcs +
+	lda #<directory_buffer
+	sta A2_DEST_LO
+	lda #>directory_buffer
+	sta A2_DEST
+	clc
++	rts
+
+; a2_write_directory_entry: put the comment the player typed into the slot's
+; place in the directory, mark the slot used, and write the sector back.
+a2_write_directory_entry
+	jsr a2_read_directory
+	bcs a2_wde_failed
+
+	lda a2_saveslot
+	sec
+	sbc #$30
+	sta a2_tmp
+	; offset = slot * 14
+	sta multiplier
+	lda #0
+	sta multiplier + 1
+	lda #14
+	jsr mult8
+	lda product
+	clc
+	adc #<directory_buffer
+	sta savefile_zp_pointer
+	lda #0
+	adc #>directory_buffer
+	sta savefile_zp_pointer + 1
+
+	ldy #0
+a2_wde_copy
+	cpy a2_inputlen
+	bcs a2_wde_pad
+	lda a2_inputstring,y
+	bne +
+a2_wde_pad
+	lda #0
++	sta (savefile_zp_pointer),y
+	iny
+	cpy #14
+	bcc a2_wde_copy
+
+	ldx a2_tmp
+	lda #A2_DIR_MARK
+	sta directory_buffer + A2_DIR_FLAGS,x
+	jmp a2_write_directory
+a2_wde_failed
+	rts
+
+}
+
 !ifdef TARGET_MEGA65 {
 
 mega65io
@@ -331,13 +577,16 @@ read_track_sector
 !ifdef TARGET_APPLE2 {
 	; There is no DOS to talk to on this machine: the sector reader is our own,
 	; resident at $0800 since the boot chain put it there (asm/apple2-rwts.asm),
-	; and its arguments are three fixed bytes below its entry point. The
-	; destination is a page, which is all readblocks_mempos ever holds - the
-	; shared code walks it with inc readblocks_mempos + 1.
+	; and its arguments are the four fixed bytes below its entry point. The
+	; destination here is always a page - readblocks_mempos holds nothing else,
+	; and the shared code walks it with inc readblocks_mempos + 1 - but the
+	; driver takes a full address, which is what the save file needs.
 	lda .track
 	sta A2_TRACK
 	lda .sector
 	sta A2_SECTOR
+	lda readblocks_mempos
+	sta A2_DEST_LO
 	lda readblocks_mempos + 1
 	sta A2_DEST
 	jsr A2_READ_SECTOR
@@ -908,8 +1157,17 @@ z_ins_save
 
 !zone save_restore {
 .inputlen !byte 0
+!ifdef TARGET_APPLE2 {
+; The save code above builds its directory entry out of these, and it is
+; outside this zone, so give them names it can see.
+a2_inputlen = .inputlen
+a2_saveslot = .saveslot
+}
 .filename !pet $5d,"0" ; 0 is changed to slot number
 .inputstring !fill 19 ; filename max 20 chars (fileprefix + 14 + ",s,w")
+!ifdef TARGET_APPLE2 {
+a2_inputstring = .inputstring
+}
 .input_alphanum
 	; read a string with only alphanumeric characters into .inputstring
 	; return: x = number of characters read
@@ -1008,14 +1266,14 @@ disk_error
 	
 list_save_files
 !ifdef TARGET_APPLE2 {
-	; There is no filesystem on an Apple II disk of ours and so no directory to parse
-	ldx disk_info + 1 ; # of save slots
-	lda #0
--	sta .occupied_slots - 1,x
-	dex
-	bne -
-	rts
-} else {
+	; A disk with no room behind the story has no slots at all (make.rb says so
+	; when it builds it). Answer straight away: the clearing loop below counts
+	; down from the slot count and would walk backwards through memory.
+	lda disk_info + 1
+	bne +
+	rts                         ; a = 0: no slots, which the caller reads as a failure
++
+}
 	lda #13
 	jsr s_printchar
 	ldx	first_unavailable_save_slot_charcode
@@ -1026,6 +1284,26 @@ list_save_files
 -	sta .occupied_slots - 1,x
 	dex
 	bne -
+
+!ifdef TARGET_APPLE2 {
+	; No filesystem, so no directory to parse: the save area's own directory
+	; sector says which slots are in use and what the player called them, and
+	; it is read straight into the buffer the listing below prints from.
+	jsr a2_read_directory
+	bcc +
+	lda #0                      ; no save area, or the disk would not read
+	rts
++	ldx disk_info + 1
+	dex
+-	lda directory_buffer + A2_DIR_FLAGS,x
+	beq +
+	txa
+	ora #$30
+	sta .occupied_slots,x
++	dex
+	bpl -
+	jmp .print_all_slots
+} else {
 
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
@@ -1155,8 +1433,10 @@ list_save_files
 	
 .end_of_dir
 	jsr close_io
+} ; not TARGET_APPLE2
 
 	; Print all slots
+.print_all_slots
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
@@ -1198,7 +1478,6 @@ list_save_files
 	
 	lda #1 ; Signal success
 	rts
-} ; not TARGET_APPLE2
 
 directory_name
 	!pet "$"
@@ -1208,6 +1487,11 @@ directory_name_len = * - directory_name
 .disk_error_msg
 	!pet 13,"Disk error #",0
 .insert_save_disk
+!ifdef TARGET_APPLE2 {
+	; The save slots are on the boot disk, so there is nothing to swap and
+	; nothing to wait for.
+	jmp .insert_done
+}
 !ifndef TARGET_X16 {	
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
@@ -1248,7 +1532,12 @@ directory_name_len = * - directory_name
 	rts
 
 maybe_ask_for_save_device
-!ifdef TARGET_X16 {
+!ifdef TARGET_APPLE2 {
+	; One drive, no device numbers, and the save area is on the disk we booted
+	; from: there is nothing to ask about.
+	clc
+	rts
+} else ifdef TARGET_X16 {
 	; Always use device 8 on X16
 	lda #8
 	sta disk_info + 4
@@ -1333,7 +1622,11 @@ restore_game
 	tax
 	lda .occupied_slots - $30,x
 	beq .restore_failed ; If the slot is unoccupied, fail.
+!ifdef TARGET_APPLE2 {
+	sta .saveslot               ; a slot here is a run of sectors, not a file
+} else {
 	sta .restore_filename + 1
+}
 
 	; Print "Restoring..."
 	lda #>.restore_msg
@@ -1443,8 +1736,12 @@ save_game
 	lda .inputstring
 	cmp first_unavailable_save_slot_charcode
 	bpl .restore_failed ; not a number (0-9)
+!ifdef TARGET_APPLE2 {
+	sta .saveslot
+} else {
 	sta .filename + 1
 	sta .erase_cmd + 3
+}
 	
 	; Enter a name
 	lda #>.savename_msg ; high
@@ -1528,9 +1825,7 @@ do_restore
 	jsr wait_smoothscroll
 }
 !ifdef TARGET_APPLE2 {
-	; TODO: Not written yet.
-	sec
-	rts
+	jmp a2_restore_block        ; the slot straight back into memory
 } else ifdef TARGET_MEGA65 {
 	jsr close_io
 
@@ -1719,9 +2014,10 @@ do_save
 	jsr wait_smoothscroll
 }
 !ifdef TARGET_APPLE2 {
-	; TODO: Not written yet
-	sec
-	rts
+	jsr a2_save_block
+	bcs +
+	jmp a2_write_directory_entry ; only once the data is safely down
++	rts
 } else ifdef TARGET_MEGA65 {
 	jsr close_io
 

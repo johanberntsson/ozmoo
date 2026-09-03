@@ -19,20 +19,30 @@
 ; us. That is also how DOS 3.3 boots. Everything after the jump to $0801 is
 ; ours; the PROM is never called again.
 ;
-;   $0800-$0DFF  this file
-;   $0E00-$0E55  the 86 byte aux nibble buffer
+;   $0800-$0D50  this file
+;   $0D51-$0DA9  the 89 nibbles of a data field's header: its D5 AA AD and the
+;                86 encoded aux nibbles, ready to write
+;   $0DAA-$0DFF  the 86 byte aux nibble buffer the read path unpacks from
+;   $0E00-$0EFF  the 256 encoded data nibbles, page aligned so the write loop's
+;                lda is four cycles on every one of them - a fifth cycle on the
+;                iterations that crossed a page would put a bit on the disk
+;                where no bit belongs
 ;   $0F00-$0FFF  the 6-and-2 decode table, built at run time from the 64 valid
 ;                disk bytes. Page aligned, so the EOR that reads it in the
 ;                inner loop is four cycles and never five.
 ;   $1000-       the interpreter, which this loads and jumps to.
 ;
-; It uses no zero page at all. The two decode loops have to keep up with a
-; nibble every 32 CPU cycles, which is what pushed the spike into zero page;
-; here the destination is reached by self-modified absolute addressing instead,
-; which is a cycle *faster* than (zp),y, and the one remaining loop variable is
-; absolute at 28 cycles a nibble. That matters because the zero page on this
-; target is Ozmoo's alone, and a resident driver quietly holding four bytes of
-; it is exactly the kind of coupling that goes wrong later.
+; It uses no zero page at all. The decode loops have to keep up with a nibble
+; every 32 CPU cycles, which is what pushed the spike into zero page; here the
+; buffer is reached by self-modified absolute addressing instead, which is a
+; cycle *faster* than (zp),y, and the one remaining loop variable is absolute
+; at 28 cycles a nibble. That matters because the zero page on this target is
+; Ozmoo's alone, and a resident driver quietly holding four bytes of it is
+; exactly the kind of coupling that goes wrong later. The address is a full 16
+; bits rather than a page, and costs nothing for it: a store is five cycles
+; whether or not it crosses a page, so the timed loops do not care, and the
+; save file - which is a byte stream that starts 13 bytes below the z-stack -
+; can be read and written where it lies instead of through a staging page.
 ;
 ; Build-time defines, all from make.rb:
 ;   TERP_TRACK      first track of the interpreter
@@ -65,12 +75,21 @@ MOTOROFF        = $C088
 MOTORON         = $C089
 DRIVE1          = $C08A
 Q6L             = $C08C         ; read a nibble here; bit 7 set = one is ready
+Q6H             = $C08D         ; load the write latch
 Q7L             = $C08E         ; read mode
+Q7H             = $C08F         ; write mode, and load the latch
 
 BOOTSLOT        = $2B           ; slot * 16, left in place by the boot PROM
 
 ; --- our own scratch --------------------------------------------------------
-RWTS_AUX        = $0E00         ; 86 bytes
+; The two small buffers sit just under NIB_PRI, as high as they can, so that
+; everything below them is code. NIB_HDR must not cross a page: the write loop
+; reads it with an absolute,y that would take a fifth cycle if it did, and a
+; fifth cycle is a bit on the disk.
+NIB_HDR         = $0D51         ; 89 bytes: D5 AA AD and the 86 aux nibbles
+NIB_HDR_LEN     = 89
+RWTS_AUX        = $0DAA         ; 86 bytes
+NIB_PRI         = $0E00         ; 256 bytes, page aligned (see the note above)
 DECODE_TABLE    = $0F00         ; 256 bytes, page aligned
 
 ; --- stepper timing ---------------------------------------------------------
@@ -82,6 +101,32 @@ PHASE_ON_MS     = 4
 SETTLE_MS       = 20
 SPINUP_MS       = 250
 READ_RETRIES    = 12
+WRITE_RETRIES   = 12
+
+; Sync bytes in front of a data field we write. Their job is to let a reader
+; find the frame again, which it must: our bits begin wherever the head was
+; when write mode came on, at no particular bit boundary.
+!ifndef WRITE_SYNC { WRITE_SYNC = 5 }
+
+; ...and how many cycles apart they go on the disk. A data byte is handed over
+; every 32 cycles, eight bit cells; a sync byte is the same $ff handed over
+; later, and the bits the shift register puts down while it waits are the zeros
+; that mark it out.
+!ifndef WRITE_SYNC_CYCLES { WRITE_SYNC_CYCLES = 40 }
+
+; How many of the address field's three epilogue nibbles to let go by before
+; the write begins. Where exactly it begins decides how much of the formatter's
+; gap 2 is left in front of our own sync bytes.
+!ifndef WRITE_EPI_SKIP { WRITE_EPI_SKIP = 3 }
+
+; NOP by the yard. The count is cycles, not bytes, because cycles are what is
+; being padded; every pad is even, and the odd three go in as a PHA.
+!macro pad .cycles {
+        !fill .cycles / 2, $ea
+        !if (.cycles & 1) != 0 {
+                !error "pad wants an even number of cycles"
+        }
+}
 
 * = $0800
 
@@ -101,7 +146,11 @@ a2_track
 a2_sector
         !byte 0                         ; $0808: physical sector, 0..15
 a2_dest
-        !byte 0                         ; $0809: destination page
+        !byte 0                         ; $0809: high byte of the address
+a2_dest_lo
+        !byte 0                         ; $080A: ...and its low byte
+a2_write_sector
+        jmp rwts_write                  ; $080B: write one sector, see below
 
 ; ---------------------------------------------------------------------------
 ; boot: clear the screen, bring the interpreter in, jump to it.
@@ -124,6 +173,8 @@ boot
         sta a2_track
         lda #>TERP_LOAD
         sta a2_dest
+        lda #<TERP_LOAD
+        sta a2_dest_lo
         lda #0
         sta .index
         lda #TERP_SECTORS
@@ -229,17 +280,30 @@ rwts_init
 ; ---------------------------------------------------------------------------
 !zone rwts_read
 rwts_read
-        ; The destination reaches the inner loops as the high byte of three
-        ; absolute addresses. Self-modifying is a cycle cheaper than (zp),y and
-        ; costs no zero page at all.
+        lda #READ_RETRIES
+        sta rw_retry
+        bne rwts_read_entry     ; always
+rwts_read_once
+        ; One attempt only, for the verify after a write: a sector that does not
+        ; read is going to be written again anyway, and a dozen retries with a
+        ; recalibration every fourth would cost seconds for nothing.
+        lda #1
+        sta rw_retry
+rwts_read_entry
+        ; The destination reaches the inner loops as three absolute addresses.
+        ; Self-modifying is a cycle cheaper than (zp),y and costs no zero page
+        ; at all, and the address need not be a page: a store is five cycles
+        ; whether or not it crosses one, so the timed loop is unaffected.
         lda a2_dest
         sta rd_data_store + 2
         sta rd_pn_load + 2
         sta rd_pn_store + 2
+        lda a2_dest_lo
+        sta rd_data_store + 1
+        sta rd_pn_load + 1
+        sta rd_pn_store + 1
 
         jsr motor_on
-        lda #READ_RETRIES
-        sta rw_retry
 .try
         jsr rwts_seek           ; cheap when the head is already there
         jsr read_sector
@@ -372,11 +436,13 @@ delay_ms
         rts
 
 ; ---------------------------------------------------------------------------
-; read_sector: hunt for our address field and read the data field behind it.
+; find_address_field: wait for the address field of a2_track / a2_sector to
+; come round, and return with the head just past its checksum - which is where
+; both a read and a write of the data field begin. Carry clear if it is ours.
 ; x = slot * 16 throughout, because every nibble read is lda Q6L,x.
 ; ---------------------------------------------------------------------------
-!zone read_sector
-read_sector
+!zone find_address_field
+find_address_field
         lda #0
         sta rw_niblo
         sta rw_nibhi
@@ -424,6 +490,27 @@ read_sector
         lda rw_asec
         cmp a2_sector
         bne .scan               ; someone else's sector
+        clc
+        rts
+
+.wrong_track
+        ; The field tells us where the head really is; believe it, and let the
+        ; caller seek again from there.
+        lda rw_atrk
+        asl
+        sta rw_half
+.fail
+        ldx rw_slot
+        sec
+        rts
+
+; ---------------------------------------------------------------------------
+; read_sector: find our address field and read the data field behind it.
+; ---------------------------------------------------------------------------
+!zone read_sector
+read_sector
+        jsr find_address_field
+        bcs .fail
 
         ; --- the data field prologue, D5 AA AD -----------------------------
         ; It follows its address field immediately, so give it a few dozen
@@ -502,12 +589,325 @@ rd_pn_store
         clc
         rts
 
-.wrong_track
-        ; The field tells us where the head really is; believe it, and let the
-        ; caller seek again from there.
-        lda rw_atrk
-        asl
-        sta rw_half
+.fail
+        ldx rw_slot
+        sec
+        rts
+
+; ===========================================================================
+; The write path.
+;
+; The Disk II has no timer of its own. Its write shift register puts a bit on
+; the disk every four cycles, so a byte must be handed to it every 32 - no
+; sooner, or the tail of the last one is lost, and no later, or zero bits are
+; written where none belong. A sync byte is the same $ff handed over after 40
+; cycles instead: the two extra zero bits are what lets a reader that is out of
+; step find the frame again, which it must be here, since our bits start
+; wherever the head happened to be when write mode came on.
+; ===========================================================================
+
+
+; ---------------------------------------------------------------------------
+; rwts_write: write the 256 bytes at a2_dest / a2_dest_lo into the sector named
+; by a2_track and a2_sector. Carry clear if it worked.
+; ---------------------------------------------------------------------------
+!zone rwts_write
+rwts_write
+        lda a2_dest
+        sta wr_src_load + 2
+        sta wr_src_cmp + 2
+        lda a2_dest_lo
+        sta wr_src_load + 1
+        sta wr_src_cmp + 1
+
+        jsr motor_on            ; returns with x = slot * 16
+
+        ; Is the disk write protected? Q6H then Q7L leaves the answer in bit 7
+        ; of the data register. Worth asking: the alternative is to write
+        ; nothing, notice nothing, and tell the player the game was saved.
+        lda Q6H,x
+        lda Q7L,x
+        bmi .protected
+        lda Q6L,x               ; back to reading data
+
+        lda #WRITE_RETRIES
+        sta rw_retry
+        lda #0
+        sta wr_phase
+.try
+        jsr encode_sector       ; all the thinking, done before the drive cares
+                                ; (and again per attempt: the verify below
+                                ; reads the sector back over NIB_PRI)
+        jsr rwts_seek
+        jsr write_sector
+        bcs .failed
+        jsr verify_sector       ; a whole revolution, and worth it - see below
+        bcc .ok
+.failed
+        inc wr_retries          ; how much of that is going on is worth knowing
+        inc wr_phase            ; try again from a different point in the gap
+        dec rw_retry
+        beq .give_up
+        lda rw_retry            ; every fourth failure, start again from track 0
+        and #3
+        bne .try
+        jsr rwts_recalibrate
+        jmp .try
+.ok
+        clc
+        rts
+.protected
+.give_up
+        sec
+        rts
+
+; ---------------------------------------------------------------------------
+; verify_sector: read the sector we have just written back into NIB_PRI, which
+; the write has finished with, and compare it against the bytes it was made
+; from. Carry clear if the disk holds what we meant to put there.
+;
+; ---------------------------------------------------------------------------
+!zone verify_sector
+verify_sector
+        lda #>NIB_PRI           ; the read decodes into the nibble buffer, which
+        sta a2_dest             ; has done its work by now; a2_dest is restored
+        lda #<NIB_PRI           ; at the end, since the caller owns it
+        sta a2_dest_lo
+        jsr rwts_read_once      ; patches the read's destination from a2_dest,
+                                ; which we have just pointed at the nibble
+                                ; buffer, and tries exactly once
+        php                     ; keep the verdict while the address goes back
+        lda wr_src_load + 2
+        sta a2_dest
+        lda wr_src_load + 1
+        sta a2_dest_lo
+        plp
+        bcs .bad
+
+        ldy #0
+.compare
+        lda NIB_PRI,y
+wr_src_cmp
+        cmp $ffff,y             ; the source, patched by rwts_write
+        bne .bad
+        iny
+        bne .compare
+        clc
+        rts
+.bad
+        sec
+        rts
+
+; ---------------------------------------------------------------------------
+; encode_sector: turn the 256 bytes at wr_src_load into the 89 nibbles of
+; NIB_HDR and the 256 of NIB_PRI, ready to be handed to the drive one every 32
+; cycles with nothing left to work out.
+;
+; 6-and-2 is six bits of each byte in one nibble and the other two bits packed
+; three-to-a-nibble in front. The bottom two bits go in bit-swapped, which
+; falls out of rolling them in: the reader shifts them back out the same way.
+; Going *backwards* through the data is what puts the three pairs in an aux
+; slot in the order the reader takes them out again - the reader's first pass
+; wants the pair that was rolled in last.
+; ---------------------------------------------------------------------------
+!zone encode_sector
+encode_sector
+        lda #$d5
+        sta NIB_HDR
+        lda #$aa
+        sta NIB_HDR + 1
+        lda #$ad
+        sta NIB_HDR + 2
+
+        lda #0                  ; the aux slots are rolled into, so they start
+        ldx #85                 ; empty
+.clear
+        sta NIB_HDR + 3,x
+        dex
+        bpl .clear
+
+        ldx #83                 ; 85 - (255 mod 86): the slot the last byte's
+        ldy #$ff                ; two bits belong to
+.pair
+wr_src_load
+        lda $ffff,y             ; address patched by rwts_write
+        lsr
+        rol NIB_HDR + 3,x
+        lsr
+        rol NIB_HDR + 3,x
+        sta NIB_PRI,y           ; the top six bits, not yet a disk byte
+        dex
+        bpl +
+        ldx #85
++
+        dey
+        cpy #$ff
+        bne .pair
+
+        ; The running EOR chain and the translation to disk bytes. What goes on
+        ; the disk is each nibble's difference from the one before it, so the
+        ; reader's running EOR rebuilds the values; the extra nibble at the end
+        ; is the final value itself, and a sector that has lost or gained a bit
+        ; cannot agree with it.
+        lda #0
+        sta wr_prev
+        ldy #3
+.chain_hdr
+        lda NIB_HDR,y
+        sta wr_next
+        eor wr_prev
+        tax
+        lda disk_bytes,x
+        sta NIB_HDR,y
+        lda wr_next
+        sta wr_prev
+        iny
+        cpy #NIB_HDR_LEN
+        bne .chain_hdr
+
+        ldy #0
+.chain_pri
+        lda NIB_PRI,y
+        sta wr_next
+        eor wr_prev
+        tax
+        lda disk_bytes,x
+        sta NIB_PRI,y
+        lda wr_next
+        sta wr_prev
+        iny
+        bne .chain_pri
+
+        ldx wr_prev
+        lda disk_bytes,x
+        sta wr_check
+        rts
+
+; ---------------------------------------------------------------------------
+; write_sector: find our address field and write the data field behind it.
+;
+; From the moment write mode comes on, every path through this is counted. The
+; comment beside each loop is the cycles from one store to the next, which is
+; the only number the drive is interested in.
+; ---------------------------------------------------------------------------
+!zone write_sector
+write_sector
+        jsr find_address_field
+        bcc +                   ; .fail is past all the padding below, further
+        jmp .fail               ; than a branch reaches
++
+
+        ; The address field's epilogue nibbles. Letting them go by puts the head
+        ; at the start of gap 2, which is where the sync bytes we are about to
+        ; write belong - and where the formatter put its own.
+!if WRITE_EPI_SKIP > 0 {
+        ldy #WRITE_EPI_SKIP
+.epi    lda Q6L,x
+        bpl .epi
+        dey
+        bne .epi
+}
+
+        ; Where this attempt starts, in five cycle steps: nothing on the first
+        ; pass, a little further into the gap on each retry.
+        ldy wr_phase
+        beq .no_phase
+.phase  dey
+        bne .phase
+.no_phase
+        php
+        sei                     ; nothing on this machine raises an interrupt,
+                                ; but this is the one place where one would be
+                                ; unrecoverable rather than merely slow
+
+        ; --- the sync bytes, one every WRITE_SYNC_CYCLES --------------------
+        ; Write mode has to come on BEFORE the first byte is handed over, and
+        ; that necessary: a store only loads the shift register when Q6
+        ; and Q7 are both high, so a store to Q7H while Q6 is low - the obvious
+        ; way to write "switch to write mode and give it this byte" - switches
+        ; the mode and quietly writes whatever the register held from the last
+        ; write-protect sense instead.
+        lda Q7H,x               ; 4   write mode; the register shifts out the
+                                ;     stale byte, harmlessly, inside the gap
+        lda #$ff                ; 2
+        ldy #WRITE_SYNC - 1     ; 2   (the first one is written below)
+        sta Q6H,x               ; 5   Q6H + Q7H: now it really is loaded
+        cmp Q6L,x               ; 4
+        pha                     ; 3   \ the sync spacing, less the 12 above
+        +pad WRITE_SYNC_CYCLES - 12
+.sync
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        dey                     ; 2
+        beq .sync_done          ; 2 not taken / 3 taken
+        +pad WRITE_SYNC_CYCLES - 16 ; 5 + 4 + 2 + 2 + pad + 3 = the spacing
+        jmp .sync               ; 3
+.sync_done
+        pla                     ; 4   (the pha above; 5 + 4 + 2 + 3 spent)
+        +pad WRITE_SYNC_CYCLES - 24
+        ldy #0                  ; 2   spacing = 14 + 4 + pad + 2 + 4(lda below)
+
+        ; --- D5 AA AD and the 86 aux nibbles, one every 32 ------------------
+.hdr
+        lda NIB_HDR,y           ; 4
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        iny                     ; 2
+        cpy #NIB_HDR_LEN        ; 2
+        beq .hdr_done           ; 2 not taken / 3 taken
+        +pad 10                 ; 10  5 + 4 + 2 + 2 + 2 + 10 + 3 + 4 = 32
+        jmp .hdr                ; 3
+.hdr_done
+        +pad 10                 ; 10  32 = 16 spent + 10 + 2 + 4(lda below)
+        ldy #0                  ; 2
+
+        ; --- the 256 data nibbles, one every 32 -----------------------------
+.pri
+        lda NIB_PRI,y           ; 4
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        iny                     ; 2
+        beq .pri_done           ; 2 not taken / 3 taken
+        +pad 12                 ; 12  5 + 4 + 2 + 2 + 12 + 3 + 4 = 32
+        jmp .pri                ; 3
+.pri_done
+        +pad 14                 ; 14  32 = 14 spent + 14 + 4(lda below)
+
+        ; --- the checksum nibble and DE AA EB -------------------------------
+        ; Twenty-one cycles between these, which is an odd number and NOP only
+        ; comes in twos: the PHA/PLA pair makes up the seven that are left, and
+        ; leaves the stack as it found it.
+        lda wr_check            ; 4
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        pha                     ; 3
+        pla                     ; 4
+        +pad 14                 ; 14  5 + 4 + 21 + 2 = 32
+        lda #$de                ; 2
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        pha                     ; 3
+        pla                     ; 4
+        +pad 14                 ; 14
+        lda #$aa                ; 2
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        pha                     ; 3
+        pla                     ; 4
+        +pad 14                 ; 14
+        lda #$eb                ; 2
+        sta Q6H,x               ; 5
+        cmp Q6L,x               ; 4
+        +pad 24                 ; 24  the last byte needs its 32 cycles to leave
+                                ;     the register before write mode is taken
+        lda Q7L,x               ; 4   away from it
+        lda Q6L,x               ; 4
+
+        plp                     ; interrupts as they were
+        ldx rw_slot
+        clc
+        rts
+
 .fail
         ldx rw_slot
         sec
@@ -589,13 +989,18 @@ rw_atrk         !byte 0
 rw_asec         !byte 0
 rw_niblo        !byte 0         ; nibbles seen while hunting for a prologue
 rw_nibhi        !byte 0
+wr_phase        !byte 0         ; how far into the gap this attempt starts
+wr_retries      !byte 0         ; writes that did not verify, since boot
+wr_prev         !byte 0         ; the running value the EOR chain is against
+wr_next         !byte 0
+wr_check        !byte 0         ; the disk byte that closes the chain
 
 image_end
 
-; The file has to fit below the aux buffer, and the PROM will only load one
-; track of it.
-!if image_end > RWTS_AUX {
-        !error "the boot chain is ", image_end - RWTS_AUX, " bytes too big"
+; The file has to fit below the first of the nibble buffers, and the PROM will
+; only load one track of it.
+!if image_end > NIB_HDR {
+        !error "the boot chain is ", image_end - NIB_HDR, " bytes too big"
 }
 !if (image_end - $0800 + 255) / 256 > 16 {
         !error "the boot chain does not fit on track 0"

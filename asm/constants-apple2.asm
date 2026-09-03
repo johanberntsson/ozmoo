@@ -30,12 +30,15 @@ LOWSCR                = $C054
 HIRESOFF              = $C056
 
 ; The boot chain at $0800, which stays resident. Ozmoo reaches a sector through
-; the jump at A2_READ_SECTOR after filling in the three bytes below it; see the
-; header of asm/apple2-rwts.asm, which owns these addresses.
+; the jump at A2_READ_SECTOR (or A2_WRITE_SECTOR) after filling in the track,
+; sector and address below it; see the header of asm/apple2-rwts.asm, which owns
+; these addresses.
 A2_READ_SECTOR        = $0804
 A2_TRACK              = $0807
 A2_SECTOR             = $0808
-A2_DEST               = $0809   ; destination page
+A2_DEST               = $0809   ; high byte of the buffer address...
+A2_DEST_LO            = $080A   ; ...and its low byte
+A2_WRITE_SECTOR       = $080B   ; write one sector, same three parameters
 
 ; --- zero page --------------------------------------------------------------
 ; Laid out like the X16's, which is the most recent map written from scratch
