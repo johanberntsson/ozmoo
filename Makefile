@@ -236,6 +236,24 @@ apple2-rwts-dump:
 apple2-rwts-sweep:
 	ruby tools/apple2-rwts-spike.rb --sweep
 
+apple2-write:
+	ruby tools/apple2-write-spike.rb --run
+
+apple2-write-mame:
+	ruby tools/apple2-write-spike.rb --mame
+
+apple2-write-dump:
+	ruby tools/apple2-write-spike.rb --applen
+
+# A track's worth of raw nibbles, and what they say about the sectors on it.
+apple2-write-nibbles:
+	ruby tools/apple2-write-spike.rb --nibbles
+
+# Save and restore, end to end: save in one run of the machine, reboot, restore
+# in the next, and read the disk here to see the same thing.
+apple2-save:
+	ruby tools/apple2-save.rb $(OPTS)
+
 IMAGE ?= apple2_dejavu.dsk
 apple2-cat:
 	ruby tools/apple2-cat.rb $(OPTS) $(IMAGE)

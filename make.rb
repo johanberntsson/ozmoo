@@ -356,6 +356,7 @@ $a2_interleave = 3
 
 A2_TRACK_BYTES      = 16 * 256   # one Apple II track
 A2_FIRST_TERP_TRACK = 2          # track 0 is the boot chain, track 1 the config track
+A2_SAVE_CONFIG_BYTES = 4         # the save area's geometry, at the end of the config block
 
 class Disk_image
 	def base_initialize
@@ -1416,6 +1417,12 @@ class AppleDiskImage < Disk_image
 		reserved_tracks.each { |track| @reserved_sectors[track] = SECTORS_PER_TRACK }
 
 		calculate_initial_free_blocks()
+	end
+
+	# The last track the story reached, so build_A2 knows where the free tail
+	# of the disk starts - which is where the save slots go.
+	def storydata_end_track
+		@storydata_end_track
 	end
 
 	# No BAM and no directory: there is no filesystem to keep up to date.
@@ -3086,6 +3093,28 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	# inside it - have no counterpart here.
 	vmem_data[3] = 0
 
+	# The save slots go in the free tail of the disk, behind the story. There is
+	# no filesystem, so a slot is simply a fixed run of sectors: the first
+	# sector of the area is a directory (ten fourteen-character comments and a
+	# flag each), and slot n starts one slot-length past it. The interpreter is
+	# told only where the area begins and how long a slot is; the count comes
+	# through config_data[6] as it does on every target.
+	save_first_track = [disk.storydata_end_track, interpreter_tracks.last, $CONFIG_TRACK.to_i].max + 1
+	save_bytes = $static_mem_start + 256 * $stack_pages + 20  # dynmem + z-stack + zp
+	save_slot_sectors = (save_bytes + 255) / 256
+	free_sectors = (AppleDiskImage::TRACKS - save_first_track) *
+		AppleDiskImage::SECTORS_PER_TRACK - 1   # less the directory sector
+	a2_save_slots = free_sectors < save_slot_sectors ? 0 :
+		[10, free_sectors / save_slot_sectors].min
+	if a2_save_slots.zero?
+		save_first_track = 0
+		puts "WARNING: no room on the disk for a save slot; saving will report a disk error."
+	elsif $verbose
+		puts "Save slots: #{a2_save_slots} of #{save_slot_sectors} sectors, " +
+			"from track #{save_first_track} (#{free_sectors} sectors free)"
+	end
+	config_data[6] = a2_save_slots
+
 	# Config data about the boot / story disk, in the same shape build_S1 uses:
 	# bytes used, device# = 0 (auto), last story sector + 1 (word), tracks with
 	# an entry, the per-track map, then the disk's name.
@@ -3098,9 +3127,16 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	config_data[4] += disk_info_size
 
 	if $VMEM
-		limit_vmem_data(vmem_data, 512 - config_data.length) # Limit config data to two sectors
+		# ...and the last four bytes of the config track are the save area, so
+		# the vmem index may not grow into them.
+		limit_vmem_data(vmem_data, 512 - A2_SAVE_CONFIG_BYTES - config_data.length)
 	end
 	config_data += vmem_data
+
+	# The save area, at a fixed place at the end of the config block so the
+	# interpreter can find it without walking the disk entries.
+	config_data += [0] * (512 - A2_SAVE_CONFIG_BYTES - config_data.length)
+	config_data += [save_first_track, save_slot_sectors, 0, 0]
 
 	disk.set_config_data(config_data)
 	disk.save()
