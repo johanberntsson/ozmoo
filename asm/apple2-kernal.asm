@@ -64,6 +64,14 @@ kernal_getchar
 	bpl .no_key
 	sta KEYBOARD_STROBE
 	and #$7f
+	; Fold lower case up. A real II+ keyboard cannot send it at all, but a IIe
+	; with SHIFT-LOCK off can, and the MEGA65's Apple II core does.
+	cmp #$61
+	bcc .no_fold
+	cmp #$7b
+	bcs .no_fold
+	and #$df
+.no_fold
 	rts
 .no_key
 	lda #0

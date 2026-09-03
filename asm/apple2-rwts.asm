@@ -151,6 +151,12 @@ a2_dest_lo
         !byte 0                         ; $080A: ...and its low byte
 a2_write_sector
         jmp rwts_write                  ; $080B: write one sector, see below
+wr_protect
+        !byte 0                         ; $080E: set by a write the drive
+                                        ; refused, as against one whose bits
+                                        ; did not land - the same carry to the
+                                        ; caller, and very different things to
+                                        ; be told on a machine we cannot debug
 
 ; ---------------------------------------------------------------------------
 ; boot: clear the screen, bring the interpreter in, jump to it.
@@ -625,6 +631,10 @@ rwts_write
         ; Is the disk write protected? Q6H then Q7L leaves the answer in bit 7
         ; of the data register. Worth asking: the alternative is to write
         ; nothing, notice nothing, and tell the player the game was saved.
+        ; The answer is left in wr_protect, because "the drive refused" and
+        ; "the bits did not land" are the same carry to the caller.
+        lda #0
+        sta wr_protect
         lda Q6H,x
         lda Q7L,x
         bmi .protected
@@ -657,6 +667,7 @@ rwts_write
         clc
         rts
 .protected
+        inc wr_protect          ; and fall through
 .give_up
         sec
         rts

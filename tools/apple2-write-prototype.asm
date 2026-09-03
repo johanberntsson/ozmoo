@@ -23,6 +23,7 @@ A2_SECTOR       = $0808
 A2_DEST         = $0809
 A2_DEST_LO      = $080A
 A2_WRITE        = $080B
+A2_WPROT        = $080E         ; the drive refused, as against a bad verify
 
 SCREEN          = $0400
 PATTERN         = $2000         ; what we write
@@ -122,6 +123,19 @@ start
         inx
         bne .ok_msg
 .bad
+        ; Which kind of failure, since on a machine with no debugger this one
+        ; line is the whole report: a drive that refused the write outright
+        ; says so, rather than looking like a driver that cannot write.
+        lda A2_WPROT
+        beq .bad_verify
+        ldx #0
+.prot_msg lda msg_prot,x
+        beq .finish
+        ora #$80
+        sta SCREEN,x
+        inx
+        bne .prot_msg
+.bad_verify
         ldx #0
 .bad_msg lda msg_bad,x
         beq .finish
@@ -298,6 +312,7 @@ dump_nibbles
 
 msg_ok  !text "WRITE OK", 0
 msg_bad !text "WRITE FAILED", 0
+msg_prot !text "WRITE PROTECTED", 0
 
 test_tracks
         !byte TEST_TRACK_1, TEST_TRACK_2, TEST_TRACK_3

@@ -39,6 +39,8 @@ A2_SECTOR             = $0808
 A2_DEST               = $0809   ; high byte of the buffer address...
 A2_DEST_LO            = $080A   ; ...and its low byte
 A2_WRITE_SECTOR       = $080B   ; write one sector, same three parameters
+A2_WRITE_PROTECT      = $080E   ; nonzero if the last write was refused by the
+                                ; drive rather than failing to verify
 
 ; --- zero page --------------------------------------------------------------
 ; Laid out like the X16's, which is the most recent map written from scratch
