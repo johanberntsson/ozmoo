@@ -12,7 +12,12 @@ z_rnd_a				!byte 123
 z_rnd_b				!byte 75
 z_rnd_c				!byte 93
 z_rnd_x				!byte 1
-z_rnd_mode 			!byte 0
+RND_NORMAL = 0
+RND_SEQUENCE = 1
+z_rnd_mode          !byte RND_NORMAL
+z_rnd_sequence_max  !byte 0,0
+z_rnd_sequence_next !byte 0,0
+
 !ifdef Z4PLUS {
 z_interrupt_return_value !byte 0,0
 }
@@ -1731,50 +1736,52 @@ z_ins_set_true_colour
 z_ins_nop
 	rts
 
+.random_seq
+;	Calculate remainder from (sequence# / range)
+	lda z_operand_value_low_arr
+	sta divisor
+	lda z_operand_value_high_arr
+	sta divisor + 1
+	lda z_rnd_sequence_next
+	sta dividend
+	lda z_rnd_sequence_next + 1
+	sta dividend + 1
+	jsr divide16
+
+;	Increase sequence#
+	inc z_rnd_sequence_next
+	bne +
+	inc z_rnd_sequence_next +1
+
+;	Check if sequence# has now reached end of its range
++	lda z_rnd_sequence_next
+	cmp z_rnd_sequence_max
+	lda z_rnd_sequence_next + 1
+	sbc z_rnd_sequence_max + 1
+	bcc +
+
+;	Sequence# has reached end of its range, reset it!
+	lda #0
+	sta z_rnd_sequence_next
+	sta z_rnd_sequence_next + 1
+
+;	Return the remainder of the division, plus 1	
++	ldx remainder
+	lda remainder + 1
+	jmp .add_one_and_store
+
 z_ins_random	
 	lda z_operand_value_high_arr
-	beq .random_highbyte_empty
-	bpl .random_wordsize
-	jmp .random_seed
-.random_highbyte_empty
-+	lda z_operand_value_low_arr
-	bne .random_wordsize
-	jmp	.random_seed_0
-.random_bytesize
-	ldy #1
-	sty zp_temp + 2 ; mask
--	lda zp_temp + 2
-	cmp z_operand_value_low_arr
-	bcs .random_bytesize_found_mask
-	sec
-	rol zp_temp + 2
-	bcc - ; Branch unless the mask is now > $ff (which can't happen)
-.random_bytesize_found_mask
--	jsr z_rnd_number
-	and zp_temp + 2
-	cmp z_operand_value_low_arr
-	bcs -
-	tax
-	inx
+	bmi .random_seed
+	ora z_operand_value_low_arr
+	beq	.random_seed_0
 
-!ifdef DEBUG {
-	ldy z_test
-	beq .rnd_store_bytesize
-	stx z_temp + 1
-	lda #0
-	jsr printinteger
-	jsr space
-	ldx z_temp + 1
-	ldy z_test
-	cpy #z_test_mode_print
-	bne .rnd_store_bytesize
-	rts
-.rnd_store_bytesize
-}
+;	Operand is > 0: We are to draw a random number, or one from a sequence
 
-	jmp z_store_result
+	lda z_rnd_mode
+	bne .random_seq
 
-.random_wordsize	
+; Draw a number from the PRNG
 	ldy #1
 	sty zp_temp + 2 ; lowbyte of mask
 	dey
@@ -1789,10 +1796,13 @@ z_ins_random
 	rol zp_temp + 3
 	bcc - ; Branch unless the mask is now > $ffff (which can't happen)
 .random_found_mask
--	jsr z_rnd_number
+; Draw highbyte, or skip it
+-	ldy zp_temp + 3
+	beq +
+	jsr z_rnd_number
 	and zp_temp + 3
 	tay
-	jsr z_rnd_number
++	jsr z_rnd_number
 	and zp_temp + 2
 	tax
 	cmp z_operand_value_low_arr
@@ -1801,9 +1811,11 @@ z_ins_random
 	bcs -
 ; .rnd_store_good_rnd_number
 	tya
+.add_one_and_store
 	inx
 	bne +
-	adc #1 ; Carry is always clear here, no need for clc
+	clc
+	adc #1
 +
 
 !ifdef DEBUG {
@@ -1834,42 +1846,44 @@ z_ins_random
 +	
 }
 	jsr z_rnd_init_random
-	lda #0
-	sta z_rnd_mode
-	beq .rnd_tax_and_return ; Always branch
+	jmp .rnd_done_seeding_normal
 }
 .random_seed
-
-!ifdef DEBUG {
-	ldy z_test
-	beq +
+	; Flip sign of seed value
+	eor #$ff
 	tax
-	jsr print_following_string
-	!text "seed -1!",13,0
-	txa
-+
-}	
-
-	tay
-	ldx z_operand_value_low_arr
+	lda z_operand_value_low_arr
+	eor #$ff
 	clc
-	adc #%10101010
+	adc #1
+	tay
+	txa
+	adc #0
+	tax
+	cpy #<1000
+	sbc #>1000
+	bcc .small_seed ; y is lowbyte, x is highbyte of sign-swapped seed
+
+	eor #%10101010
 	jsr z_rnd_init
-	lda #1 ; Predictable sequence
+.rnd_done_seeding_normal
+	lda #RND_NORMAL
+.rnd_done_seeding_any
 	sta z_rnd_mode
 	lda #0
-.rnd_tax_and_return
 	tax
-
-!ifdef DEBUG {
-	ldy z_test
-	cpy #z_test_mode_print
-	bne .rnd_store_seed
-	rts
-.rnd_store_seed
-}
-
 	jmp z_store_result
+
+.small_seed
+	; y is lowbyte, x is highbyte of sign-swapped seed
+	sty z_rnd_sequence_max
+	stx z_rnd_sequence_max + 1
+	ldx #0
+	stx z_rnd_sequence_next
+;	dex
+	stx z_rnd_sequence_next + 1
+	lda #RND_SEQUENCE ; Giving out a sequnce of numbers
+	bne .rnd_done_seeding_any ; Always branch
 
 ; z_ins_push moved to stack.asm
 	
