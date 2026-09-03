@@ -166,6 +166,8 @@ praxix-apple2:
 	ruby make.rb -s -t:apple2 test/praxix.z5
 etude-apple2:
 	ruby make.rb -s -t:apple2 test/etude.z5
+zork1-apple2:
+	ruby make.rb -s -t:apple2 infocom/zork1.z3
 dejavu-apple2e:
 	ruby make.rb -s -t:apple2e examples/dejavu.z3
 dejavu-apple2gs:
@@ -216,25 +218,6 @@ apple2-spike-dump:
 # machine rather than out of a save state.
 apple2-spike-mame:
 	ruby tools/apple2-spike.rb --mame
-
-# Boot it in a window (AppleWin's SDL front end, sa2).
-apple2-rwts:
-	ruby tools/apple2-rwts-spike.rb --run
-
-# The headless check: read the payload under MAME, time it, and say whether
-# every byte of it is right.
-apple2-rwts-mame:
-	ruby tools/apple2-rwts-spike.rb --mame
-
-# ...and under AppleWin, which is the check that the RWTS is not simply
-# agreeing with one emulator's idea of a disk.
-apple2-rwts-dump:
-	ruby tools/apple2-rwts-spike.rb --applen
-
-# Every interleave, measured: sectors a second and address fields per sector
-# for each skew, which is how the story data's layout gets chosen at step 2.
-apple2-rwts-sweep:
-	ruby tools/apple2-rwts-spike.rb --sweep
 
 apple2-write:
 	ruby tools/apple2-write-spike.rb --run
