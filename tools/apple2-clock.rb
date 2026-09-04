@@ -7,6 +7,8 @@
 #   ruby tools/apple2-clock.rb -v         # ...printing the screens it measured
 #   ruby tools/apple2-clock.rb --story examples/dejavu.z3   # another z3/z5 game
 #   ruby tools/apple2-clock.rb --no-build # measure what is already built
+#   ruby tools/apple2-clock.rb -t:apple2e # the IIe build (--driver picks the
+#                                         # MAME machine: apple2ee by default)
 #
 # The II+ has no timer and no readable vertical blank, so the input poll *is*
 # the clock (asm/apple2-kernal.asm): every pass through kernal_getchar counts
@@ -53,30 +55,37 @@ CPU_HZ   = 1_020_484.0            # 14.31818 MHz / 14, the II+'s 6502
 story   = 'examples/dejavu.z3'
 build   = true
 verbose = false
+target  = 'apple2'
+driver  = nil
 
 args = ARGV.dup
 until args.empty?
   case (arg = args.shift)
   when '--story'    then story = args.shift.to_s
+  when /^-t:(\S+)$/ then target = $1
+  when '--driver'   then driver = args.shift
   when '--no-build' then build = false
   when '-v', '--verbose' then verbose = true
   when '-h', '--help'
-    puts File.read(__FILE__).lines[2..8].map { |l| l.sub(/^# ?/, '') }
+    puts File.read(__FILE__).lines[2..10].map { |l| l.sub(/^# ?/, '') }
     exit 0
   else abort "unknown option #{arg}"
   end
 end
+# The MAME machine that matches the build (see tools/apple2-conformance.rb).
+TARGET = target
+DRIVER = driver || (target == 'apple2' ? 'apple2p' : 'apple2ee')
 
 # A build writes temp/acme_labels.txt, whatever the target, so the labels have
 # to be re-read after each one: an address from the wrong build is still
 # plausible enough to read as data rather than as a mistake.
 def build_story(story, build, extra = [])
   if build
-    cmd = ['ruby', 'make.rb', '-t:apple2', *extra, story]
+    cmd = ['ruby', 'make.rb', "-t:#{TARGET}", *extra, story]
     puts cmd.join(' ')
     abort "build of #{story} failed" unless system(*cmd, chdir: ROOT, out: File::NULL)
   end
-  image = File.join(ROOT, "apple2_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
+  image = File.join(ROOT, "#{TARGET}_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
   abort "no image at #{image} - build it first" unless File.exist?(image)
   [image, Apple2Emu.read_labels(LABELS)]
 end
@@ -100,7 +109,7 @@ SAMPLES = { 'a2_jiffy' => 3, 'a2_jiffy_sub' => 2, 'zp_screencolumn' => 1 }.freez
 # --- the two loops with no timer in them: the read prompt, and [More] --------
 
 def measure_idle(image, labels, n, keys:, settle:, window:, label:)
-  result = Apple2Emu.mame_run(image, labels: labels, samples: SAMPLES, keys: keys,
+  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, samples: SAMPLES, keys: keys,
                               seconds: 12 + settle + window + 2)
   samples = result[:samples]
   t0 = samples[after_init(samples, n, label)][0] + settle
@@ -131,7 +140,7 @@ def measure_timed(labels, build)
   16.times { keys << [t, "\n"]; t += 1.0 }
   keys << [t += 2.0, "10\n"]
   keys << [t += 1.0, "\n"]
-  result = Apple2Emu.mame_run(image, labels: labels, samples: SAMPLES, keys: keys,
+  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, samples: SAMPLES, keys: keys,
                               seconds: t + 60)
   samples = result[:samples].select { |tt, _| tt > t + 2 }
   abort 'the timed test never started' if samples.length < 100
@@ -178,7 +187,7 @@ BLINK_JIFFIES = 20
 def measure_blink(story, build)
   image, labels = build_story(story, build, ["-cb:#{BLINK_JIFFIES}"])
   n = labels['A2_POLLS_PER_JIFFY']
-  result = Apple2Emu.mame_run(image, labels: labels, seconds: 45,
+  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, seconds: 45,
                               samples: SAMPLES.merge('s_cursormode' => 1),
                               keys: [[10, "\n"], [12, "\n"], [14, "\n"]])
   samples = result[:samples].select { |t, _| t > 20 }

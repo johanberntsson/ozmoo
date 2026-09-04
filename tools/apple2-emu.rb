@@ -11,13 +11,14 @@
 #   applen  - AppleWin's ncurses front end, driven inside a pty.  Headless, but
 #             it can only be looked at through a save state (the terminal it
 #             paints is a stream of cursor moves, not a screen).
-#   mame    - the apple2p driver, the analogue of the xemu/VICE workflows: a
-#             Lua script peeks memory while the machine runs, so it can time
-#             what the program is doing and read variables out by name.  This
-#             is the one to reach for.
+#   mame    - the apple2p driver (or apple2e / apple2ee for a -t:apple2e
+#             build), the analogue of the xemu/VICE workflows: a Lua script
+#             peeks memory while the machine runs, so it can time what the
+#             program is doing and read variables out by name.  This is the one
+#             to reach for.
 #
 # The MAME gotcha worth knowing: /etc/mame/mame.ini has `autosave 1`, so a run
-# that ends by itself writes ~/.local/state/mame/sta/apple2p/auto.sta, and the
+# that ends by itself writes ~/.local/state/mame/sta/<driver>/auto.sta, and the
 # NEXT run restores it - at which point a -seconds_to_run limit is already
 # spent and the emulator exits at frame 0, silently, with no "Average speed"
 # line and no output from the Lua script.  It looks exactly like a broken
@@ -176,7 +177,12 @@ module Apple2Emu
 
   # --- MAME ----------------------------------------------------------------
 
-  # Boot `image` in the apple2p driver with a Lua script watching it.
+  # Boot `image` in a MAME Apple II driver with a Lua script watching it.
+  #
+  #   driver:  the MAME machine.  apple2p is the 48K II+ a -t:apple2 build
+  #            wants; a -t:apple2e build wants apple2e (unenhanced) or
+  #            apple2ee (enhanced), and is worth running on both, since that
+  #            is the split that decides the charset and the font 3 path.
   #
   #   watch:   a symbol name whose byte is polled every frame; each new value
   #            is timestamped, which is how a program times its own phases.
@@ -230,7 +236,7 @@ module Apple2Emu
   # keys: a list of [seconds, "text"] pairs typed into the machine as it runs.
   # MAME's emu.keypost() puts the text through the emulated keyboard, so the
   # program sees it exactly as a player's typing; "\n" is Return.
-  def mame_run(image, labels: {}, watch: nil, until_value: nil, symbols: {},
+  def mame_run(image, driver: 'apple2p', labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
                idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
                echo_flag: nil, dump_range: nil,
@@ -435,7 +441,10 @@ module Apple2Emu
       end)
     LUA
 
-    cmd = [MAME, 'apple2p', '-sl6', 'diskiing', '-flop1', image,
+    # A II+ or a IIe needs a Disk II card put in slot 6; a IIc has its drive
+    # built in and rejects the option outright.
+    slot = driver.start_with?('apple2c') ? [] : ['-sl6', 'diskiing']
+    cmd = [MAME, driver, *slot, '-flop1', image,
            '-video', 'none', '-sound', 'none', '-nothrottle', '-noautosave',
            '-seconds_to_run', seconds.to_s, '-autoboot_script', lua_path]
     log = File.join(TEMP, 'apple2_mame.log')

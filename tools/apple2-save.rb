@@ -5,6 +5,8 @@
 #   ruby tools/apple2-save.rb            # build dejavu, save, reboot, restore
 #   ruby tools/apple2-save.rb --no-build # ...against the disk as it stands
 #   ruby tools/apple2-save.rb -v         # ...printing every screen it saw
+#   ruby tools/apple2-save.rb -t:apple2e # the IIe build (--driver picks the
+#                                        # MAME machine: apple2ee by default)
 #
 # Three runs of the machine, because that is the only way to prove a save is on
 # the disk rather than in memory:
@@ -32,26 +34,34 @@ require_relative 'apple2-emu'
 ROOT   = Apple2Emu::ROOT
 LABELS = File.join(Apple2Emu::TEMP, 'acme_labels.txt')
 STORY  = 'examples/dejavu.z3'
-IMAGE  = File.join(ROOT, 'apple2_dejavu.dsk')
 COMMENT = 'sword dropped'
 
 build   = true
 verbose = false
 extra   = []
-ARGV.each do |arg|
-  case arg
+target  = 'apple2'
+driver  = nil
+args = ARGV.dup
+until args.empty?
+  case (arg = args.shift)
   when '--no-build' then build = false
   when /^-a2c/ then extra << arg    # build crunched, and check saving works there too
+  when /^-t:(\S+)$/ then target = $1
+  when '--driver' then driver = args.shift
   when '-v', '--verbose' then verbose = true
   when '-h', '--help'
-    puts File.read(__FILE__).lines[2..8].map { |l| l.sub(/^# ?/, '') }
+    puts File.read(__FILE__).lines[2..10].map { |l| l.sub(/^# ?/, '') }
     exit 0
   else abort "unknown option #{arg}"
   end
 end
+# The MAME machine that matches the build (see tools/apple2-conformance.rb).
+driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
+IMAGE  = File.join(ROOT, "#{target}_dejavu.dsk")
+DRIVER = driver
 
 if build
-  cmd = ['ruby', 'make.rb', '-t:apple2', *extra, STORY]
+  cmd = ['ruby', 'make.rb', "-t:#{target}", *extra, STORY]
   puts cmd.join(' ')
   abort 'build failed' unless system(*cmd, chdir: ROOT, out: File::NULL)
 end
@@ -59,7 +69,7 @@ abort "no image at #{IMAGE}" unless File.exist?(IMAGE)
 labels = Apple2Emu.read_labels(LABELS)
 
 def play(labels, commands, seconds: 900)
-  Apple2Emu.mame_run(IMAGE, labels: labels, tap: 'printchar_buffered',
+  Apple2Emu.mame_run(IMAGE, driver: DRIVER, labels: labels, tap: 'printchar_buffered',
                      auto_more: true, idle_after: 25, idle_exit: 90,
                      command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
                      commands: commands.map { |c| c + "\n" }, seconds: seconds)

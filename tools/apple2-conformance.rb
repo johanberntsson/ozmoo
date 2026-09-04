@@ -6,6 +6,8 @@
 #   ruby tools/apple2-conformance.rb czech     # just one of them
 #   ruby tools/apple2-conformance.rb -v        # ...and print both transcripts
 #   ruby tools/apple2-conformance.rb --no-build
+#   ruby tools/apple2-conformance.rb -t:apple2e            # the IIe build
+#   ruby tools/apple2-conformance.rb -t:apple2e --driver apple2e   # unenhanced
 #
 # Both games print their own verdict - czech counts its 425 tests and praxix
 # says "All tests passed." - and that is the primary check.  The second check is
@@ -102,19 +104,19 @@ def from_petscii(bytes)
   end.join
 end
 
-def build(story, want_build, extra = [])
+def build(target, story, want_build, extra = [])
   if want_build
-    cmd = ['ruby', 'make.rb', '-t:apple2', *extra, story]
+    cmd = ['ruby', 'make.rb', "-t:#{target}", *extra, story]
     puts cmd.join(' ')
     abort "build of #{story} failed" unless system(*cmd, chdir: ROOT, out: File::NULL)
   end
-  image = File.join(ROOT, "apple2_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
+  image = File.join(ROOT, "#{target}_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
   abort "no image at #{image}" unless File.exist?(image)
   [image, Apple2Emu.read_labels(LABELS)]
 end
 
-def run_apple(image, labels, commands)
-  result = Apple2Emu.mame_run(image, labels: labels, tap: 'printchar_buffered',
+def run_apple(image, driver, labels, commands)
+  result = Apple2Emu.mame_run(image, driver: driver, labels: labels, tap: 'printchar_buffered',
                               auto_more: true, idle_exit: 12, idle_after: 25,
                               ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
                               commands: commands.map { |c| c + "\n" }, seconds: 400)
@@ -193,14 +195,18 @@ want_build = true
 verbose = false
 wanted = []
 extra = []
+target = 'apple2'
+driver = nil
 args = ARGV.dup
 until args.empty?
   case (arg = args.shift)
   when '--no-build' then want_build = false
   when /^-a2c/ then extra << arg    # build the games crunched, and check that too
+  when /^-t:(\S+)$/ then target = $1
+  when '--driver' then driver = args.shift
   when '-v', '--verbose' then verbose = true
   when '-h', '--help'
-    puts File.read(__FILE__).lines[2..8].map { |l| l.sub(/^# ?/, '') }
+    puts File.read(__FILE__).lines[2..10].map { |l| l.sub(/^# ?/, '') }
     exit 0
   else
     abort "unknown game #{arg} (have: #{GAMES.keys.join(', ')})" unless GAMES.key?(arg)
@@ -209,16 +215,22 @@ until args.empty?
 end
 wanted = GAMES.keys if wanted.empty?
 
+# The MAME machine that matches the build: a -t:apple2 disk wants the 48K II+,
+# and a -t:apple2e one an enhanced IIe unless --driver says otherwise (apple2e
+# is the unenhanced machine, apple2c the IIc).
+driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
+
 failed = false
 wanted.each do |name|
   game = GAMES[name]
-  image, labels = build(game[:story], want_build, extra)
-  a2_text, result = run_apple(image, labels, game[:commands])
+  image, labels = build(target, game[:story], want_build, extra)
+  a2_text, result = run_apple(image, driver, labels, game[:commands])
   ref_text = run_dfrotz(game[:story], game[:commands])
   problems, notes = compare(name, game, a2_text, ref_text)
 
   puts
-  puts "#{name} (#{game[:story]}): #{a2_text.length} characters printed, " \
+  puts "#{name} (#{game[:story]}) on #{target}/#{driver}: " \
+       "#{a2_text.length} characters printed, " \
        "#{'%.0f' % result[:seconds]} emulated seconds"
   if verbose
     puts a2_text.lines.map { |l| "  | #{l.chomp}" }
