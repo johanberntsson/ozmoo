@@ -3,6 +3,8 @@ RELEASE NOTES
 Upcoming release:
 
 - Fixed: Special characters Sentence space and Tab in v6 games weren't printed.
+- Changed random opcode to work like the standard suggests: If a negative seed in the range [-1,-999] is given, random n gives a sequence of numbers 1 .. (-seed), modulus n. 
+- Made random draw only one random byte value instead of two, when range < 256. Not in benchmark mode though, or existing walkthroughs would stop working.
 
 ================================================
 Release 16: 30 Aug 2026
