@@ -188,6 +188,10 @@ $loader_zip_file = File.join($TEMPDIR, 'loader_zip')
 $ozmoo_file = File.join($TEMPDIR, 'ozmoo')
 $a2_boot_file = File.join($TEMPDIR, 'a2boot')
 $a2_boot_labels_file = File.join($TEMPDIR, 'a2boot_labels.txt')
+$a2_deexo_file = File.join($TEMPDIR, 'a2deexo')
+$a2_deexo_labels_file = File.join($TEMPDIR, 'a2deexo_labels.txt')
+$a2_crunch_file = File.join($TEMPDIR, 'a2terp.exo')
+$a2_plain_file = File.join($TEMPDIR, 'a2terp.bin')
 $zip_file = File.join($TEMPDIR, 'ozmoo_zip')
 $good_zip_file = File.join($TEMPDIR, 'ozmoo_zip_good')
 $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
@@ -357,6 +361,19 @@ $a2_interleave = 3
 A2_TRACK_BYTES      = 16 * 256   # one Apple II track
 A2_FIRST_TERP_TRACK = 2          # track 0 is the boot chain, track 1 the config track
 A2_SAVE_CONFIG_BYTES = 4         # the save area's geometry, at the end of the config block
+
+# The top of RAM is lent to asm/apple2-deexo.asm while the crunched
+# interpreter is unpacked, and the vmem cache grows over it afterwards. A
+# kilobyte is about twice what the decruncher needs; the assembly checks.
+A2_DEEXO_BYTES      = 1024
+
+# Is the interpreter crunched onto the disk? It is a straight trade and
+# -a2c:0 takes the other side of it: crunching frees a track of the disk on
+# dejavu and two on Zork I, and costs boot time, because at 1 MHz
+# exomizer unpacks about as fast as our RWTS reads (see build_A2). Off by
+# default for that reason; the mechanism is here for phase 2, where the disk
+# matters more than a second does.
+$a2_compress = false
 
 class Disk_image
 	def base_initialize
@@ -2981,14 +2998,15 @@ end
 # rest of the session. It has to be told where the interpreter is on the disk, which
 # is only known once the interpreter has been assembled, so this runs from build_A2
 # rather than beside build_interpreter.
-def build_a2_boot(terp_track, terp_sectors)
+def build_a2_boot(terp_track, terp_sectors, load_address = $start_address, deexo_entry = 0)
 	if terp_sectors > 255
 		puts "ERROR: The interpreter is #{terp_sectors} sectors; the boot chain counts them in a byte."
 		exit 1
 	end
 	settings = " --cpu 6502 --format plain" +
 		" -DTERP_TRACK=#{terp_track} -DTERP_SECTORS=#{terp_sectors}" +
-		" -DTERP_LOAD=#{$start_address} -DA2_INTERLEAVE=#{$a2_interleave}"
+		" -DTERP_LOAD=#{$start_address} -DLOAD_ADDR=#{load_address}" +
+		" -DDEEXO_ENTRY=#{deexo_entry} -DA2_INTERLEAVE=#{$a2_interleave}"
 	cmd = "#{$executables['ACME']}#{settings} -l \"#{$a2_boot_labels_file}\" " +
 		"--outfile \"#{$a2_boot_file}\" apple2-rwts.asm"
 	puts cmd if $verbose
@@ -3008,6 +3026,78 @@ def build_a2_boot(terp_track, terp_sectors)
 		exit 1
 	end
 	boot
+end
+
+# Assemble the Apple II decruncher, the tail of the blob the boot chain reads
+# when the interpreter on the disk is crunched (-a2c). Like the boot chain it
+# is an object of its own at an address of its own, and it has to be told where
+# the crunched stream begins, which is only known once the interpreter has been
+# crunched - so this runs from build_A2 too.
+def build_a2_deexo(deexo_org, crunch_src)
+	settings = " --cpu 6502 --format plain" +
+		" -DDEEXO_ORG=#{deexo_org} -DCRUNCH_SRC=#{crunch_src} -DTERP_LOAD=#{$start_address}"
+	cmd = "#{$executables['ACME']}#{settings} -l \"#{$a2_deexo_labels_file}\" " +
+		"--outfile \"#{$a2_deexo_file}\" apple2-deexo.asm"
+	puts cmd if $verbose
+	Dir.chdir $SRCDIR
+	ret = system(cmd)
+	Dir.chdir $EXECDIR
+	unless ret
+		puts "ERROR: There was a problem calling Acme"
+		exit 1
+	end
+	deexo = IO.binread($a2_deexo_file).unpack("C*")
+	if deexo.length > A2_DEEXO_BYTES
+		puts "ERROR: The decruncher is #{deexo.length} bytes and only #{A2_DEEXO_BYTES} are reserved for it."
+		exit 1
+	end
+	deexo
+end
+
+# Crunch the interpreter for the disk, and lay the blob the boot chain reads
+# out at the top of RAM: the crunched stream from load_address up, and
+# asm/apple2-deexo.asm in the kilobyte above it. Returns the blob, where it
+# loads, and the decruncher to call once it is all in.
+def a2_crunch_interpreter(interpreter)
+	IO.binwrite($a2_plain_file, interpreter.pack("C*"))
+	# -c -P0 is the stream asm/apple2-deexo.asm decodes: exomizer's own format
+	# without literal sequences, which the reference decoder it is ported from
+	# does not implement. They are worth six bytes in 9431 here.
+	cmd = "#{$executables['EXOMIZER']} raw -q -c -P0 " +
+		"-o \"#{$a2_crunch_file}\" \"#{$a2_plain_file}\""
+	puts cmd if $verbose
+	unless system(cmd)
+		puts "ERROR: There was a problem calling exomizer"
+		exit 1
+	end
+	crunched = IO.binread($a2_crunch_file).unpack("C*")
+
+	deexo_org = $memory_end_address - A2_DEEXO_BYTES
+	crunched_pages = (crunched.length + 255) / 256
+	load_address = deexo_org - crunched_pages * 256
+
+	# Both streams are walked forwards and the gap between them only grows, so
+	# the one thing that has to hold is that the crunched stream ends above the
+	# end of the decrunched interpreter. A page of margin covers the bits the
+	# decoder reads before it writes what they describe.
+	terp_end = $start_address + interpreter.length
+	if load_address < $start_address or terp_end + 256 > load_address + crunched.length
+		puts "WARNING: #{interpreter.length} bytes crunched to #{crunched.length} cannot be " +
+			"unpacked in place; writing the interpreter uncompressed instead."
+		return [interpreter, $start_address, 0]
+	end
+
+	deexo = build_a2_deexo(deexo_org, load_address)
+	blob = crunched + [0] * (crunched_pages * 256 - crunched.length) + deexo
+	if $verbose
+		puts "Interpreter crunched: #{interpreter.length} bytes to #{crunched.length} " +
+			"(#{100 * crunched.length / interpreter.length}%), " +
+			"#{(interpreter.length + 255) / 256 - (blob.length + 255) / 256} sectors saved"
+		puts "  crunched stream at $#{load_address.to_s(16)}-$#{(load_address + crunched.length).to_s(16)}, " +
+			"decruncher #{deexo.length} bytes at $#{deexo_org.to_s(16)}, " +
+			"interpreter unpacks to $#{$start_address.to_s(16)}-$#{terp_end.to_s(16)}"
+	end
+	[blob, load_address, deexo_org]
 end
 
 # The Apple II disk, laid out by make.rb itself since there is no filesystem on
@@ -3057,7 +3147,18 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 		end
 		interpreter += dynmem.unpack("C*")
 	end
-	terp_tracks_needed = (interpreter.length + A2_TRACK_BYTES - 1) / A2_TRACK_BYTES
+
+	# What goes on the disk is either that as it stands, or, with -a2c, the
+	# crunched interpreter with the decruncher on top of it - a blob the boot
+	# chain reads to the top of RAM and unpacks down into place.
+	blob = interpreter
+	load_address = $start_address
+	deexo_entry = 0
+	if $a2_compress
+		blob, load_address, deexo_entry = a2_crunch_interpreter(interpreter)
+	end
+
+	terp_tracks_needed = (blob.length + A2_TRACK_BYTES - 1) / A2_TRACK_BYTES
 	interpreter_tracks = (0...terp_tracks_needed).map { |i| A2_FIRST_TERP_TRACK + i }
 	if interpreter_tracks.last >= AppleDiskImage::TRACKS
 		puts "ERROR: The interpreter needs #{terp_tracks_needed} tracks and does not fit."
@@ -3075,11 +3176,11 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
 
-	terp_sectors = disk.write_blob(interpreter_tracks.first, 0, interpreter)
+	terp_sectors = disk.write_blob(interpreter_tracks.first, 0, blob)
 
 	# Track 0: the boot chain. The PROM reads its sectors in plain ascending
 	# physical order into $0800 and up, so there is no interleave here.
-	boot = build_a2_boot(interpreter_tracks.first, terp_sectors)
+	boot = build_a2_boot(interpreter_tracks.first, terp_sectors, load_address, deexo_entry)
 	boot_sectors = boot.length / 256
 	if boot_sectors > AppleDiskImage::SECTORS_PER_TRACK
 		puts "ERROR: The boot chain is #{boot_sectors} sectors and track 0 holds 16."
@@ -3146,8 +3247,10 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 		puts "Apple II disk layout:"
 		puts "  track  0     boot chain + resident RWTS, #{boot.length} bytes in #{boot_sectors} sectors"
 		puts "  track  #{$CONFIG_TRACK}     config track, sectors 0-1"
-		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   interpreter + dynmem, #{interpreter.length} bytes in " +
-			"#{terp_sectors} sectors, loads at $#{$start_address.to_s(16)} (story from $#{$storystart.to_s(16)})"
+		what = deexo_entry.zero? ? "interpreter + dynmem" : "crunched interpreter + dynmem"
+		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   #{what}, #{blob.length} bytes in " +
+			"#{terp_sectors} sectors, loads at $#{load_address.to_s(16)} " +
+			"(interpreter at $#{$start_address.to_s(16)}, story from $#{$storystart.to_s(16)})"
 		puts "  story        #{last_block_plus_1} sectors at interleave #{disk.interleave}, " +
 			"#{free_blocks} sectors free"
 	end
@@ -3176,7 +3279,7 @@ def print_usage
 	puts "         [-pics <blorbfile|picturedir>] [-cb:[n]] [-cs:[b|u|l]]"
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
-	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
+	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] [-a2c[:0|1]] <storyfile>"
 	puts "  -t: specify target machine. Available targets are c64, c128, plus4, mega65, x16, apple2, apple2e and apple2gs."
 	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP|-A2: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16, A2 for Apple II). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
@@ -3231,6 +3334,9 @@ def print_usage
 	puts "  -cs: Use the specified cursor shape.  ([b]lock (default), [u]nderscore or [l]ine)"
 	puts "  -dt: Set the disk title to the specified text."
 	puts "  -rd: Reserve the entire directory track, typically for directory art."
+	puts "  -a2c: Apple II only. Crunch the interpreter onto the disk with exomizer. Frees one or two"
+	puts "        tracks of the disk and costs a second or two of boot time, because a 6502 unpacks"
+	puts "        about as fast as the Apple II RWTS reads. Off by default."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
 	puts "  -sig: Write Ozmoo's signature into the header. Default is 'noninfocom', i.e. for all non-Infocom games."
@@ -3516,6 +3622,8 @@ begin
 			else
 				pixel_units = $1.to_i
 			end
+		elsif arg =~ /^-a2c(?::([0-1]))?$/ then
+			$a2_compress = ($1 != '0')
 		elsif arg =~ /^-re(?::([0-1]))?$/ then
 			if $1 == nil
 				check_errors = 1

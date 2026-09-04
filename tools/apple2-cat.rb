@@ -71,6 +71,7 @@ end
 class BootChain
   attr_reader :sectors, :image, :entry, :read_entry
   attr_reader :terp_track, :terp_sectors, :terp_load, :skew
+  attr_reader :deexo_entry, :terp_entry
 
   def initialize(disk)
     @sectors = disk.sector(0, 0)[0]
@@ -88,6 +89,10 @@ class BootChain
     !@entry.nil? and !@read_entry.nil?
   end
 
+  # A crunched disk's sectors are an exomizer stream, and the boot chain calls
+  # a decruncher before it enters the interpreter.
+  def crunched? = !@deexo_entry.nil?
+
   private
 
   # $0801 and $0804 are jmp instructions and must stay where they are: they are
@@ -99,8 +104,8 @@ class BootChain
 
   # boot loads the interpreter with
   #     lda #TERP_TRACK / sta a2_track    ($0807)
-  #     lda #>TERP_LOAD / sta a2_dest     ($0809)
-  #     lda #<TERP_LOAD / sta a2_dest_lo  ($080A)
+  #     lda #>LOAD_ADDR / sta a2_dest     ($0809)
+  #     lda #<LOAD_ADDR / sta a2_dest_lo  ($080A)
   #     lda #0          / sta .index
   #     lda #TERP_SECTORS
   # so the three stores to the fixed parameter bytes anchor the whole run. If
@@ -119,9 +124,27 @@ class BootChain
       @terp_track   = @image[i + 1]
       @terp_load    = (@image[i + 6] << 8) | @image[i + 11]
       @terp_sectors = @image[i + 21]
+      find_entry(i + 22)
       return
     end
   end
+
+  # The loop ends either at a plain "jmp TERP_LOAD" or, on a crunched disk, at
+  # "jsr DEEXO_ENTRY / jmp TERP_LOAD" - which is what says the sectors hold an
+  # exomizer stream rather than the interpreter itself.
+  def find_entry(from)
+    (from..[from + 64, @image.length - 6].min).each do |i|
+      if @image[i] == 0x20 and @image[i + 3] == 0x4c
+        @deexo_entry = @image[i + 1] | (@image[i + 2] << 8)
+        @terp_entry  = @image[i + 4] | (@image[i + 5] << 8)
+        return
+      elsif @image[i] == 0x4c
+        @terp_entry = @image[i + 1] | (@image[i + 2] << 8)
+        return
+      end
+    end
+  end
+
 
   # skew_table is 16 bytes of (i * A2_INTERLEAVE) & 15, which identifies both
   # the table and the interleave the boot loader was built for.
@@ -381,6 +404,10 @@ def report(disk, boot, conf, opts)
   end
   if boot.terp_track
     field "interpreter", "track #{boot.terp_track}, #{boot.terp_sectors} sectors, loads at $%04x" % boot.terp_load
+    if boot.crunched?
+      field "$%04x jsr" % boot.deexo_entry,
+        "the decruncher: those sectors are an exomizer stream, unpacked to $%04x" % boot.terp_entry
+    end
   else
     field "interpreter", "(the load sequence in the boot code was not recognised)"
   end
@@ -514,7 +541,25 @@ def read_interpreter(disk, boot, interleave)
     sector = ((i % SECTORS_PER_TRACK) * interleave) & 15   # the boot loader's skew_table
     out += disk.sector(track, sector)
   end
-  out
+  boot.crunched? ? decrunch(out) : out
+end
+
+# A crunched disk (make.rb -a2c) holds the exomizer stream from the start of
+# the blob, with the decruncher itself behind it - which the decoder never
+# reaches, since it stops at the stream's own end marker. exomizer decrunches
+# it here the same way asm/apple2-deexo.asm does on the machine; without it
+# this tool can still report the layout but cannot read the story back.
+def decrunch(blob)
+  exo = ENV['EXOMIZER'] || File.join(__dir__, '..', 'exomizer', 'src', 'exomizer')
+  return nil unless File.executable?(exo)
+  require 'tmpdir'
+  Dir.mktmpdir do |dir|
+    IO.binwrite(File.join(dir, 'in'), blob.pack('C*'))
+    ok = system(exo, 'raw', '-q', '-d', '-c', '-P0',
+                '-o', File.join(dir, 'out'), File.join(dir, 'in'))
+    return nil unless ok
+    return IO.binread(File.join(dir, 'out')).unpack('C*')
+  end
 end
 
 def report_story(story, map)

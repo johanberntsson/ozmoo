@@ -102,9 +102,9 @@ def from_petscii(bytes)
   end.join
 end
 
-def build(story, want_build)
+def build(story, want_build, extra = [])
   if want_build
-    cmd = ['ruby', 'make.rb', '-t:apple2', story]
+    cmd = ['ruby', 'make.rb', '-t:apple2', *extra, story]
     puts cmd.join(' ')
     abort "build of #{story} failed" unless system(*cmd, chdir: ROOT, out: File::NULL)
   end
@@ -192,10 +192,12 @@ end
 want_build = true
 verbose = false
 wanted = []
+extra = []
 args = ARGV.dup
 until args.empty?
   case (arg = args.shift)
   when '--no-build' then want_build = false
+  when /^-a2c/ then extra << arg    # build the games crunched, and check that too
   when '-v', '--verbose' then verbose = true
   when '-h', '--help'
     puts File.read(__FILE__).lines[2..8].map { |l| l.sub(/^# ?/, '') }
@@ -210,7 +212,7 @@ wanted = GAMES.keys if wanted.empty?
 failed = false
 wanted.each do |name|
   game = GAMES[name]
-  image, labels = build(game[:story], want_build)
+  image, labels = build(game[:story], want_build, extra)
   a2_text, result = run_apple(image, labels, game[:commands])
   ref_text = run_dfrotz(game[:story], game[:commands])
   problems, notes = compare(name, game, a2_text, ref_text)

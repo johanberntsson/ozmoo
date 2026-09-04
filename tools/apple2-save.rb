@@ -37,9 +37,11 @@ COMMENT = 'sword dropped'
 
 build   = true
 verbose = false
+extra   = []
 ARGV.each do |arg|
   case arg
   when '--no-build' then build = false
+  when /^-a2c/ then extra << arg    # build crunched, and check saving works there too
   when '-v', '--verbose' then verbose = true
   when '-h', '--help'
     puts File.read(__FILE__).lines[2..8].map { |l| l.sub(/^# ?/, '') }
@@ -49,7 +51,7 @@ ARGV.each do |arg|
 end
 
 if build
-  cmd = ['ruby', 'make.rb', '-t:apple2', STORY]
+  cmd = ['ruby', 'make.rb', '-t:apple2', *extra, STORY]
   puts cmd.join(' ')
   abort 'build failed' unless system(*cmd, chdir: ROOT, out: File::NULL)
 end

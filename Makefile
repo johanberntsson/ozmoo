@@ -158,6 +158,8 @@ dejavu-x16:
 	ruby make.rb -s -t:x16 examples/dejavu.z3
 dejavu-apple2:
 	ruby make.rb -s -t:apple2 examples/dejavu.z3
+dejavu-apple2-a2c:
+	ruby make.rb -a2c -s -t:apple2 examples/dejavu.z3
 # The conformance test games; "make apple2-conformance"
 # runs them headlessly and checks them against dfrotz.
 czech-apple2:

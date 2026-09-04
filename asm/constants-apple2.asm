@@ -41,6 +41,11 @@ A2_DEST_LO            = $080A   ; ...and its low byte
 A2_WRITE_SECTOR       = $080B   ; write one sector, same three parameters
 A2_WRITE_PROTECT      = $080E   ; nonzero if the last write was refused by the
                                 ; drive rather than failing to verify
+A2_LAST_TRACK         = $080F   ; the track and sector of the last address
+A2_LAST_SECTOR        = $0810   ; field the drive decoded. After a read that
+                                ; failed, these two against the ones asked for
+                                ; say whether the head was in the wrong place
+                                ; or the bits under it would not decode
 
 ; --- zero page --------------------------------------------------------------
 ; Laid out like the X16's, which is the most recent map written from scratch

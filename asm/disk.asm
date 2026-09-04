@@ -591,9 +591,47 @@ read_track_sector
 	sta A2_DEST
 	jsr A2_READ_SECTOR
 	bcc +
-	lda #$05 ; the nearest BASIC error code: the drive did not answer
-	jmp disk_error
+	jmp a2_disk_error
 +	rts
+
+a2_disk_error
+	; Retries and recalibration attempts have all failed. The shared
+	; disk_error prints a BASIC error code, which this machine has no
+	; DOS to produce, so print additional info on the screen.
+	lda .track
+	ldy #.a2_err_wt - .a2_err_msg
+	jsr .a2_err_digits
+	lda .sector
+	ldy #.a2_err_ws - .a2_err_msg
+	jsr .a2_err_digits
+	lda A2_LAST_TRACK
+	ldy #.a2_err_ht - .a2_err_msg
+	jsr .a2_err_digits
+	lda A2_LAST_SECTOR
+	ldy #.a2_err_hs - .a2_err_msg
+	jsr .a2_err_digits
+	jsr printchar_flush
+	lda #>.a2_err_msg
+	ldx #<.a2_err_msg
+	jsr printstring_raw
+	lda #0
+	rts
+
+.a2_err_digits
+	; a = a value 0..99, y = where its two digits go in the message
+	jsr convert_byte_to_two_digits
+	sta .a2_err_msg + 1,y
+	txa
+	sta .a2_err_msg,y
+	rts
+
+; Raw printing does not word wrap, so each line has to fit in 40 columns with
+; its digits in it. The dots are where they go.
+.a2_err_msg    !pet 13,"Disk error: track "
+.a2_err_wt     !pet "..", " sector "
+.a2_err_ws     !pet "..", 13, "The drive last read track "
+.a2_err_ht     !pet "..", " sector "
+.a2_err_hs     !pet "..", 13, 0
 } else {
 	lda .track
 	jsr convert_byte_to_two_digits
@@ -1244,6 +1282,9 @@ disk_error
 	jsr printinteger
 	jsr printchar_flush
 
+!ifdef TARGET_MEGA65 {
+!ifdef DEBUG_DISK_STATUS {
+	; The F011 and SD controller's own status
 	lda #$25
 	jsr s_printchar
 	lda #0
@@ -1256,6 +1297,8 @@ disk_error
 	ldx $d6a1
 	jsr printinteger
 	jsr printchar_flush
+}
+}
 
 	lda #$0d
 	jsr s_printchar

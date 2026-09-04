@@ -47,7 +47,11 @@
 ; Build-time defines, all from make.rb:
 ;   TERP_TRACK      first track of the interpreter
 ;   TERP_SECTORS    how many sectors it occupies
-;   TERP_LOAD       where it loads, which is also its entry point
+;   TERP_LOAD       where the interpreter runs, which is also its entry point
+;   LOAD_ADDR       where the sectors are read to, which is TERP_LOAD unless
+;                   they are crunched, when it is the top of RAM instead
+;   DEEXO_ENTRY     0, or the decruncher to call once they are all in - see
+;                   asm/apple2-deexo.asm
 ;   A2_INTERLEAVE   sectors between one block of it and the next
 ; ---------------------------------------------------------------------------
 
@@ -56,6 +60,8 @@
 !ifndef TERP_TRACK { TERP_TRACK = 2 }
 !ifndef TERP_SECTORS { TERP_SECTORS = 1 }
 !ifndef TERP_LOAD { TERP_LOAD = $1000 }
+!ifndef LOAD_ADDR { LOAD_ADDR = TERP_LOAD }
+!ifndef DEEXO_ENTRY { DEEXO_ENTRY = 0 }
 !ifndef A2_INTERLEAVE { A2_INTERLEAVE = 3 }
 
 ; --- hardware ---------------------------------------------------------------
@@ -157,6 +163,11 @@ wr_protect
                                         ; did not land - the same carry to the
                                         ; caller, and very different things to
                                         ; be told on a machine we cannot debug
+; track and sector when a read fails
+rw_atrk
+        !byte 0                         ; $080F
+rw_asec
+        !byte 0                         ; $0810
 
 ; ---------------------------------------------------------------------------
 ; boot: clear the screen, bring the interpreter in, jump to it.
@@ -177,9 +188,9 @@ boot
 
         lda #TERP_TRACK
         sta a2_track
-        lda #>TERP_LOAD
+        lda #>LOAD_ADDR
         sta a2_dest
-        lda #<TERP_LOAD
+        lda #<LOAD_ADDR
         sta a2_dest_lo
         lda #0
         sta .index
@@ -204,6 +215,12 @@ boot
         dec .todo
         bne .next
 
+!if DEEXO_ENTRY != 0 {
+        ; What was read is the crunched interpreter with the decruncher on top
+        ; of it, at the top of RAM. This unpacks it down to TERP_LOAD, which
+        ; the sectors alone would not fit into.
+        jsr DEEXO_ENTRY
+}
         jmp TERP_LOAD
 
 .failed
@@ -403,9 +420,15 @@ rwts_seek
 ; ---------------------------------------------------------------------------
 !zone rwts_recalibrate
 rwts_recalibrate
-        lda #80
+        ; The count runs down to zero *inclusive*, so that the last phase this
+        ; energises is phase 0 - the one that half track 0 belongs to, and the
+        ; one rw_half is about to claim the head is on. Stopping at 1 leaves the
+        ; head magnetically aligned with phase 1 while the driver believes it is
+        ; on phase 0, and the next seek fails
+        lda #81
         sta rw_count
 .out
+        dec rw_count
         lda rw_count
         and #3
         asl
@@ -416,10 +439,9 @@ rwts_recalibrate
         lda #PHASE_ON_MS
         jsr delay_ms
         lda PHASEOFF,x
-        dec rw_count
+        lda rw_count
         bne .out
-        lda #0
-        sta rw_half
+        sta rw_half             ; a is zero: the loop ended on phase 0
         lda #SETTLE_MS
         jsr delay_ms
         ldx rw_slot
@@ -995,9 +1017,8 @@ rw_count        !byte 0
 rw_idx          !byte 0         ; buffer index, parked while the nibble loops
                                 ; borrow y to index the decode table
 rw_tmp          !byte 0
-rw_avol         !byte 0         ; what the last address field said
-rw_atrk         !byte 0
-rw_asec         !byte 0
+rw_avol         !byte 0         ; what the address field being read says;
+                                ; its track and sector are up in the header
 rw_niblo        !byte 0         ; nibbles seen while hunting for a prologue
 rw_nibhi        !byte 0
 wr_phase        !byte 0         ; how far into the gap this attempt starts

@@ -1,6 +1,9 @@
 Apple 2 open bugs and ideas
 ---------------------------
 
+- exomizer on the apple2 disk is implemented and off by default for now (-a2c
+  turns it on). Small games don't benefit, but may be useful later.
+
 - for now the saves are on the game disk itself, but it should be possible to
   have a separate save disk, either in the same drive, or on a second drive.
 
