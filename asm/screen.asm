@@ -29,7 +29,7 @@ init_screen_colours
 	; calculate the position for the more prompt
 	; (self modifying code since we don't want to
 	; ZP space is limited)
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; The rows are interleaved, so the bottom right cell is not SCREEN_ADDRESS
 	; plus width times height: it comes out of the row table like any other row
 	; (see a2_row_lo in screenkernal.asm).
@@ -620,8 +620,8 @@ show_more_prompt
 } else ifdef TARGET_X16 {
 	jsr vera_hide_more
 	jmp ++
-} else ifdef TARGET_APPLE2 {
-	; The original apple2 has no colours
+} else ifdef TARGET_APPLE2_FAMILY {
+	; No colour support on apple2 (yet)
 	ldx #0
 } else {
 	ldx reg_backgroundcolour
@@ -848,7 +848,7 @@ print_line_from_buffer
 		bcs ++
 		lda print_buffer,y
 		jsr convert_petscii_to_screencode
-	!ifdef TARGET_APPLE2 {
+	!ifdef TARGET_APPLE2_FAMILY {
 		ora #$80        ; normal video; see .normal_char in screenkernal.asm
 		eor print_buffer2,y
 	} else {

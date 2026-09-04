@@ -1585,6 +1585,8 @@ def build_interpreter()
 	optionalsettings += " -DFREE_SAVE_BLOCKS=#{$free_blocks_for_saves}" if $free_blocks_for_saves
 	if $target
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
+		# Every Apple target shares common routines and belong to the appl2 family.
+		optionalsettings += " -DTARGET_APPLE2_FAMILY=1" if $target =~ /^apple2/
 	end
 	if $is_lurkinghorror
 		# need to know if compiling a Lurking Horror game

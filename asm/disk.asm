@@ -12,7 +12,7 @@ ask_for_save_device !byte $ff
 nonstored_pages			!byte 0
 }
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 ; ---------------------------------------------------------------------------
 ; The save slots.
 ;
@@ -574,7 +574,7 @@ read_track_sector
 	stx .sector
 	sty .device
 .have_set_device_track_sector
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; There is no DOS to talk to on this machine: the sector reader is our own,
 	; resident at $0800 since the boot chain put it there (asm/apple2-rwts.asm),
 	; and its arguments are the four fixed bytes below its entry point. The
@@ -744,7 +744,7 @@ is_error
 	; most likely errors:
 	; A = $05 (DEVICE NOT PRESENT)
 	jmp disk_error
-} ; not TARGET_APPLE2
+} ; not TARGET_APPLE2_FAMILY
 
 
 .track  !byte 0
@@ -759,7 +759,7 @@ is_error
 } ; End of !ifdef VMEM
 
 close_io
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; Nothing was opened: the RWTS reads a sector and returns.
 	rts
 } else {
@@ -770,7 +770,7 @@ close_io
 	jsr kernal_close ; call CLOSE
 
 	jmp kernal_clrchn ; call CLRCHN
-} ; not TARGET_APPLE2
+} ; not TARGET_APPLE2_FAMILY
 
 !ifdef TARGET_MEGA65 {
 !zone drive_status {
@@ -953,7 +953,7 @@ insert_msg_3
 
 !ifdef RESTART_SUPPORTED {
 z_ins_restart
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; The Apple's restart is the boot chain over again. $0801 is the stage 2
 	; the Disk II PROM loaded at power-on
 	jmp $0801
@@ -1160,7 +1160,7 @@ z_ins_restart
 }
 
 .restart_code_end
-} ; not TARGET_APPLE2
+} ; not TARGET_APPLE2_FAMILY
 
 }
 
@@ -1195,7 +1195,7 @@ z_ins_save
 
 !zone save_restore {
 .inputlen !byte 0
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 ; The save code above builds its directory entry out of these, and it is
 ; outside this zone, so give them names it can see.
 a2_inputlen = .inputlen
@@ -1203,7 +1203,7 @@ a2_saveslot = .saveslot
 }
 .filename !pet $5d,"0" ; 0 is changed to slot number
 .inputstring !fill 19 ; filename max 20 chars (fileprefix + 14 + ",s,w")
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 a2_inputstring = .inputstring
 }
 .input_alphanum
@@ -1218,7 +1218,7 @@ a2_inputstring = .inputstring
 	lda #0
 	sta .inputlen
 	cli
-!ifndef TARGET_APPLE2 {
+!ifndef TARGET_APPLE2_FAMILY {
 	jsr kernal_clrchn
 }
 -	jsr kernal_getchar
@@ -1308,7 +1308,7 @@ disk_error
 .list_save_files_zp = z_operand_value_low_arr + 6 ; 2 bytes
 	
 list_save_files
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; A disk with no room behind the story has no slots at all (make.rb says so
 	; when it builds it). Answer straight away: the clearing loop below counts
 	; down from the slot count and would walk backwards through memory.
@@ -1328,7 +1328,7 @@ list_save_files
 	dex
 	bne -
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; No filesystem, so no directory to parse: the save area's own directory
 	; sector says which slots are in use and what the player called them, and
 	; it is read straight into the buffer the listing below prints from.
@@ -1476,7 +1476,7 @@ list_save_files
 	
 .end_of_dir
 	jsr close_io
-} ; not TARGET_APPLE2
+} ; not TARGET_APPLE2_FAMILY
 
 	; Print all slots
 .print_all_slots
@@ -1530,7 +1530,7 @@ directory_name_len = * - directory_name
 .disk_error_msg
 	!pet 13,"Disk error #",0
 .insert_save_disk
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; The save slots are on the boot disk, so there is nothing to swap and
 	; nothing to wait for.
 	jmp .insert_done
@@ -1575,7 +1575,7 @@ directory_name_len = * - directory_name
 	rts
 
 maybe_ask_for_save_device
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; One drive, no device numbers, and the save area is on the disk we booted
 	; from: there is nothing to ask about.
 	clc
@@ -1665,7 +1665,7 @@ restore_game
 	tax
 	lda .occupied_slots - $30,x
 	beq .restore_failed ; If the slot is unoccupied, fail.
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	sta .saveslot               ; a slot here is a run of sectors, not a file
 } else {
 	sta .restore_filename + 1
@@ -1779,7 +1779,7 @@ save_game
 	lda .inputstring
 	cmp first_unavailable_save_slot_charcode
 	bpl .restore_failed ; not a number (0-9)
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	sta .saveslot
 } else {
 	sta .filename + 1
@@ -1803,7 +1803,7 @@ save_game
 }
 
 	; Erase old file, if any
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; A save slot is a fixed range of tracks here, overwritten in place, so
 	; there is no old file to delete.
 } else {
@@ -1824,7 +1824,7 @@ save_game
 	bcs .restore_failed  ; if carry set, the file could not be opened
 	lda #$0f      ; filenumber 15
 	jsr kernal_close
-} ; not TARGET_APPLE2
+} ; not TARGET_APPLE2_FAMILY
 
 	; Swap in z_pc and stack_ptr
 	jsr .swap_pointers_for_save
@@ -1867,7 +1867,7 @@ do_restore
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	jmp a2_restore_block        ; the slot straight back into memory
 } else ifdef TARGET_MEGA65 {
 	jsr close_io
@@ -2056,7 +2056,7 @@ do_save
 !ifdef SMOOTHSCROLL {
 	jsr wait_smoothscroll
 }
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	jsr a2_save_block
 	bcs +
 	jmp a2_write_directory_entry ; only once the data is safely down

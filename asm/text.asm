@@ -1179,7 +1179,7 @@ getchar_and_maybe_toggle_darkmode
 }
 	jmp .did_something
 +
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; The apple keyboard handles repeat
 } else ifndef TARGET_X16 {
 	cmp #11 ; Ctrl-K for key repeating

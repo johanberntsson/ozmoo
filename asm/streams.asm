@@ -623,7 +623,7 @@ character_translation_table_in_mappings_end
 ; $5f ; Underscore = underscore-like graphic character
 ; $5c ; Backslash => (somewhat) backslash-like graphic character
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 ; The Apple II's character set is ASCII $20-$5f, so four of the mappings below
 ; are wrong here: _ \| and the pound sign. Use similar replacements instead
 character_translation_table_out

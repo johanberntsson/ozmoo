@@ -17,7 +17,7 @@
 
 !zone screenkernal {
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 ; The text page is not laid out in rows. It is three interleaved blocks of
 ; eight, so a row's base is $400 + (row & 7) * $80 + (row >> 3) * $28 - which
 ; is why .update_screenpos below has a table where every other target has a
@@ -433,7 +433,7 @@ s_screen_size !byte 0, 0
 s_x16_screen_mode	!byte 0
 }
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 convert_petscii_to_screencode
 	; A screen code on this machine is always SIX bits plus two bits for video mode
 	cmp #$40
@@ -693,7 +693,7 @@ s_printchar
 	bcs .outside_current_window
 .resume_printing_normal_char	
 	jsr convert_petscii_to_screencode
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; A screen byte's top two bits are its video mode on this machine: bit 7
 	; set is normal, clear is inverse. convert_petscii_to_screencode leaves a
 	; six bit code, which IS the inverse form, so normal video is that with bit
@@ -862,7 +862,7 @@ s_erase_window
     lda #0
 	sta zp_screenline
 	sta zp_colourline
-} else ifdef TARGET_APPLE2 {
+} else ifdef TARGET_APPLE2_FAMILY {
 	; Interleaved rows, so the base comes straight out of the table rather than
 	; from row * width.
 	lda a2_row_lo,x
@@ -1031,7 +1031,7 @@ s_scrolled_lines !byte 0
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; One row at a time out of the row table: the rows are interleaved, so the
 	; two pointers cannot be walked forward by the screen width the way the
 	; generic path below walks them. x is the row being written to, and it
@@ -1092,7 +1092,7 @@ s_scrolled_lines !byte 0
 +
 }
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 ; No raster on Apple, so no slowdown
 } else ifndef TARGET_X16 {
 ; ----------- Delay for slower scrolling
@@ -1207,7 +1207,7 @@ s_scrolled_lines !byte 0
 	; inc .scroll_load_colour + 2
 ; }	
 	bne - ; Always branch
-} ; not TARGET_APPLE2
+} ; not TARGET_APPLE2_FAMILY
 
 .done_scrolling
 ;	cli

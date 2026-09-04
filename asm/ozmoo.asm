@@ -103,6 +103,12 @@
 	VMEM_END_PAGE = $c0
 }
 
+!ifdef TARGET_APPLE2 {
+	!ifndef TARGET_APPLE2_FAMILY {
+		!error "An Apple target must define TARGET_APPLE2_FAMILY too (make.rb does it); without it the shared Apple branches are all switched off and the build quietly takes the CBM paths."
+	}
+}
+
 !ifndef TARGET_ASSIGNED {
 	; No target given. C64 is the default target
 	TARGET_C64 = 1
@@ -268,7 +274,7 @@
 }
 
 !ifndef BGCOL {
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; This screen is white on black and cannot be anything else
 	BGCOL = 2 ; black
 } else {
@@ -276,7 +282,7 @@
 }
 }
 !ifndef FGCOL {
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	FGCOL = 9 ; white
 } else {
 	FGCOL = 2 ; black
@@ -370,7 +376,7 @@
 }
 
 !ifndef CURSORCHAR {
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; An inverse space. A screen byte's top two bits are its video mode on this
 	; machine, and $00-$3f is inverse - so $20 is a solid block, where the C64's
 	; 224 would alias onto '@'.
@@ -1198,7 +1204,7 @@ game_id		!byte 0,0,0,0
 	jsr deletable_screen_init_2
 
 !ifdef TARGET_X16 {
-} else ifdef TARGET_APPLE2 {
+} else ifdef TARGET_APPLE2_FAMILY {
 	; No keyboard buffer: a key sits in the hardware until $C010 is touched,
 	; and apple2-kernal.asm's getchar drains that at init.
 } else {
@@ -1283,7 +1289,7 @@ game_id		!byte 0,0,0,0
 }
 	; stz 1
 	; jmp ($fffc)
-} else ifdef TARGET_APPLE2 {
+} else ifdef TARGET_APPLE2_FAMILY {
 	; Quitting reboots. There is nothing to go back to on this machine - no
 	; BASIC waiting in ROM with a program in memory - so the reset vector is
 	; the honest exit, and the autostart ROM boots the disk still in the drive.
@@ -1310,7 +1316,7 @@ statmem_reu_banks !byte 0
 !source "scrollback.asm"
 }
 !source "disk.asm"
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 !source "apple2-kernal.asm"
 }
 !ifdef Z6 {
@@ -1926,7 +1932,7 @@ z_init
 	ldy #header_flags_1
 	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; No colour on this machine, so bit 0 has to be clear
 	and #(255 - 1)
 	ora #(16 + 128) ; Fixed-space style, timed input available
@@ -2006,7 +2012,7 @@ z_init
 	lda #(64 + MAJOR_VERSION_NO) ; "N" = release 14
 	ldy #header_interpreter_version  ; Interpreter version. Usually ASCII code for a capital letter
 	jsr write_header_byte
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	lda #SCREEN_HEIGHT
 } else {
 	lda #25
@@ -2272,9 +2278,8 @@ deletable_init_start
 }
 
 !ifdef TARGET_X16 { ; For X16, this is done by printing a character at the start of deletable_init_start
-} else ifdef TARGET_APPLE2 {
-	; One character generator, 64 glyphs, upper case only - there is no second
-	; charset to lock out.
+} else ifdef TARGET_APPLE2_FAMILY {
+	; apple2 doesn't have charsets that can be set from kernal
 } else {
 	lda #$80
 	sta charset_switchable
@@ -2301,7 +2306,7 @@ m65_x16_statmem_already_loaded !byte 0
 deletable_init
 	cld
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; The clock, the entropy counter and the screen mode: everything the shim
 	; that stands in for a KERNAL needs set up before anything reads a key or
 	; asks the time (asm/apple2-kernal.asm).
@@ -2309,7 +2314,7 @@ deletable_init
 }
 
 !ifdef TARGET_X16 {
-} else ifdef TARGET_APPLE2 {
+} else ifdef TARGET_APPLE2_FAMILY {
 	; The REPT key is the keyboard's own business on this machine.
 } else {
 	; Set only space, del, cursor to repeat
@@ -2324,7 +2329,7 @@ deletable_init
 ; Moved pointer init for MEGA65 from here
 
 ; Read and parse config from boot disk
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; One drive, and the boot chain already knows which slot it booted from
 	; ($2b, which asm/apple2-rwts.asm keeps). Nothing to pick.
 	lda #0
@@ -2547,7 +2552,7 @@ deletable_init
 	dex
 	bne -
 
-!ifdef TARGET_APPLE2 {
+!ifdef TARGET_APPLE2_FAMILY {
 	; noting where the save slots are
 	lda config_load_address + 508
 	sta a2_save_track
