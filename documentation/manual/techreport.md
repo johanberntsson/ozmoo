@@ -286,9 +286,12 @@ a scrollback buffer, so this does not collide with the tile store.
 
 Apple II support is being added. Three targets are planned: `-t:apple2`, a 48 KB
 Apple II or II+; `-t:apple2e`, a 128 KB IIe with 80 columns, mixed case and
-version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound. Only
-the first exists today — the other two refuse the build — and everything below
-describes it.
+version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound.
+`-t:apple2` is complete and is what everything below describes. `-t:apple2e`
+builds and plays, but so far it is that same interpreter at 40 columns: what it
+adds is that it reads the ROM identification bytes at startup and refuses a
+machine older than a IIe, since the 80-column screen and the auxiliary memory it
+will use are not there on one. `-t:apple2gs` still refuses the build.
 
 `-t:apple2` is deliberately the smallest thing that can run a game: 48 KB, the
 40-column uppercase text page, no colour, no sound and no version 6. Unlike the
