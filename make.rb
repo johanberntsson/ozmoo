@@ -1555,14 +1555,14 @@ def build_interpreter()
 		necessarysettings +=  " --cpu 65c02"
 	elsif $target == 'mega65' then
 		necessarysettings +=  " --cpu m65"
-	elsif $target == 'apple2' then
+	elsif $target =~ /^apple2/ then
 		necessarysettings +=  " --cpu 6502"
 	else
 		necessarysettings +=  " --cpu 6510"
 	end
 	# Everything CBM wants a two byte load address in front of the binary; but the
 	# Apple II has no such convention.
-	if $target == 'apple2' then
+	if $target =~ /^apple2/ then
 		necessarysettings +=  " --format plain"
 	else
 		necessarysettings +=  " --format cbm"
@@ -1969,19 +1969,20 @@ def play(filename, storyname)
 			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
 			exit 0
 		end
-	elsif $target == "apple2" then
+	elsif $target =~ /^apple2/ then
 		if $executables.has_key?('APPLE2')
-			# AppleWin defaults to an enhanced //e, and we currently target a 48K
-			# II+ - so the machine is spelled out in a config of our own rather
-			# than taken from ~/.config/applewin. Slot 0 empty is "no language
-			# card", which is what makes it 48K; slot 6 is the Disk II.
-			config = File.join($TEMPDIR, 'apple2.yaml')
-			File.write(config, "Configuration:\n" +
-				"  Apple2 Type: 1\n" +
-				"Configuration\\Slot 0:\n" +
-				"  Card type: 0\n" +
-				"Configuration\\Slot 6:\n" +
-				"  Card type: 1\n")
+			config = File.join($TEMPDIR, "#{$target}.yaml")
+			settings = "Configuration:\n"
+			if $target == 'apple2'
+				settings += "  Apple2 Type: 1\n" +
+					"Configuration\\Slot 0:\n" +
+					"  Card type: 0\n"
+			else
+				settings += "  Apple2 Type: 17\n"
+			end
+			settings += "Configuration\\Slot 6:\n" +
+				"  Card type: 1\n"
+			File.write(config, settings)
 			command = "#{$executables['APPLE2']} --conf #{$commandline_quotemark}#{config}#{$commandline_quotemark}" +
 				" --d1 #{$commandline_quotemark}#{filename}#{$commandline_quotemark}"
 		else
@@ -3463,7 +3464,7 @@ begin
 		elsif arg =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16|apple2|appl2e|apple2gs)$/ then
+		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16|apple2|apple2e|apple2gs)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    # $start_address = 0x1001
@@ -3494,8 +3495,15 @@ begin
 				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "apple2e" then
-				puts "apple2e isn't implemented yet"
-				exit 1
+				# The same main-RAM map as the II+ for now: the interpreter
+				# still lives between the resident boot chain and the card I/O.
+				# What a IIe adds - the language card at $D000 and the 64K of
+				# aux RAM - are steps of their own later in phase 2, and
+				# neither changes this window.
+				$start_address = 0x1000
+				$memory_end_address = 0xc000
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
 			elsif $target == "apple2gs" then
 				puts "apple2gs isn't implemented yet"
 				exit 1
@@ -3876,7 +3884,7 @@ unless mode
 		mode = MODE_ZIP
 	elsif $target == 'mega65'
 		mode = MODE_81
-	elsif $target == 'apple2'
+	elsif $target =~ /^apple2/
 		mode = MODE_A2
 	else 
 		mode = MODE_S1
@@ -3913,14 +3921,14 @@ if mode == MODE_ZIP and $target != 'x16'
 end
 
 # A2 is a 140 KB Apple 5.25" .dsk with no filesystem on it, written sector by
-# sector by make.rb itself, so it pairs with the apple2 target exactly as ZIP
+# sector by make.rb itself, so it pairs with the Apple targets exactly as ZIP
 # pairs with the X16: neither makes sense anywhere else.
-if mode != MODE_A2 and $target == 'apple2'
+if mode != MODE_A2 and $target =~ /^apple2/
 	puts "ERROR: Only build mode A2 is supported on this target platform."
 	exit 1
 end
 
-if mode == MODE_A2 and $target != 'apple2'
+if mode == MODE_A2 and $target !~ /^apple2/
 	puts "ERROR: Build mode A2 is not supported on this target platform."
 	exit 1
 end

@@ -121,6 +121,14 @@ a2_init
 	lda KEYBOARD_STROBE
 	rts
 
+!ifdef TARGET_APPLE2E {
+; Which Apple this is, filled in once at boot by a2e_identify
+A2_MACHINE_IIE          = 0     ; unenhanced IIe: no MouseText
+A2_MACHINE_IIE_ENHANCED = 1     ; enhanced IIe, and a IIgs answers as one
+A2_MACHINE_IIC          = 2
+a2_machine !byte A2_MACHINE_IIE
+}
+
 ; ---------------------------------------------------------------------------
 ; kernal_readchar: block until a key is pressed, and return it. The shared code
 ; uses this to wait for acknowledgement after a fatal error, nothing more.

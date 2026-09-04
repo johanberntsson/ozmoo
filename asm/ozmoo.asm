@@ -103,8 +103,19 @@
 	VMEM_END_PAGE = $c0
 }
 
-!ifdef TARGET_APPLE2 {
-	!ifndef TARGET_APPLE2_FAMILY {
+!ifdef TARGET_APPLE2E {
+	TARGET_ASSIGNED = 1
+	SUPPORT_REU = 0
+	VMEM_END_PAGE = $c0
+}
+
+; Every Apple target must define the apple family as well as its own type
+; ((make.rb sets this automatically)
+!ifndef TARGET_APPLE2_FAMILY {
+	!ifdef TARGET_APPLE2 {
+		!error "An Apple target must define TARGET_APPLE2_FAMILY too (make.rb does it); without it the shared Apple branches are all switched off and the build quietly takes the CBM paths."
+	}
+	!ifdef TARGET_APPLE2E {
 		!error "An Apple target must define TARGET_APPLE2_FAMILY too (make.rb does it); without it the shared Apple branches are all switched off and the build quietly takes the CBM paths."
 	}
 }
@@ -991,6 +1002,8 @@ c128_border_phase1
 !source "constants-x16.asm"
 } else ifdef TARGET_APPLE2 {
 !source "constants-apple2.asm"
+} else ifdef TARGET_APPLE2E {
+!source "constants-apple2e.asm"
 } else {
 !source "constants.asm"
 }
@@ -2173,7 +2186,42 @@ z_init
 fkey_codes !byte $85,$89,$86,$8a,$87,$8b,$88,$8c
 }
 
+!ifdef TARGET_APPLE2E {
+; Find out which Apple machine we're running on, and refuse older machines
+a2e_identify
+	lda A2_ID_MACHINE
+	cmp #$06
+	bne .too_old
+	ldx #A2_MACHINE_IIE
+	lda A2_ID_SUBMODEL
+	cmp #$e0
+	bne +
+	ldx #A2_MACHINE_IIE_ENHANCED
++	cmp #$00
+	bne +
+	ldx #A2_MACHINE_IIC
++	stx a2_machine
+	rts
+.too_old
+	lda TXTSET
+	lda MIXCLR
+	lda LOWSCR
+	lda HIRESOFF
+	ldy #0
+-	lda .needs_iie,y
+	beq +
+	ora #$80
+	sta SCREEN_ADDRESS,y
+	iny
+	bne -
++	jmp *
+.needs_iie !text "OZMOO: THIS DISK NEEDS AN APPLE IIE.",0
+}
+
 deletable_init_start
+!ifdef TARGET_APPLE2E {
+	jsr a2e_identify
+}
 
 ; Moved MEGA65 pointer init here
 !ifdef TARGET_MEGA65 {

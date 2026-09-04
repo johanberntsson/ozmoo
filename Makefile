@@ -170,8 +170,19 @@ etude-apple2:
 	ruby make.rb -s -t:apple2 test/etude.z5
 zork1-apple2:
 	ruby make.rb -s -t:apple2 infocom/zork1.z3
+# The Apple IIe target. Phase 2 step 2: the phase-1 interpreter unchanged, at
+# 40 columns, on a machine that the build now refuses to run on if it is older
+# than a IIe. "make apple2e-conformance" is the headless check.
 dejavu-apple2e:
 	ruby make.rb -s -t:apple2e examples/dejavu.z3
+czech-apple2e:
+	ruby make.rb -s -t:apple2e test/czech.z5
+praxix-apple2e:
+	ruby make.rb -s -t:apple2e test/praxix.z5
+etude-apple2e:
+	ruby make.rb -s -t:apple2e test/etude.z5
+zork1-apple2e:
+	ruby make.rb -s -t:apple2e infocom/zork1.z3
 dejavu-apple2gs:
 	ruby make.rb -s -t:apple2gs examples/dejavu.z3
 
@@ -255,6 +266,13 @@ apple2-clock:
 # machine and compared with dfrotz. Name one (czech, praxix) to run just it.
 apple2-conformance:
 	ruby tools/apple2-conformance.rb $(OPTS)
+apple2e-conformance:
+	ruby tools/apple2-conformance.rb -t:apple2e $(OPTS)
+apple2e-conformance-unenhanced:
+	ruby tools/apple2-conformance.rb -t:apple2e --driver apple2e $(OPTS)
+
+apple2e-save:
+	ruby tools/apple2-save.rb -t:apple2e $(OPTS)
 
 clean:
-	rm -rf *d64 *d71 *d81 x16_* apple2_*.dsk apple2_*.nib
+	rm -rf *d64 *d71 *d81 x16_* apple2*.dsk apple2*.nib
