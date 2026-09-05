@@ -27,12 +27,14 @@
 require 'fileutils'
 require_relative 'apple2-disk'
 require_relative 'apple2-emu'
+require_relative 'apple2-nib'
 
 ROOT    = Apple2Emu::ROOT
 TEMP    = Apple2Emu::TEMP
 RWTS    = File.join(ROOT, 'asm', 'apple2-rwts.asm')
 PAYLOAD = File.join(__dir__, 'apple2-write-prototype.asm')
 IMAGE   = File.join(ROOT, 'apple2_write.dsk')
+NIB     = File.join(ROOT, 'apple2_write.nib')
 CONFIG  = File.join(TEMP, 'apple2_write.yaml')
 STATE   = File.join(TEMP, 'apple2_write_state.yaml')
 
@@ -79,7 +81,10 @@ def build
   (boot.bytesize / 256).times { |s| image.write_sector(0, s, boot[s * 256, 256]) }
   image.write_blob(TERP_TRACK, 0, payload, skew: SKEW)
   image.save(IMAGE)
-  puts "wrote #{IMAGE}: boot chain #{boot.bytesize / 256} sectors, " \
+  # ...and the .nib of it, since running this spike on the MEGA65's Apple II
+  # core is one of the things it is for. make.rb does the same for a game disk.
+  File.binwrite(NIB, Apple2Nib.from_dsk(File.binread(IMAGE)))
+  puts "wrote #{IMAGE} (+ #{File.basename(NIB)}): boot chain #{boot.bytesize / 256} sectors, " \
        "payload #{sectors} sectors at track #{TERP_TRACK}"
   labels.merge(boot_labels)
 end

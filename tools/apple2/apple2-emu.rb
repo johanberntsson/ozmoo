@@ -86,6 +86,20 @@ module Apple2Emu
     end
   end
 
+  # A Lua string literal. Ruby's own inspect is not one: it writes a byte like
+  # DEL as \u007F, which Lua cannot parse, and the whole generated script then
+  # fails to load - silently, as far as the caller can see, because MAME simply
+  # writes no result file. Lua's \ddd decimal escape covers every byte.
+  def lua_string(text)
+    '"' + text.to_s.each_byte.map do |b|
+      if b == 0x22 || b == 0x5c || b < 0x20 || b >= 0x7f
+        format('\\%03d', b)
+      else
+        b.chr
+      end
+    end.join + '"'
+  end
+
   # An ACME --symbollist file: "\tname\t= $addr\t; comment".
   def read_labels(path)
     labels = {}
@@ -181,6 +195,20 @@ module Apple2Emu
 
   # Boot `image` in a MAME Apple II driver with a Lua script watching it.
   #
+  #   disk_swaps: {disk number => image} for a multi-disk game played on ONE
+  #            drive.  When the interpreter asks for a disk ("Please insert
+  #            Story disk 2 in drive 1"), the number is read off the screen and
+  #            that image is loaded into drive 1, which is the player putting it
+  #            in.  Use it with no flop2 to test the single-drive path; with
+  #            flop2 the game never asks at all.
+  #   swap_drive: which drive disk_swaps puts a disk into.  The default is the
+  #            one the prompt names, which is a machine with two drives; pass 1
+  #            for a machine with one, where the player has nowhere else to put
+  #            it and the interpreter has to notice.
+  #   flop2:   a second disk, in the controller's drive 2 - which is where a
+  #            multi-disk build wants its story disk.  Leave it out and the
+  #            machine has one drive's worth of disk, which is the other case
+  #            such a build has to work in.
   #   driver:  the MAME machine.  apple2p is the 48K II+ a -t:apple2 build
   #            wants; a -t:apple2e build wants apple2e (unenhanced) or
   #            apple2ee (enhanced), and is worth running on both, since that
@@ -238,7 +266,7 @@ module Apple2Emu
   # keys: a list of [seconds, "text"] pairs typed into the machine as it runs.
   # MAME's emu.keypost() puts the text through the emulated keyboard, so the
   # program sees it exactly as a player's typing; "\n" is Return.
-  def mame_run(image, driver: 'apple2p', labels: {}, watch: nil, until_value: nil, symbols: {},
+  def mame_run(image, driver: 'apple2p', flop2: nil, disk_swaps: {}, swap_drive: nil, labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
                idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
                echo_flag: nil, dump_range: nil,
@@ -246,6 +274,10 @@ module Apple2Emu
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
     File.delete(result_path) if File.exist?(result_path)
+
+    # A character no keypost can send has to go in at the keyboard latch; the
+    # Lua below only installs that tap when there is one.
+    needs_latch = (commands + keys.map { |_, text| text }).any? { |c| c.to_s.each_byte.any? { |b| b >= 0x7f } }
 
     watch_addr = watch ? (labels[watch] or abort("no label #{watch}")) : nil
     tap_addr = tap ? (labels[tap] or abort("no label #{tap}")) : nil
@@ -288,7 +320,7 @@ module Apple2Emu
       idle_after = #{idle_after}
       command_idle = #{command_idle}
       commands = {
-      #{commands.map { |c| "  #{c.inspect}," }.join("
+      #{commands.map { |c| "  #{lua_string(c)}," }.join("
 ")}
       }
       next_command = 1
@@ -299,13 +331,25 @@ module Apple2Emu
       echo_addr = #{echo_addr ? "0x#{echo_addr.to_s(16)}" : 'nil'}
       echo_was = nil
       auto_more = #{auto_more ? 'true' : 'false'}
+      -- The player, for a game on more than one disk and a machine with one
+      -- drive: the image to put in when the interpreter asks for disk N.
+      disk_swaps = {
+      #{disk_swaps.map { |n, path| "  [#{n}] = #{lua_string(File.expand_path(path))}," }.join("
+")}
+      }
+      swap_drive = #{swap_drive ? swap_drive : 'nil'}
+      drives = { mach.images[":sl6:diskiing:0:525"],
+                 mach.images[":sl6:diskiing:1:525"] }
       tap_last = nil
       tap_bytes = {}
       more_last = -1
+      swap_last = -1
+      last_prompt = nil
+      latch_key = nil
       dump_addr = #{dump_range ? "0x#{dump_addr.to_s(16)}" : 'nil'}
       dump_len = #{dump_range ? dump_len : 'nil'}
       keys = {
-      #{keys.map { |at, text| "  {#{'%.3f' % at}, #{text.inspect}}," }.join("
+      #{keys.map { |at, text| "  {#{'%.3f' % at}, #{lua_string(text)}}," }.join("
 ")}
       }
       next_key = 1
@@ -314,6 +358,21 @@ module Apple2Emu
         local v = 0
         for i = r[3] - 1, 0, -1 do v = v * 256 + mem:read_u8(r[2] + i) end
         return v
+      end
+
+      -- A key the natural keyboard cannot post, handed to the program through
+      -- the keyboard latch itself. Only installed when a command actually
+      -- carries one: the tap fires on every read of $C000, which the input
+      -- loop does thousands of times a second.
+      if #{needs_latch ? 'true' : 'false'} then
+        latch_tap = mem:install_read_tap(0xC000, 0xC000, "ozmoo_latch", function(offset, data, mask)
+          if latch_key then
+            local v = latch_key
+            latch_key = nil
+            return v | 0x80
+          end
+          return data
+        end)
       end
 
       -- The read tap fires on the opcode fetch at the routine's first byte, so
@@ -329,6 +388,19 @@ module Apple2Emu
           end
           return data
         end)
+      end
+
+      -- One row of the text page as a string, the interleave undone and every
+      -- cell masked to the six bits that pick a glyph.
+      function screen_row(row)
+        local base = 0x400 + (row % 8) * 0x80 + math.floor(row / 8) * 0x28
+        local out = {}
+        for col = 0, 39 do
+          local code = mem:read_u8(base + col) & 0x3f
+          if code < 0x20 then code = code + 0x40 end
+          out[#out + 1] = string.char(code)
+        end
+        return table.concat(out)
       end
 
       function report()
@@ -377,6 +449,44 @@ module Apple2Emu
           emu.keypost("\\r")
           more_last = now
         end
+        -- "Please insert Story disk 2 in drive 1": put it in, and press a key.
+        -- The prompt is not erased when it is answered, so what decides whether
+        -- to act is the disk it names against the one already in the drive.
+        if next(disk_swaps) ~= nil and now - swap_last > 0.25 then
+          swap_last = now
+          -- Bottom upwards: the prompt is not erased when it is answered, so
+          -- the screen can hold several and only the last one is live. (One of
+          -- them may be sitting in a game's status window, where it will stay
+          -- for the rest of the session.)
+          local seen = nil
+          for row = 23, 1, -1 do
+            local line = screen_row(row - 1) .. screen_row(row)
+            if line:find("PLEASE INSERT") and line:find("ENTER") then
+              seen = line
+              break
+            end
+          end
+          -- Answer a prompt ONCE. The text stays on the screen after the game
+          -- has moved on, so answering whenever it is visible would post
+          -- Returns into whatever the game asks next - which is how a save
+          -- came to be cancelled and read as a failure. It is forgotten again
+          -- when it scrolls away, so a later prompt for the same disk is
+          -- answered afresh.
+          if seen == nil then
+            last_prompt = nil
+          elseif seen ~= last_prompt then
+            last_prompt = seen
+            local n = tonumber(seen:match("DISK (%d)")) or 1
+            local d = swap_drive or tonumber(seen:match("IN DRIVE (%d)")) or 1
+            local want = disk_swaps[n]
+            if want and drives[d] and drives[d].filename ~= want then
+              drives[d]:unload()
+              drives[d]:load(want)
+              out:write(string.format("swapped %.3f %d %d %s\\n", now, n, d, want))
+            end
+            emu.keypost("\\r")
+          end
+        end
         -- The game has stopped printing: it is waiting for us, so type the
         -- next line - one character at a time, a fifth of a second apart.
         -- This machine latches ONE key: anything typed while the game is
@@ -401,7 +511,17 @@ module Apple2Emu
             taken = mem:read_u8(echo_addr) ~= echo_was
           end
           if taken and now - last_char > 0.1 then
-            emu.keypost(pending:sub(pending_i, pending_i))
+            local ch = pending:byte(pending_i)
+            if ch >= 0x7f then
+              -- MAME's natural keyboard has no mapping for $7F, so keypost
+              -- sends nothing at all and the run looks as though the key did
+              -- not work. Present it at the keyboard latch instead, which is
+              -- exactly what the hardware does: the read tap below hands it
+              -- over once, with bit 7 set to say a key is waiting.
+              latch_key = ch
+            else
+              emu.keypost(string.char(ch))
+            end
             pending_i = pending_i + 1
             last_char = now
             tap_last = now
@@ -446,7 +566,9 @@ module Apple2Emu
     # A II+ or a IIe needs a Disk II card put in slot 6; a IIc has its drive
     # built in and rejects the option outright.
     slot = driver.start_with?('apple2c') ? [] : ['-sl6', 'diskiing']
-    cmd = [MAME, driver, *slot, '-flop1', image,
+    cmd = [MAME, driver, *slot, '-flop1', image]
+    cmd += ['-flop2', flop2] if flop2
+    cmd += [
            '-video', 'none', '-sound', 'none', '-nothrottle', '-noautosave',
            '-seconds_to_run', seconds.to_s, '-autoboot_script', lua_path]
     log = File.join(TEMP, 'apple2_mame.log')
@@ -456,13 +578,15 @@ module Apple2Emu
   end
 
   def parse_mame_result(path)
-    result = { phases: [], symbols: {}, samples: [], tap: +''.b, dump: +''.b, typed: [],
+    result = { phases: [], symbols: {}, samples: [], tap: +''.b, dump: +''.b, typed: [], swapped: [],
                screen: Array.new(ROWS, ' ' * COLS), seconds: nil }
     File.foreach(path) do |line|
       case line
       when /^phase (\d+) ([\d.]+)/  then result[:phases] << [$1.to_i, $2.to_f]
       when /^sym (\S+) (\d+)/       then result[:symbols][$1] = $2.to_i
       when /^typed ([\d.]+) (.*)/ then result[:typed] << [$1.to_f, $2]
+      when /^swapped ([\d.]+) (\d+) (\d+) (.*)/
+        result[:swapped] << [$1.to_f, $2.to_i, $3.to_i, $4]
       when /^tap ([0-9A-F]+)/     then result[:tap] << [$1].pack('H*')
       when /^dump ([0-9A-F]+)/    then result[:dump] << [$1].pack('H*')
       when /^sample ([\d.]+) (\S+) (\d+)/

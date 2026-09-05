@@ -28,6 +28,7 @@
 require 'fileutils'
 require_relative 'apple2-disk'
 require_relative 'apple2-emu'
+require_relative 'apple2-nib'
 
 ROOT   = Apple2Emu::ROOT
 TEMP   = Apple2Emu::TEMP
@@ -38,6 +39,7 @@ LABELS = File.join(TEMP, 'apple2_spike_labels.txt')  # not acme_labels.txt: that
 CONFIG = File.join(TEMP, 'apple2_spike.yaml')
 STATE  = File.join(TEMP, 'apple2_spike_state.yaml')
 IMAGE  = File.join(ROOT, 'apple2_spike.dsk')
+NIB    = File.join(ROOT, 'apple2_spike.nib')
 
 COLS = Apple2Emu::COLS
 ROWS = Apple2Emu::ROWS
@@ -67,7 +69,8 @@ def build
   image = Apple2DiskImage.new
   image.write_sector(0, 0, boot)
   image.save(IMAGE)
-  puts "wrote #{IMAGE} (#{File.size(IMAGE)} bytes, 1 sector used)"
+  File.binwrite(NIB, Apple2Nib.from_dsk(File.binread(IMAGE)))
+  puts "wrote #{IMAGE} (+ #{File.basename(NIB)}, #{File.size(IMAGE)} bytes, 1 sector used)"
 end
 
 # --- what the spike is supposed to draw -------------------------------------

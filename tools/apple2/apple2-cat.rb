@@ -165,8 +165,17 @@ end
 # The config track, which is this disk's directory: the same bytes the
 # interpreter copies into disk_info at boot, plus the vmem map behind them.
 # ---------------------------------------------------------------------------
+# Track 0 sector 15 of every disk we build says which disk of which build it
+# is; see a2_disk_id_sector in make.rb and a2_probe_disk in asm/disk.asm.
+A2_ID_TRACK  = 0
+A2_ID_SECTOR = 15
+A2_ID_MAGIC  = "OZA2".bytes
+
 class ConfigTrack
-  Disk = Struct.new(:index, :size, :device, :story_sectors, :track_map, :name)
+  # story_sectors is the *cumulative* "last story sector + 1" the interpreter
+  # walks the disks against, so a disk's own share is the difference from the
+  # one before it; own_sectors is that.
+  Disk = Struct.new(:index, :size, :device, :story_sectors, :track_map, :name, :own_sectors)
 
   attr_reader :bytes, :build_id, :info_len, :interleave, :save_slots, :disks
   attr_reader :vmem_suggested, :vmem_preloaded, :vmem_high, :vmem_low, :problems
@@ -191,10 +200,15 @@ class ConfigTrack
     parse_vmem
   end
 
-  # The story disk is the one that actually holds story data; on a single disk
-  # build that is disk 1, the boot/story disk.
+  # The disks that actually hold story data, in the order the interpreter walks
+  # them. On a single disk build that is disk 1, the boot/story disk; on a
+  # multi-disk build the boot disk holds none and these are the story disks.
+  def story_disks
+    @disks.select { |d| d.own_sectors > 0 }
+  end
+
   def story_disk
-    @disks.find { |d| d.story_sectors > 0 }
+    story_disks.first
   end
 
   private
@@ -213,7 +227,8 @@ class ConfigTrack
       ntracks = @bytes[idx + 4]
       map     = @bytes[idx + 5, ntracks]
       name    = @bytes[(idx + 5 + ntracks)...(idx + size)].take_while { |b| b != 0 }
-      @disks << Disk.new(i, size, device, sectors, map, decode_name(name))
+      previous = @disks.empty? ? 0 : @disks.last.story_sectors
+      @disks << Disk.new(i, size, device, sectors, map, decode_name(name), sectors - previous)
       idx += size
     end
     unless idx == 4 + @info_len
@@ -221,8 +236,8 @@ class ConfigTrack
     end
     @disks.each do |d|
       total = d.track_map.sum { |b| b & 0x3f }
-      if total != d.story_sectors
-        @problems << "disk #{d.index}: the map holds #{total} story sectors, the header says #{d.story_sectors}"
+      if total != d.own_sectors
+        @problems << "disk #{d.index}: the map holds #{total} story sectors, the header says #{d.own_sectors}"
       end
     end
   end
@@ -388,10 +403,18 @@ def field(name, value)
   puts "  %-28s %s" % [name, value]
 end
 
+def report_disk_id(disk)
+  id = disk.sector(A2_ID_TRACK, A2_ID_SECTOR)
+  return unless id[0, 4] == A2_ID_MAGIC
+  field "this disk", id[9] > 1 ? "disk #{id[8]} of #{id[9]} (track #{A2_ID_TRACK} sector #{A2_ID_SECTOR})" :
+                                 "the only disk (track #{A2_ID_TRACK} sector #{A2_ID_SECTOR})"
+end
+
 def report(disk, boot, conf, opts)
   puts File.basename(disk.path)
   field "size", "#{disk.bytes.length} bytes, #{TRACKS} tracks x #{SECTORS_PER_TRACK} sectors x #{SECTOR_SIZE}"
   field "sector order", disk.order == :dos ? "DOS 3.3 (.dsk / .do)" : "ProDOS (.po)"
+  report_disk_id(disk)
   puts
 
   puts "Track 0: boot chain and resident RWTS"
@@ -421,8 +444,8 @@ def report(disk, boot, conf, opts)
   field "save slots", conf.save_slots.to_s
   field "disks", conf.disks.length.to_s
   conf.disks.each do |d|
-    where = d.story_sectors > 0 ?
-      "#{d.story_sectors} story sectors over #{d.track_map.count { |b| b != 0 }} tracks" :
+    where = d.own_sectors > 0 ?
+      "#{d.own_sectors} story sectors over #{d.track_map.count { |b| b != 0 }} tracks" :
       "no story data"
     puts "    %d  %-20s device %-3s %s" % [d.index, "\"#{d.name}\"", d.device == 0 ? "auto" : d.device.to_s, where]
   end
@@ -533,6 +556,38 @@ def read_story_data(disk, map)
   out
 end
 
+# The whole story, across however many disks the set has: each disk's own map,
+# walked in the order the interpreter walks the disk entries. `images` is the
+# other disks of the set, found beside the boot disk by name.
+def read_story_data_set(images, conf, order)
+  out = []
+  conf.story_disks.each do |d|
+    image = images[d.index]
+    unless image
+      warn "  (story disk #{d.index} is not here, so the story cannot be reassembled)"
+      return nil
+    end
+    out += read_story_data(image, StoryMap.new(d.track_map, conf.interleave))
+  end
+  out
+end
+
+# The disks of a set, keyed by their index in the config track's disk list.
+# make.rb names them <target>_<story>_boot_story_1.dsk and _story_N.dsk, and
+# each carries its own number in track 0 sector 15, which is what is believed.
+def find_set(boot_path, conf, order)
+  images = {}
+  boot_dir = File.dirname(boot_path)
+  base = File.basename(boot_path).sub(/_boot_story_1\.dsk$/i, '')
+  Dir[File.join(boot_dir, "#{base}_story_*.dsk")].sort.each do |path|
+    other = Image.new(path, order)
+    id = other.sector(A2_ID_TRACK, A2_ID_SECTOR)
+    next unless id[0, 4] == A2_ID_MAGIC && id[4, 4] == conf.build_id
+    images[id[8]] = other        # the disk number is its index in disk_info
+  end
+  images
+end
+
 def read_interpreter(disk, boot, interleave)
   return nil unless boot.terp_track and boot.terp_sectors
   out = []
@@ -614,11 +669,35 @@ end
 abort "usage: ruby tools/apple2/apple2-cat.rb [options] <image.dsk>   (--help for the options)" unless image_path
 
 disk = Image.new(image_path, opts[:order])
+
+# Which disk of which set this is. Only disk 1 is a boot disk: it is the one
+# with the boot chain and the config track, and the story disks behind it carry
+# nothing but story data, so there is nothing here to parse for them.
+id_sector = disk.sector(A2_ID_TRACK, A2_ID_SECTOR)
+if id_sector[0, 4] == A2_ID_MAGIC && id_sector[8] > 1
+  puts File.basename(image_path)
+  field "size", "#{disk.bytes.length} bytes, #{TRACKS} tracks x #{SECTORS_PER_TRACK} sectors x #{SECTOR_SIZE}"
+  field "this is", "story disk #{id_sector[8]} of #{id_sector[9]}, build id " +
+        ("$%02x%02x%02x%02x" % id_sector[4, 4])
+  puts
+  puts "A story disk carries story data and nothing else - no boot chain, no config"
+  puts "track, no save slots. Point this at the boot disk of the set"
+  puts "(#{File.basename(image_path).sub(/_story_\d+\.dsk$/i, '_boot_story_1.dsk')}) to read the layout, and"
+  puts "--verify there checks the whole story across every disk of the set."
+  exit 0
+end
+
 boot = BootChain.new(disk)
 conf = ConfigTrack.new(disk, opts[:config_track])
 sd   = conf.story_disk
 abort "the config track names no disk with story data on it" unless sd
-map  = StoryMap.new(sd.track_map, conf.interleave)
+# The boot disk's own story data, which on a multi-disk set is none: `map` is
+# what the per-track picture and the block lookup are about, and those are
+# about this image. The whole story comes from the set (below).
+own = conf.disks.find { |d| d.index == 1 }
+map = StoryMap.new(own && own.own_sectors > 0 ? own.track_map : [], conf.interleave)
+set = conf.story_disks.length > 1 || sd.index != 1 ? find_set(image_path, conf, opts[:order]) : {}
+set[1] = disk if own && own.own_sectors > 0
 
 report(disk, boot, conf, opts)
 report_saves(disk, conf)
@@ -641,8 +720,18 @@ end
 
 story = nil
 unless opts[:brief]
-  story = Story.new(read_interpreter(disk, boot, conf.interleave), read_story_data(disk, map))
-  report_story(story, map)
+  if set.empty?
+    data = read_story_data(disk, map)
+  else
+    missing = conf.story_disks.map(&:index) - set.keys
+    unless missing.empty?
+      puts "Story disks #{missing.join(', ')} of this set are not in #{File.dirname(image_path)},"
+      puts "so the story cannot be reassembled from here.\n\n"
+    end
+    data = read_story_data_set(set, conf, opts[:order])
+  end
+  story = Story.new(read_interpreter(disk, boot, conf.interleave), data || [])
+  report_story(story, StoryMap.new(conf.story_disks.flat_map(&:track_map), conf.interleave))
 end
 
 if opts[:extract]
