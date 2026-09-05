@@ -241,6 +241,9 @@ apple2-write-mame:
 apple2-write-dump:
 	ruby tools/apple2-write-spike.rb --applen
 
+apple2-write-nib:
+	ruby tools/apple2-write-spike.rb --applen-nib
+
 # A track's worth of raw nibbles, and what they say about the sectors on it.
 apple2-write-nibbles:
 	ruby tools/apple2-write-spike.rb --nibbles
@@ -250,12 +253,21 @@ apple2-write-nibbles:
 apple2-save:
 	ruby tools/apple2-save.rb $(OPTS)
 
-IMAGE ?= apple2_dejavu.dsk
+IMAGE2 ?= apple2_dejavu.dsk
+IMAGE2E ?= apple2e_dejavu.dsk
 apple2-cat:
-	ruby tools/apple2-cat.rb $(OPTS) $(IMAGE)
+	ruby tools/apple2-cat.rb $(OPTS) $(IMAGE2)
 
+
+apple2-nib-check:
+	ruby tools/apple2-nib.rb --verify $(IMAGE2)
+	ruby tools/apple2-nib.rb --boot $(IMAGE2)
+
+# The .nib the MEGA65's Apple II core wants, and takes interleave into account
 apple2-nib:
-	dsk2nib/dsk2nib $(IMAGE) $(IMAGE:.dsk=.nib)
+	ruby tools/apple2-nib.rb $(IMAGE2)
+apple2e-nib:
+	ruby tools/apple2-nib.rb $(IMAGE2E)
 
 # Measure the software clock under MAME and say what A2_POLLS_PER_JIFFY should be
 STORY ?= examples/dejavu.z3
