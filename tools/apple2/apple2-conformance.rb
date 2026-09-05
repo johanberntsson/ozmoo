@@ -2,8 +2,10 @@
 # ---------------------------------------------------------------------------
 # Run the conformance games on the Apple II and compare them with dfrotz.
 #
-#   ruby tools/apple2/apple2-conformance.rb           # czech and praxix, with a verdict
+#   ruby tools/apple2/apple2-conformance.rb           # czech, praxix and the
+#                                                     # delete key, with a verdict
 #   ruby tools/apple2/apple2-conformance.rb czech     # just one of them
+#   ruby tools/apple2/apple2-conformance.rb delete    # just the delete key
 #   ruby tools/apple2/apple2-conformance.rb -v        # ...and print both transcripts
 #   ruby tools/apple2/apple2-conformance.rb --no-build
 #   ruby tools/apple2/apple2-conformance.rb -t:apple2e            # the IIe build
@@ -189,6 +191,56 @@ def compare(name, game, a2_text, ref_text)
   [problems, notes]
 end
 
+# --- the delete key ---------------------------------------------------------
+#
+# Not a conformance game, and not compared against dfrotz: it is a keyboard
+# translation, and it is the one part of input that no conformance game
+# exercises - czech and praxix never correct a typing mistake - so it broke
+# without anything here noticing.
+#
+# There is no one delete key across the family. A II+ has no DEL at all and its
+# LEFT ARROW sends $08, which is also what a host Backspace produces under both
+# emulators; a IIe's DELETE sends $7f. Both have to reach the interpreter as
+# PETSCII $14, which is what read_text, .input_alphanum and s_printchar all
+# understand.
+#
+# **Both halves are checked, because they fail apart.** The reply to a corrected
+# command proves the input BUFFER was fixed; the input line left on screen by a
+# second command with no Return proves the SCREEN was. When this last broke,
+# $08 did the first and not the second - the game answered the corrected
+# command perfectly while the screen still showed the mistake, which to a
+# player is the key doing nothing.
+DELETE_KEYS  = { 8 => 'left arrow, and a host Backspace', 127 => "a IIe's DELETE" }
+DELETE_STORY = 'examples/dejavu.z3'
+DELETE_REPLY = 'featureless white cube'   # from the room `look` reprints
+
+def check_delete_key(target, driver, want_build, extra)
+  image, labels = build(target, DELETE_STORY, want_build, extra)
+  problems = []
+  notes = []
+  DELETE_KEYS.each do |code, what|
+    # "lookx", back over the x, Return - then the same again without Return, so
+    # the corrected line is still on the screen at the end of the run.
+    result = Apple2Emu.mame_run(image, driver: driver, labels: labels,
+      tap: 'printchar_buffered', auto_more: true, idle_after: 25, idle_exit: 15,
+      command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
+      commands: ["lookx#{code.chr}\n", "lookx#{code.chr}"], seconds: 400)
+    reply = from_petscii(result[:tap]).downcase
+    line  = (result[:screen].reverse.find { |l| l.start_with?('>') } || '').rstrip
+    where = format('$%02x (%s)', code, what)
+    if line == '>LOOK'
+      notes << "#{where}: the input line reads #{line.inspect}"
+    else
+      problems << "#{where}: the input line reads #{line.inspect}, not \">LOOK\" - " \
+                  'the character was taken out of the buffer but not off the screen'
+    end
+    unless reply.include?(DELETE_REPLY)
+      problems << "#{where}: the game did not answer the corrected command"
+    end
+  end
+  [problems, notes]
+end
+
 # --- go ---------------------------------------------------------------------
 
 want_build = true
@@ -206,14 +258,16 @@ until args.empty?
   when '--driver' then driver = args.shift
   when '-v', '--verbose' then verbose = true
   when '-h', '--help'
-    puts File.read(__FILE__).lines[2..10].map { |l| l.sub(/^# ?/, '') }
+    puts File.read(__FILE__).lines[2..12].map { |l| l.sub(/^# ?/, '') }
     exit 0
   else
-    abort "unknown game #{arg} (have: #{GAMES.keys.join(', ')})" unless GAMES.key?(arg)
+    unless GAMES.key?(arg) or arg == 'delete'
+      abort "unknown check #{arg} (have: #{(GAMES.keys + ['delete']).join(', ')})"
+    end
     wanted << arg
   end
 end
-wanted = GAMES.keys if wanted.empty?
+wanted = GAMES.keys + ['delete'] if wanted.empty?
 
 # The MAME machine that matches the build: a -t:apple2 disk wants the 48K II+,
 # and a -t:apple2e one an enhanced IIe unless --driver says otherwise (apple2e
@@ -222,6 +276,19 @@ driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
 
 failed = false
 wanted.each do |name|
+  if name == 'delete'
+    problems, notes = check_delete_key(target, driver, want_build, extra)
+    puts
+    puts "the delete key on #{target}/#{driver}: #{DELETE_STORY}, both codes"
+    notes.each { |n| puts "  ok: #{n}" }
+    if problems.empty?
+      puts '  PASS: a typing mistake can be corrected, in the buffer and on the screen'
+    else
+      failed = true
+      problems.each { |p| puts "  FAIL: #{p}" }
+    end
+    next
+  end
   game = GAMES[name]
   image, labels = build(target, game[:story], want_build, extra)
   a2_text, result = run_apple(image, driver, labels, game[:commands])
