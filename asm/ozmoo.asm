@@ -2606,6 +2606,15 @@ deletable_init
 	sta a2_save_track
 	lda config_load_address + 509
 	sta a2_save_slot_sectors
+	; add the build id
+	ldx #3
+-	lda config_load_address,x
+	sta a2_build_id,x
+	dex
+	bpl -
+	; Drive 1 is holding the disk we booted from, which is disk 1.
+	lda #8
+	sta current_disks
 }
 
 	jsr auto_disk_config
@@ -2846,6 +2855,18 @@ auto_disk_config
 	bne .select_device ; Always branch
 .not_save_or_boot_disk
 	stx zp_temp ; Store current value of x (memory pointer)
+!ifdef TARGET_APPLE2_FAMILY {
+	; Two drives on one controller, and no way to ask whether the second one is
+	; there. Story disks alternate between the drives, starting at drive 2: a
+	; two disk game leaves the boot disk in drive 1 and the story disk in drive 2
+	tya                         ; the disk number: 2 is the first story disk
+	lsr
+	lda #9
+	bcc +
+	lda #8
++	tax
+	bne .use_this_device        ; always
+}
 !if SUPPORT_REU = 1 {
 	ldx boot_device
 	bit use_reu
@@ -2881,6 +2902,11 @@ auto_disk_config
 }
 !zone insert_disks_at_boot {
 insert_disks_at_boot
+!ifdef TARGET_APPLE2_FAMILY {
+	; No disk is requested at boot A story disk is asked for the first
+	; time a block on it is wanted
+	rts
+}
 !if SUPPORT_REU = 1 {
 	lda #0
 	sta reu_last_disk_end_block

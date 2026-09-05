@@ -41,6 +41,24 @@ a2_count            !byte 0     ; sectors still to move
 a2_tmp              !byte 0
 
 ; ---------------------------------------------------------------------------
+; Which disk is in which drive.
+;
+; A game too big for one 140K disk is split over several (build_A2), and on
+; this machine a disk carries no name a DOS could read back, so every disk we
+; build stamps track 0 sector 15 with a magic: the build id, its own number and
+; how many there are. That is what a2_probe_disk reads, and it is the only way
+; to tell what the player has just pushed into the drive.
+; ---------------------------------------------------------------------------
+A2_ID_TRACK    = 0
+A2_ID_SECTOR   = 15
+A2_ONE_ATTEMPT = $80        ; in A2_DRIVE: do not retry, this may be an empty
+                            ; drive and twelve timeouts would take half a minute
+
+a2_build_id    !byte 0, 0, 0, 0   ; the four bytes at the top of our config track
+a2_want        !byte 0            ; the disk_info index of the disk being waited for
+a2_id_magic    !text "OZA2"
+
+; ---------------------------------------------------------------------------
 ; The routines below are deliberately not in zones of their own: they reach the
 ; save slot number, the input buffer and the multiplier, all of which are local
 ; labels of the disk zone, so their own labels carry an a2_ prefix instead.
@@ -51,6 +69,12 @@ a2_tmp              !byte 0
 a2_set_save_sector
 	lda a2_save_track
 	beq a2_no_save_area
+
+	; The slots are on the boot disk, whichever drive that is in.
+	lda disk_info + 4 + 8
+	sec
+	sbc #7
+	sta A2_DRIVE
 
 	; track = a2_save_track + a2_lin / 16
 	lda a2_lin
@@ -162,6 +186,7 @@ a2_restore_block
 	lda #>A2_READ_SECTOR
 a2_move
 	sta a2_move_call + 2
+	jsr a2_boot_disk_in_drive
 	jsr a2_slot_start
 	bcs a2_move_failed
 	jsr a2_block_sectors
@@ -188,6 +213,7 @@ a2_move_failed
 ; out of directory_buffer. A disk that has never been saved to reads back as
 ; zeros, which is exactly "no slots in use".
 a2_read_directory
+	jsr a2_boot_disk_in_drive
 	jsr a2_dir_sector
 	bcs +
 	jmp A2_READ_SECTOR
@@ -215,6 +241,7 @@ a2_dir_sector
 ; a2_write_directory_entry: put the comment the player typed into the slot's
 ; place in the directory, mark the slot used, and write the sector back.
 a2_write_directory_entry
+	jsr a2_boot_disk_in_drive
 	jsr a2_read_directory
 	bcs a2_wde_failed
 
@@ -440,6 +467,10 @@ readblock
 .right_disk_found
 	lda disk_info + 4,x
 	sta .device
+!ifdef TARGET_APPLE2_FAMILY {
+	; make sure that the disk is in the drive
+	jsr a2_want_disk
+}
 	lda disk_info + 7,x
 	sta .disk_tracks ; # of tracks which have entries
 	lda #1
@@ -589,6 +620,11 @@ read_track_sector
 	sta A2_DEST_LO
 	lda readblocks_mempos + 1
 	sta A2_DEST
+	; The drive is the device number: 8 is drive 1 and 9 is drive 2
+	lda .device
+	sec
+	sbc #7
+	sta A2_DRIVE
 	jsr A2_READ_SECTOR
 	bcc +
 	jmp a2_disk_error
@@ -632,6 +668,150 @@ a2_disk_error
 .a2_err_ws     !pet "..", 13, "The drive last read track "
 .a2_err_ht     !pet "..", " sector "
 .a2_err_hs     !pet "..", 13, 0
+
+a2_probe_disk
+	; read the id sector of whatever is in the drive named by a (1 or 2). 
+	;  Returns the disk's number in a, or 0 if the drive holds nothing we
+
+	; The drive goes into y first: the loop below needs the accumulator, and
+	; leaving it there would put a stray track number in A2_DRIVE.
+	ora #A2_ONE_ATTEMPT
+	tay
+	; The driver's parameter block belongs to whoever was using it - a save
+	; walking its slot a sector at a time, above all - so it is put back.
+	ldx #3
+-	lda A2_TRACK,x
+	sta .a2_probe_saved,x
+	dex
+	bpl -
+	sty A2_DRIVE
+	lda #A2_ID_TRACK
+	sta A2_TRACK
+	lda #A2_ID_SECTOR
+	sta A2_SECTOR
+	lda #<directory_buffer
+	sta A2_DEST_LO
+	lda #>directory_buffer
+	sta A2_DEST
+	jsr A2_READ_SECTOR
+	bcs .a2_not_ours
+	ldx #3
+-	lda directory_buffer,x
+	cmp a2_id_magic,x
+	bne .a2_not_ours
+	lda directory_buffer + 4,x
+	cmp a2_build_id,x           ; a disk from another build of the same game
+	bne .a2_not_ours            ; is not this game's disk
+	dex
+	bpl -
+	lda directory_buffer + 8
+	bne .a2_probe_done          ; always: disk 0 does not exist
+.a2_not_ours
+	lda #0
+.a2_probe_done
+	sta .a2_probe_saved + 4     ; the answer, while x is busy
+	ldx #3
+-	lda .a2_probe_saved,x       ; put back what the caller had in there
+	sta A2_TRACK,x
+	dex
+	bpl -
+	lda .a2_probe_saved + 4
+	rts
+.a2_probe_saved !byte 0, 0, 0, 0, 0
+
+a2_entry_for_disk
+	sta a2_tmp
+	beq .a2_no_entry            ; disk 0 is not a disk
+	ldx #0
+	ldy #0
+-	cpy a2_tmp
+	beq .a2_got_entry
+	iny
+	cpy disk_info + 2           ; # of disks
+	bcs .a2_no_entry
+	txa
+	clc
+	adc disk_info + 3,x         ; ...on to the next entry
+	tax
+	bcc -                       ; always: an entry is never that big
+.a2_got_entry
+	clc
+	rts
+.a2_no_entry
+	sec
+	rts
+
+a2_want_disk
+	ldy .device
+	txa
+	cmp current_disks - 8,y
+	beq .a2_have_it
+	sta a2_want
+	stx .a2_save_x
+	sty .a2_save_y
+	jmp .a2_look
+
+.a2_ask
+	ldy a2_want
+	jsr print_insert_disk_msg   ; prints the disk's name and drive, waits for a key
+.a2_look
+	lda .device
+	jsr .a2_try_drive
+	bcc .a2_settled
+	lda .device
+	eor #1                      ; the other one: 8 <-> 9
+	jsr .a2_try_drive
+	bcs .a2_ask
+	; It is in the other drive, so that is this disk's drive now.
+	ldy .a2_save_x
+	sta disk_info + 4,y
+	sta .device
+.a2_settled
+	ldy .a2_save_y
+	ldx .a2_save_x
+.a2_have_it
+	rts
+
+; .a2_try_drive: is the disk we are waiting for in the drive named by a? Carry
+; clear and a = that drive if it is. Whatever is found is written down, so a
+; drive is asked once and remembered.
+.a2_try_drive
+	sta .a2_try_dev
+	sec
+	sbc #7
+	jsr a2_probe_disk           ; one attempt: the drive may not even be there
+	jsr a2_entry_for_disk
+	ldy .a2_try_dev
+	bcs .a2_try_none
+	txa
+	sta current_disks - 8,y
+	cmp a2_want
+	bne .a2_try_no
+	lda .a2_try_dev
+	clc
+	rts
+.a2_try_none
+	lda #$ff
+	sta current_disks - 8,y
+.a2_try_no
+	sec
+	rts
+
+.a2_save_x  !byte 0
+.a2_save_y  !byte 0
+.a2_try_dev !byte 0
+
+a2_boot_disk_in_drive
+	; make sure the disk we booted from is in its drive,
+	lda disk_info + 4 + 8       ; the boot disk's drive
+	sta .device
+	ldx #8                      ; ...and its disk_info index
+	jsr a2_want_disk
+	lda .device
+	sec
+	sbc #7
+	sta A2_DRIVE
+	rts
 } else {
 	lda .track
 	jsr convert_byte_to_two_digits
@@ -908,6 +1088,11 @@ print_insert_disk_msg
 	jsr printstring_raw
 	ldy .save_y
 	lda disk_info + 4,y
+!ifdef TARGET_APPLE2_FAMILY {
+	sec
+	sbc #7                      ; the drives are devices 8 and 9 everywhere
+	                            ; else; the player calls them 1 and 2
+}
 	jsr convert_byte_to_two_digits
 	cpx #$30
 	beq +
@@ -1531,8 +1716,12 @@ directory_name_len = * - directory_name
 	!pet 13,"Disk error #",0
 .insert_save_disk
 !ifdef TARGET_APPLE2_FAMILY {
-	; The save slots are on the boot disk, so there is nothing to swap and
-	; nothing to wait for.
+	; The save slots are on the boot disk, so there is no separate save disk -
+	; but on a single drive machine the boot disk is not necessarily what is in
+	; the drive, because the story is on a disk of its own. Ask for it back.
+	; The story disk is asked for again by the next read that wants it, which
+	; falls out of the check in readblock rather than needing a path of its own.
+	jsr a2_boot_disk_in_drive
 	jmp .insert_done
 }
 !ifndef TARGET_X16 {	

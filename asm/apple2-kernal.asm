@@ -64,6 +64,18 @@ kernal_getchar
 	bpl .no_key
 	sta KEYBOARD_STROBE
 	and #$7f
+	; Handle the delete key. There is no one key for it across the family: a 
+	; II+ has no DEL at all and its LEFT ARROW sends $08, which is also what a
+	; both emulators send if Backspace is pressed. However, a IIe's DELETE sends
+ 	; $7f. Both should become PETSCII $14 (delete in the z-machine).
+	cmp #$08
+	beq .delete
+	cmp #$7f
+	bne .no_delete
+.delete
+	lda #$14
+	rts
+.no_delete
 	; Fold lower case up. A real II+ keyboard cannot send it at all, but a IIe
 	; with SHIFT-LOCK off can, and the MEGA65's Apple II core does.
 	cmp #$61

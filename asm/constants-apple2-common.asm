@@ -27,6 +27,9 @@ A2_LAST_SECTOR        = $0810   ; field the drive decoded. After a read that
                                 ; failed, these two against the ones asked for
                                 ; say whether the head was in the wrong place
                                 ; or the bits under it would not decode
+A2_DRIVE              = $0811   ; which drive on the controller, 1 or 2. Set
+                                ; once and it stays; the driver keeps a head
+                                ; position for each and swaps them over
 
 ; --- zero page --------------------------------------------------------------
 ; Laid out like the X16's, which is the most recent map written from scratch

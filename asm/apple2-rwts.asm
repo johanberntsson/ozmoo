@@ -79,7 +79,7 @@ PHASEOFF        = $C080
 PHASEON         = $C081
 MOTOROFF        = $C088
 MOTORON         = $C089
-DRIVE1          = $C08A
+DRIVE1          = $C08A         ; ...and DRIVE1 + 1 is drive 2
 Q6L             = $C08C         ; read a nibble here; bit 7 set = one is ready
 Q6H             = $C08D         ; load the write latch
 Q7L             = $C08E         ; read mode
@@ -168,6 +168,17 @@ rw_atrk
         !byte 0                         ; $080F
 rw_asec
         !byte 0                         ; $0810
+a2_drive
+        !byte 1                         ; $0811: which drive on this controller,
+                                        ; 1 or 2, read at the top of every
+                                        ; transfer - so the caller sets it once
+                                        ; and it stays until it is changed.
+                                        ; Bit 7 set means "one attempt, then
+                                        ; give up", which is how the interpreter
+                                        ; asks what is in a drive without paying
+                                        ; twelve timeouts for an empty one. It
+                                        ; is honoured by a read and ignored by a
+                                        ; write, which sets its own retry count
 
 ; ---------------------------------------------------------------------------
 ; boot: clear the screen, bring the interpreter in, jump to it.
@@ -279,6 +290,9 @@ rwts_init
         tax
         lda Q7L,x               ; read mode
         lda Q6L,x
+        lda #1
+        sta a2_drive
+        sta rw_sel_drive
         lda DRIVE1,x
         lda MOTORON,x
 
@@ -293,6 +307,40 @@ rwts_init
         sta rw_motor            ; the PROM left it spinning
         rts
 
+!zone select_drive
+; make a2_drive the one the controller is talking to. The motor goes with it:
+; $C089 spins whichever drive is selected, so the newly selected one is starting
+; from rest and motor_on has to wait for it, which clearing rw_motor arranges.
+;
+; rw_half is not saved per drive. Keeping a position for each costs sixteen
+; bytes and the boot chain does not have them, so a switch instead declares the
+; head to be on the innermost track it can be on, which is a lie in the one
+; direction that is safe. The next seek is then outward by at least as many
+; half-tracks as the head really has to travel, and the track 0 stop absorbs
+; the excess: a seek to track 0 lands *exactly* right from any real position,
+; and that is what the interpreter's disk probe reads (a2_probe_disk in
+; disk.asm), so the one attempt it allows itself is enough. A seek to any other
+; track after a switch can still land short, and is put right by the ordinary
+; recovery: find_address_field reads the track number off the disk into rw_half
+; (.wrong_track) and the retry gets there. The cost is 68 half-steps of
+; stepping, about a third of a second, on a drive change and never in between.
+select_drive
+        lda a2_drive
+        and #$7f                ; bit 7 is the retry flag, not part of the drive
+        cmp rw_sel_drive
+        beq .done
+        sta rw_sel_drive
+        clc
+        adc rw_slot             ; DRIVE1 - 1 + slot + drive: $C08A for drive 1,
+        tax                     ; $C08B for drive 2
+        lda DRIVE1 - 1,x
+        lda #68                 ; two half-tracks per track, 34 tracks: far
+        sta rw_half             ; enough out to reach the stop from anywhere
+        lda #0
+        sta rw_motor
+.done
+        rts
+
 ; ---------------------------------------------------------------------------
 ; rwts_read: read the sector named by a2_track / a2_sector into the page named
 ; by a2_dest. Carry clear if it worked.
@@ -303,13 +351,16 @@ rwts_init
 ; ---------------------------------------------------------------------------
 !zone rwts_read
 rwts_read
+        ldy a2_drive
+        bmi rwts_read_once      ; the caller asked for one attempt
         lda #READ_RETRIES
         sta rw_retry
         bne rwts_read_entry     ; always
 rwts_read_once
-        ; One attempt only, for the verify after a write: a sector that does not
-        ; read is going to be written again anyway, and a dozen retries with a
-        ; recalibration every fourth would cost seconds for nothing.
+        ; One attempt only, for the verify after a write and for the probe that
+        ; asks which disk is in a drive: a sector that does not read is going to
+        ; be written again anyway, and a drive with nothing in it would cost
+        ; twelve timeouts - about half a minute - to say so.
         lda #1
         sta rw_retry
 rwts_read_entry
@@ -326,6 +377,7 @@ rwts_read_entry
         sta rd_pn_load + 1
         sta rd_pn_store + 1
 
+        jsr select_drive
         jsr motor_on
 .try
         jsr rwts_seek           ; cheap when the head is already there
@@ -648,6 +700,7 @@ rwts_write
         sta wr_src_load + 1
         sta wr_src_cmp + 1
 
+        jsr select_drive
         jsr motor_on            ; returns with x = slot * 16
 
         ; Is the disk write protected? Q6H then Q7L leaves the answer in bit 7
@@ -1008,6 +1061,7 @@ skew_table
 ; ---------------------------------------------------------------------------
 rw_slot         !byte 0         ; slot * 16
 rw_half         !byte 0         ; where the head is, in half-tracks
+rw_sel_drive    !byte 0         ; the drive the controller is talking to
 rw_dest_half    !byte 0
 rw_moved        !byte 0         ; did this seek step at all?
 rw_motor        !byte 0
