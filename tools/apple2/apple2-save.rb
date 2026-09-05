@@ -59,6 +59,11 @@ end
 driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
 IMAGE  = File.join(ROOT, "#{target}_dejavu.dsk")
 DRIVER = driver
+# 40 columns of the II+'s 64 glyphs, or a IIe's 80 columns of mixed case (see
+# tools/apple2/apple2-conformance.rb).  Every screen test below is therefore
+# made against the upper case of what it read: the game's own text is mixed
+# case on a IIe, and none of that is what is being checked here.
+SCREEN = target == 'apple2' ? { cols: 40, altchar: false } : { cols: 80, altchar: true }
 
 if build
   cmd = ['ruby', 'make.rb', "-t:#{target}", *extra, STORY]
@@ -72,7 +77,7 @@ def play(labels, commands, seconds: 900)
   Apple2Emu.mame_run(IMAGE, driver: DRIVER, labels: labels, tap: 'printchar_buffered',
                      auto_more: true, idle_after: 25, idle_exit: 90,
                      command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
-                     commands: commands.map { |c| c + "\n" }, seconds: seconds)
+                     commands: commands.map { |c| c + "\n" }, seconds: seconds, **SCREEN)
 end
 
 problems = []
@@ -83,13 +88,13 @@ end
 
 puts "\n1. drop the sword and save it into slot 0"
 r1 = play(labels, ['drop sword', 'save', '0', COMMENT])
-screen1 = r1[:screen].join("\n")
+screen1 = r1[:screen].join("\n").upcase
 puts r1[:screen].map { |l| "  |#{l}|" } if verbose
 check.call(screen1.include?('OK.'), 'the save reported Ok.')
 
 puts "\n2. boot the disk again, and restore it"
 r2 = play(labels, ['inventory', 'restore', '0', 'inventory'])
-screen2 = r2[:screen].join("\n")
+screen2 = r2[:screen].join("\n").upcase
 puts r2[:screen].map { |l| "  |#{l}|" } if verbose
 check.call(screen2.include?('OK.'), 'the restore reported Ok.')
 check.call(screen2 =~ /INVENTORY.*CUBE/m && screen2 !~ /INVENTORY.*SWORD/m,
@@ -100,6 +105,7 @@ r3 = play(labels, ['restore'])
 listing = r3[:screen].find { |l| l.start_with?('0:') } || ''
 puts r3[:screen].map { |l| "  |#{l}|" } if verbose
 check.call(listing.downcase.include?(COMMENT[0, 14]), "slot 0 is listed as #{COMMENT.inspect}")
+
 check.call(r3[:screen].any? { |l| l =~ /^1: *$/ }, 'the other slots are still empty')
 
 puts "\n4. read the disk here on the host"

@@ -244,18 +244,20 @@ if $PROGRAM_NAME == __FILE__
     seconds = (args[1] || 30).to_i
     # A -t:apple2e disk refuses to run on a II+, and says so, which would
     # otherwise be a screen the two images agree on perfectly.
-    machine = File.basename(source).start_with?('apple2e_') ? :iie_enhanced : :ii_plus
+    iie = File.basename(source).start_with?('apple2e_')
+    machine = iie ? :iie_enhanced : :ii_plus
     out = File.join(Apple2Emu::TEMP, File.basename(source).sub(/\.dsk$/i, '') + '_check.nib')
     File.binwrite(out, nib)
     screens = {}
     { 'dsk' => File.expand_path(source), 'nib' => out }.each do |what, image|
-      memory = Apple2Emu.applen_run(image, seconds: seconds, machine: machine)
-      screens[what] = (0...Apple2Emu::ROWS).map do |row|
-        base = Apple2Emu::SCREEN_BASE + (row & 7) * 0x80 + (row >> 3) * 0x28
-        (0...Apple2Emu::COLS).map do |col|
-          char, video = Apple2Emu.decode_cell(memory.getbyte(base + col))
-          video == :normal ? char.chr : char.chr.downcase
-        end.join
+      # A IIe build draws on 80 columns, whose even columns are in the aux
+      # bank - so both banks have to come out of the save state, or half the
+      # screen is missing and the two images agree on the wrong thing.
+      memory = Apple2Emu.applen_run(image, seconds: seconds, machine: machine, aux: iie)
+      screens[what] = if iie
+        Apple2Emu.screen_text_80(*memory)
+      else
+        Apple2Emu.screen_text(memory)
       end
     end
     screens['nib'].each_with_index { |line, i| puts format('%2d|%s|', i, line) }

@@ -69,6 +69,18 @@ module Apple2Emu
     end
   end
 
+  # The same, for a IIe with ALTCHARSET on (-t:apple2e).  There the cell is the
+  # character's own ASCII with bit 7 set for normal video and clear for
+  # inverse, over the whole of $20-$7f - so seven bits pick the glyph, not six,
+  # and the only fold left is inverse upper case, which is written at $00-$1f
+  # because $40-$5f is MouseText.  There is no flashing range to confuse it
+  # with, and lower case is a real glyph rather than a sign of inverse video.
+  def decode_cell_alt(byte)
+    code = byte & 0x7f
+    char = code < 0x20 ? code + 0x40 : code
+    [char, byte >= 0x80 ? :normal : :inverse]
+  end
+
   # The screen as 24 strings.  An inverse cell is printed as its lower case
   # letter: the II+ has no lower case glyphs, so lower case in a dump can only
   # ever mean inverse video.
@@ -132,13 +144,15 @@ module Apple2Emu
     path
   end
 
-  # Read "Main Memory:" out of an AppleWin save state.  Its lines are
+  # Read a 64K memory bank out of an AppleWin save state.  Its lines are
   # "      AAAA: <64 bytes as hex>", written by YamlSaveHelper::SaveMemory.
-  def read_main_memory(path)
+  # "Main Memory" is the one every machine has; a //e also writes "Auxiliary
+  # Memory Bank00", which is where the 80 column screen's even columns live.
+  def read_memory_bank(path, section = 'Main Memory')
     memory = "\x00".b * 0x10000
     inside = false
     File.foreach(path) do |line|
-      if line =~ /^\s*Main Memory:/
+      if line =~ /^\s*#{Regexp.escape(section)}:/
         inside = true
         next
       end
@@ -154,11 +168,31 @@ module Apple2Emu
     memory
   end
 
+  def read_main_memory(path)
+    read_memory_bank(path)
+  end
+
+  # The IIe's 80 column screen as 24 strings, out of the two banks an AppleWin
+  # save state holds: a cell is at row_base + column / 2, aux for an even
+  # column and main for an odd one.  Lower case is a real glyph under
+  # ALTCHARSET, so unlike the II+ dump above it cannot also stand for inverse
+  # video - what a cell shows is what is printed.
+  def screen_text_80(main, aux)
+    (0...ROWS).map do |row|
+      (0...80).map do |col|
+        bank = col.even? ? aux : main
+        decode_cell_alt(bank.getbyte(row_base(row) + (col >> 1)))[0].chr
+      end.join
+    end
+  end
+
   # Boot `image` in applen inside a pty: let it run, type any keys, F11 to save
   # a state, F4 to quit, and hand back the 64K it was holding.  The save state
   # filename has to come from --state-filename; putting it in the config file
   # the way AppleWin writes it does not take, and F11 then writes nothing.
-  def applen_run(image, keys: '', seconds: 4, config: nil, state: nil, machine: :ii_plus)
+  # aux: also hand back the auxiliary bank, which is where the IIe's 80 column
+  # screen keeps its even columns (the return is then [main, aux]).
+  def applen_run(image, keys: '', seconds: 4, config: nil, state: nil, machine: :ii_plus, aux: false)
     config ||= write_config(File.join(TEMP, "apple2_run_#{machine}.yaml"), machine: machine)
     state  ||= File.join(TEMP, 'apple2_run_state.yaml')
     File.delete(state) if File.exist?(state)
@@ -188,7 +222,8 @@ module Apple2Emu
       drain.kill
     end
     abort "no save state at #{state}: applen did not get F11" unless File.exist?(state)
-    read_main_memory(state)
+    return read_memory_bank(state) unless aux
+    [read_memory_bank(state), read_memory_bank(state, 'Auxiliary Memory Bank00')]
   end
 
   # --- MAME ----------------------------------------------------------------
@@ -266,10 +301,25 @@ module Apple2Emu
   # keys: a list of [seconds, "text"] pairs typed into the machine as it runs.
   # MAME's emu.keypost() puts the text through the emulated keyboard, so the
   # program sees it exactly as a player's typing; "\n" is Return.
+  #   cols:    40 for a -t:apple2 build, 80 for a -t:apple2e one.  At 80 a cell
+  #            is at row_base + column / 2, in AUX RAM for an even column and
+  #            main for an odd one, so the Lua below has to read both banks -
+  #            which it does by flipping PAGE2 itself and putting it back the
+  #            way it found it (\$C01C says which half is selected).  That is
+  #            safe because the notifier runs between instructions and the
+  #            interpreter's own screen writes leave main selected.
+  #   altchar: the IIe's alternate character set is on, so a cell is plain
+  #            ASCII with bit 7 for normal video - see decode_cell_alt.
+  #   snapshot: a path to write a PNG of the screen to when the run ends.  This
+  #            is the one thing a memory dump cannot do: it is the glyphs the
+  #            video hardware actually fetched, so it is the only way to see a
+  #            wrong character set or a wrong video mode.  MAME renders it even
+  #            under -video none.
   def mame_run(image, driver: 'apple2p', flop2: nil, disk_swaps: {}, swap_drive: nil, labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
                idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
-               echo_flag: nil, dump_range: nil,
+               echo_flag: nil, dump_range: nil, cols: COLS, altchar: false,
+               force_latch: false, snapshot: nil,
                seconds: 120, keys: [], lua_path: nil, result_path: nil)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
@@ -277,7 +327,13 @@ module Apple2Emu
 
     # A character no keypost can send has to go in at the keyboard latch; the
     # Lua below only installs that tap when there is one.
-    needs_latch = (commands + keys.map { |_, text| text }).any? { |c| c.to_s.each_byte.any? { |b| b >= 0x7f } }
+    # force_latch presents every typed character at the keyboard latch instead
+    # of through MAME's natural keyboard.  That is what a real keyboard does,
+    # and it is the only way to send a byte MAME will not send by itself - a
+    # lower case letter on a IIe, say, where the natural keyboard's CAPS LOCK
+    # is a toggle input that Lua cannot set.
+    needs_latch = force_latch ||
+                  (commands + keys.map { |_, text| text }).any? { |c| c.to_s.each_byte.any? { |b| b >= 0x7f } }
 
     watch_addr = watch ? (labels[watch] or abort("no label #{watch}")) : nil
     tap_addr = tap ? (labels[tap] or abort("no label #{tap}")) : nil
@@ -338,6 +394,7 @@ module Apple2Emu
 ")}
       }
       swap_drive = #{swap_drive ? swap_drive : 'nil'}
+      force_latch = #{force_latch ? 'true' : 'false'}
       drives = { mach.images[":sl6:diskiing:0:525"],
                  mach.images[":sl6:diskiing:1:525"] }
       tap_last = nil
@@ -348,6 +405,9 @@ module Apple2Emu
       latch_key = nil
       dump_addr = #{dump_range ? "0x#{dump_addr.to_s(16)}" : 'nil'}
       dump_len = #{dump_range ? dump_len : 'nil'}
+      cols = #{cols}
+      altchar = #{altchar ? 'true' : 'false'}
+      want_snapshot = #{snapshot ? 'true' : 'false'}
       keys = {
       #{keys.map { |at, text| "  {#{'%.3f' % at}, #{lua_string(text)}}," }.join("
 ")}
@@ -390,17 +450,48 @@ module Apple2Emu
         end)
       end
 
-      -- One row of the text page as a string, the interleave undone and every
-      -- cell masked to the six bits that pick a glyph.
-      function screen_row(row)
+      -- One row of the text page, as the bytes of its cells in column order.
+      -- At 80 columns a row is 40 bytes in each of two banks - aux for the even
+      -- columns, main for the odd - so both halves are read and interleaved
+      -- here.  PAGE2 is put back the way it was found: this runs between
+      -- instructions, and the interpreter switches to aux for a single store.
+      function screen_row_bytes(row)
         local base = 0x400 + (row % 8) * 0x80 + math.floor(row / 8) * 0x28
         local out = {}
-        for col = 0, 39 do
-          local code = mem:read_u8(base + col) & 0x3f
-          if code < 0x20 then code = code + 0x40 end
-          out[#out + 1] = string.char(code)
+        if cols == 80 then
+          local was = mem:read_u8(0xC01C) & 0x80
+          mem:write_u8(0xC055, 0)
+          local aux = {}
+          for i = 0, 39 do aux[i] = mem:read_u8(base + i) end
+          mem:write_u8(0xC054, 0)
+          for i = 0, 39 do
+            out[#out + 1] = aux[i]
+            out[#out + 1] = mem:read_u8(base + i)
+          end
+          if was ~= 0 then mem:write_u8(0xC055, 0) end
+        else
+          for i = 0, cols - 1 do out[#out + 1] = mem:read_u8(base + i) end
         end
-        return table.concat(out)
+        return out
+      end
+
+      -- The glyph a cell shows.  Without ALTCHARSET six bits pick it out of a
+      -- 64 glyph set and bit 6 is part of the video mode; with it, seven do,
+      -- and only inverse upper case is folded (it lives at $00-$1f, because
+      -- $40-$5f is MouseText).
+      function glyph(code)
+        local a = code & (altchar and 0x7f or 0x3f)
+        if a < 0x20 then a = a + 0x40 end
+        return a
+      end
+
+      -- One row as an upper case string, for the prompts this script looks for.
+      function screen_row(row)
+        local out = {}
+        for _, code in ipairs(screen_row_bytes(row)) do
+          out[#out + 1] = string.char(glyph(code))
+        end
+        return string.upper(table.concat(out))
       end
 
       function report()
@@ -425,13 +516,16 @@ module Apple2Emu
           if #chunk > 0 then out:write("dump ", table.concat(chunk), "\\n") end
         end
         for row = 0, 23 do
-          local base = 0x400 + (row % 8) * 0x80 + math.floor(row / 8) * 0x28
           local bytes = {}
-          for col = 0, 39 do bytes[#bytes + 1] = string.format("%02X", mem:read_u8(base + col)) end
+          for _, code in ipairs(screen_row_bytes(row)) do
+            bytes[#bytes + 1] = string.format("%02X", code)
+          end
           out:write(string.format("screen %d %s\\n", row, table.concat(bytes)))
         end
         out:write(string.format("ran %.6f\\n", mach.time:as_double()))
         out:close()
+        -- The glyphs the video hardware fetched, which no memory dump can show.
+        if want_snapshot then mach.video:snapshot() end
       end
 
       sub = emu.add_machine_frame_notifier(function()
@@ -445,6 +539,9 @@ module Apple2Emu
         -- $7f7, the last cell of the interleaved row 23.  It blinks, so this
         -- sees it every other pass; posting a Return once every few frames is
         -- enough and cannot run away.
+        -- The [More] prompt is the last cell of row 23, $7f7 - and at 80
+        -- columns that is column 79, an odd one, so it is still that byte in
+        -- main RAM.
         if auto_more and mem:read_u8(0x7f7) == 0xaa and now - more_last > 0.25 then
           emu.keypost("\\r")
           more_last = now
@@ -512,12 +609,15 @@ module Apple2Emu
           end
           if taken and now - last_char > 0.1 then
             local ch = pending:byte(pending_i)
-            if ch >= 0x7f then
+            if ch >= 0x7f or force_latch then
               -- MAME's natural keyboard has no mapping for $7F, so keypost
               -- sends nothing at all and the run looks as though the key did
               -- not work. Present it at the keyboard latch instead, which is
               -- exactly what the hardware does: the read tap below hands it
               -- over once, with bit 7 set to say a key is waiting.
+              -- keypost presses Return for a newline; the latch is the raw
+              -- key code, and the Return key sends $0D, so say so.
+              if ch == 10 then ch = 13 end
               latch_key = ch
             else
               emu.keypost(string.char(ch))
@@ -568,18 +668,34 @@ module Apple2Emu
     slot = driver.start_with?('apple2c') ? [] : ['-sl6', 'diskiing']
     cmd = [MAME, driver, *slot, '-flop1', image]
     cmd += ['-flop2', flop2] if flop2
+    snap_dir = File.join(TEMP, 'apple2_snap')
+    if snapshot
+      FileUtils.rm_rf(snap_dir)
+      cmd += ['-snapshot_directory', snap_dir]
+    end
     cmd += [
            '-video', 'none', '-sound', 'none', '-nothrottle', '-noautosave',
            '-seconds_to_run', seconds.to_s, '-autoboot_script', lua_path]
     log = File.join(TEMP, 'apple2_mame.log')
     system(*cmd, out: log, err: log)
     abort "mame wrote no result file; see #{log}" unless File.exist?(result_path)
-    parse_mame_result(result_path)
+    if snapshot
+      # MAME names it <snapshot_directory>/<driver>/0000.png.
+      png = Dir[File.join(snap_dir, '**', '*.png')].max_by { |f| File.mtime(f) }
+      abort "mame wrote no snapshot; see #{log}" unless png
+      FileUtils.mkdir_p(File.dirname(snapshot))
+      FileUtils.cp(png, snapshot)
+    end
+    parse_mame_result(result_path, cols: cols, altchar: altchar)
   end
 
-  def parse_mame_result(path)
+  def parse_mame_result(path, cols: COLS, altchar: false)
     result = { phases: [], symbols: {}, samples: [], tap: +''.b, dump: +''.b, typed: [], swapped: [],
-               screen: Array.new(ROWS, ' ' * COLS), seconds: nil }
+               screen: Array.new(ROWS, ' ' * cols),
+               # The cells as the machine holds them, video mode and all: the
+               # decoded screen above cannot show a wrong mode, which is the
+               # one class of screen bug a dump is blind to.
+               raw_screen: Array.new(ROWS, "\xa0".b * cols), seconds: nil }
     File.foreach(path) do |line|
       case line
       when /^phase (\d+) ([\d.]+)/  then result[:phases] << [$1.to_i, $2.to_f]
@@ -597,10 +713,18 @@ module Apple2Emu
       when /^screen (\d+) ([0-9A-F]+)/
         row = $1.to_i
         bytes = [$2].pack('H*')
-        result[:screen][row] = (0...COLS).map do |col|
-          char, mode = decode_cell(bytes[col].ord)
-          c = char.chr
-          mode == :normal ? c : c.downcase
+        result[:raw_screen][row] = bytes
+        result[:screen][row] = (0...cols).map do |col|
+          if altchar
+            # Lower case is a real glyph here, so it cannot double as the sign
+            # of an inverse cell the way it does on a II+: what a cell shows is
+            # what is printed, and reverse video does not survive into the dump.
+            decode_cell_alt(bytes[col].ord)[0].chr
+          else
+            char, mode = decode_cell(bytes[col].ord)
+            c = char.chr
+            mode == :normal ? c : c.downcase
+          end
         end.join
       end
     end

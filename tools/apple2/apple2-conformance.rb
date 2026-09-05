@@ -6,6 +6,7 @@
 #                                                     # delete key, with a verdict
 #   ruby tools/apple2/apple2-conformance.rb czech     # just one of them
 #   ruby tools/apple2/apple2-conformance.rb delete    # just the delete key
+#   ruby tools/apple2/apple2-conformance.rb lowercase # just the IIe's lower case
 #   ruby tools/apple2/apple2-conformance.rb -v        # ...and print both transcripts
 #   ruby tools/apple2/apple2-conformance.rb --no-build
 #   ruby tools/apple2/apple2-conformance.rb -t:apple2e            # the IIe build
@@ -86,7 +87,8 @@ GAMES = {
       )
     ],
     # A global substitution instead of a block: the character appears all over
-    # the bitwise test.
+    # the bitwise test.  Only on the II+ - a IIe's alternate character set has a
+    # real vertical bar, so its build prints one (asm/streams.asm).
     subs: [['|', '!', 'the II+ has no vertical bar in its 64 glyphs, so Ozmoo ' \
                        'prints ! (asm/streams.asm)']]
   }
@@ -117,12 +119,30 @@ def build(target, story, want_build, extra = [])
   [image, Apple2Emu.read_labels(LABELS)]
 end
 
-def run_apple(image, driver, labels, commands)
+def run_apple(image, driver, labels, commands, screen)
   result = Apple2Emu.mame_run(image, driver: driver, labels: labels, tap: 'printchar_buffered',
                               auto_more: true, idle_exit: 12, idle_after: 25,
                               ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
-                              commands: commands.map { |c| c + "\n" }, seconds: 400)
+                              commands: commands.map { |c| c + "\n" }, seconds: 400, **screen)
   [from_petscii(result[:tap]), result]
+end
+
+# A cell in $40-$5f is MouseText on an enhanced IIe and a second copy of inverse
+# upper case on an unenhanced one, so nothing Ozmoo prints may ever land there:
+# inverse upper case is written at $00-$1f instead.  This is the check that the
+# video-mode arithmetic is right, and it is worth having because a wrong mode is
+# invisible in a decoded screen dump - phase 1's blinking capitals lived in
+# exactly this arithmetic for a month.  (On a II+ the rule is different and
+# stricter: $40-$7f is the flashing range and is always a fault.)
+def check_video_modes(result, altchar)
+  bad = []
+  result[:raw_screen].each_with_index do |bytes, row|
+    bytes.each_byte.with_index do |b, col|
+      bad << format('row %d column %d holds $%02x', row, col, b) if
+        altchar ? (b >= 0x40 && b < 0x60) : (b >= 0x40 && b < 0x80)
+    end
+  end
+  bad
 end
 
 # dfrotz, answering its own [More] prompts.  ***MORE*** is printed where the
@@ -214,7 +234,7 @@ DELETE_KEYS  = { 8 => 'left arrow, and a host Backspace', 127 => "a IIe's DELETE
 DELETE_STORY = 'examples/dejavu.z3'
 DELETE_REPLY = 'featureless white cube'   # from the room `look` reprints
 
-def check_delete_key(target, driver, want_build, extra)
+def check_delete_key(target, driver, want_build, extra, screen)
   image, labels = build(target, DELETE_STORY, want_build, extra)
   problems = []
   notes = []
@@ -224,9 +244,11 @@ def check_delete_key(target, driver, want_build, extra)
     result = Apple2Emu.mame_run(image, driver: driver, labels: labels,
       tap: 'printchar_buffered', auto_more: true, idle_after: 25, idle_exit: 15,
       command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
-      commands: ["lookx#{code.chr}\n", "lookx#{code.chr}"], seconds: 400)
+      commands: ["lookx#{code.chr}\n", "lookx#{code.chr}"], seconds: 400, **screen)
     reply = from_petscii(result[:tap]).downcase
-    line  = (result[:screen].reverse.find { |l| l.start_with?('>') } || '').rstrip
+    # The echo follows the case the keyboard sent, which on a IIe depends on
+    # CAPS LOCK, so what is being checked here is the letters, not their case.
+    line  = (result[:screen].reverse.find { |l| l.start_with?('>') } || '').rstrip.upcase
     where = format('$%02x (%s)', code, what)
     if line == '>LOOK'
       notes << "#{where}: the input line reads #{line.inspect}"
@@ -236,6 +258,57 @@ def check_delete_key(target, driver, want_build, extra)
     end
     unless reply.include?(DELETE_REPLY)
       problems << "#{where}: the game did not answer the corrected command"
+    end
+  end
+  [problems, notes]
+end
+
+# --- lower case, in and out (-t:apple2e only) -------------------------------
+#
+# The IIe half of the delete-key story, and it is checked here for the same
+# reason: it is a keyboard translation no conformance game exercises.
+#
+# On an Apple IIe a letter key sends the same code whether SHIFT is held or
+# CAPS LOCK is down, and there is no soft switch to tell them apart - so
+# kernal_getchar folds BOTH cases onto PETSCII's unshifted range, which the
+# alternate character set draws in lower case.  Whichever way the keyboard sends
+# a letter, then, the player sees the lower case the rest of the screen is in.
+# That is what is checked: the same command typed in each case has to echo
+# `>look` and be understood both times.
+#
+# The letters go in at the keyboard LATCH rather than through MAME's natural
+# keyboard, because MAME's CAPS LOCK is a toggle input its Lua cannot set (and
+# AppleWin is no better), so keypost sends upper case whatever you ask for and
+# `$6c` could not otherwise be delivered at all.  That is exactly the shape of
+# the phase-1 gap the MEGA65's core exposed, where the only machine that could
+# send lower case was the one we could not test on.
+def check_lower_case(target, driver, want_build, extra, screen)
+  image, labels = build(target, DELETE_STORY, want_build, extra)
+  problems = []
+  notes = []
+  # 'look' and 'LOOK': the second command of each pair has no Return, so the
+  # line it typed is still on the screen when the run ends.
+  { 'lower case' => 'look', 'upper case' => 'LOOK' }.each do |what, word|
+    result = Apple2Emu.mame_run(image, driver: driver, labels: labels,
+      tap: 'printchar_buffered', auto_more: true, idle_after: 25, idle_exit: 15,
+      command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
+      force_latch: true, commands: ["#{word}\n", word], seconds: 400, **screen)
+    reply = from_petscii(result[:tap])
+    line  = (result[:screen].reverse.find { |l| l.start_with?('>') } || '').rstrip
+    if line == '>look'
+      notes << "#{what} typed at the keyboard echoes as #{line.inspect}"
+    else
+      problems << "#{what} typed at the keyboard echoes as #{line.inspect}, not " \
+                  '">look" - the screen is not showing the case the rest of it is in'
+    end
+    problems << "the game did not answer #{word.inspect}" unless reply.include?(DELETE_REPLY)
+    # And the game's own text has to be mixed case, which is the whole point of
+    # the alternate character set: a screen with no lower case on it at all
+    # would mean the phase-1 six-bit fold was still in the screen path.
+    if result[:screen].join =~ /[a-z]/
+      notes << "the game's own text is mixed case"
+    else
+      problems << 'nothing on the screen is lower case - is ALTCHARSET on?'
     end
   end
   [problems, notes]
@@ -261,23 +334,52 @@ until args.empty?
     puts File.read(__FILE__).lines[2..12].map { |l| l.sub(/^# ?/, '') }
     exit 0
   else
-    unless GAMES.key?(arg) or arg == 'delete'
-      abort "unknown check #{arg} (have: #{(GAMES.keys + ['delete']).join(', ')})"
+    unless GAMES.key?(arg) or %w[delete lowercase].include?(arg)
+      abort "unknown check #{arg} (have: #{(GAMES.keys + %w[delete lowercase]).join(', ')})"
     end
     wanted << arg
   end
 end
-wanted = GAMES.keys + ['delete'] if wanted.empty?
+default_run = wanted.empty?
+wanted = GAMES.keys + ['delete'] if default_run
 
 # The MAME machine that matches the build: a -t:apple2 disk wants the 48K II+,
 # and a -t:apple2e one an enhanced IIe unless --driver says otherwise (apple2e
 # is the unenhanced machine, apple2c the IIc).
 driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
 
+# What the screen looks like on this target: 40 columns of the II+'s 64 glyph
+# set, or a IIe's 80 columns of the alternate character set (which is where its
+# lower case comes from).  Both the screen decoding and the video-mode check
+# below need to know which.
+screen = target == 'apple2' ? { cols: 40, altchar: false } : { cols: 80, altchar: true }
+# A IIe prints a real vertical bar, so that substitution is the II+'s alone.
+GAMES['praxix'][:subs] = [] unless screen[:altchar] == false
+
+# The IIe adds one check of its own; a II+ keyboard cannot send lower case at
+# all, so there is nothing to check there.
+wanted << 'lowercase' if default_run && screen[:altchar]
+if wanted.include?('lowercase') && !screen[:altchar]
+  abort 'the lower case check is for -t:apple2e; a II+ keyboard cannot send it'
+end
+
 failed = false
 wanted.each do |name|
+  if name == 'lowercase'
+    problems, notes = check_lower_case(target, driver, want_build, extra, screen)
+    puts
+    puts "lower case on #{target}/#{driver}: #{DELETE_STORY}, typed at the keyboard latch"
+    notes.each { |n| puts "  ok: #{n}" }
+    if problems.empty?
+      puts '  PASS: lower case goes in and comes back out'
+    else
+      failed = true
+      problems.each { |p| puts "  FAIL: #{p}" }
+    end
+    next
+  end
   if name == 'delete'
-    problems, notes = check_delete_key(target, driver, want_build, extra)
+    problems, notes = check_delete_key(target, driver, want_build, extra, screen)
     puts
     puts "the delete key on #{target}/#{driver}: #{DELETE_STORY}, both codes"
     notes.each { |n| puts "  ok: #{n}" }
@@ -291,9 +393,11 @@ wanted.each do |name|
   end
   game = GAMES[name]
   image, labels = build(target, game[:story], want_build, extra)
-  a2_text, result = run_apple(image, driver, labels, game[:commands])
+  a2_text, result = run_apple(image, driver, labels, game[:commands], screen)
   ref_text = run_dfrotz(game[:story], game[:commands])
   problems, notes = compare(name, game, a2_text, ref_text)
+  bad_cells = check_video_modes(result, screen[:altchar])
+  problems += bad_cells.first(5).map { |b| "wrong video mode: #{b}" }
 
   puts
   puts "#{name} (#{game[:story]}) on #{target}/#{driver}: " \
@@ -309,6 +413,7 @@ wanted.each do |name|
     puts "  verdict: #{m}" if m
   end
   notes.each { |n| puts "  expected difference: #{n}" }
+  puts "  video modes: #{bad_cells.empty? ? 'every cell on the final screen is one this machine can draw' : "#{bad_cells.length} cells are not"}"
   if problems.empty?
     puts "  PASS: the transcript matches dfrotz, allowing for the differences above"
   else
