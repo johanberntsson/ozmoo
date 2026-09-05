@@ -298,7 +298,17 @@ will use are not there on one. `-t:apple2gs` still refuses the build.
 MEGA65 and X16 builds, it is a virtual memory build, like the C64's: the machine
 has no banked or expansion RAM to hold a whole story file in, so the story is
 paged in from disk as it is needed, and sectors 0 and 1 of track 1 hold the same
-configuration blocks described under "Configuration blocks". Undo is compiled
+configuration blocks described under "Configuration blocks".
+
+A 140 KB disk holds about 106 KB of story behind the boot chain, the config
+track and the interpreter, so a larger game is built across several disks. The
+boot disk then carries no story data at all — only the interpreter and the save
+slots — and the whole story lives on story disks, so a player with one drive is
+asked for a story disk once and keeps it in the drive until a save wants the
+boot disk back. With two drives nothing is ever swapped for a game of up to
+three disks: story disks alternate between the drives, so the second one
+displaces the boot disk rather than the first story disk. Each disk is stamped
+with its own number, which is how the interpreter knows what has been put in. Undo is compiled
 out: 48K leaves no room for the buffer. The standard conformance games both
 pass on this target — czech reports 406 of its tests passed and none failed,
 and praxix reports that all of its do.
