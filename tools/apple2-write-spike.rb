@@ -6,6 +6,9 @@
 #   ruby tools/apple2-write-spike.rb --mame     # ...boot it headlessly in MAME
 #                                               #    and check the disk it wrote
 #   ruby tools/apple2-write-spike.rb --applen   # ...the same under AppleWin
+#   ruby tools/apple2-write-spike.rb --applen-nib  # ...writing into a .nib, the
+#                                               #    image the MEGA65 core saves
+#                                               #    into
 #   ruby tools/apple2-write-spike.rb --run      # ...boot it in sa2 (a window)
 #
 # This builds the REAL asm/apple2-rwts.asm and loads
@@ -91,6 +94,32 @@ def expected(track, sector, salt = 0)
   bytes[1] = sector
   bytes[2] = salt
   bytes.pack('C*')
+end
+
+# The same check against a .nib rather than a .dsk: the emulator has written
+# whole nibblized tracks back, so the sectors are decoded here.  This is the
+# only place the write path is exercised against a nibble image, which is what
+# the MEGA65's Apple II core saves into.
+def check_nib(path)
+  require_relative 'apple2-nib'
+  sectors = Apple2Nib.read_nib(File.binread(path))
+  problems = []
+  TEST_TRACKS.each do |track|
+    16.times do |sector|
+      salt = (track == TEST_TRACKS[0] && sector == 7) ? 0x5a : 0
+      field = sectors[[track, sector]]
+      if field.nil? || field[:data].nil?
+        problems << format('track %d sector %d is not on the nib, or does not decode', track, sector)
+        next
+      end
+      want = expected(track, sector, salt)
+      next if field[:data] == want
+      first = (0...256).find { |i| field[:data][i] != want[i] }
+      problems << format('track %d sector %d differs at byte %d (wrote $%02X, nib has $%02X)',
+                         track, sector, first, want[first].ord, field[:data][first].ord)
+    end
+  end
+  problems
 end
 
 def check_image(path)
@@ -193,9 +222,10 @@ until args.empty?
   when '--mame'   then mode = :mame
   when '--nibbles' then mode = :nibbles
   when '--applen' then mode = :applen
+  when '--applen-nib' then mode = :applen_nib
   when '--run'    then mode = :run
   when '-h', '--help'
-    puts File.read(__FILE__).lines[2..8].map { |l| l.sub(/^# ?/, '') }
+    puts File.read(__FILE__).lines[2..10].map { |l| l.sub(/^# ?/, '') }
     exit 0
   else abort "unknown option #{arg}"
   end
@@ -252,6 +282,23 @@ when :mame
   counters['w_first_bad_2'] = (counters['w_first_bad'].to_i >> 16) & 0xff
   counters['w_first_bad'] = counters['w_first_bad'].to_i & 0xff
   exit(report(counters, check_image(IMAGE), IMAGE) ? 0 : 1)
+when :applen_nib
+  # The write path against a nibble image. AppleWin writes whole tracks back
+  # into the .nib, so what is checked afterwards is nibbles we did not write.
+  require_relative 'apple2-nib'
+  nib = File.join(TEMP, 'apple2_write.nib')
+  File.binwrite(nib, Apple2Nib.from_dsk(File.binread(IMAGE)))
+  memory = Apple2Emu.applen_run(nib, seconds: 60,
+                                config: Apple2Emu.write_config(CONFIG), state: STATE)
+  counters = {}
+  %w[w_sectors w_bad w_write_fail w_read_fail wr_retries].each do |name|
+    counters[name] = memory[labels[name]].ord
+  end
+  counters['w_first_bad'] = memory[labels['w_first_bad']].ord
+  counters['w_first_bad_1'] = memory[labels['w_first_bad'] + 1].ord
+  counters['w_first_bad_2'] = memory[labels['w_first_bad'] + 2].ord
+  puts Apple2Emu.screen_text(memory)[0]
+  exit(report(counters, check_nib(nib), nib) ? 0 : 1)
 when :applen
   memory = Apple2Emu.applen_run(IMAGE, seconds: 60,
                                 config: Apple2Emu.write_config(CONFIG), state: STATE)

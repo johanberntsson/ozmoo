@@ -102,17 +102,13 @@ module Apple2Emu
     path
   end
 
-  # A II+ with 48K and nothing but a Disk II in slot 6.  Written fresh for each
-  # run so a spike never depends on, or disturbs, ~/.config/applewin.
-  def write_config(path)
-    File.write(path, <<~YAML)
-      Configuration:
-        Apple2 Type: 1
-      Configuration\\Slot 0:
-        Card type: 0
-      Configuration\\Slot 6:
-        Card type: 1
-    YAML
+  # Make a configuration file for AppleWin, assuming an Apple 2+ with 48K and nothing but a Disk II
+  # in slot 6, or for -t:apple2e an enhanced 2e
+  def write_config(path, machine: :ii_plus)
+    type = APPLEWIN_MACHINE[machine] or raise "unknown machine #{machine}"
+    slot0 = machine == :ii_plus ? "Configuration\\Slot 0:\n  Card type: 0\n" : ''
+    File.write(path, "Configuration:\n  Apple2 Type: #{type}\n" + slot0 +
+                     "Configuration\\Slot 6:\n  Card type: 1\n")
     path
   end
 
@@ -142,8 +138,8 @@ module Apple2Emu
   # a state, F4 to quit, and hand back the 64K it was holding.  The save state
   # filename has to come from --state-filename; putting it in the config file
   # the way AppleWin writes it does not take, and F11 then writes nothing.
-  def applen_run(image, keys: '', seconds: 4, config: nil, state: nil)
-    config ||= write_config(File.join(TEMP, 'apple2_run.yaml'))
+  def applen_run(image, keys: '', seconds: 4, config: nil, state: nil, machine: :ii_plus)
+    config ||= write_config(File.join(TEMP, "apple2_run_#{machine}.yaml"), machine: machine)
     state  ||= File.join(TEMP, 'apple2_run_state.yaml')
     File.delete(state) if File.exist?(state)
     cmd = [applewin('applen'), '--conf', config, '--state-filename', state,
