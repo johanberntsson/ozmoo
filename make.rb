@@ -36,7 +36,7 @@ else
 		'MEGA65' => "xemu-xmega65 -besure",
 		# AppleWin's SDL front end (audetto's Linux port), which is the
 		# interactive Apple II emulator. MAME's apple2p is the headless one and
-		# is driven from tools/apple2-emu.rb, not from here.
+		# is driven from tools/apple2/apple2-emu.rb, not from here.
 		'APPLE2' => __dir__ + "/AppleWin/build/sa2",
 		'C1541' => "c1541",
 		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
@@ -352,8 +352,9 @@ $d81interleave = [
 $i81 = $d81interleave[1] # Optimal scheme for MEGA65, as far as we can tell. File copying is not done in make.rb for other platforms.
 
 # Sectors between one story block and the next on an Apple II track. 
-# tools/apple2-rwts-spike.rb --sweep reads ten tracks in 8.5 s at 3, 10.7 s
-# at 5, 14.7 s at 7 and 34.7 s at 1, because the 6-and-2 unpack costs
+# The step 1 read spike (since retired) swept the eight possible skews and
+# read ten tracks in 8.5 s at 3, 10.7 s at 5, 14.7 s at 7 and 34.7 s at 1,
+# because the 6-and-2 unpack costs
 # about half a sector time and the sector after the one just read is always
 # missed. Must be odd, or the walk does not visit all sixteen sectors.
 $a2_interleave = 3
@@ -1421,8 +1422,8 @@ class AppleDiskImage < Disk_image
 
 		base_initialize()
 
-		# Consecutive story blocks land three sectors apart, which
-		# tools/apple2-rwts-spike.rb --sweep measured as the fastest of the
+		# Consecutive story blocks land three sectors apart, which the step 1
+		# read spike (since retired) measured as the fastest of the
 		# eight possible skews: 8.5 s against 34.7 s at skew 1 and 14.7 s at
 		# skew 7, for the same ten tracks. The interpreter reads this value
 		# back out of the config track (config_data[5]) and walks the track the

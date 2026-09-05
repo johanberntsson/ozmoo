@@ -2,17 +2,17 @@
 # ---------------------------------------------------------------------------
 # Build and run the Apple II write-path spike
 #
-#   ruby tools/apple2-write-spike.rb            # assemble + build the .dsk
-#   ruby tools/apple2-write-spike.rb --mame     # ...boot it headlessly in MAME
-#                                               #    and check the disk it wrote
-#   ruby tools/apple2-write-spike.rb --applen   # ...the same under AppleWin
-#   ruby tools/apple2-write-spike.rb --applen-nib  # ...writing into a .nib, the
-#                                               #    image the MEGA65 core saves
-#                                               #    into
-#   ruby tools/apple2-write-spike.rb --run      # ...boot it in sa2 (a window)
+#   ruby tools/apple2/apple2-write-spike.rb            # assemble + build the .dsk
+#   ruby tools/apple2/apple2-write-spike.rb --mame     # ...boot it headlessly in MAME
+#                                                      #    and check the disk it wrote
+#   ruby tools/apple2/apple2-write-spike.rb --applen   # ...the same under AppleWin
+#   ruby tools/apple2/apple2-write-spike.rb --applen-nib  # ...writing into a .nib, the
+#                                                      #    image the MEGA65 core saves
+#                                                      #    into
+#   ruby tools/apple2/apple2-write-spike.rb --run      # ...boot it in sa2 (a window)
 #
 # This builds the REAL asm/apple2-rwts.asm and loads
-# tools/apple2-write-prototype.asm in the place the interpreter normally
+# tools/apple2/apple2-write-prototype.asm in the place the interpreter normally
 # occupies, so what runs is the resident RWTS itself. The payload writes every
 # sector of three tracks, reads them all back and compares.
 #
@@ -31,7 +31,7 @@ require_relative 'apple2-emu'
 ROOT    = Apple2Emu::ROOT
 TEMP    = Apple2Emu::TEMP
 RWTS    = File.join(ROOT, 'asm', 'apple2-rwts.asm')
-PAYLOAD = File.join(ROOT, 'tools', 'apple2-write-prototype.asm')
+PAYLOAD = File.join(__dir__, 'apple2-write-prototype.asm')
 IMAGE   = File.join(ROOT, 'apple2_write.dsk')
 CONFIG  = File.join(TEMP, 'apple2_write.yaml')
 STATE   = File.join(TEMP, 'apple2_write_state.yaml')

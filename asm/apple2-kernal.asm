@@ -16,7 +16,7 @@
 
 ; How many passes through the poll below make a sixtieth of a second. The
 ; machine has no timer and no readable vertical blank, so the input loop is the
-; clock. The timing was measured using tools/apple2-clock.rb
+; clock. The timing was measured using tools/apple2/apple2-clock.rb
 !ifndef A2_POLLS_PER_JIFFY {
 A2_POLLS_PER_JIFFY = 128
 }

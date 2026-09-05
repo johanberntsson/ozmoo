@@ -2,12 +2,12 @@
 # ---------------------------------------------------------------------------
 # Run the conformance games on the Apple II and compare them with dfrotz.
 #
-#   ruby tools/apple2-conformance.rb           # czech and praxix, with a verdict
-#   ruby tools/apple2-conformance.rb czech     # just one of them
-#   ruby tools/apple2-conformance.rb -v        # ...and print both transcripts
-#   ruby tools/apple2-conformance.rb --no-build
-#   ruby tools/apple2-conformance.rb -t:apple2e            # the IIe build
-#   ruby tools/apple2-conformance.rb -t:apple2e --driver apple2e   # unenhanced
+#   ruby tools/apple2/apple2-conformance.rb           # czech and praxix, with a verdict
+#   ruby tools/apple2/apple2-conformance.rb czech     # just one of them
+#   ruby tools/apple2/apple2-conformance.rb -v        # ...and print both transcripts
+#   ruby tools/apple2/apple2-conformance.rb --no-build
+#   ruby tools/apple2/apple2-conformance.rb -t:apple2e            # the IIe build
+#   ruby tools/apple2/apple2-conformance.rb -t:apple2e --driver apple2e   # unenhanced
 #
 # Both games print their own verdict - czech counts its 425 tests and praxix
 # says "All tests passed." - and that is the primary check.  The second check is

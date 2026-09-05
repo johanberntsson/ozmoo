@@ -3,12 +3,12 @@
 # Measure the Apple II software clock, and say what A2_POLLS_PER_JIFFY should
 # be.
 #
-#   ruby tools/apple2-clock.rb            # measure both loops, and the verdict
-#   ruby tools/apple2-clock.rb -v         # ...printing the screens it measured
-#   ruby tools/apple2-clock.rb --story examples/dejavu.z3   # another z3/z5 game
-#   ruby tools/apple2-clock.rb --no-build # measure what is already built
-#   ruby tools/apple2-clock.rb -t:apple2e # the IIe build (--driver picks the
-#                                         # MAME machine: apple2ee by default)
+#   ruby tools/apple2/apple2-clock.rb            # measure both loops, and the verdict
+#   ruby tools/apple2/apple2-clock.rb -v         # ...printing the screens it measured
+#   ruby tools/apple2/apple2-clock.rb --story examples/dejavu.z3   # another z3/z5 game
+#   ruby tools/apple2/apple2-clock.rb --no-build # measure what is already built
+#   ruby tools/apple2/apple2-clock.rb -t:apple2e # the IIe build (--driver picks the
+#                                                # MAME machine: apple2ee by default)
 #
 # The II+ has no timer and no readable vertical blank, so the input poll *is*
 # the clock (asm/apple2-kernal.asm): every pass through kernal_getchar counts
@@ -72,7 +72,7 @@ until args.empty?
   else abort "unknown option #{arg}"
   end
 end
-# The MAME machine that matches the build (see tools/apple2-conformance.rb).
+# The MAME machine that matches the build (see tools/apple2/apple2-conformance.rb).
 TARGET = target
 DRIVER = driver || (target == 'apple2' ? 'apple2p' : 'apple2ee')
 

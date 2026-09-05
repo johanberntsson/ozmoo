@@ -2,18 +2,18 @@
 # ---------------------------------------------------------------------------
 # Build and run the Apple II spike (boot sector)
 #
-#   ruby tools/apple2-spike.rb                 # assemble + build the .dsk
-#   ruby tools/apple2-spike.rb --run           # ...and boot it in sa2 (a window)
-#   ruby tools/apple2-spike.rb --ncurses       # ...and boot it in applen, here
-#   ruby tools/apple2-spike.rb --dump          # ...boot it headlessly and print
-#                                              #    the text screen, with a verdict
-#   ruby tools/apple2-spike.rb --dump --keys Z # ...typing Z first
-#   ruby tools/apple2-spike.rb --mame          # ...the same check under MAME
+#   ruby tools/apple2/apple2-spike.rb                 # assemble + build the .dsk
+#   ruby tools/apple2/apple2-spike.rb --run           # ...and boot it in sa2 (a window)
+#   ruby tools/apple2/apple2-spike.rb --ncurses       # ...and boot it in applen, here
+#   ruby tools/apple2/apple2-spike.rb --dump          # ...boot it headlessly and print
+#                                                     #    the text screen, with a verdict
+#   ruby tools/apple2/apple2-spike.rb --dump --keys Z # ...typing Z first
+#   ruby tools/apple2/apple2-spike.rb --mame          # ...the same check under MAME
 #
-# The spike is tools/apple2-prototype.asm, a single boot sector; this script is
-# the throwaway make.rb around it. Nothing here is sourced by a normal build.
-# The RWTS read - is tools/apple2-rwts-prototype.asm and its own driver beside this
-# one; the emulator plumbing both use is tools/apple2-emu.rb.
+# The spike is apple2-prototype.asm beside this file, a single boot sector;
+# this script is the throwaway make.rb around it. Nothing here is sourced by a
+# normal build. The emulator plumbing it shares with the write spike is
+# tools/apple2/apple2-emu.rb.
 #
 # --dump and --mame are the two headless checks, and they see different things.
 # --dump drives AppleWin's ncurses front end in a pty and decodes the text page
@@ -31,7 +31,7 @@ require_relative 'apple2-emu'
 
 ROOT   = Apple2Emu::ROOT
 TEMP   = Apple2Emu::TEMP
-SOURCE = File.join(ROOT, 'tools', 'apple2-prototype.asm')
+SOURCE = File.join(__dir__, 'apple2-prototype.asm')
 BINARY = File.join(TEMP, 'apple2_spike.bin')
 LABELS = File.join(TEMP, 'apple2_spike_labels.txt')  # not acme_labels.txt: that
                                                      # belongs to the last real build

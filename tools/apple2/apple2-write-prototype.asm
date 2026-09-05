@@ -11,7 +11,7 @@
 ; byte for byte. Then rewrite one sector with a second pattern, to prove that
 ; overwriting a data field in place works and does not disturb its neighbours.
 ;
-; The counters are read out of memory by name (tools/apple2-write-spike.rb),
+; The counters are read out of memory by name (tools/apple2/apple2-write-spike.rb),
 ; and the screen gets a one line verdict for the windowed emulators.
 ; ---------------------------------------------------------------------------
 

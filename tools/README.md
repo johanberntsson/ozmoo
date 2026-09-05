@@ -135,7 +135,13 @@ xemu-xmega65 -headless -sleepless -besure -skipunhandledmem \
 It is kept because it is the only place the working VIC-IV register setup is
 written down. It is not part of Ozmoo and nothing sources it.
 
-## apple2-prototype.asm, apple2-spike.rb, apple2-disk.rb
+## tools/apple2/
+
+Everything for the Apple II target lives in its own folder: the two spikes and
+their prototypes, the emulator plumbing they share (`apple2-emu.rb`), the disk
+writer, and the harnesses `make apple2-cat`, `apple2-nib`, `apple2-clock`,
+`apple2-conformance` and `apple2-save` run. Each file's own header says what it
+does; the working detail is in the Apple II sections of `CLAUDE.md`.
 
 `apple2-prototype.asm` is a single 256-byte boot sector. The Disk II boot PROM
 at `$C600` reads track 0 sector 0 into `$0800` and jumps to `$0801`, and what
@@ -156,11 +162,11 @@ mapping applied on the way into the file. It is the sketch of the
 `apple2-spike.rb` assembles it, builds the image and runs it.
 
 ```sh
-ruby tools/apple2-spike.rb --run            # boot it in a window (sa2)
-ruby tools/apple2-spike.rb --ncurses        # boot it in this terminal (applen)
-ruby tools/apple2-spike.rb --dump --keys z  # headless: print the text page
-make apple2-spike                           # the same as --run
-make apple2-spike-dump                      # the same as --dump --keys z
+ruby tools/apple2/apple2-spike.rb --run            # boot it in a window (sa2)
+ruby tools/apple2/apple2-spike.rb --ncurses        # boot it in this terminal (applen)
+ruby tools/apple2/apple2-spike.rb --dump --keys z  # headless: print the text page
+make apple2-spike                                  # the same as --run
+make apple2-spike-dump                             # the same as --dump --keys z
 ```
 
 `--dump` is the headless check. It drives AppleWin's ncurses front end inside

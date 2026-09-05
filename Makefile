@@ -220,71 +220,71 @@ amfv:
 
 # Boot it in a window (AppleWin's SDL front end, sa2).
 apple2-spike:
-	ruby tools/apple2-spike.rb --run
+	ruby tools/apple2/apple2-spike.rb --run
 
 # The headless check: boot it in applen, type a key, dump the text page out of
 # a save state and say whether the screen is what it should be.
 apple2-spike-dump:
-	ruby tools/apple2-spike.rb --dump --keys z
+	ruby tools/apple2/apple2-spike.rb --dump --keys z
 
 # The same check under MAME, which reads the text page out of the running
 # machine rather than out of a save state.
 apple2-spike-mame:
-	ruby tools/apple2-spike.rb --mame
+	ruby tools/apple2/apple2-spike.rb --mame
 
 apple2-write:
-	ruby tools/apple2-write-spike.rb --run
+	ruby tools/apple2/apple2-write-spike.rb --run
 
 apple2-write-mame:
-	ruby tools/apple2-write-spike.rb --mame
+	ruby tools/apple2/apple2-write-spike.rb --mame
 
 apple2-write-dump:
-	ruby tools/apple2-write-spike.rb --applen
+	ruby tools/apple2/apple2-write-spike.rb --applen
 
 apple2-write-nib:
-	ruby tools/apple2-write-spike.rb --applen-nib
+	ruby tools/apple2/apple2-write-spike.rb --applen-nib
 
 # A track's worth of raw nibbles, and what they say about the sectors on it.
 apple2-write-nibbles:
-	ruby tools/apple2-write-spike.rb --nibbles
+	ruby tools/apple2/apple2-write-spike.rb --nibbles
 
 # Save and restore, end to end: save in one run of the machine, reboot, restore
 # in the next, and read the disk here to see the same thing.
 apple2-save:
-	ruby tools/apple2-save.rb $(OPTS)
+	ruby tools/apple2/apple2-save.rb $(OPTS)
 
 IMAGE2 ?= apple2_dejavu.dsk
 IMAGE2E ?= apple2e_dejavu.dsk
 apple2-cat:
-	ruby tools/apple2-cat.rb $(OPTS) $(IMAGE2)
+	ruby tools/apple2/apple2-cat.rb $(OPTS) $(IMAGE2)
 
 
 apple2-nib-check:
-	ruby tools/apple2-nib.rb --verify $(IMAGE2)
-	ruby tools/apple2-nib.rb --boot $(IMAGE2)
+	ruby tools/apple2/apple2-nib.rb --verify $(IMAGE2)
+	ruby tools/apple2/apple2-nib.rb --boot $(IMAGE2)
 
 # The .nib the MEGA65's Apple II core wants, and takes interleave into account
 apple2-nib:
-	ruby tools/apple2-nib.rb $(IMAGE2)
+	ruby tools/apple2/apple2-nib.rb $(IMAGE2)
 apple2e-nib:
-	ruby tools/apple2-nib.rb $(IMAGE2E)
+	ruby tools/apple2/apple2-nib.rb $(IMAGE2E)
 
 # Measure the software clock under MAME and say what A2_POLLS_PER_JIFFY should be
 STORY ?= examples/dejavu.z3
 apple2-clock:
-	ruby tools/apple2-clock.rb --story $(STORY) $(OPTS)
+	ruby tools/apple2/apple2-clock.rb --story $(STORY) $(OPTS)
 
 # The conformance games under MAME, their transcripts taken out of the running
 # machine and compared with dfrotz. Name one (czech, praxix) to run just it.
 apple2-conformance:
-	ruby tools/apple2-conformance.rb $(OPTS)
+	ruby tools/apple2/apple2-conformance.rb $(OPTS)
 apple2e-conformance:
-	ruby tools/apple2-conformance.rb -t:apple2e $(OPTS)
+	ruby tools/apple2/apple2-conformance.rb -t:apple2e $(OPTS)
 apple2e-conformance-unenhanced:
-	ruby tools/apple2-conformance.rb -t:apple2e --driver apple2e $(OPTS)
+	ruby tools/apple2/apple2-conformance.rb -t:apple2e --driver apple2e $(OPTS)
 
 apple2e-save:
-	ruby tools/apple2-save.rb -t:apple2e $(OPTS)
+	ruby tools/apple2/apple2-save.rb -t:apple2e $(OPTS)
 
 clean:
 	rm -rf *d64 *d71 *d81 x16_* apple2*.dsk apple2*.nib

@@ -321,7 +321,7 @@ out for itself (this machine has no timer and no readable vertical blank), and
 an entropy counter sampled when a key is pressed. The clock is a poll count —
 one jiffy every `A2_POLLS_PER_JIFFY` passes through the keyboard poll — so the
 constant is a property of the loop those polls are made from, and it is
-measured rather than reasoned about: `tools/apple2-clock.rb` walks the counter
+measured rather than reasoned about: `tools/apple2/apple2-clock.rb` walks the counter
 forward under MAME and reports what it should be. It is set from the loop a
 read with a timer running uses, since timed input is the only way a game can
 observe the clock's rate, and a timed read then fires within one per cent of
@@ -418,7 +418,7 @@ tracks, that interleave reads them in 8.5 s where reading them in address-field
 order takes 34.7 s. The value is written into the config block, so the
 interpreter walks a track the same way make.rb filled it.
 
-Since such a disk has no catalog, `tools/apple2-cat.rb` is the way to look
+Since such a disk has no catalog, `tools/apple2/apple2-cat.rb` is the way to look
 inside one: it prints the boot chain, the config track decoded, a per-track map
 of every physical sector, and — with `--extract` — the story file reassembled
 out of the disk and checked against the checksum in its own header.

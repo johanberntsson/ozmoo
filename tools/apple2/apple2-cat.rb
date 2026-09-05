@@ -10,7 +10,7 @@
 # whose directory is the config track.
 #
 # Usage:
-#   ruby tools/apple2-cat.rb [options] <image.dsk>
+#   ruby tools/apple2/apple2-cat.rb [options] <image.dsk>
 #
 #     --map              per track picture of where every sector went
 #     --block N          where story data block N lives, and its first bytes
@@ -550,7 +550,7 @@ end
 # it here the same way asm/apple2-deexo.asm does on the machine; without it
 # this tool can still report the layout but cannot read the story back.
 def decrunch(blob)
-  exo = ENV['EXOMIZER'] || File.join(__dir__, '..', 'exomizer', 'src', 'exomizer')
+  exo = ENV['EXOMIZER'] || File.join(__dir__, '..', '..', 'exomizer', 'src', 'exomizer')
   return nil unless File.executable?(exo)
   require 'tmpdir'
   Dir.mktmpdir do |dir|
@@ -611,7 +611,7 @@ while (a = args.shift)
     image_path = a
   end
 end
-abort "usage: ruby tools/apple2-cat.rb [options] <image.dsk>   (--help for the options)" unless image_path
+abort "usage: ruby tools/apple2/apple2-cat.rb [options] <image.dsk>   (--help for the options)" unless image_path
 
 disk = Image.new(image_path, opts[:order])
 boot = BootChain.new(disk)

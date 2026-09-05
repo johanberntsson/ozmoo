@@ -2,15 +2,15 @@
 # ---------------------------------------------------------------------------
 # Write a .nib image of an Apple II 5.25" disk, ourselves, with proper interleave
 #
-#   ruby tools/apple2-nib.rb apple2_dejavu.dsk            # -> apple2_dejavu.nib
-#   ruby tools/apple2-nib.rb game.dsk out.nib
-#   ruby tools/apple2-nib.rb --verify game.dsk            # nibblize, read the
-#                                                         # nibbles back, and
-#                                                         # check every sector
-#   ruby tools/apple2-nib.rb --analyse game.nib 4         # what is on a track
-#   ruby tools/apple2-nib.rb --boot game.dsk              # boot the .dsk and the
-#                                                         # .nib in AppleWin and
-#                                                         # compare the screens
+#   ruby tools/apple2/apple2-nib.rb apple2_dejavu.dsk            # -> apple2_dejavu.nib
+#   ruby tools/apple2/apple2-nib.rb game.dsk out.nib
+#   ruby tools/apple2/apple2-nib.rb --verify game.dsk            # nibblize, read the
+#                                                                # nibbles back, and
+#                                                                # check every sector
+#   ruby tools/apple2/apple2-nib.rb --analyse game.nib 4         # what is on a track
+#   ruby tools/apple2/apple2-nib.rb --boot game.dsk              # boot the .dsk and the
+#                                                                # .nib in AppleWin and
+#                                                                # compare the screens
 #
 # A track is 6656 nibbles ($1A00, which is what a .nib file means by a track).
 # Sixteen sectors of 14 address + 349 data nibbles leave 848 for the gaps, and
@@ -279,8 +279,8 @@ if $PROGRAM_NAME == __FILE__
   if mode == :verify
     # Read every sector back out of the nibbles and compare it with the .dsk
     # it came from. The reader is the one in this file, but its arithmetic is
-    # the RWTS's - and tools/apple2-write-spike.rb's independent decoder is run
-    # over the same images by tools/apple2-nib-check.rb.
+    # the RWTS's; tools/apple2/apple2-write-spike.rb has an independent decoder
+    # of its own, and --applen-nib there runs it over a nib we wrote.
     problems = []
     Apple2Nib::TRACKS.times do |track|
       sectors = Apple2Nib.scan_track(nib[track * Apple2Nib::NIB_TRACK_SIZE, Apple2Nib::NIB_TRACK_SIZE])

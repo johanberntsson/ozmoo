@@ -2,11 +2,11 @@
 # ---------------------------------------------------------------------------
 # Save and restore on the Apple II, end to end and across a reboot.
 #
-#   ruby tools/apple2-save.rb            # build dejavu, save, reboot, restore
-#   ruby tools/apple2-save.rb --no-build # ...against the disk as it stands
-#   ruby tools/apple2-save.rb -v         # ...printing every screen it saw
-#   ruby tools/apple2-save.rb -t:apple2e # the IIe build (--driver picks the
-#                                        # MAME machine: apple2ee by default)
+#   ruby tools/apple2/apple2-save.rb            # build dejavu, save, reboot, restore
+#   ruby tools/apple2/apple2-save.rb --no-build # ...against the disk as it stands
+#   ruby tools/apple2/apple2-save.rb -v         # ...printing every screen it saw
+#   ruby tools/apple2/apple2-save.rb -t:apple2e # the IIe build (--driver picks the
+#                                               # MAME machine: apple2ee by default)
 #
 # Three runs of the machine, because that is the only way to prove a save is on
 # the disk rather than in memory:
@@ -55,7 +55,7 @@ until args.empty?
   else abort "unknown option #{arg}"
   end
 end
-# The MAME machine that matches the build (see tools/apple2-conformance.rb).
+# The MAME machine that matches the build (see tools/apple2/apple2-conformance.rb).
 driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
 IMAGE  = File.join(ROOT, "#{target}_dejavu.dsk")
 DRIVER = driver

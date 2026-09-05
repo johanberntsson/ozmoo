@@ -30,7 +30,7 @@
 ; lowercase, so the fold is visible too.  Then each key pressed is echoed into
 ; the bottom right cell, which gives a headless test something to change.
 ;
-; Build and run it with tools/apple2-spike.rb.
+; Build and run it with tools/apple2/apple2-spike.rb.
 ; ---------------------------------------------------------------------------
 
 !cpu 6502
