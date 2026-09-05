@@ -7,6 +7,11 @@ Apple 2 open bugs and ideas
 - for now the saves are on the game disk itself, but it should be possible to
   have a separate save disk, either in the same drive, or on a second drive.
 
+- currently sherlock is on three disks (ozmoo and saves; story1, story2). It would
+fit on two if you just put some of the story data on the first disk, like -D2 does.
+I'm okay with requiring two drives for larger games, but I'm uncertain about the
+three disk solution. To be discussed.
+
 Apple 2 closed bugs and ideas
 ---------------------------
 
