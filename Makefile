@@ -170,6 +170,11 @@ etude-apple2:
 	ruby make.rb -s -t:apple2 test/etude.z5
 zork1-apple2:
 	ruby make.rb -s -t:apple2 infocom/zork1.z3
+# Test games that are too big to fit on one disk
+aventyr-apple2:
+	ruby make.rb -s -t:apple2 examples/Aventyr.z5
+sherlock-apple2:
+	ruby make.rb -s -t:apple2 infocom/sherlock.z5
 # The Apple IIe target. Phase 2 step 2: the phase-1 interpreter unchanged, at
 # 40 columns, on a machine that the build now refuses to run on if it is older
 # than a IIe. "make apple2e-conformance" is the headless check.
@@ -254,20 +259,20 @@ apple2-save:
 	ruby tools/apple2/apple2-save.rb $(OPTS)
 
 IMAGE2 ?= apple2_dejavu.dsk
-IMAGE2E ?= apple2e_dejavu.dsk
 apple2-cat:
-	ruby tools/apple2/apple2-cat.rb $(OPTS) $(IMAGE2)
+	ruby tools/apple2/apple2-cat.rb $(OPTS) $(IMAGE)
 
 
 apple2-nib-check:
-	ruby tools/apple2/apple2-nib.rb --verify $(IMAGE2)
-	ruby tools/apple2/apple2-nib.rb --boot $(IMAGE2)
+	ruby tools/apple2/apple2-nib.rb --verify $(IMAGE)
+	ruby tools/apple2/apple2-nib.rb --boot $(IMAGE)
 
-# The .nib the MEGA65's Apple II core wants, and takes interleave into account
-apple2-nib:
-	ruby tools/apple2/apple2-nib.rb $(IMAGE2)
-apple2e-nib:
-	ruby tools/apple2/apple2-nib.rb $(IMAGE2E)
+# No longer needed (TODO: remove this later on)
+#apple2-nib:
+#	ruby tools/apple2/apple2-nib.rb $(IMAGE2)
+#IMAGE2E ?= apple2e_dejavu.dsk
+#apple2e-nib:
+#	ruby tools/apple2/apple2-nib.rb $(IMAGE2E)
 
 # Measure the software clock under MAME and say what A2_POLLS_PER_JIFFY should be
 STORY ?= examples/dejavu.z3

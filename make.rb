@@ -362,6 +362,49 @@ $a2_interleave = 3
 A2_TRACK_BYTES      = 16 * 256   # one Apple II track
 A2_FIRST_TERP_TRACK = 2          # track 0 is the boot chain, track 1 the config track
 A2_SAVE_CONFIG_BYTES = 4         # the save area's geometry, at the end of the config block
+A2_MAX_DISKS        = 8          # a limit on the prompting, not on the format
+# Track 0 sector 15 of every disk we build says which disk of which build it
+# is, so the interpreter can tell what the player has just put in the drive.
+# The boot PROM reads sectors 0 upwards, so sector 15 is out of its way and
+# free on a boot disk too. See a2_disk_id_sector and a2_probe_disk (disk.asm).
+A2_ID_TRACK  = 0
+A2_ID_SECTOR = 15
+A2_ID_MAGIC  = "OZA2".bytes
+
+# How many sectors of story data the boot disk can hold, given the tracks the
+# interpreter takes and however many are kept back at the end for save slots.
+# Track 0 is the boot chain and is never story data; track 1 gives up its first
+# two sectors to the config block.
+def a2_boot_disk_capacity(interpreter_tracks, save_tracks)
+	sectors = (AppleDiskImage::TRACKS - 1) * AppleDiskImage::SECTORS_PER_TRACK
+	sectors -= 2                                            # the config block
+	sectors -= interpreter_tracks.length * AppleDiskImage::SECTORS_PER_TRACK
+	sectors -= save_tracks * AppleDiskImage::SECTORS_PER_TRACK
+	sectors
+end
+
+# Write the .nib beside each .dsk. tools/apple2/apple2-nib.rb owns the format;
+# it is required here rather than shelled out to so that there is one
+# implementation of the 6-and-2 encoder and one of the physical sector order.
+def a2_nibblize(paths)
+	require_relative 'tools/apple2/apple2-nib'
+	paths.map do |path|
+		nib = path.sub(/\.dsk$/i, '.nib')
+		File.binwrite(nib, Apple2Nib.from_dsk(File.binread(path)))
+		nib
+	end
+rescue LoadError, StandardError => e
+	# A missing or unhappy converter must not cost anyone their disk image.
+	puts "WARNING: could not write the .nib images: #{e.message}"
+	[]
+end
+
+# The sector that says which disk this is: a magic, the build id (so a disk
+# from another build of the same game is not mistaken for this one), the disk
+# number counting from 1, and how many there are.
+def a2_disk_id_sector(number, count)
+	A2_ID_MAGIC + [$BUILD_ID].pack("I>").unpack("CCCC") + [number, count]
+end
 
 # The top of RAM is lent to asm/apple2-deexo.asm while the crunched
 # interpreter is unpacked, and the vmem cache grows over it afterwards. A
@@ -1442,6 +1485,10 @@ class AppleDiskImage < Disk_image
 	def storydata_end_track
 		@storydata_end_track
 	end
+
+	# Where this image will be written, so a multi-disk build can copy the
+	# story disks out to their final names beside the boot disk.
+	attr_reader :diskimage_filename
 
 	# No BAM and no directory: there is no filesystem to keep up to date.
 	def allocate_sector(track, sector)
@@ -3169,13 +3216,45 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 		exit 1
 	end
 
+	# How many disks the story needs, and how much of the boot disk the save
+	# slots have to be kept out of.
+	#
+	# A save slot is a fixed run of sectors in a reserved part of the disk (see
+	# below), and on a single-disk game there is a tail behind the story to put
+	# it in. On a multi-disk game the story fills the boot disk, so the tracks
+	# have to be held back *before* the story is laid down - which is what
+	# reserving them here does. The slot count is decided first and the disk
+	# count follows, rather than the other way round: a game that is short of a
+	# disk gets another one, and one that is short of save slots has nowhere
+	# else to go.
+	save_bytes = $static_mem_start + 256 * $stack_pages + 20  # dynmem + z-stack + zp
+	save_slot_sectors = (save_bytes + 255) / 256
+	story_sectors = ($story_file_data.length - $story_file_cursor + 255) / 256
+	boot_story_capacity = a2_boot_disk_capacity(interpreter_tracks, 0)
+	multi_disk = story_sectors > boot_story_capacity
+
+	# **On a multi-disk game the boot disk carries no story data at all.** It
+	# holds the boot chain, the config track, the interpreter and the save
+	# slots, and every byte of the story goes on the story disks. That is the
+	# whole difference between a playable single-drive game and an unplayable
+	# one: the player boots from disk 1, is asked once for a story disk, and
+	# then leaves it in the drive - the boot disk is wanted again only to save.
+	# Splitting the story across both, as the C64's -D2 does to keep the heads
+	# still, only makes sense when each disk has a drive of its own.
 	disk = AppleDiskImage.new(diskimage_filename: diskimage_filename,
 		is_boot_disk: true, reserved_tracks: interpreter_tracks)
+	disk.add_story_data(max_story_blocks: multi_disk ? 0 : 9999, add_at_end: false)
 
-	disk.add_story_data(max_story_blocks: 9999, add_at_end: false)
-	if $story_file_cursor < $story_file_data.length
-		puts "ERROR: The whole story doesn't fit on the disk."
-		exit 1
+	story_disks = []
+	while $story_file_cursor < $story_file_data.length
+		if story_disks.length + 2 > A2_MAX_DISKS
+			puts "ERROR: The whole story doesn't fit on #{A2_MAX_DISKS} disks."
+			exit 1
+		end
+		name = File.join($TEMPDIR, "temp_story_#{story_disks.length + 2}.dsk")
+		story = AppleDiskImage.new(diskimage_filename: name, is_boot_disk: false)
+		story.add_story_data(max_story_blocks: 9999, add_at_end: false)
+		story_disks << story
 	end
 	free_blocks = disk.free_blocks()
 	puts "Free disk blocks after story data has been written: #{free_blocks}" if $verbose
@@ -3198,15 +3277,16 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	# inside it - have no counterpart here.
 	vmem_data[3] = 0
 
-	# The save slots go in the free tail of the disk, behind the story. There is
-	# no filesystem, so a slot is simply a fixed run of sectors: the first
-	# sector of the area is a directory (ten fourteen-character comments and a
-	# flag each), and slot n starts one slot-length past it. The interpreter is
-	# told only where the area begins and how long a slot is; the count comes
+	# The save slots live in a reserved part of the boot disk. There is no
+	# filesystem, so a slot is simply a fixed run of sectors: the first sector
+	# of the area is a directory (ten fourteen-character comments and a flag
+	# each), and slot n starts one slot-length past it. The interpreter is told
+	# only where the area begins and how long a slot is; the count comes
 	# through config_data[6] as it does on every target.
+	#
+	# On a single-disk game the area is whatever the story left behind it; on a
+	# multi-disk one it is the tracks held back above.
 	save_first_track = [disk.storydata_end_track, interpreter_tracks.last, $CONFIG_TRACK.to_i].max + 1
-	save_bytes = $static_mem_start + 256 * $stack_pages + 20  # dynmem + z-stack + zp
-	save_slot_sectors = (save_bytes + 255) / 256
 	free_sectors = (AppleDiskImage::TRACKS - save_first_track) *
 		AppleDiskImage::SECTORS_PER_TRACK - 1   # less the directory sector
 	a2_save_slots = free_sectors < save_slot_sectors ? 0 :
@@ -3219,17 +3299,31 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 			"from track #{save_first_track} (#{free_sectors} sectors free)"
 	end
 	config_data[6] = a2_save_slots
+	config_data[7] = 1 + 1 + story_disks.length  # save entry, boot disk, story disks
 
-	# Config data about the boot / story disk, in the same shape build_S1 uses:
+	# Config data about each disk, in the same shape build_S1 and build_D2 use:
 	# bytes used, device# = 0 (auto), last story sector + 1 (word), tracks with
-	# an entry, the per-track map, then the disk's name.
-	disk_info_size = 11 + disk.config_track_map.length
+	# an entry, the per-track map, then the disk's name. The boot disk comes
+	# first and the story disks follow in the order the story was laid on them,
+	# which is the order readblock walks looking for a block.
 	last_block_plus_1 = 0
-	disk.config_track_map.each{|i| last_block_plus_1 += (i & 0x3f)}
-	config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256,
-		disk.config_track_map.length] + disk.config_track_map
-	config_data += [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]
-	config_data[4] += disk_info_size
+	a2_disks = [disk] + story_disks
+	a2_disks.each_with_index do |d, i|
+		name = if i.zero?
+			story_disks.empty? ?
+				[DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0] :
+				[DISKNAME_BOOT, DISKNAME_DISK, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, "1".ord, 0]
+		else
+			[DISKNAME_STORY, DISKNAME_DISK, (i + 1).to_s.ord, 0]
+		end
+		disk_info_size = 5 + d.config_track_map.length + name.length
+		d.config_track_map.each{|m| last_block_plus_1 += (m & 0x3f)}
+		config_data += [disk_info_size, 0, last_block_plus_1 / 256, last_block_plus_1 % 256,
+			d.config_track_map.length] + d.config_track_map + name
+		config_data[4] += disk_info_size
+	end
+	boot_story_sectors = 0
+	disk.config_track_map.each{|m| boot_story_sectors += (m & 0x3f)}
 
 	if $VMEM
 		# ...and the last four bytes of the config track are the save area, so
@@ -3243,24 +3337,66 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	config_data += [0] * (512 - A2_SAVE_CONFIG_BYTES - config_data.length)
 	config_data += [save_first_track, save_slot_sectors, 0, 0]
 
+	# Every disk says which disk of which build it is, so the interpreter can
+	# tell what the player has just put in the drive (a2_probe_disk, disk.asm).
+	a2_disks.each_with_index do |d, i|
+		d.write_sector(A2_ID_TRACK, A2_ID_SECTOR, a2_disk_id_sector(i + 1, a2_disks.length))
+	end
+
 	disk.set_config_data(config_data)
 	disk.save()
-	FileUtils.cp(diskimage_filename, diskfilename)
+	story_disks.each { |d| d.save() }
+
+	# One disk keeps the plain name; a set is named the way the C64's -D2 names
+	# its two, so a directory listing sorts them in order.
+	names = if story_disks.empty?
+		[diskfilename]
+	else
+		["#{$target}_#{storyname}_boot_story_1.dsk"] +
+			(2..a2_disks.length).map { |n| "#{$target}_#{storyname}_story_#{n}.dsk" }
+	end
+	unless story_disks.empty?
+		# Leave no single-disk image of the same game lying about to be booted
+		# by mistake: it would have a config track claiming disks that are not
+		# there.
+		File.delete(diskfilename) if File.exist?(diskfilename)
+	end
+	a2_disks.each_with_index do |d, i|
+		FileUtils.cp(i.zero? ? diskimage_filename : d.diskimage_filename, names[i])
+	end
+
+	# ...and the .nib of each, which is what the MEGA65's Apple II core takes.
+	# It is written here rather than left to `make apple2-nib` because this is
+	# the one place every Apple disk is produced - a build straight from
+	# make.rb makes them too - and because a target that autostarts an emulator
+	# would otherwise not write the nib until the emulator was closed.
+	nibs = a2_nibblize(names)
 
 	if $verbose
 		puts "Apple II disk layout:"
 		puts "  track  0     boot chain + resident RWTS, #{boot.length} bytes in #{boot_sectors} sectors"
+		puts "               (and the disk id in sector #{A2_ID_SECTOR})"
 		puts "  track  #{$CONFIG_TRACK}     config track, sectors 0-1"
 		what = deexo_entry.zero? ? "interpreter + dynmem" : "crunched interpreter + dynmem"
 		puts "  tracks #{interpreter_tracks.first}-#{interpreter_tracks.last}   #{what}, #{blob.length} bytes in " +
 			"#{terp_sectors} sectors, loads at $#{load_address.to_s(16)} " +
 			"(interpreter at $#{$start_address.to_s(16)}, story from $#{$storystart.to_s(16)})"
-		puts "  story        #{last_block_plus_1} sectors at interleave #{disk.interleave}, " +
+		puts "  story        #{boot_story_sectors} sectors at interleave #{disk.interleave}, " +
 			"#{free_blocks} sectors free"
+		if a2_save_slots > 0
+			puts "  tracks #{save_first_track}-#{AppleDiskImage::TRACKS - 1}  " +
+				"#{a2_save_slots} save slots of #{save_slot_sectors} sectors"
+		end
+		story_disks.each_with_index do |d, i|
+			blocks = 0
+			d.config_track_map.each{|m| blocks += (m & 0x3f)}
+			puts "  #{names[i + 1]}: #{blocks} sectors of story data, #{d.free_blocks} sectors free"
+		end
 	end
 
-	$bootdiskname = "#{diskfilename}"
-	puts "Successfully built game as #{$bootdiskname}"
+	$bootdiskname = names.first
+	puts "Successfully built game as #{names.join(' + ')}" +
+		(nibs.empty? ? "" : " (+ #{nibs.length == 1 ? File.basename(nibs.first) : "#{nibs.length} .nib images"} for the MEGA65 core)")
 	nil # Signal success
 end
 
