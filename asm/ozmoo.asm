@@ -2201,14 +2201,47 @@ a2e_identify
 	bne +
 	ldx #A2_MACHINE_IIC
 +	stx a2_machine
+	; ...and fall through into the screen init code
+
+a2e_screen_init
+	; Turn on the 80 column screen
+	;
+	; Is the aux RAM the even columns live in actually there? A IIe with
+	; no 80 column card has none. Test it in the aux half of a screen hole
+	sta A2_SET80STORE
+	sta A2_AUX_HALF
+	lda #$a5
+	sta $0478
+	sta A2_MAIN_HALF
+	lda #$5a
+	sta $0478
+	sta A2_AUX_HALF
+	lda $0478
+	sta A2_MAIN_HALF
+	cmp #$a5
+	bne .no_aux
+	sta A2_SET80VID
+	sta A2_SETALTCHAR
 	rts
+.no_aux
+	ldx #<.needs_80col
+	ldy #>.needs_80col
+	jmp .refuse
 .too_old
+	ldx #<.needs_iie
+	ldy #>.needs_iie
+.refuse
+	; Show error message on the 40 column screen (since 80 failed)
+	stx .refuse_msg + 1
+	sty .refuse_msg + 2
 	lda TXTSET
 	lda MIXCLR
 	lda LOWSCR
 	lda HIRESOFF
 	ldy #0
--	lda .needs_iie,y
+-
+.refuse_msg
+	lda $ffff,y
 	beq +
 	ora #$80
 	sta SCREEN_ADDRESS,y
@@ -2216,6 +2249,7 @@ a2e_identify
 	bne -
 +	jmp *
 .needs_iie !text "OZMOO: THIS DISK NEEDS AN APPLE IIE.",0
+.needs_80col !text "OZMOO: NEEDS AN 80 COLUMN CARD.",0
 }
 
 deletable_init_start

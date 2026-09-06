@@ -623,7 +623,22 @@ character_translation_table_in_mappings_end
 ; $5f ; Underscore = underscore-like graphic character
 ; $5c ; Backslash => (somewhat) backslash-like graphic character
 
-!ifdef TARGET_APPLE2_FAMILY {
+!ifdef TARGET_APPLE2E {
+; A IIe's alternate character set is the whole of ASCII $20-$7e, so none of the
+; substitutions the II+ needs below apply here: ` { | } ~ _ and \ are all real
+; glyphs and are printed as themselves. Only the pound sign has nowhere to go,
+; and it is spelled out rather than left to default_unicode_out (which reaches
+; the same 'L') because the search loop below needs a table with something in
+; it: an empty one would index off its own front.
+character_translation_table_out
+; NOTE: Must be sorted on ZSCII value, descending!
+; ZSCII codes, mapped *FROM*
+!byte $db
+character_translation_table_out_end
+; ASCII codes, mapped *TO*
+!byte $4c
+character_translation_table_out_mappings_end
+} else ifdef TARGET_APPLE2_FAMILY {
 ; The Apple II's character set is ASCII $20-$5f, so four of the mappings below
 ; are wrong here: _ \| and the pound sign. Use similar replacements instead
 character_translation_table_out

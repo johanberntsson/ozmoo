@@ -66,6 +66,10 @@ splash_line_y
 	adc #20
 }
 }
+!ifdef TARGET_APPLE2E {
+	clc
+	adc #20
+}
 	tay
 	jsr set_cursor
 	ldy z_temp

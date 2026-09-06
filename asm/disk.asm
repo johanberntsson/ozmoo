@@ -1141,6 +1141,12 @@ z_ins_restart
 !ifdef TARGET_APPLE2_FAMILY {
 	; The Apple's restart is the boot chain over again. $0801 is the stage 2
 	; the Disk II PROM loaded at power-on
+!ifdef TARGET_APPLE2E {
+	; Need to restore 40 columns before reboot
+	sta A2_CLR80VID
+	sta A2_CLRALTCHAR
+	sta A2_CLR80STORE
+}
 	jmp $0801
 } else {
 	; insert device# for boot disk in LOAD command

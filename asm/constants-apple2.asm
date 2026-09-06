@@ -13,6 +13,11 @@ SCREEN_HEIGHT         = 24
 SCREEN_WIDTH          = 40
 SCREEN_ADDRESS        = $0400
 
+; How many bytes of screen memory one row occupies. On this machine that is
+; simply the width; on a IIe the row is split between two banks and it is half
+; of it, which is why the screen code asks for this rather than the width.
+A2_ROW_BYTES          = SCREEN_WIDTH
+
 COLOUR_ADDRESS        = $d000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 

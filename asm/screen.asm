@@ -36,7 +36,7 @@ init_screen_colours
 	ldx s_screen_height_minus_one
 	lda a2_row_lo,x
 	clc
-	adc s_screen_width_minus_one
+	adc #A2_ROW_BYTES - 1
 	sta .more_access1 + 1
 	sta .more_access2 + 1
 	sta .more_access4 + 1
@@ -854,7 +854,15 @@ print_line_from_buffer
 	} else {
 		ora print_buffer2,y
 	}
+	!ifdef TARGET_APPLE2E {
+		; y is a buffer index AND an absolute screen column, and on the 80
+		; column screen those are no longer the same thing: the cell is at
+		; column / 2 in one of two banks. a2_put_char hands y back untouched,
+		; so the loop is otherwise unchanged.
+		jsr a2_put_char
+	} else {
 		sta (zp_screenline),y
+	}
 	!ifdef COLOURFUL_LOWER_WIN {
 	!ifdef TARGET_PLUS4 {
 		ldx s_colour

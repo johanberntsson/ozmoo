@@ -433,7 +433,67 @@ s_screen_size !byte 0, 0
 s_x16_screen_mode	!byte 0
 }
 
-!ifdef TARGET_APPLE2_FAMILY {
+!ifdef TARGET_APPLE2E {
+convert_petscii_to_screencode
+	; The IIe's alternate character set, which a2e_screen_init turns on, is the
+	; whole of ASCII: a cell is the character with bit 7 set for normal video and
+	; clear for inverse. The one hole is $40-$5f, which is MouseText on an
+	; enhanced IIe, so inverse UPPER case has to be written as $00-$1f - and this
+	; therefore produces the inverse form throughout, which the two application
+	; sites turn into normal video with ora #$80, exactly as the II+ path does.
+	;
+	; What arrives is PETSCII, so the letter cases are the other way round from
+	; ASCII: $41-$5a is lower case and $c1-$da is upper (streams.asm's
+	; translate_zscii_to_petscii swaps them on every target).
+	cmp #$40
+	bcc ++    ; $20-$3f: digits and punctuation, the same in both
+	cmp #$60
+	bcs .high
+	cmp #$41
+	bcc +     ; exactly $40, '@'
+	cmp #$5b
+	bcs +     ; $5b-$5f: [ \ ] ^ _
+	; $41-$5a, lower case: ASCII $61-$7a, and the alternate set puts inverse
+	; lower case at those same codes
+	and #$1f
+	ora #$60
+	rts
++	and #%00111111
+	rts
+.high
+	cmp #$80
+	bcc ++
+	and #%00111111 ; upper case is $c1-$da, and anything else is best effort
+++	rts
+
+a2_put_char
+	; put chanr on the 80 column text page
+	; a = the byte to display, y = the column. Preserves a, x and y
+	;
+	; A cell is one byte in one of two banks: (row, column) is at
+	; zp_screenline + column / 2, in aux RAM for an even column and in main for an
+	; odd one. 80STORE is on for the whole session, so the PAGE2 switch alone picks
+	; the bank, and it does so for $0400-$07ff and nothing else - instruction fetch,
+	; the zero page, the stack and the vmem cache are in main RAM whatever it says.
+	; Main is the resting state, and every routine that leaves this one restores it.
+	sty .a2_column
+	pha
+	tya
+	lsr             ; c = the column's bit 0, a = the byte offset into the row
+	tay
+	pla             ; does not touch the carry
+	bcs +           ; an odd column is in main RAM, which is already selected
+	sta A2_AUX_HALF ; (the value written to a soft switch is ignored)
+	sta (zp_screenline),y
+	sta A2_MAIN_HALF
+	ldy .a2_column
+	rts
++	sta (zp_screenline),y
+	ldy .a2_column
+	rts
+
+.a2_column !byte 0
+} else ifdef TARGET_APPLE2_FAMILY {
 convert_petscii_to_screencode
 	; A screen code on this machine is always SIX bits plus two bits for video mode
 	cmp #$40
@@ -557,7 +617,11 @@ s_delete_cursor
 	jmp VERAPrintChar
 } else {
 	ldy zp_screencolumn
+!ifdef TARGET_APPLE2E {
+	jsr a2_put_char
+} else {
 	sta (zp_screenline),y
+}
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
 	lda plus4_vic_colours,x
@@ -634,7 +698,11 @@ s_printchar
 } else ifdef TARGET_X16 {
     jsr VERAPrintChar
 } else {
-	sta (zp_screenline),y
+	!ifdef TARGET_APPLE2E {
+		jsr a2_put_char
+	} else {
+		sta (zp_screenline),y
+	}
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -727,7 +795,11 @@ s_printchar
 	; lda s_colour
 	; jsr VERAPrintColourAfterChar
 } else {
-	sta (zp_screenline),y
+	!ifdef TARGET_APPLE2E {
+		jsr a2_put_char
+	} else {
+		sta (zp_screenline),y
+	}
 	!ifdef TARGET_MEGA65 {
 		jsr colour2k
 	}
@@ -1048,15 +1120,27 @@ s_scrolled_lines !byte 0
 	sta .a2_scroll_store + 1
 	lda a2_row_hi,x
 	sta .a2_scroll_store + 2
-	ldy s_screen_width_minus_one
+!ifdef TARGET_APPLE2E {
+	; A row is 40 bytes in each of two banks, and moving a row up does not
+	; change any column's parity, so the two halves are the same 40 byte copy
+	; run twice with the bank switched between them.
+	sta A2_AUX_HALF
+	jsr .a2_copy_row
+	sta A2_MAIN_HALF
+}
+	jsr .a2_copy_row
+	inx
+	bne .a2_scroll_row ; Always branch
+
+.a2_copy_row
+	ldy #A2_ROW_BYTES - 1
 .a2_scroll_load
 	lda $8000,y ; This address is modified above
 .a2_scroll_store
 	sta $8000,y ; This address is modified above
 	dey
 	bpl .a2_scroll_load
-	inx
-	bne .a2_scroll_row ; Always branch
+	rts
 } else {
 	ldx window_start_row + 1 ; how many top lines to protect
 	inx
@@ -1345,6 +1429,8 @@ s_erase_line
 	lda #SPACE_SCREENCODE
 !ifdef TARGET_X16 {
     sta VERA_data0
+} else ifdef TARGET_APPLE2E {
+	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
 }
@@ -1431,7 +1517,11 @@ update_cursor
 }
 !ifndef TARGET_X16 {
     lda cursor_character
+!ifdef TARGET_APPLE2E {
+    jsr a2_put_char
+} else {
     sta (zp_screenline),y
+}
     lda current_cursor_colour
 !ifdef TARGET_PLUS4 {
     stx object_temp + 1

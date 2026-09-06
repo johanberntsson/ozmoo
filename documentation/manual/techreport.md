@@ -287,11 +287,10 @@ a scrollback buffer, so this does not collide with the tile store.
 Apple II support is being added. Three targets are planned: `-t:apple2`, a 48 KB
 Apple II or II+; `-t:apple2e`, a 128 KB IIe with 80 columns, mixed case and
 version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound.
-`-t:apple2` is complete and is what everything below describes. `-t:apple2e`
-builds and plays, but so far it is that same interpreter at 40 columns: what it
-adds is that it reads the ROM identification bytes at startup and refuses a
-machine older than a IIe, since the 80-column screen and the auxiliary memory it
-will use are not there on one. `-t:apple2gs` still refuses the build.
+`-t:apple2` is complete and is what most of what follows describes.
+`-t:apple2e` builds and plays, on 80 columns and in mixed case; what it does not
+have yet is the language card, the auxiliary memory cache and version 6.
+`-t:apple2gs` still refuses the build.
 
 `-t:apple2` is deliberately the smallest thing that can run a game: 48 KB, the
 40-column uppercase text page, no colour, no sound and no version 6. Unlike the
@@ -312,6 +311,19 @@ with its own number, which is how the interpreter knows what has been put in. Un
 out: 48K leaves no room for the buffer. The standard conformance games both
 pass on this target — czech reports 406 of its tests passed and none failed,
 and praxix reports that all of its do.
+
+The IIe build draws on the machine's 80-column screen in mixed case. That screen
+is the same interleaved text page, with each row split between the two banks of a
+128 KB machine: the even columns of a row are in auxiliary memory and the odd
+ones in main, and the interpreter switches between them for each character it
+writes. It reads the ROM identification bytes at startup and refuses a machine
+older than a IIe, and it refuses a IIe with no 80-column card, since half of
+every line would be missing on one; the small 1 KB card is enough. Text is drawn
+from the alternate character set, which is where the machine's lower case lives.
+Typing is echoed in lower case whether or not CAPS LOCK is down, since a IIe
+gives the same code for a shifted letter as for a locked one. Everything else
+— the disk layout, the save slots, multiple disks and the second drive — is the
+same on both machines.
 
 Saved games go in the free tail of the boot disk, behind the story. There is no
 filesystem, so a save is not a file: the interpreter is told at boot where the

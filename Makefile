@@ -188,6 +188,10 @@ etude-apple2e:
 	ruby make.rb -s -t:apple2e test/etude.z5
 zork1-apple2e:
 	ruby make.rb -s -t:apple2e infocom/zork1.z3
+aventyr-apple2e:
+	ruby make.rb -s -t:apple2e examples/Aventyr.z5
+sherlock-apple2e:
+	ruby make.rb -s -t:apple2e infocom/sherlock.z5
 dejavu-apple2gs:
 	ruby make.rb -s -t:apple2gs examples/dejavu.z3
 
@@ -260,12 +264,12 @@ apple2-save:
 
 IMAGE2 ?= apple2_dejavu.dsk
 apple2-cat:
-	ruby tools/apple2/apple2-cat.rb $(OPTS) $(IMAGE)
+	ruby tools/apple2/apple2-cat.rb $(OPTS) $(IMAGE2)
 
 
 apple2-nib-check:
-	ruby tools/apple2/apple2-nib.rb --verify $(IMAGE)
-	ruby tools/apple2/apple2-nib.rb --boot $(IMAGE)
+	ruby tools/apple2/apple2-nib.rb --verify $(IMAGE2)
+	ruby tools/apple2/apple2-nib.rb --boot $(IMAGE2)
 
 # No longer needed (TODO: remove this later on)
 #apple2-nib:
@@ -283,6 +287,9 @@ apple2-clock:
 # machine and compared with dfrotz. Name one (czech, praxix) to run just it.
 apple2-conformance:
 	ruby tools/apple2/apple2-conformance.rb $(OPTS)
+apple2-shot:
+	ruby tools/apple2/apple2-shot.rb $(OPTS)
+
 apple2e-conformance:
 	ruby tools/apple2/apple2-conformance.rb -t:apple2e $(OPTS)
 apple2e-conformance-unenhanced:

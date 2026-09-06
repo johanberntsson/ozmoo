@@ -76,8 +76,22 @@ kernal_getchar
 	lda #$14
 	rts
 .no_delete
-	; Fold lower case up. A real II+ keyboard cannot send it at all, but a IIe
-	; with SHIFT-LOCK off can, and the MEGA65's Apple II core does.
+	; Both cases of a letter onto PETSCII's UNSHIFTED range, $41-$5a. That is
+	; what a C64 keyboard produces when nothing is held down, and it is what
+	; every screen in the tree draws as lower case - including the IIe's, once
+	; ALTCHARSET is on. So this is a normalisation, not the II+ workaround it
+	; looks like: a II+ cannot send lower case at all, but a IIe can, and the
+	; answer has to be the same either way.
+	;
+	; The reason it cannot be a case-preserving translation is the keyboard: on
+	; an Apple IIe a letter key sends the same code whether SHIFT is held or
+	; CAPS LOCK is down, and there is no soft switch to tell them apart. Keep
+	; the case and the echo follows CAPS LOCK - a machine-wide latch that most
+	; IIe owners leave down out of II+ habit - so a player types `look` and the
+	; screen answers `LOOK` in the middle of the game's own mixed case text.
+	; Folding also puts ZSCII in lower case, which is what z-spec 10.2 asks of
+	; a `read`; the parser lowercases anyway, so nothing is lost but the ability
+	; to put a capital in a save comment.
 	cmp #$61
 	bcc .no_fold
 	cmp #$7b
@@ -124,7 +138,9 @@ a2_init
 	lda #>A2_POLLS_PER_JIFFY
 	sta a2_jiffy_sub + 1
 	; Text, page 1, no mixed graphics. The boot chain has done this already,
-	; but a restart comes back through here without going through the boot.
+	; and on a IIe a2e_screen_init has since turned the 80 column screen on -
+	; so LOWSCR here means "the main half", not "display page 1", and the two
+	; happen to want the same switch.
 	lda TXTSET
 	lda MIXCLR
 	lda LOWSCR
