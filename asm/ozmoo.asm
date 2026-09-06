@@ -1340,6 +1340,10 @@ statmem_reu_banks !byte 0
 !source "screenkernal.asm"
 !source "screen.asm"
 }
+; Everything from here to objecttable.asm is the half of the interpreter the
+; Apple IIe build runs from the language card, and there it is assembled at the
+; end of this file instead - see A2_LANGCARD below. Keep the two lists in step.
+!ifndef A2_LANGCARD {
 !source "streams.asm" ; Must come before "text.asm"
 ;!ifdef SOUND {
 !source "sound.asm"
@@ -1359,6 +1363,7 @@ statmem_reu_banks !byte 0
 !source "text.asm"
 !source "dictionary.asm"
 !source "objecttable.asm"
+}
 
 
 !ifdef NO_VMEM_CACHE {
@@ -2252,9 +2257,101 @@ a2e_screen_init
 .needs_80col !text "OZMOO: NEEDS AN 80 COLUMN CARD.",0
 }
 
+!ifdef A2_LANGCARD {
+!zone a2_lc_init
+a2_lc_init
+	; bring the language card up and move the top half of the interpreter into it.
+	ldx story_start + header_static_mem      ; big endian, so the pages first
+	lda story_start + header_static_mem + 1
+	beq +
+	inx                                      ; a part page still costs a page
++	txa
+	and #1
+	beq +
+	inx                                      ; ...and a block is two of them
++	txa
+	clc
+	adc #>story_start
+	sta .lc_src + 2
+
+	; Read ROM, write RAM. The copy reads main RAM below $C000, which no
+	; language card switch touches, and writes into the card.
+	lda A2_LC_ROM_WR
+	lda A2_LC_ROM_WR
+
+	ldx #a2_lc_pages
+	ldy #0
+.lc_copy
+.lc_src
+	lda $ff00,y
+.lc_dst
+	sta A2_LC_CODE_START,y
+	iny
+	bne .lc_copy
+	inc .lc_src + 2
+	inc .lc_dst + 2
+	dex
+	bne .lc_copy
+
+	; The CPU's vectors are in the card now, so point all three at the stub
+	; that puts the ROM back before using them.
+	ldx #4
+-	lda #<a2_reset_stub
+	sta $fffa,x
+	lda #>a2_reset_stub
+	sta $fffb,x
+	dex
+	dex
+	bpl -
+
+	; ...and from here on the card answers reads as well, for the session.
+	lda A2_LC_RAM
+	lda A2_LC_RAM
+	rts
+}
+
 deletable_init_start
 !ifdef TARGET_APPLE2E {
 	jsr a2e_identify
+}
+!ifdef TARGET_APPLE2_FAMILY {
+	; Nothing clears memory on this machine. The Apple restart is the boot
+	; chain over again (z_ins_restart, disk.asm), which re-reads the
+	; interpreter and dynamic memory but leaves the zero page exactly as the
+	; game left it - so the vmem cache lookup starts out believing whatever it
+	; believed a moment ago, about a cache the reload may have just written
+	; over. It bites in the quick index rather than in vmap_used_entries: a
+	; stale index is a false hit, and a false hit hands back a page without
+	; reading it, so the dictionary comes back as whatever is at that address.
+	; (Which is spectacular rather than subtle - parse_dictionary reads a
+	; terminator count from it and writes that many bytes.) Clearing it here
+	; costs a cold boot nothing and covers one on real hardware too, where the
+	; zero page comes up random rather than zeroed as it does under emulation.
+	; This is the same state prepare_static_high_memory sets up, only earlier,
+	; before anything can read a byte through it.
+	lda #$ff
+	sta zp_pc_h
+	sta zp_pc_l
+	lda #0
+	sta vmap_used_entries
+	sta vmap_quick_index_match
+	ldx #vmap_quick_index_length
+-	sta vmap_next_quick_index,x
+	dex
+	bpl -
+	; ...and the map itself, which is the half that actually bit: a leftover
+	; entry naming the very block the next read wants is a hit, and a hit
+	; returns the cache page without reading it.
+	tax
+-	sta vmap_buffer_start,x
+	inx
+	bne -
+}
+!ifdef A2_LANGCARD {
+	; Before anything else: half the interpreter is still sitting where the
+	; boot chain left it and has to be moved into the language card before any
+	; of it is called.
+	jsr a2_lc_init
 }
 
 ; Moved MEGA65 pointer init here
@@ -3376,4 +3473,42 @@ story_start
 }
 !ifndef config_load_address {
 	config_load_address = SCREEN_ADDRESS
+}
+
+; ---------------------------------------------------------------------------
+; The Apple IIe's language card half of the interpreter.
+;
+; $D800-$FFFF is 10K of RAM that the machine has and cannot otherwise use, so
+; the interpreter's upper half is assembled to run there. It is emitted here,
+; past story_start, because ACME's output is addressed rather than streamed:
+; anywhere earlier and the code that follows would be assembled around the hole
+; rather than compacted into it, which is the whole point - every byte moved up
+; here is a byte of main RAM that becomes vmem cache.
+;
+; make.rb splits the assembled file at story_start and lays the two halves down
+; either side of dynamic memory, and a2_lc_init copies this half up at boot.
+; ---------------------------------------------------------------------------
+!ifdef A2_LANGCARD {
+!pseudopc A2_LC_CODE_START {
+a2_lc_code_start
+!source "streams.asm" ; Must come before "text.asm"
+!source "sound.asm"
+	!if SUPPORT_REU = 1 {
+	!source "reu.asm"
+	}
+!source "memory.asm"
+!source "stack.asm"
+!source "vmem.asm"
+!source "zmachine.asm"
+!source "zaddress.asm"
+!source "text.asm"
+!source "dictionary.asm"
+!source "objecttable.asm"
+	!align 255, 0, 0   ; whole pages, so a2_lc_init can copy in page steps
+a2_lc_code_end
+}
+a2_lc_pages = (a2_lc_code_end - a2_lc_code_start) / 256
+!if a2_lc_code_end > A2_LC_CODE_END {
+	!error "The language card half of the interpreter does not fit in $D800-$FFF9. Move a file out of the list at the end of ozmoo.asm."
+}
 }

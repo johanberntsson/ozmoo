@@ -179,6 +179,19 @@ a2_drive
                                         ; twelve timeouts for an empty one. It
                                         ; is honoured by a read and ignored by a
                                         ; write, which sets its own retry count
+rw_slot
+        !byte 0                         ; $0812: slot * 16, latched from the
+                                        ; PROM's own $2B the first time through
+                                        ; rwts_init. It is in the header rather
+                                        ; than down with the other rw_ bytes so
+                                        ; that z_ins_restart can put it back in
+                                        ; $2B before it comes round through boot
+                                        ; again: $2B is Ozmoo's mem_temp + 1 by
+                                        ; then, and the PROM is not going to
+                                        ; write it a second time. Moved rather
+                                        ; than copied, for the reason a2_drive
+                                        ; and rw_atrk are - a declaration costs
+                                        ; nothing where an instruction would.
 
 ; ---------------------------------------------------------------------------
 ; boot: clear the screen, bring the interpreter in, jump to it.
@@ -1059,7 +1072,6 @@ skew_table
 ; ---------------------------------------------------------------------------
 ; State. All of it lives here rather than in the zero page, which is Ozmoo's.
 ; ---------------------------------------------------------------------------
-rw_slot         !byte 0         ; slot * 16
 rw_half         !byte 0         ; where the head is, in half-tracks
 rw_sel_drive    !byte 0         ; the drive the controller is talking to
 rw_dest_half    !byte 0

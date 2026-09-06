@@ -288,8 +288,9 @@ Apple II support is being added. Three targets are planned: `-t:apple2`, a 48 KB
 Apple II or II+; `-t:apple2e`, a 128 KB IIe with 80 columns, mixed case and
 version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound.
 `-t:apple2` is complete and is what most of what follows describes.
-`-t:apple2e` builds and plays, on 80 columns and in mixed case; what it does not
-have yet is the language card, the auxiliary memory cache and version 6.
+`-t:apple2e` builds and plays, on 80 columns and in mixed case, and runs half of
+itself from the language card; what it does not have yet is the auxiliary memory
+cache and version 6.
 `-t:apple2gs` still refuses the build.
 
 `-t:apple2` is deliberately the smallest thing that can run a game: 48 KB, the
@@ -324,6 +325,34 @@ Typing is echoed in lower case whether or not CAPS LOCK is down, since a IIe
 gives the same code for a shifted letter as for a locked one. Everything else
 — the disk layout, the save slots, multiple disks and the second drive — is the
 same on both machines.
+
+On a IIe the upper half of the interpreter runs from the language card. That is
+the name — a misleading one, and worth explaining once rather than tripping over
+every time it appears — for the 16 kilobytes of RAM the machine has behind the
+12 kilobytes of ROM at \$d000-\$ffff, switched in over it by soft switches at
+\$c080-\$c08f. It has nothing to do with programming languages. On an Apple II or
+II+ it really was a card, sold in 1979 to be plugged into slot 0, and what people
+put in it was Integer BASIC or the Pascal system in place of the Applesoft in
+ROM — the language you wanted, hence the name. On a IIe there is no card: the
+memory is on the motherboard and the switches are in the MMU, so that software
+would keep working. Sixteen kilobytes fit behind twelve because \$d000-\$dfff is
+doubled: two 4K banks answer at those addresses and only one of them is live,
+which leaves Ozmoo a spare 4K it does not use.
+
+The disk carries that half of the interpreter behind the story's dynamic memory,
+and the first thing the interpreter does at startup is switch the card in and
+copy it there; from then on the ROM is gone for the rest of the session, and the
+memory it was hiding is the interpreter's. Losing the ROM costs nothing, since
+Ozmoo calls none of it — the one thing it reads, the bytes that say which Apple
+this is, it reads before the card goes in.
+Nothing is switched again, so the code runs at the same speed as any other. What
+this is for is the memory it gives back below: every byte moved up is a byte
+more of the virtual memory cache, which grows by about a fifth for a small game
+and by three quarters for a large one, and it is also the room the version 6
+interpreter will need. The bottom two kilobytes of the card are left as
+scratch, because a machine with no colour memory still has an interpreter that
+writes a colour beside every character it prints, and those writes have to land
+somewhere harmless.
 
 Saved games go in the free tail of the boot disk, behind the story. There is no
 filesystem, so a save is not a file: the interpreter is told at boot where the
@@ -363,6 +392,29 @@ video. The three characters PETSCII draws with graphics because it lacks them,
 translation table: the first two exist here and pass through unchanged, and the
 third, which does not, prints as `!`.
 
+Neither Apple II target has colour, and no amount of work would give them any.
+A text cell on an Apple II is a single byte — the character and its video mode —
+with no attribute byte beside it and no colour memory behind it, and the text
+display is a one-bit dot stream with no register anywhere that tints it. That is
+why the interpreter's colour writes are pointed at \$d000, where the machine's
+own ROM is: the shared code stores a colour beside every character it prints,
+and on this target those stores are meant to go nowhere. Colour exists only in
+the graphics modes, and none of them can carry readable text. Double high
+resolution, the only mode as wide as 80 columns, is monochrome at that width;
+its colour mode is a quarter as wide, so a character cell there is under two
+colour pixels across. High resolution can colour a 40-column cell, since a cell
+is exactly one byte and each byte chooses between two palettes, but its colours
+come from pairs of dots, so a one-dot stroke of a letter is coloured and two
+adjacent ones are white — which is why Apple II programs that want text to be
+read use the text page. The cost would settle it in any case: a bitmap screen
+is 8 or 16 KB against a virtual memory cache of 28 KB, every character becomes
+a glyph copied into an interleaved framebuffer rather than a single store, and
+scrolling a line goes from moving under two kilobytes to moving fifteen. So a
+colour pair that is the exact swap of the screen's is drawn as inverse video, as
+on any other target without per-cell colours, and Ozmoo reports to the game that
+it has no colours to offer. Colour arrives with the IIgs and its Super Hi-Res
+screen, which is what the third target is for.
+
 ### Apple II memory map
 
 | **Address range** | **KB** |  **Usage** |
@@ -379,7 +431,7 @@ third, which does not, prints as `!`.
 | \$1000- | about 12 | Interpreter, then the z-stack and the vmem cache |
 | storystart-\$bfff | about 31 | Dynamic memory, then virtual memory |
 | \$c000-\$cfff | 4 | Card I/O |
-| \$d000-\$ffff | 12 | BASIC and monitor ROM |
+| \$d000-\$ffff | 12 | BASIC and monitor ROM. On a IIe the language card answers here instead: \$d000-\$d7ff scratch for the colour writes, \$d800-\$ffff the interpreter's upper half |
 
 The interpreter starts at \$1000 rather than at the foot of RAM because
 \$0800-\$0FFF belongs to the boot chain, which stays resident for the whole

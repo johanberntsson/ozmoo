@@ -323,9 +323,14 @@ end
 # The story file, reassembled. Dynamic memory is not on the story data tracks:
 # make.rb appends it to the interpreter, so it arrives with it in one sweep and
 # the disk's first story block is the story file's first block *above* dynamic
-# memory. Its size is not written down anywhere on the disk, so it is found by
-# trying each 512 byte boundary in the interpreter blob for a z-machine header
-# whose own checksum then validates the whole reconstruction.
+# memory. Neither where it starts nor how long it is is written down anywhere on
+# the disk, so it is found by walking the interpreter blob for a page that looks
+# like a z-machine header, taking the length its own static memory base implies,
+# and validating the whole reconstruction against the checksum.
+#
+# It is a search rather than "the tail of the blob" because a -t:apple2e blob
+# does not end with dynamic memory: the language card half of the interpreter is
+# appended behind it (build_A2), so dynmem sits in the middle.
 # ---------------------------------------------------------------------------
 class Story
   attr_reader :version, :release, :serial, :dynmem, :declared_length, :static_mem
@@ -334,16 +339,24 @@ class Story
   def initialize(terp_blob, story_data)
     @found = false
     return if terp_blob.nil? or terp_blob.empty?
-    dyn = 512
-    while dyn <= terp_blob.length
-      off = terp_blob.length - dyn
-      if try(terp_blob[off, dyn], story_data)
+    off = 0
+    while off + 512 <= terp_blob.length
+      static = (terp_blob[off + 0x0e] << 8) | terp_blob[off + 0x0f]
+      dyn = ((static + 511) / 512) * 512
+      if dyn >= 512 and off + dyn <= terp_blob.length and
+         try(terp_blob[off, dyn], story_data)
         @found = true
+        @offset = off
+        @langcard = terp_blob.length - (off + dyn)
         return
       end
-      dyn += 512
+      off += 256
     end
   end
+
+  # Where dynamic memory turned out to start in the blob, and how much is behind
+  # it - which on a IIe disk is the language card half of the interpreter.
+  attr_reader :offset, :langcard
 
   def found?    = @found
   def checksum? = @checksum && @checksum != 0 && @checksum == @computed_checksum
@@ -621,7 +634,7 @@ def report_story(story, map)
   puts "Story file"
   unless story.found?
     puts "  Could not reassemble it: no z-machine header with a matching checksum was found"
-    puts "  in the tail of the interpreter's tracks. That is expected for a disk built by"
+    puts "  in the interpreter's tracks. That is expected for a disk built by"
     puts "  something other than build_A2, and a bug in the layout otherwise."
     puts
     return
@@ -630,6 +643,9 @@ def report_story(story, map)
   field "release / serial", "#{story.release} / #{story.serial}"
   field "length", "#{story.declared_length} bytes (from its own header)"
   field "dynamic memory", "#{story.dynmem} bytes (static memory starts at $%04x), carried behind the interpreter" % story.static_mem
+  if story.langcard.to_i > 0
+    field "language card half", "#{story.langcard} bytes behind dynamic memory, copied to $d800 at boot"
+  end
   field "on the story tracks", "#{map.total * SECTOR_SIZE} bytes"
   if story.checksum == 0
     field "header checksum", "none in this story file (computed $%04x)" % story.computed_checksum

@@ -30,6 +30,43 @@ A2_LAST_SECTOR        = $0810   ; field the drive decoded. After a read that
 A2_DRIVE              = $0811   ; which drive on the controller, 1 or 2. Set
                                 ; once and it stays; the driver keeps a head
                                 ; position for each and swaps them over
+A2_SLOT               = $0812   ; slot * 16, latched by the driver from the
+                                ; PROM's own $2B at boot
+A2_BOOTSLOT_ZP        = $2b     ; ...and where the PROM left it, which the
+                                ; driver still reads on the way through boot.
+                                ; It is mem_temp + 1 to us, so a restart has to
+                                ; put A2_SLOT back there before jumping to $0801
+
+; --- the language card ------------------------------------------------------
+; $D000-$FFFF is ROM on a bare machine and 16K of RAM on any IIe (and on a II+
+; with a language card). The switches are $C080-$C08F: bit 3 picks the bank
+; that answers at $D000-$DFFF, bit 0 write-enables the RAM - and a write enable
+; only takes if the address is READ twice in a row, which is why the pairs
+; below are always written out twice. $E000-$FFFF is shared by both banks, so
+; bank 1 gives one contiguous 12K window from $D000 up.
+;
+; Ozmoo uses bank 1 and never switches again after boot: A2_LC_RAM leaves the
+; RAM readable AND writable for the rest of the session, because the code that
+; lives there self-modifies like any other Ozmoo code. Only the reset stub
+; (apple2-kernal.asm) ever puts the ROM back.
+A2_LC_ROM_WR          = $C089   ; read ROM, write RAM  (bank 1) - copy state
+A2_LC_ROM             = $C08A   ; read ROM, RAM write protected - the ROM back
+A2_LC_RAM             = $C08B   ; read RAM, write RAM  (bank 1) - resting state
+
+; The 4K at $D000-$DFFF that bank 1 answers with is split in two. The bottom
+; 2K is where COLOUR_ADDRESS points: this machine has no colour memory, and the
+; shared screen code writes a colour beside every character it prints, so those
+; writes are given a real 2K of scratch to land in rather than being wrapped in
+; an ifdef at 133 sites. The clear in .change_colours walks (screen size >> 8)
+; + 1 whole pages from COLOUR_ADDRESS, which is the 8 pages a 80x24 screen
+; needs - hence the check, since one page more would reach the code above it.
+; Everything from A2_LC_CODE_START up is interpreter code, moved off the disk
+; by a2_lc_init at boot.
+A2_LC_CODE_START      = $D800
+A2_LC_CODE_END        = $FFFA   ; the last six bytes are the CPU's vectors
+!if SCREEN_WIDTH * SCREEN_HEIGHT >= (A2_LC_CODE_START - COLOUR_ADDRESS) {
+	!error "The colour scratch below A2_LC_CODE_START is too small for this screen."
+}
 
 ; --- zero page --------------------------------------------------------------
 ; Laid out like the X16's, which is the most recent map written from scratch
@@ -131,8 +168,10 @@ zp_cursorswitch       = $a5
 zp_screenline         = $a6 ; 2 bytes current line (pointer to screen memory)
 zp_screencolumn       = $a8 ; current cursor column
 zp_screenrow          = $a9 ; current cursor row
-zp_colourline         = $aa ; 2 bytes, and it points at colour_dump on this
-                            ; target, because there is no colour memory
+zp_colourline         = $aa ; 2 bytes. There is no colour memory on this
+                            ; machine, so it points into the scratch below
+                            ; A2_LC_CODE_START - which is real RAM on a IIe and
+                            ; ROM, and so a no-op, on a II+
 cursor_row			  = $ac ; 2 bytes
 
 window_start_row	  = $ae ; 4 bytes

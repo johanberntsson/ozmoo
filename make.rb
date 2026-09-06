@@ -1635,6 +1635,11 @@ def build_interpreter()
 		optionalsettings += " -DTARGET_#{$target.upcase}=1"
 		# Every Apple target shares common routines and belong to the appl2 family.
 		optionalsettings += " -DTARGET_APPLE2_FAMILY=1" if $target =~ /^apple2/
+		# The language card: a IIe (and a IIc, and a IIgs) always has the 16K
+		# at $D000-$FFFF, so the interpreter's upper half is assembled to run
+		# there instead of in main RAM. A II+ may have no card at all, so
+		# -t:apple2 never gets this.
+		optionalsettings += " -DA2_LANGCARD=1" if $target =~ /^apple2(e|gs)$/
 	end
 	if $is_lurkinghorror
 		# need to know if compiling a Lurking Horror game
@@ -3189,14 +3194,33 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	# exomizer the same bytes as a second file at $storystart. Without it the
 	# interpreter comes up and reads its dictionary out of whatever was in RAM.
 	interpreter = IO.binread($ozmoo_file).unpack("C*")
+
+	# With the language card (-t:apple2e) the assembled file carries a second
+	# half past story_start: the code that will run at $D800-$FFFF, assembled
+	# there with !pseudopc and emitted at the end because ACME's output is
+	# addressed rather than streamed. Split it off here and it goes back on
+	# behind dynamic memory, so the blob is still one contiguous read and
+	# a2_lc_init finds the image a known distance above story_start.
+	main_length = $storystart - $start_address
+	langcard = []
+	if interpreter.length > main_length
+		langcard = interpreter[main_length .. -1]
+		interpreter = interpreter[0, main_length]
+	end
+
 	if $VMEM
 		dynmem = vmem_contents[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
-		if interpreter.length != $storystart - $start_address
+		if interpreter.length != main_length
 			puts "ERROR: the interpreter is #{interpreter.length} bytes but story_start is " +
-				"#{$storystart - $start_address} above it; dynamic memory would land in the wrong place."
+				"#{main_length} above it; dynamic memory would land in the wrong place."
 			exit 1
 		end
 		interpreter += dynmem.unpack("C*")
+	end
+	interpreter += langcard
+	if !langcard.empty? and $verbose
+		puts "Language card: #{langcard.length} bytes at $D800, staged at " +
+			"$#{($storystart + $dynmem_blocks * $VMEM_BLOCKSIZE).to_s(16)}"
 	end
 
 	# What goes on the disk is either that as it stands, or, with -a2c, the
@@ -3632,11 +3656,12 @@ begin
 				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "apple2e" then
-				# The same main-RAM map as the II+ for now: the interpreter
-				# still lives between the resident boot chain and the card I/O.
-				# What a IIe adds - the language card at $D000 and the 64K of
-				# aux RAM - are steps of their own later in phase 2, and
-				# neither changes this window.
+				# The same main-RAM window as the II+: the interpreter lives
+				# between the resident boot chain and the card I/O. The
+				# language card at $D000 does not change it - it holds the
+				# interpreter's upper half, which shortens what is below
+				# rather than moving either end - and the 64K of aux RAM is a
+				# step of its own later in phase 2.
 				$start_address = 0x1000
 				$memory_end_address = 0xc000
 				$unbanked_ram_end_address = $memory_end_address

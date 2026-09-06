@@ -1147,6 +1147,18 @@ z_ins_restart
 	sta A2_CLRALTCHAR
 	sta A2_CLR80STORE
 }
+	; The boot chain reads the controller's slot out of $2B, where the PROM
+	; left it - and $2B is mem_temp + 1 to us, so by now it holds whatever the
+	; game was last pointing at. Put the driver's own latched copy back.
+	lda A2_SLOT
+	sta A2_BOOTSLOT_ZP
+!ifdef A2_LANGCARD {
+	; And put the ROM back, so that the machine the boot chain starts on is the
+	; one it started on at power-on. It does not need the ROM itself, but a
+	; failed boot leaves the player on Ctrl-Reset, and by then the interpreter
+	; a2_lc_init pointed the vectors into has been half overwritten.
+	lda A2_LC_ROM
+}
 	jmp $0801
 } else {
 	; insert device# for boot disk in LOAD command

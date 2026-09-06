@@ -172,7 +172,30 @@ kernal_readchar
 ; ROM boots whatever is in the drive.
 ; ---------------------------------------------------------------------------
 kernal_reset
+!ifdef A2_LANGCARD {
+	jmp a2_reset_stub
+} else {
 	jmp ($fffc)
+}
+
+!ifdef A2_LANGCARD {
+; ---------------------------------------------------------------------------
+; a2_reset_stub: put the ROM back and go through its own reset vector.
+;
+; With the language card banked in, $FFFA-$FFFF are our RAM rather than the
+; ROM's vectors, so a reset - Ctrl-Reset, which is a real 6502 RESET - would
+; vector wherever those six bytes happened to say. a2_lc_init therefore points
+; all three vectors here, and here we bank the ROM back before reading $FFFC,
+; which is then the ROM's own. NMI and IRQ land here too and reboot: this
+; machine has no interrupt source, and a reboot beats a jump into whatever the
+; interpreter left at $FFFE.
+;
+; It is also how kernal_reset exits, since the same two instructions are what a
+; deliberate reset needs.
+a2_reset_stub
+	lda A2_LC_ROM
+	jmp ($fffc)
+}
 
 ; ---------------------------------------------------------------------------
 ; kernal_delay_1ms: one millisecond, near enough (200 * 5 = 1000 cycles at
