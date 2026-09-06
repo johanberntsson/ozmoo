@@ -2885,8 +2885,14 @@ show_more_prompt
     ; 40 columns
 +
 }
+!ifdef TARGET_APPLE2E {
+	jsr .more_select_bank
+}
 .more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+!ifdef TARGET_APPLE2E {
+	sta A2_MAIN_HALF        ; a soft switch ignores the value, so a survives
+}
 	sta .more_text_char
 !ifdef Z6_FCM_MODE {
 	; A cell is two bytes here, and over a picture the high byte points into
@@ -2912,9 +2918,15 @@ show_more_prompt
 } else {
 	lda #128 + $2a ; screen code for reversed "*"
 }
+!ifdef TARGET_APPLE2E {
+	jsr .more_select_bank
+}
 .more_access2
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
+!ifdef TARGET_APPLE2E {
+	sta A2_MAIN_HALF
+}
 } else {
 	jsr vera_save_more_cell	; the X16 keeps its cell's character AND colour
 }
@@ -3005,9 +3017,15 @@ show_more_prompt
 +
 }
 	lda .more_text_char
+!ifdef TARGET_APPLE2E {
+	jsr .more_select_bank
+}
 .more_access4
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
+!ifdef TARGET_APPLE2E {
+	sta A2_MAIN_HALF
+}
 } else {
 	jsr vera_hide_more		; ...which puts the saved cell back
 }
@@ -3023,6 +3041,19 @@ show_more_prompt
 	rts
 
 .more_text_char !byte 0
+!ifdef TARGET_APPLE2E {
+; The prompt's cell is in aux for an even column and main for an odd one, and
+; main is the resting state, so this selects it and each access puts main back.
+; a is preserved because the caller's character has to survive it.
+.more_bank !byte 0
+.more_select_bank
+	pha
+	lda .more_bank
+	beq +
+	sta A2_AUX_HALF
++	pla
+	rts
+}
 .more_blink_phase !byte 0
 
 !ifdef Z6_FCM_MODE {
@@ -3117,6 +3148,18 @@ show_more_prompt
 	lda zp_screencolumn ; a cell is two bytes wide
 	asl
 	sta .more_cell_offset
+} else ifdef TARGET_APPLE2E {
+	; A cell is at column / 2 in one of two banks (see a2_put_char), so the
+	; offset is halved and the parity is kept for the accesses below to select
+	; with. Without this the prompt writes 39 bytes past the end of its row,
+	; which on an interleaved screen is somewhere in the middle of another one.
+	lda zp_screencolumn
+	lsr
+	sta .more_cell_offset
+	lda zp_screencolumn
+	and #1
+	eor #1                  ; an EVEN column is the aux half
+	sta .more_bank
 } else {
 	lda zp_screencolumn
 	sta .more_cell_offset
