@@ -2045,9 +2045,18 @@ z_init
 	jsr write_header_byte
 !ifdef Z5PLUS {
 !ifdef Z6_PIXELS {
+!ifdef TARGET_APPLE2_FAMILY {
+	; 24 rows here, not 25, and this word has to agree with the lines byte
+	; written just above or a game divides one by the other and lays itself
+	; out a row too tall (testz6 reports it as "size (cells)").
+	lda #<(SCREEN_HEIGHT * Z6_UNIT_H)
+	tax
+	lda #>(SCREEN_HEIGHT * Z6_UNIT_H)
+} else {
 	lda #<(25 * Z6_UNIT_H)	; 200 art pixel rows
 	tax
 	lda #>(25 * Z6_UNIT_H)
+}
 	ldy #header_screen_height_units
 	jsr write_header_word
 } else {

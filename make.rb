@@ -489,7 +489,16 @@ class Disk_image
 				if track < first_story_track then
 					sector_count = reserved_sectors
 				elsif track == first_story_track
-					sector_count = first_story_track_max_sectors + reserved_sectors
+					# and no further than the story itself goes. The map
+					# records how many sectors this track really used, and the
+					# reader walks the interleave modulo reserved + that, so
+					# laying them down modulo the whole track puts them in an
+					# order the reader does not reproduce. It only shows on a
+					# story whose data ENDS on the first story track - under
+					# 3.5 KB of paged data on an Apple II disk - because every
+					# other track takes the branch below, which already caps
+					# the count this way.
+					sector_count = [first_story_track_max_sectors, num_sectors].min + reserved_sectors
 				elsif sector_count - reserved_sectors > num_sectors
 					sector_count = num_sectors + reserved_sectors
 				end

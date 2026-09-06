@@ -63,6 +63,27 @@
 
 !zone screenkernal {
 
+!ifdef TARGET_APPLE2_FAMILY {
+; The text page is not laid out in rows. It is three interleaved blocks of
+; eight, so a row's base is $400 + (row & 7) * $80 + (row >> 3) * $28 - which
+; is why .update_screenpos below has a table where every other target has a
+; multiply, why .s_scroll cannot walk from one row to the next by adding the
+; screen width, and why the [More] prompt's cell is not SCREEN_ADDRESS plus
+; width times height (see init_screen_colours in screen.asm).
+;
+; The four "screen holes" in each 128 byte block ($478-$47f and friends) belong
+; to peripheral cards and are not on screen; a 40 column row never reaches
+; them.
+a2_row_lo
+	!for .r, 0, SCREEN_HEIGHT - 1 {
+		!byte <(SCREEN_ADDRESS + (.r & 7) * $80 + (.r >> 3) * $28)
+	}
+a2_row_hi
+	!for .r, 0, SCREEN_HEIGHT - 1 {
+		!byte >(SCREEN_ADDRESS + (.r & 7) * $80 + (.r >> 3) * $28)
+	}
+}
+
 !ifdef TARGET_X16 {
 colour_petscii !byte 144,5,28,159,156,30,31,158,129,149,150,151,152,153,154,155
 }
@@ -981,6 +1002,74 @@ ecm_set_window_bg
 .ecm_window !byte 0
 }
 
+!ifdef TARGET_APPLE2E {
+convert_petscii_to_screencode
+	; The IIe's alternate character set, which a2e_screen_init turns on, is the
+	; whole of ASCII: a cell is the character with bit 7 set for normal video and
+	; clear for inverse. The one hole is $40-$5f, which is MouseText on an
+	; enhanced IIe, so inverse UPPER case has to be written as $00-$1f - and this
+	; therefore produces the inverse form throughout, which the two application
+	; sites turn into normal video with ora #$80, exactly as the II+ path does.
+	;
+	; What arrives is PETSCII, so the letter cases are the other way round from
+	; ASCII: $41-$5a is lower case and $c1-$da is upper (streams.asm's
+	; translate_zscii_to_petscii swaps them on every target).
+	cmp #$40
+	bcc ++    ; $20-$3f: digits and punctuation, the same in both
+	cmp #$60
+	bcs .high
+	cmp #$41
+	bcc +     ; exactly $40, '@'
+	cmp #$5b
+	bcs +     ; $5b-$5f: [ \ ] ^ _
+	; $41-$5a, lower case: ASCII $61-$7a, and the alternate set puts inverse
+	; lower case at those same codes
+	and #$1f
+	ora #$60
+	rts
++	and #%00111111
+	rts
+.high
+	cmp #$80
+	bcc ++
+	and #%00111111 ; upper case is $c1-$da, and anything else is best effort
+++	rts
+
+a2_put_char
+	; put chanr on the 80 column text page
+	; a = the byte to display, y = the column. Preserves a, x and y
+	;
+	; A cell is one byte in one of two banks: (row, column) is at
+	; zp_screenline + column / 2, in aux RAM for an even column and in main for an
+	; odd one. 80STORE is on for the whole session, so the PAGE2 switch alone picks
+	; the bank, and it does so for $0400-$07ff and nothing else - instruction fetch,
+	; the zero page, the stack and the vmem cache are in main RAM whatever it says.
+	; Main is the resting state, and every routine that leaves this one restores it.
+	sty .a2_column
+	pha
+	tya
+	lsr             ; c = the column's bit 0, a = the byte offset into the row
+	tay
+	pla             ; does not touch the carry
+	bcs +           ; an odd column is in main RAM, which is already selected
+	sta A2_AUX_HALF ; (the value written to a soft switch is ignored)
+	sta (zp_screenline),y
+	sta A2_MAIN_HALF
+	ldy .a2_column
+	rts
++	sta (zp_screenline),y
+	ldy .a2_column
+	rts
+
+.a2_column !byte 0
+} else ifdef TARGET_APPLE2_FAMILY {
+convert_petscii_to_screencode
+	; A screen code on this machine is always SIX bits plus two bits for video mode
+	cmp #$40
+	bcc +     ; digits and punctuation are six bits already
+	and #%00111111
++	rts
+} else {
 convert_petscii_to_screencode
    ; convert from pet ascii to screen code
 	cmp #$40
@@ -998,6 +1087,7 @@ convert_petscii_to_screencode
 	eor #%11000000
 +	and #%01111111
 ++ 	rts
+}
 
 s_init
 	; set up screen_width and screen_width_minus_one
@@ -1232,9 +1322,15 @@ s_delete_cursor
 	asl
 	tay
 }
-	lda #$20 ; blank space
+	lda #SPACE_SCREENCODE ; blank space
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
+} else ifdef TARGET_APPLE2_FAMILY {
+	; A blank is $a0 here, not $20 - the top two bits of a screen byte are its
+	; video mode - and a swapped pair reverses it, which on a screen with no
+	; colours is a solid field of the glyph colour. So the swap flips bit 7
+	; rather than setting it.
+	eor s_colour_swap
 } else {
 	ora s_colour_swap ; swapped colours erase to a field of the glyph colour
 }
@@ -1250,7 +1346,11 @@ s_delete_cursor
 !ifndef Z6_FCM_MODE {
 	ldy zp_screencolumn
 }
+!ifdef TARGET_APPLE2E {
+	jsr a2_put_char
+} else {
 	sta (zp_screenline),y
+}
 	+clear_cell_high_byte
 !ifdef TARGET_PLUS4 {
 	ldx s_colour
@@ -1337,7 +1437,7 @@ s_printchar
 } else {
 	ldy zp_screencolumn
 }
-	lda #$20
+	lda #SPACE_SCREENCODE
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
 }
@@ -1356,7 +1456,11 @@ s_printchar
 } else ifdef TARGET_X16 {
     jsr VERAPrintChar
 } else {
+!ifdef TARGET_APPLE2E {
+	jsr a2_put_char
+} else {
 	sta (zp_screenline),y
+}
 	+clear_cell_high_byte
 !ifdef Z6_FCM_MODE {
 	lda s_colour
@@ -1424,6 +1528,16 @@ s_printchar
 !ifdef Z6_ECM_MODE {
 	and #$3f ; only 64 characters, and the top bits select the background
 	ora ecm_bits
+} else ifdef TARGET_APPLE2_FAMILY {
+	; A screen byte's top two bits are its video mode on this machine: bit 7
+	; set is normal, clear is inverse. convert_petscii_to_screencode leaves the
+	; inverse form, so normal video is that with bit 7 on - and s_reverse, $80
+	; when reverse video is asked for, flips it back off. A swapped colour pair
+	; is the same flip: this is the reversed-glyph class, and on a screen with
+	; no colours at all it is the whole of the colour model.
+	ora #$80
+	eor s_reverse
+	eor s_colour_swap ; swapped colours render as reverse video
 } else {
 	ora s_reverse
 	ora s_colour_swap ; swapped colours render as reverse video
@@ -1475,7 +1589,11 @@ s_printchar
 .nc_no_bake
 	pla
 }
+!ifdef TARGET_APPLE2E {
+	jsr a2_put_char
+} else {
 	sta (zp_screenline),y
+}
 	+clear_cell_high_byte
 !ifdef Z6_FCM_MODE {
 	lda s_colour
@@ -1653,6 +1771,18 @@ s_erase_window
     lda #0
 	sta zp_screenline
 	sta zp_colourline
+} else ifdef TARGET_APPLE2_FAMILY {
+	; Interleaved rows, so the base comes straight out of the table rather than
+	; from row * width.
+	lda a2_row_lo,x
+	sta zp_screenline
+	clc
+	adc #<COLOUR_ADDRESS_DIFF
+	sta zp_colourline
+	lda a2_row_hi,x
+	sta zp_screenline + 1
+	adc #>COLOUR_ADDRESS_DIFF
+	sta zp_colourline + 1
 } else ifdef TARGET_MEGA65 {
 	; calculate zp_screenline = zp_current_screenpos_row * SCREEN_ROW_BYTES
 	; Use MEGA65's hardware multiplier
@@ -1849,6 +1979,106 @@ s_scrolled_lines !byte 0
 !ifdef SCROLLBACK {
 	inc s_scrolled_lines
 }
+!ifdef TARGET_APPLE2_FAMILY {
+	; Interleaved rows, and on a IIe a row split between two banks. The generic
+	; path below steps its row pointers by the screen width, which neither of
+	; those allows, so this re-reads each row's base out of the table - and it
+	; copies the window's columns as two runs of BYTE offsets rather than as a
+	; run of columns: the even ones from aux and the odd ones from main. A row
+	; change does not change a column's parity, so both runs are the same for
+	; every row and are worked out once here.
+	;
+	;   even columns: from (left + 1) / 2, as many as there are
+	;   odd columns:  from  left / 2,      the rest
+	;
+	; There is no raster to wait for, so scroll_delay has nothing to do here.
+	lda .win_left
+	cmp .win_right_excl
+	bcc +
+	jmp .done_scrolling             ; no columns: nothing to move
++
+	lda .win_right_excl
+	sec
+	sbc .win_left
+	sta .a2_odd_count               ; the width, for now
+	lda .win_left
+	lsr
+	sta .a2_odd_first               ; left / 2
+	lda .win_left
+	clc
+	adc #1
+	lsr
+	sta .a2_even_first              ; (left + 1) / 2
+	lda .win_left
+	and #1
+	eor #1                          ; 1 when the first column is even
+	clc
+	adc .a2_odd_count
+	lsr
+	sta .a2_even_count
+	lda .a2_odd_count
+	sec
+	sbc .a2_even_count
+	sta .a2_odd_count
+
+	lda .win_top
+	sta .a2_row
+.a2_scroll_row
+	ldx .a2_row
+	cpx .win_bottom
+	bcc +
+	jmp .done_scrolling
++
+	lda a2_row_lo + 1,x             ; read from the row below...
+	sta .a2_scroll_load + 1
+	lda a2_row_hi + 1,x
+	sta .a2_scroll_load + 2
+	lda a2_row_lo,x                 ; ...into this one
+	sta .a2_scroll_store + 1
+	lda a2_row_hi,x
+	sta .a2_scroll_store + 2
+!ifdef TARGET_APPLE2E {
+	sta A2_AUX_HALF
+	ldy .a2_even_first
+	ldx .a2_even_count
+	jsr .a2_copy_run
+	sta A2_MAIN_HALF
+	ldy .a2_odd_first
+	ldx .a2_odd_count
+	jsr .a2_copy_run
+} else {
+	; One bank, so a column IS a byte offset and the two runs are one.
+	ldy .win_left
+	ldx .a2_odd_count
+	clc
+	txa
+	adc .a2_even_count
+	tax
+	jsr .a2_copy_run
+}
+	inc .a2_row
+	bne .a2_scroll_row              ; always branch
+	
+.a2_copy_run
+	; copy x bytes of one row, from byte offset y, or nothing if x is 0
+	cpx #0
+	beq +
+-
+.a2_scroll_load
+	lda $8000,y                     ; these two addresses are modified above
+.a2_scroll_store
+	sta $8000,y
+	iny
+	dex
+	bne -
++	rts
+
+.a2_row        !byte 0
+.a2_even_first !byte 0
+.a2_even_count !byte 0
+.a2_odd_first  !byte 0
+.a2_odd_count  !byte 0
+} else {
 	ldx .win_top ; the window's first line is the first line to overwrite
 	inx
 	stx zp_screenrow
@@ -2052,6 +2282,7 @@ s_scrolled_lines !byte 0
 	inc .scroll_load_colour + 2
 }
 	bne - ; Always branch
+}
 }
 
 .done_scrolling
@@ -2490,16 +2721,22 @@ s_erase_line
 }
 	bcs .done_erasing
 	; set character
-	lda #$20
+	lda #SPACE_SCREENCODE
 !ifdef Z6_ECM_MODE {
 	ora ecm_bits ; keep the window's background colour
+} else ifdef TARGET_APPLE2_FAMILY {
+	eor s_colour_swap ; see s_delete_cursor: the swap flips bit 7 here
 } else {
 	ora s_colour_swap ; swapped colours erase to a field of the glyph colour
 }
 !ifdef TARGET_X16 {
     sta VERA_data0
 } else {
+!ifdef TARGET_APPLE2E {
+	jsr a2_put_char
+} else {
 	sta (zp_screenline),y
+}
 	+clear_cell_high_byte
 }
 !ifdef TARGET_PLUS4 {
@@ -2607,7 +2844,11 @@ update_cursor
     tay
 }
     lda cursor_character
+!ifdef TARGET_APPLE2E {
+    jsr a2_put_char
+} else {
     sta (zp_screenline),y
+}
     +clear_cell_high_byte
     lda current_cursor_colour
 !ifdef TARGET_PLUS4 {
@@ -3196,6 +3437,23 @@ s_track_colours
 	cpx current_window
 	bne .stc_store_swap	; another window: the screen's own pair stays put
 	sta s_colour_swap
+!ifdef TARGET_APPLE2_FAMILY {
+	; ...but not here. On every other target a pair that is not a swap is
+	; applied for real, so it becomes the screen's own and later swaps are
+	; measured against it. This screen has no colours to apply: it stays white
+	; on black whatever a game asks for, so the pair it is measured against
+	; must stay BGCOL/FGCOL too. Letting it drift would make "the exact swap"
+	; mean something different later in the game than it did at the start,
+	; and reverse video is the only distinction this screen can draw.
+	;
+	; The rule itself stays the exact swap rather than "any background that is
+	; not the screen's". All four v6 games ask for the exact swap and nothing
+	; else - it is how Arthur boxes a parser message and how Journey and
+	; Shogun draw their status bands - and treating every other pair as
+	; reverse would put a game that merely sets a global background into
+	; inverse video from end to end.
+	jmp .stc_store_swap
+}
 	; the pair is about to be applied for real: it becomes the screen's own,
 	; which every later swap is measured against
 	lda z_operand_value_low_arr + 1

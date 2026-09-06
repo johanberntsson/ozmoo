@@ -289,8 +289,8 @@ Apple II or II+; `-t:apple2e`, a 128 KB IIe with 80 columns, mixed case and
 version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound.
 `-t:apple2` is complete and is what most of what follows describes.
 `-t:apple2e` builds and plays, on 80 columns and in mixed case, runs half of
-itself from the language card and keeps 46 kilobytes of the story in auxiliary
-memory; what it does not have yet is version 6.
+itself from the language card, keeps 46 kilobytes of the story in auxiliary
+memory, and plays version 6 games.
 `-t:apple2gs` still refuses the build.
 
 `-t:apple2` is deliberately the smallest thing that can run a game: 48 KB, the
@@ -396,6 +396,26 @@ sequential reads at the disk's best speed, standing in for scattered reads later
 that would each have to wait for the head to move and the disk to come round.
 A machine without the extra memory — a 64 kilobyte IIe with the small
 80-column card — is detected at startup and simply plays without it.
+
+The IIe build plays version 6 games. The window model needed nothing: it was
+written to be independent of the machine and had already been proved on five
+other screens, so what this took was the screen layer underneath it - the same
+interleaved rows and the same split between the two banks that the ordinary text
+build uses, with one addition. A version 6 game scrolls a *window* rather than
+the screen, and a window is a rectangle of columns; since the even columns of a
+row live in one bank and the odd ones in the other, and moving a row up does not
+change which bank a column is in, the rectangle is copied as two runs of bytes,
+one per bank, worked out once and repeated for every row.
+
+The screen has no colours, and version 6 games use colour to mark a window out
+from the text around it. Where a game asks for exactly the reverse of the
+screen's own pair - which is what all four of Infocom's version 6 games do, for
+a boxed message or a status band - the window is drawn in inverse video, which
+is the one distinction this screen can draw. Any other pair is drawn normally:
+the alternative, treating every unusual background as a reason to invert, would
+put a game that merely sets a background of its own into inverse video from
+beginning to end. The box-drawing font that version 6 defines is approximated
+with the ASCII characters that look most like its lines and corners.
 
 Saved games go in the free tail of the boot disk, behind the story. There is no
 filesystem, so a save is not a file: the interpreter is told at boot where the

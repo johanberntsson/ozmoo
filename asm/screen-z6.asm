@@ -150,13 +150,36 @@ font3_translate
 
 ; Indexed by font-3 code - 38. Values are PETSCII (fed to
 ; convert_petscii_to_screencode). 0 marks a code we do not map.
+!ifdef TARGET_APPLE2_FAMILY {
+; This machine has no box-drawing glyphs at all - its character generator is
+; plain ASCII - so the lines are drawn with the ASCII characters that look most
+; like them, which is what every text-only interpreter does. An enhanced IIe
+; (and a IIc) has MouseText in the $40-$5f band and real corners among it, and
+; a2_machine already says which machine this is; that is a follow-up, held back
+; until the glyph codes can be confirmed on hardware rather than from memory,
+; because a wrong MouseText code draws a plausible-looking wrong picture.
+;                     38   39   40   41   42 43 44 45   46   47   48   49
+!ifdef TARGET_APPLE2E {
+font3_to_petscii !byte $2d, $2d, $7c, $7c, 0, 0, 0, 0, $2b, $2b, $2b, $2b
+} else {
+; A II+ has 64 glyphs and no vertical bar, so it uses the same stand-in the
+; ZSCII out-table does for one (see streams.asm).
+font3_to_petscii !byte $2d, $2d, $21, $21, 0, 0, 0, 0, $2b, $2b, $2b, $2b
+}
+;                     50 51 52 53 54 55 56   57
+                 !byte 0, 0, 0, 0, 0, 0, 0, $3e
+font3_to_petscii_end
+} else {
 ;                     38   39   40   41   42 43 44 45   46   47   48   49
 font3_to_petscii !byte $c0, $c0, $dd, $dd, 0, 0, 0, 0, $ad, $b0, $ae, $bd
 ;                     50 51 52 53 54 55 56   57
                  !byte 0, 0, 0, 0, 0, 0, 0, $a1
 font3_to_petscii_end
+}
 ;  38/39 horizontal line, 40/41 vertical line, 46 corner up+right, 47 down+right,
-;  48 down+left, 49 up+left, 57 solid left block (Journey's selected-command bar).
+;  48 down+left, 49 up+left, 57 solid left block (Journey's selected-command bar,
+;  which on the Apple is a '>' - a marker rather than a bar, there being no
+;  solid block in a 64 glyph set and no way to ask for inverse video from here).
 
 !ifdef Z6_PICTURES {
 !source "../temp/pictures.asm"
@@ -1696,7 +1719,31 @@ init_screen_colours
 	; calculate the position for the more prompt
 	; (self modifying code since we don't want to
 	; ZP space is limited)
-!ifndef TARGET_X16 {
+!ifdef TARGET_APPLE2_FAMILY {
+	; The rows are interleaved, so the bottom right cell is not SCREEN_ADDRESS
+	; plus width times height: it comes out of the row table like any other row
+	; (see a2_row_lo in screenkernal-z6.asm).
+	ldx s_screen_height_minus_one
+	lda a2_row_lo,x
+	clc
+	adc #A2_ROW_BYTES - 1
+	sta .more_access1 + 1
+	sta .more_access2 + 1
+	sta .more_access4 + 1
+	!ifndef BENCHMARK {
+	sta .more_access3 + 1
+	}
+	lda a2_row_hi,x
+	adc #0
+	sta .more_access1 + 2
+	sta .more_access2 + 2
+	sta .more_access4 + 2
+	!ifndef BENCHMARK {
+	clc
+	adc #>COLOUR_ADDRESS_DIFF
+	sta .more_access3 + 2
+	}
+} else ifndef TARGET_X16 {
 	lda s_screen_size + 1
 	clc
 	adc #>SCREEN_ADDRESS
@@ -2904,6 +2951,9 @@ show_more_prompt
 } else ifdef Z6_FCM_MODE {
 	jsr .more_fcm_hide
 	jmp ++
+} else ifdef TARGET_APPLE2_FAMILY {
+	; No colour on this machine, so the prompt blinks by its glyph alone.
+	ldx #0
 } else {
 	ldx reg_backgroundcolour
 }
@@ -3356,10 +3406,21 @@ print_line_from_buffer
 	!ifdef Z6_ECM_MODE {
 		and #$3f ; only 64 characters, and the top bits select the background
 		ora ecm_bits
+	} else ifdef TARGET_APPLE2_FAMILY {
+		ora #$80        ; normal video; see .normal_char in screenkernal-z6.asm
+		eor print_buffer2,y
 	} else {
 		ora print_buffer2,y
 	}
+	!ifdef TARGET_APPLE2E {
+		; y is a buffer index AND an absolute screen column, and on the 80
+		; column screen those are no longer the same thing: the cell is at
+		; column / 2 in one of two banks. a2_put_char hands y back untouched,
+		; so the loop is otherwise unchanged.
+		jsr a2_put_char
+	} else {
 		sta (zp_screenline),y
+	}
 		+clear_cell_high_byte
 	!ifdef COLOURFUL_LOWER_WIN {
 	!ifdef TARGET_PLUS4 {
