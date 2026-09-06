@@ -192,6 +192,20 @@ aventyr-apple2e:
 	ruby make.rb -s -t:apple2e examples/Aventyr.z5
 sherlock-apple2e:
 	ruby make.rb -s -t:apple2e infocom/sherlock.z5
+# The v6 games phase 2 is verified against: Johan's own, which fit one disk and
+# one-or-two respectively, where Infocom's four need three or four and leave
+# almost no vmem cache (see apple-plan/apple-phase2.md). testz6 and testz6scroll
+# are the z6 screen tests; they need inform, like the other z6 targets above.
+vanyar-apple2e:
+	ruby make.rb -s -t:apple2e examples/vanyar.z6
+wyrmward-apple2e:
+	ruby make.rb -s -t:apple2e examples/wyrmward.z6
+z6-apple2e:
+	inform -v6 testz6.inf
+	ruby make.rb -s -t:apple2e testz6.z6
+scroll-apple2e:
+	inform -v6 testz6scroll.inf
+	ruby make.rb -s -t:apple2e testz6scroll.z6
 dejavu-apple2gs:
 	ruby make.rb -s -t:apple2gs examples/dejavu.z3
 

@@ -3267,7 +3267,13 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	save_bytes = $static_mem_start + 256 * $stack_pages + 20  # dynmem + z-stack + zp
 	save_slot_sectors = (save_bytes + 255) / 256
 	story_sectors = ($story_file_data.length - $story_file_cursor + 255) / 256
-	boot_story_capacity = a2_boot_disk_capacity(interpreter_tracks, 0)
+	# Room for the directory sector and one slot, in whole tracks, because that
+	# is how the tail of the disk is handed out. A game that fills the boot
+	# disk to the point where a save will not fit is a game that needs another
+	# disk: examples/wyrmward.z6 fits with 38 sectors to spare and needs 40.
+	save_tracks_needed = (1 + save_slot_sectors + AppleDiskImage::SECTORS_PER_TRACK - 1) /
+		AppleDiskImage::SECTORS_PER_TRACK
+	boot_story_capacity = a2_boot_disk_capacity(interpreter_tracks, save_tracks_needed)
 	multi_disk = story_sectors > boot_story_capacity
 
 	# **On a multi-disk game the boot disk carries no story data at all.** It

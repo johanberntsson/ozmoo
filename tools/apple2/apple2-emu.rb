@@ -397,6 +397,14 @@ module Apple2Emu
       force_latch = #{force_latch ? 'true' : 'false'}
       drives = { mach.images[":sl6:diskiing:0:525"],
                  mach.images[":sl6:diskiing:1:525"] }
+      -- When the tap last fired, which is how "the game has stopped printing"
+      -- is measured, and so also the gate on typing: nothing is typed until
+      -- the tap has fired at least once, which keeps the first command away
+      -- from the boot far more reliably than idle_after alone.  The corollary
+      -- is that the tap has to be a routine the game really reaches: a **z6**
+      -- game prints through print_line_from_buffer and can leave a
+      -- printchar_buffered tap silent from beginning to end, in which case
+      -- nothing is ever typed.
       tap_last = nil
       tap_bytes = {}
       more_last = -1

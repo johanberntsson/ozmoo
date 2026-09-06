@@ -420,7 +420,10 @@ with the ASCII characters that look most like its lines and corners.
 Saved games go in the free tail of the boot disk, behind the story. There is no
 filesystem, so a save is not a file: the interpreter is told at boot where the
 save area begins and how many sectors a slot is, and slot *n* is simply the
-*n*th run of that many sectors. The first sector of the area is a directory of
+*n*th run of that many sectors. A save holds the whole of dynamic memory, so a
+game with a lot of it needs a large slot, and a game that would fill its disk to
+the point where even one slot did not fit is built across two disks instead -
+the boot disk then carries no story at all and has room for ten. The first sector of the area is a directory of
 ten fourteen-character comments and a flag each, which is what the game's save
 and restore listings print. Writing a sector is our own 6-and-2 encoder feeding
 the drive a byte every 32 cycles, and every sector written is read back and
