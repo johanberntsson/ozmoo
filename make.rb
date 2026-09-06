@@ -1640,6 +1640,10 @@ def build_interpreter()
 		# there instead of in main RAM. A II+ may have no card at all, so
 		# -t:apple2 never gets this.
 		optionalsettings += " -DA2_LANGCARD=1" if $target =~ /^apple2(e|gs)$/
+		# ...and the other 64K a 128K IIe has: the auxiliary bank, used as a
+		# vmem cache. It needs the language card, because the copy routines
+		# cannot run from $0200-$BFFF while RAMRD is switched.
+		optionalsettings += " -DA2_AUX_CACHE=1" if $target =~ /^apple2(e|gs)$/
 	end
 	if $is_lurkinghorror
 		# need to know if compiling a Lurking Horror game

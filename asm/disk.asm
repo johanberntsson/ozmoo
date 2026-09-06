@@ -438,6 +438,23 @@ readblock
 	bit use_reu
 	bvs .readblock_from_reu
 }
+
+!ifdef A2_AUX_CACHE {
+	; Is this page one of the ones in the auxiliary bank? They are a prefix of
+	; the paged story data, so the test is just its index against how many are
+	; there - no table, and nothing to keep in step. A page below dynmem would
+	; have borrowed from the high byte, which is why that is checked too.
+	lda readblocks_currentblock_adjusted + 1
+	bne .not_in_aux
+	lda readblocks_currentblock_adjusted
+	cmp a2_aux_pages
+	bcs .not_in_aux
+	clc
+	adc #A2_AUX_FIRST_PAGE
+	ldy readblocks_mempos + 1       ; the low byte is always 0
+	jmp a2_aux_read_page
+.not_in_aux
+}
 	; convert block to track/sector
 	
 	lda disk_info + 2 ; Number of disks

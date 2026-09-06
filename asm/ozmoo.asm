@@ -111,6 +111,12 @@
 
 ; Every Apple target must define the apple family as well as its own type
 ; ((make.rb sets this automatically)
+!ifdef A2_AUX_CACHE {
+	!ifndef A2_LANGCARD {
+		!error "A2_AUX_CACHE needs A2_LANGCARD: the aux copy routines must run outside $0200-$BFFF, which on this target means the language card."
+	}
+}
+
 !ifndef TARGET_APPLE2_FAMILY {
 	!ifdef TARGET_APPLE2 {
 		!error "An Apple target must define TARGET_APPLE2_FAMILY too (make.rb does it); without it the shared Apple branches are all switched off and the build quietly takes the CBM paths."
@@ -2310,6 +2316,7 @@ a2_lc_init
 	rts
 }
 
+
 deletable_init_start
 !ifdef TARGET_APPLE2E {
 	jsr a2e_identify
@@ -2897,6 +2904,10 @@ deletable_init
 	jsr prepare_static_high_memory
 
 	jsr insert_disks_at_boot
+
+!ifdef A2_AUX_CACHE {
+	jsr a2_aux_preload
+}
 
 !ifndef NOSECTORPRELOAD {
 
@@ -3504,6 +3515,9 @@ a2_lc_code_start
 !source "text.asm"
 !source "dictionary.asm"
 !source "objecttable.asm"
+!ifdef A2_AUX_CACHE {
+!source "apple2-aux.asm"
+}
 	!align 255, 0, 0   ; whole pages, so a2_lc_init can copy in page steps
 a2_lc_code_end
 }

@@ -288,9 +288,9 @@ Apple II support is being added. Three targets are planned: `-t:apple2`, a 48 KB
 Apple II or II+; `-t:apple2e`, a 128 KB IIe with 80 columns, mixed case and
 version 6 text; and `-t:apple2gs`, which adds pictures, a mouse and sound.
 `-t:apple2` is complete and is what most of what follows describes.
-`-t:apple2e` builds and plays, on 80 columns and in mixed case, and runs half of
-itself from the language card; what it does not have yet is the auxiliary memory
-cache and version 6.
+`-t:apple2e` builds and plays, on 80 columns and in mixed case, runs half of
+itself from the language card and keeps 46 kilobytes of the story in auxiliary
+memory; what it does not have yet is version 6.
 `-t:apple2gs` still refuses the build.
 
 `-t:apple2` is deliberately the smallest thing that can run a game: 48 KB, the
@@ -353,6 +353,49 @@ interpreter will need. The bottom two kilobytes of the card are left as
 scratch, because a machine with no colour memory still has an interpreter that
 writes a colour beside every character it prints, and those writes have to land
 somewhere harmless.
+
+A 128 kilobyte IIe has a second 64 kilobyte bank of memory, and Ozmoo uses 46
+kilobytes of it in the way it uses a RAM Expansion Unit on a Commodore 64:
+as somewhere other than the floppy drive to read story data from. It is the
+same mechanism and the same place in the code. The virtual memory system is
+unchanged and does not know about it — it asks for a page of the story by
+calling read_block, as it always has, and read_block answers out of the
+auxiliary bank when the page it wants is there, exactly as it answers out of
+the REU on a machine that has one.
+
+The difference from an REU is that the auxiliary bank is too small to finish
+the job. An REU is used only when the whole static part of the story fits in
+it, and once it does the drive is finished with; 46 kilobytes will not hold any
+story worth playing. So this is a cache rather than a copy: at startup Ozmoo
+reads as much of the paged story as will fit — the first 46 kilobytes of it,
+or the whole of it for a small game — and the rest of the story is still read
+from the disk when the game asks for it. What the machine ends up with is three
+levels rather than two: the pages the virtual memory system is holding in main
+memory, then the part of the story sitting in the auxiliary bank, then the disk
+behind both. A page that has to come from the auxiliary bank is copied across
+in about a millisecond, where the same page off the disk costs a tenth of a
+second or more, so the middle level does a useful share of the work even though
+it can never do all of it.
+
+The copying is done by code running in the language card, and that is a
+requirement rather than a convenience: the switch that makes the auxiliary bank
+readable redirects everything below it, the interpreter's own instructions
+included, so the only code that can read that bank is code living above it. The
+two banks answer to the same addresses, which is also why the auxiliary memory
+cannot simply be given to the virtual memory system as more cache — the
+interpreter reads story bytes out of its cache in place, and it cannot do that
+in a bank it cannot see at the same time as itself.
+
+What it is worth depends on how much of the story fits. A small game fits
+entirely, and once it has been read the drive never turns again. A large game
+gets the part of itself that fits, and the difference is largest for exactly the
+games that need it most: the largest game tested here spends half as long on
+each turn as it did without it. The cost is at startup, where reading those 46
+kilobytes takes some seconds, and the trade is a good one because those are
+sequential reads at the disk's best speed, standing in for scattered reads later
+that would each have to wait for the head to move and the disk to come round.
+A machine without the extra memory — a 64 kilobyte IIe with the small
+80-column card — is detected at startup and simply plays without it.
 
 Saved games go in the free tail of the boot disk, behind the story. There is no
 filesystem, so a save is not a file: the interpreter is told at boot where the
@@ -431,6 +474,7 @@ screen, which is what the third target is for.
 | \$1000- | about 12 | Interpreter, then the z-stack and the vmem cache |
 | storystart-\$bfff | about 31 | Dynamic memory, then virtual memory |
 | \$c000-\$cfff | 4 | Card I/O |
+| aux \$0800-\$bfff | 46 | On a 128K IIe, the second-tier story cache |
 | \$d000-\$ffff | 12 | BASIC and monitor ROM. On a IIe the language card answers here instead: \$d000-\$d7ff scratch for the colour writes, \$d800-\$ffff the interpreter's upper half |
 
 The interpreter starts at \$1000 rather than at the foot of RAM because

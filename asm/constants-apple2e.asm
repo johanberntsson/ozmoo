@@ -36,6 +36,25 @@ A2_MAIN_HALF          = $C054   ; PAGE2 off: the odd columns. The resting state
 A2_AUX_HALF           = $C055   ; PAGE2 on:  the even columns
 A2_RDPAGE2            = $C01C   ; bit 7 says which half is selected (read only)
 
+; --- the auxiliary bank ------------------------------------------------------
+; A 128K IIe is two 64K banks, and these two switches say which one $0200-$BFFF
+; answers with - RAMRD for reads (instruction fetch included, which is why the
+; code that uses it lives in the language card; see apple2-aux.asm) and RAMWRT
+; for writes. Neither touches the zero page, the stack or $D000-$FFFF, which
+; follow ALTZP and which Ozmoo never switches at all. Written, never read, like
+; every other switch in this range.
+A2_CLRRAMRD           = $C002   ; read $0200-$BFFF from main. The resting state
+A2_SETRAMRD           = $C003   ; ...and from aux
+A2_CLRRAMWRT          = $C004   ; write $0200-$BFFF to main. The resting state
+A2_SETRAMWRT          = $C005   ; ...and to aux
+
+; What of the auxiliary bank is ours: $0800-$BFFF, since $0400-$07FF is the
+; even half of the 80 column screen and the pages below it are small enough not
+; to be worth the arithmetic. 184 pages, 46K - bigger than the whole main-RAM
+; cache and smaller than any story, so it is a cache rather than a copy.
+A2_AUX_FIRST_PAGE     = $08
+A2_AUX_PAGES          = $c0 - A2_AUX_FIRST_PAGE
+
 COLOUR_ADDRESS        = $d000
 COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 
