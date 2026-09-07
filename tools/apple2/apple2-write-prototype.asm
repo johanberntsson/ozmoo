@@ -24,14 +24,28 @@ A2_DEST         = $0809
 A2_DEST_LO      = $080A
 A2_WRITE        = $080B
 A2_WPROT        = $080E         ; the drive refused, as against a bad verify
+A2_ATRK         = $080F         ; the track and sector of the last address
+A2_ASEC         = $0810         ; field the drive decoded - so a write that
+                                ; failed can say whether it ever found the
+                                ; sector it meant to write
 
 SCREEN          = $0400
+; The rows are interleaved, and the MEGA65's Apple II core draws a picture a
+; little larger than the screen, so the top row is off the top of it. The
+; verdict and its counters therefore go on rows 2 and 3, where they can be read.
+SCREEN_ROW2     = SCREEN + $100
+SCREEN_ROW3     = SCREEN + $180
 PATTERN         = $2000         ; what we write
 READBACK        = $2100         ; what comes back
 
 ; With NIB_DUMP the payload writes one track and then reads a whole track's
 ; worth of raw nibbles into NIB_BUF for the driver to pick apart on the host.
 ; It is how a data field that neither reader can decode gets looked at.
+; A stamp for the build, printed beside the verdict. It is a hash of the source
+; this was assembled from, so two builds of the same code show the same two
+; digits and a build of changed code shows different ones - which is how a
+; machine with no filesystem answers "is this really the disk I just copied?".
+!ifndef BUILD_ID { BUILD_ID = 0 }
 !ifndef NIB_DUMP { NIB_DUMP = 0 }
 !ifndef WRITE_TWICE { WRITE_TWICE = 0 }
 NIB_BUF         = $3000
@@ -52,6 +66,8 @@ start
         sta w_write_fail
         sta w_read_fail
         sta w_sectors
+        sta w_fail_atrk
+        sta w_fail_asec
         sta w_first_bad + 1
 
         ; --- write every sector of the three test tracks -------------------
@@ -119,7 +135,7 @@ start
 .ok_msg lda msg_ok,x
         beq .finish
         ora #$80
-        sta SCREEN,x
+        sta SCREEN_ROW2,x
         inx
         bne .ok_msg
 .bad
@@ -132,7 +148,7 @@ start
 .prot_msg lda msg_prot,x
         beq .finish
         ora #$80
-        sta SCREEN,x
+        sta SCREEN_ROW2,x
         inx
         bne .prot_msg
 .bad_verify
@@ -140,13 +156,110 @@ start
 .bad_msg lda msg_bad,x
         beq .finish
         ora #$80
-        sta SCREEN,x
+        sta SCREEN_ROW2,x
         inx
         bne .bad_msg
 .finish
+        ; The build stamp, at a fixed column so it does not move with the
+        ; verdict's length.
+        ldx #0
+.id_msg lda msg_id,x
+        beq +
+        ora #$80
+        sta SCREEN_ROW2 + 20,x
+        inx
+        bne .id_msg
++       lda #BUILD_ID
+        pha
+        lsr
+        lsr
+        lsr
+        lsr
+        jsr id_hex
+        pla
+        and #$0f
+        jsr id_hex
+        jsr report_counts
         lda #1
         sta w_done
 .stop   jmp .stop
+
+; id_hex: one digit of the build stamp, at SCREEN_ROW2 + 20 + x.
+id_hex
+        cmp #10
+        bcc +
+        clc
+        adc #7
++       clc
+        adc #$30
+        ora #$80
+        sta SCREEN_ROW2 + 20,x
+        inx
+        rts
+
+; ---------------------------------------------------------------------------
+; report_counts: the counters, on the same line as the verdict.
+;
+; The host reads these out of memory under MAME and AppleWin, but on a real
+; machine - the MEGA65's Apple II core - the one line is the whole report, and
+; "it failed" is not a diagnosis. Printed as w:nn r:nn b:nn t:nn s:nn, all hex:
+;   w  writes that gave up after every retry (the drive or the timing)
+;   r  read-backs that failed (the sector is there but cannot be found again)
+;   b  bytes that came back different (the bits landed, wrong)
+;   t/s  the track and sector of the first disagreement
+;   o  the byte offset within that sector: 00 or ff is a splice, anything in
+;      between is not
+;   a/e  the track and sector of the last address field the drive decoded at
+;      the moment a write first gave up (e has bit 7 set, so 87 is sector 7).
+;      If they are not the sector it meant to write, it never found it - a seek
+;      or a read fault, and nothing to do with writing
+; A write that gives up shows w and nothing else; bits that land wrong show b
+; with w zero, which is a different fault entirely.
+; ---------------------------------------------------------------------------
+!zone report_counts
+report_counts
+        ldx #0                  ; which counter
+        ldy #0                  ; its own row, so there is room for labels
+.loop
+        lda .label,x
+        ora #$80
+        sta SCREEN_ROW3,y
+        iny
+        lda #$ba                ; ':'
+        sta SCREEN_ROW3,y
+        iny
+        lda .addr_lo,x
+        sta .get + 1
+        lda .addr_hi,x
+        sta .get + 2
+.get    lda $ffff
+        pha
+        lsr
+        lsr
+        lsr
+        lsr
+        jsr .hex
+        pla
+        and #$0f
+        jsr .hex
+        inx
+        cpx #8
+        bne .loop
+        rts
+.hex
+        cmp #10
+        bcc +
+        clc
+        adc #7
++       clc
+        adc #$30
+        ora #$80
+        sta SCREEN_ROW3,y
+        iny
+        rts
+.label   !text "WRBTSOAE"  ; upper case: this screen folds $61-$7a onto punctuation
+.addr_lo !byte <w_write_fail, <w_read_fail, <w_bad, <w_first_bad, <(w_first_bad + 1), <(w_first_bad + 2), <w_fail_atrk, <w_fail_asec
+.addr_hi !byte >w_write_fail, >w_read_fail, >w_bad, >w_first_bad, >(w_first_bad + 1), >(w_first_bad + 2), >w_fail_atrk, >w_fail_asec
 
 ; ---------------------------------------------------------------------------
 ; write_one_track / verify_one_track: all sixteen sectors, in the order the
@@ -236,6 +349,17 @@ write_sector
         jsr A2_WRITE
         bcc +
         inc w_write_fail
+        ; Where the head was when it gave up, captured HERE: A2_ATRK/A2_ASEC are
+        ; rewritten by every address field any later read decodes, so reading
+        ; them at the end of the run reports the last sector the program
+        ; touched and says nothing about the failure.
+        lda w_fail_asec
+        bne +                   ; keep the first failure, not the last
+        lda A2_ATRK
+        sta w_fail_atrk
+        lda A2_ASEC
+        ora #$80                ; so "no failure yet" and "sector 0" differ
+        sta w_fail_asec
 +       rts
 
 !zone read_sector
@@ -313,6 +437,7 @@ dump_nibbles
 msg_ok  !text "WRITE OK", 0
 msg_bad !text "WRITE FAILED", 0
 msg_prot !text "WRITE PROTECTED", 0
+msg_id  !text "ID:", 0
 
 test_tracks
         !byte TEST_TRACK_1, TEST_TRACK_2, TEST_TRACK_3
@@ -334,3 +459,5 @@ w_bad           !byte 0
 w_write_fail    !byte 0
 w_read_fail     !byte 0
 w_first_bad     !byte 0, 0, 0   ; track, sector, offset
+w_fail_atrk     !byte 0         ; where the head was when a write gave up, and
+w_fail_asec     !byte 0         ; the sector, with bit 7 set to mark it real

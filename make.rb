@@ -143,6 +143,7 @@ $DEBUGFLAGS = [
 #	'TRACE_TOKENISE',
 #	'TRACE_HISTORY',
 #	'DEBUG_SCREENLOG',
+#	'DEBUG_AUX_CACHE', # Apple IIe: say at boot whether the aux vmem cache came up, and wait for a key so the line can be read before the screen is cleared. Only two bars are drawn at boot and the second one is normally too quick to see, so this is how you tell 'the cache is off' from 'the cache is fast'
 #	'DEBUG_DISK_STATUS', # MEGA65: show the drive's error channel after every save,
                          # not only when it reports an error
 ]

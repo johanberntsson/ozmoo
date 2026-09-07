@@ -429,7 +429,11 @@ and restore listings print. Writing a sector is our own 6-and-2 encoder feeding
 the drive a byte every 32 cycles, and every sector written is read back and
 compared before the save is called done — where a write begins on the track is
 not under the program's control to better than a bit cell, and at some phases
-the sector that results cannot be read again.
+the sector that results cannot be read again. A sector that will not verify is
+written again, and each retry first steps the head one track away and lets the
+seek bring it back rather than writing from where it already stands: a retry
+that takes no step never lets the head settle on the track, and the failure this
+recovers from is exactly the one that follows a long seek.
 
 Two things stand in for machinery the other targets get from their ROMs. There
 is no KERNAL, so `apple2-kernal.asm` exports the names the shared code already

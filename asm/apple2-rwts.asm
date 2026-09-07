@@ -103,8 +103,8 @@ DECODE_TABLE    = $0F00         ; 256 bytes, page aligned
 ; here errs on the slow side of the published ones rather than the fast side of
 ; ours. The settle is paid once per seek, not once per step, and not at all
 ; when the head is already on the wanted track.
-PHASE_ON_MS     = 4
-SETTLE_MS       = 20
+!ifndef PHASE_ON_MS { PHASE_ON_MS = 4 }
+!ifndef SETTLE_MS { SETTLE_MS = 20 }
 SPINUP_MS       = 250
 READ_RETRIES    = 12
 WRITE_RETRIES   = 12
@@ -400,8 +400,23 @@ rwts_read_entry
         beq .give_up
         lda rw_retry            ; every fourth failure, start again from track 0
         and #3
-        bne .try
+        bne .nudge
         jsr rwts_recalibrate
+        ; ...and then, every time, step one track out and let .try's own seek
+        ; bring us back, so the last approach before the write is a real step
+        ; that ends with the phase held through the settle. Retrying from where
+        ; the head already is takes no step at all, and so never settles; and
+        ; recalibrating leaves .try to make the LONG seek again, which recreates
+        ; the failing condition rather than escaping it. Both together are why
+        ; twelve retries of a write after a long seek all failed the same way on
+        ; the MEGA65's Apple II core, where the default write spike failed most
+        ; runs and this one passes every time. Outward rather than inward
+        ; because a2_track + 1 can be past track 34; nothing Ozmoo or the spike
+        ; writes is on track 0, so a2_track - 1 is always safe.
+.nudge
+        dec a2_track
+        jsr rwts_seek
+        inc a2_track
         jmp .try
 .ok
         clc
@@ -440,16 +455,13 @@ motor_on
 ; ---------------------------------------------------------------------------
 !zone rwts_seek
 rwts_seek
-        lda #0
-        sta rw_moved
         lda a2_track
         asl
         sta rw_dest_half
 .loop
         lda rw_dest_half
         cmp rw_half
-        beq .arrived
-        inc rw_moved
+        beq .done
         bcs .outwards
         dec rw_half
         jmp .step
@@ -465,13 +477,25 @@ rwts_seek
         lda PHASEON,x
         lda #PHASE_ON_MS
         jsr delay_ms
-        lda PHASEOFF,x
-        jmp .loop
-.arrived
-        lda rw_moved
-        beq .done
+        ; The settle happens HERE, on the last step, with the phase still
+        ; energised - and then it is released. Letting it go first leaves the
+        ; head to find the detent by itself, which after a long seek can leave
+        ; it far enough off centre to READ correctly and WRITE badly: the field
+        ; goes down off track and will not verify. DOS 3.3 holds the phase
+        ; through the settle; we did not. On its own this did NOT cure the
+        ; write-after-a-long-seek failure on the MEGA65's Apple II core - the
+        ; retry nudge in rwts_write did - but the nudge is only worth anything
+        ; because of this: what it buys is a last approach that is a real step,
+        ; and a real step is only worth making if the phase is still held while
+        ; the head settles on it. The two go together. See CLAUDE.md, "A write
+        ; straight after a long seek".
+        lda rw_dest_half
+        cmp rw_half
+        bne +
         lda #SETTLE_MS
         jsr delay_ms
++       lda PHASEOFF,x
+        jmp .loop
 .done
         ldx rw_slot
         rts
@@ -1075,7 +1099,6 @@ skew_table
 rw_half         !byte 0         ; where the head is, in half-tracks
 rw_sel_drive    !byte 0         ; the drive the controller is talking to
 rw_dest_half    !byte 0
-rw_moved        !byte 0         ; did this seek step at all?
 rw_motor        !byte 0
 rw_retry        !byte 0
 rw_delay        !byte 0

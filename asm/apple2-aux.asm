@@ -31,6 +31,15 @@
 ; a2_lc_init copies up from the disk every time the machine boots.
 a2_aux_pages !byte 0
 
+; Why the cache is off, when it is: 0 = it is on, 1 = the machine ignored the
+; write-select switch (there is no auxiliary bank at all), 2 = the top of the
+; range did not read back, 3 = two pages 1K apart read the same, so what is
+; there is a small card's memory mirrored over the address space, 4 = the top
+; page did not keep its byte, 5 = the config track says there are no disks,
+; 6 = it says there is no paged story data. Reported at boot, because "the
+; cache is off" and "the cache is broken" look identical from the outside.
+a2_aux_why !byte 0
+
 ; ---------------------------------------------------------------------------
 ; a2_aux_read_page: copy 256 bytes out of the auxiliary bank.
 ;   a = aux source page, y = main destination page.
@@ -105,9 +114,15 @@ a2_aux_detect
 	sta A2_SETRAMWRT
 	sta (zp_temp),y                 ; aux, if there is one
 	sta A2_CLRRAMWRT
+	sta .ad_main
 	lda (zp_temp),y
+	sta .ad_main
 	cmp #$a5                        ; did main keep its own byte?
-	bne .ad_no
+	beq +
+	lda #1
+	sta a2_aux_why
+	jmp .ad_no
++
 
 	sta A2_SETRAMWRT
 	lda #A2_AUX_FIRST_PAGE
@@ -135,21 +150,33 @@ a2_aux_detect
 	sta zp_temp + 1
 	lda (zp_temp),y
 	sta A2_CLRRAMRD
+	sta .ad_second
 	cmp #$5a
-	bne .ad_no
-	lda .ad_first
+	beq +
+	lda #2
+	sta a2_aux_why
+	bne .ad_no                      ; always branch
++	lda .ad_first
 	cmp #$a5                        ; a mirror would have given us $5a here
-	bne .ad_no
-	lda .ad_top
+	beq +
+	lda #3
+	sta a2_aux_why
+	bne .ad_no                      ; always branch
++	lda .ad_top
 	cmp #$c3
-	bne .ad_no
-	sec
+	beq +
+	lda #4
+	sta a2_aux_why
+	bne .ad_no                      ; always branch
++	sec
 	rts
 .ad_no
 	clc
 	rts
 
 .ad_first !byte 0
+.ad_second !byte 0
+.ad_main  !byte 0
 .ad_top   !byte 0
 
 ; ---------------------------------------------------------------------------
@@ -178,7 +205,7 @@ a2_aux_preload
 	sta .staging
 	jsr a2_aux_detect
 	bcs +
-	rts
+	jmp .no_cache                   ; a2_aux_why already says which test failed
 +
 	; How many pages of paged story there are: the running total in the last
 	; disk's config entry, which is the number readblock measures a block
@@ -186,7 +213,9 @@ a2_aux_preload
 	ldx #0
 	ldy disk_info + 2               ; number of disks
 	bne +
-	rts
+	lda #5
+	sta a2_aux_why
+	jmp .no_cache
 +
 -	lda disk_info + 5,x
 	sta .total + 1
@@ -207,7 +236,9 @@ a2_aux_preload
 +	lda #A2_AUX_PAGES
 ++	sta .count
 	bne +
-	rts
+	lda #6
+	sta a2_aux_why
+	jmp .no_cache
 +
 
 	; The progress bar, drawn the way load_suggested_pages draws its own: the
@@ -261,6 +292,58 @@ a2_aux_preload
 +	lda a2_aux_pages
 	cmp .count
 	bne .loop
+!ifdef DEBUG_AUX_CACHE {
+	ldx #<.on_msg
+	lda #>.on_msg
+	jsr printstring_raw
+	; In hex, and through s_printchar, because everything else on this line is
+	; printstring_raw: mixing raw output with the buffered kind (printinteger)
+	; leaves the number in the buffer and the eventual flush writes it back
+	; over whatever is on the line by then.
+	lda a2_aux_pages
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr .hexdigit
+	pla
+	and #$0f
+	jsr .hexdigit
+	jmp .say_and_wait
+.hexdigit
+	cmp #10
+	bcc +
+	clc
+	adc #7
++	clc
+	adc #$30
+	jmp s_printchar
+}
+	rts
+
+; The cache is not going to run. Say so rather than just being slower: on a
+; machine that should have one this line is the only outward sign that anything
+; is wrong, and the number says which test or which count stopped it.
+.no_cache
+	ldx #<.no_aux_msg               ; printstring_raw takes a = high, x = low
+	lda #>.no_aux_msg
+	jsr printstring_raw
+	lda a2_aux_why
+	clc
+	adc #$30
+	jsr s_printchar
+!ifdef DEBUG_AUX_CACHE {
+.say_and_wait
+	; The boot clears the screen a moment later and the line goes with it, so
+	; under the flag it waits to be read. DEBUG_AUX_CACHE only.
+	ldx #<.press_msg
+	lda #>.press_msg
+	jsr printstring_raw
+	jsr kernal_readchar
+}
+	lda #13
+	jsr s_printchar
 	rts
 
 .staging    !byte 0
@@ -269,5 +352,10 @@ a2_aux_preload
 .total      !byte 0, 0
 .tick       !byte 0
 .ticks_left !byte 0
+.no_aux_msg !pet "no aux memory, cache off: ",0
+!ifdef DEBUG_AUX_CACHE {
+.on_msg     !pet "aux cache on, pages $",0
+.press_msg  !pet "  [press a key]",0
+}
 
 }

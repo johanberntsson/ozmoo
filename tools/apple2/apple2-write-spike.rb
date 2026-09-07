@@ -33,10 +33,30 @@ ROOT    = Apple2Emu::ROOT
 TEMP    = Apple2Emu::TEMP
 RWTS    = File.join(ROOT, 'asm', 'apple2-rwts.asm')
 PAYLOAD = File.join(__dir__, 'apple2-write-prototype.asm')
-IMAGE   = File.join(ROOT, 'apple2_write.dsk')
-NIB     = File.join(ROOT, 'apple2_write.nib')
-CONFIG  = File.join(TEMP, 'apple2_write.yaml')
-STATE   = File.join(TEMP, 'apple2_write_state.yaml')
+# OUT names the pair of images this build writes, so a variant can be built
+# beside the default one instead of over it - which is how write_slow.nib is
+# made:
+#   PHASE_ON_MS=12 SETTLE_MS=100 OUT=write_slow ruby tools/apple2/apple2-write-spike.rb
+# The two then carry different build stamps (the knobs are part of the hash),
+# so there is no way to confuse them on a machine with no filesystem.
+OUT     = ENV['OUT'] || 'apple2_write'
+IMAGE   = File.join(ROOT, "#{OUT}.dsk")
+NIB     = File.join(ROOT, "#{OUT}.nib")
+CONFIG  = File.join(TEMP, "#{OUT}.yaml")
+STATE   = File.join(TEMP, "#{OUT}_state.yaml")
+
+# A stamp for this build, shown on screen beside the verdict and printed here
+# when the disk is written. It is a hash of the sources and the build knobs, so
+# the same code always stamps the same two digits - which makes "the numbers are
+# identical to the last run" distinguishable from "I am running the last run's
+# disk", a question a machine with no filesystem cannot otherwise answer, and
+# one that cost an afternoon on the MEGA65's Apple II core.
+def build_id(defines)
+  material = [RWTS, PAYLOAD, __FILE__].map { |f| File.binread(f) }.join +
+             defines.sort.map { |k, v| "#{k}=#{v}" }.join(',')
+  # Anything stable and cheap; only equality matters.
+  material.bytes.inject(0) { |h, b| ((h * 31) + b) & 0xff }
+end
 
 SYNC       = (ENV['SYNC'] || 5).to_i
 SYNC_CYCLES = (ENV['SYNC_CYCLES'] || 40).to_i
@@ -45,7 +65,10 @@ NIB_DUMP   = ARGV.include?('--nibbles') ? 1 : 0
 TERP_TRACK = 2
 TERP_LOAD  = 0x1000
 SKEW       = (ENV['SKEW'] || 3).to_i
-TEST_TRACKS = [20, 21, 34]
+# The three tracks written, overridable so the seek that precedes the overwrite
+# test can be varied: it is the only write in the program that follows a long
+# seek, and on real hardware that is a suspect in its own right.
+TEST_TRACKS = (ENV['TRACKS'] || '20,21,34').split(',').map(&:to_i)
 
 def assemble(source, defines, binary, labels)
   cmd = ['acme', '--cpu', '6502', '--format', 'plain'] +
@@ -58,23 +81,27 @@ end
 def build
   FileUtils.mkdir_p(TEMP)
   payload_bin = File.join(TEMP, 'apple2_write_payload.bin')
-  payload, labels = assemble(PAYLOAD, { 'SKEW' => SKEW, 'NIB_DUMP' => NIB_DUMP,
-                                        'WRITE_TWICE' => (ENV['WRITE_TWICE'] || 0).to_i,
-                                        'TEST_TRACK_1' => TEST_TRACKS[0],
-                                        'TEST_TRACK_2' => TEST_TRACKS[1],
-                                        'TEST_TRACK_3' => TEST_TRACKS[2] },
+  payload_defines = { 'SKEW' => SKEW, 'NIB_DUMP' => NIB_DUMP,
+                      'WRITE_TWICE' => (ENV['WRITE_TWICE'] || 0).to_i,
+                      'TEST_TRACK_1' => TEST_TRACKS[0],
+                      'TEST_TRACK_2' => TEST_TRACKS[1],
+                      'TEST_TRACK_3' => TEST_TRACKS[2] }
+  boot_defines = { 'A2_INTERLEAVE' => SKEW,
+                   'WRITE_SYNC' => SYNC,
+                   'WRITE_SYNC_CYCLES' => SYNC_CYCLES,
+                   'WRITE_EPI_SKIP' => EPI_SKIP,
+                   'PHASE_ON_MS' => (ENV['PHASE_ON_MS'] || 4).to_i,
+                   'SETTLE_MS' => (ENV['SETTLE_MS'] || 20).to_i }
+  id = build_id(payload_defines.merge(boot_defines))
+  payload, labels = assemble(PAYLOAD, payload_defines.merge('BUILD_ID' => id),
                              payload_bin, File.join(TEMP, 'apple2_write_payload.txt'))
   sectors = (payload.bytesize + 255) / 256
 
   boot_bin = File.join(TEMP, 'apple2_write_boot.bin')
-  boot, boot_labels = assemble(RWTS, { 'TERP_TRACK' => TERP_TRACK,
-                                       'TERP_SECTORS' => sectors,
-                                       'TERP_LOAD' => "$#{TERP_LOAD.to_s(16)}",
-                                       'A2_INTERLEAVE' => SKEW,
-                                       'WRITE_SYNC' => SYNC,
-                                       'WRITE_SYNC_CYCLES' => SYNC_CYCLES,
-                                       'WRITE_EPI_SKIP' => EPI_SKIP,
-                                       'WRITE_DELAY' => (ENV['WRITE_DELAY'] || 0).to_i },
+  boot, boot_labels = assemble(RWTS, boot_defines.merge(
+                                 'TERP_TRACK' => TERP_TRACK,
+                                 'TERP_SECTORS' => sectors,
+                                 'TERP_LOAD' => "$#{TERP_LOAD.to_s(16)}"),
                                boot_bin, File.join(TEMP, 'apple2_write_boot.txt'))
 
   image = Apple2DiskImage.new
@@ -86,6 +113,7 @@ def build
   File.binwrite(NIB, Apple2Nib.from_dsk(File.binread(IMAGE)))
   puts "wrote #{IMAGE} (+ #{File.basename(NIB)}): boot chain #{boot.bytesize / 256} sectors, " \
        "payload #{sectors} sectors at track #{TERP_TRACK}"
+  puts "  build id #{format('%02X', id)} - the screen must show ID:#{format('%02X', id)}"
   labels.merge(boot_labels)
 end
 
@@ -281,7 +309,7 @@ when :mame
                                          'w_write_fail' => 1, 'w_read_fail' => 1,
                                          'w_first_bad' => 3, 'wr_retries' => 1 },
                               seconds: 400)
-  puts result[:screen][0]
+  puts result[:screen][2], result[:screen][3]
   counters = result[:symbols]
   counters['w_first_bad_1'] = (counters['w_first_bad'].to_i >> 8) & 0xff
   counters['w_first_bad_2'] = (counters['w_first_bad'].to_i >> 16) & 0xff
@@ -291,8 +319,16 @@ when :applen_nib
   # The write path against a nibble image. AppleWin writes whole tracks back
   # into the .nib, so what is checked afterwards is nibbles we did not write.
   require_relative 'apple2-nib'
-  nib = File.join(TEMP, 'apple2_write.nib')
-  File.binwrite(nib, Apple2Nib.from_dsk(File.binread(IMAGE)))
+  nib = File.join(TEMP, "#{OUT}.nib")
+  # Normally a fresh nib per run. REUSE_NIB=1 keeps the one the last run wrote
+  # into, which is the only way to ask "does a second pass over a track we have
+  # already written still verify?" - the core writes back into the .nib on its
+  # SD card, so its second run is never over a pristine track the way ours is.
+  if ENV['REUSE_NIB'].to_i.zero? || !File.exist?(nib)
+    File.binwrite(nib, Apple2Nib.from_dsk(File.binread(IMAGE)))
+  else
+    puts "reusing #{nib} as the last run left it"
+  end
   memory = Apple2Emu.applen_run(nib, seconds: 60,
                                 config: Apple2Emu.write_config(CONFIG), state: STATE)
   counters = {}
@@ -302,7 +338,7 @@ when :applen_nib
   counters['w_first_bad'] = memory[labels['w_first_bad']].ord
   counters['w_first_bad_1'] = memory[labels['w_first_bad'] + 1].ord
   counters['w_first_bad_2'] = memory[labels['w_first_bad'] + 2].ord
-  puts Apple2Emu.screen_text(memory)[0]
+  puts Apple2Emu.screen_text(memory)[2], Apple2Emu.screen_text(memory)[3]
   exit(report(counters, check_nib(nib), nib) ? 0 : 1)
 when :applen
   memory = Apple2Emu.applen_run(IMAGE, seconds: 60,
@@ -314,6 +350,6 @@ when :applen
   counters['w_first_bad'] = memory[labels['w_first_bad']].ord
   counters['w_first_bad_1'] = memory[labels['w_first_bad'] + 1].ord
   counters['w_first_bad_2'] = memory[labels['w_first_bad'] + 2].ord
-  puts Apple2Emu.screen_text(memory)[0]
+  puts Apple2Emu.screen_text(memory)[2], Apple2Emu.screen_text(memory)[3]
   exit(report(counters, check_image(IMAGE), IMAGE) ? 0 : 1)
 end
