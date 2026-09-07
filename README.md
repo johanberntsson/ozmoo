@@ -71,7 +71,7 @@ The differences in screen handling are evident in this comparison between Infoco
 
 There is a port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmoo.html).
 
-There is an Oric-1 / Atmos port of Ozmoo (6502, Microdisc + Sedoric), maintained separately at (https://github.com/benedictemarty/ozmoo-oric).
+There is an Oric-1 / Atmos port of Ozmoo (6502, Microdisc + Sedoric), maintained separately at [Ozmoo for Oric-1 / Atmos](https://github.com/benedictemarty/ozmoo-oric).
 
 ## Building and running
 
