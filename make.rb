@@ -3810,6 +3810,10 @@ if fcm_mode == 1
 end
 
 if picture_dir
+	unless $target =~ /x16|mega65/
+		puts "ERROR: -pics can only be used for MEGA65 and X16"
+		exit 1
+	end
 	if fcm_mode != 1 and $target != 'x16'
 		puts "ERROR: -pics needs -fcm: pictures are drawn on the full colour screen."
 		exit 1
