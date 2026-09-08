@@ -313,9 +313,11 @@ kernal_readchar
 	rts
 
 ; ---------------------------------------------------------------------------
-; kernal_reset: reboot. There is no BASIC to fall back into, so the honest exit
-; from a fatal error is the machine's own reset vector, which on an autostart
-; ROM boots whatever is in the drive.
+; kernal_reset: reboot. This is the exit from a fatal error, where restarting
+; the machine is the honest thing to do, so it deliberately leaves the power-up
+; byte alone and lets the autostart ROM cold start - which boots whatever is in
+; the drive. A deliberate @quit wants the opposite and goes through
+; a2_quit_to_basic below.
 ; ---------------------------------------------------------------------------
 kernal_reset
 !ifdef A2_LANGCARD {
@@ -342,6 +344,83 @@ a2_reset_stub
 	lda A2_LC_ROM
 	jmp ($fffc)
 }
+
+; ---------------------------------------------------------------------------
+; a2_quit_to_basic: what @quit does on this family.
+;
+; It used to be kernal_reset, i.e. a jump through $FFFC - and on an autostart
+; ROM that is a COLD start, which boots whatever is in the drive, so quitting
+; restarted the game instead of ending it. The fix is the power-up byte: with
+; $3F4 holding $3F3 EOR $A5 the ROM's reset routine treats the reset as warm
+; and jumps through $3F2 instead of booting. Going through the reset rather
+; than jumping straight to Applesoft is deliberate - the ROM's own routine puts
+; the text window, the character output hook and the monitor's zero page back,
+; and Ozmoo has trashed all of it.
+; ---------------------------------------------------------------------------
+!zone a2_quit_to_basic
+a2_quit_to_basic
+	; Stop the drive. The RWTS leaves the motor running for the whole session
+	; because a game pages more or less continuously, but a BASIC prompt with
+	; the drive still spinning is untidy - and on a IIgs it is also what keeps
+	; the machine at 1 MHz.
+	ldx A2_SLOT
+	lda A2_MOTOR_OFF,x
+	; Clear the text page, because neither the ROM's reset nor Applesoft does:
+	; without this BASIC comes up on a screenful of the game's last screen. On
+	; the 80 column screen half of what is there is in the other bank, so the
+	; aux half has to go first, while 80STORE still means "pick a bank".
+!ifdef A2_80COL {
+	sta A2_AUX_HALF
+	jsr .clear_page
+	sta A2_MAIN_HALF
+}
+	jsr .clear_page
+!ifdef A2_80COL {
+	; Back to the 40 column screen, which is the state BASIC expects: the same
+	; three switches z_ins_restart puts back before it reboots.
+	sta A2_CLR80VID
+	sta A2_CLRALTCHAR
+	sta A2_CLR80STORE
+}
+!ifdef A2_LANGCARD {
+	; $D000-$FFFF is the interpreter's upper half; Applesoft and the monitor
+	; are in the ROM underneath it. Nothing below runs from the card.
+	lda A2_LC_ROM
+}
+	; The colour registers are deliberately NOT put back: TBCOLOR and the
+	; border are the machine's own settings, and the firmware's reset restores
+	; them from the control panel a moment from now. So a IIgs comes back to
+	; whatever its owner chose rather than to whatever Ozmoo was printing in -
+	; which is why BASIC appears on the firmware's blue and not on our black.
+	; Johan's call, September 2026: keep the firmware default, do not force
+	; white on black.
+	lda #<A2_BASIC_COLD
+	sta A2_SOFTEV
+	lda #>A2_BASIC_COLD
+	sta A2_SOFTEV + 1
+	eor #$a5
+	sta A2_PWREDUP
+	jmp ($fffc)
+
+; The rows go through the same table the screen code uses, rather than filling
+; $0400-$07FF flat: that would write over the four screen holes in each block,
+; which are not on screen and belong to the peripheral cards.
+.clear_page
+	ldx #SCREEN_HEIGHT - 1
+.clear_row
+	lda a2_row_lo,x
+	sta .clear_store + 1
+	lda a2_row_hi,x
+	sta .clear_store + 2
+	ldy #A2_ROW_BYTES - 1
+	lda #SPACE_SCREENCODE
+.clear_store
+	sta $ffff,y
+	dey
+	bpl .clear_store
+	dex
+	bpl .clear_row
+	rts
 
 ; ---------------------------------------------------------------------------
 ; kernal_delay_1ms: one millisecond, near enough (200 * 5 = 1000 cycles at

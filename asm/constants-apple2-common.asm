@@ -32,10 +32,25 @@ A2_DRIVE              = $0811   ; which drive on the controller, 1 or 2. Set
                                 ; position for each and swaps them over
 A2_SLOT               = $0812   ; slot * 16, latched by the driver from the
                                 ; PROM's own $2B at boot
+A2_MOTOR_OFF          = $c088   ; + slot * 16: stop the drive. The RWTS never
+                                ; does (it pages constantly), but quitting to
+                                ; BASIC should not leave it spinning
 A2_BOOTSLOT_ZP        = $2b     ; ...and where the PROM left it, which the
                                 ; driver still reads on the way through boot.
                                 ; It is mem_temp + 1 to us, so a restart has to
                                 ; put A2_SLOT back there before jumping to $0801
+
+; --- getting back to BASIC --------------------------------------------------
+; The autostart ROM's RESET routine decides between a warm start and a cold one
+; by a "power-up byte": if $3F4 holds $3F3 EOR $A5 it believes the vector at
+; $3F2/$3F3 and jumps through it, and otherwise it cold starts, which on a
+; machine with a disk controller means booting the disk. Ozmoo's quit sets the
+; three bytes and then goes through the reset vector, so the ROM does its own
+; screen and I/O hook initialisation - which we need, having trashed the zero
+; page - and lands in Applesoft instead of booting the game again.
+A2_SOFTEV             = $03f2   ; where a warm reset goes (a word)
+A2_PWREDUP            = $03f4   ; ...believed only if it holds $3F3 EOR $A5
+A2_BASIC_COLD         = $e000   ; Applesoft cold start
 
 ; --- the language card ------------------------------------------------------
 ; $D000-$FFFF is ROM on a bare machine and 16K of RAM on any IIe (and on a II+

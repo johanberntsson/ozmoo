@@ -1107,6 +1107,10 @@ z_ins_quit
 	jmp set_z_exe_mode
 .quit_keys
 	!pet 147,$1f,"new",$05,13,0
+} else ifdef TARGET_APPLE2_FAMILY {
+	; Not kernal_reset: on an autostart ROM that is a cold start, which
+	; boots the disk and restarts the game rather than ending it.
+	jmp a2_quit_to_basic
 } else {
 	jmp kernal_reset
 }
