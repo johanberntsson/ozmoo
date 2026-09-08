@@ -3,6 +3,7 @@ RELEASE NOTES
 Upcoming release:
 
 - Fixed: Using commandline switch -pics with a target that doesn't support pictures will now produce a proper error message. 
+- Fixed missing text in X16 splash screen.
 
 ================================================
 Release 16.1: 7 Sep 2026

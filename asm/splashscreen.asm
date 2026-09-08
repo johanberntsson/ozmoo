@@ -41,10 +41,16 @@ splash_line_y
 !ifdef TARGET_X16 {
 	cpx #20
 	bcc +
-	inx
-	inx
-	inx
-	inx
+	; X16's screen mode isn't fixed
+	lda s_screen_height
+	cmp #26
+	bcc +
+	txa
+	clc
+	adc s_screen_height
+	sec
+	sbc #26
+	tax
 +
 }
 	
