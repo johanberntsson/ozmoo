@@ -11,6 +11,7 @@
 #   ruby tools/apple2/apple2-conformance.rb --no-build
 #   ruby tools/apple2/apple2-conformance.rb -t:apple2e            # the IIe build
 #   ruby tools/apple2/apple2-conformance.rb -t:apple2e --driver apple2e   # unenhanced
+#   ruby tools/apple2/apple2-conformance.rb -t:apple2gs           # the IIgs build
 #
 # Both games print their own verdict - czech counts its 425 tests and praxix
 # says "All tests passed." - and that is the primary check.  The second check is
@@ -58,7 +59,10 @@ GAMES = {
         'the header block: this is the interpreter describing itself, and every ' \
         'line of it is meant to differ',
         /standard 1\.1.*?Default color: current on current/m,
-        /interpreter 2 P \(Apple IIe\).*?User: \d+/m
+        # Named rather than wildcarded, so a build reporting an interpreter
+        # number we did not choose is a failure and not a silent pass: 2 is
+        # what -t:apple2 and -t:apple2e claim, 10 what -t:apple2gs does.
+        /interpreter (?:2 P \(Apple IIe\)|10 P \(Apple IIgs\)).*?User: \d+/m
       )
     ]
   },
@@ -346,7 +350,11 @@ wanted = GAMES.keys + ['delete'] if default_run
 # The MAME machine that matches the build: a -t:apple2 disk wants the 48K II+,
 # and a -t:apple2e one an enhanced IIe unless --driver says otherwise (apple2e
 # is the unenhanced machine, apple2c the IIc).
-driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
+driver ||= case target
+           when 'apple2'    then 'apple2p'
+           when 'apple2gs'  then 'apple2gs'
+           else 'apple2ee'
+           end
 
 # What the screen looks like on this target: 40 columns of the II+'s 64 glyph
 # set, or a IIe's 80 columns of the alternate character set (which is where its

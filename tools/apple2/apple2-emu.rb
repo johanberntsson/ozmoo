@@ -315,12 +315,27 @@ module Apple2Emu
   #            video hardware actually fetched, so it is the only way to see a
   #            wrong character set or a wrong video mode.  MAME renders it even
   #            under -video none.
+  # Where MAME keeps the two 5.25" drives, which is not the same place on every
+  # machine: a IIgs has them built in on its own IWM controller (and two 3.5"
+  # drives beside them at :fdc:2:35dd and :fdc:3:35dd, which is where SmartPort
+  # will go), a IIc likewise, and everything else gets a Disk II card in slot 6.
+  def self.drive_tags_for(driver)
+    if driver.start_with?('apple2gs')
+      [':fdc:0:525', ':fdc:1:525']
+    elsif driver.start_with?('apple2c')
+      [':fdc:0:525', ':fdc:1:525']
+    else
+      [':sl6:diskiing:0:525', ':sl6:diskiing:1:525']
+    end
+  end
+
   def mame_run(image, driver: 'apple2p', flop2: nil, disk_swaps: {}, swap_drive: nil, labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
                idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
                echo_flag: nil, dump_range: nil, cols: COLS, altchar: false,
                force_latch: false, snapshot: nil,
                seconds: 120, keys: [], lua_path: nil, result_path: nil)
+    drive_tags  = Apple2Emu.drive_tags_for(driver)
     lua_path    ||= File.join(TEMP, 'apple2_mame.lua')
     result_path ||= File.join(TEMP, 'apple2_mame.txt')
     File.delete(result_path) if File.exist?(result_path)
@@ -395,8 +410,8 @@ module Apple2Emu
       }
       swap_drive = #{swap_drive ? swap_drive : 'nil'}
       force_latch = #{force_latch ? 'true' : 'false'}
-      drives = { mach.images[":sl6:diskiing:0:525"],
-                 mach.images[":sl6:diskiing:1:525"] }
+      drives = { mach.images[#{lua_string(drive_tags[0])}],
+                 mach.images[#{lua_string(drive_tags[1])}] }
       -- When the tap last fired, which is how "the game has stopped printing"
       -- is measured, and so also the gate on typing: nothing is typed until
       -- the tap has fired at least once, which keeps the first command away
@@ -448,10 +463,22 @@ module Apple2Emu
       -- fires on any *data* read of that byte, though - the RWTS reads back the
       -- memory it loaded, for one - so the program counter has to agree that
       -- this is an instruction being executed and not a byte being looked at.
+      --
+      -- Which value it should agree with is not the same on every machine: the
+      -- 6502 cores report the PC still pointing AT the opcode being fetched,
+      -- and the 65816 in a IIgs reports it already stepped past.  Both are
+      -- accepted.  Getting this wrong is silent and reads as "the game printed
+      -- nothing": on a IIgs every fetch arrived with PC one higher and was
+      -- filtered out as a data read, so a working game produced an empty
+      -- transcript.
       if tap_addr then
         tapper = mem:install_read_tap(tap_addr, tap_addr, "ozmoo_tap", function(offset, data, mask)
-          if cpu.state["PC"].value == tap_addr then
-            tap_bytes[#tap_bytes + 1] = string.format("%02X", cpu.state["A"].value)
+          local pc = cpu.state["PC"].value
+          if pc == tap_addr or pc == tap_addr + 1 then
+            -- ...and %% 256 because the 65816 has a 16 bit accumulator and MAME
+            -- reports both halves of it.  Without the mask every character
+            -- arrives with the hidden B register in front of it.
+            tap_bytes[#tap_bytes + 1] = string.format("%02X", cpu.state["A"].value % 256)
             tap_last = mach.time:as_double()
           end
           return data
@@ -671,9 +698,10 @@ module Apple2Emu
       end)
     LUA
 
-    # A II+ or a IIe needs a Disk II card put in slot 6; a IIc has its drive
-    # built in and rejects the option outright.
-    slot = driver.start_with?('apple2c') ? [] : ['-sl6', 'diskiing']
+    # A II+ or a IIe needs a Disk II card put in slot 6; a IIc and a IIgs have
+    # their drives built in and reject the option outright.
+    builtin = driver.start_with?('apple2c') || driver.start_with?('apple2gs')
+    slot = builtin ? [] : ['-sl6', 'diskiing']
     cmd = [MAME, driver, *slot, '-flop1', image]
     cmd += ['-flop2', flop2] if flop2
     snap_dir = File.join(TEMP, 'apple2_snap')

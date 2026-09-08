@@ -74,7 +74,11 @@ until args.empty?
 end
 # The MAME machine that matches the build (see tools/apple2/apple2-conformance.rb).
 TARGET = target
-DRIVER = driver || (target == 'apple2' ? 'apple2p' : 'apple2ee')
+DRIVER = driver || case target
+                   when 'apple2'   then 'apple2p'
+                   when 'apple2gs' then 'apple2gs'
+                   else 'apple2ee'
+                   end
 # 40 columns of the II+'s 64 glyphs, or a IIe's 80 columns of mixed case; the
 # screens here are only ever printed for a human to look at, but they have to
 # be decoded the right way to be worth looking at.
@@ -98,12 +102,28 @@ end
 # comes up holding whatever it holds and the splash screen polls before init,
 # so the early samples are a garbage value being decremented.  The seeded state
 # is jiffy 0 with the counter at its full value.
+# A IIgs counts vertical blanks instead of counting polls, so there is no
+# sub-counter to read and nothing to calibrate: what this tool measures there
+# is the clock's rate directly, in jiffies, and n is 1 rather than a number of
+# polls.  Everything below is written in "ticks" for that reason.
+VBL_CLOCK = TARGET == 'apple2gs'
+
 def poll_count(sample, n)
+  return sample['a2_jiffy'] if VBL_CLOCK
   sample['a2_jiffy'] * n + (n - sample['a2_jiffy_sub'])
 end
 
 def after_init(samples, n, label)
-  start = samples.index { |_, v| v['a2_jiffy'].zero? && v['a2_jiffy_sub'] == n }
+  start = if VBL_CLOCK
+            # The LAST sample at zero, which is the one immediately after
+            # a2_init: the count only rises from there.  Taking the first
+            # 0 -> nonzero step instead finds the splash screen's own ticking,
+            # and then a2_init's reset lands inside the measurement window and
+            # the rate comes out negative.
+            samples.rindex { |_, v| v['a2_jiffy'].zero? }
+          else
+            samples.index { |_, v| v['a2_jiffy'].zero? && v['a2_jiffy_sub'] == n }
+          end
   abort "#{label}: the clock never reached its initial state - did the game boot?" unless start
   start
 end
@@ -138,7 +158,7 @@ end
 # test, after which anything typed would stop it, so the run goes quiet.
 def measure_timed(labels, build)
   image, labels = build_story('test/etude.z5', build)
-  n = labels['A2_POLLS_PER_JIFFY']
+  n = VBL_CLOCK ? 1 : labels['A2_POLLS_PER_JIFFY']
   keys = []
   t = 8.0
   16.times { keys << [t, "\n"]; t += 1.0 }
@@ -190,7 +210,7 @@ BLINK_JIFFIES = 20
 # with it off nothing reads the clock outside a timed read.
 def measure_blink(story, build)
   image, labels = build_story(story, build, ["-cb:#{BLINK_JIFFIES}"])
-  n = labels['A2_POLLS_PER_JIFFY']
+  n = VBL_CLOCK ? 1 : labels['A2_POLLS_PER_JIFFY']
   result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, **SCREEN, seconds: 45,
                               samples: SAMPLES.merge('s_cursormode' => 1),
                               keys: [[10, "\n"], [12, "\n"], [14, "\n"]])
@@ -209,7 +229,11 @@ end
 # --- go ---------------------------------------------------------------------
 
 image, labels = build_story(story, build)
-n = labels['A2_POLLS_PER_JIFFY'] or abort 'no A2_POLLS_PER_JIFFY in the labels'
+n = if VBL_CLOCK
+      1
+    else
+      labels['A2_POLLS_PER_JIFFY'] or abort 'no A2_POLLS_PER_JIFFY in the labels'
+    end
 
 # The read prompt.  A game opens with a [More] prompt, so a couple of Returns
 # are needed to reach the loop a player types in; press nothing at all and it
@@ -235,47 +259,73 @@ unless prompt_row.to_s.start_with?('>')
 end
 
 puts
-puts "A2_POLLS_PER_JIFFY in this build: #{n}"
+if VBL_CLOCK
+  puts 'This target counts vertical blanks, so there is nothing to calibrate:'
+  puts 'what follows is the clock\'s own rate in each of the four states, and'
+  puts '60.00 is right in all of them.'
+else
+  puts "A2_POLLS_PER_JIFFY in this build: #{n}"
+end
 puts
 puts "a timed read (test/etude.z5, timed single-key input) - what the constant is set from:"
-puts format('  %.0f polls/s while polling, %.1f cycles a poll at %.4f MHz',
-            timed[:rate], CPU_HZ / timed[:rate], CPU_HZ / 1e6)
+unless VBL_CLOCK
+  puts format('  %.0f polls/s while polling, %.1f cycles a poll at %.4f MHz',
+              timed[:rate], CPU_HZ / timed[:rate], CPU_HZ / 1e6)
+end
 puts format('  %d interrupt firings, one every %.3f s where the game asked for 1.000',
             timed[:firings], timed[:interval])
 puts format('  the clock runs at %.2f jiffies/s here, %+.1f%% against 60',
             timed[:rate] / timed[:n], (timed[:rate] / timed[:n] / 60.0 - 1) * 100)
 puts
 puts "a plain read (#{File.basename(story)}, no timer) - nothing reads the clock in this state:"
-puts format('  %.0f polls/s (quarters: %s), %.1f cycles a poll',
-            read[:rate], read[:quarters].map { |r| format('%.0f', r) }.join(' '),
-            CPU_HZ / read[:rate])
+unless VBL_CLOCK
+  puts format('  %.0f polls/s (quarters: %s), %.1f cycles a poll',
+              read[:rate], read[:quarters].map { |r| format('%.0f', r) }.join(' '),
+              CPU_HZ / read[:rate])
+end
 puts format('  the clock runs at %.2f jiffies/s here, %+.1f%% against 60',
             read[:rate] / n, (read[:rate] / n / 60.0 - 1) * 100)
 puts
 puts "a blinking cursor (#{File.basename(story)} built with -cb:#{BLINK_JIFFIES}) - the other reader of the clock:"
-puts format('  %.0f polls/s, %.1f cycles a poll, clock %.2f jiffies/s',
-            blink[:rate], CPU_HZ / blink[:rate], blink[:rate] / blink[:n])
+if VBL_CLOCK
+  puts format('  the clock runs at %.2f jiffies/s here', blink[:rate] / blink[:n])
+else
+  puts format('  %.0f polls/s, %.1f cycles a poll, clock %.2f jiffies/s',
+              blink[:rate], CPU_HZ / blink[:rate], blink[:rate] / blink[:n])
+end
 puts format('  %d blinks, one every %.3f s where the build asked for %d jiffies = %.3f s (%+.1f%%)',
             blink[:blinks], blink[:interval], BLINK_JIFFIES, BLINK_JIFFIES / 60.0,
             (blink[:interval] / (BLINK_JIFFIES / 60.0) - 1) * 100)
 puts
 puts '[More] prompt (show_more_prompt, screen.asm) - a wait_a_jiffy per poll:'
-puts format('  %.0f polls/s, so a pass takes %.2f ms against the 17 ms wait_a_jiffy asks for',
-            more[:rate], 1000 / more[:rate])
-puts format('  the clock runs at %.2f jiffies/s here: time all but stops at a [More] prompt',
-            more[:rate] / n)
+unless VBL_CLOCK
+  puts format('  %.0f polls/s, so a pass takes %.2f ms against the 17 ms wait_a_jiffy asks for',
+              more[:rate], 1000 / more[:rate])
+end
+puts format('  the clock runs at %.2f jiffies/s here%s',
+            more[:rate] / n,
+            VBL_CLOCK ? ': a wait_a_jiffy per poll is still one frame per poll' \
+                      : ': time all but stops at a [More] prompt')
 puts
 
 # The last thing built was the -cb image, and it is also what temp/acme_labels.txt
 # now describes.  Put the ordinary build back so neither is a surprise later.
 build_story(story, build)
 
-suggested = (timed[:rate] / 60.0).round
 error = (timed[:interval] - 1.0) * 100
-puts "A2_POLLS_PER_JIFFY = #{suggested}   <- asm/apple2-kernal.asm"
+unless VBL_CLOCK
+  suggested = (timed[:rate] / 60.0).round
+  puts "A2_POLLS_PER_JIFFY = #{suggested}   <- asm/apple2-kernal.asm"
+end
 if error.abs <= 2.0
-  puts format('PASS: a timed read is %+.2f%% off, i.e. the clock is calibrated.', error)
+  puts format('PASS: a timed read is %+.2f%% off, i.e. the clock is %s.', error,
+              VBL_CLOCK ? 'right' : 'calibrated')
   exit 0
+elsif VBL_CLOCK
+  puts format('A timed read runs %+.1f%% off. There is no constant to set here - ' \
+              'the clock counts frames - so this is the VBL edge detector or the ' \
+              'machine not running at 60 Hz.', error)
+  exit 1
 else
   puts format('A timed read runs %+.1f%% off; set the constant above and rebuild.', error)
   exit 1

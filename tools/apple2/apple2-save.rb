@@ -56,7 +56,11 @@ until args.empty?
   end
 end
 # The MAME machine that matches the build (see tools/apple2/apple2-conformance.rb).
-driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
+driver ||= case target
+           when 'apple2'   then 'apple2p'
+           when 'apple2gs' then 'apple2gs'
+           else 'apple2ee'
+           end
 IMAGE  = File.join(ROOT, "#{target}_dejavu.dsk")
 DRIVER = driver
 # 40 columns of the II+'s 64 glyphs, or a IIe's 80 columns of mixed case (see

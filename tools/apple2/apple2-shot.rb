@@ -48,7 +48,11 @@ until args.empty?
   end
 end
 
-driver ||= target == 'apple2' ? 'apple2p' : 'apple2ee'
+driver ||= case target
+           when 'apple2'   then 'apple2p'
+           when 'apple2gs' then 'apple2gs'
+           else 'apple2ee'
+           end
 screen = target == 'apple2' ? { cols: 40, altchar: false } : { cols: 80, altchar: true }
 out ||= File.join(Apple2Emu::TEMP, "#{target}_#{File.basename(story).sub(/\.z\d$/, '')}.png")
 
