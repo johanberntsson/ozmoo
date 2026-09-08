@@ -854,7 +854,7 @@ print_line_from_buffer
 	} else {
 		ora print_buffer2,y
 	}
-	!ifdef TARGET_APPLE2E {
+	!ifdef A2_80COL {
 		; y is a buffer index AND an absolute screen column, and on the 80
 		; column screen those are no longer the same thing: the cell is at
 		; column / 2 in one of two banks. a2_put_char hands y back untouched,

@@ -17,6 +17,9 @@ if $is_windows then
 		'XPLUS4' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\xplus4.exe -silent -autostart-delay-random",
 		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
 		'APPLE2' => "C:\\WoInstall\\AppleWin\\Applewin.exe",
+		# AppleWin has no IIgs; -t:apple2gs plays in MAME. Set the path here or
+		# in .ozmoorc if mame is not on the PATH.
+		'APPLE2GS' => "mame",
 		'C1541' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\c1541.exe",
 		'EXOMIZER' => "C:\\WoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
 		'ACME' => "C:\\WoInstall\\acme0.97win\\acme\\acme.exe",
@@ -38,6 +41,10 @@ else
 		# interactive Apple II emulator. MAME's apple2p is the headless one and
 		# is driven from tools/apple2/apple2-emu.rb, not from here.
 		'APPLE2' => __dir__ + "/AppleWin/build/sa2",
+		# AppleWin has no IIgs at all, so -t:apple2gs plays in MAME instead -
+		# the same emulator the headless harnesses drive, just with its window
+		# and its sound turned on.
+		'APPLE2GS' => "mame",
 		'C1541' => "c1541",
 		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
 		'ACME' => "acme",
@@ -1654,6 +1661,13 @@ def build_interpreter()
 		# vmem cache. It needs the language card, because the copy routines
 		# cannot run from $0200-$BFFF while RAMRD is switched.
 		optionalsettings += " -DA2_AUX_CACHE=1" if $target =~ /^apple2(e|gs)$/
+		# The 80 column main/aux text screen and the alternate character set.
+		# A IIe, a IIc and a IIgs all have exactly this screen, and four fifths
+		# of what phase 2 wrote for it is not about the IIe at all - so the
+		# screen branches are on this rather than on TARGET_APPLE2E, which now
+		# means the IIe and nothing else. Same trade as TARGET_APPLE2_FAMILY,
+		# one level down.
+		optionalsettings += " -DA2_80COL=1" if $target =~ /^apple2(e|gs)$/
 	end
 	if $is_lurkinghorror
 		# need to know if compiling a Lurking Horror game
@@ -2034,6 +2048,25 @@ def play(filename, storyname)
 			end
 		else
 			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
+			exit 0
+		end
+	elsif $target == "apple2gs" then
+		# MAME, windowed. The IIgs has its two 5.25" drives built in, so there
+		# is no Disk II card to put in slot 6 the way the other two targets
+		# need one. -nofilter and an exact 2x window because 80 columns of
+		# 7-pixel characters do not survive bilinear scaling; -skip_gameinfo
+		# because that screen otherwise waits for a keypress; and -noautosave
+		# because mame.ini sets autosave, so closing the window would write a
+		# state that the NEXT run restores - which comes up mid-session with a
+		# drive that was never re-initialised, prints "Check startup device!"
+		# over a screenful of interleaved garbage, and reads exactly like a
+		# corrupt build. See CLAUDE.md's MAME section.
+		if $executables.has_key?('APPLE2GS')
+			command = "#{$executables['APPLE2GS']} apple2gs -flop1 " +
+				"#{$commandline_quotemark}#{filename}#{$commandline_quotemark}" +
+				" -window -nofilter -resolution 1280x960 -skip_gameinfo -noautosave"
+		else
+			puts "Location of MAME unknown. Please set APPLE2GS executable location at start of make.rb"
 			exit 0
 		end
 	elsif $target =~ /^apple2/ then
@@ -3687,8 +3720,14 @@ begin
 				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "apple2gs" then
-				puts "apple2gs isn't implemented yet"
-				exit 1
+				# A IIgs in its Apple II personality: the same main-RAM window
+				# as the IIe, because that is the machine it emulates below
+				# $C000. Everything this target adds - colour text, expansion
+				# RAM, the Super Hi-Res screen, SmartPort - is elsewhere.
+				$start_address = 0x1000
+				$memory_end_address = 0xc000
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
 			end
 		elsif arg =~ /^-ZIP$/ then
 			mode = MODE_ZIP
@@ -4650,7 +4689,9 @@ if $target == 'c128' and $interpreter_number == nil
 end
 
 if $target =~ /^apple2/ and $interpreter_number == nil
-	$interpreter_number = 2
+	# 2 is "Apple IIe" and 10 is "Apple IIgs" in the z-spec's list. The IIgs
+	# gets its own number: it is the honest answer, and czech reports it.
+	$interpreter_number = $target == 'apple2gs' ? 10 : 2
 end
 
 

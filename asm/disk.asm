@@ -1158,7 +1158,7 @@ z_ins_restart
 !ifdef TARGET_APPLE2_FAMILY {
 	; The Apple's restart is the boot chain over again. $0801 is the stage 2
 	; the Disk II PROM loaded at power-on
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	; Need to restore 40 columns before reboot
 	sta A2_CLR80VID
 	sta A2_CLRALTCHAR
@@ -2769,6 +2769,38 @@ wait_a_jiffy
 -	bit $d011
 	bpl -
 	rts
+} else ifdef TARGET_APPLE2GS {
+; A IIgs has a readable vertical blank, so it waits for a real frame rather
+; than counting instructions.
+!zone wait_a_jiffy_gs {
+wait_a_jiffy
+	pha
+	txa
+	pha
+	tya
+	pha
+	lda a2_jiffy
+	sta .was
+	ldx #0
+	ldy #0
+.spin
+	jsr a2_clock_tick       ; ...through the clock, not around it
+	lda a2_jiffy
+	cmp .was
+	bne .done
+	inx
+	bne .spin
+	iny
+	bne .spin
+.done
+	pla
+	tay
+	pla
+	tax
+	pla
+	rts
+.was !byte 0
+}
 } else {
 wait_a_jiffy
 	pha

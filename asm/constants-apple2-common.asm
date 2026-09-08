@@ -180,12 +180,18 @@ zp_temp               = $b2 ; 5 bytes
 
 ; The software clock and the entropy counter the keyboard shim keeps
 ; (asm/apple2-kernal.asm). There is no timer and no readable vertical blank on
-; this machine, so the jiffy count is made by the input loop counting its own
+; a II+ or a IIe, so the jiffy count is made by the input loop counting its own
 ; passes; a2_entropy is free running and sampled when a key is pressed.
 a2_jiffy              = $b7 ; 3 bytes, as RDTIM's a/x/y
 a2_jiffy_sub          = $ba ; 2 bytes: polls left until the next jiffy, which
                             ; is more than 256, so this is a word
 a2_entropy            = $bc ; 2 bytes
+
+; A IIgs does have a readable vertical blank, so it counts frames instead and
+; has no use for the poll counter - the two bytes are the same two, under the
+; names the edge detector wants.
+a2_vbl_last           = a2_jiffy_sub      ; bit 7 of $C019 as it was last seen
+a2_vbl_now            = a2_jiffy_sub + 1  ; ...and as it is now
 
 ; --- buffers ----------------------------------------------------------------
 ; $0100-$01ff is the 6502 stack, which print_buffer shares with it exactly as

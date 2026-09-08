@@ -1002,9 +1002,9 @@ ecm_set_window_bg
 .ecm_window !byte 0
 }
 
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 convert_petscii_to_screencode
-	; The IIe's alternate character set, which a2e_screen_init turns on, is the
+	; The IIe's alternate character set, which a2_screen_init turns on, is the
 	; whole of ASCII: a cell is the character with bit 7 set for normal video and
 	; clear for inverse. The one hole is $40-$5f, which is MouseText on an
 	; enhanced IIe, so inverse UPPER case has to be written as $00-$1f - and this
@@ -1346,7 +1346,7 @@ s_delete_cursor
 !ifndef Z6_FCM_MODE {
 	ldy zp_screencolumn
 }
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
@@ -1456,7 +1456,7 @@ s_printchar
 } else ifdef TARGET_X16 {
     jsr VERAPrintChar
 } else {
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
@@ -1589,7 +1589,7 @@ s_printchar
 .nc_no_bake
 	pla
 }
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
@@ -2037,7 +2037,7 @@ s_scrolled_lines !byte 0
 	sta .a2_scroll_store + 1
 	lda a2_row_hi,x
 	sta .a2_scroll_store + 2
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	sta A2_AUX_HALF
 	ldy .a2_even_first
 	ldx .a2_even_count
@@ -2732,7 +2732,7 @@ s_erase_line
 !ifdef TARGET_X16 {
     sta VERA_data0
 } else {
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
@@ -2844,7 +2844,7 @@ update_cursor
     tay
 }
     lda cursor_character
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
     jsr a2_put_char
 } else {
     sta (zp_screenline),y

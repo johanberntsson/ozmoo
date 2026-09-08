@@ -40,6 +40,9 @@ kernal_getchar
 	inc a2_entropy + 1
 +
 
+!ifdef TARGET_APPLE2GS {
+	jsr a2_clock_tick
+} else {
 	; The clock. A 16 bit down counter, because a jiffy is more than 256 polls.
 	lda a2_jiffy_sub
 	bne .dec_low
@@ -59,6 +62,7 @@ kernal_getchar
 	bne .no_tick
 	inc a2_jiffy + 2
 .no_tick
+}
 
 	lda KEYBOARD
 	bpl .no_key
@@ -103,6 +107,44 @@ kernal_getchar
 	lda #0
 	rts
 
+!ifdef TARGET_APPLE2GS {
+; ---------------------------------------------------------------------------
+; a2_clock_tick: look at the vertical blank once and advance the jiffy count if
+; a frame has ended since the last look.
+;
+; A IIgs has a readable vertical blank, so a jiffy is a frame the hardware
+; counted rather than a number of times we happened to look - which matters
+; here more than on a II+, because this machine runs at 2.8 MHz and the poll
+; counter it replaces was calibrated at 1.02. Bit 7 of $C019 toggles once a
+; frame; counting only its 0->1 edges gives 60 a second whichever way round the
+; machine drives it, so the IIe's inverted sense of the same bit costs nothing.
+;
+; It is a routine of its own rather than inline in kernal_getchar because
+; wait_a_jiffy calls it too (see disk.asm): the [More] prompt waits a frame
+; between polls, and if the wait spun on $C019 by itself it would hand the
+; poll back at the same phase every time and the edge detector would never see
+; a change - the clock would stop dead at exactly the prompt where a player is
+; most likely to be watching it. Going through here instead, a [More] prompt
+; keeps time as well as anything else does.
+; ---------------------------------------------------------------------------
+!zone a2_clock_tick
+a2_clock_tick
+	lda A2_VBL
+	and #$80
+	sta a2_vbl_now
+	eor a2_vbl_last
+	beq +                      ; same phase as last time
+	lda a2_vbl_now
+	sta a2_vbl_last
+	beq +                      ; a 1->0 edge is half a frame, not a whole one
+	inc a2_jiffy
+	bne +
+	inc a2_jiffy + 1
+	bne +
+	inc a2_jiffy + 2
++	rts
+}
+
 ; ---------------------------------------------------------------------------
 ; kernal_readtime / kernal_settime: the jiffy count in a, x, y - low, middle,
 ; high, which is the order the C64's RDTIM hands it over in (A is $A2, the low
@@ -133,12 +175,17 @@ a2_init
 	sta a2_jiffy + 2
 	sta a2_entropy
 	sta a2_entropy + 1
+!ifdef TARGET_APPLE2GS {
+	sta a2_vbl_last
+	sta a2_vbl_now
+} else {
 	lda #<A2_POLLS_PER_JIFFY
 	sta a2_jiffy_sub
 	lda #>A2_POLLS_PER_JIFFY
 	sta a2_jiffy_sub + 1
+}
 	; Text, page 1, no mixed graphics. The boot chain has done this already,
-	; and on a IIe a2e_screen_init has since turned the 80 column screen on -
+	; and on a IIe a2_screen_init has since turned the 80 column screen on -
 	; so LOWSCR here means "the main half", not "display page 1", and the two
 	; happen to want the same switch.
 	lda TXTSET
@@ -149,12 +196,111 @@ a2_init
 	lda KEYBOARD_STROBE
 	rts
 
-!ifdef TARGET_APPLE2E {
-; Which Apple this is, filled in once at boot by a2e_identify
+!ifdef A2_80COL {
+; Which Apple this is, filled in once at boot by a2_identify
 A2_MACHINE_IIE          = 0     ; unenhanced IIe: no MouseText
 A2_MACHINE_IIE_ENHANCED = 1     ; enhanced IIe, and a IIgs answers as one
 A2_MACHINE_IIC          = 2
 a2_machine !byte A2_MACHINE_IIE
+}
+
+!ifdef TARGET_APPLE2GS {
+; The ROM version $FE1F handed back, kept because it is the one number that
+; says which IIgs this is - ROM 00/01 machines differ from a ROM 3 in firmware
+; and in how much RAM they were sold with, and on a machine we cannot debug the
+; rule is to have a number to read rather than a verdict.
+a2gs_rom_version !byte 0
+
+; ---------------------------------------------------------------------------
+; Colour.
+;
+; The shared screen code hands out C64 hardware colour numbers (the zcolours
+; table in screenkernal.asm), so the translation to this machine's sixteen
+; happens here rather than at thirty call sites. The pair lives in TBCOLOR and
+; applies to the whole screen; see constants-apple2gs.asm for why that is the
+; right model rather than a limitation.
+;
+; All three routines preserve a, x and y. That is not politeness: the macros
+; below are called from the middle of init_screen_colours, which loads the
+; background colour once and then expects it still to be in a when it sets the
+; border from the same value.
+; ---------------------------------------------------------------------------
+a2gs_colours
+	!byte $00       ; 0  black         -> black
+	!byte $0f       ; 1  white         -> white
+	!byte $01       ; 2  red           -> deep red
+	!byte $0e       ; 3  cyan          -> aquamarine
+	!byte $03       ; 4  purple        -> purple
+	!byte $04       ; 5  green         -> dark green
+	!byte $02       ; 6  blue          -> dark blue
+	!byte $0d       ; 7  yellow        -> yellow
+	!byte $09       ; 8  orange        -> orange
+	!byte $08       ; 9  brown         -> brown
+	!byte $0b       ; 10 light red     -> pink
+	!byte $05       ; 11 dark grey     -> dark grey
+	!byte $05       ; 12 medium grey   -> dark grey
+	!byte $0c       ; 13 light green   -> light green
+	!byte $07       ; 14 light blue    -> light blue
+	!byte $0a       ; 15 light grey    -> light grey
+
+a2gs_fg !byte $f0   ; kept already shifted into TBCOLOR's high nybble
+a2gs_bg !byte $00
+
+!zone a2gs_colour
+a2gs_set_background
+	sta .saved_a
+	stx .saved_x
+	and #$0f
+	tax
+	lda a2gs_colours,x
+	sta a2gs_bg
+	jsr a2gs_apply_colours
+	ldx .saved_x
+	lda .saved_a
+	rts
+
+a2gs_set_foreground
+	sta .saved_a
+	stx .saved_x
+	and #$0f
+	tax
+	lda a2gs_colours,x
+	asl
+	asl
+	asl
+	asl
+	sta a2gs_fg
+	jsr a2gs_apply_colours
+	ldx .saved_x
+	lda .saved_a
+	rts
+
+; The border shares CLOCKCTL with the battery clock, so only the low nybble is
+; ours: read, mask, write back. Storing the whole byte would talk to the clock.
+a2gs_set_border
+	sta .saved_a
+	stx .saved_x
+	and #$0f
+	tax
+	lda a2gs_colours,x
+	sta .saved_border
+	lda A2_BORDER
+	and #$f0
+	ora .saved_border
+	sta A2_BORDER
+	ldx .saved_x
+	lda .saved_a
+	rts
+
+a2gs_apply_colours
+	lda a2gs_fg
+	ora a2gs_bg
+	sta A2_TBCOLOR
+	rts
+
+.saved_a !byte 0
+.saved_x !byte 0
+.saved_border !byte 0
 }
 
 ; ---------------------------------------------------------------------------

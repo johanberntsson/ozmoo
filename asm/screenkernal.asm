@@ -433,9 +433,9 @@ s_screen_size !byte 0, 0
 s_x16_screen_mode	!byte 0
 }
 
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 convert_petscii_to_screencode
-	; The IIe's alternate character set, which a2e_screen_init turns on, is the
+	; The IIe's alternate character set, which a2_screen_init turns on, is the
 	; whole of ASCII: a cell is the character with bit 7 set for normal video and
 	; clear for inverse. The one hole is $40-$5f, which is MouseText on an
 	; enhanced IIe, so inverse UPPER case has to be written as $00-$1f - and this
@@ -597,6 +597,13 @@ s_plot
 s_set_text_colour
 !ifdef TARGET_X16 {
 	jmp VERASetForegroundColour
+} else ifdef TARGET_APPLE2GS {
+	; s_colour is still written, because the shared screen code stores it
+	; beside every character it prints - into the scratch at COLOUR_ADDRESS on
+	; this family, where it is ignored. What the colour actually does is the
+	; second line: TBCOLOR's high nybble, for the whole screen at once.
+	sta s_colour
+	jmp a2gs_set_foreground
 } else {
 	sta s_colour
 	rts
@@ -617,7 +624,7 @@ s_delete_cursor
 	jmp VERAPrintChar
 } else {
 	ldy zp_screencolumn
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
@@ -698,7 +705,7 @@ s_printchar
 } else ifdef TARGET_X16 {
     jsr VERAPrintChar
 } else {
-	!ifdef TARGET_APPLE2E {
+	!ifdef A2_80COL {
 		jsr a2_put_char
 	} else {
 		sta (zp_screenline),y
@@ -795,7 +802,7 @@ s_printchar
 	; lda s_colour
 	; jsr VERAPrintColourAfterChar
 } else {
-	!ifdef TARGET_APPLE2E {
+	!ifdef A2_80COL {
 		jsr a2_put_char
 	} else {
 		sta (zp_screenline),y
@@ -1120,7 +1127,7 @@ s_scrolled_lines !byte 0
 	sta .a2_scroll_store + 1
 	lda a2_row_hi,x
 	sta .a2_scroll_store + 2
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	; A row is 40 bytes in each of two banks, and moving a row up does not
 	; change any column's parity, so the two halves are the same 40 byte copy
 	; run twice with the bank switched between them.
@@ -1429,7 +1436,7 @@ s_erase_line
 	lda #SPACE_SCREENCODE
 !ifdef TARGET_X16 {
     sta VERA_data0
-} else ifdef TARGET_APPLE2E {
+} else ifdef A2_80COL {
 	jsr a2_put_char
 } else {
 	sta (zp_screenline),y
@@ -1517,7 +1524,7 @@ update_cursor
 }
 !ifndef TARGET_X16 {
     lda cursor_character
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
     jsr a2_put_char
 } else {
     sta (zp_screenline),y

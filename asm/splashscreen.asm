@@ -66,7 +66,7 @@ splash_line_y
 	adc #20
 }
 }
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	clc
 	adc #20
 }

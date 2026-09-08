@@ -1250,9 +1250,22 @@ SETBORDERMACRO_DEFINED = 1
 }
 }
 
+!ifdef TARGET_APPLE2GS {
+SETBORDERMACRO_DEFINED = 1
+; The one Apple with colour: the VGC gives the whole text screen a foreground
+; and a background through TBCOLOR, and the border its own nybble of CLOCKCTL.
+; See apple2-kernal.asm, which also does the C64-to-IIgs colour translation.
+!macro SetBorderColour {
+	jsr a2gs_set_border
+}
+!macro SetBackgroundColour {
+	jsr a2gs_set_background
+}
+}
+
 !ifndef SETBORDERMACRO_DEFINED {
 !ifdef TARGET_APPLE2_FAMILY {
-; The first target with no colour at all: no border, no background, no colour
+; A II+ and a IIe have no colour at all: no border, no background, no colour
 ; memory. The macros keep their names so the call sites stay as they are.
 !macro SetBorderColour {
 }

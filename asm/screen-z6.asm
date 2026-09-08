@@ -159,7 +159,7 @@ font3_translate
 ; until the glyph codes can be confirmed on hardware rather than from memory,
 ; because a wrong MouseText code draws a plausible-looking wrong picture.
 ;                     38   39   40   41   42 43 44 45   46   47   48   49
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 font3_to_petscii !byte $2d, $2d, $7c, $7c, 0, 0, 0, 0, $2b, $2b, $2b, $2b
 } else {
 ; A II+ has 64 glyphs and no vertical bar, so it uses the same stand-in the
@@ -2885,12 +2885,12 @@ show_more_prompt
     ; 40 columns
 +
 }
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr .more_select_bank
 }
 .more_access1
 	lda SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	sta A2_MAIN_HALF        ; a soft switch ignores the value, so a survives
 }
 	sta .more_text_char
@@ -2918,13 +2918,13 @@ show_more_prompt
 } else {
 	lda #128 + $2a ; screen code for reversed "*"
 }
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr .more_select_bank
 }
 .more_access2
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT-1)
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	sta A2_MAIN_HALF
 }
 } else {
@@ -3017,13 +3017,13 @@ show_more_prompt
 +
 }
 	lda .more_text_char
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	jsr .more_select_bank
 }
 .more_access4
 !ifndef TARGET_X16 {
 	sta SCREEN_ADDRESS + (SCREEN_WIDTH*SCREEN_HEIGHT -1)
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 	sta A2_MAIN_HALF
 }
 } else {
@@ -3041,7 +3041,7 @@ show_more_prompt
 	rts
 
 .more_text_char !byte 0
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 ; The prompt's cell is in aux for an even column and main for an odd one, and
 ; main is the resting state, so this selects it and each access puts main back.
 ; a is preserved because the caller's character has to survive it.
@@ -3148,7 +3148,7 @@ show_more_prompt
 	lda zp_screencolumn ; a cell is two bytes wide
 	asl
 	sta .more_cell_offset
-} else ifdef TARGET_APPLE2E {
+} else ifdef A2_80COL {
 	; A cell is at column / 2 in one of two banks (see a2_put_char), so the
 	; offset is halved and the parity is kept for the accesses below to select
 	; with. Without this the prompt writes 39 bytes past the end of its row,
@@ -3455,7 +3455,7 @@ print_line_from_buffer
 	} else {
 		ora print_buffer2,y
 	}
-	!ifdef TARGET_APPLE2E {
+	!ifdef A2_80COL {
 		; y is a buffer index AND an absolute screen column, and on the 80
 		; column screen those are no longer the same thing: the cell is at
 		; column / 2 in one of two banks. a2_put_char hands y back untouched,

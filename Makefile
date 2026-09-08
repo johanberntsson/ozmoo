@@ -312,5 +312,34 @@ apple2e-conformance-unenhanced:
 apple2e-save:
 	ruby tools/apple2/apple2-save.rb -t:apple2e $(OPTS)
 
+# The Apple IIgs (-t:apple2gs, phase 3). Text only so far: the same 80 column
+# screen as the IIe, but in colour, and with the machine's own clock.
+dejavu-apple2gs:
+	ruby make.rb -s -t:apple2gs examples/dejavu.z3
+czech-apple2gs:
+	ruby make.rb -s -t:apple2gs test/czech.z5
+praxix-apple2gs:
+	ruby make.rb -s -t:apple2gs test/praxix.z5
+etude-apple2gs:
+	ruby make.rb -s -t:apple2gs test/etude.z5
+zork1-apple2gs:
+	ruby make.rb -s -t:apple2gs infocom/zork1.z3
+# ...and one built in colour, which is the thing this target has that its
+# siblings do not.
+dejavu-apple2gs-colour:
+	ruby make.rb -s -t:apple2gs -bgcol:blue -fgcol:yellow -bordercol:red examples/dejavu.z3
+
+apple2gs-conformance:
+	ruby tools/apple2/apple2-conformance.rb -t:apple2gs $(OPTS)
+apple2gs-save:
+	ruby tools/apple2/apple2-save.rb -t:apple2gs $(OPTS)
+apple2gs-clock:
+	ruby tools/apple2/apple2-clock.rb -t:apple2gs --story $(STORY) $(OPTS)
+
+# Apple IIgs (phase 3). Step 0: the font legibility mockup - host side, no
+# emulator. Writes PNGs to temp/gsfont at an honest 4:3 scale; look at them.
+apple2gs-font:
+	python3 tools/apple2/gs-font-mockup.py $(OPTS)
+
 clean:
 	rm -rf *d64 *d71 *d81 x16_* apple2*.dsk apple2*.nib

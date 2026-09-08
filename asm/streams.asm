@@ -623,7 +623,7 @@ character_translation_table_in_mappings_end
 ; $5f ; Underscore = underscore-like graphic character
 ; $5c ; Backslash => (somewhat) backslash-like graphic character
 
-!ifdef TARGET_APPLE2E {
+!ifdef A2_80COL {
 ; A IIe's alternate character set is the whole of ASCII $20-$7e, so none of the
 ; substitutions the II+ needs below apply here: ` { | } ~ _ and \ are all real
 ; glyphs and are printed as themselves. Only the pound sign has nowhere to go,

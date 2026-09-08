@@ -109,6 +109,17 @@
 	VMEM_END_PAGE = $c0
 }
 
+!ifdef TARGET_APPLE2GS {
+	; A IIgs in its Apple II personality: the same main-RAM window as the IIe,
+	; the same language card and the same auxiliary bank, because all of that
+	; is what the machine emulates. What is different is above it - the
+	; expansion RAM, the Super Hi-Res screen and SmartPort - and none of that
+	; moves either end of this map.
+	TARGET_ASSIGNED = 1
+	SUPPORT_REU = 0
+	VMEM_END_PAGE = $c0
+}
+
 ; Every Apple target must define the apple family as well as its own type
 ; ((make.rb sets this automatically)
 !ifdef A2_AUX_CACHE {
@@ -123,6 +134,20 @@
 	}
 	!ifdef TARGET_APPLE2E {
 		!error "An Apple target must define TARGET_APPLE2_FAMILY too (make.rb does it); without it the shared Apple branches are all switched off and the build quietly takes the CBM paths."
+	}
+	!ifdef TARGET_APPLE2GS {
+		!error "An Apple target must define TARGET_APPLE2_FAMILY too (make.rb does it); without it the shared Apple branches are all switched off and the build quietly takes the CBM paths."
+	}
+}
+
+; The 80 column main/aux text screen and the alternate character set: a IIe, a
+; IIc and a IIgs all have exactly this screen, and four fifths of what phase 2
+; wrote for it is not about the IIe at all. So the screen branches are on this
+; rather than on TARGET_APPLE2E, which now means the IIe and nothing else -
+; the same trade TARGET_APPLE2_FAMILY makes one level up. make.rb sets it.
+!ifdef TARGET_APPLE2GS {
+	!ifndef A2_80COL {
+		!error "TARGET_APPLE2GS needs A2_80COL (make.rb sets it): without it the 80 column screen branches are switched off and the build draws on 40 columns."
 	}
 }
 
@@ -1010,6 +1035,8 @@ c128_border_phase1
 !source "constants-apple2.asm"
 } else ifdef TARGET_APPLE2E {
 !source "constants-apple2e.asm"
+} else ifdef TARGET_APPLE2GS {
+!source "constants-apple2gs.asm"
 } else {
 !source "constants.asm"
 }
@@ -1957,9 +1984,16 @@ z_init
 	jsr read_header_word
 	and #(255 - 4 - 8) ; bold font, italic font not available
 !ifdef TARGET_APPLE2_FAMILY {
+	!ifdef TARGET_APPLE2GS {
+	; A IIgs does have colour - one pair for the whole screen, which is all
+	; Ozmoo asks of any target outside z6 - so bit 0 stands here where it is
+	; cleared for its two siblings.
+	ora #(1 + 16 + 128)
+	} else {
 	; No colour on this machine, so bit 0 has to be clear
 	and #(255 - 1)
 	ora #(16 + 128) ; Fixed-space style, timed input available
+	}
 } else {
 	ora #(1 + 16 + 128) ; Colours, Fixed-space style, timed input available
 }
@@ -2206,9 +2240,36 @@ z_init
 fkey_codes !byte $85,$89,$86,$8a,$87,$8b,$88,$8c
 }
 
-!ifdef TARGET_APPLE2E {
-; Find out which Apple machine we're running on, and refuse older machines
-a2e_identify
+!ifdef A2_80COL {
+; Find out which Apple machine we're running on, and refuse the ones this disk
+; is not for. Both branches end by falling into a2_screen_init, which is the
+; same 80 column screen on every machine that gets this far.
+!ifdef TARGET_APPLE2GS {
+a2_identify
+	; A IIgs answers the IIe's $FBB3/$FBC0 identification like an enhanced IIe,
+	; so those cannot tell one from the other. The documented test is the
+	; identification routine at $FE1F: a IIgs returns with the carry clear and
+	; the ROM version in y, and every earlier machine has an RTS there, which
+	; leaves the carry as we set it.
+	sec
+	jsr A2_ID_GS
+	bcs .not_gs
+	sty a2gs_rom_version
+	; MouseText and the full character set, as on an enhanced IIe.
+	lda #A2_MACHINE_IIE_ENHANCED
+	sta a2_machine
+	; Colour text, whatever the control panel last chose: bit 7 of $C021
+	; forces monochrome and overrides TBCOLOR entirely.
+	lda A2_MONOCHROME
+	and #$7f
+	sta A2_MONOCHROME
+	jmp a2_screen_init
+.not_gs
+	ldx #<.needs_iigs
+	ldy #>.needs_iigs
+	jmp .refuse
+} else {
+a2_identify
 	lda A2_ID_MACHINE
 	cmp #$06
 	bne .too_old
@@ -2222,8 +2283,9 @@ a2e_identify
 	ldx #A2_MACHINE_IIC
 +	stx a2_machine
 	; ...and fall through into the screen init code
+}
 
-a2e_screen_init
+a2_screen_init
 	; Turn on the 80 column screen
 	;
 	; Is the aux RAM the even columns live in actually there? A IIe with
@@ -2247,9 +2309,11 @@ a2e_screen_init
 	ldx #<.needs_80col
 	ldy #>.needs_80col
 	jmp .refuse
+!ifndef TARGET_APPLE2GS {
 .too_old
 	ldx #<.needs_iie
 	ldy #>.needs_iie
+}
 .refuse
 	; Show error message on the 40 column screen (since 80 failed)
 	stx .refuse_msg + 1
@@ -2268,7 +2332,11 @@ a2e_screen_init
 	iny
 	bne -
 +	jmp *
+!ifdef TARGET_APPLE2GS {
+.needs_iigs !text "OZMOO: THIS DISK NEEDS AN APPLE IIGS.",0
+} else {
 .needs_iie !text "OZMOO: THIS DISK NEEDS AN APPLE IIE.",0
+}
 .needs_80col !text "OZMOO: NEEDS AN 80 COLUMN CARD.",0
 }
 
@@ -2327,8 +2395,8 @@ a2_lc_init
 
 
 deletable_init_start
-!ifdef TARGET_APPLE2E {
-	jsr a2e_identify
+!ifdef A2_80COL {
+	jsr a2_identify
 }
 !ifdef TARGET_APPLE2_FAMILY {
 	; Nothing clears memory on this machine. The Apple restart is the boot
