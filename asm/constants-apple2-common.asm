@@ -10,6 +10,35 @@ MIXCLR                = $C052
 LOWSCR                = $C054
 HIRESOFF              = $C056
 
+!ifdef A2_SMARTPORT {
+; --- the SmartPort block driver ---------------------------------------------
+; asm/apple2-smartport.asm rather than asm/apple2-rwts.asm: block 0 of the disk,
+; which the firmware loads and jumps into, and which then stays resident as the
+; block reader. The offsets echo the RWTS's so disk.asm's stores are the same
+; few instructions either way; what changes is that the two bytes at $0807 are
+; a block number rather than a track and a sector, and that a block is 512
+; bytes where a sector is 256 - so one of Ozmoo's pages is half a block. See
+; a2_sp_read_page in disk.asm for what that costs (one buffer and one copy).
+A2_READ_BLOCK         = $0804
+A2_BLOCK              = $0807   ; block number, low byte then high
+A2_DEST               = $0809   ; destination page...
+A2_DEST_LO            = $080A   ; ...and its low byte
+A2_WRITE_BLOCK        = $080B
+A2_WRITE_PROTECT      = $080E   ; the device refused the write
+A2_LAST_ERROR         = $080F   ; the firmware's own error code
+A2_UNIT               = $0810   ; $DSSS0000: drive and slot
+A2_SLOT               = $0811   ; slot * 16, latched at boot
+
+; The driver is 512 bytes at most, so everything from $0A00 up to the
+; interpreter is free where the RWTS needed it for nibble buffers. The first
+; page and a half of that is the block buffer a half-block read needs.
+A2_BLOCK_BUFFER       = $0A00   ; 512 bytes
+
+; Where make.rb puts things. Block 0 is the boot block the firmware loads, and
+; block 1 the config; everything else the interpreter is told at boot, out of
+; the config block itself. Keep in step with A2_SP_CONFIG_BLOCK in make.rb.
+A2_SP_CONFIG_BLOCK    = 1
+} else {
 ; The boot chain at $0800, which stays resident. Ozmoo reaches a sector through
 ; the jump at A2_READ_SECTOR (or A2_WRITE_SECTOR) after filling in the track,
 ; sector and address below it; see the header of asm/apple2-rwts.asm, which owns
@@ -39,6 +68,7 @@ A2_BOOTSLOT_ZP        = $2b     ; ...and where the PROM left it, which the
                                 ; driver still reads on the way through boot.
                                 ; It is mem_temp + 1 to us, so a restart has to
                                 ; put A2_SLOT back there before jumping to $0801
+}
 
 ; --- getting back to BASIC --------------------------------------------------
 ; The autostart ROM's RESET routine decides between a warm start and a cold one

@@ -363,8 +363,10 @@ a2_quit_to_basic
 	; because a game pages more or less continuously, but a BASIC prompt with
 	; the drive still spinning is untidy - and on a IIgs it is also what keeps
 	; the machine at 1 MHz.
+!ifndef A2_SMARTPORT {
 	ldx A2_SLOT
 	lda A2_MOTOR_OFF,x
+}
 	; Clear the text page, because neither the ROM's reset nor Applesoft does:
 	; without this BASIC comes up on a screenful of the game's last screen. On
 	; the 80 column screen half of what is there is in the other bank, so the

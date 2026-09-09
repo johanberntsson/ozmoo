@@ -93,7 +93,8 @@ def build_story(story, build, extra = [])
     puts cmd.join(' ')
     abort "build of #{story} failed" unless system(*cmd, chdir: ROOT, out: File::NULL)
   end
-  image = File.join(ROOT, "#{TARGET}_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
+  ext, = Apple2Emu.disk_kind(TARGET)
+  image = File.join(ROOT, "#{TARGET}_#{File.basename(story).sub(/\.z\d$/, '')}#{ext}")
   abort "no image at #{image} - build it first" unless File.exist?(image)
   [image, Apple2Emu.read_labels(LABELS)]
 end
@@ -107,6 +108,8 @@ end
 # is the clock's rate directly, in jiffies, and n is 1 rather than a number of
 # polls.  Everything below is written in "ticks" for that reason.
 VBL_CLOCK = TARGET == 'apple2gs'
+# The medium follows the target's default; -a2d is not a clock option.
+_, FLOP3 = Apple2Emu.disk_kind(TARGET)
 
 def poll_count(sample, n)
   return sample['a2_jiffy'] if VBL_CLOCK
@@ -133,14 +136,16 @@ SAMPLES = { 'a2_jiffy' => 3, 'a2_jiffy_sub' => 2, 'zp_screencolumn' => 1 }.freez
 # --- the two loops with no timer in them: the read prompt, and [More] --------
 
 def measure_idle(image, labels, n, keys:, settle:, window:, label:)
-  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, **SCREEN, samples: SAMPLES, keys: keys,
+  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, flop3: FLOP3, **SCREEN, samples: SAMPLES, keys: keys,
                               seconds: 12 + settle + window + 2)
   samples = result[:samples]
   t0 = samples[after_init(samples, n, label)][0] + settle
   inside = samples.select { |t, _| t >= t0 && t <= t0 + window }
   abort "#{label}: no samples in the measurement window" if inside.length < 5
+  # ...clamped, because inside[4 * (length / 4)] is off the end whenever the
+  # sample count divides by four exactly, which is a coin toss run to run.
   rate = lambda do |from, to|
-    a, b = inside[from], inside[to]
+    a, b = inside[[from, inside.length - 1].min], inside[[to, inside.length - 1].min]
     (poll_count(b[1], n) - poll_count(a[1], n)) / (b[0] - a[0])
   end
   q = inside.length / 4
@@ -164,7 +169,7 @@ def measure_timed(labels, build)
   16.times { keys << [t, "\n"]; t += 1.0 }
   keys << [t += 2.0, "10\n"]
   keys << [t += 1.0, "\n"]
-  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, **SCREEN, samples: SAMPLES, keys: keys,
+  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, flop3: FLOP3, **SCREEN, samples: SAMPLES, keys: keys,
                               seconds: t + 60)
   samples = result[:samples].select { |tt, _| tt > t + 2 }
   abort 'the timed test never started' if samples.length < 100
@@ -211,7 +216,7 @@ BLINK_JIFFIES = 20
 def measure_blink(story, build)
   image, labels = build_story(story, build, ["-cb:#{BLINK_JIFFIES}"])
   n = VBL_CLOCK ? 1 : labels['A2_POLLS_PER_JIFFY']
-  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, **SCREEN, seconds: 45,
+  result = Apple2Emu.mame_run(image, driver: DRIVER, labels: labels, flop3: FLOP3, **SCREEN, seconds: 45,
                               samples: SAMPLES.merge('s_cursormode' => 1),
                               keys: [[10, "\n"], [12, "\n"], [14, "\n"]])
   samples = result[:samples].select { |t, _| t > 20 }

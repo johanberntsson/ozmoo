@@ -684,6 +684,128 @@ while (a = args.shift)
 end
 abort "usage: ruby tools/apple2/apple2-cat.rb [options] <image.dsk>   (--help for the options)" unless image_path
 
+# ---------------------------------------------------------------------------
+# A SmartPort image (.po) is a different animal: 1600 blocks of 512 bytes, no
+# tracks, no sector order, no interleave and no per-track map. The layout is
+# block 0 the boot block, block 1 the config, then the interpreter, then the
+# story, then the save slots - so reading it back is arithmetic rather than a
+# walk, and it gets a reader of its own rather than a mode of the one below.
+# ---------------------------------------------------------------------------
+SP_BLOCK_SIZE = 512
+SP_BLOCKS     = 1600
+
+def smartport_report(path, bytes, verify_path, extract_path)
+  block = lambda { |n| bytes[n * SP_BLOCK_SIZE, SP_BLOCK_SIZE] }
+  conf  = block.call(1)
+  story_first = conf[504] + 256 * conf[505]
+  save_first  = conf[506] + 256 * conf[507]
+  slot_blocks = conf[508]
+  slots       = conf[6]
+  boot        = block.call(0)
+  terp_blocks = story_first - 2
+
+  puts File.basename(path)
+  field "size", "#{bytes.length} bytes, #{SP_BLOCKS} blocks x #{SP_BLOCK_SIZE}"
+  field "medium", "SmartPort block device (.po), 800K"
+  field "boot block", boot[0] == 1 ? "bootable ($01), jmp $%04x" % (boot[2] + 256 * boot[3]) :
+                                     "NOT bootable: byte 0 is $%02x, not $01" % boot[0]
+  field "build id", "$%02x%02x%02x%02x" % conf[0, 4]
+  puts
+  field "block  0", "boot block and resident block driver"
+  field "block  1", "config"
+  field "blocks 2-#{story_first - 1}", "interpreter + dynmem (#{terp_blocks} blocks)"
+  # The story's own length is the running total in the LAST disk entry, which
+  # means walking them: the entries start at config byte 8, each begins with
+  # its own length, and the first of them is the save entry the shared code
+  # puts there before any disk. Each is size, device, total high, total low,
+  # map length, then the map and the name.
+  entries = conf[7]
+  off = 8
+  story_pages = 0
+  entries.times do
+    story_pages = conf[off + 2] * 256 + conf[off + 3]
+    off += conf[off]
+  end
+  story_blocks = (story_pages + 1) / 2
+  field "blocks #{story_first}-#{story_first + story_blocks - 1}",
+        "story data, #{story_pages} pages"
+  if save_first > 0
+    field "blocks #{save_first}-#{save_first + slots * slot_blocks}",
+          "#{slots} save slots of #{slot_blocks} blocks (block #{save_first} is the directory)"
+    dir = block.call(save_first)
+    used = (0...slots).select { |i| dir[140 + i] == 0xa2 }
+    if used.empty?
+      field "saves", "none of the #{slots} slots is in use"
+    else
+      used.each do |i|
+        name = dir[i * 14, 14].take_while { |c| c != 0 }.map(&:chr).join
+        field "  slot #{i}", name.inspect
+      end
+    end
+  else
+    field "saves", "no room on the disk for a slot"
+  end
+
+  return unless verify_path or extract_path
+  # The story is dynamic memory - which rides at the end of the interpreter
+  # blob - followed by the paged data. How much dynmem there is is written down
+  # nowhere on the disk, so it comes from the story file's own header when
+  # there is one to read, and otherwise from looking for the header in the blob.
+  terp = bytes[2 * SP_BLOCK_SIZE, terp_blocks * SP_BLOCK_SIZE]
+  paged = bytes[story_first * SP_BLOCK_SIZE, story_pages * 256]
+  ref = verify_path ? File.binread(verify_path).bytes : nil
+  dynmem_len = if ref
+    static = ref[0x0e] * 256 + ref[0x0f]
+    ((static + 511) / 512) * 512
+  else
+    # A z-machine header starts with a version byte of 1..8 and its static
+    # memory base points inside the file; try each 512 byte boundary.
+    guess = (0...terp.length).step(512).find do |off|
+      v = terp[off]
+      v && v.between?(1, 8) && (terp[off + 0x0e].to_i * 256 + terp[off + 0x0f].to_i) > 0x40
+    end
+    guess ? terp.length - guess : nil
+  end
+  unless dynmem_len
+    puts "\n(could not find dynamic memory in the interpreter blob)"
+    return
+  end
+  # dynmem sits just before the language card half, so find it by its size from
+  # the front of the blob rather than the back.
+  dyn_off = ref ? terp.length - dynmem_len : nil
+  dyn_off ||= 0
+  # Look for the story's own first bytes, which pins it exactly.
+  if ref
+    (0...terp.length).step(512) do |off|
+      if terp[off] == ref[0] && terp[off + 1] == ref[1] && terp[off + 0x0e] == ref[0x0e]
+        dyn_off = off
+        break
+      end
+    end
+  end
+  story = terp[dyn_off, dynmem_len].to_a + paged.to_a
+  puts
+  field "reassembled", "#{story.length} bytes (#{dynmem_len} of dynamic memory + #{paged.length} paged)"
+  if extract_path
+    File.binwrite(extract_path, story.pack("C*"))
+    field "written to", extract_path
+  end
+  if ref
+    # make.rb stamps $38-$3b with the target, the version and "OZ".
+    same = story.length >= ref.length &&
+           (0...ref.length).all? { |i| i.between?(0x38, 0x3b) || story[i] == ref[i] }
+    field "verify", same ? "matches #{File.basename(verify_path)}" :
+                           "DIFFERS from #{File.basename(verify_path)}"
+    exit(same ? 0 : 1)
+  end
+end
+
+raw = File.binread(image_path).bytes
+if raw.length == SP_BLOCKS * SP_BLOCK_SIZE
+  smartport_report(image_path, raw, opts[:verify], opts[:extract])
+  exit 0
+end
+
 disk = Image.new(image_path, opts[:order])
 
 # Which disk of which set this is. Only disk 1 is a boot disk: it is the one

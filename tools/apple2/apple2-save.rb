@@ -45,7 +45,8 @@ args = ARGV.dup
 until args.empty?
   case (arg = args.shift)
   when '--no-build' then build = false
-  when /^-a2c/ then extra << arg    # build crunched, and check saving works there too
+  when /^-a2c/ then extra << arg
+  when /^-a2d:(35|525)$/ then extra << arg  # 3.5" over SmartPort, or 5.25"
   when /^-t:(\S+)$/ then target = $1
   when '--driver' then driver = args.shift
   when '-v', '--verbose' then verbose = true
@@ -61,7 +62,8 @@ driver ||= case target
            when 'apple2gs' then 'apple2gs'
            else 'apple2ee'
            end
-IMAGE  = File.join(ROOT, "#{target}_dejavu.dsk")
+EXT, FLOP3 = Apple2Emu.disk_kind(target, extra)
+IMAGE  = File.join(ROOT, "#{target}_dejavu#{EXT}")
 DRIVER = driver
 # 40 columns of the II+'s 64 glyphs, or a IIe's 80 columns of mixed case (see
 # tools/apple2/apple2-conformance.rb).  Every screen test below is therefore
@@ -78,7 +80,8 @@ abort "no image at #{IMAGE}" unless File.exist?(IMAGE)
 labels = Apple2Emu.read_labels(LABELS)
 
 def play(labels, commands, seconds: 900)
-  Apple2Emu.mame_run(IMAGE, driver: DRIVER, labels: labels, tap: 'printchar_buffered',
+  Apple2Emu.mame_run(IMAGE, driver: DRIVER, labels: labels, flop3: FLOP3,
+                     tap: 'printchar_buffered',
                      auto_more: true, idle_after: 25, idle_exit: 90,
                      command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
                      commands: commands.map { |c| c + "\n" }, seconds: seconds, **SCREEN)
@@ -116,12 +119,23 @@ puts "\n4. read the disk here on the host"
 # The config block's last four bytes are the save area; the directory is its
 # first sector, laid out as ten fourteen-character comments and a flag each.
 image = File.binread(IMAGE).bytes
-dos33 = [0, 7, 14, 6, 13, 5, 12, 4, 11, 3, 10, 2, 9, 1, 8, 15]
-sector = lambda { |track, sec| image[(track * 16 + dos33[sec]) * 256, 256] }
-config = sector.call(1, 0) + sector.call(1, 1)
-save_track, slot_sectors, slots = config[508], config[509], config[6]
-puts format('  save area: track %d, %d slots of %d sectors', save_track, slots, slot_sectors)
-dir = sector.call(save_track, 0)
+if FLOP3
+  # A block image: no tracks, no sector order, and the config block's tail is
+  # in blocks - the story base, then the save base, then the slot size.
+  block = lambda { |n| image[n * 512, 512] }
+  config = block.call(1)
+  save_first = config[506] + 256 * config[507]
+  slot_blocks, slots = config[508], config[6]
+  puts format('  save area: block %d, %d slots of %d blocks', save_first, slots, slot_blocks)
+  dir = block.call(save_first)
+else
+  dos33 = [0, 7, 14, 6, 13, 5, 12, 4, 11, 3, 10, 2, 9, 1, 8, 15]
+  sector = lambda { |track, sec| image[(track * 16 + dos33[sec]) * 256, 256] }
+  config = sector.call(1, 0) + sector.call(1, 1)
+  save_track, slot_sectors, slots = config[508], config[509], config[6]
+  puts format('  save area: track %d, %d slots of %d sectors', save_track, slots, slot_sectors)
+  dir = sector.call(save_track, 0)
+end
 name = dir[0, 14].take_while { |c| c != 0 }.map(&:chr).join
 check.call(dir[140] == 0xa2, 'slot 0 is marked in use in the directory sector')
 check.call(name.downcase == COMMENT[0, 14], "the comment on the disk is #{name.inspect}")

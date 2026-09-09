@@ -206,8 +206,6 @@ z6-apple2e:
 scroll-apple2e:
 	inform -v6 testz6scroll.inf
 	ruby make.rb -s -t:apple2e testz6scroll.z6
-dejavu-apple2gs:
-	ruby make.rb -s -t:apple2gs examples/dejavu.z3
 
 advent-mega65:
 	ruby make.rb -s -t:mega65 examples/advent_punyinform.z5
@@ -335,6 +333,13 @@ apple2gs-save:
 	ruby tools/apple2/apple2-save.rb -t:apple2gs $(OPTS)
 apple2gs-clock:
 	ruby tools/apple2/apple2-clock.rb -t:apple2gs --story $(STORY) $(OPTS)
+
+# The same target on 5.25" instead of its default 800K 3.5" (-a2d picks the
+# medium; -a2d:35 forces SmartPort on a IIe-class build the other way).
+dejavu-apple2gs-525:
+	ruby make.rb -s -t:apple2gs -a2d:525 examples/dejavu.z3
+apple2gs-conformance-525:
+	ruby tools/apple2/apple2-conformance.rb -t:apple2gs -a2d:525 $(OPTS)
 
 # Apple IIgs (phase 3). Step 0: the font legibility mockup - host side, no
 # emulator. Writes PNGs to temp/gsfont at an honest 4:3 scale; look at them.

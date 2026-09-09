@@ -32,7 +32,11 @@ nonstored_pages			!byte 0
 A2_DIR_FLAGS = 140          ; ten flags, after the ten fourteen-byte comments
 A2_DIR_MARK  = $a2          ; ...in a slot that is in use
 
+!ifdef A2_SMARTPORT {
+a2_save_track       !byte 0, 0 ; first BLOCK of the save area, 0 = there is none
+} else {
 a2_save_track       !byte 0 ; first track of the save area, 0 = there is none
+}
 a2_save_slot_sectors !byte 0
 directory_buffer    !fill 256, 0 ; a whole sector: the directory as it is on disk
 
@@ -68,8 +72,25 @@ a2_id_magic    !text "OZA2"
 ; and physical sector the driver wants. Carry set if this disk has no save area.
 a2_set_save_sector
 	lda a2_save_track
+!ifdef A2_SMARTPORT {
+	ora a2_save_track + 1
+}
 	beq a2_no_save_area
 
+!ifdef A2_SMARTPORT {
+	; A block device, one disk: the save area is a run of blocks and a2_lin
+	; counts them, so this is an addition and nothing else. There is no drive
+	; to choose - the disk we booted from is the only disk there is.
+	lda a2_lin
+	clc
+	adc a2_save_track
+	sta A2_BLOCK
+	lda a2_lin + 1
+	adc a2_save_track + 1
+	sta A2_BLOCK + 1
+	clc
+	rts
+} else {
 	; The slots are on the boot disk, whichever drive that is in.
 	lda disk_info + 4 + 8
 	sec
@@ -111,13 +132,19 @@ a2_set_save_sector
 	sta A2_SECTOR
 	clc
 	rts
+}
 a2_no_save_area
 	sec
 	rts
 
-; a2_next_sector: the next sector of the save, and the next page of memory.
+; a2_next_sector: the next unit of the save, and the next of memory. A unit is
+; a 256 byte sector on the RWTS and a 512 byte block over SmartPort, so the
+; buffer walks one page or two.
 a2_next_sector
 	inc A2_DEST                 ; the buffer walks a page at a time; its low
+!ifdef A2_SMARTPORT {
+	inc A2_DEST                 ; ...or two of them, a block being 512 bytes
+}
 	inc a2_lin                  ; byte was set once and never changes
 	bne +
 	inc a2_lin + 1
@@ -128,6 +155,9 @@ a2_next_sector
 ; area. Carry set if the slot number is not one this disk has.
 a2_slot_start
 	lda a2_save_track
+!ifdef A2_SMARTPORT {
+	ora a2_save_track + 1
+}
 	beq a2_bad_slot
 	lda a2_saveslot
 	sec
@@ -167,6 +197,17 @@ a2_block_sectors
 	lda #>(zp_bytes_to_save + stack_size)
 	adc dynmem_size + 1
 	sta a2_count
+!ifdef A2_SMARTPORT {
+	; ...and a unit is 512 bytes here, not 256, so it is half as many of them.
+	; The odd sector and the odd byte both still cost a whole block, which is
+	; what the two round-ups below are for.
+	lsr a2_count
+	ror a2_tmp
+	lda a2_tmp
+	beq +
+	inc a2_count
++	rts
+}
 	lda a2_tmp
 	beq +
 	inc a2_count                ; a part sector still needs a sector
@@ -175,15 +216,22 @@ a2_block_sectors
 ; a2_save_block / a2_restore_block: move the save between memory and the slot.
 ; The block begins at stack_start - zp_bytes_to_save and is contiguous from
 ; there, so only the buffer's high byte changes as the sectors go by.
+!ifdef A2_SMARTPORT {
+A2_MOVE_WRITE = A2_WRITE_BLOCK
+A2_MOVE_READ  = A2_READ_BLOCK
+} else {
+A2_MOVE_WRITE = A2_WRITE_SECTOR
+A2_MOVE_READ  = A2_READ_SECTOR
+}
 a2_save_block
-	lda #<A2_WRITE_SECTOR
+	lda #<A2_MOVE_WRITE
 	sta a2_move_call + 1
-	lda #>A2_WRITE_SECTOR
+	lda #>A2_MOVE_WRITE
 	bne a2_move                 ; always
 a2_restore_block
-	lda #<A2_READ_SECTOR
+	lda #<A2_MOVE_READ
 	sta a2_move_call + 1
-	lda #>A2_READ_SECTOR
+	lda #>A2_MOVE_READ
 a2_move
 	sta a2_move_call + 2
 	jsr a2_boot_disk_in_drive
@@ -198,7 +246,7 @@ a2_move_next
 	jsr a2_set_save_sector
 	bcs a2_move_failed
 a2_move_call
-	jsr A2_READ_SECTOR          ; patched to the read or the write above
+	jsr A2_MOVE_READ            ; patched to the read or the write above
 	bcs a2_move_failed
 	jsr a2_next_sector
 	dec a2_count
@@ -212,6 +260,57 @@ a2_move_failed
 ; a2_read_directory / a2_write_directory: sector 0 of the save area, into and
 ; out of directory_buffer. A disk that has never been saved to reads back as
 ; zeros, which is exactly "no slots in use".
+!ifdef A2_SMARTPORT {
+; The directory is 256 bytes of a 512 byte block, so it goes through the block
+; buffer rather than straight into directory_buffer: the driver always moves a
+; whole block, and reading one into a 256 byte buffer would write over whatever
+; follows it. The buffer is free at both of these moments - nothing runs Z-code
+; between them and the copy - but the page cache it belongs to is not, so its
+; block number is thrown away either way.
+a2_read_directory
+	jsr a2_dir_sector
+	bcs a2_dir_failed
+	jsr a2_sp_dir_call_read
+	bcs a2_dir_failed
+	ldy #0
+-	lda A2_BLOCK_BUFFER,y
+	sta directory_buffer,y
+	iny
+	bne -
+	clc
+	rts
+
+a2_write_directory
+	jsr a2_dir_sector
+	bcs a2_dir_failed
+	ldy #0
+-	lda directory_buffer,y
+	sta A2_BLOCK_BUFFER,y
+	lda #0
+	sta A2_BLOCK_BUFFER + 256,y  ; we own the whole block; leave no rubbish
+	iny
+	bne -
+	jsr a2_sp_dir_call_write
+	rts
+a2_dir_failed
+	sec
+	rts
+
+a2_sp_dir_call_read
+	jsr a2_sp_dir_buffer
+	jmp A2_READ_BLOCK
+a2_sp_dir_call_write
+	jsr a2_sp_dir_buffer
+	jmp A2_WRITE_BLOCK
+a2_sp_dir_buffer
+	lda #$ff                    ; whatever is in the buffer now, it is not a
+	sta a2_sp_cached + 1        ; story block any more
+	lda #<A2_BLOCK_BUFFER
+	sta A2_DEST_LO
+	lda #>A2_BLOCK_BUFFER
+	sta A2_DEST
+	rts
+} else {
 a2_read_directory
 	jsr a2_boot_disk_in_drive
 	jsr a2_dir_sector
@@ -224,6 +323,7 @@ a2_write_directory
 	bcs +
 	jmp A2_WRITE_SECTOR
 +	rts
+}
 
 a2_dir_sector
 	lda #0
@@ -455,6 +555,12 @@ readblock
 	jmp a2_aux_read_page
 .not_in_aux
 }
+!ifdef A2_SMARTPORT {
+	; A block device: the story is one contiguous run of blocks, so there is no
+	; disk to choose and no per-track map to walk. Everything the walk below
+	; works out is an addition here.
+	jmp a2_sp_read_page
+}
 	; convert block to track/sector
 	
 	lda disk_info + 2 ; Number of disks
@@ -615,6 +721,101 @@ readblock
 .skip_sectors 	!byte 0
 .temp_y 		!byte 0
 
+!ifdef A2_SMARTPORT {
+; ---------------------------------------------------------------------------
+; a2_sp_read_page: one of Ozmoo's 256 byte pages, off a device whose unit is
+; 512 bytes.
+;
+; block = a2_sp_story_first + page / 2, and the half wanted is page & 1. The
+; block is read into a buffer and the half copied out, with the block number
+; kept so that the other half costs no read at all - which is the usual case,
+; because the shared code walks pages in order. So a vmem block (two pages)
+; costs one device read, which is the same one read a 512 byte unit would.
+;
+; The alternative was to keep 256 byte granularity all the way down and let the
+; device read each block twice. This is one page of buffer and a copy instead.
+; ---------------------------------------------------------------------------
+a2_sp_read_page
+	; page / 2 into the block number, and the odd bit into .half
+	lda readblocks_currentblock_adjusted + 1
+	lsr
+	sta .sp_blk + 1
+	lda readblocks_currentblock_adjusted
+	ror
+	sta .sp_blk
+	lda #0
+	rol                         ; the bit shifted out: 0 = low half, 1 = high
+	sta .sp_half
+	lda .sp_blk
+	clc
+	adc a2_sp_story_first
+	sta .sp_blk
+	lda .sp_blk + 1
+	adc a2_sp_story_first + 1
+	sta .sp_blk + 1
+
+	; Already in the buffer?
+	lda .sp_blk
+	cmp a2_sp_cached
+	bne .sp_fetch
+	lda .sp_blk + 1
+	cmp a2_sp_cached + 1
+	beq .sp_copy
+.sp_fetch
+	jsr a2_sp_read_cached
+	bcc .sp_copy
+	jmp a2_disk_error
+.sp_copy
+	; The half the caller asked for, into readblocks_mempos. Its low byte is
+	; always zero - the shared code walks whole pages - so the copy is a plain
+	; page.
+	lda #>A2_BLOCK_BUFFER
+	ldx .sp_half
+	beq +
+	clc
+	adc #1
++	sta .sp_from + 2
+	lda readblocks_mempos + 1
+	sta .sp_to + 2
+	ldy #0
+.sp_from
+	lda $ff00,y
+.sp_to
+	sta $ff00,y
+	iny
+	bne .sp_from
+	rts
+
+; Read the block in .sp_blk into the buffer, recording which one is there.
+; Carry set if the device refused.
+a2_sp_read_cached
+	lda #0                      ; nothing is in the buffer while it is being
+	sta a2_sp_cached            ; filled, so a failure cannot leave a stale
+	lda #$ff                    ; block number claiming to be good
+	sta a2_sp_cached + 1
+	lda .sp_blk
+	sta A2_BLOCK
+	lda .sp_blk + 1
+	sta A2_BLOCK + 1
+	lda #<A2_BLOCK_BUFFER
+	sta A2_DEST_LO
+	lda #>A2_BLOCK_BUFFER
+	sta A2_DEST
+	jsr A2_READ_BLOCK
+	bcs +
+	lda .sp_blk
+	sta a2_sp_cached
+	lda .sp_blk + 1
+	sta a2_sp_cached + 1
+	clc
++	rts
+
+.sp_blk  !byte 0, 0
+.sp_half !byte 0
+a2_sp_cached !byte 0, $ff       ; the block in the buffer; $ff00 is not one
+a2_sp_story_first !byte 0, 0    ; where make.rb put the story (config block)
+}
+
 	; convert track/sector to ascii and update drive command
 read_track_sector
 	; input: a: track, x: sector, y: device#, Word at readblocks_mempos holds storage address
@@ -623,6 +824,25 @@ read_track_sector
 	sty .device
 .have_set_device_track_sector
 !ifdef TARGET_APPLE2_FAMILY {
+!ifdef A2_SMARTPORT {
+	; a and x are a block number rather than a track and a sector, and there is
+	; no device to choose: one 800K disk holds the lot. Used at boot to read the
+	; config block, and by the save path through a2_set_save_sector.
+	lda .track
+	sta A2_BLOCK
+	lda .sector
+	sta A2_BLOCK + 1
+	lda readblocks_mempos
+	sta A2_DEST_LO
+	lda readblocks_mempos + 1
+	sta A2_DEST
+	lda #$ff                    ; this is not the story-page buffer any more
+	sta a2_sp_cached + 1
+	jsr A2_READ_BLOCK
+	bcc +
+	jmp a2_disk_error
++	rts
+} else {
 	; There is no DOS to talk to on this machine: the sector reader is our own,
 	; resident at $0800 since the boot chain put it there (asm/apple2-rwts.asm),
 	; and its arguments are the four fixed bytes below its entry point. The
@@ -646,8 +866,28 @@ read_track_sector
 	bcc +
 	jmp a2_disk_error
 +	rts
+}
 
 a2_disk_error
+!ifdef A2_SMARTPORT {
+	; A block and the firmware's own error code: there is no head position to
+	; report, because there is no driver of ours that could have got it wrong.
+	lda A2_BLOCK
+	ldy #.a2_err_wt - .a2_err_msg
+	jsr .a2_err_digits
+	lda A2_BLOCK + 1
+	ldy #.a2_err_ws - .a2_err_msg
+	jsr .a2_err_digits
+	lda A2_LAST_ERROR
+	ldy #.a2_err_ht - .a2_err_msg
+	jsr .a2_err_digits
+	jsr printchar_flush
+	lda #>.a2_err_msg
+	ldx #<.a2_err_msg
+	jsr printstring_raw
+	lda #0
+	rts
+} else {
 	; Retries and recalibration attempts have all failed. The shared
 	; disk_error prints a BASIC error code, which this machine has no
 	; DOS to produce, so print additional info on the screen.
@@ -670,6 +910,7 @@ a2_disk_error
 	lda #0
 	rts
 
+}
 .a2_err_digits
 	; a = a value 0..99, y = where its two digits go in the message
 	jsr convert_byte_to_two_digits
@@ -680,12 +921,33 @@ a2_disk_error
 
 ; Raw printing does not word wrap, so each line has to fit in 40 columns with
 ; its digits in it. The dots are where they go.
+!ifdef A2_SMARTPORT {
+.a2_err_msg    !pet 13,"Disk error: block "
+.a2_err_wt     !pet "..", " "
+.a2_err_ws     !pet "..", 13, "The device reported error "
+.a2_err_ht     !pet "..", 13, 0
+} else {
 .a2_err_msg    !pet 13,"Disk error: track "
 .a2_err_wt     !pet "..", " sector "
 .a2_err_ws     !pet "..", 13, "The drive last read track "
 .a2_err_ht     !pet "..", " sector "
 .a2_err_hs     !pet "..", 13, 0
+}
 
+!ifdef A2_SMARTPORT {
+; A block device holds the whole game on one disk, and it is the disk we booted
+; from, so there is nothing to probe and nothing that could be in the wrong
+; drive. The three routines the multi-disk machinery needs keep their names and
+; answer immediately.
+a2_probe_disk
+	lda #1                      ; disk 1, always, and it is right here
+	rts
+a2_want_disk
+	clc
+	rts
+a2_boot_disk_in_drive
+	rts
+} else {
 a2_probe_disk
 	; read the id sector of whatever is in the drive named by a (1 or 2). 
 	;  Returns the disk's number in a, or 0 if the drive holds nothing we
@@ -829,6 +1091,7 @@ a2_boot_disk_in_drive
 	sbc #7
 	sta A2_DRIVE
 	rts
+}
 } else {
 	lda .track
 	jsr convert_byte_to_two_digits
@@ -1164,6 +1427,15 @@ z_ins_restart
 	sta A2_CLRALTCHAR
 	sta A2_CLR80STORE
 }
+!ifdef A2_SMARTPORT {
+	; The boot block latches the slot from x, exactly as the firmware hands it
+	; over, so a restart is that plus the jump.
+	ldx A2_SLOT
+!ifdef A2_LANGCARD {
+	lda A2_LC_ROM
+}
+	jmp $0801
+} else {
 	; The boot chain reads the controller's slot out of $2B, where the PROM
 	; left it - and $2B is mem_temp + 1 to us, so by now it holds whatever the
 	; game was last pointing at. Put the driver's own latched copy back.
@@ -1177,6 +1449,7 @@ z_ins_restart
 	lda A2_LC_ROM
 }
 	jmp $0801
+}
 } else {
 	; insert device# for boot disk in LOAD command
 	lda disk_info + 4 + 8 ; Device# for story disk (typically 8)

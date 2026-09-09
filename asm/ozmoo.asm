@@ -2784,6 +2784,12 @@ deletable_init
 	sta readblocks_mempos
 	lda #>config_load_address
 	sta readblocks_mempos + 1
+!ifdef A2_SMARTPORT {
+	; One 512 byte block, not two 256 byte sectors.
+	lda #<A2_SP_CONFIG_BLOCK
+	ldx #>A2_SP_CONFIG_BLOCK
+	jsr read_track_sector
+} else {
 	lda #CONF_TRK
 	ldx #0
 ; No need to load y with boot device#, already in place
@@ -2793,6 +2799,7 @@ deletable_init
 	ldx #1
 	ldy boot_device
 	jsr read_track_sector
+}
 
 ; Copy game id
 	ldx #3
@@ -2816,11 +2823,26 @@ deletable_init
 	bne -
 
 !ifdef TARGET_APPLE2_FAMILY {
+!ifdef A2_SMARTPORT {
+	; The config block's fixed tail: where the story starts, where the saves
+	; start, and how long a slot is - all block numbers (make.rb, build_A2_smartport).
+	lda config_load_address + 504
+	sta a2_sp_story_first
+	lda config_load_address + 505
+	sta a2_sp_story_first + 1
+	lda config_load_address + 506
+	sta a2_save_track
+	lda config_load_address + 507
+	sta a2_save_track + 1
+	lda config_load_address + 508
+	sta a2_save_slot_sectors
+} else {
 	; noting where the save slots are
 	lda config_load_address + 508
 	sta a2_save_track
 	lda config_load_address + 509
 	sta a2_save_slot_sectors
+}
 	; add the build id
 	ldx #3
 -	lda config_load_address,x

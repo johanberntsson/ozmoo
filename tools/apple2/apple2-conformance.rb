@@ -118,13 +118,15 @@ def build(target, story, want_build, extra = [])
     puts cmd.join(' ')
     abort "build of #{story} failed" unless system(*cmd, chdir: ROOT, out: File::NULL)
   end
-  image = File.join(ROOT, "#{target}_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
+  ext, = Apple2Emu.disk_kind(target, extra)
+  image = File.join(ROOT, "#{target}_#{File.basename(story).sub(/\.z\d$/, '')}#{ext}")
   abort "no image at #{image}" unless File.exist?(image)
   [image, Apple2Emu.read_labels(LABELS)]
 end
 
-def run_apple(image, driver, labels, commands, screen)
-  result = Apple2Emu.mame_run(image, driver: driver, labels: labels, tap: 'printchar_buffered',
+def run_apple(image, driver, labels, commands, screen, flop3 = false)
+  result = Apple2Emu.mame_run(image, driver: driver, labels: labels, flop3: flop3,
+                              tap: 'printchar_buffered',
                               auto_more: true, idle_exit: 12, idle_after: 25,
                               ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
                               commands: commands.map { |c| c + "\n" }, seconds: 400, **screen)
@@ -245,7 +247,8 @@ def check_delete_key(target, driver, want_build, extra, screen)
   DELETE_KEYS.each do |code, what|
     # "lookx", back over the x, Return - then the same again without Return, so
     # the corrected line is still on the screen at the end of the run.
-    result = Apple2Emu.mame_run(image, driver: driver, labels: labels,
+    _, flop3 = Apple2Emu.disk_kind(target, extra)
+    result = Apple2Emu.mame_run(image, driver: driver, labels: labels, flop3: flop3,
       tap: 'printchar_buffered', auto_more: true, idle_after: 25, idle_exit: 15,
       command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
       commands: ["lookx#{code.chr}\n", "lookx#{code.chr}"], seconds: 400, **screen)
@@ -293,7 +296,8 @@ def check_lower_case(target, driver, want_build, extra, screen)
   # 'look' and 'LOOK': the second command of each pair has no Return, so the
   # line it typed is still on the screen when the run ends.
   { 'lower case' => 'look', 'upper case' => 'LOOK' }.each do |what, word|
-    result = Apple2Emu.mame_run(image, driver: driver, labels: labels,
+    _, flop3 = Apple2Emu.disk_kind(target, extra)
+    result = Apple2Emu.mame_run(image, driver: driver, labels: labels, flop3: flop3,
       tap: 'printchar_buffered', auto_more: true, idle_after: 25, idle_exit: 15,
       command_idle: 3.0, ready_flag: 's_cursorswitch', echo_flag: 'zp_screencolumn',
       force_latch: true, commands: ["#{word}\n", word], seconds: 400, **screen)
@@ -331,6 +335,7 @@ until args.empty?
   case (arg = args.shift)
   when '--no-build' then want_build = false
   when /^-a2c/ then extra << arg    # build the games crunched, and check that too
+  when /^-a2d:(35|525)$/ then extra << arg  # 3.5" over SmartPort, or 5.25"
   when /^-t:(\S+)$/ then target = $1
   when '--driver' then driver = args.shift
   when '-v', '--verbose' then verbose = true
@@ -401,7 +406,8 @@ wanted.each do |name|
   end
   game = GAMES[name]
   image, labels = build(target, game[:story], want_build, extra)
-  a2_text, result = run_apple(image, driver, labels, game[:commands], screen)
+  _, flop3 = Apple2Emu.disk_kind(target, extra)
+  a2_text, result = run_apple(image, driver, labels, game[:commands], screen, flop3)
   ref_text = run_dfrotz(game[:story], game[:commands])
   problems, notes = compare(name, game, a2_text, ref_text)
   bad_cells = check_video_modes(result, screen[:altchar])

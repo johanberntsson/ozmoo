@@ -37,6 +37,7 @@ until args.empty?
   when '--no-build'  then build = false
   when /^-a2c/       then extra << arg
   when /^-t:(\S+)$/  then target = $1
+  when /^-a2d:(35|525)$/ then extra << arg  # 3.5" over SmartPort, or 5.25"
   when '--driver'    then driver = args.shift
   when '-o'          then out = args.shift
   when '-c'          then commands << args.shift
@@ -61,13 +62,14 @@ if build
   puts cmd.join(' ')
   abort 'build failed' unless system(*cmd, chdir: ROOT, out: File::NULL)
 end
-image = File.join(ROOT, "#{target}_#{File.basename(story).sub(/\.z\d$/, '')}.dsk")
+ext, flop3 = Apple2Emu.disk_kind(target, extra)
+image = File.join(ROOT, "#{target}_#{File.basename(story).sub(/\.z\d$/, '')}#{ext}")
 abort "no image at #{image}" unless File.exist?(image)
 
 # idle_exit ends the run where the game stops printing, which for a story with
 # no commands is its opening screen; --at is the backstop for a game that never
 # falls silent.
-result = Apple2Emu.mame_run(image, driver: driver,
+result = Apple2Emu.mame_run(image, driver: driver, flop3: flop3,
                             labels: Apple2Emu.read_labels(LABELS),
                             tap: 'printchar_buffered', auto_more: true,
                             idle_after: at, idle_exit: 8, command_idle: 3.0,

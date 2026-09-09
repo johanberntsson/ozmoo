@@ -370,6 +370,20 @@ $a2_interleave = 3
 A2_TRACK_BYTES      = 16 * 256   # one Apple II track
 A2_FIRST_TERP_TRACK = 2          # track 0 is the boot chain, track 1 the config track
 A2_SAVE_CONFIG_BYTES = 4         # the save area's geometry, at the end of the config block
+
+# The SmartPort (3.5", SCSI, CFFA3000, Floppy Emu) side of the same idea. A
+# block device has no tracks and no rotational cost we could tune, so the
+# layout is a plain run of 512 byte blocks and there is no interleave: block 0
+# is the boot block the firmware loads, block 1 the config, then the
+# interpreter, then the story, then the save slots.
+A2_BLOCK_SIZE       = 512
+A2_PO_BLOCKS        = 1600       # an 800K 3.5" disk. Bigger volumes exist and
+                                 # the interpreter should ask the device rather
+                                 # than assume this; not done yet
+A2_SP_CONFIG_BLOCK  = 1
+A2_SP_FIRST_TERP    = 2
+A2_SP_SAVE_CONFIG_BYTES = 8      # story base, save base, slot size: the config
+                                 # block's fixed tail, all in blocks
 A2_MAX_DISKS        = 8          # a limit on the prompting, not on the format
 # Track 0 sector 15 of every disk we build says which disk of which build it
 # is, so the interpreter can tell what the player has just put in the drive.
@@ -1582,6 +1596,63 @@ class AppleDiskImage < Disk_image
 	end
 end # class AppleDiskImage
 
+# A raw ProDOS-order block image (.po): 1600 blocks of 512 bytes and no
+# filesystem on it at all, exactly as AppleDiskImage carries no DOS 3.3. It
+# needs none of Disk_image's machinery - there are no tracks, no interleave, no
+# reserved sectors and no free-block accounting to do - so it is a class of its
+# own rather than a subclass that overrides most of its parent.
+class AppleBlockImage
+	attr_reader :diskimage_filename
+
+	def initialize(diskimage_filename:, blocks: A2_PO_BLOCKS)
+		@diskimage_filename = diskimage_filename
+		@blocks = blocks
+		@contents = Array.new(blocks * A2_BLOCK_SIZE, 0)
+	end
+
+	def block_count
+		@blocks
+	end
+
+	def write_block(number, bytes)
+		if number < 0 or number >= @blocks
+			puts "ERROR: block #{number} is outside the disk (#{@blocks} blocks)."
+			exit 1
+		end
+		if bytes.length > A2_BLOCK_SIZE
+			puts "ERROR: block #{number} is #{bytes.length} bytes."
+			exit 1
+		end
+		padded = bytes.dup + Array.new(A2_BLOCK_SIZE - bytes.length, 0)
+		@contents[number * A2_BLOCK_SIZE, A2_BLOCK_SIZE] = padded
+	end
+
+	# Lay a blob down from a block, and say how many blocks it took.
+	def write_blob(first_block, bytes)
+		used = 0
+		(0...bytes.length).step(A2_BLOCK_SIZE) do |i|
+			write_block(first_block + used, bytes[i, A2_BLOCK_SIZE])
+			used += 1
+		end
+		used
+	end
+
+	def save
+		if @contents.length != @blocks * A2_BLOCK_SIZE
+			puts "ERROR: the disk image is #{@contents.length} bytes, not #{@blocks * A2_BLOCK_SIZE}."
+			exit 1
+		end
+		begin
+			f = File.open(@diskimage_filename, "wb")
+		rescue
+			puts "ERROR: Can't open #{@diskimage_filename} for writing"
+			exit 1
+		end
+		f.write @contents.pack("C*")
+		f.close
+	end
+end # class AppleBlockImage
+
 ################################## END Disk image classes
 
 def filename_to_title(name, remove_the_if_longer_than)
@@ -1660,6 +1731,9 @@ def build_interpreter()
 		# ...and the other 64K a 128K IIe has: the auxiliary bank, used as a
 		# vmem cache. It needs the language card, because the copy routines
 		# cannot run from $0200-$BFFF while RAMRD is switched.
+		# ...and the other 64K a 128K IIe has: the auxiliary bank, used as a
+		# vmem cache. It needs the language card, because the copy routines
+		# cannot run from $0200-$BFFF while RAMRD is switched.
 		optionalsettings += " -DA2_AUX_CACHE=1" if $target =~ /^apple2(e|gs)$/
 		# The 80 column main/aux text screen and the alternate character set.
 		# A IIe, a IIc and a IIgs all have exactly this screen, and four fifths
@@ -1668,6 +1742,10 @@ def build_interpreter()
 		# means the IIe and nothing else. Same trade as TARGET_APPLE2_FAMILY,
 		# one level down.
 		optionalsettings += " -DA2_80COL=1" if $target =~ /^apple2(e|gs)$/
+		# The medium: a SmartPort block device instead of the 5.25" RWTS. It
+		# changes the driver, the disk layout and how a story page is
+		# addressed, and nothing above that.
+		optionalsettings += " -DA2_SMARTPORT=1" if $a2_smartport
 	end
 	if $is_lurkinghorror
 		# need to know if compiling a Lurking Horror game
@@ -2062,7 +2140,12 @@ def play(filename, storyname)
 		# over a screenful of interleaved garbage, and reads exactly like a
 		# corrupt build. See CLAUDE.md's MAME section.
 		if $executables.has_key?('APPLE2GS')
-			command = "#{$executables['APPLE2GS']} apple2gs -flop1 " +
+			# The drive depends on the medium: MAME calls the IIgs's two 5.25"
+			# drives flop1/flop2 and its two 3.5" ones flop3/flop4, and a .po
+			# handed to a 5.25" drive is refused outright with "Unable to
+			# identify image file format".
+			drive = $a2_disk_kind == '35' ? '-flop3' : '-flop1'
+			command = "#{$executables['APPLE2GS']} apple2gs #{drive} " +
 				"#{$commandline_quotemark}#{filename}#{$commandline_quotemark}" +
 				" -window -nofilter -resolution 1280x960 -skip_gameinfo -noautosave"
 		else
@@ -3224,8 +3307,163 @@ end
 # build_a2_boot above and resident at $0800 for the whole session: it is both
 # the loader that brings the interpreter in and the sector reader the
 # interpreter calls afterwards.
+# The SmartPort counterpart of build_a2_boot: assemble asm/apple2-smartport.asm,
+# which is block 0 of the disk and stays resident as the block reader.
+def build_a2_smartport_boot(terp_block, terp_blocks)
+	if terp_blocks > 255
+		puts "ERROR: The interpreter is #{terp_blocks} blocks; the boot block counts them in a byte."
+		exit 1
+	end
+	settings = " --cpu 6502 --format plain" +
+		" -DTERP_BLOCK=#{terp_block} -DTERP_BLOCKS=#{terp_blocks}" +
+		" -DTERP_LOAD=#{$start_address}"
+	cmd = "#{$executables['ACME']}#{settings} -l \"#{$a2_boot_labels_file}\" " +
+		"--outfile \"#{$a2_boot_file}\" apple2-smartport.asm"
+	puts cmd if $verbose
+	Dir.chdir $SRCDIR
+	ret = system(cmd)
+	Dir.chdir $EXECDIR
+	unless ret
+		puts "ERROR: There was a problem calling Acme"
+		exit 1
+	end
+	boot = IO.binread($a2_boot_file).unpack("C*")
+	# The firmware reads exactly one block and only if its first byte is $01,
+	# so both of those have to be true of what we just assembled.
+	if boot[0] != 1
+		puts "ERROR: the boot block does not start with $01, so the firmware will not boot it."
+		exit 1
+	end
+	if boot.length > A2_BLOCK_SIZE
+		puts "ERROR: the boot block is #{boot.length} bytes; the firmware loads 512."
+		exit 1
+	end
+	boot
+end
+
+# Build an 800K ProDOS-order image for a SmartPort device. This is the sibling
+# of build_A2 below, not a mode of it: a block device has no tracks, no
+# interleave, no per-track map to walk and - at 800K against 140K - no
+# multi-disk to arrange, so almost none of the sector builder's machinery
+# survives the change. What it shares is the config block's shape and the save
+# slot idea, both of which are about the interpreter rather than the medium.
+def build_A2_smartport(storyname, diskimage_filename, config_data, vmem_data,
+                       vmem_contents, preload_max_vmem_blocks)
+	diskfilename = "#{$target}_#{storyname}.po"
+
+	# The interpreter blob, exactly as build_A2 assembles it: the assembled
+	# file, then the story's dynamic memory, then the language card half.
+	interpreter = IO.binread($ozmoo_file).unpack("C*")
+	main_length = $storystart - $start_address
+	langcard = []
+	if interpreter.length > main_length
+		langcard = interpreter[main_length .. -1]
+		interpreter = interpreter[0, main_length]
+	end
+	if $VMEM
+		dynmem = vmem_contents[0 .. $dynmem_blocks * $VMEM_BLOCKSIZE - 1]
+		if interpreter.length != main_length
+			puts "ERROR: the interpreter is #{interpreter.length} bytes but story_start is " +
+				"#{main_length} above it; dynamic memory would land in the wrong place."
+			exit 1
+		end
+		interpreter += dynmem.unpack("C*")
+	end
+	interpreter += langcard
+
+	terp_blocks = (interpreter.length + A2_BLOCK_SIZE - 1) / A2_BLOCK_SIZE
+	story_first_block = A2_SP_FIRST_TERP + terp_blocks
+
+	# The paged story data, two of Ozmoo's 256 byte pages to a device block.
+	story = $story_file_data[$story_file_cursor .. -1].unpack("C*")
+	story_pages = story.length / 256
+	story_blocks = (story.length + A2_BLOCK_SIZE - 1) / A2_BLOCK_SIZE
+
+	# A save slot, in blocks rather than sectors: the same bytes (the zero page
+	# block, the z-stack and dynamic memory) rounded up to 512 instead of 256.
+	save_bytes = $static_mem_start + 256 * $stack_pages + 20
+	save_slot_blocks = (save_bytes + A2_BLOCK_SIZE - 1) / A2_BLOCK_SIZE
+	save_first_block = story_first_block + story_blocks
+	free_blocks = A2_PO_BLOCKS - save_first_block - 1   # less the directory block
+	a2_save_slots = free_blocks < save_slot_blocks ? 0 :
+		[10, free_blocks / save_slot_blocks].min
+	if story_first_block + story_blocks > A2_PO_BLOCKS
+		puts "ERROR: the story needs #{story_blocks} blocks and the disk holds #{A2_PO_BLOCKS}."
+		exit 1
+	end
+	if a2_save_slots.zero?
+		save_first_block = 0
+		puts "WARNING: no room on the disk for a save slot; saving will report a disk error."
+	end
+
+	disk = AppleBlockImage.new(diskimage_filename: diskimage_filename)
+	boot = build_a2_smartport_boot(A2_SP_FIRST_TERP, terp_blocks)
+	disk.write_block(0, boot)
+	disk.write_blob(A2_SP_FIRST_TERP, interpreter)
+	disk.write_blob(story_first_block, story)
+	$story_file_cursor = $story_file_data.length
+
+	vmem_data[3] = 0
+	config_data[6] = a2_save_slots
+	# The entry count includes the save entry the shared code has already put
+	# in config_data before build_A2 is called, exactly as the sector builder's
+	# "1 + 1 + story_disks.length" does: one save entry, one disk. Claiming 1
+	# here made the interpreter walk stop on the save entry, whose running
+	# total is zero - which is how the auxiliary cache came to be preloaded
+	# against a page count of nothing.
+	config_data[7] = 2
+
+	# One disk entry, in the shape ozmoo.asm's disk_info copy expects. The
+	# per-track map that a sector build puts here is meaningless on a block
+	# device, so the entry carries none: the story is a contiguous run and
+	# readblock adds an offset instead of walking a map.
+	name = [DISKNAME_BOOT, "/".ord, " ".ord, DISKNAME_STORY, DISKNAME_DISK, 0]
+	disk_info_size = 5 + name.length
+	config_data += [disk_info_size, 0, story_pages / 256, story_pages % 256, 0] + name
+	config_data[4] += disk_info_size
+
+	if $VMEM
+		limit_vmem_data(vmem_data, A2_BLOCK_SIZE - A2_SP_SAVE_CONFIG_BYTES - config_data.length)
+	end
+	config_data += vmem_data
+
+	# The tail of the config block: where the story is, where the saves are and
+	# how big a slot is - all in blocks. It sits at a fixed place so ozmoo.asm
+	# can read it without walking the disk entries.
+	config_data += [0] * (A2_BLOCK_SIZE - A2_SP_SAVE_CONFIG_BYTES - config_data.length)
+	config_data += [story_first_block % 256, story_first_block / 256,
+	                save_first_block % 256, save_first_block / 256,
+	                save_slot_blocks, 0, 0, 0]
+	disk.write_block(A2_SP_CONFIG_BLOCK, config_data)
+	disk.save()
+
+	FileUtils.cp(diskimage_filename, diskfilename)
+
+	if $verbose
+		puts "Apple II SmartPort disk layout (#{A2_PO_BLOCKS} blocks of #{A2_BLOCK_SIZE}):"
+		puts "  block  0      boot block + resident block driver, #{boot.length} bytes"
+		puts "  block  #{A2_SP_CONFIG_BLOCK}      config"
+		puts "  blocks #{A2_SP_FIRST_TERP}-#{A2_SP_FIRST_TERP + terp_blocks - 1}   interpreter + dynmem, #{interpreter.length} bytes, " +
+			"loads at $#{$start_address.to_s(16)} (story from $#{$storystart.to_s(16)})"
+		puts "  blocks #{story_first_block}-#{story_first_block + story_blocks - 1}  story data, #{story_pages} pages"
+		if a2_save_slots > 0
+			puts "  blocks #{save_first_block}-#{save_first_block + a2_save_slots * save_slot_blocks}  " +
+				"#{a2_save_slots} save slots of #{save_slot_blocks} blocks"
+		end
+		puts "  #{A2_PO_BLOCKS - save_first_block - 1 - a2_save_slots * save_slot_blocks} blocks free"
+	end
+
+	$bootdiskname = diskfilename
+	puts "Successfully built game as #{diskfilename}"
+	nil
+end
+
 def build_A2(storyname, diskimage_filename, config_data, vmem_data,
              vmem_contents, preload_max_vmem_blocks)
+	if $a2_smartport
+		return build_A2_smartport(storyname, diskimage_filename, config_data,
+		                          vmem_data, vmem_contents, preload_max_vmem_blocks)
+	end
 	diskfilename = "#{$target}_#{storyname}.dsk"
 
 	# The interpreter is a plain binary that the boot chain will read into
@@ -3525,6 +3763,8 @@ def print_usage
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
 	puts "  -rb: Enable the REU Boost feature. Enabled by default. Takes up 155 bytes."
 	puts "  -fgcol/dmfgcol: Use the specified foreground colour. See docs for details."
+	puts "  -a2d: Apple disk medium: 35 for 3.5\" (800K, SmartPort) or 525 for 5.25\" (140K,"
+	puts "        our own RWTS). Default 35 for -t:apple2gs and 525 for the other two."
 	puts "  -bgcol/dmbgcol: Use the specified background colour. See docs for details."
 	puts "  -bordercol/dmbordercol: Use the specified border colour. bg=same as bg, fg=same as fg. See docs for details."
 	puts "  -statuscol/dmstatuscol Use the specified status line colour. Only valid for Z3 games. See docs for details."
@@ -3760,6 +4000,11 @@ begin
 			$verbose = true
 		elsif arg =~ /^-debug$/ then
 			$force_debug = true
+		elsif arg =~ /^-a2d:(35|525)$/ then
+			# Which medium an Apple build targets: 3.5" over SmartPort, or
+			# 5.25" over our own RWTS. The default is per target (a IIgs has a
+			# SmartPort and the others usually do not), and this overrides it.
+			$a2_disk_kind = $1
 		elsif arg =~ /^-b$/ then
 			$no_sector_preload = true
 		elsif arg =~ /^-bordercol:(.*)$/
@@ -4686,6 +4931,19 @@ end
 
 if $target == 'c128' and $interpreter_number == nil
 	$interpreter_number = 7
+end
+
+# The medium, and so the driver. A IIgs boots 3.5" through its built-in
+# SmartPort and everything else through a Disk II, which is the default either
+# way; -a2d says otherwise. Nothing but an Apple target has a choice to make.
+if $target =~ /^apple2/
+	$a2_disk_kind ||= ($target == 'apple2gs' ? '35' : '525')
+	$a2_smartport = ($a2_disk_kind == '35')
+	if $a2_smartport and $a2_compress
+		puts "ERROR: -a2c (a crunched interpreter) is not implemented for -a2d:35."
+		puts "       It buys disk space, and an 800K disk is not short of it."
+		exit 1
+	end
 end
 
 if $target =~ /^apple2/ and $interpreter_number == nil

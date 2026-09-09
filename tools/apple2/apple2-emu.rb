@@ -315,6 +315,18 @@ module Apple2Emu
   #            video hardware actually fetched, so it is the only way to see a
   #            wrong character set or a wrong video mode.  MAME renders it even
   #            under -video none.
+  # Which medium a build of this target lands on, mirroring make.rb's default:
+  # 3.5" over SmartPort for a IIgs and 5.25" for the other two, unless -a2d
+  # says otherwise. Returns the image extension and whether it goes in a 3.5"
+  # drive, which are the two things every harness needs to know.
+  def self.disk_kind(target, extra = [])
+    smartport = if extra.any? { |a| a == '-a2d:525' } then false
+                elsif extra.any? { |a| a == '-a2d:35' } then true
+                else target == 'apple2gs'
+                end
+    smartport ? ['.po', true] : ['.dsk', false]
+  end
+
   # Where MAME keeps the two 5.25" drives, which is not the same place on every
   # machine: a IIgs has them built in on its own IWM controller (and two 3.5"
   # drives beside them at :fdc:2:35dd and :fdc:3:35dd, which is where SmartPort
@@ -329,7 +341,7 @@ module Apple2Emu
     end
   end
 
-  def mame_run(image, driver: 'apple2p', flop2: nil, disk_swaps: {}, swap_drive: nil, labels: {}, watch: nil, until_value: nil, symbols: {},
+  def mame_run(image, driver: 'apple2p', flop3: false, flop2: nil, disk_swaps: {}, swap_drive: nil, labels: {}, watch: nil, until_value: nil, symbols: {},
                samples: {}, tap: nil, auto_more: false, idle_exit: nil,
                idle_after: 25, commands: [], command_idle: 1.5, ready_flag: nil,
                echo_flag: nil, dump_range: nil, cols: COLS, altchar: false,
@@ -702,7 +714,9 @@ module Apple2Emu
     # their drives built in and reject the option outright.
     builtin = driver.start_with?('apple2c') || driver.start_with?('apple2gs')
     slot = builtin ? [] : ['-sl6', 'diskiing']
-    cmd = [MAME, driver, *slot, '-flop1', image]
+    # A 3.5" image goes in the IIgs's 3.5" drive, which MAME calls flop3; a
+    # 5.25" one goes in flop1 on every machine.
+    cmd = [MAME, driver, *slot, flop3 ? '-flop3' : '-flop1', image]
     cmd += ['-flop2', flop2] if flop2
     snap_dir = File.join(TEMP, 'apple2_snap')
     if snapshot
