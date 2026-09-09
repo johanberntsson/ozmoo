@@ -3,7 +3,7 @@
 ;
 ; make.rb with -a2hw produces a hardware report for Apple computers after
 ; the splash screen. It is called once from deletable_init_start, after
-; a2_aux_preload, so; everything it reports has already been decided.
+; a2_aux_preload, so everything it reports has already been decided.
 ; ---------------------------------------------------------------------------
 
 !ifndef A2_REPORT_ID {
