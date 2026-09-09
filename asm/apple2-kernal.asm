@@ -202,6 +202,16 @@ A2_MACHINE_IIE          = 0     ; unenhanced IIe: no MouseText
 A2_MACHINE_IIE_ENHANCED = 1     ; enhanced IIe, and a IIgs answers as one
 A2_MACHINE_IIC          = 2
 a2_machine !byte A2_MACHINE_IIE
+
+!ifdef A2_HW_REPORT {
+; The two IIe-family identification bytes as they read at boot, kept because
+; they cannot be read again afterwards: a language card build banks the ROM
+; they live in out for the rest of the session, and the report that prints them
+; is itself running from up there, so it cannot bank the ROM back in without
+; unmapping its own next instruction. Captured in a2_screen_init, which both
+; branches of a2_identify reach and which runs before a2_lc_init.
+a2_id_bytes !byte 0, 0
+}
 }
 
 !ifdef TARGET_APPLE2GS {

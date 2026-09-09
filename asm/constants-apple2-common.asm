@@ -70,6 +70,18 @@ A2_BOOTSLOT_ZP        = $2b     ; ...and where the PROM left it, which the
                                 ; put A2_SLOT back there before jumping to $0801
 }
 
+; --- machine identification -------------------------------------------------
+; Apple's own ROM identification bytes, at the same addresses on every machine
+; that has them. $FBB3 is $06 on anything with a IIe-style ROM ($EA on a II+,
+; $38 on an original II) and $FBC0 then separates the family: $EA unenhanced
+; IIe, $E0 enhanced IIe, $00 IIc. A IIgs answers like an enhanced IIe, which is
+; why it needs the $FE1F call instead. Read once at boot by a2_identify
+; (ozmoo.asm), which leaves the answer in a2_machine for the font 3 decision.
+; They live here rather than in the IIe's own constants file because a IIgs
+; build reads them too, for the hardware report.
+A2_ID_MACHINE         = $fbb3
+A2_ID_SUBMODEL        = $fbc0
+
 ; --- getting back to BASIC --------------------------------------------------
 ; The autostart ROM's RESET routine decides between a warm start and a cold one
 ; by a "power-up byte": if $3F4 holds $3F3 EOR $A5 it believes the vector at

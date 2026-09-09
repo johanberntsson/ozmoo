@@ -1364,6 +1364,13 @@ statmem_reu_banks !byte 0
 !source "disk.asm"
 !ifdef TARGET_APPLE2_FAMILY {
 !source "apple2-kernal.asm"
+; The hardware report goes in the language card half where there is one (see
+; the end of this file); a II+ build has no card, so it costs main RAM there.
+!ifdef A2_HW_REPORT {
+!ifndef A2_LANGCARD {
+!source "apple2-report.asm"
+}
+}
 }
 !ifdef Z6 {
 !source "screenkernal-z6.asm"
@@ -2286,6 +2293,14 @@ a2_identify
 }
 
 a2_screen_init
+!ifdef A2_HW_REPORT {
+	; Read the identification bytes while the ROM is still banked in - see
+	; a2_id_bytes in apple2-kernal.asm for why this cannot wait.
+	lda A2_ID_MACHINE
+	sta a2_id_bytes
+	lda A2_ID_SUBMODEL
+	sta a2_id_bytes + 1
+}
 	; Turn on the 80 column screen
 	;
 	; Is the aux RAM the even columns live in actually there? A IIe with
@@ -3008,6 +3023,14 @@ deletable_init
 	jsr a2_aux_preload
 }
 
+!ifdef A2_HW_REPORT {
+	; Everything it prints has been decided by now: the machine identified, the
+	; screen up, the disk read from, the language card copied and the aux cache
+	; filled. It waits for a key, so this is a diagnostic build and not a
+	; shipping one. See asm/apple2-report.asm.
+	jsr a2_hw_report
+}
+
 !ifndef NOSECTORPRELOAD {
 
 !if SUPPORT_REU = 1 {
@@ -3616,6 +3639,9 @@ a2_lc_code_start
 !source "objecttable.asm"
 !ifdef A2_AUX_CACHE {
 !source "apple2-aux.asm"
+}
+!ifdef A2_HW_REPORT {
+!source "apple2-report.asm"
 }
 	!align 255, 0, 0   ; whole pages, so a2_lc_init can copy in page steps
 a2_lc_code_end

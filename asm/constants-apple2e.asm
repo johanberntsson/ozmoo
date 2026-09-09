@@ -66,12 +66,4 @@ COLOUR_ADDRESS_DIFF   = COLOUR_ADDRESS - SCREEN_ADDRESS
 ; A blank cell is still $a0, and the cursor is still an inverse space, $20.
 SPACE_SCREENCODE      = $a0
 
-; --- machine identification -------------------------------------------------
-; Apple's own ROM identification bytes. $FBB3 is $06 on every machine with a
-; IIe-style ROM and something else on a II or II+; $FBC0 then separates the
-; family. Read once at boot by a2_identify (ozmoo.asm), which refuses a II+
-; and leaves the answer in a2_machine for the font 3 decision later on.
-A2_ID_MACHINE         = $fbb3
-A2_ID_SUBMODEL        = $fbc0
-
 !source "constants-apple2-common.asm"

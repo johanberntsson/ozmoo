@@ -1746,6 +1746,14 @@ def build_interpreter()
 		# changes the driver, the disk layout and how a story page is
 		# addressed, and nothing above that.
 		optionalsettings += " -DA2_SMARTPORT=1" if $a2_smartport
+		# -a2hw: the boot-time hardware report. A diagnostic build for someone
+		# with a machine we cannot debug - it prints numbers and waits for a
+		# key, so it is not a disk to play. The id is the low byte of the
+		# build id, printed below, so a screen can be matched against a build.
+		if $a2_hw_report
+			optionalsettings += " -DA2_HW_REPORT=1"
+			optionalsettings += " -DA2_REPORT_ID=#{$BUILD_ID & 0xff}"
+		end
 	end
 	if $is_lurkinghorror
 		# need to know if compiling a Lurking Horror game
@@ -3455,7 +3463,17 @@ def build_A2_smartport(storyname, diskimage_filename, config_data, vmem_data,
 
 	$bootdiskname = diskfilename
 	puts "Successfully built game as #{diskfilename}"
+	a2_print_report_stamp
 	nil
+end
+
+# -a2hw only. The same trick as the write spike's build stamp: on a machine with
+# no filesystem, "is this the disk I was sent?" is otherwise unanswerable, so
+# the report prints a number and the build says what that number must be.
+def a2_print_report_stamp
+	return unless $a2_hw_report
+	puts "Hardware report build $%02x - the screen must show 'build $%02x'" %
+		[$BUILD_ID & 0xff, $BUILD_ID & 0xff]
 end
 
 def build_A2(storyname, diskimage_filename, config_data, vmem_data,
@@ -3712,6 +3730,7 @@ def build_A2(storyname, diskimage_filename, config_data, vmem_data,
 	$bootdiskname = names.first
 	puts "Successfully built game as #{names.join(' + ')}" +
 		(nibs.empty? ? "" : " (+ #{nibs.length == 1 ? File.basename(nibs.first) : "#{nibs.length} .nib images"} for the MEGA65 core)")
+	a2_print_report_stamp
 	nil # Signal success
 end
 
@@ -3794,6 +3813,11 @@ def print_usage
 	puts "  -a2c: Apple II only. Crunch the interpreter onto the disk with exomizer. Frees one or two"
 	puts "        tracks of the disk and costs a second or two of boot time, because a 6502 unpacks"
 	puts "        about as fast as the Apple II RWTS reads. Off by default."
+	puts "  -a2hw: Apple II only. Print a hardware report at boot and wait for a key: the machine"
+	puts "        identification bytes, the boot slot, the language card checksum, the measured"
+	puts "        polls per jiffy and (on a IIgs) the ROM version and the colour and speed"
+	puts "        registers, plus an optional 30 second clock test. For someone testing on real"
+	puts "        hardware; not a disk to play. Off by default."
 	puts "  -asa: Add the .aiff sound files found at the specified path (003.aiff - 255.aiff)."
 	puts "  -asw: Add the .wav sound files found at the specified path (003.wav - 255.wav)."
 	puts "  -sig: Write Ozmoo's signature into the header. Default is 'noninfocom', i.e. for all non-Infocom games."
@@ -4100,6 +4124,8 @@ begin
 			end
 		elsif arg =~ /^-a2c(?::([0-1]))?$/ then
 			$a2_compress = ($1 != '0')
+		elsif arg =~ /^-a2hw(?::([0-1]))?$/ then
+			$a2_hw_report = ($1 != '0')
 		elsif arg =~ /^-re(?::([0-1]))?$/ then
 			if $1 == nil
 				check_errors = 1
@@ -4944,6 +4970,11 @@ if $target =~ /^apple2/
 		puts "       It buys disk space, and an 800K disk is not short of it."
 		exit 1
 	end
+end
+
+if $a2_hw_report and $target !~ /^apple2/
+	puts "ERROR: -a2hw is an Apple II option; there is nothing for it to report elsewhere."
+	exit 1
 end
 
 if $target =~ /^apple2/ and $interpreter_number == nil

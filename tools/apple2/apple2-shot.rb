@@ -36,6 +36,7 @@ until args.empty?
   case (arg = args.shift)
   when '--no-build'  then build = false
   when /^-a2c/       then extra << arg
+  when /^-a2hw/      then extra << arg  # the boot-time hardware report
   when /^-t:(\S+)$/  then target = $1
   when /^-a2d:(35|525)$/ then extra << arg  # 3.5" over SmartPort, or 5.25"
   when '--driver'    then driver = args.shift

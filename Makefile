@@ -341,6 +341,14 @@ dejavu-apple2gs-525:
 apple2gs-conformance-525:
 	ruby tools/apple2/apple2-conformance.rb -t:apple2gs -a2d:525 $(OPTS)
 
+# The disk to hand someone with real hardware: it prints what the machine says
+# about itself and waits for a key, so it is a diagnostic and not a disk to
+# play. The build prints the id the screen must show. OPTS= takes -t:apple2e or
+# -a2d:525, and STORY= another game.
+A2REPORTSTORY ?= examples/dejavu.z3
+apple2gs-report:
+	ruby make.rb -s -t:apple2gs -a2hw $(OPTS) $(A2REPORTSTORY)
+
 # Apple IIgs (phase 3). Step 0: the font legibility mockup - host side, no
 # emulator. Writes PNGs to temp/gsfont at an honest 4:3 scale; look at them.
 apple2gs-font:
