@@ -1133,7 +1133,17 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_nothing
 +
 !ifndef NODARKMODE {
+!ifdef TARGET_APPLE2_FAMILY {
+	; No function keys on an Apple II, and nothing the keyboard can send is
+	; above 127 anyway: kernal_getchar masks the strobe off, so PETSCII 133
+	; could never arrive and darkmode was simply unreachable here. Ctrl-D
+	; instead, which the splash screen names - it is free on this family
+	; because the two Ctrl keys the CBM targets use it for (Ctrl-D for the save
+	; device, Ctrl-K for key repeat) are both compiled out below.
+	cmp #4 ; Ctrl-D
+} else {
  	cmp #133 ; Charcode for F1
+}
 	bne +
 	jsr toggle_darkmode
 	jmp .did_something

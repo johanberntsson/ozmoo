@@ -4761,6 +4761,15 @@ elsif dark_mode == 0
 	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
 end
 
+# A II+ and a IIe draw white on black and cannot draw anything else, so there
+# is no darkmode to switch to: toggling it would change the colour variables
+# and nothing on the screen. A IIgs does have colour and keeps it (on Ctrl-D,
+# there being no function keys - see getchar_and_maybe_toggle_darkmode). -dm:1
+# still forces it on, for anyone who wants the variables moving anyway.
+if $target =~ /^apple2e?$/ and dark_mode != 1
+	$GENERALFLAGS.push('NODARKMODE') unless $GENERALFLAGS.include?('NODARKMODE')
+end
+
 # -pu overrides the v6 default above, so it has to come after it. Putting it
 # with the other flag overrides further up did not work: the push had not
 # happened yet and the delete did nothing.

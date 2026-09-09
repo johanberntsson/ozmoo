@@ -317,15 +317,25 @@
 
 !ifndef BGCOL {
 !ifdef TARGET_APPLE2_FAMILY {
+	!ifdef TARGET_APPLE2GS {
+	; A IIgs colours its text screen, so it takes Ozmoo's own default pair
+	; rather than the one the hardware forces on its two siblings.
+	BGCOL = 9 ; white
+	} else {
 	; This screen is white on black and cannot be anything else
 	BGCOL = 2 ; black
+	}
 } else {
 	BGCOL = 9 ; white
 }
 }
 !ifndef FGCOL {
 !ifdef TARGET_APPLE2_FAMILY {
+	!ifdef TARGET_APPLE2GS {
+	FGCOL = 2 ; black
+	} else {
 	FGCOL = 9 ; white
+	}
 } else {
 	FGCOL = 2 ; black
 }
