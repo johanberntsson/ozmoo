@@ -244,9 +244,9 @@ what is left is the ordinary list of things nobody has got to, below.
 ### Also outstanding
 
 - **Real hardware.** Everything here ran on an Ultimate 64's emulated 1541.
-  Never a physical 1541 or 1541-II, never a real C64, never NTSC. The two
-  delays in `fastloader.asm` (~1 s waiting out the drive reset, ~50 ms settling
-  after `M-E`) were tuned against that one machine.
+  Never a physical 1541 or 1541-II, never a real C64. The two delays in
+  `fastloader.asm` (~1 s waiting out the drive reset, ~50 ms settling after
+  `M-E`) were tuned against that one machine. **NTSC is covered** - see below.
 - **Restore.** Save is verified; restore reports "Failed restore." - but does so
   identically without `-fl`, so it is not a regression here. It should be made
   to work, or at least explained, before anyone claims save/restore is fine.
@@ -258,6 +258,37 @@ what is left is the ordinary list of things nobody has got to, below.
 It is also Johan's repository: commit locally, never push without permission.
 
 ## Cleared since the last handover
+
+### PAL and NTSC both work
+
+Worth stating plainly, because the loader's host side uses fixed *cycle* delays
+(`.fl_settle`, `.fl_wait_for_dos`) and an NTSC C64 runs about 4 % faster, so
+this was a real question rather than a formality.
+
+It also corrects a mistake: the Ultimate 64 used here has **`System Mode` =
+NTSC**, and always had. Every hardware result in this file was therefore taken
+on **NTSC**, not PAL as an earlier draft of the pull request claimed. PAL was
+then tested explicitly by flipping `System Mode` and flipping it back.
+
+| | `flverify` | `fltest` | `flbench`, 40 blocks |
+|---|---|---|---|
+| U64, NTSC | 200 ok, 0 bad | PASS | 493 jiffies |
+| U64, PAL | 200 ok, 0 bad | PASS | 492, 492 jiffies |
+| VICE `-ntsc` | 200 ok, 0 bad | PASS | - |
+| VICE `-ntscold` | 200 ok, 0 bad | PASS | - |
+| VICE `-pal` | 200 ok, 0 bad | PASS | - |
+| VICE `-paln` | 200 ok, 0 bad | - | - |
+
+Every one of those reads the same checksum, and the kernal control (`bench`)
+sits at 1073-1096 jiffies on both standards. **The video standard makes no
+measurable difference**, which stands to reason: the 1541 has its own clock, and
+the transfer is paced by the drive, not the host.
+
+The U64's `CPU Speed` reads 16, which is alarming until you notice
+`Turbo Control = U64 Turbo Registers` - 16 MHz only engages when software asks
+for it, and Ozmoo never does. Confirmed from data rather than from the setting:
+the with-REU benchmark is pure CPU once the story is cached, and it runs at
+2 s/turn; at 16 MHz it would be about sixteen times that.
 
 ### VICE runs it after all — was blocker 3
 
