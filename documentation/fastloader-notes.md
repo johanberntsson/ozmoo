@@ -1,7 +1,8 @@
 # Fast loader for C64 disk reads — handover
 
-Work in progress, **uncommitted**. Adds an optional fast loader (DreamLoad) to
-Ozmoo's block reads on the C64, behind the new `-fl` build flag.
+Adds an optional fast loader (DreamLoad) to Ozmoo's block reads on the C64,
+behind the new `-fl` build flag. Committed locally on `master`, not pushed -
+this is Johan's repository.
 
 ## Result
 
@@ -37,7 +38,7 @@ into it.
 | target | C64 only — `make.rb` errors out on any other target |
 | drive | a real **1541**, identified by ROM signature (`$fea0` = `$0d`, `$e5c6` = `$34 $b1`). A 1541-II, 1571, 1581, sd2iec, Pi1541 or similar is rejected |
 | device | 8–11, and only the drive the game booted from |
-| RAM | 1 KB at `$cc00-$cfff` (2 vmem blocks) plus ~1.3 KB of program image |
+| RAM | 1 KB at `$cc00-$cfff` (2 vmem blocks) plus 2 KB of program image; the dynmem ceiling drops 3 KB, and REU Boost may have to go - see *What `-fl` costs at build time* |
 
 `make.rb` prints the cache cost and the preload limit when `-fl` is used, so the
 trade is visible at build time and not only here.
@@ -68,7 +69,7 @@ screen immediately afterwards, so without the pause the line is invisible).
 Verified on hardware by forcing the detection to fail. A successful install
 prints nothing.
 
-**Will it fail without a clear reason why?** Two ways remain:
+**Will it fail without a clear reason why?** One way remains:
 
 1. **`LoadTS` has no timeout.** Its handshake loops (`bvc`/`bmi` in
    `ldserial.src` and `ld41.src`) spin forever. If the drive stops answering
@@ -76,19 +77,19 @@ prints nothing.
    but cannot actually run the code — the machine **hangs**, and no fallback can
    help because nothing regains control. The kernal path has device-not-present
    timeouts; this does not. Inherent to DreamLoad, but a real behaviour change.
-2. **Under VICE it fails by giving wrong answers.** `LoadTS` returns garbage
-   with carry *clear* — a silent wrong answer, not an error. Anyone testing an
-   `-fl` build in an emulator will see corruption that looks like a bug in
-   Ozmoo. See the traps section.
+(A second one used to be listed here — "under VICE it returns wrong answers".
+**Withdrawn**: VICE runs this correctly, see *VICE runs it after all*.)
 
 ## Status
 
-The two gaps the previous handover listed are closed, and **two further bugs it
-did not know about were found and fixed** — one of them was silently corrupting
+Four bugs found and fixed along the way — one of them was silently corrupting
 memory in any game big enough to fill the cache, which is why this could look
-finished when it was not. See *Four bugs*.
+finished when it was not. See *Four bugs*. The three items the last handover
+left as pull-request blockers are all closed; see *Cleared since the last
+handover*.
 
-Verified on hardware (Ultimate 64, `examples/advent_punyinform.z5`, 80 KB):
+Verified on hardware (Ultimate 64; `examples/advent_punyinform.z5`, 80 KB,
+unless another game is named):
 
 - `tools/fastloader/test/flverify.asm` — 200 sectors spread across the disk,
   each checked against the d64 itself: **200 ok, 0 bad**.
@@ -104,13 +105,24 @@ Verified on hardware (Ultimate 64, `examples/advent_punyinform.z5`, 80 KB):
   game resumes normally — so the loader re-installed itself after the drive had
   been handed back to DOS.
 - The "no 1541" boot message appears, by forcing detection to fail.
+- Under **VICE** (3.8 r45032, stock settings): `flverify` 200 ok 0 bad,
+  `fltest` PASS, and the game plays with 137 `LoadTS` calls on a tracepoint -
+  the same answers as hardware, to the byte.
 - A build **without** `-fl` still plays correctly after the `vmem.asm` change;
   every edit there is behind `!ifdef FASTLOADER`, so it assembles identically.
+- A **v6** game (`testz6.z6`) with `-fl` prints the same screen as the same
+  build without it.
+- **Two-disk** games swap disks at boot with the loader installed:
+  `Sherlock.z5` and `Bureaucr.z4` both cache disk 1, take the swap and play.
 
-Build matrix: **28/28** — `testz6.z6`, `examples/dejavu.z3`, `test/praxix.z5`
-across default/`-t:c128`/`-t:plus4`/`-t:mega65`/`-t:x16`/`-smooth:1`,
+Build matrix: **26 ok, 2 failures, neither a `-fl` regression** — `testz6.z6`,
+`examples/dejavu.z3`, `test/praxix.z5` across
+default/`-t:c128`/`-t:plus4`/`-t:mega65`/`-t:x16`/`-smooth:1`,
 `-t:mega65 -fcm` and `-fcm:40` for the v6 game, `-ecm`, and `-fl`, `-fl:0`,
-`-il:8`, `-fl -sb:1`, `-fl -re:1`.
+`-il:8`. `-fl -sb:1 testz6.z6` is refused because v6 has no scrollback buffer at
+all, and `-fl -re:1 testz6.z6` overflows the init area by two bytes (`-sp:5`
+fixes it; `-ecm -re:1` overflows it with no `-fl` anywhere). See *What `-fl`
+costs at build time*.
 
 ### Tested against real Infocom games
 
@@ -127,7 +139,7 @@ Ultimate 64:
   cache had cycled several times.
 - **REU: `planetfall` passes both ways.**
 
-### Spellbreaker hangs caching to REU - NOT caused by this change
+### Two games hang caching to REU - NOT caused by this change
 
 `spellbreaker` (150 KB) answering Y to "Use REU" stalls partway through the
 cache load, at five progress marks, and never recovers. **It does this on the
@@ -137,6 +149,12 @@ harness, so it is not the DMA hazard below, and poking a key does not move it -
 genuinely hung, not waiting for input. The Ultimate's REU is enabled at 16 MB,
 so it is not a size limit on the hardware side. `planetfall` at 126 KB caches
 fine, so it looks size-related somewhere above that. Not investigated further.
+
+`BeyondZo.z5` (276 KB, `-D2`) does the same on its **second** story disk, and
+also does it with no fast loader: the stock build reaches the same prompt and
+then resets to BASIC while caching disk 2. Two games now, both above 126 KB,
+both pre-existing. Worth one line in the PR so a reviewer does not read it as
+fallout from this change.
 
 ### Not verified
 
@@ -150,96 +168,8 @@ fine, so it looks size-related somewhere above that. Not investigated further.
 
 ## What is left before this is a pull request
 
-Three items, in the order that most changes the answer. The first two are
-things this project's own rules require; the third is the one that will make a
-reviewer uncomfortable.
-
-### 1. The z6 branch has never been built with this
-
-CLAUDE.md: *"master tracks upstream; the z6 branch adds Z-machine version 6.
-Shared-code changes must be checked against both."* This change touches five
-shared files - `constants.asm`, `disk.asm`, `ozmoo.asm`, `vmem.asm`,
-`zmachine.asm` - and has only ever been built on `master`.
-
-What to do:
-
-```sh
-git checkout z6          # or a worktree, to keep master's build tree
-# cherry-pick or merge 320ba61 + aa0e13f
-ruby make.rb testz6.z6                 # and -ecm, -t:c128, -t:plus4,
-ruby make.rb -t:mega65 -fcm:40 testz6.z6   # -t:mega65, -t:x16, -smooth:1
-ruby make.rb -fl testz6.z6             # the new path, C64 only
-```
-
-Two things to look at specifically, because z6 is where they could bite:
-
-- `screenkernal-z6.asm` / `screen-z6.asm` are **forks** of the non-v6 originals.
-  This change does not touch either, but `constants.asm` is shared and now
-  defines `kernal_open`/`load`/`save`/`reset` as shims. Anything in the v6 forks
-  that calls those gets the shim too - which is correct, but it has not been
-  exercised.
-- v6 games are the big multi-disk ones, so item 2 overlaps here.
-
-### 2. Multi-disk games and disk swapping
-
-Everything tested so far was **single disk**. That is the weakest part of the
-coverage, because Ozmoo's headline games are multi-disk and swapping interacts
-directly with the captive-drive logic.
-
-`print_insert_disk_msg` does no drive I/O of its own (checked - it is screen and
-keyboard only), so a swap happens while the loader is still installed and the
-drive is still captive. The drive code reads by track/sector and has no notion
-of a file system, so in principle it just reads whatever disk is now in there.
-**In principle. It has never been tried.**
-
-What to do: build a two-disk game and swap. Good candidates already present in
-`/Volumes/Software/Emulation/Infocom`:
-
-```sh
-ruby make.rb -fl "/Volumes/Software/Emulation/Infocom/Trinity/Trinity.z4"
-# also: Amfv.z4, BeyondZo.z5, Bureaucr.z4 - all ~250-270 KB, all 2 disks
-```
-
-Then on hardware: play until it asks for the other disk, mount it, continue.
-Watch for (a) the swap prompt appearing at all, (b) reads working after the
-swap, (c) swapping *back*. Also worth checking `disk_info + 4` handling: the
-loader binds to one device at boot (`fastloader_device`) and refuses reads for
-any other, falling back to the kernal silently - correct, but on a two-drive
-setup it means half the reads are slow with no indication why.
-
-### 3. Why it does not work under VICE
-
-`LoadTS` under `x64sc` returns **carry clear with a buffer of garbage** - a
-silent wrong answer, not an error. The game then dies in a way that looks
-exactly like a bug in this code, which cost most of a day here. Neither
-`-drive8type 1541`, `-drive8idle 0` nor `+virtualdev8` changed anything. Real
-hardware (Ultimate 64, its cycle-accurate 1541) reads all 200 test sectors
-correctly, so the protocol itself is right.
-
-This matters beyond convenience: this project's test workflow *is* VICE and
-xemu. A feature the maintainer cannot verify the usual way is a hard sell.
-
-VICE source is at `~/Git/vice-emu-code`. The places to look:
-
-| file | why |
-|---|---|
-| `vice/src/drive/iec/via1d1541.c` | the drive's VIA - `$1800` is CLK/DATA/ATN in and out, which is the entire DreamLoad handshake on the drive side |
-| `vice/src/iecbus/iecbus.c` | the bus model that joins `$dd00` on the C64 to `$1800` on the drive |
-| `vice/src/drive/drivecpu.c` | drive CPU scheduling - how finely drive and host cycles interleave is exactly what a 2-bits-per-ATN-edge protocol depends on |
-
-A good first experiment, because it isolates protocol from timing: run
-`tools/fastloader/test/flverify.asm` under VICE (it is a standalone PRG, needs
-no game) and compare its per-sector result with hardware. Then in the VICE
-monitor, break on the drive side and watch `$1800` transitions against `$dd00`
-on the host - `GByte` in `ld41.src` reads two bits, toggles ATN, and reads
-again after a *fixed* delay, so the question is whether VICE lets the drive's
-write to `$1800` become visible at `$dd00` within that window. Note the host
-side is **not** handshaked at that point: it assumes the drive responds inside a
-known number of cycles. That is the most likely place for an emulator to differ.
-
-Worth checking before assuming a VICE bug: whether any *other* DreamLoad title
-works under VICE. If none do, it is a known emulator limitation rather than
-something about this integration.
+**Nothing blocking.** All three items the previous handover listed are closed;
+what is left is the ordinary list of things nobody has got to, below.
 
 ### Also outstanding
 
@@ -254,8 +184,168 @@ something about this integration.
   with no fallback. Inherent to DreamLoad; worth stating in the PR.
 - CLAUDE.md's line-for-line `testz6` C64 vs `-t:mega65 -fcm:40` screen check -
   `xemu-xmega65` is not installed on this machine.
+- **Two drives.** A `-D2` game split across device 8 and device 9 has never been
+  run. The loader binds to the boot device, so device 9's reads take the kernal
+  path - but the captive drive on 8 shares the bus with that traffic, and
+  nothing here has proved the two coexist. Enabling the Ultimate 64's drive B
+  was not permitted in this session; it is one REST call (`PUT
+  /v1/drives/b:on`) plus mounting story disk 2 there.
 
 It is also Johan's repository: commit locally, never push without permission.
+
+## Cleared since the last handover
+
+### VICE runs it after all — was blocker 3
+
+The previous handover said `LoadTS` under `x64sc` "returns carry clear with a
+buffer of garbage" and that the fast loader could only be tested on hardware.
+**That is wrong.** Measured this session on VICE 3.8 r45032 (`x64sc`), stock
+settings, against `c64_advent_punyinform.d64` built with `-fl`:
+
+| test | VICE | hardware (U64) |
+|---|---|---|
+| `flverify.prg`, 200 sectors checked against the d64 | **200 ok, 0 bad** | **200 ok, 0 bad** |
+| `fltest.prg` install → read → suspend → DOS → resume → read | **PASS**, sig `$34b1`, cksum `$2b75` | **PASS**, sig `$34b1`, cksum `$2b75` |
+| the real `-fl` game, 8 commands deep | plays correctly; **141 calls to `fastloader_readblock`, 137 to `LoadTS`** on a monitor tracepoint, so the loader really served the reads | plays correctly |
+
+The two emulator answers match the two hardware answers byte for byte. So
+`-fl` is testable the usual way, and the "hours chasing a phantom" were spent
+on something else.
+
+**What actually goes wrong under VICE**, and only for the standalone tests:
+
+- **A VICE 1541 stepper bug.** `src/drive/iecieee/via2d.c`, `store_prb()` moves
+  the head **twice** for one `$1c00` write — the normal path at :307-312 and
+  again in the `#if 1` block at :338-351 (labelled as a fix for VICE bug #1083),
+  which has no ±1 restriction. On a drive that has never seeked, DreamLoad's
+  motor-on write lands the head on an **odd half track**, which is unformatted,
+  so `rotation_sync_found()` never sees SYNC and the drive code spins in
+  wait-for-SYNC for ever. Both sides hang; nothing returns a wrong answer.
+  (Traced with a watchpoint on `current_half_track`; forcing
+  `drive_set_half_track(38, …)` at the moment of the hang makes the same run
+  finish 200 ok.)
+- **Ozmoo never hits it**, because the kernal has loaded the boot file from the
+  disk long before `fastloader_init` runs, so the head has seeked and the
+  stepper phase agrees with it. That is why the game plays but the injected test
+  hung.
+- The standalone tests now do the same thing on purpose:
+  `seek_the_head_first` in `flverify.asm` / `fltest.asm` reads the directory
+  with a kernal `LOAD` before `fastloader_init`. **Both halves are load-bearing
+  and were measured**: with the seek removed the injected test hangs after
+  printing its title; without the `$ba` default it prints "no 1541", because an
+  injected PRG never went through a kernal `LOAD` and `CURRENT_DEVICE` is still
+  0.
+
+Worth reporting upstream to VICE: one PRB write should produce at most one
+stepper transition. The reproducer is the injected `flverify.prg` with the seek
+taken out — it hangs with zero prior disk access.
+
+**The old "carry clear with garbage" symptom was never reproduced here**, on
+3.8 r45032 or on a 3.10 r46236 tree build. It may have been the zero-page
+corruption later fixed as bug 4, or an older VICE. Unknown, and no longer worth
+chasing.
+
+How to run them:
+
+```sh
+cd asm
+ruby ../tools/fastloader/gen_verify.rb ../c64_advent_punyinform.d64 flverify-table.asm 200
+acme --cpu 6510 --format cbm -DTARGET_C64=1 -DFASTLOADER=1 \
+     -o /tmp/flverify.prg ../tools/fastloader/test/flverify.asm
+cd ..
+x64sc -default -warp +sound -limitcycles 900000000 -autostartprgmode 1 \
+      -8 c64_advent_punyinform.d64 -exitscreenshot /tmp/shot.png \
+      -autostart /tmp/flverify.prg
+```
+
+`-autostartprgmode 1` is required: the default replaces the attached image with
+the PRG's own disk, and the test then has no d64 to read. `-drive8truedrive` is
+**already on by default**, so the previous handover's flag experiments were all
+no-ops.
+
+### z6 builds and runs - was blocker 1
+
+The previous handover said "the z6 branch has never been built with this".
+**In this repository there is no separate z6 branch**: `git branch -a` has only
+`master` and `c128-vdc`, the remote has only `master`, and `master` already
+carries `screen-z6.asm`, `screenkernal-z6.asm` and the rest of the v6 work. So
+the shared-code check CLAUDE.md asks for is the ordinary build matrix, plus a
+v6 game actually running the new path.
+
+Both now done:
+
+- `ruby make.rb -fl testz6.z6` builds, and **runs on hardware** (Ultimate 64,
+  REU declined so every read goes through the loader). Its screen is
+  **identical, line for line, to the same build without `-fl`**.
+- Build matrix in a clean worktree, 26 ok / 2 fail: `testz6.z6`,
+  `examples/dejavu.z3`, `test/praxix.z5` across default, `-t:c128`, `-t:plus4`,
+  `-t:mega65`, `-t:x16`, `-smooth:1`; `-ecm`; `-t:mega65 -fcm` and `-fcm:40`;
+  `-fl` on all three games; `-fl:0`; `-il:8 -fl`.
+- The two failures are **not** `-fl` regressions: `-fl -sb:1 testz6.z6` is
+  refused because the scrollback buffer is not supported in v6 at all, and
+  `-fl -re:1 testz6.z6` overflows - see *What -fl costs at build time* below.
+
+The kernal shims (`kernal_open`/`load`/`save`/`reset`) reach the v6 forks too,
+since `constants.asm` is shared. Nothing in `screen-z6.asm` or
+`screenkernal-z6.asm` calls them; on a C64 `-fl` build the only shim users are
+`disk.asm`, `reu.asm`, `sound.asm`, `vmem.asm`, `utilities.asm` and
+`zmachine.asm`. `pictures-mega65.asm`, `pictures-x16.asm` and `sound-x16.asm`
+also call `kernal_open`, but `-fl` is C64-only so they never see a shim, and
+`picloader.asm` is a standalone PRG with its own origin, built without
+`FASTLOADER`.
+
+### Multi-disk games and disk swapping - was blocker 2
+
+The previous handover assumed a mid-game swap. There isn't one: the manual
+(`documentation/manual/manual.md`, line 332) says a `D2`/`D3` game needs **two
+drives, or one drive and an REU**. Story data is never swapped mid-game.
+`print_insert_disk_msg` fires in exactly two places - `insert_disks_at_boot` in
+`ozmoo.asm`, which asks for each further story disk while it bulk-loads it into
+the REU, and `.insert_save_disk`/`.insert_story_disk` in `disk.asm` for saves.
+
+So the swap that matters happens **at boot, while the loader holds the drive
+captive**. Tested on hardware, one drive, REU accepted, disk 2 mounted at the
+prompt:
+
+| game | size | result |
+|---|---|---|
+| `Sherlock.z5` `-D2 -fl` | 188 KB | **pass** - disk 1 cached, swap, disk 2 cached, opening room correct, `look`/`inventory`/`south` all sane |
+| `Bureaucr.z4` `-D2 -fl` | 243 KB | **pass** - same, and the licence-application form renders correctly |
+| `BeyondZo.z5` `-D2 -fl -rb:0` | 276 KB | **fails caching disk 2** - one progress mark, then nothing for 300 s |
+
+Beyond Zork is **not** a `-fl` regression: the same build **without** `-fl`
+reaches the same prompt (disk 1 in 296 s against the fast loader's <140 s, the
+expected 2.1x) and then dies caching disk 2 too - it reset to BASIC. Same family
+as the Spellbreaker REU stall above, which is also pre-existing and also only
+appears above ~126 KB.
+
+Timing note, since it is the only in-game number for the bulk REU path on a real
+game: Beyond Zork's story disk 1 caches in **<140 s with `-fl` against 296 s
+without** - 2.1x, the raw per-block ratio again.
+
+### What `-fl` costs at build time
+
+This is the part that will surprise someone, and it was not written down
+before. `-fl` raises `$storystart` by **2 KB** (the 1298 bytes of blob plus this
+file's code, page-rounded) and takes **1 KB** more for the resident. So:
+
+- **The dynmem ceiling drops by 3 KB**, 36864 -> 33792 bytes on the C64. A game
+  whose dynamic memory lands in that window builds without `-fl` and fails with
+  it.
+- **REU Boost wants 3 KB of unbanked RAM, which is exactly what `-fl` takes.**
+  `BeyondZo.z5` builds with `-D2` and fails with `-D2 -fl`; `-D2 -fl -rb:0`
+  builds. `make.rb` now says so in both error messages rather than leaving the
+  reader to work out that the fast loader is the reason.
+- **The 1 KB of one-shot init that lives in the stack area is nearly full on a
+  v6 build.** `-re:1 testz6.z6` ends at `$53fe` of a `$5400` limit - one byte
+  spare - and `-fl` needs two more, so `-fl -re:1 testz6.z6` fails to assemble
+  ("Produced too much code", `ozmoo.asm:3193`). `-sp:5` fixes it. This is a
+  pre-existing tightness, not something `-fl` created: `-ecm -re:1 testz6.z6`
+  overflows the same limit with no fast loader anywhere.
+
+Games too big for the C64 either way, checked so they are not re-checked:
+`Trinity.z4` and `Amfv.z4` both have 37888 bytes of dynamic memory, over the
+36864 the C64 allows even without `-fl`.
 
 ## Four bugs
 
@@ -416,10 +506,13 @@ Resident jump table (the full one, from `ldcommon.src`):
 | `$cd0c` | `LedOff` |
 | `$cd0f` | `SwitchOff` — resets the drive back to normal DOS |
 
-`$cc00-$cfff` (1 KB, 2 vmem blocks) is reserved by `VMEM_END_PAGE = $cc` — see
-bug 3. **`make.rb` must agree**: it computes the preload from its own copy of the
-memory map, so `$memory_end_address` moves with it. Changing only one side
-silently corrupts the preload.
+`$cc00-$cfff` (1 KB, 2 vmem blocks) is carved out of the RAM cache by
+`$unbanked_ram_end_address = 0xcc00` in `make.rb` and by `vmem_page_for_index`
+in `vmem.asm`, which maps the cache as two segments with the loader in the hole
+between them — see bug 3, and do **not** reach for `VMEM_END_PAGE`, which is
+the attempt that measured slower than no fast loader at all. **`make.rb` must
+agree with the runtime**: it computes the preload from its own copy of the
+memory map, so changing only one side silently corrupts the preload.
 
 The loader re-installs itself lazily, from `fastloader_readblock`, but never
 while a logical file is open (`$98` != 0) — re-installing talks to the bus and
@@ -441,14 +534,17 @@ Changed:
   the kernal path when carry is set; `jsr fastloader_shutdown` in `z_ins_restart`
 - `asm/zmachine.asm` — `jsr fastloader_shutdown` in `z_ins_quit`
 - `make.rb` — `-fl` flag (C64 only), `-il:<n>` interleave override, memory
-  reservation
+  reservation, and a hint on the two errors `-fl` can cause by itself (the
+  dynmem ceiling and REU Boost's 3 KB)
 - `.gitignore` — the generated `asm/flverify-table.asm`
 
 Added:
 
 - `asm/fastloader.asm`, `asm/fastloader-drivecode.bin`,
   `asm/fastloader-resident.bin`
-- `tools/fastloader/` — test harness, see below
+- `tools/fastloader/` — test harness, see below. `flverify.asm` and
+  `fltest.asm` gained `wait_a_sec` and `seek_the_head_first`; without the first
+  they no longer assembled at all against the shipped `asm/fastloader.asm`
 
 **`asm/zmachine.asm` is CRLF in git.** An earlier pass converted it to LF and
 turned a 3-line change into a 4481-line diff. If `git diff --stat` on that file
@@ -478,14 +574,15 @@ why this had to be measured inside Ozmoo, not extrapolated.
 
 ## Traps — do not re-learn these
 
-- **VICE cannot run this.** `x64sc` returns garbage from `LoadTS` with carry
-  *clear* — a silent wrong answer, not an error — and the game dies in a way
-  that looks exactly like a real bug. Hours went into chasing a phantom here.
-  Neither `-drive8type 1541` nor `-drive8idle 0` nor `+virtualdev8` helps.
-  **Test the fast loader on hardware only.** VICE is still useful for the
-  *rest* of Ozmoo: stubbing `fastloader_init` to an `rts` in the monitor is a
-  clean way to check that an `-fl` build's memory layout is sound, because then
-  every read takes the kernal path.
+- **VICE runs this fine — the older note here saying otherwise was wrong.**
+  200/200 sectors, `fltest` PASS, and the game plays, all matching hardware.
+  What does bite is a VICE 1541 stepper bug that hangs any program talking to
+  the drive **before the drive has ever seeked**; Ozmoo is never such a program
+  (the kernal loads its boot file first), and the standalone tests seek on
+  purpose in `seek_the_head_first`. Details under *VICE runs it after all*.
+  Two flag notes worth keeping: `-drive8truedrive` is on by **default**, so
+  toggling it proves nothing, and injecting a PRG next to an attached d64 needs
+  `-autostartprgmode 1` or VICE swaps the disk out from under the test.
 - **Never poll `machine:readmem` while the drive is working.** Each read is a
   DMA that steals C64 cycles and disturbs cycle-exact IEC timing: 5 of 11
   polled runs returned corrupt data, 0 of 5 unpolled. Drive blind and read the
@@ -557,9 +654,15 @@ here that guessing did not.
   the **shipped** `asm/fastloader.asm` rather than a copy of it, so they cannot
   drift from the code:
   - `flverify.asm` — 200 sectors across the disk, each checked against the d64.
-    The read-correctness test. **200 ok, 0 bad.**
+    The read-correctness test. **200 ok, 0 bad**, on hardware *and* under VICE.
   - `fltest.asm` — install → read → suspend → ordinary DOS command channel →
-    re-install → read. The coexistence test. **PASS.**
+    re-install → read. The coexistence test. **PASS**, on both.
+  - Both start with `seek_the_head_first`: default `CURRENT_DEVICE` to 8 when it
+    is not a drive (an injected PRG never went through a kernal `LOAD`, so `$ba`
+    is 0), then read the directory so the drive has seeked. Without the first
+    the test says "no 1541"; without the second it hangs under VICE. Ozmoo needs
+    neither - it has loaded its boot file by then - so this is test setup, not a
+    workaround in the shipped code.
   - `bench.asm` — Ozmoo's current kernal path, 40 blocks
   - `bench2.asm` — same with channels kept open (**measured identical**; the
     OPEN/CLOSE churn costs nothing, the transfer is everything)
@@ -579,6 +682,18 @@ acme --cpu 6510 --format cbm -DTARGET_C64=1 -DFASTLOADER=1 \
      -o /tmp/flverify.prg ../tools/fastloader/test/flverify.asm
 cd .. && ruby tools/fastloader/runprg.rb /tmp/flverify.prg c64_game.d64 90
 ```
+
+Under VICE instead of hardware, same PRG (see *VICE runs it after all* for why
+`-autostartprgmode 1` is not optional):
+
+```sh
+x64sc -default -warp +sound -limitcycles 900000000 -autostartprgmode 1 \
+      -8 c64_game.d64 -exitscreenshot /tmp/shot.png -autostart /tmp/flverify.prg
+```
+
+Do **not** write the test PRG onto the d64 it is checking: the write lands in
+sectors the table was generated from, and the test then reports them bad
+(measured: 198 ok, 2 bad, both "want $0000", both sectors the PRG now occupies).
 
 Verified IEC mapping (measured, not assumed):
 
@@ -608,5 +723,8 @@ Drive inputs read inverted (pulled low = 1); idle reads `$00`.
   passes every correctness test, and ~30 % **slower than no fast loader at all**
   because it costs 26 of 62 cache blocks. Benchmark the game, not the block: the
   standalone per-block figure said 2.1x faster the whole time it was losing.
-- Debugging this under VICE — see the traps. The emulator's answers were
-  confidently wrong in both directions.
+- Believing "VICE cannot run this". It can, and always could; the failure that
+  was seen is a hang from a VICE head-stepping bug that only a program touching
+  a never-seeked drive can trigger. A whole PR blocker rested on a symptom
+  ("carry clear with garbage") that nobody could reproduce afterwards. When an
+  emulator seems to be lying, re-measure before writing it down.

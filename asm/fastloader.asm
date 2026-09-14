@@ -6,10 +6,14 @@
 ; Rather than shipping DreamLoad's 4.2 KB installer, Ozmoo carries the
 ; post-install state directly: the 786-byte drive code is written into the
 ; drive's RAM at $0300 with M-W, and the 512-byte resident loader - already
-; patched for the 1541 - is copied to $cd00. That costs ~1.3 KB of program
-; image instead of 4.2 KB. The resident KB at $cc00-$cfff is reserved by
-; VMEM_END_PAGE in ozmoo.asm - vmem in RAM is one linear run of pages and
-; cannot skip a hole, so the loader has to sit above the end of it.
+; patched for the 1541 - is copied to $cd00. That costs 2 KB of program image
+; instead of 4.2 KB (1298 bytes of blob plus this file's code; measured as a
+; 2 KB rise in $storystart). The resident KB at $cc00-$cfff is carved out of the
+; RAM cache by make.rb ($unbanked_ram_end_address = $cc00) and by
+; vmem_page_for_index in vmem.asm, which maps the cache as two segments -
+; story_start..$cbff and $d000..top - with the loader in the hole between them.
+; Putting the loader above the whole cache instead costs 26 of 62 blocks and
+; measures slower than no fast loader at all; see documentation/fastloader-notes.md.
 ;
 ; Resident loader jump table:
 ;   $cd03  LoadTS     X=track, Y=sector -> sector at $cf00, carry set on error

@@ -4154,6 +4154,7 @@ end
 if $target !~ /^(mega65|x16)$/ and 
 		$storystart + $dynmem_blocks * $VMEM_BLOCKSIZE > $normal_ram_end_address then
 	puts "ERROR: Dynamic memory is too big (#{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes), would pass end of normal RAM. Maximum dynmem size is #{$normal_ram_end_address - $storystart} bytes." 
+	puts "       The fast loader (-fl) lowers this ceiling by 3 KB (1 KB resident, 2 KB of code)." if $GENERALFLAGS.include?('FASTLOADER')
 	exit 1
 end
 puts "Dynamic memory: #{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes" if $verbose 
@@ -4197,6 +4198,9 @@ end
 
 if reu_boost == 1 and $target == 'c64' and $unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 256 < 12
 	puts "ERROR: REU Boost requires at least 3 KB of unbanked RAM. Dynamic memory is #{$dynmem_blocks * $VMEM_BLOCKSIZE / 1024} KB, leaving only #{$unbanked_vmem_blocks * $VMEM_BLOCKSIZE / 1024} KB of unbanked RAM for REU Boost." 
+	# -fl takes exactly the 3 KB REU Boost wants, so a game that fits without it
+	# fails here with no hint that the fast loader is the reason.
+	puts "       The fast loader (-fl) costs 3 KB of unbanked RAM. Drop -fl, or add -rb:0." if $GENERALFLAGS.include?('FASTLOADER')
 	exit 1		
 end
 

@@ -39,6 +39,7 @@ start
 	lda #<m_title
 	ldy #>m_title
 	jsr print_str
+	jsr seek_the_head_first
 	jsr fastloader_init
 	lda fastloader_active
 	bne +
@@ -163,6 +164,47 @@ checksum
 newline
 	lda #13
 	jmp chrout
+
+; VICE's 1541 steps the head twice for a single $1c00 write when the drive has
+; not seeked yet (src/drive/iecieee/via2d.c, store_prb, the "#if 1" fix for
+; VICE bug #1083), parking it on an unformatted half track; DreamLoad's
+; wait-for-SYNC loop then spins for ever and the machine hangs. One kernal
+; directory read first puts the head on a real track with the stepper phase
+; agreeing, and the run completes. Harmless on hardware, and Ozmoo itself never
+; needs it: the kernal has loaded the boot file long before fastloader_init.
+seek_the_head_first
+	; An injected PRG (VICE's -autostartprgmode 1) never went through a kernal
+	; LOAD, so $ba is still 0 and every bus call below would talk to device 0.
+	; Booting from a disk sets it; default it here so the test can be run
+	; either way.
+	lda CURRENT_DEVICE
+	cmp #8
+	bcc +
+	cmp #12
+	bcc ++
++	lda #8
+	sta CURRENT_DEVICE
+++
+	lda #1
+	ldx #<.dirname
+	ldy #>.dirname
+	jsr kernal_setnam
+	lda #1
+	ldx CURRENT_DEVICE
+	ldy #0			; secondary 0 - load at the address in X/Y
+	jsr kernal_setlfs
+	lda #0			; LOAD, not VERIFY
+	ldx #<buffer
+	ldy #>buffer
+	jsr kernal_load_raw
+	rts
+.dirname !pet "$"
+
+; fastloader_init pauses after the "no 1541" message so the player can read it
+; before Ozmoo clears the screen. Nothing clears the screen here, and the test
+; stops at that point anyway, so the pause has no job to do.
+wait_a_sec
+	rts
 
 ; fastloader_init reports a missing 1541 through this; Ozmoo has its own.
 printstring_raw
