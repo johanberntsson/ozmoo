@@ -112,6 +112,32 @@ across default/`-t:c128`/`-t:plus4`/`-t:mega65`/`-t:x16`/`-smooth:1`,
 `-t:mega65 -fcm` and `-fcm:40` for the v6 game, `-ecm`, and `-fl`, `-fl:0`,
 `-il:8`, `-fl -sb:1`, `-fl -re:1`.
 
+### Tested against real Infocom games
+
+Five games built both ways (`spellbreaker` 150 KB, `hitchhiker` 158 KB,
+`ballyhoo` 150 KB, `lurkinghorror` 127 KB, `planetfall` 126 KB), on an
+Ultimate 64:
+
+- **No REU: 10/10.** Both builds of all five reach their opening room with
+  identical text.
+- **40-turn soak, `-fl`, no REU: 5/5.** Walking each game around for 40 moves
+  so the RAM cache turns over many times - no corruption, no reset, every one
+  still at a live prompt with sane text afterwards. Reaching the opening room
+  is *not* a sufficient test: the zero-page bug (bug 4) did not show until the
+  cache had cycled several times.
+- **REU: `planetfall` passes both ways.**
+
+### Spellbreaker hangs caching to REU - NOT caused by this change
+
+`spellbreaker` (150 KB) answering Y to "Use REU" stalls partway through the
+cache load, at five progress marks, and never recovers. **It does this on the
+stock build with no fast loader**, so it is pre-existing and not ours.
+Confirmed properly: it stalls for 600 s with *zero* memory reads from the test
+harness, so it is not the DMA hazard below, and poking a key does not move it -
+genuinely hung, not waiting for input. The Ultimate's REU is enabled at 16 MB,
+so it is not a size limit on the hardware side. `planetfall` at 126 KB caches
+fine, so it looks size-related somewhere above that. Not investigated further.
+
 ### Not verified
 
 - **Restore.** In-game restore reports "Failed restore." on the Ultimate 64 —
