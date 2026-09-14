@@ -13,7 +13,7 @@ optimistic, and one was measuring something other than what it claimed.
 
 | scenario | without `-fl` | with `-fl` | |
 |---|---|---|---|
-| one 256-byte block, standalone benchmark | 445-452 ms | 218-224 ms | **2.0x faster** |
+| one 256-byte block, standalone benchmark | 450-455 ms | 205 ms | **2.2x faster** |
 | in-game, **no REU**, `advent_punyinform.z5` 80 KB | 36 turns / 300 s | **78 turns / 300 s** | **2.2x faster** |
 | in-game, **with REU**, same game | 150 turns / 300 s | 149 turns / 300 s | **no difference at all** |
 | REU bulk cache load, `Aventyr.z5` 133 KB | 241 s | 48-58 s | **4.1-5.0x faster** |
@@ -41,7 +41,23 @@ end on the same move, in the same room, with the same score. 36 and 36 without
 `-fl`, 78 and 78 with it. Any variation at all means something really changed.
 
 The per-block figures are `tools/fastloader/test/bench.asm` (Ozmoo's kernal
-path) and `blobtest.asm` (the loader), 3 runs each, 40 blocks per run.
+path) and `flbench.asm` (the same 40 blocks through the **shipped**
+`asm/fastloader.asm`), 3 runs each:
+
+| | jiffies for 40 blocks | per block |
+|---|---|---|
+| kernal | 1089, 1093, 1081 | 450-455 ms |
+| loader | 493, 493, 493 | **205 ms** |
+
+Both print a checksum of every byte read, and both print **`$44ea`** - so the
+loader is not merely faster, it demonstrably returns the same bytes over the
+same blocks. The loader's timing is identical to the jiffy across runs; the
+kernal's wanders by 12 jiffies, which is the rotational latency it cannot avoid.
+
+**Use `runprg.rb`, not `measure.rb`, for `flbench`.** `measure.rb` polls the
+screen once a second while the run is in progress, and that DMA is enough to
+make the loader return nothing at all - it fails by producing no result line,
+which looks like a broken test rather than a broken measurement.
 
 Getting there took three attempts at reserving the loader's KB — see bug 3. The
 middle one built, ran, and was **~30 % slower than no fast loader at all**; if
@@ -407,8 +423,7 @@ Games too big for the C64 either way, checked so they are not re-checked:
 
 DreamLoad is a **captive** loader: once installed, the drive stops speaking the
 normal DOS protocol, so save, restore, the save-file directory and disk swaps
-would hang the machine. `tools/fastloader/test/coexist.asm` still demonstrates
-the hang.
+would hang the machine.
 
 Fixed with a suspend/resume pair, hooked in **one** place rather than at every
 call site. `constants.asm` points `kernal_open`, `kernal_load`, `kernal_save`
@@ -754,7 +769,9 @@ GPL-2 compatible (Ozmoo is GPL-2). Source:
 `tools/fastloader/test/t41only.src` rebuilds the drive blob standalone:
 `dreamass t41only.src` → `t41.bin`, 786 bytes at `$0300`. It matches the copy
 inside DreamLoad's own installer byte-for-byte (found at offset 2150 of
-`dload.prg`), so the blob is verifiably the real thing.
+`dload.prg`), so the blob is verifiably the real thing. `asm/fastloader-
+drivecode.bin` is that image with the single `$0d` byte at offset 765 changed to
+`$0c`, which the drive repairs at run time - see the traps.
 
 The source is worth checking out when anything is unclear — `ldcommon.src`
 (jump table), `ldserial.src` (`SwitchOff`, `SendByte`), `ld41.src` (`GByte`),
@@ -778,8 +795,8 @@ here that guessing did not.
   (5 assertions, `ruby test_screens.rb`).
 - `d64.rb` — d64 directory/sector-chain reader; extracts the boot PRG
 - `measure.rb` — reset, run a benchmark PRG, parse its result line
-- `test/*.asm` — standalone tests. The two that matter now are built against
-  the **shipped** `asm/fastloader.asm` rather than a copy of it, so they cannot
+- `test/*.asm` — four standalone tests. Three of them are built against the
+  **shipped** `asm/fastloader.asm` rather than a copy of it, so they cannot
   drift from the code:
   - `flverify.asm` — 200 sectors across the disk, each checked against the d64.
     The read-correctness test. **200 ok, 0 bad**, on hardware *and* under VICE.
@@ -791,15 +808,21 @@ here that guessing did not.
     the test says "no 1541"; without the second it hangs under VICE. Ozmoo needs
     neither - it has loaded its boot file by then - so this is test setup, not a
     workaround in the shipped code.
-  - `bench.asm` — Ozmoo's current kernal path, 40 blocks
-  - `bench2.asm` — same with channels kept open (**measured identical**; the
-    OPEN/CLOSE churn costs nothing, the transfer is everything)
-  - `dlbench.asm` — same 40 blocks via DreamLoad's own installer
-  - `blobtest.asm` — installer-free install, the design now in `fastloader.asm`
-  - `coexist.asm` — demonstrates the original DOS hang
-  - `k_diag.asm` — kernal read path diagnostic (per-block checksums, `ST`,
-    drive error channel)
-  - `linetest.asm` / `linetest2.asm` — empirically map the IEC lines both ways
+  - `flbench.asm` — 40 blocks through the loader, and `bench.asm` — the same
+    40 through Ozmoo's kernal path. Run back to back for the per-block ratio.
+    Both print a checksum of every byte, and the two agree, so the pair is a
+    correctness check as well as a benchmark. `bench.asm` is the only one that
+    does not source `fastloader.asm`, because its whole job is to be the
+    control.
+
+A dozen other test programs existed while this was being worked out - IEC line
+mapping, a kernal read-path diagnostic, a DreamLoad-installer benchmark, a
+demonstration of the original DOS hang, an installer-free install prototype.
+Every finding they produced is written down in this file, two of them could no
+longer even assemble (they wanted `dload.prg` and a generated `cks_table.inc`
+that are not in the repo), and the install prototype was a second copy of logic
+that now lives in `fastloader.asm` - exactly the kind of copy that goes stale.
+They are in the history if anyone wants them back; they are not worth carrying.
 
 Both live tests are built from `asm/` so `!source` and `!binary` resolve:
 
