@@ -1269,6 +1269,7 @@ statmem_reu_banks !byte 0
 !source "scrollback.asm"
 }
 !source "disk.asm"
+!source "fastloader.asm"
 !ifdef Z6 {
 !source "screenkernal-z6.asm"
 !source "screen-z6.asm"
@@ -2597,6 +2598,20 @@ deletable_init
 }
 }
 
+!ifdef FASTLOADER {
+	; The fast loader's KB at $cc00-$cfff splits vmem in two, so the cache is
+	; the blocks below it (already counted in vmap_unbanked_blocks) plus the
+	; banked ones from vmem_banked_start_page up to the top. Reserving the KB
+	; by lowering the top of vmem instead would throw away all 12 KB of banked
+	; RAM with it. See vmem_page_for_index in vmem.asm.
+	lda vmap_unbanked_blocks
+	clc
+!ifdef SCROLLBACK_RAM_PAGES {
+	adc #(((SCROLLBACK_RAM_START_PAGE - vmem_banked_start_page) & $ff) / 2)
+} else {
+	adc #(((VMEM_END_PAGE - vmem_banked_start_page) & $ff) / 2)
+}
+} else {
 !ifdef SCROLLBACK_RAM_PAGES {
 	lda #SCROLLBACK_RAM_START_PAGE
 } else {
@@ -2605,6 +2620,7 @@ deletable_init
 	sec
 	sbc vmap_first_ram_page
 	lsr
+}
 	cmp #vmap_max_size ; Maximum space available
 	bcc ++
 	lda #vmap_max_size
@@ -2620,6 +2636,9 @@ deletable_init
 	jsr init_screen_colours
 }
 
+!ifdef FASTLOADER {
+	jsr fastloader_init
+}
 	jsr prepare_static_high_memory
 
 	jsr insert_disks_at_boot

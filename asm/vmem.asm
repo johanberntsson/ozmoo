@@ -196,6 +196,32 @@ vmap_first_ram_page_in_bank_1 !byte 0
 vmem_bank_temp !byte 0
 }
 
+!ifdef FASTLOADER {
+; A = vmap index -> A = the first RAM page of that block.
+;
+; The fast loader is resident at $cc00-$cfff, and vmem in RAM cannot contain a
+; hole, so the cache is two segments: blocks below vmap_unbanked_blocks sit at
+; vmap_first_ram_page and up, the rest at vmem_banked_start_page ($d000) and up.
+; Reserving the KB by simply lowering the top of vmem instead would cost the
+; whole 12 KB of banked RAM, which measured ~30 % SLOWER in game than no fast
+; loader at all - see documentation/fastloader-notes.md.
+;
+; Only A and the flags are touched: every caller keeps the index in X or Y.
+; This is the same shape as the C128's two-bank map a few lines below each call.
+vmem_page_for_index
+	cmp vmap_unbanked_blocks
+	bcs +
+	asl
+	; Carry is already clear
+	adc vmap_first_ram_page
+	rts
++	sbc vmap_unbanked_blocks ; Carry is already set
+	asl
+	; Carry is already clear
+	adc #vmem_banked_start_page
+	rts
+}
+
 vmem_tick 			!byte $e0
 vmem_oldest_age		!byte 0
 vmem_oldest_index	!byte 0
@@ -343,8 +369,12 @@ opt_optimize_vmem
 } else {
 ; C64
 	lda opt_highest_value_index
+!ifdef FASTLOADER {
+	jsr vmem_page_for_index
+} else {
 	asl
 	adc vmap_first_ram_page ; Carry is already clear
+}
 	sta opt_temp + 2 ; banked RAM page
 }
 
@@ -576,8 +606,12 @@ print_vm_map
 	jsr print_byte_as_hex
 	jsr space
 	tya
+!ifdef FASTLOADER {
+	jsr vmem_page_for_index
+} else {
 	asl
 	adc vmap_first_ram_page
+}
 	jsr print_byte_as_hex
 	lda #$30
 	jsr streams_print_output
@@ -624,9 +658,13 @@ load_blocks_from_index
 	bne load_blocks_from_index_using_cache ; Always branch
 .in_bank_0
 }	
+!ifdef FASTLOADER {
+	jsr vmem_page_for_index
+} else {
 	asl
 	; Carry is already clear
 	adc vmap_first_ram_page
+}
 
 !ifdef TRACE_FLOPPY {
 	jsr comma
@@ -1100,10 +1138,14 @@ read_byte_at_z_address
 	ldy #0
 	sty vmap_c64_offset_bank
 }	
+!ifdef FASTLOADER {
+	jsr vmem_page_for_index
+} else {
 	asl
 	
 	; Carry is already clear
 	adc vmap_first_ram_page
+}
 ++	sta vmap_c64_offset
 
 
@@ -1250,9 +1292,13 @@ read_byte_at_z_address
 	sty vmap_c64_offset_bank
 }	
 
+!ifdef FASTLOADER {
+	jsr vmem_page_for_index
+} else {
 	asl
 	; Carry is already clear
 	adc vmap_first_ram_page
+}
 .store_offset	
 	sta vmap_c64_offset
 

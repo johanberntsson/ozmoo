@@ -328,6 +328,15 @@ read_track_sector
 	stx .sector
 	sty .device
 .have_set_device_track_sector
+!ifdef FASTLOADER {
+	ldx .track
+	ldy .sector
+	lda .device
+	jsr fastloader_readblock
+	bcs +				; not handled - fall through to the kernal
+	rts
++
+}
 	lda .track
 	jsr convert_byte_to_two_digits
 	stx .uname_track
@@ -642,6 +651,11 @@ insert_msg_3
 
 !ifdef RESTART_SUPPORTED {
 z_ins_restart
+!ifdef FASTLOADER {
+	; The restart below resets the machine and lets BASIC reload the game, so
+	; the drive has to be speaking DOS again by then.
+	jsr fastloader_shutdown
+}
 	; insert device# for boot disk in LOAD command
 	lda disk_info + 4 + 8 ; Device# for story disk (typically 8)
 	jsr convert_byte_to_two_digits

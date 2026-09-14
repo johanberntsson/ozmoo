@@ -1,0 +1,27 @@
+; Assemble ONLY the 1541 drive code (t41) as a raw $0300 image, so it can be
+; uploaded by Ozmoo directly instead of shipping DreamLoad's 4.2K installer.
+#macro SAFEBRA(mne,dst)
+{
+	#if >(*+2) != >{dst}
+	#error "branch crosses page porder!"
+	#else
+	{mne} {dst}
+	#endif
+}
+#macro SAFETABLE_START
+{
+	__SAFETABLE_ADR__ := *
+}
+#macro SAFETABLE_END
+{
+	#if >* != >__SAFETABLE_ADR__
+	#error "table crosses page border!"
+	#endif
+}
+#include "dload.cfg"
+	.SETPET
+#segdef "code", $0300-$0800
+#outfile "t41.bin", "code"
+    .segment "code"
+#include "t41.src"
+#print "T41_LdrStart:", T41_LdrStart

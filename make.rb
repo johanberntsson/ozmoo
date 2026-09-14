@@ -537,7 +537,7 @@ class D64_image < Disk_image
 
 		base_initialize()
 
-		@interleave = 9
+		@interleave = $d64_interleave ? $d64_interleave : 9
 
 		# NOTE: Blocks to skip can only be 0, 2, 4 or 6, or entire track.
 		@reserved_sectors[18] = reserve_dir_track ? @track_length[18] : 2 # 2: Skip BAM and 1 directory block, 19: Skip entire track
@@ -2853,6 +2853,9 @@ def print_usage
 	puts "  -if: Like -i but add a flicker effect in the border while loading."
 	puts "  -ch: Use command line history, with min size of n bytes (0 to disable, 1 for default size)."
 	puts "  -sb: Use the scrollback buffer (1 = in REU/Attic, 6,8,10,12 = use RAM if needed (KB))"
+	puts "  -fl: Use a fast loader for disk reads. C64 and a real 1541 only; any other"
+	puts "       drive falls back to the kernal loader. Costs 1 KB of RAM."
+	puts "  -il: Sector interleave for d64 story data (default 9)."
 	puts "  -rb: Enable the REU Boost feature. Enabled by default. Takes up 155 bytes."
 	puts "  -fgcol/dmfgcol: Use the specified foreground colour. See docs for details."
 	puts "  -bgcol/dmbgcol: Use the specified background colour. See docs for details."
@@ -2971,6 +2974,8 @@ fcm_width = 80
 picture_dir = nil
 scrollback = nil
 reu_boost = nil
+fastloader = nil
+$d64_interleave = nil
 x_for_examine = nil
 write_signature = nil
 username = nil
@@ -3213,6 +3218,14 @@ begin
 			else
 				scrollback = $1.to_i
 			end
+		elsif arg =~ /^-il:(\d+)$/ then
+			$d64_interleave = $1.to_i
+		elsif arg =~ /^-fl(?::([01]))?$/ then
+			if $1 == nil
+				fastloader = 1
+			else
+				fastloader = $1.to_i
+			end
 		elsif arg =~ /^-rb(?::([01]))?$/ then
 			if $1 == nil
 				reu_boost = 1
@@ -3280,6 +3293,19 @@ write_signature = 2 unless write_signature # Default to non-infocom setting
 
 if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1
+end
+if fastloader == 1
+	if $target != 'c64'
+		puts "ERROR: The fast loader is only supported on the C64 target."
+		exit 1
+	end
+	$GENERALFLAGS.push('FASTLOADER') unless $GENERALFLAGS.include?('FASTLOADER')
+	# The loader is resident at $cc00-$cfff, so unbanked RAM stops below it and
+	# the RAM cache becomes two segments with a 1 KB hole between them. The
+	# banked RAM above the hole is still used - see vmem_page_for_index in
+	# asm/vmem.asm, which must agree with this.
+	$unbanked_ram_end_address = 0xcc00
+	$normal_ram_end_address = 0xcc00
 end
 if reu_boost == 1
 	$GENERALFLAGS.push('REUBOOST') unless $GENERALFLAGS.include?('REUBOOST')
@@ -4104,6 +4130,12 @@ $dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart -
 	($scrollback_ram_pages ? 256 * $scrollback_ram_pages : 0)
 
 $dynmem_and_vmem_size_bank_0_max = $dynmem_and_vmem_size_bank_0
+if $GENERALFLAGS.include?('FASTLOADER')
+	# The boot file decrunches as one contiguous run from $storystart, so the
+	# preload has to stop at the loader; the blocks above it are read in during
+	# play. This is the same limit the C128 uses for its bank 0.
+	$dynmem_and_vmem_size_bank_0_max = 0xcc00 - $storystart
+end
 if $target == 'c128'
 	$dynmem_and_vmem_size_bank_0_max = $memory_end_address - $storystart
 	if $scrollback_ram_pages != nil and $dynmem_blocks < $scrollback_ram_pages / 2
@@ -4131,9 +4163,28 @@ $vmem_blocks_in_ram = ($memory_end_address - ($scrollback_ram_pages ? 256 * $scr
 
 $unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
 
+if $GENERALFLAGS.include?('FASTLOADER')
+	# Segment 0 is story_start..$cbff (already counted above), segment 1 is
+	# $d000 up to the top of memory. The 1 KB in between belongs to the loader.
+	$vmem_blocks_in_ram = $unbanked_vmem_blocks +
+		($memory_end_address - 0xd000) / $VMEM_BLOCKSIZE
+end
+
 if $target == 'c128' then
 	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
 	$unbanked_vmem_blocks += $dynmem_blocks
+end
+if $GENERALFLAGS.include?('FASTLOADER')
+	# The RAM cost is the part nobody expects, so say it out loud at build time
+	# rather than only in documentation/fastloader-notes.md.
+	without_fl = (0x10000 - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+	kb = lambda { |blocks| blocks * $VMEM_BLOCKSIZE / 1024 }
+	puts "Fast loader (-fl) enabled:"
+	puts "  Needs a real 1541. Any other drive, or a failed install, falls back to the"
+	puts "  kernal loader with no message - the game runs, just at the usual speed."
+	puts "  RAM cache: #{$vmem_blocks_in_ram} blocks (#{kb.($vmem_blocks_in_ram)} KB), down from #{without_fl} (#{kb.(without_fl)} KB) - the KB the"
+	puts "  loader occupies at $cc00-$cfff. Only #{$unbanked_vmem_blocks} of those blocks can be preloaded;"
+	puts "  the rest are read in during play."
 end
 if $target !~ /^(mega65|x16)$/
 	puts "VMEM blocks in RAM is #{$vmem_blocks_in_ram}" if $verbose

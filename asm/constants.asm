@@ -34,7 +34,18 @@ s_reverse 			  = $b3 ; !byte 0
 zp_temp               = $fb ; 5 bytes
 savefile_zp_pointer   = $c1 ; 2 bytes
 is_buffered_window	  = $c8;  !byte 1
+!ifdef FASTLOADER {
+; The fast loader is resident at $cc00-$cfff, so vmem in RAM is two segments
+; with a 1 KB hole between them: story_start..$cbff, then $d000 up to the top.
+; vmem_page_for_index in vmem.asm does the split, the same shape as the C128's
+; two-bank map. first_banked_memory_page stays the "needs banking" threshold
+; (no block ever lands in $cc00-$cfff now) and is also what keeps the REU Boost
+; hash table below the loader.
+first_banked_memory_page = $cc
+vmem_banked_start_page = $d0
+} else {
 first_banked_memory_page = $d0 ; Normally $d0 (meaning $d000-$ffff needs banking for read/write access) 
+}
 reu_filled            = $0255 ; 4 bytes
 vmap_buffer_start     = $0334
 vmap_buffer_end       = $0400 ; Last byte + 1. Should not be more than vmap_buffer_start + 512
@@ -445,8 +456,13 @@ rasterline_for_scroll = 56; 56 works well for PAL and NTSC
 
 ; --- Kernel routines ---
 !ifdef TARGET_C64 {
-kernal_reset          = $fce2 ; cold reset of the C64
+kernal_reset_raw      = $fce2 ; cold reset of the C64
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
+!ifdef FASTLOADER {
+kernal_reset          = fl_kernal_reset
+} else {
+kernal_reset          = kernal_reset_raw
+}
 }
 !ifdef TARGET_PLUS4 {
 kernal_reset          = $fff6 ; cold reset of the PLUS4
@@ -458,7 +474,7 @@ kernal_reset          = $e4b8 ; Reset back to C65 mode
 kernal_readst         = $ffb7 ; set file parameters
 kernal_setlfs         = $ffba ; set file parameters
 kernal_setnam         = $ffbd ; set file name
-kernal_open           = $ffc0 ; open a file
+kernal_open_raw       = $ffc0 ; open a file
 kernal_close          = $ffc3 ; close a file
 kernal_chkin          = $ffc6 ; define file as default input
 kernal_chkout         = $ffc9 ; define file as default output
@@ -467,8 +483,22 @@ kernal_readchar       = $ffcf ; read byte from default input into a
 ;use streams_print_output instead of kernal_printchar
 ;($ffd2 only allowed for input/output in screen.asm and text.asm)
 kernal_printchar      = $ffd2 ; write char in a
-kernal_load           = $ffd5 ; load file
-kernal_save           = $ffd8 ; save file
+kernal_load_raw       = $ffd5 ; load file
+kernal_save_raw       = $ffd8 ; save file
+!ifdef FASTLOADER {
+; The fast loader holds the drive captive - see asm/fastloader.asm. Any kernal
+; file operation on it has to put it back in DOS first, so OPEN, LOAD and SAVE
+; go through shims that do exactly that; the next block read re-installs the
+; loader. Routing them here covers every call site at once: saves, restores,
+; the save-file directory, disk swaps.
+kernal_open           = fl_kernal_open
+kernal_load           = fl_kernal_load
+kernal_save           = fl_kernal_save
+} else {
+kernal_open           = kernal_open_raw
+kernal_load           = kernal_load_raw
+kernal_save           = kernal_save_raw
+}
 kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character

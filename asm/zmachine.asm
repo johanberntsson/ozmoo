@@ -1021,6 +1021,9 @@ z_ins_rfalse
 ; z_ins_catch (moved to stack.asm)
 
 z_ins_quit
+!ifdef FASTLOADER {
+	jsr fastloader_shutdown	; DreamLoad is captive - hand the drive back
+}
 	; some games (e.g. Hollywood Hijinx) show a final text,
 	; so use the more prompt to pause before the reset
 	; (otherwise we wouldn't be able to read it).
