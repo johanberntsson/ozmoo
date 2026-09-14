@@ -37,6 +37,7 @@ into it.
 |---|---|
 | target | C64 only — `make.rb` errors out on any other target |
 | drive | a real **1541**, identified by ROM signature (`$fea0` = `$0d`, `$e5c6` = `$34 $b1`). A 1541-II, 1571, 1581, sd2iec, Pi1541 or similar is rejected |
+| bus | that 1541 must be the **only** drive on the bus - see *Bug 5* |
 | device | 8–11, and only the drive the game booted from |
 | RAM | 1 KB at `$cc00-$cfff` (2 vmem blocks) plus 2 KB of program image; the dynmem ceiling drops 3 KB, and REU Boost may have to go - see *What `-fl` costs at build time* |
 
@@ -52,6 +53,7 @@ falls straight through to the existing kernal path, so the game keeps working:
 | device not 8–11 | `fastloader_init` | never installs, kernal path, **says so at boot** |
 | drive does not answer `M-R` | `ST` bit 7 | never installs, kernal path, **says so at boot** |
 | not a 1541 (ROM signature) | `.fl_is_1541` | never installs, kernal path, **says so at boot** |
+| a second drive answers on 8-11 | `.fl_alone_on_bus` | never installs, kernal path, **says so at boot** |
 | drive code upload fails | `ST` bit 7 after `M-E` | disabled for the rest of the session, **says so at boot** |
 | read for a different device | `fastloader_readblock` | kernal path for that read, silent |
 | loader suspended and a file is open (`$98`) | `fastloader_readblock` | kernal path for that read, silent |
@@ -84,7 +86,7 @@ prints nothing.
 
 Four bugs found and fixed along the way — one of them was silently corrupting
 memory in any game big enough to fill the cache, which is why this could look
-finished when it was not. See *Four bugs*. The three items the last handover
+finished when it was not. See *Five bugs*. The three items the last handover
 left as pull-request blockers are all closed; see *Cleared since the last
 handover*.
 
@@ -114,6 +116,10 @@ unless another game is named):
   build without it.
 - **Two-disk** games swap disks at boot with the loader installed:
   `Sherlock.z5` and `Bureaucr.z4` both cache disk 1, take the swap and play.
+- With a **second drive** on the bus the loader declines and the game plays on
+  the kernal path - `Sherlock.z5 -D2` across devices 8 and 9, and a single-disk
+  game with an empty drive 9. Both **hung** before this was handled; see
+  *Bug 5*.
 
 Build matrix: **26 ok, 2 failures, neither a `-fl` regression** — `testz6.z6`,
 `examples/dejavu.z3`, `test/praxix.z5` across
@@ -184,12 +190,6 @@ what is left is the ordinary list of things nobody has got to, below.
   with no fallback. Inherent to DreamLoad; worth stating in the PR.
 - CLAUDE.md's line-for-line `testz6` C64 vs `-t:mega65 -fcm:40` screen check -
   `xemu-xmega65` is not installed on this machine.
-- **Two drives.** A `-D2` game split across device 8 and device 9 has never been
-  run. The loader binds to the boot device, so device 9's reads take the kernal
-  path - but the captive drive on 8 shares the bus with that traffic, and
-  nothing here has proved the two coexist. Enabling the Ultimate 64's drive B
-  was not permitted in this session; it is one REST call (`PUT
-  /v1/drives/b:on`) plus mounting story disk 2 there.
 
 It is also Johan's repository: commit locally, never push without permission.
 
@@ -294,7 +294,7 @@ also call `kernal_open`, but `-fl` is C64-only so they never see a shim, and
 `picloader.asm` is a standalone PRG with its own origin, built without
 `FASTLOADER`.
 
-### Multi-disk games and disk swapping - was blocker 2
+### Multi-disk games, disk swapping and two drives - was blocker 2
 
 The previous handover assumed a mid-game swap. There isn't one: the manual
 (`documentation/manual/manual.md`, line 332) says a `D2`/`D3` game needs **two
@@ -323,6 +323,11 @@ Timing note, since it is the only in-game number for the bulk REU path on a real
 game: Beyond Zork's story disk 1 caches in **<140 s with `-fl` against 296 s
 without** - 2.1x, the raw per-block ratio again.
 
+The **other** way the manual allows a multi-disk game - two drives - was run
+too, and it found a hang that had nothing to do with disk swapping: any second
+drive on the bus breaks the loader, whether or not it holds a story disk. The
+loader now declines to install when it finds one. See *Bug 5*.
+
 ### What `-fl` costs at build time
 
 This is the part that will surprise someone, and it was not written down
@@ -347,7 +352,7 @@ Games too big for the C64 either way, checked so they are not re-checked:
 `Trinity.z4` and `Amfv.z4` both have 37888 bytes of dynamic memory, over the
 36864 the C64 allows even without `-fl`.
 
-## Four bugs
+## Five bugs
 
 ### 1 — DOS coexistence (was Gap 1) — fixed
 
@@ -485,6 +490,55 @@ restore those four bytes around every call into the resident (`LoadTS` and
 **If the resident blob is ever rebuilt from DreamLoad source with a different
 `dload.cfg`, re-check this table.** The addresses are baked into the binary.
 
+### 5 — a second drive on the bus hangs the machine — fixed
+
+Found by finally running the two-drive case the last handover listed as
+untested. Two shapes, both a **hang**, both measured on an Ultimate 64 with its
+drive B switched on:
+
+- `Sherlock.z5 -D2 -fl` across devices 8 and 9. Ozmoo's `auto_disk_config` puts
+  story disk 2 on device 9 when there is no REU, the kernal reads it over the
+  same bus while our drive is captive, and the machine freezes on the game's
+  title screen. The same build **without** `-fl` plays fine on the same two
+  drives, so it is ours.
+- A **single-disk** game with drive 9 switched on and holding no disk at all.
+  Nothing ever addresses device 9, and it still hangs a few blocks in.
+
+The cause is DreamLoad's protocol, not Ozmoo's disk handling: it clocks its
+data by toggling ATN, and any other IEC drive answers an ATN low by pulling
+DATA to acknowledge - the same line the loader is reading.
+
+**The fix is to not install.** `.fl_alone_on_bus` LISTENs to each of devices
+8-11 that is not ours; a drive that is not there sets `ST` bit 7 and an absent
+bus costs one kernal timeout each, once, at boot. If anything answers, the
+loader stays off and says
+
+```
+Fast loader off: another drive found.
+```
+
+Two things that look like details and are not:
+
+- **`ST` is sticky.** It must be cleared before each probe, or the first absent
+  drive's `$80` answers for all of them - and cleared again afterwards, or
+  `.fl_install` reads that `$80`, decides the drive never took its code, and
+  gives up on a perfectly good 1541. That failure prints "no 1541 found", which
+  sends you looking in exactly the wrong place.
+- **Checking Ozmoo's own disk table instead is not enough**, and that was the
+  first fix tried. It catches the `-D2`-on-two-drives case and passes a machine
+  whose second drive holds nothing - which is the second case above, and still
+  hangs. Costing a few kernal timeouts at boot is the price of covering both.
+
+Handing the drive back at the first foreign read was also tried and is worse:
+`SwitchOff`'s own handshake has no timeout, and the other drive can hold the
+line it waits for.
+
+What still works, verified after the fix: `flverify` 200/200 and `fltest` PASS
+on hardware and under VICE; the two-drive Sherlock declines and plays; a
+single-disk game with drive 9 on plays; and one drive plus an REU - the other
+way the manual allows a multi-disk game to be played - still installs the
+loader and keeps the full speedup.
+
 ## How it works
 
 Ozmoo does **not** ship DreamLoad's 4.2 KB installer. It carries the
@@ -540,7 +594,8 @@ Changed:
 
 Added:
 
-- `asm/fastloader.asm`, `asm/fastloader-drivecode.bin`,
+- `asm/fastloader.asm` (`.fl_alone_on_bus`, bug 5),
+  `asm/fastloader-drivecode.bin`,
   `asm/fastloader-resident.bin`
 - `tools/fastloader/` — test harness, see below. `flverify.asm` and
   `fltest.asm` gained `wait_a_sec` and `seek_the_head_first`; without the first
@@ -583,6 +638,15 @@ why this had to be measured inside Ozmoo, not extrapolated.
   Two flag notes worth keeping: `-drive8truedrive` is on by **default**, so
   toggling it proves nothing, and injecting a PRG next to an attached d64 needs
   `-autostartprgmode 1` or VICE swaps the disk out from under the test.
+- **After changing an Ultimate 64 drive setting, write any config value before
+  measuring anything.** Enabling or disabling drive B leaves the U64's IEC
+  subsystem in a state where the loader reads garbage - `flverify` drops from
+  200/200 to "bad t/s 01/00", on *committed* code, and it survives
+  `machine:reboot`. Writing any config key over the REST API clears it (a
+  no-op write of `Printer Settings/Bus ID` to the value it already had is
+  enough). Hours went into bisecting Ozmoo for this; the tell is that the last
+  known-good commit fails the same way, so build the previous commit in a
+  worktree and run it before believing a regression is yours.
 - **Never poll `machine:readmem` while the drive is working.** Each read is a
   DMA that steals C64 cycles and disturbs cycle-exact IEC timing: 5 of 11
   polled runs returned corrupt data, 0 of 5 unpolled. Drive blind and read the

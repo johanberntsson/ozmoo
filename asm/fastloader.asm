@@ -53,6 +53,7 @@ kernal_tksa    = $ff96
 kernal_untlk   = $ffab
 kernal_acptr   = $ffa5
 kernal_open_file_count = $98	; kernal LDTND: how many logical files are open
+kernal_st      = $90		; kernal ST, as kernal_readst returns it
 
 fastloader_active  !byte 0	; 1 = drive code installed and the drive is ours
 fastloader_enabled !byte 0	; 1 = a 1541 was found, so re-installing is allowed
@@ -84,22 +85,95 @@ fastloader_init
 	bcs .fl_give_up
 	jsr .fl_is_1541
 	bcs .fl_give_up			; not a 1541: the drive code would be wrong
+	jsr .fl_alone_on_bus
+	bcs .fl_other_drive_give_up
 	lda #1
 	sta fastloader_enabled
 	jsr .fl_install
 	lda fastloader_enabled
-	bne +				; installed - nothing to report
+	bne .fl_init_done		; installed - nothing to report
 .fl_give_up
 	; Say so. Every other way this can fail is silent, and the only symptom is
 	; that a build made with -fl is no faster than one without it, which looks
 	; like the flag did nothing rather than like an unsupported drive.
 	lda #>.fl_no_loader_msg
 	ldx #<.fl_no_loader_msg
+	bne .fl_say			; always - the string is not in zero page
+.fl_other_drive_give_up
+	lda #>.fl_other_drive_msg
+	ldx #<.fl_other_drive_msg
+.fl_say
 	jsr printstring_raw
 	jsr wait_a_sec			; the game clears the screen right after this
-+	rts
+.fl_init_done
+	rts
 .fl_no_loader_msg
 	!pet 13,"Fast loader off: no 1541 found.",13,0
+.fl_other_drive_msg
+	!pet 13,"Fast loader off: another drive found.",13,0
+
+; ---------------------------------------------------------------------------
+; DreamLoad cannot share the bus with a second drive. It clocks its data by
+; toggling ATN, and any other IEC drive answers an ATN low by pulling DATA to
+; acknowledge - the same line the loader is reading. Measured on hardware, with
+; an Ultimate 64's drive B:
+;
+;  - a second drive holding no disk at all, single-disk game: the machine
+;    HANGS a few blocks in. It does not degrade, and the read error path does
+;    not save it.
+;  - a -D2/-D3 game on two drives, where auto_disk_config puts story disk 2 on
+;    device 9: also hangs - Sherlock -D2 -fl froze on its title screen where
+;    the same build without -fl played.
+;
+; So look for another drive before installing, and stay off the bus if one
+; answers. Checking Ozmoo's own disk table instead is not enough: it would pass
+; a machine whose second drive holds nothing, which is the first case above.
+;
+; A drive that is not there sets ST bit 7 (device not present) on the LISTEN,
+; which costs one kernal timeout per absent drive, once, at boot. ST is sticky,
+; so it has to be cleared before each probe or the first absent drive answers
+; for all of them - and cleared again afterwards, or .fl_install reads that $80
+; and gives up on a perfectly good 1541. Only 8-11 is probed, the range Ozmoo
+; itself uses; an IEC printer on device 4 was tried on hardware and the loader
+; still read 200 of 200 sectors with it switched on.
+;
+; Out: carry clear = we are the only drive on the bus.
+; ---------------------------------------------------------------------------
+.fl_probe_dev !byte 0
+.fl_alone_on_bus
+	ldy #8
+.fl_probe_next
+	cpy fastloader_device		; ours, and we know it is there
+	beq .fl_probe_step
+	sty .fl_probe_dev
+	lda #0
+	sta kernal_st			; or the last absent drive answers for this one
+	tya
+	jsr kernal_listen
+	lda #fl_cmd_channel
+	jsr kernal_second
+	jsr kernal_unlsn
+	jsr kernal_readst
+	ldy .fl_probe_dev		; ldy touches the flags, so re-test A below
+	cmp #0
+	bpl .fl_someone_answered	; ST bit 7 clear: something is there
+.fl_probe_step
+	iny
+	cpy #12
+	bcc .fl_probe_next
+	jsr .fl_probe_done
+	clc
+	rts
+.fl_someone_answered
+	jsr .fl_probe_done
+	sec
+	rts
+.fl_probe_done
+	jsr kernal_unlsn
+	jsr kernal_clrchn
+	lda #0
+	sta kernal_st
+	rts
 
 ; ---------------------------------------------------------------------------
 ; Read one block. In: X=track, Y=sector, A=device.
