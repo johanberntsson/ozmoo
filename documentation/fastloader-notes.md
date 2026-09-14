@@ -84,7 +84,7 @@ RAM cache does not come into it.
 | | |
 |---|---|
 | target | C64 only — `make.rb` errors out on any other target |
-| drive | a real **1541**, identified by ROM signature (`$fea0` = `$0d`, `$e5c6` = `$34 $b1`). A 1541-II, 1571, 1581, sd2iec, Pi1541 or similar is rejected |
+| drive | a **1541 or 1541-II**, identified by ROM signature (`$fea0` = `$0d`, `$e5c6` = `$34 $b1`). A 1571, 1581, sd2iec, Pi1541 or similar is rejected |
 | bus | that 1541 must be the **only** drive on the bus - see *Bug 5* |
 | device | 8–11, and only the drive the game booted from |
 | RAM | 1 KB at `$cc00-$cfff` (2 vmem blocks) plus 2 KB of program image; the dynmem ceiling drops 3 KB, and REU Boost may have to go - see *What `-fl` costs at build time* |
@@ -450,9 +450,24 @@ Rare enough not to matter.
 
 `fastloader_init` now identifies a 1541 the way DreamLoad's own installer does,
 by reading ROM signatures with `M-R`: `$fea0` = `$0d`, `$e5c6` = `$34 $b1`.
-Anything else — a 1581, an sd2iec — leaves `fastloader_enabled = 0` and every
-read falls back to the kernal path. Confirmed on hardware: the signature reads
-back `$34 $b1` and the loader enables itself.
+Anything else leaves `fastloader_enabled = 0` and every read falls back to the
+kernal path.
+
+What each drive actually does, measured under VICE with `-drive8type` (this
+handout used to claim the 1541-II was rejected, which is **wrong** and mattered,
+since that is most of the surviving drives):
+
+| `-drive8type` | signature | result |
+|---|---|---|
+| 1541 | `$34b1` | installs; `flverify` **200 ok, 0 bad** |
+| 1542 (**1541-II**) | `$34b1` | installs; `flverify` **200 ok, 0 bad** |
+| 1571 | `$37b1` | rejected, "no 1541 found" |
+| 1581 | `$ff00` | rejected, "no 1541 found" |
+
+So the 1541-II is not merely tolerated, it reads every one of 200 test sectors
+correctly - which stands to reason, as its DOS ROM is the 1541's. An sd2iec or
+Pi1541 has not been tried and is presumed rejected on signature; nothing has
+been measured either way.
 
 ### 3 — reserving the loader's KB, wrong twice before right
 
