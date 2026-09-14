@@ -148,6 +148,115 @@ fine, so it looks size-related somewhere above that. Not investigated further.
   — `xemu-xmega65` is not installed on this machine. The change does not touch
   the screen layer, but that is reasoning, not a result.
 
+## What is left before this is a pull request
+
+Three items, in the order that most changes the answer. The first two are
+things this project's own rules require; the third is the one that will make a
+reviewer uncomfortable.
+
+### 1. The z6 branch has never been built with this
+
+CLAUDE.md: *"master tracks upstream; the z6 branch adds Z-machine version 6.
+Shared-code changes must be checked against both."* This change touches five
+shared files - `constants.asm`, `disk.asm`, `ozmoo.asm`, `vmem.asm`,
+`zmachine.asm` - and has only ever been built on `master`.
+
+What to do:
+
+```sh
+git checkout z6          # or a worktree, to keep master's build tree
+# cherry-pick or merge 320ba61 + aa0e13f
+ruby make.rb testz6.z6                 # and -ecm, -t:c128, -t:plus4,
+ruby make.rb -t:mega65 -fcm:40 testz6.z6   # -t:mega65, -t:x16, -smooth:1
+ruby make.rb -fl testz6.z6             # the new path, C64 only
+```
+
+Two things to look at specifically, because z6 is where they could bite:
+
+- `screenkernal-z6.asm` / `screen-z6.asm` are **forks** of the non-v6 originals.
+  This change does not touch either, but `constants.asm` is shared and now
+  defines `kernal_open`/`load`/`save`/`reset` as shims. Anything in the v6 forks
+  that calls those gets the shim too - which is correct, but it has not been
+  exercised.
+- v6 games are the big multi-disk ones, so item 2 overlaps here.
+
+### 2. Multi-disk games and disk swapping
+
+Everything tested so far was **single disk**. That is the weakest part of the
+coverage, because Ozmoo's headline games are multi-disk and swapping interacts
+directly with the captive-drive logic.
+
+`print_insert_disk_msg` does no drive I/O of its own (checked - it is screen and
+keyboard only), so a swap happens while the loader is still installed and the
+drive is still captive. The drive code reads by track/sector and has no notion
+of a file system, so in principle it just reads whatever disk is now in there.
+**In principle. It has never been tried.**
+
+What to do: build a two-disk game and swap. Good candidates already present in
+`/Volumes/Software/Emulation/Infocom`:
+
+```sh
+ruby make.rb -fl "/Volumes/Software/Emulation/Infocom/Trinity/Trinity.z4"
+# also: Amfv.z4, BeyondZo.z5, Bureaucr.z4 - all ~250-270 KB, all 2 disks
+```
+
+Then on hardware: play until it asks for the other disk, mount it, continue.
+Watch for (a) the swap prompt appearing at all, (b) reads working after the
+swap, (c) swapping *back*. Also worth checking `disk_info + 4` handling: the
+loader binds to one device at boot (`fastloader_device`) and refuses reads for
+any other, falling back to the kernal silently - correct, but on a two-drive
+setup it means half the reads are slow with no indication why.
+
+### 3. Why it does not work under VICE
+
+`LoadTS` under `x64sc` returns **carry clear with a buffer of garbage** - a
+silent wrong answer, not an error. The game then dies in a way that looks
+exactly like a bug in this code, which cost most of a day here. Neither
+`-drive8type 1541`, `-drive8idle 0` nor `+virtualdev8` changed anything. Real
+hardware (Ultimate 64, its cycle-accurate 1541) reads all 200 test sectors
+correctly, so the protocol itself is right.
+
+This matters beyond convenience: this project's test workflow *is* VICE and
+xemu. A feature the maintainer cannot verify the usual way is a hard sell.
+
+VICE source is at `~/Git/vice-emu-code`. The places to look:
+
+| file | why |
+|---|---|
+| `vice/src/drive/iec/via1d1541.c` | the drive's VIA - `$1800` is CLK/DATA/ATN in and out, which is the entire DreamLoad handshake on the drive side |
+| `vice/src/iecbus/iecbus.c` | the bus model that joins `$dd00` on the C64 to `$1800` on the drive |
+| `vice/src/drive/drivecpu.c` | drive CPU scheduling - how finely drive and host cycles interleave is exactly what a 2-bits-per-ATN-edge protocol depends on |
+
+A good first experiment, because it isolates protocol from timing: run
+`tools/fastloader/test/flverify.asm` under VICE (it is a standalone PRG, needs
+no game) and compare its per-sector result with hardware. Then in the VICE
+monitor, break on the drive side and watch `$1800` transitions against `$dd00`
+on the host - `GByte` in `ld41.src` reads two bits, toggles ATN, and reads
+again after a *fixed* delay, so the question is whether VICE lets the drive's
+write to `$1800` become visible at `$dd00` within that window. Note the host
+side is **not** handshaked at that point: it assumes the drive responds inside a
+known number of cycles. That is the most likely place for an emulator to differ.
+
+Worth checking before assuming a VICE bug: whether any *other* DreamLoad title
+works under VICE. If none do, it is a known emulator limitation rather than
+something about this integration.
+
+### Also outstanding
+
+- **Real hardware.** Everything here ran on an Ultimate 64's emulated 1541.
+  Never a physical 1541 or 1541-II, never a real C64, never NTSC. The two
+  delays in `fastloader.asm` (~1 s waiting out the drive reset, ~50 ms settling
+  after `M-E`) were tuned against that one machine.
+- **Restore.** Save is verified; restore reports "Failed restore." - but does so
+  identically without `-fl`, so it is not a regression here. It should be made
+  to work, or at least explained, before anyone claims save/restore is fine.
+- **`LoadTS` has no timeout.** A drive that stops answering hangs the machine
+  with no fallback. Inherent to DreamLoad; worth stating in the PR.
+- CLAUDE.md's line-for-line `testz6` C64 vs `-t:mega65 -fcm:40` screen check -
+  `xemu-xmega65` is not installed on this machine.
+
+It is also Johan's repository: commit locally, never push without permission.
+
 ## Four bugs
 
 ### 1 — DOS coexistence (was Gap 1) — fixed
