@@ -6,26 +6,74 @@ this is Johan's repository.
 
 ## Result
 
+Every figure below was **re-measured this session** on the same Ultimate 64,
+because the original set did not hang together: a 6x and a 2.1x cannot both
+describe the same loader. Two of the four survived unchanged, one was
+optimistic, and one was measuring something other than what it claimed.
+
 | scenario | without `-fl` | with `-fl` | |
 |---|---|---|---|
-| one 256-byte block, standalone benchmark | 455 ms | 213 ms | **2.1x faster** |
-| in-game, no REU, `advent_punyinform.z5` 80 KB | 36 turns / 300 s | **78 turns / 300 s** | **2.2x faster** |
-| in-game, with REU, same game | 102 turns / 300 s | **137 turns / 300 s** | the REU load saved |
-| REU bulk cache load, `Aventyr.z5` 133 KB | 239 s | 40 s | **6x faster** |
+| one 256-byte block, standalone benchmark | 445-452 ms | 218-224 ms | **2.0x faster** |
+| in-game, **no REU**, `advent_punyinform.z5` 80 KB | 36 turns / 300 s | **78 turns / 300 s** | **2.2x faster** |
+| in-game, **with REU**, same game | 150 turns / 300 s | 149 turns / 300 s | **no difference at all** |
+| REU bulk cache load, `Aventyr.z5` 133 KB | 241 s | 48-58 s | **4.1-5.0x faster** |
+| REU bulk cache load, `advent_punyinform.z5` 80 KB | 104 s | 46 s | **2.3x faster** |
+
+**The with-REU row used to read "102 -> 137 turns / 300 s".** That was a
+measurement artefact: the 300 s window started when the REU question was
+answered, so most of it was spent watching the cache load rather than playing.
+Once the story is in the REU there is no disk I/O left to speed up, and the two
+builds play at **the same rate** - 150 against 149 turns, one turn apart. What
+`-fl` actually buys an REU owner is the one-off load at the start, and that is
+the row below it. (The old numbers reconstruct exactly under that reading:
+300 s minus a 104 s load at ~0.5 turns/s is ~98 turns, against the 102 recorded;
+minus a 46 s load, ~127 against the 137 recorded.)
 
 The in-game figure is the `-bm` walkthrough (`benchmarks.json`, key
 `r7-s251205`), same disk, same script, one screen read at the end of a fixed
-300 s window. It lands almost exactly on the raw per-block ratio, which is the
-point: the RAM cache costs only the 2 blocks the loader physically occupies, so
-the whole transfer speedup reaches the game.
+300 s window that starts when the game does. It lands almost exactly on the raw
+per-block ratio, which is the point: the RAM cache costs only the 2 blocks the
+loader physically occupies, so the whole transfer speedup reaches the game.
+
+It is also **exactly reproducible**, which is worth knowing before chasing a
+difference: benchmark mode seeds the PRNG fixed, so two runs of the same build
+end on the same move, in the same room, with the same score. 36 and 36 without
+`-fl`, 78 and 78 with it. Any variation at all means something really changed.
+
+The per-block figures are `tools/fastloader/test/bench.asm` (Ozmoo's kernal
+path) and `blobtest.asm` (the loader), 3 runs each, 40 blocks per run.
 
 Getting there took three attempts at reserving the loader's KB — see bug 3. The
 middle one built, ran, and was **~30 % slower than no fast loader at all**; if
 this is ever re-worked, measure the game, not the block.
 
-The 6x REU figure was measured in the previous session. The REU path caches the
-whole game up front and then does no disk I/O, so the RAM cache does not come
-into it.
+Aventyr's bulk load, run to run:
+
+| build | runs |
+|---|---|
+| without `-fl` | 241.1 s, 241.1 s - identical to the second |
+| with `-fl` | 48.2 s, 58.3 s, 58.2 s |
+
+So **4.1x on the median run, 5.0x on the best**. The previous session's 239 s
+baseline reproduces exactly; its 40 s did not - 48 s was the best of three here,
+so the recorded "6x" was the lucky run. Quote 4x.
+
+The ~20 % spread between `-fl` runs is the same sensitivity the interleave table
+below shows: the bulk REU path sits close to a timing cliff at interleave 9, so
+where the head happens to be when the load starts is worth ten seconds. The
+no-`-fl` runs do not vary at all, because the kernal path loses a whole
+revolution per block either way and has nothing left to lose.
+
+**Why the bulk path beats the per-block ratio**: the standalone ~450 ms -> ~220 ms
+is one block in isolation. A bulk cache load reads *consecutive* sectors, where
+the interleave earns its keep - the loader is back in time for the next sector,
+the kernal path is not. That is also why interleave moves this measurement off a
+cliff and moves a standalone block benchmark hardly at all. It is also why the
+same measurement on the 80 KB game is only 2.3x: less of the load is the long
+consecutive run where that pays, and more of it is fixed startup.
+
+The REU path caches the whole game up front and then does no disk I/O, so the
+RAM cache does not come into it.
 
 ## What it needs, what it gives, how it fails
 
@@ -319,9 +367,10 @@ expected 2.1x) and then dies caching disk 2 too - it reset to BASIC. Same family
 as the Spellbreaker REU stall above, which is also pre-existing and also only
 appears above ~126 KB.
 
-Timing note, since it is the only in-game number for the bulk REU path on a real
-game: Beyond Zork's story disk 1 caches in **<140 s with `-fl` against 296 s
-without** - 2.1x, the raw per-block ratio again.
+Timing note: Beyond Zork's story disk 1 caches in **296 s without `-fl`, and in
+under 140 s with it**. The 140 is a *bound*, not a measurement - it is a fixed
+sleep at which the prompt had already appeared - so read it as "at least 2.1x",
+not as 2.1x. The measured figure for this path is Aventyr's, above.
 
 The **other** way the manual allows a multi-disk game - two drives - was run
 too, and it found a hang that had nothing to do with disk swapping: any second
@@ -620,7 +669,7 @@ sets `@interleave = 9` for D64. Measured REU load against it:
 
 8 is nominally 11 % faster but sits right at the edge of the timing window; 10
 and 11 fall off a cliff (miss the sector, eat a full revolution). **No change
-warranted** — the whole 6x comes from the loader. `-il:<n>` remains for tuning
+warranted** — the whole speedup comes from the loader. `-il:<n>` remains for tuning
 and defaults to 9.
 
 Note a standalone benchmark showed no cliff at 10 (111.9 ms) while Ozmoo does.
