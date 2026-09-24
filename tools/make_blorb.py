@@ -47,7 +47,9 @@ file.
 
 Each picture is:
   * scaled to fit within its width x height box, preserving aspect ratio and
-    snapped down to a multiple of 8 pixels (the Ozmoo z6 cell grid);
+    snapped down to a multiple of 8 pixels (the Ozmoo z6 cell grid) -- only
+    if it does not fit already: one that fits keeps its exact size, since
+    Ozmoo places and sizes pictures to the pixel;
   * quantised to at most 15 colours placed at palette indices 1..15, leaving
     index 0 free -- Ozmoo z6 treats index 0 as transparent, and a picture may
     use only 1..15. See tools/pics2asm.py, which reads the Blorb this writes.
@@ -231,8 +233,14 @@ def prepare(path, max_width, max_height):
     im = Image.open(path).convert("RGB")
     w, h = im.size
     ratio = min(max_width / w, max_height / h, 1.0)      # never upscale
-    nw, nh = floor8(round(w * ratio)), floor8(round(h * ratio))
-    im = im.resize((nw, nh), Image.LANCZOS)
+    if ratio < 1.0:
+        # It has to be resampled anyway, so land it on the cell grid.
+        nw, nh = floor8(round(w * ratio)), floor8(round(h * ratio))
+        im = im.resize((nw, nh), Image.LANCZOS)
+    # A picture that already fits keeps its exact size: both picture engines
+    # place and size pictures to the art pixel, and pics2asm pads the last
+    # cell with transparency. Snapping it down would resample small pieces
+    # of art such as 13x13 map tiles into a blur.
     q = im.quantize(colors=15, method=Image.MEDIANCUT)   # indices 0..14
     pal = q.getpalette()[:15 * 3]
     data = bytes(p + 1 for p in q.getdata())             # shift to 1..15
