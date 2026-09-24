@@ -2197,7 +2197,6 @@ pic_load_all
 pic_bg_index	!byte 0
 .pcbi_gb		!byte 0
 .pcbi_0r		!byte 0
-.pcbi_addr		!byte 0, 0
 .pic_direct		!byte 1		; 1 = own palette bank (may inject); 0 = adaptive (shared)
 pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 
@@ -2283,49 +2282,7 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	rts						; no free index either: leave transparent
 .pcbi_inject
 	stx pic_bg_index
-	; CPU-side palette copy (.pic_tmp already -> pic_bank_pal + bank*32)
-	txa
-	asl
-	tay
-	lda .pcbi_gb
-	sta (.pic_tmp),y
-	iny
-	lda .pcbi_0r
-	sta (.pic_tmp),y
-	; VERA palette RAM: $1fa00 + bank * 32 + x * 2
-	lda .pic_bank
-	asl
-	asl
-	asl
-	asl
-	asl						; low byte of bank * 32
-	sta .pcbi_addr
-	lda .pic_bank
-	lsr
-	lsr
-	lsr						; high byte
-	sta .pcbi_addr + 1
-	txa
-	asl						; x * 2
-	clc
-	adc .pcbi_addr
-	sta .pcbi_addr
-	bcc +
-	inc .pcbi_addr + 1
-+	stz VERA_ctrl
-	lda #$11
-	sta VERA_addr_bank
-	lda .pcbi_addr + 1
-	clc
-	adc #$fa
-	sta VERA_addr_high
-	lda .pcbi_addr
-	sta VERA_addr_low
-	lda .pcbi_gb
-	sta VERA_data0
-	lda .pcbi_0r
-	sta VERA_data0
-	rts
+	jmp .pic_set_pal_entry	; our bank's colour x = .pcbi_gb/.pcbi_0r
 
 .pcf_fill_bg
 	; Fill .pcf_buf's transparent (0) bytes with the window background
@@ -2407,6 +2364,12 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	bpl -
 	rts
 .bx_differ
+	jsr .bx_scan_under		; which colours the tile behind really shows
+	lda .pcf_under_hi
+	lsr
+	lsr
+	lsr
+	lsr
 	jsr .pcf_pal_ptr		; the underlying bank's palette copy
 	lda .pic_tmp
 	sta .bx_ugb + 1
@@ -2431,10 +2394,15 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 +	stz .pcf_xlat
 	ldx #1					; for each underlying colour 1..15
 .bx_under
-	txa
+	lda .bx_uses,x			; not in the tile behind: it is never looked up,
+	bne +					; so leave it alone rather than spend a free
+	stz .pcf_xlat,x			; palette index on it below
+	jmp .bx_skip
++	txa
 	asl
 	tay
 .bx_ugb	lda $ffff,y			; GGGGBBBB (self-modified)
+	sta .bx_gbraw
 	pha
 	and #$0f
 	sta .bx_b
@@ -2445,6 +2413,7 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	lsr
 	sta .bx_g
 .bx_ur	lda $ffff,y			; 0000RRRR (self-modified)
+	sta .bx_rraw
 	and #$0f
 	sta .bx_r
 	lda #$ff
@@ -2493,13 +2462,135 @@ pic_used		!fill 16, 0	; which palette indices the drawn picture's pixels use
 	iny
 	cpy #32
 	bne .bx_our
-	ldy .bx_bestj			; store the mapped colour doubled (both nybbles),
+	lda .bx_best			; not an exact match: give the colour a free index
+	beq +					; of our own if there is one
+	jsr .bx_inject
++	ldy .bx_bestj			; store the mapped colour doubled (both nybbles),
 	lda .pic_dub,y			; to match the store's two-pixels-a-byte format
 	sta .pcf_xlat,x
+.bx_skip
 	inx
 	cpx #16
-	bne .bx_under
+	beq +
+	jmp .bx_under
++	rts
+
+.bx_scan_under
+	; .bx_uses = the colour indices the tile behind (.pcf_under) actually has,
+	; so that .bx_inject spends free indices only on colours that will show.
+	; Port 0 is free here: both callers have saved the ports, and
+	; .pcf_composite_under points port 0 at this tile again afterwards.
+	ldx #15
+-	stz .bx_uses,x
+	dex
+	bpl -
+	lda .pcf_under_lo
+	sta .pic_tmp
+	lda .pcf_under_hi
+	and #3
+	tax
+	lda .pic_tmp
+	ldy #0
+	jsr .pic_tile_addr		; port 0 -> the tile behind
+	ldy #64
+-	lda VERA_data0
+	and #$0f				; both nybbles are the same pixel
+	tax
+	lda #$ff
+	sta .bx_uses,x
+	dey
+	bne -
 	rts
+
+.bx_inject
+	; Colour x of the tile behind has no exact match in our bank, so the
+	; nearest colour would stand in for it: a picture drawn off the cell grid
+	; over Vanyar's scroll came out framed in light green, the nearest the
+	; castle picture had to the scroll's peach. A cell has one palette bank,
+	; so the only real fix is to put the colour in ours - in an index the
+	; picture's pixels do not use (pic_used), and not the one the background
+	; fill took (pic_bg_index), exactly as .pic_compute_bg_index does for the
+	; screen background. The index is then marked used, and our palette copy
+	; now holds the colour, so the next underlying colour that matches it
+	; finds it exactly. Direct pictures only: an adaptive one shares the
+	; direct picture's bank. No free index: keep the nearest colour.
+	lda .pic_direct
+	beq .bxi_done
+	stx .bxi_x
+	ldx #1
+-	lda pic_used,x
+	bne +
+	cpx pic_bg_index
+	bne .bxi_take
++	inx
+	cpx #16
+	bne -
+	ldx .bxi_x
+.bxi_done
+	rts
+.bxi_take
+	stx .bx_bestj
+	lda #$ff
+	sta pic_used,x
+	lda .bx_gbraw
+	sta .pcbi_gb
+	lda .bx_rraw
+	sta .pcbi_0r
+	jsr .pic_set_pal_entry
+	ldx .bxi_x
+	rts
+.bxi_x      !byte 0
+.bx_gbraw   !byte 0
+.bx_rraw    !byte 0
+.bx_uses    !fill 16, 0
+
+.pic_set_pal_entry
+	; Set colour x of our bank (.pic_bank) to .pcbi_gb/.pcbi_0r (VERA order),
+	; in the CPU copy and in VERA palette RAM ($1fa00 + bank * 32 + x * 2).
+	; Leaves port 0 pointing into the palette. Shared by the background fill
+	; (.pic_compute_bg_index) and the composite colours (.bx_inject).
+	stx .pspe_x
+	lda .pic_bank
+	jsr .pcf_pal_ptr		; .pic_tmp -> our bank's copy (clobbers x)
+	lda .pspe_x
+	asl
+	tay
+	lda .pcbi_gb
+	sta (.pic_tmp),y
+	iny
+	lda .pcbi_0r
+	sta (.pic_tmp),y
+	lda .pic_tmp			; bank * 32 = the copy's offset into pic_bank_pal
+	sec
+	sbc #<pic_bank_pal
+	sta .pic_tmp
+	lda .pic_tmp + 1
+	sbc #>pic_bank_pal
+	sta .pic_tmp + 1
+	lda .pspe_x
+	asl
+	clc
+	adc .pic_tmp
+	sta .pic_tmp
+	bcc +
+	inc .pic_tmp + 1
++	stz VERA_ctrl
+	lda #$11				; stride 1, address bit 16 ($1fa00 is in bank 1)
+	sta VERA_addr_bank
+	lda .pic_tmp + 1
+	clc
+	adc #$fa
+	sta VERA_addr_high
+	lda .pic_tmp
+	sta VERA_addr_low
+	lda .pcbi_gb
+	sta VERA_data0
+	lda .pcbi_0r
+	sta VERA_data0
+	ldx .pspe_x
+	rts
+.pspe_x     !byte 0
+
 .bx_b     !byte 0
 .bx_g     !byte 0
 .bx_r     !byte 0
