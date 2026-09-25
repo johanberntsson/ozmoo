@@ -194,6 +194,7 @@ described under [Sound](#sound). contents.yaml says what goes in the Blorb:
 
     blorb:  mygame.blb          # the Blorb to write
     outdir: pics                # where to leave the converted pictures
+    scale:  2                   # optional: store the pictures at 640x400
 
     pictures:
       - id: 1                   # the number the game's @draw_picture uses
@@ -215,16 +216,33 @@ are relative to the folder holding contents.yaml, unless a srcdir line says the
 images live somewhere else.
 
 Each picture is scaled to fit inside its width x height box, keeping its aspect
-ratio, and the size is rounded down to a whole number of 8 pixel character cells.
-It is then reduced to at most 15 colours, because Ozmoo's version 6 screen keeps
-palette entry 0 for transparency and leaves the picture the other 15. The result
-can therefore look a little different from the original, so the converted PNGs
-are left in outdir for you to look at: that is what the game will draw. A picture
-that gives no width or height of its own is fitted to the whole 320x200 version 6
-screen, or to the max_width and max_height given at the top of the file if there
-are any. A title picture usually wants the whole screen; a room picture printed
-above the text wants a height that leaves room for the text and the [More] prompt
-below it.
+ratio. A picture that has to be shrunk is rounded down to a whole number of 8
+pixel character cells; one that already fits keeps its exact size, since Ozmoo
+places and sizes pictures to the pixel. It is then reduced to at most 15 colours, 
+because Ozmoo's version 6 screen keeps palette entry 0 for transparency and leaves
+ the picture the other 15. The result can therefore look a little different from the
+original, so the converted PNGs are left in outdir for you to look at: that is what
+the game will draw. A picture that gives no width or height of its own is fitted to 
+the whole 320x200 version 6 screen, or to the max_width and max_height given at the 
+top of the file if there are any. A title picture usually wants the whole screen;
+a room picture printed above the text wants a height that leaves room for the text
+and the [More] prompt below it.
+
+Ozmoo's version 6 screen is 320x200 pixels, the size Infocom drew its art for,
+and the MEGA65 and X16 show it pixel doubled on their 640 pixel wide screens.
+Modern interpreters such as sfrotz and Windows Frotz use a 640x400 screen
+instead, and they only double the pictures of Infocom's own four games, which
+they recognise by name. Any other game's 320x200 picture covers just the top
+left quarter of their screen. The line `scale: 2` deals with that: the pictures
+are prepared exactly as described above, at 320x200, and then stored in the
+Blorb doubled in both directions, so they fill the screen in those interpreters
+too. The doubling copies each pixel, so no colour or detail changes. The Blorb
+also gets a Reso chunk, the Blorb's way of saying which screen size its pictures
+were made for, set to 640x400. When Ozmoo's -pics switch reads the Blorb it
+finds that chunk and halves every picture back to the original 320x200 art, so
+the game built for the MEGA65 or X16 comes out exactly the same whichever scale
+you chose. Without a scale line (or with `scale: 1`) no Reso chunk is written.
+The converted PNGs in outdir are the doubled ones, as they went into the Blorb.
 
 The sounds are there for interpreters that play them out of the Blorb, which is
 what makes one a useful reference while you work. Ozmoo does not read them from

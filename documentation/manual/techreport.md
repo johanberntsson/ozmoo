@@ -904,6 +904,30 @@ and draw_picture treats as invisible. Its APal chunk lists the adaptive-palette
 pictures (see below). Reading the blorb directly rather than a hand-extracted PNG
 directory is what makes both of these available.
 
+A blorb may also carry a Reso chunk, which names the "standard window" its
+pictures were drawn for. Infocom's say 320x200, and Ozmoo's art space is the
+same 320x200 whatever the target: on the 640 pixel wide MEGA65 and X16 screens
+every picture is pixel-doubled horizontally at draw time (see above), not
+stored wide. Modern interpreters are different. SDL Frotz and Windows Frotz
+present a 640x400 screen and scale pictures up to it only for Infocom's four
+games, which they recognise by story ID, so a 320x200 picture from any other
+version 6 game fills only the top left quarter of their window. A blorb meant
+to be played there as well therefore stores its pictures at 640x400, and that
+is what tools/make_blorb.py writes when contents.yaml says `scale: 2`: every
+picture is sized, capped and reduced to 15 colours in the 320x200 space as
+before, then doubled with nearest-neighbour sampling (so palette indices, the
+index 0 transparency and the index alignment adaptive pictures rely on all
+survive) and stored with a Reso chunk naming a 640x400 standard window. The
+default, `scale: 1`, writes no Reso chunk and so leaves an existing recipe's
+blorb byte-identical. pics2asm.py goes the other way: blorb_scale reads the
+Reso chunk's width over 320 (a blorb without one is scale 1, and --pic-scale N
+overrides it), and every picture and Rect placeholder is divided back down by
+that factor before anything else sees it, taking the top left pixel of each
+block so the indices are kept exactly. A picture that was not a clean pixel
+multiple is reported, since reducing it loses detail. The disk and SD files
+built from a doubled blorb are therefore byte-identical to those built from an
+unscaled one.
+
 A picture holds the cell dimensions, the number of unique tiles, a 48-byte
 palette, a cell map of two bytes a cell, and then the tiles. Identical cells are
 stored once. Each picture is padded up to a page boundary; the pictures of a disk
