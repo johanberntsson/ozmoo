@@ -56,12 +56,14 @@ def shifted(im, dx, dy):
 
 def measure(blorb):
     imgs, rects, adaptive, replacements = pics2asm.load_blorb(blorb)
+    scale = pics2asm.blorb_scale(blorb)
     rows = []
     for num, im in imgs:
         # Skip what a real build skips: BPal replacements, anything past the
         # three-digit [Pnnn] filename, and anything not an indexed PNG.
         if num in replacements or num > pics2asm.MAX_PIC_NUMBER or im.mode != "P":
             continue
+        im = pics2asm.downscale(im, scale, f"picture {num}")
         p = pics2asm.convert((im, f"picture {num}"), False, True)
         cw, ch = p["blob"][0], p["blob"][1]
         n = p["blob"][2] | (p["blob"][3] << 8)

@@ -6,6 +6,7 @@ Upcoming release:
 - Fixed missing text in X16 splash screen.
 - Fixed scaling error in make_blorb.py
 - Fixed X16 palette colour matching error
+- Fixed scaling of graphics and added reso chunk in blorb files so that it looks fine in Windows Frotz
 
 ================================================
 Release 16.1: 7 Sep 2026

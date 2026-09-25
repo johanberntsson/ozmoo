@@ -54,6 +54,19 @@ a bank of 16 palette entries above the 16 text colours. Storing four bits a
 pixel halves the picture set before it is compressed; Arthur's does not fit on a
 d81 otherwise.
 
+A Blorb may store its pictures at a multiple of the 320x200 art space, for the
+modern interpreters whose v6 screen is 640x400 (tools/make_blorb.py's
+scale: 2). Its 'Reso' chunk then names that screen as the standard window, and
+every picture and Rect placeholder is divided back down by width / 320 before
+anything else sees it, so the interpreter gets exactly the 320x200 art it would
+have got from an unscaled Blorb. Infocom's own Blorbs say 320x200 and a Blorb
+with no Reso chunk is taken as 320x200, so neither is touched. --pic-scale N
+overrides the Reso chunk (and applies to a directory of PNGs too). The
+reduction is nearest neighbour, which keeps the palette indices -- and so
+index 0 transparency and the adaptive pictures' alignment -- exactly; it is
+lossless for a pixel-doubled picture, and a picture that was not doubled is
+reported, since reducing it loses detail.
+
 FCM cells are 8x8 pixels and a cell's screen code is its data address divided by
 64. In the store a pixel of 0 is transparent and 255 comes from colour RAM, so
 neither may be a real colour: hence 15 colours a picture, not 16.
@@ -276,6 +289,55 @@ def load_blorb(filepath):
             rects.append((num, w, h))
     return images, rects, adaptive, replacements
 
+# The art space the interpreter reports, and a Reso chunk's standard window
+# for an unscaled Blorb (Infocom's all say 320x200).
+ART_WIDTH, ART_HEIGHT = 320, 200
+
+
+def blorb_scale(filepath):
+    """The factor a Blorb's pictures are stored at over the 320x200 art space,
+    from its Reso chunk's standard window (px_std, py_std): 1 without one."""
+    blorb, pos = open(filepath, "rb").read(), 12
+    while pos + 8 <= len(blorb):
+        ctype = blorb[pos:pos+4]
+        clen = struct.unpack(">I", blorb[pos+4:pos+8])[0]
+        if ctype == b"Reso" and clen >= 8:
+            w, h = struct.unpack(">II", blorb[pos+8:pos+16])
+            if w == 0 and h == 0:
+                return 1
+            if w % ART_WIDTH or w // ART_WIDTH * ART_HEIGHT != h:
+                sys.exit(f"{filepath}: Reso standard window {w}x{h} is not a "
+                         f"whole multiple of {ART_WIDTH}x{ART_HEIGHT}; pass "
+                         f"--pic-scale N to say what the pictures are stored at")
+            return w // ART_WIDTH
+        pos += 8 + clen + (clen & 1)
+    return 1
+
+
+def downscale(im, scale, name):
+    """Reduce an indexed picture stored at scale x back to the art space,
+    keeping its palette indices. Warns if it was not a clean pixel multiple."""
+    if scale == 1:
+        return im
+    w, h = im.size
+    if w % scale or h % scale:
+        sys.exit(f"{name}: {w}x{h} is not a multiple of the {scale}x the "
+                 f"Blorb says its pictures are stored at")
+    if im.mode != "P":
+        sys.exit(f"{name}: not an indexed PNG")
+    # Image.reduce() averages, which means nothing for palette indices; take
+    # the top left pixel of each block instead.
+    src = im.tobytes()
+    out = Image.frombytes("P", (w // scale, h // scale), bytes(
+        src[y * w + x] for y in range(0, h, scale) for x in range(0, w, scale)))
+    out.putpalette(im.getpalette())
+    out.info = dict(im.info)
+    if out.resize((w, h), Image.NEAREST).tobytes() != im.tobytes():
+        print(f"  warning: {name} is not pixel-{scale}x; reducing it to "
+              f"{w // scale}x{h // scale} loses detail")
+    return out
+
+
 # A picture may be numbered up to 999 (three digits, the P### filename width).
 # The interpreter's picture index is 16-bit, so the count is bounded only by the
 # numbering: at most 999 distinct pictures, and in practice by attic RAM.
@@ -306,6 +368,7 @@ def main():
     fcm_width, stats, x16, exomizer, args = 80, False, False, None, []
     pixel_units = False
     keep_all = False
+    pic_scale = None
     argv, i = sys.argv[1:], 0
     while i < len(argv):
         a = argv[i]
@@ -317,6 +380,11 @@ def main():
             x16 = True
         elif a == "--pixel-units":
             pixel_units = True
+        elif a == "--pic-scale" and i + 1 < len(argv):
+            i += 1
+            pic_scale = int(argv[i])
+        elif a.startswith("--pic-scale="):
+            pic_scale = int(a.split("=", 1)[1])
         elif a == "--fcm-width" and i + 1 < len(argv):
             i += 1
             fcm_width = int(argv[i])
@@ -332,9 +400,11 @@ def main():
         i += 1
     if fcm_width not in (40, 80):
         sys.exit("--fcm-width must be 40 or 80")
+    if pic_scale is not None and pic_scale < 1:
+        sys.exit("--pic-scale must be 1 or more")
     if not 2 <= len(args) <= 4:
         sys.exit(f"usage: {sys.argv[0]} [--fcm-width 40|80] [--x16] "
-                 f"[--exomizer PATH] [--stats] [--all-pictures] "
+                 f"[--exomizer PATH] [--stats] [--all-pictures] [--pic-scale N] "
                  f"<outdir> <png-dir-or-blorb> [disk-blocks disk-files]")
     # The MEGA65 crunches its picture disks; the X16 and stats-only runs do not.
     if not x16 and not stats and exomizer is None:
@@ -365,6 +435,20 @@ def main():
         imgs, rects, adaptive, replacements = load_blorb(source)
         # convert() takes either a path or an (image, name) tuple
         images = [(num, (im, f"picture {num}")) for num, im in imgs]
+        if pic_scale is None:
+            pic_scale = blorb_scale(source)
+    # A scaled Blorb (or --pic-scale) is brought back to the 320x200 art space
+    # here, so everything below -- sizes, tiles, picture_data -- is unchanged.
+    if pic_scale and pic_scale > 1:
+        print(f"  pictures stored at {pic_scale}x; reducing them to "
+              f"{ART_WIDTH}x{ART_HEIGHT} art")
+        scaled = []
+        for num, src in images:
+            im, name = (src if not isinstance(src, str)
+                        else (Image.open(src), src))
+            scaled.append((num, (downscale(im, pic_scale, name), name)))
+        images = scaled
+        rects = [(n, w // pic_scale, h // pic_scale) for n, w, h in rects]
 
     # Drop the pictures no Ozmoo build can use, so that a newer blorb of a game
     # we already support still works: a BPal replacement (which we recolour at

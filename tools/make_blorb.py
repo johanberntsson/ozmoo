@@ -17,6 +17,8 @@ folder (it reads <folder>/contents.yaml).
     max_width:  320
     max_height: 200
 
+    scale: 2                # store the pictures at 2x (optional, default 1)
+
     pictures:
       - id: 1               # picture number                (required)
         file: title.png     # source image, under srcdir    (required)
@@ -54,6 +56,19 @@ Each picture is:
     index 0 free -- Ozmoo z6 treats index 0 as transparent, and a picture may
     use only 1..15. See tools/pics2asm.py, which reads the Blorb this writes.
 
+With scale: 2 every picture is prepared exactly as above -- sizes, caps and
+quantising all stay in the 320x200 art space -- and then pixel doubled on both
+axes as it goes into the Blorb, which also gets a 'Reso' chunk naming a
+640x400 standard window. That is the screen modern v6 interpreters (sfrotz,
+Windows Frotz) present, and they scale Infocom's own four games up to it but
+nobody else's, so a 320-wide picture would fill only the top left quarter
+there. The doubling is nearest neighbour and so lossless: palette indices,
+index 0 transparency and the index alignment adaptive pictures depend on all
+survive, and tools/pics2asm.py reads the Reso chunk and halves the pictures
+back to the exact 320x200 art for Ozmoo. The converted files in outdir are the
+doubled ones, i.e. what went into the Blorb. scale: 1 writes no Reso chunk,
+so an existing recipe builds a byte-identical Blorb.
+
 Sounds are for the interpreters that read them out of the Blorb -- sfrotz plays
 them, which is what makes it a usable reference for a game with sound. Ozmoo's
 own MEGA65 build does NOT read them from here: it takes the wavs straight off
@@ -82,6 +97,7 @@ Z6_MAX_HEIGHT = 200
 Z6_CELL = 8
 MAX_PIC_NUMBER = 999
 MAX_PICTURES = 999
+MAX_SCALE = 4
 
 # Sound effect numbers. The Z-machine's sounds 1 and 2 are the interpreter's own
 # bleeps, so a game's own effects start at 3 (Blorb spec, "Sound Resources"), and
@@ -142,7 +158,7 @@ def check(settings, pictures, sounds, path, source_dir):
     settings; pics is a list of dicts with number/file/name/description and the
     picture's own width/height caps; snds the same for the sound effects.
     """
-    known = {"blorb", "outdir", "srcdir", "max_width", "max_height"}
+    known = {"blorb", "outdir", "srcdir", "max_width", "max_height", "scale"}
     for key in sorted(set(settings) - known):
         raise ContentsError(f"{path}: unknown setting {key!r}; "
                             f"expected one of {', '.join(sorted(known))}")
@@ -220,6 +236,7 @@ def check(settings, pictures, sounds, path, source_dir):
         "blorb": str(settings["blorb"]),
         "outdir": str(settings.get("outdir", "pics")),
         "srcdir": source_dir,
+        "scale": _int(path, "scale", settings.get("scale", 1), 1, MAX_SCALE),
     }
     return cfg, pics, snds
 
@@ -249,6 +266,27 @@ def prepare(path, max_width, max_height):
     out.putpalette([0, 0, 0] + pal)                      # index 0 reserved
     out.info["transparency"] = 0
     return out
+
+
+def upscale(im, scale):
+    """Pixel double (triple, ...) an indexed picture, keeping its palette and
+    its index-0 transparency. Nearest neighbour, so every pixel of the result
+    is one of the original's and pics2asm can take the art back exactly."""
+    if scale == 1:
+        return im
+    w, h = im.size
+    out = im.resize((w * scale, h * scale), Image.NEAREST)
+    out.info["transparency"] = im.info.get("transparency", 0)
+    return out
+
+
+def reso_chunk(scale):
+    """A Blorb 'Reso' chunk with no per-picture entries: just the standard
+    window size, px_std/py_std, then zero for the minimum and maximum (as
+    Infocom's own Blorbs have them). A picture with no entry is drawn at its
+    stored size, so the pictures fill a 320*scale x 200*scale window."""
+    return struct.pack(">6I", Z6_MAX_WIDTH * scale, Z6_MAX_HEIGHT * scale,
+                       0, 0, 0, 0)
 
 
 def png_bytes(im):
@@ -344,8 +382,10 @@ def read_aiff(path):
     return blob, info
 
 
-def build_blorb(resources, outpath):
+def build_blorb(resources, outpath, extra=()):
     """resources: list of (usage, number, chunk_id, data). Writes a FORM..IFRS.
+    extra: (chunk_id, data) pairs for chunks that are not resources (Reso),
+    written after the resources so the RIdx offsets are unaffected.
 
     The index entries are emitted in the same order as the chunks they point at,
     as the spec asks, and every chunk is padded to an even length (the padding
@@ -359,7 +399,7 @@ def build_blorb(resources, outpath):
         pos += 8 + len(data) + (len(data) & 1)
     body = b"IFRS"
     body += b"RIdx" + struct.pack(">I", len(ridx_data)) + ridx_data
-    for _usage, _number, cid, data in resources:
+    for cid, data in [(c, d) for _u, _n, c, d in resources] + list(extra):
         body += cid + struct.pack(">I", len(data)) + data
         if len(data) & 1:
             body += b"\x00"
@@ -401,11 +441,12 @@ def main(argv):
         num, filename, name = pic["number"], pic["file"], pic["name"]
         src = os.path.join(cfg["srcdir"], filename)
         ow, oh = Image.open(src).size
-        im = prepare(src, pic["max_width"], pic["max_height"])
+        art = prepare(src, pic["max_width"], pic["max_height"])
+        im = upscale(art, cfg["scale"])
         im.save(os.path.join(cfg["outdir"], f"{num:03d}-{name}.png"))
         resources.append((b"Pict", num, b"PNG ", png_bytes(im)))
         print(f"{num:>3}  {filename:16} {ow:>4}x{oh:<4}  "
-              f"{im.size[0]:>4}x{im.size[1]:<4}  {len(im.getcolors()):>4}  "
+              f"{art.size[0]:>4}x{art.size[1]:<4}  {len(art.getcolors()):>4}  "
               f"{pic['description']}")
 
     if snds:
@@ -434,12 +475,17 @@ def main(argv):
     except ContentsError as e:
         _die(str(e))
 
-    size = build_blorb(resources, cfg["blorb"])
+    extra = [(b"Reso", reso_chunk(cfg["scale"]))] if cfg["scale"] > 1 else []
+    size = build_blorb(resources, cfg["blorb"], extra)
     def count(n, thing):
         return f"{n} {thing}" + ("" if n == 1 else "s")
     made = count(len(pics), "picture") if pics else ""
     if snds:
         made += (" and " if made else "") + count(len(snds), "sound")
+    if pics and cfg["scale"] > 1:
+        made += (f"; pictures stored at {cfg['scale']}x for a "
+                 f"{Z6_MAX_WIDTH * cfg['scale']}x{Z6_MAX_HEIGHT * cfg['scale']} "
+                 f"screen")
     print(f"\nWrote {cfg['blorb']} ({size} bytes, {made}); converted files "
           f"in {cfg['outdir']}/")
 
