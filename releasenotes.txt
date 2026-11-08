@@ -8,6 +8,7 @@ Upcoming release:
 - Fixed X16 palette colour matching error
 - Fixed scaling of graphics and added reso chunk in blorb files so that it looks fine in Windows Frotz
 - Updated benchmarks.js to use "goto" instead of "go" for teleporting in Advent, since it's faster.
+- Added walkthrough for Madman to benchmarks.js
 
 ================================================
 Release 16.1: 7 Sep 2026
