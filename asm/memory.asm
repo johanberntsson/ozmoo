@@ -9,6 +9,17 @@ inc_z_pc_page
 	bne +
 	inc z_pc
 +
+!ifdef TARGET_NEO6502 {
+	; Neo inc_z_pc_page: re-resolve when z_pc crosses a 512-byte block or leaves resident pages
+	lda z_pc + 1
+	and #vmem_indiv_block_mask
+	beq get_page_at_z_pc_did_pha
+	lda z_pc_mempointer + 1
+	cmp #>story_start
+	bcc get_page_at_z_pc_did_pha
+	jmp .inc_z_pc_page_safe
+}
+!ifndef TARGET_NEO6502 {
 !ifdef REUBOOST {
 	; If REU Boost Mode is enabled, we must always search for the next page
 	bit reu_boost_mode
@@ -20,6 +31,7 @@ inc_z_pc_page
 	lda z_pc_mempointer + 1
 	cmp #>story_start
 	bcc get_page_at_z_pc_did_pha
+}
 } else {
 ; No vmem
 	!ifdef TARGET_X16 {
@@ -49,6 +61,7 @@ inc_z_pc_page
 		}
 	}
 }
+.inc_z_pc_page_safe
 ; safe
 	pla
 	rts
@@ -64,6 +77,10 @@ set_z_pc
 !ifdef TARGET_X16 {
 } else ifndef TARGET_MEGA65 {	
 	!ifdef VMEM {
+	!ifdef TARGET_NEO6502 {
+		; Neo set_z_pc: re-resolve z_pc_mempointer through read_byte_at_z_address
+		jmp .unsafe_1
+	}
 		cmp z_pc
 		bne .unsafe_1
 	}
@@ -168,6 +185,23 @@ get_page_at_z_pc_did_pha
 	pla
 	rts
 .not_in_dynmem_block
+}
+!ifdef TARGET_NEO6502 {
+	; Neo get_page_at_z_pc: normalize z_pc_mempointer to the resident physical page
+	lda z_pc
+	ldx z_pc + 1
+	ldy z_pc + 2
+	jsr read_byte_at_z_address
+	lda mempointer + 1
+	sta z_pc_mempointer + 1
+	lda z_pc + 2
+	sta z_pc_mempointer
+	lda #0
+	sta mempointer
+	ldy #0
+	ldx mem_temp
+	pla
+	rts
 }
 	lda z_pc
 	ldx z_pc + 1

@@ -1191,12 +1191,14 @@ getchar_and_maybe_toggle_darkmode
 	jmp .did_something
 +
 
+!ifndef TARGET_NEO6502 {
 	cmp #4 ; Ctrl-D to forget device# for saves
 	bne +
 	; Forget device# for saves
 	dec ask_for_save_device ; Normally 0. Even if we decrease 100 times, we still get the same effect
 	jmp .did_something
 +
+}
 }
 !ifndef Z5PLUS {
 !ifdef UNDO {

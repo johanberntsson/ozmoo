@@ -78,6 +78,7 @@ plus4_enable_rom = $ff3e
 !ifdef TARGET_PLUS4 {
 ;	sta plus4_enable_ram
 } else ifdef TARGET_X16 {
+} else ifdef TARGET_NEO6502 {
 } else {
 	sta zero_processorports
 }
@@ -86,7 +87,8 @@ plus4_enable_rom = $ff3e
 
 !macro set_memory_no_basic {
 	!ifdef TARGET_PLUS4 {
-    } else ifdef TARGET_X16 {
+	} else ifdef TARGET_X16 {
+	} else ifdef TARGET_NEO6502 {
 	} else {
 			pha
 		!ifdef TARGET_C128 {
@@ -102,7 +104,8 @@ plus4_enable_rom = $ff3e
 
 !macro set_memory_no_basic_unsafe {
 	!ifdef TARGET_PLUS4 {
-    } else ifdef TARGET_X16 {
+	} else ifdef TARGET_X16 {
+	} else ifdef TARGET_NEO6502 {
 	} else {
 		!ifdef TARGET_C128 {
 			lda #%00001110 ; 48K RAM0 (0-$c000)
@@ -116,7 +119,8 @@ plus4_enable_rom = $ff3e
 
 !macro set_memory_normal {
 	!ifdef TARGET_PLUS4 {
-    } else ifdef TARGET_X16 {
+	} else ifdef TARGET_X16 {
+	} else ifdef TARGET_NEO6502 {
 	} else {
 			pha
 		!ifdef TARGET_C128 {
@@ -596,6 +600,12 @@ fatalerror
 	; prints the error, then resets the computer
 	; input: a (error code)
 	; side effects: resets the computer
+	!ifdef TARGET_NEO6502 {
+		sta $02ff ; store fatal error code for post-mortem
+		lda #$ee
+		sta $02fe ; fatal-error marker
+		lda $02ff
+	}
 	sta z_temp + 11
 !ifndef DEBUG {
 	pha

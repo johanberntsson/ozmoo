@@ -26,6 +26,36 @@ cursor_column !byte 0,0,0
 ;	bpl + ; Always branch
 init_screen_colours
 	jsr s_init
+	!ifdef TARGET_NEO6502 {
+		; The Neo console ignores the C64-style colour RAM writes below, so
+		; apply the selected build-time palette through the console control
+		; codes before the first clear screen.
+		lda #NEO_FGCOL
+		ldx #NEO_BGCOL
+		jsr neo_set_console_colours
+		lda zcolours + FGCOL
+		jsr s_set_text_colour
+		lda zcolours + BGCOL
+		+SetBackgroundColour
+		+SetBorderColour
+	!if CURSORCOL = 1 {
+		lda zcolours + FGCOL
+	} else {
+		lda zcolours + CURSORCOL
+	}
+		sta current_cursor_colour
+	!ifdef Z5PLUS {
+		; store default colours in header
+		lda #BGCOL
+		ldy #header_default_bg_colour
+		jsr write_header_byte
+		lda #FGCOL
+		ldy #header_default_fg_colour
+		jsr write_header_byte
+	}
+		lda #147
+		jmp s_printchar
+	}
 	; calculate the position for the more prompt
 	; (self modifying code since we don't want to
 	; ZP space is limited)
@@ -552,6 +582,10 @@ show_more_prompt
 	; time to show [More]
 	jsr clear_num_rows
 
+!ifdef TARGET_NEO6502 {
+	jmp .neo_show_more_prompt
+}
+
 !ifdef TARGET_C128 {
     bit COLS_40_80
     bpl +
@@ -633,6 +667,7 @@ show_more_prompt
 	beq -- ; Always branch
 +
 }
+
 !ifdef TARGET_C128 {
     bit COLS_40_80
     bpl +
@@ -654,6 +689,58 @@ show_more_prompt
 	rts
 
 .more_text_char !byte 0
+
+!ifdef TARGET_NEO6502 {
+.neo_show_more_prompt
+	; The Neo console ignores PETSCII reverse video, so emulate the reversed
+	; "*" marker by temporarily swapping the build-time console palette.
+	; Column 51 is kept free by the Neo word-wrap logic: column 52 would make
+	; the firmware auto-wrap and scroll the status line away.
+	lda zp_screenrow
+	pha
+	lda zp_screencolumn
+	pha
+
+	lda #NEO_BGCOL
+	ldx #NEO_FGCOL
+	jsr neo_set_console_colours
+
+	ldx #SCREEN_HEIGHT - 1
+	ldy #SCREEN_WIDTH - 2
+	jsr neo_set_cursor_pos
+	lda #$2a
+	jsr neo_vector_writechar
+
+	lda #NEO_FGCOL
+	ldx #NEO_BGCOL
+	jsr neo_set_console_colours
+
+	ldx #40
+.neo_more_check_for_keypress
+	jsr wait_a_jiffy
+	jsr getchar_and_maybe_toggle_darkmode
+	cmp #0
+	bne .neo_more_key_pressed
+	dex
+	bne .neo_more_check_for_keypress
+.neo_more_key_pressed
+
+	; Remove the marker before the caller scrolls this line away.
+	ldx #SCREEN_HEIGHT - 1
+	ldy #SCREEN_WIDTH - 2
+	jsr neo_set_cursor_pos
+	lda #$20
+	jsr neo_vector_writechar
+
+	pla
+	sta zp_screencolumn
+	pla
+	sta zp_screenrow
+	ldx zp_screenrow
+	ldy zp_screencolumn
+	jsr neo_set_cursor_pos
+	rts
+}
 
 printchar_flush
 	; flush the printchar buffer
@@ -864,6 +951,11 @@ printchar_buffered
 	pha
 	tya
 	pha
+	!ifdef TARGET_NEO6502 {
+		lda .buffer_char
+		jsr s_printchar
+		jmp .printchar_done
+	}
 	; is this a buffered window?
 	lda current_window
 	bne .is_not_buffered
@@ -1167,6 +1259,18 @@ draw_status_line
 	lda zcolours,y
 	jsr s_set_text_colour
 
+!ifdef TARGET_NEO6502 {
+	; Neo ignores PETSCII reverse codes, so emulate the status line's inverse
+	; video by swapping the selected console foreground/background palette using
+	; the firmware's own colour control codes. This avoids the optional
+	; console colour API calls, which misbehave on some real firmware versions.
+	!ifndef Z4PLUS {
+		lda #neo_console_bg
+		ldx #neo_console_fg
+		jsr neo_set_console_colours
+	}
+}
+
 !ifdef TARGET_X16 {
 	lda s_screen_width
 	cmp #30
@@ -1258,14 +1362,25 @@ draw_status_line
 ; .print_score_40
 	lda .statusline_temp
 	clc
+!ifdef TARGET_NEO6502 {
+	; The Neo console reserves columns 51 and 52 (the MORE marker and the
+	; firmware wrap cell). Reserve one extra column here so the final move
+	; digit is flushed before the word-wrap guard instead of wrapping row 0.
+	adc #10
+} else {
 	adc #8
+}
 	tay	
 	jsr statusline_print_room
 
 	lda s_screen_width
 	sec
 	sbc .statusline_temp
+!ifdef TARGET_NEO6502 {
+	sbc #10
+} else {
 	sbc #8
+}
 	tay
 	jsr set_cursor
 	; Print " Sc:"
@@ -1397,7 +1512,12 @@ draw_status_line
 
 	lda s_screen_width
 	sec
+!ifdef TARGET_NEO6502 {
+	; Keep the final AM/PM character clear of the Neo wrap guard as well.
+	sbc #18
+} else {
 	sbc #16
+}
 	tay
 	jsr set_cursor
 	lda #>.time_str
@@ -1444,6 +1564,20 @@ draw_status_line
 	jsr s_set_text_colour
 	lda #146 ; reverse off
 	jsr s_printchar
+
+!ifdef TARGET_NEO6502 {
+	; get_cursor flushes the final buffered status-line word while the
+	; inverted colours are still active. Restore the normal foreground/background
+	; pair only afterwards, so the last characters keep the right palette and
+	; input stays visible.
+	!ifndef Z4PLUS {
+		jsr get_cursor
+		lda #neo_console_fg
+		ldx #neo_console_bg
+		jsr neo_set_console_colours
+	}
+}
+
 	pla
 	sta current_window
 	jmp restore_cursor

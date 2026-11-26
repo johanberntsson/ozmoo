@@ -150,6 +150,18 @@ readblock
 	jsr print_byte_as_hex
 }
 
+!ifdef TARGET_NEO6502 {
+	; The Neo story sidecar is the complete story file, including dynmem.
+	; readblocks_currentblock is already a Z-machine page number, so it is
+	; also the file page number. Do not subtract nonstored_pages here.
+	lda readblocks_currentblock
+	sta readblocks_currentblock_adjusted
+	lda readblocks_currentblock + 1
+	sta readblocks_currentblock_adjusted + 1
+	jsr neo_readblock
+	rts
+}
+
 	lda readblocks_currentblock
 	sec
 	sbc nonstored_pages
@@ -321,12 +333,131 @@ readblock
 .skip_sectors 	!byte 0
 .temp_y 		!byte 0
 
+!ifdef TARGET_NEO6502 {
+neo_story_file_open		!byte 0
+neo_config_file_open	!byte 0
+
+neo_open_story_file
+	lda #neo_story_filename_len
+	ldx #<neo_story_filename
+	ldy #>neo_story_filename
+	jsr kernal_setnam
+
+	lda #$02
+	ldx #$08
+	ldy #$02
+	jsr kernal_setlfs
+	jsr kernal_open
+	bcc .opened_ok
+	jmp is_error
+.opened_ok
+	rts
+
+neo_readblock
+	jsr neo_open_story_file
+
+	lda #$02
+	ldx readblocks_currentblock_adjusted
+	ldy readblocks_currentblock_adjusted + 1
+	jsr neo_kernal_seek_file_page
+	bcc .seek_ok
+	jmp is_error
+.seek_ok
+
+	lda #$00
+	sta neo_kernal_size
+	lda #$01
+	sta neo_kernal_size + 1
+
+	lda #$02
+	ldx readblocks_mempos
+	ldy readblocks_mempos + 1
+	jsr neo_kernal_read_file
+	bcc .read_ok
+	jmp is_error
+.read_ok
+
+	lda #$02
+	jsr kernal_close
+	bcc +
+	jmp is_error
+
++
+	clc
+	rts
+
+neo_open_config_file
+	lda #neo_config_filename_len
+	ldx #<neo_config_filename
+	ldy #>neo_config_filename
+	jsr kernal_setnam
+
+	lda #$03
+	ldx #$08
+	ldy #$02
+	jsr kernal_setlfs
+	jsr kernal_open
+	bcc .cfg_opened_ok
+	jmp is_error
+.cfg_opened_ok
+	rts
+
+neo_read_track_sector
+	; Neo config file is flat: seek offset = .sector * 256.
+	; .sector is an offset sector number; track/device are ignored.
+	jsr neo_open_config_file
+
+	lda #$03
+	ldx .sector
+	ldy #$00
+	jsr neo_kernal_seek_file_page
+	bcc .cfg_seek_ok
+	jmp is_error
+.cfg_seek_ok
+
+	lda #$00
+	sta neo_kernal_size
+	lda #$01
+	sta neo_kernal_size + 1
+
+	lda #$03
+	ldx readblocks_mempos
+	ldy readblocks_mempos + 1
+	jsr neo_kernal_read_file
+	bcc .cfg_read_ok
+	jmp is_error
+.cfg_read_ok
+
+	lda #$03
+	jsr kernal_close
+	bcc +
+	jmp is_error
+
++
+	clc
+	rts
+
+}
+
 	; convert track/sector to ascii and update drive command
 read_track_sector
 	; input: a: track, x: sector, y: device#, Word at readblocks_mempos holds storage address
 	sta .track
 	stx .sector
 	sty .device
+
+!ifdef TARGET_NEO6502 {
+	cmp #CONF_TRK
+	bne .neo_story_via_block
+	cpx #2
+	bcs .neo_story_via_block
+	jsr neo_read_track_sector
+	rts
+.neo_story_via_block
+	jsr neo_readblock
+	rts
+}
+
 .have_set_device_track_sector
 	lda .track
 	jsr convert_byte_to_two_digits
@@ -895,6 +1026,17 @@ z_ins_save
 	jsr kernal_clrchn
 -	jsr kernal_getchar
 	beq -
+!ifdef TARGET_NEO6502 {
+	; The Neo keyboard returns plain ASCII, so fold a..z to A..Z before the
+	; C64-style alphanumeric filter below. Without this, a lowercase save
+	; comment is silently discarded and the save fails on the empty comment.
+	cmp #$61
+	bcc .not_lowercase
+	cmp #$7b
+	bcs .not_lowercase
+	and #$5f
+.not_lowercase
+}
 	cmp #$14 ; delete
 	bne +
 	ldx .inputlen
@@ -947,25 +1089,10 @@ disk_error
 	lda #>.disk_error_msg
 	ldx #<.disk_error_msg
 	jsr printstring_raw
-	; Add code to print error code!
 	pla
 	tax
 	lda #0
 	jsr printinteger
-	jsr printchar_flush
-
-	lda #$25
-	jsr s_printchar
-	lda #0
-	ldx $d68b
-	jsr printinteger
-	jsr printchar_flush
-	lda #$25
-	jsr s_printchar
-	lda #0
-	ldx $d6a1
-	jsr printinteger
-	jsr printchar_flush
 
 	lda #$0d
 	jsr s_printchar
@@ -975,6 +1102,9 @@ disk_error
 .list_save_files_zp = z_operand_value_low_arr + 6 ; 2 bytes
 	
 list_save_files
+!ifdef TARGET_NEO6502 {
+	jmp neo_list_save_files
+}
 	lda #13
 	jsr s_printchar
 	ldx	first_unavailable_save_slot_charcode
@@ -1166,7 +1296,11 @@ directory_name_len = * - directory_name
 .disk_error_msg
 	!pet 13,"Disk error #",0
 .insert_save_disk
-!ifndef TARGET_X16 {	
+!ifdef TARGET_NEO6502 {
+	lda #0
+	sta .last_disk
+	jmp .dont_print_insert_save_disk
+} else ifndef TARGET_X16 {
 	ldx disk_info + 4 ; Device# for save disk
 	lda current_disks - 8,x
 	sta .last_disk
@@ -1193,7 +1327,9 @@ directory_name_len = * - directory_name
 	
 
 .insert_story_disk
-!ifndef TARGET_X16 {
+!ifdef TARGET_NEO6502 {
+	rts
+} else ifndef TARGET_X16 {
 	ldy .last_disk
 	beq + ; Save disk was in drive before, no need to change
 	bmi + ; The drive was empty before, no need to change disk now
@@ -1206,6 +1342,12 @@ directory_name_len = * - directory_name
 	rts
 
 maybe_ask_for_save_device
+!ifdef TARGET_NEO6502 {
+	lda #8
+	sta disk_info + 4
+	clc
+	rts
+}
 !ifdef TARGET_X16 {
 	; Always use device 8 on X16
 	lda #8
@@ -1259,6 +1401,10 @@ maybe_ask_for_save_device
 }
 	
 restore_game
+
+!ifdef TARGET_NEO6502 {
+	jmp neo_restore_game
+}
 
 !ifdef TARGET_C128 {
 	lda #0
@@ -1365,6 +1511,10 @@ restore_game
 	rts
 
 save_game
+
+!ifdef TARGET_NEO6502 {
+	jmp neo_save_game
+}
 
 !ifdef TARGET_C128 {
 	lda #0
@@ -2919,6 +3069,9 @@ do_restore_undo
 
 }
 
+!ifdef TARGET_NEO6502 {
+        !source "save-restore-neo6502.asm"
+    }
 } ; end zone save_restore
 
 } ; end zone disk

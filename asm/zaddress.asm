@@ -6,6 +6,18 @@ routine_offset !byte 0,0,0
 }
 
 
+; Neo VMEM: writes above dynmem would corrupt paged statmem, so enforce the
+; dynmem-only write check on Neo even when global runtime error checks are off.
+!ifdef CHECK_ERRORS {
+ZADDRESS_CHECK_WRITES = 1
+} else {
+!ifdef TARGET_NEO6502 {
+ZADDRESS_CHECK_WRITES = 1
+} else {
+ZADDRESS_CHECK_WRITES = 0
+}
+}
+
 !zone zaddress {
 
 set_z_address
@@ -13,6 +25,7 @@ set_z_address
 	sta z_address + 1
 	lda #$0
 	sta z_address
+	; Neo: flat memory, so no banking state is touched here.
 
 !ifdef TARGET_X16 {
 x16_bank_z_address
@@ -150,7 +163,8 @@ set_z_paddress
 	rol z_address + 1
 	rol
 }
-!ifdef Z8 {
+!ifdef Z6PLUS {
+	; Z6/Z7/Z8 packed addresses are byte addresses divided by 8.
 	asl z_address + 2
 	rol z_address + 1
 	rol
@@ -178,7 +192,8 @@ write_next_byte
 ; input: value in a 
 ; a,x,y are preserved
 	sta z_address_temp
-!ifdef CHECK_ERRORS {
+!if ZADDRESS_CHECK_WRITES = 1 {
+	; Reject writes outside dynmem before selecting a physical-store path.
 	lda z_address
 	bne .write_outside_dynmem
 	lda z_address + 2
@@ -261,7 +276,7 @@ write_next_byte
 }
 +++	rts
 
-!ifdef CHECK_ERRORS {
+!if ZADDRESS_CHECK_WRITES = 1 {
 .write_outside_dynmem
 	lda #ERROR_WRITE_ABOVE_DYNMEM
 	jsr fatalerror

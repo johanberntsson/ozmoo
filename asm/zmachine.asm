@@ -949,6 +949,17 @@ z_rnd_init_random
 	; in: Nothing
 !ifdef TARGET_X16 {
 	jsr kernal_entropy_get
+} else ifdef TARGET_NEO6502 {
+	jsr kernal_readtime
+	pha
+	txa
+	eor z_rnd_b
+	tax
+	tya
+	eor z_rnd_c
+	tay
+	pla
+	eor z_rnd_a
 } else ifdef TARGET_PLUS4 {
 	jsr kernal_readtime
 	pha

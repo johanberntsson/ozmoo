@@ -93,6 +93,18 @@
 	}
 }
 
+!ifdef TARGET_NEO6502 {
+	TARGET_ASSIGNED = 1
+	SUPPORT_REU = 0
+	; Neo keeps the C64-compatible I/O window ($d000-$dfff) for screen and
+	; colour registers. Resident VMEM must stop before it, otherwise loading a
+	; story block over $d020/$d021 is silently clobbered by init_screen_colours.
+	VMEM_END_PAGE = $d0
+	!ifndef SLOW {
+		SLOW = 1
+	}
+}
+
 !ifndef TARGET_ASSIGNED {
 	; No target given. C64 is the default target
 	TARGET_C64 = 1
@@ -113,35 +125,16 @@
 ; Targets whose video hardware gives every text cell its own background colour
 ; render each z6 window's background directly (property 11) instead of the
 ; reverse-video fake the C64/Plus4/VDC fall back to for the swap case. The X16
-; (VERA's per-cell colour byte, high nybble = background) does; the MEGA65 full
-; colour screen will join once the VIC-IV per-cell background is wired.
+; does; the MEGA65 full colour path does so in z6 picture modes.
 !ifdef Z6 {
 	!ifdef TARGET_X16 {
-		Z6_WINDOW_BG = 1
-		; ...and one of them can also make a cell background see-through, which
-		; is what z-spec 1.1's colour 15 (and the "sample the pixel under the
-		; cursor" colour -1 the Infocom games actually use) asks for: on VERA a
-		; background nybble of 0 lets layer 0 - the pictures - show through.
-		!ifdef Z6_PICTURES {
-			Z6_TRANSPARENT_BG = 1
-		}
+		Z6_FCM_WINDOW_BG = 1
 	}
-	; The MEGA65 full colour screen has no per-cell background register (one
-	; global $d021), so it cannot make a text cell see-through the X16 way.
-	; Instead, when a window's background is the "sample under the cursor" /
-	; transparent colour, text printed over a picture is BAKED into a copy of
-	; the picture tile beneath it, so the art shows around the letters like
-	; sfrotz. See s_bake_char in pictures-mega65.asm.
 	!ifdef TARGET_MEGA65 {
-		!ifdef Z6_FCM_MODE {
-			!ifdef Z6_PICTURES {
-				Z6_FCM_TEXT_BAKE = 1
+		!ifdef Z6_PICTURES {
+			!ifdef Z6_FCM_MODE {
+				Z6_FCM_WINDOW_BG = 1
 			}
-			; ...and a window whose background is a colour of its own (not the
-			; swap of the screen's pair, which reverse video already draws) has
-			; its cells baked into full colour tiles too - the only per-cell
-			; background this screen has. See textbg-mega65.asm.
-			Z6_FCM_WINDOW_BG = 1
 		}
 	}
 }
@@ -957,6 +950,8 @@ c128_border_phase1
 
 } else ifdef TARGET_X16 {
 !source "constants-x16.asm"
+} else ifdef TARGET_NEO6502 {
+!source "constants-neo6502.asm"
 } else {
 !source "constants.asm"
 }
@@ -1002,6 +997,10 @@ game_id		!byte 0,0,0,0
 .initialize
 	cld
 	cli
+!ifdef TARGET_NEO6502 {
+	lda #12 ; ASCII clear-screen control
+	jsr neo_vector_writechar
+}
 !ifdef TARGET_X16 {
 	jsr x16_backup_basic_zp	
 }
@@ -1027,14 +1026,15 @@ game_id		!byte 0,0,0,0
 }
 }
 }
-
-
 !ifdef TESTSCREEN {
 	jmp testscreen
 }
 	jsr deletable_init_start
 ;	jsr init_screen_colours
 	jsr deletable_screen_init_1
+!ifdef TARGET_NEO6502 {
+	jmp neo_start_after_prelude
+}
 !if SPLASHWAIT > 0 {
 	jsr splash_screen
 }
@@ -1148,6 +1148,7 @@ game_id		!byte 0,0,0,0
 
 .supercpu
 }
+neo_start_after_prelude
 	jsr deletable_init
 	jsr parse_object_table
 !ifndef Z5PLUS {
@@ -1247,6 +1248,10 @@ game_id		!byte 0,0,0,0
 }
 	; stz 1
 	; jmp ($fffc)
+} else ifdef TARGET_NEO6502 {
+	; The C64-style reset vector at $a000 is inside the resident story data on
+	; Neo6502 and cannot be used here. Reload BASIC instead.
+	jmp neo_kernal_reset
 } else {
 	; Back to normal memory banks
 	lda #%00110111
@@ -1265,6 +1270,9 @@ statmem_reu_banks !byte 0
 !source "smoothscroll.asm"
 }
 !source "utilities.asm"
+!ifdef TARGET_NEO6502 {
+!source "neo6502-morpheus.asm"
+}
 !ifdef SCROLLBACK {
 !source "scrollback.asm"
 }
@@ -2615,6 +2623,13 @@ deletable_init
 }
 	sta vmap_max_entries
 
+!ifdef TARGET_NEO6502 {
+	; Neo6502 has a flat RAM model (no C64/C128-style banked I/O/ROM window),
+	; so all VMEM blocks are treated as directly addressable/unbanked.
+	lda vmap_max_entries
+	sta vmap_unbanked_blocks
+}
+
 !ifdef TARGET_C128 {
 	jsr c128_move_dynmem_and_calc_vmem
 	jsr init_screen_colours
@@ -3056,6 +3071,10 @@ prepare_static_high_memory
 	lda (zp_temp),y
 	sta vmap_blocks_preloaded ; # of blocks already loaded
 
+!ifdef TARGET_NEO6502 {
+	; Neo: tolerate config metadata variance and continue startup.
+}
+
 !if SUPPORT_REU = 1 {
 	; If using REU, suggested blocks will just be ignored
 	bit use_reu
@@ -3171,7 +3190,30 @@ init_sid
 
 end_of_routines_in_stack_space
 
+!ifdef TARGET_NEO6502 {
+; Quit has to re-load the NeoBasic image over the interpreter before handing
+; control back, and the API is asynchronous. The polling loop therefore lives
+; above the BASIC image ($0800-$497c). Small builds pad to $4980, but a Z5
+; interpreter can extend past that point, so larger builds place the loop
+; immediately after the code instead and let story_start move up accordingly.
+; Jumping directly to $0800 is deliberate: the reset vector at $0000 is
+; zero-page RAM during a game and cannot be used as a return address.
+	!if end_of_routines_in_stack_space < neo_basic_image_end {
+		!fill neo_basic_image_end - end_of_routines_in_stack_space, 0
+	}
+neo_reset_trampoline
+neo_basic_reload_and_jump
+	lda #neo_api_fn_load_basic
+	sta neo_api_function
+	lda #neo_api_group_system
+	sta neo_api_command
+-	lda neo_api_command
+	bne -
+	jmp neo_basic_cold_start
+	!fill stack_start + stack_size - * - 1, 0
+} else {
 	!fill stack_size - (* - stack_start) - 1,0 ; 4 pages - 1 byte
+}
 	!byte >stack_start
 story_start
 

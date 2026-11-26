@@ -444,6 +444,7 @@ rasterline_for_scroll = 56; 56 works well for PAL and NTSC
 }
 
 ; --- Kernel routines ---
+!ifndef TARGET_NEO6502 {
 !ifdef TARGET_C64 {
 kernal_reset          = $fce2 ; cold reset of the C64
 kernal_delay_1ms      = $eeb3 ; delay 1 ms
@@ -472,3 +473,4 @@ kernal_save           = $ffd8 ; save file
 kernal_settime        = $ffdb ; set time of day in a/x/y
 kernal_readtime       = $ffde ; get time of day in a/x/y
 kernal_getchar        = $ffe4 ; get a character
+}

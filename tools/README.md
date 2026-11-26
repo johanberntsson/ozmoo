@@ -8,6 +8,123 @@ exception is `make_blorb.py`, which is meant to be run by hand, to build a
 Blorb of pictures and sounds for a new v6 game. make_blorb.py is documented 
 in the Ozmoo manual.
 
+## test-neo6502-smoke.sh
+
+Rebuilds Minizork for Neo6502, boots the packaged `dist/minizork/MINIZORK.NEO`
+with the emulator's `path:` pointing at that same flat release directory, types
+`open mailbox` and `read leaflet`, captures the console, and asserts the
+rendered text. In particular it guards against the paged-read corruption that
+used to turn the leaflet's continuation into `BH!CJ...`, and checks the status
+line and bottom prompt. The `puzzles, and descriptions` assertion also catches
+resident VMEM reaching the C64-compatible I/O window: a story block mapped over
+`$d020`/`$d021` was silently rewritten by `init_screen_colours` and rendered as
+`puzzlesthe cof escriptions`. It also asserts that only the top status line uses
+inverse video colours on Neo6502. It uses `decode_neo_console.py` to match
+screenshot pixels against the firmware's `font_5x7.h`, so no OCR is involved.
+
+Clone the upstream
+[neo6502-firmware](https://github.com/paulscottrobson/neo6502-firmware) repo and
+build its emulator, then point `NEO_FIRMWARE_ROOT` at that checkout:
+
+```sh
+git clone https://github.com/paulscottrobson/neo6502-firmware.git ../neo6502-firmware
+make -C ../neo6502-firmware/emulator
+export NEO_FIRMWARE_ROOT=/path/to/neo6502-firmware
+tools/test-neo6502-smoke.sh
+```
+
+The scripts default to a sibling `../neo6502-firmware` checkout and expect
+`emulator/neo` and `firmware/common/include/interface/font_5x7.h` under it.
+
+The script writes its screenshot, decoded text grid, inverse-video report, and
+emulator log under `/tmp/opencode/neo-smoke`. It needs `ruby`, `python3` with
+Pillow, `xdotool`,
+ImageMagick `import`, and an SDL display. Defaults can be overridden with
+`NEO_FIRMWARE_ROOT`, `NEO_SMOKE_WORKDIR`,
+`NEO_SMOKE_STORY`, `OZMOO_HOME`, `NEO_SMOKE_SKIP_BUILD`, and the timing and
+screen-geometry variables named at the top of the script.
+
+The emulator tests are also available through `tests/Makefile`:
+
+```sh
+make -C tests neo-smoke
+make -C tests neo-save-restore
+```
+
+They are deliberately not part of `make -C tests all`, because they need a
+Neo firmware checkout and X11 tools. The save/restore test uses an isolated
+storage directory under `/tmp/opencode/neo-save-restore`; it copies the
+generated `MINIZORK.STORY` and `MINIZORK.CFG` sidecars out of the flat release
+package there and verifies the native `MINIZORK.S00` save file, including an
+emulator restart. On `RESTORE`, the Neo path lists every slot and its saved
+comment before asking which slot to restore, so occupied slots are visible at
+the prompt. The screenshot script types the save comment in lowercase; the
+assertion checks that the Neo prompt folds it to uppercase in the save header.
+
+## decode_neo_console.py
+
+Matches screenshot pixels against the firmware's `font_5x7.h` to recover the
+console text used by the Neo smoke and save/restore assertions. Rows whose
+samples are mostly foreground-coloured are decoded as inverse video, which lets
+the Neo status line be checked without losing the surrounding text. With
+`--report-inverted`, it also writes those row numbers to stderr as
+`INVERTED_ROWS=...`. It is a test helper, not part of the interpreter or the
+game.
+
+The expected pixel colours default to the normal Neo console palette, white on
+darkblue. To check a
+build made with `-neo-fg`/`-neo-bg`, pass `--fg-rgb r,g,b` and `--bg-rgb r,g,b`
+(or set `NEO_SMOKE_FG_RGB`/`NEO_SMOKE_BG_RGB`). `test-neo6502-smoke.sh` forwards
+`-neo-fg`/`-neo-bg` from `NEO_SMOKE_FG`/`NEO_SMOKE_BG` and the RGB overrides from
+those two environment variables. `test-neo6502-save-restore.sh` honours the same
+RGB overrides.
+
+One known artefact: Praxix's banner is decoded as `Type "help" ... "guit" to
+exit`, although the interpreter prints `quit`. The decoder compares the first
+seven rows of each glyph (the first seven bytes of each eight-byte font entry);
+`g` and `q` differ only in the eighth row, so they are indistinguishable to it.
+Treat decoded `guit` in Praxix captures as `quit` — it is a decoder limitation,
+not a story-text or rendering bug.
+
+## make_neo_executable.py
+
+Wraps a Neo6502 Ozmoo build into a single `.neo` executable. It takes the
+assembled interpreter PRG (`temp/ozmoo`) and the resident story image
+(`temp/compmem.tmp`), checks the PRG load address, and writes the `.neo` header
+plus load blocks. The header execute address defaults to `$1000`, so NeoBASIC's
+`LOAD "MINIZORK.NEO"` starts the game without a separate `SYS`. `make.rb` passes
+`--main-addr`, `--story-addr` (from the `story_start` label) and `--exec-addr`
+explicitly, so the resident story always loads where this build expects it.
+
+```sh
+python3 tools/make_neo_executable.py temp/ozmoo temp/compmem.tmp MINIZORK.NEO \
+    --story-addr 0x4600
+```
+
+The executable still needs the generated `<GAME>.STORY` and `<GAME>.CFG`
+runtime sidecars in the Neo storage root for paged reads. `make.rb` names them
+after the story file's 8.3 basename, so different games do not overwrite each
+other's sidecars.
+
+## Neo6502 release layout
+
+A Neo6502 build (`ruby make.rb -t:neo6502 <game>.z3`) now writes a flat release
+package instead of a `.d64`, a `storage/` directory, or an `autostart.bas`:
+
+```
+dist/<game>/<GAME>.NEO      interpreter + resident story
+dist/<game>/<GAME>.STORY    byte-for-byte story file for paged VMEM reads
+dist/<game>/<GAME>.CFG      VMEM map and save configuration
+dist/<game>.zip             archive of the directory above
+```
+
+`<game>` is the story file's base name (`zork1`, `minizork`, ...); `<GAME>` is
+its FAT-style 8.3 form (`ZORK1`, `MINIZORK`, ...). Copy or unzip the directory
+onto the Neo's SD card and load `<GAME>.NEO` from there. Saves are created
+alongside the sidecars as `<GAME>.S00`. In the emulator, point its storage path
+at the same directory (for example `path:dist/minizork`) rather than expecting
+a nested `storage/` folder. `-s` starts the packaged `.NEO` that way.
+
 ## pics2asm.py
 
 Converts a game's pictures - a Blorb, or a directory of numbered PNGs - into

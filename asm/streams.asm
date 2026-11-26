@@ -693,6 +693,9 @@ streams_print_output
 }
 	jsr translate_zscii_to_petscii
 	bcs .could_not_convert
+!ifdef TARGET_NEO6502 {
+	jsr neo_petscii_to_ascii
+}
 	jmp printchar_buffered
 .could_not_convert
 !ifdef DEBUG {
@@ -1248,6 +1251,28 @@ translate_zscii_to_petscii
 	ldy .streams_tmp + 1
 	clc
 	rts
+
+!ifdef TARGET_NEO6502 {
+; translate_zscii_to_petscii uses the C64 convention where PETSCII $41-$5A
+; select lowercase glyphs and $C1-$DA select uppercase glyphs. The Neo console
+; takes plain ASCII bytes, so map those ranges back to their intended case.
+; Other PETSCII codes keep their existing behaviour and are masked to ASCII by
+; the Neo screenkernal.
+neo_petscii_to_ascii
+	cmp #$41
+	bcc .done
+	cmp #$5b
+	bcs +
+	ora #$20 ; $41-$5a -> $61-$7a
+	bne .done ; Always branch
++	cmp #$c1
+	bcc .done
+	cmp #$db
+	bcs .done
+	and #$7f ; $c1-$da -> $41-$5a
+.done
+	rts
+}
 
 streams_set_z_address
 	ldy z_address

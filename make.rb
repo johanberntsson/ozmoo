@@ -6,6 +6,13 @@ require 'json'
 
 $is_windows = (ENV['OS'] == 'Windows_NT')
 
+# The Neo6502 emulator and firmware live in the upstream firmware repo, not in
+# this tree. NEO_FIRMWARE_ROOT may point at a local checkout; without it, the
+# emulator is looked up on PATH (or overridden in .ozmoorc).
+$neo_firmware_root = ENV['NEO_FIRMWARE_ROOT'].to_s
+$neo_emulator_name = $is_windows ? 'neo.exe' : 'neo'
+$neo_emulator = $neo_firmware_root.empty? ? $neo_emulator_name : File.join($neo_firmware_root, 'emulator', $neo_emulator_name)
+
 $executables = nil
 
 if $is_windows then
@@ -16,6 +23,7 @@ if $is_windows then
 		'X128' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\x128.exe -silent -80 -autostart-delay-random",
 		'XPLUS4' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\xplus4.exe -silent -autostart-delay-random",
 		'MEGA65' => "\"C:\\Program Files\\xemu\\xmega65.exe\" -syscon", # -syscon is a workaround for a serious xemu bug
+		'NEO' => $neo_emulator,
 		'C1541' => "C:\\WoInstall\\GTK3VICE-3.8-win64\\bin\\c1541.exe",
 		'EXOMIZER' => "C:\\WoInstall\\Exomizer-3.1.0\\win32\\exomizer.exe",
 		'ACME' => "C:\\WoInstall\\acme0.97win\\acme\\acme.exe",
@@ -33,6 +41,7 @@ else
 		'X128' => "x128 -silent -autostart-delay-random",
 		'XPLUS4' => "xplus4 -silent -autostart-delay-random",
 		'MEGA65' => "xemu-xmega65 -besure",
+		'NEO' => $neo_emulator,
 		'C1541' => "c1541",
 		'EXOMIZER' => __dir__ + "/exomizer/src/exomizer",
 		'ACME' => "acme",
@@ -68,7 +77,7 @@ unless $settings_file.empty?
 		if line =~ /^\s*'?(\w+)'?\s*=>?(.*)/ then
 			name = $1.upcase
 			val = $2.chomp.strip
-			if name =~ /^(X16|X64|X128|XPLUS4|MEGA65|C1541|EXOMIZER|ACME|ZIP|PYTHON)$/ then
+			if name =~ /^(X16|X64|X128|XPLUS4|MEGA65|NEO|C1541|EXOMIZER|ACME|ZIP|PYTHON)$/ then
 				$executables[name] = val
 			end
 		end
@@ -186,6 +195,7 @@ $compmem_filename = File.join($TEMPDIR, 'compmem.tmp')
 $universal_file = File.join($TEMPDIR, 'universal')
 $config_filename = File.join($TEMPDIR, 'config.tmp')
 $m65_loader_file = File.join($TEMPDIR, 'm65_loader')
+$neo_release_dir = nil
 
 $x_for_examine_releases = {
 	"r11-s860509" => "Trinity",
@@ -306,6 +316,37 @@ $colour_names = {
 	'ltgray' => 23,
 	'lgray' => 23,
 	'gray3' => 23,
+}
+
+# Neo6502 console palette indices from firmware/common/include/interface/palette.h
+$neo_colour_names = {
+	'black' => 0,
+	'red' => 1,
+	'green' => 2,
+	'yellow' => 3,
+	'darkblue' => 4,
+	'dblue' => 4,
+	'darkpurple' => 5,
+	'dpurple' => 5,
+	'blue' => 6,
+	'white' => 7,
+	'solidblack' => 8,
+	'black2' => 8,
+	'darkgrey' => 9,
+	'darkgray' => 9,
+	'dgrey' => 9,
+	'dgray' => 9,
+	'darkgreen' => 10,
+	'dgreen' => 10,
+	'orange' => 11,
+	'brown' => 12,
+	'lavender' => 13,
+	'lightpeach' => 14,
+	'lpeach' => 14,
+	'lightgrey' => 15,
+	'lightgray' => 15,
+	'lgrey' => 15,
+	'lgray' => 15,
 }
 
 $bgcol_names = [
@@ -1389,10 +1430,105 @@ def name_to_c64(name)
 	c64_name
 end
 
+def neo_8_3_basename(name)
+	# Neo storage uses FAT-style 8.3 names. Keep the game name recognisable,
+	# but strip anything DOS 8.3 cannot represent and truncate to eight chars.
+	base = name.upcase.gsub(/[^A-Z0-9]/, '')[0, 8]
+	base = 'STORY' if base.nil? or base.empty?
+	base
+end
+
+def neo_release_paths(storyname)
+	# The directory and zip use the story file's base name verbatim; the files
+	# inside use the FAT-style name the interpreter asks for at runtime.
+	game = neo_8_3_basename(storyname)
+	dist_root = File.join(__dir__, 'dist')
+	release_dir = File.join(dist_root, storyname)
+	{
+		dist_root: dist_root,
+		dir: release_dir,
+		zip: File.join(dist_root, "#{storyname}.zip"),
+		neo: File.join(release_dir, "#{game}.NEO"),
+		story: File.join(release_dir, "#{game}.STORY"),
+		cfg: File.join(release_dir, "#{game}.CFG")
+	}
+end
+
+def build_neo_release(storyname, config_data, vmem_data, vmem_contents)
+	if vmem_data.length > 512
+		puts "ERROR: Neo6502 VMEM map is #{vmem_data.length} bytes; maximum is 512 bytes."
+		exit 1
+	end
+
+	paths = neo_release_paths(storyname)
+	FileUtils.mkdir_p(paths[:dist_root])
+	FileUtils.rm_rf(paths[:dir])
+	FileUtils.rm_f(paths[:zip])
+	FileUtils.mkdir_p(paths[:dir])
+
+	neo_cfg_data = config_data.dup
+	neo_cfg_vmem = vmem_data.dup
+	limit_vmem_data(neo_cfg_vmem, 65535) if neo_cfg_vmem.length > 0
+	neo_cfg_data += neo_cfg_vmem
+	min_cfg_size = 512
+	if neo_cfg_data.length < min_cfg_size
+		neo_cfg_data += Array.new(min_cfg_size - neo_cfg_data.length, 0)
+	elsif (neo_cfg_data.length % 256) != 0
+		neo_cfg_data += Array.new(256 - (neo_cfg_data.length % 256), 0)
+	end
+
+	resident_bytes = ($dynmem_blocks + vmem_data[3]) * $VMEM_BLOCKSIZE
+	if resident_bytes > vmem_contents.bytesize
+		puts "ERROR: Neo6502 resident story needs #{resident_bytes} bytes, but only #{vmem_contents.bytesize} were built."
+		exit 1
+	end
+
+	File.binwrite(paths[:cfg], neo_cfg_data.pack('C*'))
+	File.binwrite(paths[:story], $story_file_data)
+	File.binwrite($compmem_filename, vmem_contents.byteslice(0, resident_bytes))
+
+	neo_tool = File.join(__dir__, 'tools', 'make_neo_executable.py')
+	neo_cmd = "#{$executables['PYTHON']} \"#{neo_tool}\" \"#{$ozmoo_file}\" \"#{$compmem_filename}\" " +
+		"\"#{paths[:neo]}\" --main-addr 0x#{'%04x' % $start_address} " +
+		"--story-addr 0x#{'%04x' % $storystart} --exec-addr 0x#{'%04x' % $start_address}"
+	puts neo_cmd if $verbose
+	unless system(neo_cmd)
+		puts "ERROR: There was a problem creating the Neo6502 executable."
+		exit 1
+	end
+
+	Dir.chdir(paths[:dist_root]) do
+		zip_cmd = "#{$executables['ZIP']} \"#{storyname}.zip\" \"#{storyname}\""
+		puts zip_cmd if $verbose
+		unless system(zip_cmd)
+			puts "ERROR: There was a problem creating a zip archive. The files are in #{paths[:dir]}"
+			exit 1
+		end
+	end
+
+	if $verbose
+		story_bytes = $story_file_data.length
+		story_blocks = (story_bytes + $VMEM_BLOCKSIZE - 1) / $VMEM_BLOCKSIZE
+		dynmem_bytes = $dynmem_blocks * $VMEM_BLOCKSIZE
+		map_bytes = vmem_data[0] * 256 + vmem_data[1]
+		paged_statmem_blocks = [$statmem_blocks - vmem_data[3], 0].max
+		puts "Neo6502 VMEM: total story bytes #{story_bytes}, 512-byte blocks #{story_blocks}; dynmem bytes #{dynmem_bytes}, dynmem blocks #{$dynmem_blocks}."
+		puts "Neo6502 VMEM: resident blocks #{$neo_resident_vmem_blocks}, preloaded blocks #{vmem_data[3]}, map entries #{vmem_data[2]}, map bytes #{map_bytes}, paged statmem blocks #{paged_statmem_blocks}."
+		puts "Neo6502 VMEM: REU=off, OPTIMIZE_VMEM=off, C128 banks=off."
+	end
+
+	$neo_release_dir = paths[:dir]
+	$bootdiskname = paths[:zip]
+	puts "Successfully built game as #{$bootdiskname}"
+	nil
+end
+
 def build_interpreter()
 	necessarysettings =  " --setpc #{$start_address} -DCACHE_PAGES=#{$CACHE_PAGES} -DSTACK_PAGES=#{$stack_pages} -D#{$ztype}=1"
 	necessarysettings +=  " -DCONF_TRK=#{$CONFIG_TRACK}" if $CONFIG_TRACK
 	if $target == 'x16' then
+		necessarysettings +=  " --cpu 65c02"
+	elsif $target == 'neo6502' then
 		necessarysettings +=  " --cpu 65c02"
 	elsif $target == 'mega65' then
 		necessarysettings +=  " --cpu m65"
@@ -1491,6 +1627,12 @@ def build_interpreter()
 	if $fg_colour
 		colourflags += " -DFGCOL=#{$fg_colour}"
 	end
+	if $neo_fg_colour
+		colourflags += " -DNEO_FGCOL=#{$neo_fg_colour}"
+	end
+	if $neo_bg_colour
+		colourflags += " -DNEO_BGCOL=#{$neo_bg_colour}"
+	end
 	if $border_colour
 		colourflags += " -DBORDERCOL=#{$border_colour}"
 	end
@@ -1569,6 +1711,8 @@ def read_labels(label_file_name)
 		$program_end_address = $1.to_i(16) if line =~ /\tprogram_end\t=\s*\$(\w{3,4})\b/;
 		$loader_pic_start = $1.to_i(16) if line =~ /\tloader_pic_start\t=\s*\$(\w{3,4})\b/;
 		$config_load_address = $1.to_i(16) if line =~ /\tconfig_load_address\t=\s*\$(\w{3,4})\b/;
+		$neo_vmap_buffer_start = $1.to_i(16) if line =~ /\tvmap_buffer_start\s*=\s*\$(\w{3,4})\b/;
+		$neo_vmap_buffer_end = $1.to_i(16) if line =~ /\tvmap_buffer_end\s*=\s*\$(\w{3,4})\b/;
 	end
 end
 
@@ -1800,6 +1944,30 @@ def play(filename, storyname)
 			puts "Location of MEGA65 emulator unknown. Please set MEGA65 executable location at start of make.rb"
 			exit 0
 		end
+	elsif $target == "neo6502" then
+		if $executables.has_key?('NEO') then
+			emu = File.expand_path($executables['NEO'])
+			unless File.exist?(emu)
+				puts "Location of Neo6502 emulator is set, but executable was not found at #{$executables['NEO']}"
+				exit 0
+			end
+			unless $neo_release_dir and File.directory?($neo_release_dir)
+				puts "Cannot auto-run Neo6502 build: no release directory was created."
+				exit 0
+			end
+
+			neo_name = "#{neo_8_3_basename(File.basename($neo_release_dir))}.NEO"
+			neo_path = File.join($neo_release_dir, neo_name)
+			unless File.exist?(neo_path)
+				puts "Cannot auto-run Neo6502 build: expected #{neo_path} was not found."
+				exit 0
+			end
+
+			command = "\"#{emu}\" cold \"#{neo_path}\" \"path:#{$neo_release_dir}\""
+		else
+			puts "Location of Neo6502 emulator unknown. Please set NEO executable location at start of make.rb"
+			exit 0
+		end
 	elsif $target == "plus4" then
 	    command = "#{$executables['XPLUS4']} \"#{filename}\""
 	elsif $target == "c128" then
@@ -1813,9 +1981,45 @@ end
 
 def limit_vmem_data_preload(vmem_data)
 #	puts "%%% #{$dynmem_and_vmem_size_bank_0_max}, #{vmem_data[3]} #{$dynmem_blocks} #{$VMEM_BLOCKSIZE}"
-	if $dynmem_and_vmem_size_bank_0_max < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
-		vmem_data[3] = $dynmem_and_vmem_size_bank_0_max / $VMEM_BLOCKSIZE - $dynmem_blocks
+	max_bytes = if $target == 'neo6502' && $VMEM && $neo_resident_vmem_blocks
+		($neo_resident_vmem_blocks + $dynmem_blocks) * $VMEM_BLOCKSIZE
+	else
+		$dynmem_and_vmem_size_bank_0_max
 	end
+	if max_bytes < (vmem_data[3] + $dynmem_blocks) * $VMEM_BLOCKSIZE
+		vmem_data[3] = [max_bytes / $VMEM_BLOCKSIZE - $dynmem_blocks, 0].max
+	end
+end
+
+# Neo6502 uses a flat 16-bit address space with no banks, REU or memory windows.
+# This mirrors the runtime calculation in asm/ozmoo.asm:
+#   vmap_first_ram_page = nonstored_pages + >story_start
+#   vmap_max_entries    = min((VMEM_END_PAGE - vmap_first_ram_page) / 2,
+#                             vmap_max_size)
+# where VMEM_END_PAGE is $d0 for Neo (the C64-compatible I/O window starts
+# there) and vmap_max_size is (vmap_buffer_end - vmap_buffer_start) / 2 =
+# (0x400-0x334)/2. Stack, cache and config live below story_start in the Neo
+# layout, so the resident VMEM range is story_start+dynmem .. $cfff.
+def calc_neo_vmap_max_entries()
+	nonstored_pages = $dynmem_blocks * ($VMEM_BLOCKSIZE / 256)
+	vmap_first_ram_page = (nonstored_pages + ($storystart >> 8)) & 0xff
+	# Neo keeps the C64-compatible I/O window ($d000-$dfff) for screen and
+	# colour registers. Runtime uses VMEM_END_PAGE = $d0, so mirror that here.
+	neo_vmem_end_page = 0xd0
+	# vmap_max_size from constants-neo6502.asm: (vmap_buffer_end - vmap_buffer_start)/2.
+	# Fall back to the known defaults if the labels file did not expose them.
+	vmap_start = $neo_vmap_buffer_start || 0x334
+	vmap_end = $neo_vmap_buffer_end || 0x400
+	neo_vmap_max_size = [((vmap_end - vmap_start) / 2), 0].max
+	available_pages = neo_vmem_end_page - vmap_first_ram_page
+	return 0 if available_pages <= 0
+	entries = [available_pages / 2, neo_vmap_max_size].min
+	# The high-byte mask bounds the number of distinct 512-byte block numbers
+	# that can be encoded in a vmap entry.
+	if $vmem_highbyte_mask && $vmem_highbyte_mask > 0
+		entries = [entries, 0x100 * ($vmem_highbyte_mask + 1)].min
+	end
+	[entries, 0].max
 end
 
 def	sort_vmem_data(vmem_data, first_block_to_sort, last_block_to_sort)
@@ -1892,7 +2096,7 @@ def build_P(storyname, diskimage_filename, config_data, vmem_data, vmem_contents
 	
 	diskfilename = "#{$target}_#{storyname}.d64"
 	
-	if $dynmem_and_vmem_size_bank_0 < $story_size
+	if not ($VMEM and $target == 'neo6502') and $dynmem_and_vmem_size_bank_0 < $story_size
 		puts "#{$dynmem_and_vmem_size_bank_0} < #{$story_size}"
 		puts "ERROR: The whole story doesn't fit in memory. Please try another build mode."
 		exit 1
@@ -2820,6 +3024,7 @@ def print_usage
 	puts "         [-i <imagefile>] [-if <imagefile>] [-ch[:n]] [-sb[:0|1|6|8|10|12]] [-rb[:0|1]]"
 	puts "         [-fgcol:<colourname>] [-bgcol:<colourname>] [-bordercol:<colourname>]"
 	puts "         [-statuscol:<colourname>] [-inputcol:<colourname>] [-cursorcol:<colourname>]"
+	puts "         [-neo-fg:<name|index>] [-neo-bg:<name|index>]"
 	puts "         [-dm[:0|1]] [-dmfgcol:<colourname>] [-dmbgcol:<colourname>] [-dmbordercol:<colourname>]"
 	puts "         [-dmstatuscol:<colourname>] [-dminputcol:<colourname>] [-dmcursorcol:<colourname>]"
 	puts "         [-ss[1-4]:\"text\"] [-sw:[nnn]] [-smooth[:0|1]] [-ecm[:0|1]] [-fcm[:0|1|40|80]]"
@@ -2827,8 +3032,8 @@ def print_usage
 	puts "         [-dt:\"text\"] [-rd] [-as(a|w) <soundpath>]"
 	puts "         [-sig[:0|1|noninfocom]] [-username:\"text\"]"
 	puts "         [-u[:0|1|r]] [-x[:0|1]] [-df[:0|1|f]] <storyfile>"
-	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65 and x16."
-	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16). See docs."
+	puts "  -t: specify target machine. Available targets are c64 (default), c128, plus4, mega65, x16 and neo6502."
+	puts "  -S1|-S2|-D2|-D3|-71|-71D|-81|-P|-ZIP: build mode. Defaults to S1 (71 for C128, 81 for MEGA65, ZIP for X16, P for neo6502). See docs."
 	puts "  -v: Verbose mode. Print as much details as possible about what make.rb is doing."
 	puts "  -p: preload a maximum of n virtual memory blocks to make game faster at start."
 	puts "  -b: only preload virtual memory blocks that can be included in the boot file."
@@ -2860,6 +3065,10 @@ def print_usage
 	puts "  -statuscol/dmstatuscol Use the specified status line colour. Only valid for Z3 games. See docs for details."
 	puts "  -inputcol/dminputcol: Use the specified input colour. Only valid for Z3 and Z4 games. See docs for details."
 	puts "  -cursorcol/dmcursorcol: Use the specified cursor colour. (fg=same as fg (default)). See docs for details."
+	puts "  -neo-fg/neo-bg: Neo6502 console palette index (0-15) or name. Defaults: white on darkblue."
+	puts "                  The Z1-Z3 status line uses the same pair with fg/bg swapped."
+	puts "  NEO_FIRMWARE_ROOT: local checkout of paulscottrobson/neo6502-firmware; -s uses"
+	puts "                  <root>/emulator/neo (neo.exe on Windows). Can also be set in .ozmoorc."
 	puts "  -dm: Enable the ability to switch to dark mode"
 	puts "  -ss1, -ss2, -ss3, -ss4: Add up to four lines of text to the splash screen."
 	puts "  -sw: Set the splash screen wait time (1-999 s), or 0 to disable splash screen."
@@ -2900,6 +3109,14 @@ def colour_value(argument, in_string, fg_ok, bg_ok)
 	exit 1
 end
 
+def neo_colour_value(argument, in_string)
+	clean_string = in_string.downcase.gsub(/[-_.]/,'')
+	return clean_string.to_i if clean_string =~ /^([0-9]|1[0-5])$/
+	return $neo_colour_names[clean_string] if $neo_colour_names.has_key? clean_string
+	puts "ERROR: Unknown Neo6502 colour name for #{argument}."
+	exit 1
+end
+
 splashes = [
 "", "", "", ""
 ]
@@ -2935,6 +3152,8 @@ $fg_colour = nil;
 $fg_colour_dm = nil;
 $bg_colour = nil;
 $bg_colour_dm = nil;
+$neo_fg_colour = nil
+$neo_bg_colour = nil
 $statusline_colour = nil
 $statusline_colour_dm = nil
 $input_colour = nil
@@ -3005,7 +3224,7 @@ begin
 		elsif arg =~ /^-p:(\d+)$/ then
 			preload_max_vmem_blocks = $1.to_i
 			limit_preload_vmem_blocks = true
-		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16)$/ then
+		elsif arg =~ /^-t:(c64|c128|mega65|plus4|x16|neo6502)$/ then
 			$target = $1
 			if $target == "mega65" then
 			    # $start_address = 0x1001
@@ -3013,6 +3232,11 @@ begin
 			elsif $target == "x16" then
 			    $start_address = 0x0801
 				$memory_end_address = 0xa000
+				$unbanked_ram_end_address = $memory_end_address
+				$normal_ram_end_address = $memory_end_address
+			elsif $target == "neo6502" then
+				$start_address = 0x1000
+				$memory_end_address = 0x10000
 				$unbanked_ram_end_address = $memory_end_address
 				$normal_ram_end_address = $memory_end_address
 			elsif $target == "plus4" then
@@ -3074,6 +3298,10 @@ begin
 			$bg_colour = colour_value(arg, $1, false, false)
 		elsif arg =~ /^-dmbgcol:(.*)$/
 			$bg_colour_dm = colour_value(arg, $1, false, false)
+		elsif arg =~ /^-neo-fg:(.*)$/
+			$neo_fg_colour = neo_colour_value(arg, $1)
+		elsif arg =~ /^-neo-bg:(.*)$/
+			$neo_bg_colour = neo_colour_value(arg, $1)
 		elsif arg =~ /^-inputcol:(.*)$/
 			$input_colour = colour_value(arg, $1, false, false)
 		elsif arg =~ /^-dminputcol:(.*)$/
@@ -3262,6 +3490,7 @@ $target_number =
 	when 'plus4' then 3
 	when 'mega65' then 4
 	when 'x16' then 5
+	when 'neo6502' then 6
 	else 1
 	end
 
@@ -3277,6 +3506,19 @@ if username
 end
 
 write_signature = 2 unless write_signature # Default to non-infocom setting
+
+# Neo6502 uses flat, disk-backed VMEM and must fail fast on incompatible
+# C64/C128 memory options before they can leak into the assembly defines.
+if $target == 'neo6502'
+	if reu_boost == 1 or $GENERALFLAGS.any? { |flag| flag =~ /REU/i }
+		puts "ERROR: REU is not supported by Neo6502 VMEM."
+		exit 1
+	end
+	if optimize_vmem == 1 or $GENERALFLAGS.include?('OPTIMIZE_VMEM')
+		puts "ERROR: OPTIMIZE_VMEM is not supported by Neo6502 VMEM."
+		exit 1
+	end
+end
 
 if $target =~ /^c(64|128)$/ and reu_boost == nil
 	reu_boost = 1
@@ -3395,6 +3637,8 @@ print_usage_and_exit() if await_soundpath or await_preloadfile or await_fontfile
 unless mode
 	if $target == 'c128'
 		mode = MODE_71
+	elsif $target == 'neo6502'
+		mode = MODE_P
 	elsif $target == 'x16'
 		mode = MODE_ZIP
 	elsif $target == 'mega65'
@@ -3405,8 +3649,9 @@ unless mode
 end
 
 if mode == MODE_P
-	# In this mode, we don't use the vmem buffer for holding vmem data. However, the
-	# splash screen resides in the buffer too. By default it's 2 pages in this mode.
+	# For most targets, this mode doesn't use the vmem buffer for holding vmem
+	# data. Neo6502 is the exception: its P build is the host for disk-backed
+	# VMEM. The splash screen resides in the buffer too; by default it's 2 pages.
 	if $splash_wait == "0"
 		$CACHE_PAGES = 0 # We don't have any use for the cache whatsoever
 	else
@@ -3435,6 +3680,11 @@ end
 
 if mode == MODE_P and $target == 'c128'
 	puts "ERROR: Build mode P is not supported on this target platform."
+	exit 1
+end
+
+if mode != MODE_P and $target == 'neo6502'
+	puts "ERROR: Only build mode P is currently supported on this target platform."
 	exit 1
 end
 
@@ -3515,7 +3765,19 @@ if $sound_path
 #	puts $sound_files
 end
 
-$VMEM = (mode != MODE_P && $target != 'mega65' && $target != 'x16')
+# Neo6502 uses flat, disk-backed VMEM in its P build. Keep P as the
+# whole-story-in-memory mode for every other target. REU and OPTIMIZE_VMEM are
+# enabled only for the C64/C128 above, so Neo doesn't inherit either here.
+$VMEM = ($target == 'neo6502') ||
+	(mode != MODE_P && $target != 'mega65' && $target != 'x16')
+
+if $target == 'neo6502' && $VMEM
+	c128_bank_flags = $GENERALFLAGS.select { |flag| flag =~ /C128|MMU|BANK/i }
+	unless c128_bank_flags.empty?
+		puts "ERROR: C128 bank constants are not supported by Neo6502 VMEM: #{c128_bank_flags.join(', ')}."
+		exit 1
+	end
+end
 
 $GENERALFLAGS.push('DANISH_CHARS') if $char_map == 'da'
 $GENERALFLAGS.push('SWEDISH_CHARS') if $char_map == 'sv'
@@ -3655,6 +3917,11 @@ if ($statusline_colour or $statusline_colour_dm) and $zcode_version > 3
 	puts "ERROR: Setting statusline colour can only be done with z1-z3 story files."
 	exit 1
 end	
+
+if ($neo_fg_colour or $neo_bg_colour) and $target != 'neo6502'
+	puts "ERROR: -neo-fg/-neo-bg can only be used with the Neo6502 target."
+	exit 1
+end
 
 if ($input_colour or $input_colour_dm) and $zcode_version > 4
 	puts "ERROR: Setting input colour can only be done with z1-z4 story files."
@@ -4072,6 +4339,26 @@ file_name = File.read(File.join($SRCDIR, 'file-name.tpl'))
 file_name.sub!("@fn@", $file_name)
 File.write(File.join($TEMPDIR, 'file-name.asm'), file_name)
 
+if $target == 'neo6502'
+	neo_base = neo_8_3_basename(storyname)
+	$neo_story_filename = "#{neo_base}.STORY"
+	$neo_config_filename = "#{neo_base}.CFG"
+	$neo_save_filename = "#{neo_base}.S00"
+	neo_file_names = <<~ASM
+		neo_story_filename
+		\t!text "#{$neo_story_filename}"
+		neo_story_filename_len = * - neo_story_filename
+		neo_config_filename
+		\t!text "#{$neo_config_filename}"
+		neo_config_filename_len = * - neo_config_filename
+		neo_save_filename
+		\t!text "#{$neo_save_filename}"
+		neo_save_filename_len = * - neo_save_filename
+	ASM
+	File.write(File.join($TEMPDIR, 'neo-file-names.asm'), neo_file_names)
+	puts "Neo6502 runtime files: #{$neo_story_filename}, #{$neo_config_filename}, #{$neo_save_filename}." if $verbose
+end
+
 # Set $no_sector_preload if we can be almost certain it won't be needed anyway
 if $target != 'c128' and limit_preload_vmem_blocks == false
 	loader_kb = $loader_pic_file ? 5 : 0
@@ -4100,7 +4387,12 @@ puts "Save slots: #{save_slots}" if $verbose
 
 build_interpreter()
 
-$dynmem_and_vmem_size_bank_0 = $memory_end_address - $storystart - 
+# Neo reserves top two pages $fe00-$ffff for Morpheus/firmware runtime state.
+neo_reserved_top_bytes = ($target == 'neo6502') ? 0x200 : 0
+effective_memory_end_address = $memory_end_address - neo_reserved_top_bytes
+effective_unbanked_ram_end_address = $unbanked_ram_end_address - neo_reserved_top_bytes
+
+$dynmem_and_vmem_size_bank_0 = effective_memory_end_address - $storystart - 
 	($scrollback_ram_pages ? 256 * $scrollback_ram_pages : 0)
 
 $dynmem_and_vmem_size_bank_0_max = $dynmem_and_vmem_size_bank_0
@@ -4126,10 +4418,10 @@ if $target !~ /^(mega65|x16)$/ and
 end
 puts "Dynamic memory: #{$dynmem_blocks * $VMEM_BLOCKSIZE} bytes" if $verbose 
 
-$vmem_blocks_in_ram = ($memory_end_address - ($scrollback_ram_pages ? 256 * $scrollback_ram_pages : 0) -
+$vmem_blocks_in_ram = (effective_memory_end_address - ($scrollback_ram_pages ? 256 * $scrollback_ram_pages : 0) -
 		$storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
 
-$unbanked_vmem_blocks = ($unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
+$unbanked_vmem_blocks = (effective_unbanked_ram_end_address - $storystart) / $VMEM_BLOCKSIZE - $dynmem_blocks
 
 if $target == 'c128' then
 	$vmem_blocks_in_ram += ($memory_end_address - 0x1200 - 256 * $stack_pages) / $VMEM_BLOCKSIZE 
@@ -4149,6 +4441,21 @@ if reu_boost == 1 and $target == 'c64' and $unbanked_vmem_blocks * $VMEM_BLOCKSI
 	exit 1		
 end
 
+# Neo6502-only resident layout.  Do not use the C64/C128 bank-0 or REU figures
+# above: they assume banked memory that Neo does not have.  The runtime derives
+# its VMEM map from the same 16-bit address-space calculation.
+if $target == 'neo6502' && $VMEM
+	$neo_vmap_max_entries = calc_neo_vmap_max_entries()
+	if $statmem_blocks > $neo_vmap_max_entries && $verbose
+		puts "Neo VMEM resident statmem blocks clamped from #{$statmem_blocks} to #{$neo_vmap_max_entries} (vmap_max_entries)."
+	end
+	$neo_resident_vmem_blocks = [$neo_vmap_max_entries, $statmem_blocks].min
+	puts "Neo VMEM map capacity: #{$neo_vmap_max_entries} entries, resident statmem blocks: #{$neo_resident_vmem_blocks}." if $verbose
+	if $neo_resident_vmem_blocks <= 0
+		puts "WARNING: No statmem can remain resident for Neo6502; VMEM will page all statmem from storage." if $verbose
+	end
+end
+
 config_data = 
 [$BUILD_ID].pack("I>").unpack("CCCC") + 
 [
@@ -4165,7 +4472,10 @@ save_slots, # Save slots, change later if wrong
 total_storyfile_blocks = $story_size / $VMEM_BLOCKSIZE
 mapped_vmem_blocks = 0 #all_vmem_blocks - $dynmem_blocks
 unless $DEBUGFLAGS.include?('PREOPT') then
-	if mode == MODE_P 
+	if $target == 'neo6502' && $VMEM
+		# Neo uses its flat 16-bit resident budget, not C64 bank-0 disk layout.
+		mapped_vmem_blocks = $neo_resident_vmem_blocks
+	elsif mode == MODE_P 
 		mapped_vmem_blocks = total_storyfile_blocks - $dynmem_blocks
 	else
 #		puts "### #{$vmem_blocks_in_ram}, #{total_storyfile_blocks} - #{$dynmem_blocks}"
@@ -4201,8 +4511,8 @@ if preload_data then
 	vmem_data = [
 		total_length / 256,
 		total_length % 256,
-		preload_data.length, # Number of suggested blocks
-		preload_data.length, # Number of preloaded blocks (May change later due to lack of space on disk)
+		preload_data.length, # Number of suggested VMEM entries (matches array size)
+		[$statmem_blocks, preload_data.length].min, # Number of preloaded blocks (statmem clamped to disk budget)
 		]
 	lowbytes = []
 	preload_data.each do |block|
@@ -4221,8 +4531,8 @@ else # No preload data available
 	vmem_data = [
 		total_length / 256,
 		total_length % 256,
-		mapped_vmem_blocks, # Number of suggested blocks
-		mapped_vmem_blocks, # Number of preloaded blocks (May change later due to lack of space on disk)
+		mapped_vmem_blocks, # Number of suggested VMEM entries (matches array size)
+		[$statmem_blocks, mapped_vmem_blocks].min, # Number of preloaded blocks (statmem clamped to VMEM budget)
 		]
 	lowbytes = []
 	mapped_vmem_blocks.times do |i|
@@ -4230,6 +4540,13 @@ else # No preload data available
 		lowbytes.push(($dynmem_blocks + i) * $VMEM_BLOCKSIZE / 256 / 2)
 	end
 	vmem_data += lowbytes;
+end
+
+# Clamp preload budget to the real Neo resident block budget.  The default
+# (2**17 / blocksize) and explicit -p values assume a C64-sized preload area.
+if $target == 'neo6502' && $VMEM && preload_max_vmem_blocks && $neo_resident_vmem_blocks && preload_max_vmem_blocks > $neo_resident_vmem_blocks
+	puts "Max preload blocks adjusted to Neo resident VMEM budget, from #{preload_max_vmem_blocks} to #{$neo_resident_vmem_blocks}."
+	preload_max_vmem_blocks = $neo_resident_vmem_blocks
 end
 
 if $target =~ /^(mega65|x16)$/
@@ -4250,10 +4567,18 @@ if $VMEM
 	limit_vmem_data_preload(vmem_data)
 end
 
+if $target == 'neo6502' && $VMEM && $neo_vmap_max_entries && vmem_data[2] > $neo_vmap_max_entries
+	puts "ERROR: Neo6502 VMEM map has #{vmem_data[2]} entries, exceeding vmap_max_entries (#{$neo_vmap_max_entries})."
+	exit 1
+end
+
 if $VMEM and preload_max_vmem_blocks and preload_max_vmem_blocks > vmem_data[3] then
 	puts "Max preload blocks adjusted to total vmem size, from #{preload_max_vmem_blocks} to #{vmem_data[3]}."
 	preload_max_vmem_blocks = vmem_data[3]
 end
+
+build_config_data = ($target == 'neo6502') ? config_data : config_data.dup
+build_vmem_data = ($target == 'neo6502') ? vmem_data : vmem_data.dup
 
 case mode
 when MODE_P
@@ -4261,39 +4586,43 @@ when MODE_P
 	if sizediff >= 256 and sizediff < 512 then
 		$story_size -= 256;
 	end
-	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
-	error = build_P(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	if $target == 'neo6502'
+		error = build_neo_release(storyname, build_config_data, build_vmem_data, vmem_contents)
+	else
+		diskimage_filename = File.join($TEMPDIR, "temp1.d64")
+		error = build_P(storyname, diskimage_filename, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks)
+	end
 when MODE_S1
 	diskimage_filename = File.join($TEMPDIR, "temp1.d64")
-	error = build_S1(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
+	error = build_S1(storyname, diskimage_filename, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_S2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
-	error = build_S2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
+	error = build_S2(storyname, d64_filename_1, d64_filename_2, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_D2
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
-	error = build_D2(storyname, d64_filename_1, d64_filename_2, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
+	error = build_D2(storyname, d64_filename_1, d64_filename_2, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_D3
 	d64_filename_1 = File.join($TEMPDIR, "temp1.d64")
 	d64_filename_2 = File.join($TEMPDIR, "temp2.d64")
 	d64_filename_3 = File.join($TEMPDIR, "temp3.d64")
 	error = build_D3(storyname, d64_filename_1, d64_filename_2, d64_filename_3, 
-		config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
+		build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks, extended_tracks, reserve_dir_track)
 when MODE_71
 	diskimage_filename = File.join($TEMPDIR, "temp1.d71")
-	error = build_71(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks, reserve_dir_track)
+	error = build_71(storyname, diskimage_filename, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks, reserve_dir_track)
 when MODE_71D
 	d71_filename_1 = File.join($TEMPDIR, "temp1.d71")
 	d71_filename_2 = File.join($TEMPDIR, "temp2.d71")
-	error = build_71D(storyname, d71_filename_1, d71_filename_2, config_data.dup, vmem_data.dup, vmem_contents, 
+	error = build_71D(storyname, d71_filename_1, d71_filename_2, build_config_data, build_vmem_data, vmem_contents, 
 		preload_max_vmem_blocks, nil)
 when MODE_81
 	diskimage_filename = File.join($TEMPDIR, "temp1.d81")
-	error = build_81(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
+	error = build_81(storyname, diskimage_filename, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks)
 when MODE_ZIP
 	diskimage_filename = File.join($TEMPDIR, "temp1.zip")
-	error = build_zip(storyname, diskimage_filename, config_data.dup, vmem_data.dup, vmem_contents, preload_max_vmem_blocks)
+	error = build_zip(storyname, diskimage_filename, build_config_data, build_vmem_data, vmem_contents, preload_max_vmem_blocks)
 else
 	puts "Unsupported build mode."
 	exit 1

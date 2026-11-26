@@ -90,6 +90,8 @@ read_byte_at_z_address
 	bcs .read_under_rom
 }
 .return_result
+	lda #0
+	sta mempointer
 	+before_dynmem_read
 	lda (mempointer),y
 	+after_dynmem_read
@@ -113,6 +115,8 @@ read_byte_at_z_address
 .read_under_rom
 	+disable_interrupts
 	+set_memory_all_ram_unsafe
+	lda #0
+	sta mempointer
 	lda (mempointer),y
 	+set_memory_no_basic
 	+enable_interrupts
@@ -168,10 +172,31 @@ read_byte_at_z_address
 ; will store in datasette_buffer
 ;
 
+; Keep VMEM blocks at 512 bytes (two pages). This is the sweet spot for the
+; Neo target's constrained vmap entry budget: with 204 bytes of vmap storage
+; (102 entries), 512-byte blocks map ~51 KB of resident VMEM.
 vmem_blocksize = 512
 vmem_indiv_block_mask = >(vmem_blocksize - 1)
 vmem_block_pagecount = vmem_blocksize / 256
 vmap_max_size = (vmap_buffer_end - vmap_buffer_start) / 2
+!ifdef TARGET_NEO6502 {
+	; Neo invariant: every resident VMEM physical address is a normal 6502 page address; mempointer = (high=page, low=0).
+	!if vmem_blocksize <> 512 {
+		!error "TARGET_NEO6502 requires vmem_blocksize = 512"
+	}
+	!if vmem_block_pagecount <> 2 {
+		!error "TARGET_NEO6502 requires two 256-byte pages per VMEM block"
+	}
+	!ifdef OPTIMIZE_VMEM {
+		!error "TARGET_NEO6502 does not support OPTIMIZE_VMEM"
+	}
+	!ifdef REUBOOST {
+		!error "TARGET_NEO6502 does not support REUBOOST"
+	}
+	!if SUPPORT_REU <> 0 {
+		!error "TARGET_NEO6502 does not support REU"
+	}
+}
 ; If we go past this limit we get in trouble, since we overflow the memory area we can use. 
 ; vmap_max_entries	!byte 0 ; Moved to ZP
 ; vmap_used_entries	!byte 0 ; Moved to ZP
@@ -609,6 +634,38 @@ load_blocks_from_index
 	jsr print_byte_as_hex
 }
 
+!ifdef TARGET_NEO6502 {
+	; Neo: direct non-cache 512-byte block load
+	lda vmap_index
+	tax
+	asl
+	clc
+	adc vmap_first_ram_page
+	sta readblocks_mempos + 1
+	lda #0
+	sta readblocks_mempos
+	lda #vmem_block_pagecount
+	sta readblocks_numblocks
+	lda vmap_z_l,x
+	asl
+	sta readblocks_currentblock
+!if vmem_highbyte_mask > 0 {
+	lda vmap_z_h,x
+	and #vmem_highbyte_mask
+} else {
+	lda #0
+}
+	rol
+	sta readblocks_currentblock + 1
+	jsr readblocks
+!ifdef TRACE_VM {
+	jsr print_following_string
+	!text "load_blocks (neo direct) ",0
+	jsr print_vm_map
+}
+	rts
+}
+
 	lda vmap_index
 	tax
 !ifdef TARGET_C128 {
@@ -635,8 +692,10 @@ load_blocks_from_index
 	sta readblocks_mempos + 1
 !ifndef TARGET_PLUS4 {
 	tay ; This value need to be in y if we jump to load_blocks_from_index_using_cache
+	!ifndef TARGET_NEO6502 {
 	cmp #first_banked_memory_page
 	bcs load_blocks_from_index_using_cache
+	}
 }
 	lda #vmem_block_pagecount ; number of blocks
 	sta readblocks_numblocks
@@ -659,6 +718,7 @@ load_blocks_from_index
 }
 	rts
 
+!ifndef TARGET_NEO6502 {
 !ifndef TARGET_PLUS4 {
 load_blocks_from_index_using_cache
 	; vmap_index = index to load
@@ -740,6 +800,7 @@ load_blocks_from_index_using_cache
 }
 	rts
 }
+}
 
 read_byte_at_z_address
 	; Subroutine: Read the contents of a byte address in the Z-machine
@@ -780,7 +841,22 @@ read_byte_at_z_address
 .read_new_byte
 	sta zp_pc_h
 	stx zp_pc_l
+!ifdef TARGET_NEO6502 {
+	; Neo: dynmem is the direct story-start page mapping
+	cmp #0
+	bne .non_dynmem
+	cpx nonstored_pages
+	bcs .non_dynmem
+	txa
+	clc
+	adc #>story_start
+	sta mempointer + 1
+	lda #0
+	sta mempointer
+	jmp .read_and_return_value
+}
 !ifndef TARGET_C128 {
+!ifndef TARGET_NEO6502 {
 	cmp #0
 	bne .non_dynmem
 	cpx nonstored_pages
@@ -789,10 +865,14 @@ read_byte_at_z_address
 	txa
 	adc #>story_start
 	sta mempointer + 1
-	bne .read_and_return_value ; Always branch
-}	
+	lda #0
+	sta mempointer
+	jmp .read_and_return_value
+}
+}
 .non_dynmem
 	sty mempointer_y
+!ifndef TARGET_NEO6502 {
 !ifdef REUBOOST {
 	bit reu_boost_mode
 	bmi .boost
@@ -895,6 +975,7 @@ read_byte_at_z_address
 	jmp .return_result
 .no_boost
 }
+}
 
 !ifdef OPTIMIZE_VMEM {
 	inc opt_vmem_counter
@@ -920,6 +1001,7 @@ read_byte_at_z_address
 	txa
 	and #vmem_indiv_block_mask ; keep index into kB chunk
 	sta vmem_offset_in_block
+	; Neo: vmem_offset_in_block is 0 or 1
 	txa
 	ror
 	sta vmem_temp
@@ -997,6 +1079,7 @@ read_byte_at_z_address
 .no_such_block
 
 	; Load 512 byte block into RAM
+!ifndef TARGET_NEO6502 {
 !if SUPPORT_REU = 1 {
 	; First, check if this is initial REU loading
 	ldx use_reu
@@ -1009,6 +1092,7 @@ read_byte_at_z_address
 	bne .block_chosen
 	inx ; Set x to 1
 	bne .block_chosen ; Always branch
+}
 }
 
 .not_initial_reu_loading
@@ -1041,6 +1125,7 @@ read_byte_at_z_address
 }
 	sta vmem_oldest_age
 	
+	; Neo: PC block is protected in either 256-byte half
 	; Check all indexes to find something older
 	ldx vmap_used_entries
 	dex
@@ -1085,6 +1170,15 @@ read_byte_at_z_address
 +	
 	txa
 	
+!ifdef TARGET_NEO6502 {
+	; Neo: resident map page = vmap_first_ram_page + index * 2
+	asl
+	clc
+	adc vmap_first_ram_page
+	sta vmap_c64_offset
+	jmp .resident_offset_done
+}
+
 !ifdef TARGET_C128 {
 	; TODO: C128: Check if x is >= vmap_first_ram_page_in_bank_1
 	cmp first_vmap_entry_in_bank_1
@@ -1105,6 +1199,7 @@ read_byte_at_z_address
 	; Carry is already clear
 	adc vmap_first_ram_page
 ++	sta vmap_c64_offset
+.resident_offset_done
 
 
 
@@ -1163,6 +1258,10 @@ read_byte_at_z_address
 !ifdef TARGET_C128 {
 	lda vmap_c64_offset_bank
 	bne +
+}
+!ifdef TARGET_NEO6502 {
+	; Neo: resident blocks are never copied into vmem_cache
+	jmp .cant_be_in_cache
 }
 	lda vmap_c64_offset
 	cmp #first_banked_memory_page
@@ -1236,6 +1335,15 @@ read_byte_at_z_address
 	sta vmap_z_h,x
 	txa
 
+!ifdef TARGET_NEO6502 {
+	; Neo: resident map page = vmap_first_ram_page + index * 2
+	asl
+	clc
+	adc vmap_first_ram_page
+	sta vmap_c64_offset
+	jmp .store_offset_done
+}
+
 !ifdef TARGET_C128 {
 	cmp first_vmap_entry_in_bank_1
 	bcc .not_in_bank_1
@@ -1255,12 +1363,17 @@ read_byte_at_z_address
 	adc vmap_first_ram_page
 .store_offset	
 	sta vmap_c64_offset
+.store_offset_done
 
 !ifndef TARGET_PLUS4 {
 !ifdef TARGET_C128 {
 	; Bank is in y at this point
 	cpy #0
 	bne .swappable_memory
+}
+!ifdef TARGET_NEO6502 {
+	; Neo: resident blocks are never copied into vmem_cache
+	jmp .unswappable
 }
 	cmp #first_banked_memory_page
 	bcc .unswappable
@@ -1317,6 +1430,13 @@ read_byte_at_z_address
 	ldx vmap_index
 	bcc .return_result ; always true
 .unswappable
+!ifdef TARGET_NEO6502 {
+	; Neo: vmem_offset_in_block is 0 or 1
+	lda vmap_c64_offset
+	ora vmem_offset_in_block
+	sta mempointer + 1
+	jmp .return_result
+}
 } ; not TARGET_PLUS4
 
 	; update memory pointer
@@ -1325,6 +1445,8 @@ read_byte_at_z_address
 	adc vmap_c64_offset
 	sta mempointer + 1
 .return_result
+	lda #0
+	sta mempointer
 
 !ifdef OPTIMIZE_VMEM {
 	ldy opt_usage_map,x

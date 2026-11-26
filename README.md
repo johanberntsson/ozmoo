@@ -141,3 +141,44 @@ Special thanks to:
 * Bart van Leeuwen for testing Ozmoo on the C128
 * Karol Stasiak for several configuration and vmem patches
 * Dennis Holmes for adding smooth scrolling support
+
+
+## Neo6502 builds
+
+![Ozmoo running on Neo6502](screenshots/neo6502.png)
+
+The Neo6502 target is currently a text-only Ozmoo build. It uses the non-Z6
+screen path and mode P with flat, disk-backed VMEM; Z6 graphics/mouse, REU,
+OPTIMIZE_VMEM and the C64-only build modes are not part of the Neo6502 build.
+Builds have been verified with Z3 stories (Minizork and Zork I-III) and with a
+Z5 story (Praxix). Native save/restore writes `<GAME>.S00` beside the game's
+`.STORY` and `.CFG` sidecars.
+
+Building a game does not need a firmware checkout. Running `-s` or the Neo
+emulator tests does: clone the upstream
+[neo6502-firmware](https://github.com/paulscottrobson/neo6502-firmware) repo and
+build its emulator with `make -C <checkout>/emulator`. Set `NEO_FIRMWARE_ROOT` to
+that checkout (the scripts default to a sibling `../neo6502-firmware`). `make.rb`
+then uses `<NEO_FIRMWARE_ROOT>/emulator/neo`, or `neo` on `PATH` if the variable
+is unset. The path can also be overridden in `.ozmoorc` with `NEO = ...`.
+
+Build a Neo6502 game with:
+
+    ruby make.rb -t:neo6502 game.z3
+
+The Neo console palette can be chosen at build time with `-neo-fg` and `-neo-bg`,
+using either a palette index (0-15) or a name:
+
+    ruby make.rb -t:neo6502 -neo-fg:white -neo-bg:darkblue game.z3
+
+Names map to the Neo firmware palette: `black` 0, `red` 1, `green` 2,
+`yellow` 3, `darkblue` 4, `darkpurple` 5, `blue` 6, `white` 7, `solidblack` 8,
+`darkgrey` 9, `darkgreen` 10, `orange` 11, `brown` 12, `lavender` 13,
+`lightpeach` 14 and `lightgrey` 15. The defaults are `white` foreground and
+`darkblue` background. The Z1-Z3 status line uses the same pair with the colours
+swapped. Long Z1-Z3 text pauses with an inverted `*` in the bottom-right cell
+before scrolling, like the other Ozmoo targets.
+
+The build writes `dist/<game>/<GAME>.NEO`, `<GAME>.STORY`, `<GAME>.CFG` and
+`dist/<game>.zip`. Copy or unzip that directory onto the Neo's storage and load
+`<GAME>.NEO`.
