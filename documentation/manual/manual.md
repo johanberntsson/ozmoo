@@ -343,6 +343,10 @@ the KERNAL's own pointer. See [Version 6 games](#version-6-games).
 
 A fork of Ozmoo targeting the Acorn computers (BBC Micro and other variants) can be found at [https://github.com/ZornsLemma/ozmoo/tree/acorn](https://github.com/ZornsLemma/ozmoo/tree/acorn). Note that this fork is using a different build script called make-acorn.py.
 
+There is an Oric-1 / Atmos port of Ozmoo (6502, Microdisc + Sedoric), maintained separately at [Ozmoo for Oric-1 / Atmos](https://github.com/benedictemarty/ozmoo-oric).
+
+There is also a port for the Neo6502 computer at [neo6502-ozmoo](https://github.com/bwingbob/neo6502-ozmoo)
+
 # Build Modes
 
 ## Drives and devices

@@ -73,6 +73,8 @@ There is a port of [Ozmoo for Acorn computers](https://zornslemma.github.io/ozmo
 
 There is an Oric-1 / Atmos port of Ozmoo (6502, Microdisc + Sedoric), maintained separately at [Ozmoo for Oric-1 / Atmos](https://github.com/benedictemarty/ozmoo-oric).
 
+There is also a port for the Neo6502 computer at [neo6502-ozmoo](https://github.com/bwingbob/neo6502-ozmoo)
+
 ## Building and running
 
 The simplest option is to use [Ozmoo Online](http://ozmoo.online), a web page we have setup where you can build games with Ozmoo without installing anything on your computer. It supports all of the most important features. If you want to be able to use all the features and have full control of the build process, this is not the option for you.
